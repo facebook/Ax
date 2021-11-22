@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.miles_map_data import MilesMapData
+from ax.core.map_data import MapData
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base
@@ -125,13 +125,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return {}
 
-        if not isinstance(data, MilesMapData):
+        if not isinstance(data, MapData):
             raise ValueError(
                 "PercentileEarlyStoppingStrategy expects MapData, but the "
                 f"data attached to experiment is of type {type(data)}."
             )
 
-        data = checked_cast(MilesMapData, data)
+        data = checked_cast(MapData, data)
         map_keys = data.map_keys
         if len(list(map_keys)) > 1:
             raise ValueError(  # pragma: no cover

@@ -15,9 +15,9 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.miles_map_data import MilesMapData, MapKeyInfo
-from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -74,7 +74,7 @@ from ax.storage.json_store.encoders import (
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
-    miles_map_data_to_dict,
+    map_data_to_dict,
     map_key_info_to_dict,
     metric_to_dict,
     multi_objective_optimization_config_to_dict,
@@ -124,9 +124,9 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Hartmann6Metric: metric_to_dict,
     ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
-    MilesMapData: miles_map_data_to_dict,
+    MapData: map_data_to_dict,
     MapKeyInfo: map_key_info_to_dict,
-    MilesMapMetric: metric_to_dict,
+    MapMetric: metric_to_dict,
     Metric: metric_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -195,8 +195,8 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "Hartmann6Metric": Hartmann6Metric,
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
-    "MilesMapData": MilesMapData,
-    "MilesMapMetric": MilesMapMetric,
+    "MapData": MapData,
+    "MapMetric": MapMetric,
     "MapKeyInfo": MapKeyInfo,
     "Metric": Metric,
     "Models": Models,

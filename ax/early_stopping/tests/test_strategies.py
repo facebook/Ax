@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.base_trial import TrialStatus
-from ax.core.miles_map_data import MilesMapData
+from ax.core.map_data import MapData
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
@@ -172,7 +172,7 @@ class TestEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = checked_cast(MilesMapData, exp.fetch_data())
+        data = checked_cast(MapData, exp.fetch_data())
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
         data.map_df.loc[
@@ -215,7 +215,7 @@ class TestEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = checked_cast(MilesMapData, exp.fetch_data())
+        data = checked_cast(MapData, exp.fetch_data())
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
         data.map_df.loc[

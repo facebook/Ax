@@ -12,15 +12,15 @@ from typing import Mapping, Iterable, Any, Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial
-from ax.core.miles_map_data import MapKeyInfo, MilesMapData
-from ax.metrics.miles_noisy_function_map import MilesNoisyFunctionMapMetric
+from ax.core.map_data import MapKeyInfo, MapData
+from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 
 FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
 
-class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
+class BraninTimestampMapMetric(NoisyFunctionMapMetric):
     def __init__(
         self,
         name: str,
@@ -66,7 +66,7 @@ class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MilesMapData:
+    ) -> MapData:
         # This timestamp parameter will be incremented each time f is called to
         # simulate a true timestamp.
         self._timestamp = -1
@@ -81,7 +81,7 @@ class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
             for _ in range(3)
         ]
 
-        return MilesMapData.from_multiple_map_data(rows)
+        return MapData.from_multiple_map_data(rows)
 
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         self._timestamp += 1
@@ -98,7 +98,7 @@ class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
         return {"mean": mean, "timestamp": self._timestamp}
 
 
-class BraninFidelityMapMetric(MilesNoisyFunctionMapMetric):
+class BraninFidelityMapMetric(NoisyFunctionMapMetric):
     def __init__(
         self,
         name: str,
@@ -118,7 +118,7 @@ class BraninFidelityMapMetric(MilesNoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MilesMapData:
+    ) -> MapData:
         self.index = -1
 
         return super().fetch_trial_data(

@@ -22,7 +22,7 @@ T = TypeVar("T")
 
 
 class MapKeyInfo(Generic[T], SortableBase):
-    """Helper class storing map keys and auxilary info for use in MilesMapData"""
+    """Helper class storing map keys and auxilary info for use in MapData"""
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class MapKeyInfo(Generic[T], SortableBase):
         return type(self._default_value)
 
 
-class MilesMapData(Data):
+class MapData(Data):
     """Class storing mapping-like results for an experiment.
 
     Data is stored in a dataframe, and axilary information ((key name,
@@ -120,7 +120,7 @@ class MilesMapData(Data):
 
         self._memo_df = None
 
-    def __eq__(self, o: MilesMapData) -> bool:
+    def __eq__(self, o: MapData) -> bool:
         mkis_match = set(self.map_key_infos) == set(o.map_key_infos)
         dfs_match = dataframe_equals(self.map_df, o.map_df)
 
@@ -144,9 +144,9 @@ class MilesMapData(Data):
 
     @staticmethod
     def from_multiple_map_data(
-        data: Iterable[MilesMapData],
+        data: Iterable[MapData],
         subset_metrics: Optional[Iterable[str]] = None,
-    ) -> MilesMapData:
+    ) -> MapData:
         unique_map_key_infos = []
         for mki in (mki for datum in data for mki in datum.map_key_infos):
             if any(
@@ -169,16 +169,14 @@ class MilesMapData(Data):
             subset_metrics if subset_metrics else df["metric_name"]
         )
 
-        return MilesMapData(
-            df=df[subset_metrics_mask], map_key_infos=unique_map_key_infos
-        )
+        return MapData(df=df[subset_metrics_mask], map_key_infos=unique_map_key_infos)
 
     @staticmethod
     def from_map_evaluations(
         evaluations: Dict[str, TMapTrialEvaluation],
         trial_index: int,
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
-    ) -> MilesMapData:
+    ) -> MapData:
         records = [
             {
                 "arm_name": name,
@@ -205,7 +203,7 @@ class MilesMapData(Data):
         if {mki.key for mki in map_key_infos} != map_keys:
             raise ValueError("Inconsistent map_key sets in evaluations.")
 
-        return MilesMapData(df=pd.DataFrame(records), map_key_infos=map_key_infos)
+        return MapData(df=pd.DataFrame(records), map_key_infos=map_key_infos)
 
     @property
     def map_df(self) -> pd.DataFrame:
@@ -214,27 +212,27 @@ class MilesMapData(Data):
     @map_df.setter
     def map_df(self, df: pd.DataFrame):
         raise UnsupportedError(
-            "MilesMapData's underlying DataFrame is immutable; create a new"
-            + " MilesMapData via `__init__` or `from_multiple_data`."
+            "MapData's underlying DataFrame is immutable; create a new"
+            + " MapData via `__init__` or `from_multiple_data`."
         )
 
     @staticmethod
     def from_multiple_data(
         data: Iterable[Data],
         subset_metrics: Optional[Iterable[str]] = None,
-    ) -> MilesMapData:
-        """Downcast instances of Data into instances of MilesMapData with empty
+    ) -> MapData:
+        """Downcast instances of Data into instances of MapData with empty
         map_key_infos if necessary then combine as usual (filling in empty cells with
         default values).
         """
         map_datas = [
-            MilesMapData(df=datum.df, map_key_infos=[])
-            if not isinstance(datum, MilesMapData)
+            MapData(df=datum.df, map_key_infos=[])
+            if not isinstance(datum, MapData)
             else datum
             for datum in data
         ]
 
-        return MilesMapData.from_multiple_map_data(
+        return MapData.from_multiple_map_data(
             data=map_datas, subset_metrics=subset_metrics
         )
 
@@ -251,7 +249,7 @@ class MilesMapData(Data):
 
         self._memo_df = (
             self.map_df.sort_values(list(self.map_keys))
-            .drop_duplicates(MilesMapData.DEDUPLICATE_BY_COLUMNS, keep="first")
+            .drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="first")
             .loc[:, ~self.map_df.columns.isin(self.map_keys)]
         )
 

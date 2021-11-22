@@ -14,8 +14,8 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.metric import Metric
-from ax.core.miles_map_data import MilesMapData, MapKeyInfo
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -343,7 +343,7 @@ def data_to_dict(data: Data) -> Dict[str, Any]:
     }
 
 
-def miles_map_data_to_dict(map_data: MilesMapData) -> Dict[str, Any]:
+def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
     """Convert Ax map data to a dictionary."""
     return {
         "__type": map_data.__class__.__name__,

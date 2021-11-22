@@ -14,7 +14,7 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProb
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.miles_map_data import MilesMapData
+from ax.core.map_data import MapData
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.core.utils import best_feasible_objective, feasible_hypervolume, get_model_times
@@ -336,7 +336,7 @@ def _extract_asynchronous_optimization_trace(
     else:
         data = experiment.fetch_data(noisy=False)
 
-    if not isinstance(data, MilesMapData):
+    if not isinstance(data, MapData):
         raise ValueError(
             "Data must be MapData for _extract_asynchronous_optimization_trace"
         )

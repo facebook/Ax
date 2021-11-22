@@ -11,14 +11,14 @@ from typing import Mapping, Iterable, Any, Optional
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.miles_map_data import MapKeyInfo, MilesMapData
-from ax.core.miles_map_metric import MilesMapMetric
+from ax.core.map_data import MapKeyInfo, MapData
+from ax.core.map_metric import MapMetric
 from ax.utils.common.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class MilesNoisyFunctionMapMetric(MilesMapMetric):
+class NoisyFunctionMapMetric(MapMetric):
     """A metric defined by a generic deterministic function, with normal noise
     with mean 0 and mean_sd scale added to the result.
     """
@@ -66,7 +66,7 @@ class MilesNoisyFunctionMapMetric(MilesMapMetric):
     def overwrite_existing_data(cls) -> bool:
         return True
 
-    def clone(self) -> MilesNoisyFunctionMapMetric:
+    def clone(self) -> NoisyFunctionMapMetric:
         return self.__class__(
             name=self._name,
             param_names=self.param_names,
@@ -78,7 +78,7 @@ class MilesNoisyFunctionMapMetric(MilesMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MilesMapData:
+    ) -> MapData:
         res = [
             self.f(np.fromiter(arm.parameters.values(), dtype=float))
             for arm in trial.arms
@@ -98,7 +98,7 @@ class MilesNoisyFunctionMapMetric(MilesMapMetric):
             }
         )
 
-        return MilesMapData(df=df, map_key_infos=self.map_key_infos)
+        return MapData(df=df, map_key_infos=self.map_key_infos)
 
     def _cached_f(self, x: np.ndarray, noisy: bool) -> Mapping[str, Any]:
         noise_sd = self.noise_sd if noisy else 0.0

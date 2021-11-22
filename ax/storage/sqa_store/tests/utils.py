@@ -37,7 +37,7 @@ from ax.utils.testing.core_stubs import (
     get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
-    get_experiment_with_miles_map_data,
+    get_experiment_with_map_data,
     get_synthetic_runner,
     get_trial,
 )
@@ -115,7 +115,7 @@ TEST_CASES = [
     ),
     (
         "Experiment",
-        get_experiment_with_miles_map_data,
+        get_experiment_with_map_data,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
     ),

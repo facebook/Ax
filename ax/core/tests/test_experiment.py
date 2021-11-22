@@ -13,9 +13,9 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.miles_map_data import MilesMapData
-from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -871,11 +871,11 @@ class ExperimentWithMapDataTest(TestCase):
         }
 
         self.experiment.add_tracking_metric(
-            metric=MilesMapMetric(name="no_fetch_impl_metric")
+            metric=MapMetric(name="no_fetch_impl_metric")
         )
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
-        first_epoch = MilesMapData.from_map_evaluations(
+        first_epoch = MapData.from_map_evaluations(
             evaluations={
                 arm_name: partial_results[0:1]
                 for arm_name, partial_results in evaluations.items()
@@ -883,7 +883,7 @@ class ExperimentWithMapDataTest(TestCase):
             trial_index=0,
         )
         self.experiment.attach_data(first_epoch)
-        remaining_epochs = MilesMapData.from_map_evaluations(
+        remaining_epochs = MapData.from_map_evaluations(
             evaluations={
                 arm_name: partial_results[1:4]
                 for arm_name, partial_results in evaluations.items()
@@ -915,7 +915,7 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.assertEqual(
             exp.fetch_trials_data(trial_indices=[0, 1]),
-            MilesMapData.from_multiple_data([batch_0_data, batch_1_data]),
+            MapData.from_multiple_data([batch_0_data, batch_1_data]),
         )
 
         # Since NoisyFunctionMap metric has overwrite_existing_data = True,
@@ -926,7 +926,7 @@ class ExperimentWithMapDataTest(TestCase):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(MilesMapMetric(name="b"))  # Add unimplemented metric.
+        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
         self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 30)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)

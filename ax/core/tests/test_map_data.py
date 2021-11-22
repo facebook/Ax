@@ -6,11 +6,11 @@
 
 import pandas as pd
 from ax.core.data import Data
-from ax.core.miles_map_data import MilesMapData, MapKeyInfo
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.utils.common.testutils import TestCase
 
 
-class MilesMapDataTest(TestCase):
+class MapDataTest(TestCase):
     def setUp(self):
         self.df = pd.DataFrame(
             [
@@ -72,7 +72,7 @@ class MilesMapDataTest(TestCase):
             )
         ]
 
-        self.mmd = MilesMapData(df=self.df, map_key_infos=self.map_key_infos)
+        self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
 
     def test_map_key_info(self):
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
@@ -82,11 +82,11 @@ class MilesMapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_infos[0].value_type, int)
 
     def test_init(self):
-        empty = MilesMapData()
+        empty = MapData()
         self.assertTrue(empty.map_df.empty)
 
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
-            MilesMapData(df=self.df, map_key_infos=None)
+            MapData(df=self.df, map_key_infos=None)
 
     def test_properties(self):
         self.assertEqual(self.mmd.map_key_infos, self.map_key_infos)
@@ -94,7 +94,7 @@ class MilesMapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
 
     def test_combine(self):
-        mmd_double = MilesMapData.from_multiple_map_data([self.mmd, self.mmd])
+        mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
         self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
         self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)
 
@@ -119,11 +119,11 @@ class MilesMapDataTest(TestCase):
             ]
         )
         different_map_key_infos = [MapKeyInfo(key="timestamp", default_value=0.0)]
-        different_mmd = MilesMapData(
+        different_mmd = MapData(
             df=different_map_df, map_key_infos=different_map_key_infos
         )
 
-        combined = MilesMapData.from_multiple_map_data([self.mmd, different_mmd])
+        combined = MapData.from_multiple_map_data([self.mmd, different_mmd])
         self.assertEqual(
             len(combined.map_df), len(self.mmd.map_df) + len(different_mmd.map_df)
         )
@@ -132,7 +132,7 @@ class MilesMapDataTest(TestCase):
             combined.map_key_infos, self.map_key_infos + different_map_key_infos
         )
 
-        combined_subset = MilesMapData.from_multiple_map_data(
+        combined_subset = MapData.from_multiple_map_data(
             [self.mmd, different_mmd], ["a"]
         )
         self.assertTrue((combined_subset.map_df["metric_name"] == "a").all())
@@ -157,7 +157,7 @@ class MilesMapDataTest(TestCase):
         )
         data = Data(df=data_df)
 
-        downcast_combined = MilesMapData.from_multiple_data([self.mmd, data])
+        downcast_combined = MapData.from_multiple_data([self.mmd, data])
         self.assertEqual(
             len(downcast_combined.map_df), len(self.mmd.map_df) + len(data.df)
         )
@@ -177,7 +177,7 @@ class MilesMapDataTest(TestCase):
         )
 
     def test_from_map_evaluations(self):
-        map_data = MilesMapData.from_map_evaluations(
+        map_data = MapData.from_map_evaluations(
             evaluations={
                 "0_1": [
                     ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
@@ -193,7 +193,7 @@ class MilesMapDataTest(TestCase):
         with self.assertRaisesRegex(
             ValueError, "Inconsistent map_key sets in evaluations"
         ):
-            MilesMapData.from_map_evaluations(
+            MapData.from_map_evaluations(
                 evaluations={
                     "0_1": [
                         ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
@@ -204,7 +204,7 @@ class MilesMapDataTest(TestCase):
             )
 
     def test_upcast(self):
-        fresh = MilesMapData(df=self.df, map_key_infos=self.map_key_infos)
+        fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)
         self.assertIsNone(fresh._memo_df)  # Assert df is not cached before first call
 
         self.assertEqual(

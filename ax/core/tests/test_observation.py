@@ -14,7 +14,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.miles_map_data import MilesMapData, MapKeyInfo
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -390,7 +390,7 @@ class ObservationsTest(TestCase):
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "z", "timestamp"]
         ]
-        data = MilesMapData(
+        data = MapData(
             df=df,
             map_key_infos=[
                 MapKeyInfo(key="z", default_value=0.0),

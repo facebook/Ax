@@ -20,9 +20,9 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.miles_map_data import MilesMapData
-from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.runner import Runner
@@ -41,12 +41,12 @@ logger: logging.Logger = get_logger(__name__)
 
 class DataType(Enum):
     DATA = 1
-    MILES_MAP_DATA = 3
+    _DATA = 3
 
 
 DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.DATA: Data,
-    DataType.MILES_MAP_DATA: MilesMapData,
+    DataType._DATA: MapData,
 }
 
 
@@ -317,9 +317,9 @@ class Experiment(Base):
         self._optimization_config = optimization_config
 
         self._default_data_type = (
-            DataType.MILES_MAP_DATA
+            DataType._DATA
             if any(
-                isinstance(metric, MilesMapMetric)
+                isinstance(metric, MapMetric)
                 for metric in optimization_config.metrics.values()
             )
             else DataType.DATA
@@ -593,9 +593,7 @@ class Experiment(Base):
                 last_ts, last_data = list(current_trial_data.items())[-1]
                 last_data_type = type(last_data)
                 merge_keys = ["trial_index", "metric_name", "arm_name"] + (
-                    last_data.map_keys
-                    if issubclass(last_data_type, MilesMapData)
-                    else []
+                    last_data.map_keys if issubclass(last_data_type, MapData) else []
                 )
                 merged = pd.merge(
                     last_data.true_df,

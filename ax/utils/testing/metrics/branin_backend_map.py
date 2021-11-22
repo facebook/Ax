@@ -7,7 +7,7 @@
 from typing import Iterable, List, Optional
 
 import numpy as np
-from ax.core.miles_map_data import MapKeyInfo
+from ax.core.map_data import MapKeyInfo
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.utils.testing.metrics.backend_simulator_map import (
     BackendSimulatorTimestampMapMetric,

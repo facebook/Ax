@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from typing import Type
 
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
-from ax.core.miles_map_data import MilesMapData
 
 
-class MilesMapMetric(Metric):
+class MapMetric(Metric):
     """Base class for representing metrics that return `MapData`.
 
     The `fetch_trial_data` method is the essential method to override when
@@ -26,4 +26,4 @@ class MilesMapMetric(Metric):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: Type[MilesMapData] = MilesMapData
+    data_constructor: Type[MapData] = MapData

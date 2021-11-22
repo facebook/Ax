@@ -17,7 +17,7 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.miles_map_data import MilesMapData
+from ax.core.map_data import MapData
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -326,7 +326,7 @@ def _observations_from_dataframe(
 
 
 def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
-    if isinstance(data, MilesMapData):
+    if isinstance(data, MapData):
         map_keys = data.map_keys
     else:
         map_keys = []
@@ -363,7 +363,7 @@ def observations_from_data(
     Returns:
         List of Observation objects.
     """
-    if isinstance(data, MilesMapData):
+    if isinstance(data, MapData):
         return observations_from_map_data(
             experiment=experiment, map_data=data, include_abandoned=include_abandoned
         )
@@ -418,7 +418,7 @@ def observations_from_data(
 
 def observations_from_map_data(
     experiment: Experiment,
-    map_data: MilesMapData,
+    map_data: MapData,
     include_abandoned: bool = False,
 ) -> List[Observation]:
     """Convert Data to observations.
