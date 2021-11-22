@@ -18,8 +18,6 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.miles_map_data import MilesMapData, MapKeyInfo
 from ax.core.miles_map_metric import MilesMapMetric
@@ -112,7 +110,7 @@ def get_experiment_with_map_data_type():
         optimization_config=get_map_optimization_config(),
         status_quo=get_status_quo(),
         description="test description",
-        tracking_metrics=[MapMetric(name="tracking")],
+        tracking_metrics=[MilesMapMetric(name="tracking")],
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
@@ -350,7 +348,7 @@ def get_experiment_with_data() -> Experiment:
 def get_experiment_with_map_data() -> Experiment:
     experiment = get_experiment_with_map_data_type()
     experiment.new_trial()
-    experiment.add_tracking_metric(MapMetric("ax_test_metric"))
+    experiment.add_tracking_metric(MilesMapMetric("ax_test_metric"))
     experiment.attach_data(data=get_map_data())
     return experiment
 
@@ -976,7 +974,7 @@ def get_objective() -> Objective:
 
 
 def get_map_objective() -> Objective:
-    return Objective(metric=MapMetric(name="m1"), minimize=False)
+    return Objective(metric=MilesMapMetric(name="m1"), minimize=False)
 
 
 def get_miles_map_objective() -> Objective:
@@ -1318,7 +1316,7 @@ def get_non_monolithic_branin_moo_data() -> Data:
     )
 
 
-def get_map_data(trial_index: int = 0) -> MapData:
+def get_map_data(trial_index: int = 0) -> MilesMapData:
     evaluations = {
         "status_quo": [
             ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
@@ -1339,10 +1337,10 @@ def get_map_data(trial_index: int = 0) -> MapData:
             ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
         ],
     }
-    return MapData.from_map_evaluations(
+    return MilesMapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
-        map_keys=["epoch"],
+        map_key_infos=[MapKeyInfo(key="epoch", default_value=0)],
     )
 
 
