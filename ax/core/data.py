@@ -101,11 +101,6 @@ class Data(AbstractDataFrameData):
         """Combines multiple data objects into one (with the concatenated
         underlying dataframe).
 
-        NOTE: if one or more data objects in the iterable is of a custom
-        subclass of `Data`, object of that class will be returned. If
-        the iterable contains multiple types of `Data`, an error will be
-        raised.
-
         Args:
             data: Iterable of Ax `Data` objects to combine.
             subset_metrics: If specified, combined `Data` will only contain
@@ -120,19 +115,7 @@ class Data(AbstractDataFrameData):
         if subset_metrics:
             dfs = [df.loc[df["metric_name"].isin(subset_metrics)] for df in dfs]
 
-        # obtain type of first elt in iterable (we know it's not empty)
-        data_type = type(data[0])
-
-        # check if all types in iterable match the first type
-        if all((type(datum) is data_type) for datum in data):
-            # if all types in iterable are subclasses of Data, return the subclass
-            if issubclass(data_type, Data):
-                return data_type(df=pd.concat(dfs, axis=0, sort=True))
-            else:
-                # if not, return the original Data object
-                return Data(df=pd.concat(dfs, axis=0, sort=True))
-        else:
-            raise ValueError("More than one custom data type found in data iterable")
+        return Data(df=pd.concat(dfs, axis=0, sort=True))
 
     @staticmethod
     def from_evaluations(
