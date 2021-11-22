@@ -654,7 +654,6 @@ class Experiment(Base):
     def lookup_data_for_trial(
         self,
         trial_index: int,
-        keep_latest_map_values_only: bool = True,
     ) -> Tuple[AbstractDataFrameData, int]:
         """Lookup stored data for a specific trial.
 
@@ -663,11 +662,6 @@ class Experiment(Base):
 
         Args:
             trial_index: The index of the trial to lookup data for.
-            keep_latest_map_values_only: If true, then if Data is an instance of
-                MapData, we keep only the latest value for each map key. This way,
-                the returned dataframe will only contain one row for each trial,
-                arm, and metric.
-
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
         """
@@ -686,7 +680,6 @@ class Experiment(Base):
     def lookup_data(
         self,
         trial_indices: Optional[Iterable[int]] = None,
-        keep_latest_map_values_only: bool = True,
     ) -> AbstractDataFrameData:
         """Lookup data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
@@ -694,11 +687,6 @@ class Experiment(Base):
 
         Args:
             trial_indices: Indices of trials, for which to fetch data.
-            keep_latest_map_values_only: If true, then if Data is an instance of
-                MapData, we keep only the latest value for each map key. This way,
-                the returned dataframe will only contain one row for each trial,
-                arm, and metric.
-
         Returns:
             Data for the experiment.
         """
@@ -708,7 +696,6 @@ class Experiment(Base):
             data_by_trial.append(
                 self.lookup_data_for_trial(
                     trial_index=trial_index,
-                    keep_latest_map_values_only=keep_latest_map_values_only,
                 )[0]
             )
         if not data_by_trial:

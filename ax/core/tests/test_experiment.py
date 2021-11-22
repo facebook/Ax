@@ -894,7 +894,7 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment.trials[0].mark_completed()
 
         expected_data = remaining_epochs
-        actual_data = self.experiment.lookup_data(keep_latest_map_values_only=False)
+        actual_data = self.experiment.lookup_data()
         self.assertEqual(expected_data, actual_data)
 
     def testFetchTrialsData(self):
