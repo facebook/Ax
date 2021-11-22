@@ -204,7 +204,12 @@ class MilesMapDataTest(TestCase):
             )
 
     def test_upcast(self):
+        fresh = MilesMapData(df=self.df, map_key_infos=self.map_key_infos)
+        self.assertIsNone(fresh._memo_df)  # Assert df is not cached before first call
+
         self.assertEqual(
-            self.mmd.df.columns.size,
-            self.mmd.map_df.columns.size - len(self.mmd.map_key_infos),
+            fresh.df.columns.size,
+            fresh.map_df.columns.size - len(self.mmd.map_key_infos),
         )
+
+        self.assertIsNotNone(fresh._memo_df)  # Assert df is cached after first call

@@ -105,6 +105,8 @@ class MilesMapData(Data):
 
         self.description = description
 
+        self._memo_df = None
+
     @property
     def map_key_infos(self) -> Iterable[MapKeyInfo]:
         return self._map_key_infos
@@ -180,6 +182,13 @@ class MilesMapData(Data):
     def map_df(self) -> pd.DataFrame:
         return self._map_df
 
+    @map_df.setter
+    def map_df(self, df: pd.DataFrame):
+        raise UnsupportedError(
+            "MilesMapData's underlying DataFrame is immutable; create a new"
+            + " MilesMapData via `__init__` or `from_multiple_data`."
+        )
+
     @staticmethod
     def from_multiple_data(
         data: Iterable[Data],
@@ -205,11 +214,16 @@ class MilesMapData(Data):
         """Returns a Data shaped DataFrame"""
 
         # If map_keys is empty just return the df
+        if self._memo_df is not None:
+            return self._memo_df
+
         if not any(True for _ in self.map_keys):
             return self.map_df
 
-        return (
+        self._memo_df = (
             self.map_df.sort_values(list(self.map_keys))
             .drop_duplicates(MilesMapData.DEDUPLICATE_BY_COLUMNS, keep="first")
             .loc[:, ~self.map_df.columns.isin(self.map_keys)]
         )
+
+        return self._memo_df
