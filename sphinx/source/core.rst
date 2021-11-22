@@ -87,6 +87,15 @@ Core Classes
     :show-inheritance:
     :noindex:
 
+`MilesMapMetric`
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.miles_map_metric
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :noindex:
+
 `MapMetric`
 ~~~~~~~~~~~~~~
 
