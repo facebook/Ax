@@ -14,6 +14,7 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProb
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.miles_map_data import MilesMapData
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.core.utils import best_feasible_objective, feasible_hypervolume, get_model_times
@@ -331,11 +332,16 @@ def _extract_asynchronous_optimization_trace(
 
     if include_only_completed_trials:
         completed_trials = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-        data_df = experiment.fetch_trials_data(
-            trial_indices=completed_trials, noisy=False
-        ).df
+        data = experiment.fetch_trials_data(trial_indices=completed_trials, noisy=False)
     else:
-        data_df = experiment.fetch_data(noisy=False).df
+        data = experiment.fetch_data(noisy=False)
+
+    if not isinstance(data, MilesMapData):
+        raise ValueError(
+            "Data must be MapData for _extract_asynchronous_optimization_trace"
+        )
+
+    data_df = data.map_df
 
     minimize = experiment.optimization_config.objective.minimize  # pyre-ignore[16]
     num_periods_running = int((end_time - start_time) // delta_t + 1)
