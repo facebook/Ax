@@ -17,7 +17,7 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.miles_map_data import MilesMapData
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -326,7 +326,7 @@ def _observations_from_dataframe(
 
 
 def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
-    if isinstance(data, MapData):
+    if isinstance(data, MilesMapData):
         map_keys = data.map_keys
     else:
         map_keys = []
@@ -340,7 +340,7 @@ def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
             )
             feature_cols.discard(column)
 
-    return map_keys, list(feature_cols)
+    return list(map_keys), list(feature_cols)
 
 
 def observations_from_data(
@@ -363,7 +363,12 @@ def observations_from_data(
     Returns:
         List of Observation objects.
     """
-    map_keys, feature_cols = get_map_keys_and_feature_cols(data)
+    if isinstance(data, MilesMapData):
+        return observations_from_map_data(
+            experiment=experiment, map_data=data, include_abandoned=include_abandoned
+        )
+
+    _map_keys, feature_cols = get_map_keys_and_feature_cols(data)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
@@ -382,6 +387,76 @@ def observations_from_data(
     else:
         # The groupby and filter is expensive, so do it only if we have to.
         grouped = data.df.groupby(by=complete_feature_cols)
+        complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
+        incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
+
+    # Get Observations from complete_df
+    observations.extend(
+        _observations_from_dataframe(
+            experiment=experiment,
+            df=complete_df,
+            cols=feature_cols,
+            arm_name_only=arm_name_only,
+            map_keys=[],
+            include_abandoned=include_abandoned,
+        )
+    )
+    if incomplete_df is not None:
+        # Get Observations from incomplete_df
+        observations.extend(
+            _observations_from_dataframe(
+                experiment=experiment,
+                df=incomplete_df,
+                cols=complete_feature_cols,
+                arm_name_only=arm_name_only,
+                map_keys=[],
+                include_abandoned=include_abandoned,
+            )
+        )
+    return observations
+
+
+def observations_from_map_data(
+    experiment: Experiment,
+    map_data: MilesMapData,
+    include_abandoned: bool = False,
+) -> List[Observation]:
+    """Convert Data to observations.
+
+    Converts a Data object to a list of Observation objects. Pulls arm parameters from
+    from experiment. Overrides fidelity parameters in the arm with those found in the
+    Data object.
+
+    Uses a diagonal covariance matrix across metric_names.
+
+    Args:
+        experiment: Experiment with arm parameters.
+        data: Data of observations.
+        include_abandoned: Whether data for abandoned trials and arms should
+            be included in the observations, returned from this function.
+
+    Returns:
+        List of Observation objects.
+    """
+    map_keys, feature_cols = get_map_keys_and_feature_cols(map_data)
+    observations = []
+    arm_name_only = len(feature_cols) == 1  # there will always be an arm name
+    # One DataFrame where all rows have all features.
+    isnull = map_data.map_df[feature_cols].isnull()
+    isnull_any = isnull.any(axis=1)
+    incomplete_df_cols = isnull[isnull_any].any()
+
+    # Get the incomplete_df columns that are complete, and usable as groupby keys.
+    complete_feature_cols = list(
+        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+    )
+
+    if set(feature_cols) == set(complete_feature_cols):
+        complete_df = map_data.map_df
+        incomplete_df = None
+    else:
+        # The groupby and filter is expensive, so do it only if we have to.
+        grouped = map_data.map_df.groupby(by=complete_feature_cols)
         complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
         incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
 

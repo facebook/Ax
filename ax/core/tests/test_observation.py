@@ -14,12 +14,13 @@ from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
+from ax.core.miles_map_data import MilesMapData, MapKeyInfo
 from ax.core.observation import (
     Observation,
     ObservationData,
     ObservationFeatures,
     observations_from_data,
+    observations_from_map_data,
     separate_observations,
 )
 from ax.core.trial import Trial
@@ -389,10 +390,17 @@ class ObservationsTest(TestCase):
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "z", "timestamp"]
         ]
-        data = MapData(df=df, map_keys=["z", "timestamp"])
-        observations = observations_from_data(experiment, data)
+        data = MilesMapData(
+            df=df,
+            map_key_infos=[
+                MapKeyInfo(key="z", default_value=0.0),
+                MapKeyInfo(key="timestamp", default_value=0.0),
+            ],
+        )
+        observations = observations_from_map_data(experiment, data)
 
         self.assertEqual(len(observations), 3)
+
         for obs in observations:
             t = truth[obs.features.parameters["z"]]
             self.assertEqual(obs.features.parameters, t["updated_parameters"])

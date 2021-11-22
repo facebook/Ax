@@ -7,17 +7,17 @@
 from typing import Any, List
 
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData
-from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
+from ax.core.miles_map_data import MilesMapData
+from ax.metrics.miles_noisy_function_map import MilesNoisyFunctionMapMetric
 
 
-class BackendSimulatorTimestampMapMetric(NoisyFunctionMapMetric):
+class BackendSimulatorTimestampMapMetric(MilesNoisyFunctionMapMetric):
     """A metric that interfaces with an underlying ``BackendSimulator`` and
     returns timestamp map data."""
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
+    ) -> MilesMapData:
         """Fetch data for one trial."""
         backend_simulator = trial.experiment.runner.simulator  # pyre-ignore[16]
         sim_trial = backend_simulator.get_sim_trial_by_index(trial.index)
@@ -30,7 +30,7 @@ class BackendSimulatorTimestampMapMetric(NoisyFunctionMapMetric):
             start_time=sim_trial.sim_start_time, end_time=end_time
         )
         timestamp_kwargs = {"map_keys": ["timestamp"], "timestamp": timestamps}
-        return NoisyFunctionMapMetric.fetch_trial_data(
+        return MilesNoisyFunctionMapMetric.fetch_trial_data(
             self, trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
         )
 

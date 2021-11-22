@@ -112,7 +112,7 @@ def get_experiment_with_map_data_type():
         description="test description",
         tracking_metrics=[MilesMapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType.MAP_DATA,
+        default_data_type=DataType.MILES_MAP_DATA,
     )
 
 
@@ -125,7 +125,7 @@ def get_experiment_with_miles_map_data_type():
         description="test description",
         tracking_metrics=[MilesMapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType.MAP_DATA,
+        default_data_type=DataType.MILES_MAP_DATA,
     )
 
 
@@ -191,7 +191,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         ),
         tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
         runner=SyntheticRunner(),
-        default_data_type=DataType.MAP_DATA,
+        default_data_type=DataType.MILES_MAP_DATA,
     )
 
 
@@ -1340,7 +1340,7 @@ def get_map_data(trial_index: int = 0) -> MilesMapData:
     return MilesMapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
-        map_key_infos=[MapKeyInfo(key="epoch", default_value=0)],
+        map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)],
     )
 
 
@@ -1368,7 +1368,7 @@ def get_miles_map_data(trial_index: int = 0) -> MilesMapData:
     return MilesMapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
-        map_key_infos=[MapKeyInfo(key="epoch", default_value=0)],
+        map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)],
     )
 
 

@@ -13,8 +13,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.miles_map_data import MilesMapData
 from ax.core.miles_map_metric import MilesMapMetric
@@ -873,11 +871,11 @@ class ExperimentWithMapDataTest(TestCase):
         }
 
         self.experiment.add_tracking_metric(
-            metric=MapMetric(name="no_fetch_impl_metric")
+            metric=MilesMapMetric(name="no_fetch_impl_metric")
         )
         self.experiment.new_trial()
         self.experiment.trials[0].mark_running(no_runner_required=True)
-        first_epoch = MapData.from_map_evaluations(
+        first_epoch = MilesMapData.from_map_evaluations(
             evaluations={
                 arm_name: partial_results[0:1]
                 for arm_name, partial_results in evaluations.items()
@@ -885,7 +883,7 @@ class ExperimentWithMapDataTest(TestCase):
             trial_index=0,
         )
         self.experiment.attach_data(first_epoch)
-        remaining_epochs = MapData.from_map_evaluations(
+        remaining_epochs = MilesMapData.from_map_evaluations(
             evaluations={
                 arm_name: partial_results[1:4]
                 for arm_name, partial_results in evaluations.items()

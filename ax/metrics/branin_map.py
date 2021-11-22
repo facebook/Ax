@@ -49,7 +49,7 @@ class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
         super().__init__(
             name=name,
             param_names=param_names,
-            map_key_infos=[MapKeyInfo(key="timestamp", default_value=0)],
+            map_key_infos=[MapKeyInfo(key="timestamp", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
         )

@@ -13,9 +13,9 @@ from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.objective import Objective, MultiObjective
 from ax.core.optimization_config import (
     ObjectiveThreshold,
@@ -620,7 +620,7 @@ def make_experiment(
     status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
     # TODO(jej): Needs to be decided per-metric when supporting heterogenous data.
-    metric_cls = MapMetric if support_intermediate_data else Metric
+    metric_cls = MilesMapMetric if support_intermediate_data else Metric
     if objectives is None:
         optimization_config = OptimizationConfig(
             objective=Objective(
@@ -649,7 +649,7 @@ def make_experiment(
     )
 
     default_data_type = (
-        DataType.MAP_DATA if support_intermediate_data else DataType.DATA
+        DataType.MILES_MAP_DATA if support_intermediate_data else DataType.DATA
     )
 
     immutable_ss_and_oc = immutable_search_space_and_opt_config
@@ -764,7 +764,7 @@ def data_and_evaluations_from_raw_data(
         )
     elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
         # All evaluations are map evaluations.
-        data = MapData.from_map_evaluations(
+        data = MilesMapData.from_map_evaluations(
             evaluations=cast(Dict[str, TMapTrialEvaluation], evaluations),
             trial_index=trial_index,
         )

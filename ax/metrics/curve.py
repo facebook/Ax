@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 class AbstractCurveMetric(MilesMapMetric, ABC):
     """Metric representing (partial) learning curves of ML model training jobs."""
 
-    MAP_KEY = MapKeyInfo(key="training_rows", default_value=0)
+    MAP_KEY = MapKeyInfo(key="training_rows", default_value=0.0)
 
     def __init__(
         self,

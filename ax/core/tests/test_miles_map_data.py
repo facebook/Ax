@@ -118,7 +118,7 @@ class MilesMapDataTest(TestCase):
                 },
             ]
         )
-        different_map_key_infos = [MapKeyInfo(key="timestamp", default_value=0)]
+        different_map_key_infos = [MapKeyInfo(key="timestamp", default_value=0.0)]
         different_mmd = MilesMapData(
             df=different_map_df, map_key_infos=different_map_key_infos
         )
@@ -199,7 +199,7 @@ class MilesMapDataTest(TestCase):
                         ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
                     ]
                 },
-                map_key_infos=[MapKeyInfo(key="f1", default_value=0)],
+                map_key_infos=[MapKeyInfo(key="f1", default_value=0.0)],
                 trial_index=0,
             )
 

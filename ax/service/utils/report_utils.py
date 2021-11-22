@@ -12,10 +12,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from ax.core.abstract_data import AbstractDataFrameData
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
-from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -34,7 +32,7 @@ from ax.plot.scatter import interact_fitted_plotly
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 
 
 logger: Logger = get_logger(__name__)
@@ -69,7 +67,7 @@ def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
 
 def _get_objective_trace_plot(
     experiment: Experiment,
-    data: Union[Data, MapData],
+    data: AbstractDataFrameData,
     model_transitions: List[int],
 ) -> Optional[go.Figure]:
     if experiment.is_moo_problem:
@@ -203,7 +201,7 @@ def _get_shortest_unique_suffix_dict(
 def get_standard_plots(
     experiment: Experiment,
     model: Optional[ModelBridge],
-    data: Optional[Union[Data, MapData]] = None,
+    data: Optional[AbstractDataFrameData] = None,
     model_transitions: Optional[List[int]] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
@@ -241,8 +239,6 @@ def get_standard_plots(
 
     if data is None:
         data = experiment.lookup_data()
-        if isinstance(data, MapData):
-            data = data.deduplicate_data()
 
     if data.df.empty:
         logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
@@ -252,9 +248,7 @@ def get_standard_plots(
     output_plot_list.append(
         _get_objective_trace_plot(
             experiment=experiment,
-            data=checked_cast(Data, data)
-            if isinstance(data, Data)
-            else checked_cast(MapData, data),
+            data=data,
             model_transitions=model_transitions
             if model_transitions is not None
             else [],

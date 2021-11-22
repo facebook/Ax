@@ -20,8 +20,6 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.miles_map_data import MilesMapData
 from ax.core.miles_map_metric import MilesMapMetric
@@ -43,13 +41,11 @@ logger: logging.Logger = get_logger(__name__)
 
 class DataType(Enum):
     DATA = 1
-    MAP_DATA = 2
     MILES_MAP_DATA = 3
 
 
 DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.DATA: Data,
-    DataType.MAP_DATA: MapData,
     DataType.MILES_MAP_DATA: MilesMapData,
 }
 
@@ -329,13 +325,6 @@ class Experiment(Base):
             else DataType.DATA
         )
 
-        # TODO this block should be removed after refactor is complete
-        if (
-            isinstance(optimization_config.objective.metrics[0], MapMetric)
-            and self._default_data_type is not DataType.MAP_DATA
-        ):
-            self._default_data_type = DataType.MAP_DATA
-
     @property
     def data_by_trial(self) -> Dict[int, OrderedDict]:
         """Data stored on the experiment, indexed by trial index and storage time.
@@ -603,9 +592,11 @@ class Experiment(Base):
             if combine_with_last_data and len(current_trial_data) > 0:
                 last_ts, last_data = list(current_trial_data.items())[-1]
                 last_data_type = type(last_data)
-                merge_keys = ["trial_index", "metric_name", "arm_name"]
-                if issubclass(last_data_type, MapData):
-                    merge_keys.extend(last_data.map_keys)
+                merge_keys = ["trial_index", "metric_name", "arm_name"] + (
+                    last_data.map_keys
+                    if issubclass(last_data_type, MilesMapData)
+                    else []
+                )
                 merged = pd.merge(
                     last_data.true_df,
                     trial_df,
@@ -692,8 +683,6 @@ class Experiment(Base):
 
         storage_time = max(trial_data_dict.keys())
         trial_data = trial_data_dict[storage_time]
-        if isinstance(trial_data, MapData) and keep_latest_map_values_only:
-            trial_data = trial_data.deduplicate_data()
         return trial_data, storage_time
 
     def lookup_data(

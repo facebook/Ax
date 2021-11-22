@@ -849,6 +849,7 @@ class TestAxClient(TestCase):
             minimize=True,
             support_intermediate_data=True,
         )
+
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
@@ -909,7 +910,7 @@ class TestAxClient(TestCase):
                     0,
                     raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
-            current_data = ax_client.experiment.fetch_data().df
+            current_data = ax_client.experiment.fetch_data().map_df
             self.assertEqual(len(current_data), 0 if t < 2 else 3)
 
         no_intermediate_data_ax_client = AxClient()

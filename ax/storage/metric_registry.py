@@ -6,7 +6,6 @@
 
 from typing import Dict, Optional, Type
 
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.miles_map_metric import MilesMapMetric
 from ax.metrics.branin import BraninMetric
@@ -36,7 +35,6 @@ METRIC_REGISTRY: Dict[Type[Metric], int] = {
     NoisyFunctionMetric: 3,
     Hartmann6Metric: 4,
     SklearnMetric: 5,
-    MapMetric: 6,
     ChemistryMetric: 7,
     MilesMapMetric: 8,
     BraninTimestampMapMetric: 9,

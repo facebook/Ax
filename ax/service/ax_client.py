@@ -480,12 +480,12 @@ class AxClient(WithDBSettingsBase):
         """
         if not isinstance(trial_index, int):  # pragma: no cover
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
-        if not self.experiment.default_data_type == DataType.MAP_DATA:
+        if not self.experiment.default_data_type == DataType.MILES_MAP_DATA:
             raise ValueError(
                 "`update_running_trial_with_intermediate_data` requires that "
                 "this client's `experiment` be constructed with "
                 "`support_intermediate_data=True` and have `default_data_type` of "
-                "`DataType.MAP_DATA`."
+                "`DataType.MILES_MAP_DATA`."
             )
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index,
