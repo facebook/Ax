@@ -340,7 +340,6 @@ def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
     data: AbstractDataFrameData,
     key_components: List[str],
-    deduplicate_on_map_keys: bool,
     metrics: List[Metric],
 ):
     """Formats ``data.df`` and merges it with ``arms_df`` if all of the following are
@@ -349,15 +348,9 @@ def _merge_results_if_no_duplicates(
         - ``data.df`` contains columns corresponding to ``key_components``
         - after any formatting, ``data.df`` contains no duplicates of the column
             ``results_key_col``
-
-    If ``deduplicate_on_map_keys is True``, this function also deduplicates rows of
-    ``data.df``, keeping the row with the largest ``map_keys`` value for each
-    ``key_component * metric_name``. Else, any ``map_keys`` are added to
-    ``results_key_call``.
     """
     results = data.df
-    # pyre-ignore[16]: data has no attribute `map_keys`.
-    map_keys = data.map_keys if hasattr(data, "map_keys") and data.map_keys else []
+
     if len(results.index) == 0:
         logger.info(
             f"No results present for the specified metrics `{metrics}`. "
@@ -375,24 +368,7 @@ def _merge_results_if_no_duplicates(
     for key_component in key_components[1:]:
         key_vals += results[key_component].astype("str")
     results_key_col = "-".join(key_components)
-    # Deduplicate if data has `map_keys` and therefore came from a `MapMetric`,
-    # keeping the row with the largest `map_keys` value for each `results_key_col`
-    if len(map_keys) > 0:
-        if deduplicate_on_map_keys:
-            results = results.sort_values(map_keys).drop_duplicates(
-                key_components + ["metric_name"], keep="last"
-            )
-        else:
-            for map_key in map_keys:
-                key_vals += results[map_key].astype(str)
-            results_key_col = "-".join(map_keys + key_components)
-    elif deduplicate_on_map_keys:
-        logger.warning(
-            "Ignoring user-specified `deduplicate_on_map_keys = True` since "
-            "`exp.fetch_data().map_keys` is empty or does not exist. Check "
-            "that at least one element of `metrics` (or `exp.metrics` if "
-            "`metrics is None`) inherits from `MapMetric`."
-        )
+
     results[results_key_col] = key_vals
     # Don't return results if duplicates remain
     if any(results.duplicated(subset=[results_key_col, "metric_name"])):
@@ -406,7 +382,7 @@ def _merge_results_if_no_duplicates(
     ).reset_index()
 
     # dedupe results by key_components
-    metadata = results[key_components + map_keys + [results_key_col]].drop_duplicates()
+    metadata = results[key_components + [results_key_col]].drop_duplicates()
     metrics_df = pd.merge(metric_vals, metadata, on=results_key_col)
     # drop synthetic key column
     metrics_df = metrics_df.drop(results_key_col, axis=1)
@@ -419,7 +395,6 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     trial_properties_fields: Optional[List[str]] = None,
-    deduplicate_on_map_keys: bool = True,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame with rows keyed by trial_index
@@ -440,12 +415,6 @@ def exp_to_df(
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial. Output columns names
             will be prepended with ``"trial_properties_"``.
-        deduplicate_on_map_keys: Whether each ``trial_index * arm_name * metric``
-            combination should correspond to one row in the df output by this function.
-            If ``True``, for each such combination, keep the row of maximum
-            ``map_keys`` column(s) values. Note that if ``map_keys`` is a list, its
-            order may affect which row is kept. If ``False``, keep rows for all unique
-            combinations of ``arm * map_keys``.
         **kwargs: Custom named arguments, useful for passing complex
             objects from call-site to the `fetch_data` callback.
 
@@ -541,7 +510,6 @@ def exp_to_df(
         arms_df=arms_df,
         data=data,
         key_components=key_components,
-        deduplicate_on_map_keys=deduplicate_on_map_keys,
         metrics=metrics or list(exp.metrics.values()),
     )
 
