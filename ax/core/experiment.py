@@ -565,7 +565,7 @@ class Experiment(Base):
         data_init_args = data.serialize_init_args(data)
         if data.df.empty:
             raise ValueError("Data to attach is empty.")
-        metrics_not_on_exp = set(data.df["metric_name"].values) - set(
+        metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
         )
         if metrics_not_on_exp:
@@ -578,7 +578,7 @@ class Experiment(Base):
                 "the experiment's optimization config."
             )
         cur_time_millis = current_timestamp_in_millis()
-        for trial_index, trial_df in data.df.groupby(data.df["trial_index"]):
+        for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
             current_trial_data = (
                 self._data_by_trial[trial_index]
                 if trial_index in self._data_by_trial
@@ -591,7 +591,7 @@ class Experiment(Base):
                 if issubclass(last_data_type, MapData):
                     merge_keys.extend(last_data.map_keys)
                 merged = pd.merge(
-                    last_data.df,
+                    last_data.true_df,
                     trial_df,
                     on=merge_keys,
                     how="inner",
@@ -971,7 +971,7 @@ class Experiment(Base):
                     new_trial._run_metadata = trial.run_metadata
                 # Trial has data, so we replicate it on the new experiment.
                 if is_completed_with_data:
-                    new_df = dat.df.copy()
+                    new_df = dat.true_df.copy()
                     new_df["trial_index"].replace(
                         {trial.index: new_trial.index}, inplace=True
                     )

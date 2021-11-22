@@ -174,6 +174,11 @@ class AbstractDataFrameData(AbstractData, Base):
         return self._df
 
     @property
+    def true_df(self) -> pd.DataFrame:
+        """Return the `DataFrame` being used as the source of truth."""
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
     def df_hash(self) -> str:
         """Compute hash of pandas DataFrame.
 

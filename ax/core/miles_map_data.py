@@ -111,6 +111,10 @@ class MilesMapData(Data):
         self._memo_df = None
 
     @property
+    def true_df(self):
+        return self.map_df
+
+    @property
     def map_key_infos(self) -> Iterable[MapKeyInfo]:
         return self._map_key_infos
 

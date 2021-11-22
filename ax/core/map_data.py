@@ -86,6 +86,10 @@ class MapData(AbstractDataFrameData):
             self._df = df[col_order]
         self.description = description
 
+    @property
+    def true_df(self):
+        return self.df
+
     @staticmethod
     # pyre-ignore [14]: `Iterable[Data]` not a supertype of overridden parameter.
     def from_multiple_data(
