@@ -11,12 +11,12 @@ import numpy as np
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
+from ax.core.miles_map_data import MilesMapData
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 logger = get_logger(__name__)
 
@@ -125,22 +125,23 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return {}
 
-        if not isinstance(data, MapData):
+        if not isinstance(data, MilesMapData):
             raise ValueError(
                 "PercentileEarlyStoppingStrategy expects MapData, but the "
                 f"data attached to experiment is of type {type(data)}."
             )
 
+        data = checked_cast(MilesMapData, data)
         map_keys = data.map_keys
-        if len(map_keys) > 1:
+        if len(list(map_keys)) > 1:
             raise ValueError(  # pragma: no cover
                 "PercentileEarlyStoppingStrategy expects MapData with a single "
                 "map key, but the data attached to the experiment has multiple: "
                 f"{data.map_keys}."
             )
-        map_key = map_keys[0]
+        map_key = list(map_keys)[0]
 
-        df = data.df
+        df = data.map_df
         metric_to_aligned_means, _ = align_partial_results(
             df=df,
             progr_key=map_key,

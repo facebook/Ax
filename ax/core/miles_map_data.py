@@ -11,6 +11,7 @@ import pandas as pd
 from ax.core.data import Data
 from ax.core.types import TMapTrialEvaluation
 from ax.exceptions.core import UnsupportedError
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 
 logger = get_logger(__name__)
@@ -18,7 +19,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class MapKeyInfo(Generic[T]):
+class MapKeyInfo(Generic[T], Base):
     """Helper class storing map keys and auxilary info for use in MilesMapData"""
 
     def __init__(
@@ -31,6 +32,9 @@ class MapKeyInfo(Generic[T]):
 
     def __str__(self) -> str:
         return f"MapKeyInfo({self.key}, {self.default_value})"
+
+    def __hash__(self) -> int:
+        return hash((self.key, self.default_value))
 
     @property
     def key(self) -> str:
@@ -87,14 +91,15 @@ class MilesMapData(Data):
             missing_columns = self.required_columns() - columns
             if missing_columns:
                 raise UnsupportedError(
-                    f"Dataframe must contain required columns {list(missing_columns)}."
+                    f"Dataframe must contain required columns {missing_columns}."
                 )
             extra_columns = columns - self.supported_columns(
                 extra_column_names=self.map_keys
             )
             if extra_columns:
+                breakpoint()
                 raise UnsupportedError(
-                    f"Columns {list(extra_columns)} are not supported."
+                    f"Columns {[mki.key for mki in extra_columns]} are not supported."
                 )
             df = df.dropna(axis=0, how="all").reset_index(drop=True)
             df = self._safecast_df(df=df, extra_column_types=self.map_key_to_type)
@@ -109,6 +114,11 @@ class MilesMapData(Data):
         self.description = description
 
         self._memo_df = None
+
+    def __eq__(self, o: MilesMapData) -> bool:
+        return set(self.map_key_infos) == set(
+            o.map_key_infos
+        ) and self.map_df.reset_index(drop=True).equals(o.map_df.reset_index(drop=True))
 
     @property
     def true_df(self):

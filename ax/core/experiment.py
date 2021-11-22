@@ -23,6 +23,8 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.runner import Runner
@@ -42,11 +44,13 @@ logger: logging.Logger = get_logger(__name__)
 class DataType(Enum):
     DATA = 1
     MAP_DATA = 2
+    MILES_MAP_DATA = 3
 
 
 DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.DATA: Data,
     DataType.MAP_DATA: MapData,
+    DataType.MILES_MAP_DATA: MilesMapData,
 }
 
 
@@ -315,6 +319,17 @@ class Experiment(Base):
             if metric_name in self._tracking_metrics:
                 self.remove_tracking_metric(metric_name)
         self._optimization_config = optimization_config
+
+        self._default_data_type = (
+            DataType.MILES_MAP_DATA
+            if any(
+                isinstance(metric, MilesMapMetric)
+                for metric in optimization_config.metrics.values()
+            )
+            else DataType.DATA
+        )
+
+        # TODO this block should be removed after refactor is complete
         if (
             isinstance(optimization_config.objective.metrics[0], MapMetric)
             and self._default_data_type is not DataType.MAP_DATA
@@ -507,6 +522,7 @@ class Experiment(Base):
                     **kwargs,
                 )
             )
+
         return self.default_data_constructor.from_multiple_data(data=data_list)
 
     @copy_doc(BaseTrial.fetch_data)

@@ -5,11 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.base_trial import TrialStatus
+from ax.core.miles_map_data import MilesMapData
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
@@ -170,10 +172,11 @@ class TestEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = exp.fetch_data()
+        data = checked_cast(MilesMapData, exp.fetch_data())
+
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.df.loc[
-            data.df["metric_name"] == "branin", "timestamp"
+        data.map_df.loc[
+            data.map_df["metric_name"] == "branin", "timestamp"
         ] = unaligned_timestamps
         exp.attach_data(data=data)
 
@@ -212,13 +215,16 @@ class TestEarlyStoppingStrategy(TestCase):
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
-        data = exp.fetch_data()
+        data = checked_cast(MilesMapData, exp.fetch_data())
+
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.df.loc[
-            data.df["metric_name"] == "branin", "timestamp"
+        data.map_df.loc[
+            data.map_df["metric_name"] == "branin", "timestamp"
         ] = unaligned_timestamps
         # manually remove timestamps 1 and 2 for arm 3
-        data.df.drop([22, 23], inplace=True)
+        data.map_df.drop(
+            [22, 23], inplace=True
+        )  # TODO this wont work once we make map_df immutable (which we should)
         exp.attach_data(data=data)
 
         """

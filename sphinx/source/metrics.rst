@@ -73,6 +73,14 @@ Noisy Functions
     :undoc-members:
     :show-inheritance:
 
+Miles Noisy Function Map
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.metrics.miles_noisy_function_map
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Noisy Function Map
 ~~~~~~~~~~~~~~~~~~~~
 

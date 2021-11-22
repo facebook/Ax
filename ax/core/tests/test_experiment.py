@@ -16,6 +16,8 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -915,7 +917,7 @@ class ExperimentWithMapDataTest(TestCase):
         )
         self.assertEqual(
             exp.fetch_trials_data(trial_indices=[0, 1]),
-            MapData.from_multiple_data([batch_0_data, batch_1_data]),
+            MilesMapData.from_multiple_data([batch_0_data, batch_1_data]),
         )
 
         # Since NoisyFunctionMap metric has overwrite_existing_data = True,
@@ -926,8 +928,8 @@ class ExperimentWithMapDataTest(TestCase):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
         exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).df), 30)
+        exp.add_tracking_metric(MilesMapMetric(name="b"))  # Add unimplemented metric.
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 30)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
@@ -937,22 +939,6 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
-
-    def testFetchTrialsDataIncremental(self):
-        exp = self._setupBraninExperiment(n=5, incremental=True)
-
-        first_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(first_data.df["timestamp"].values), {0})
-
-        more_data = exp.fetch_trials_data(trial_indices=[0])
-        self.assertEqual(set(more_data.df["timestamp"].values), {1})
-
-        # Since we're using BraninIncrementalTimestampMetric,
-        # which has combine_with_last_data = True,
-        # the cached data should be merged and contain both timestamps
-        self.assertEqual(len(exp.data_by_trial[0]), 1)
-        looked_up_data = exp.lookup_data(keep_latest_map_values_only=False)
-        self.assertEqual(set(looked_up_data.df["timestamp"].values), {0, 1})
 
     def test_is_moo_problem(self):
         exp = get_branin_experiment()

@@ -60,7 +60,6 @@ from ax.early_stopping.strategies import (
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
-    BraninIncrementalTimestampMapMetric,
     BraninTimestampMapMetric,
 )
 from ax.metrics.factorial import FactorialMetric
@@ -166,21 +165,18 @@ def get_branin_experiment_with_timestamp_map_metric(
     rate: Optional[float] = None,
     incremental: Optional[bool] = False,
 ):
-    metric_cls = (
-        BraninTimestampMapMetric
-        if not incremental
-        else BraninIncrementalTimestampMapMetric
-    )
     return Experiment(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
             objective=Objective(
-                metric=metric_cls(name="branin", param_names=["x1", "x2"], rate=rate),
+                metric=BraninTimestampMapMetric(
+                    name="branin", param_names=["x1", "x2"], rate=rate
+                ),
                 minimize=True,
             )
         ),
-        tracking_metrics=[metric_cls(name="b", param_names=["x1", "x2"])],
+        tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )

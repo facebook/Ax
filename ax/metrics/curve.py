@@ -18,19 +18,19 @@ import pandas as pd
 from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MapKeyInfo, MilesMapData
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.trial import Trial
 from ax.utils.common.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class AbstractCurveMetric(MapMetric, ABC):
+class AbstractCurveMetric(MilesMapMetric, ABC):
     """Metric representing (partial) learning curves of ML model training jobs."""
 
-    MAP_KEY = "training_rows"
+    MAP_KEY = MapKeyInfo(key="training_rows", default_value=0)
 
     def __init__(
         self,
@@ -99,12 +99,12 @@ class AbstractCurveMetric(MapMetric, ABC):
 
         if len(ids_filtered) == 0:
             logger.info("Could not get ids from trials. Returning empty data.")
-            return MapData(map_keys=[cls.MAP_KEY])
+            return MilesMapData(map_key_infos=[cls.MAP_KEY])
 
         all_curve_series = cls.get_curves_from_ids(ids=ids_filtered)
         if all(id_ not in all_curve_series for id_ in ids_filtered):
             logger.info("Could not get curves from ids. Returning empty data.")
-            return MapData(map_keys=[cls.MAP_KEY])
+            return MilesMapData(map_key_infos=[cls.MAP_KEY])
 
         for id_, curve_series in all_curve_series.items():
             for m in metrics:
@@ -113,7 +113,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                         f"{m.curve_name} not yet present in curves from {id_}. "
                         "Returning empty data."
                     )
-                    return MapData(map_keys=[cls.MAP_KEY])
+                    return MilesMapData(map_key_infos=[cls.MAP_KEY])
 
         dfs = []
         for trial, id_ in zip(trials_filtered, ids_filtered):
@@ -124,7 +124,7 @@ class AbstractCurveMetric(MapMetric, ABC):
             for m in metrics:
                 cs = curve_series[m.curve_name].rename("mean")  # pyre-ignore [6]
                 dfi = cs.reset_index().rename(  # pyre-ignore [16]
-                    columns={"index": cls.MAP_KEY}
+                    columns={"index": cls.MAP_KEY.key}
                 )
                 dfi["trial_index"] = trial.index
                 dfi["arm_name"] = trial.arm.name
@@ -132,7 +132,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                 dfi["sem"] = float("nan")
                 dfs.append(dfi.drop_duplicates())
         df = pd.concat(dfs, axis=0, ignore_index=True)
-        return MapData(df, map_keys=[cls.MAP_KEY])
+        return MilesMapData(df=df, map_key_infos=[cls.MAP_KEY])
 
     @classmethod
     @abstractmethod

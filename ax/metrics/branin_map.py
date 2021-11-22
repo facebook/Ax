@@ -6,25 +6,23 @@
 
 import math
 from random import random
-from typing import Any, List, Optional
+from typing import Mapping, Iterable, Any, Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData
-from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
+from ax.core.miles_map_data import MapKeyInfo, MilesMapData
+from ax.metrics.miles_noisy_function_map import MilesNoisyFunctionMapMetric
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 
-
-TIMESTAMP_KWARGS = {"map_keys": ["timestamp"], "timestamp": [0, 1, 2]}
-FIDELITY_KWARGS = {"map_keys": ["fidelity"], "fidelity": [0.1, 0.4, 0.7, 1.0]}
+FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
 
-class BraninTimestampMapMetric(NoisyFunctionMapMetric):
+class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
     def __init__(
         self,
         name: str,
-        param_names: List[str],
+        param_names: Iterable[str],
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
         rate: Optional[float] = None,
@@ -44,73 +42,87 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             rate: Parameter of the multiplicative factor.
         """
         self.rate = rate
+        self._timestamp = -1
+
         super().__init__(
             name=name,
             param_names=param_names,
+            map_key_infos=[MapKeyInfo(key="timestamp", default_value=0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
         )
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
-        return super().fetch_trial_data(
-            trial=trial, noisy=noisy, **kwargs, **TIMESTAMP_KWARGS
-        )
+    ) -> MilesMapData:
+        # This timestamp parameter will be incremented each time f is called to
+        # simulate a true timestamp.
+        self._timestamp = -1
 
-    def f(self, x: np.ndarray) -> float:
-        x1, x2, t = x
+        s = super()  # Must assign super() to capture outer scope inside comprehension
+        rows = [
+            s.fetch_trial_data(
+                trial=trial,
+                noisy=noisy,
+                **kwargs,
+            )
+            for _ in range(3)
+        ]
+
+        return MilesMapData.from_multiple_map_data(rows)
+
+    def f(self, x: np.ndarray) -> Mapping[str, Any]:
+        self._timestamp += 1
+
+        x1, x2 = x
+
         if self.rate is not None:
-            weight = 1.0 + np.exp(-not_none(self.rate) * t)
+            weight = 1.0 + np.exp(-not_none(self.rate) * self._timestamp)
         else:
             weight = 1.0
-        return checked_cast(float, branin(x1=x1, x2=x2)) * weight
+
+        mean = checked_cast(float, branin(x1=x1, x2=x2)) * weight
+
+        return {"mean": mean, "timestamp": self._timestamp}
 
 
-class BraninFidelityMapMetric(NoisyFunctionMapMetric):
-    def fetch_trial_data(
-        self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
-        return super().fetch_trial_data(
-            trial=trial, noisy=noisy, **kwargs, **FIDELITY_KWARGS
-        )
-
-    def f(self, x: np.ndarray) -> float:
-        x1, x2, fidelity = x
-        fidelity_penalty = random() * math.pow(1.0 - fidelity, 2.0)
-        return checked_cast(float, branin(x1=x1, x2=x2)) - fidelity_penalty
-
-
-class BraninIncrementalTimestampMapMetric(BraninTimestampMapMetric):
+class BraninFidelityMapMetric(MilesNoisyFunctionMapMetric):
     def __init__(
         self,
         name: str,
-        param_names: List[str],
+        param_names: Iterable[str],
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
-        rate: Optional[float] = None,
     ) -> None:
-        self.timestamp = 0
         super().__init__(
             name=name,
             param_names=param_names,
+            map_key_infos=[MapKeyInfo(key="fidelity", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
         )
 
-    @classmethod
-    def overwrite_existing_data(cls) -> bool:
-        return False
-
-    @classmethod
-    def combine_with_last_data(cls) -> bool:
-        return True
+        self.index = -1
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
-        timestamp_kwargs = {"map_keys": ["timestamp"], "timestamp": [self.timestamp]}
-        self.timestamp += 1
-        return NoisyFunctionMapMetric.fetch_trial_data(
-            self, trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
+    ) -> MilesMapData:
+        self.index = -1
+
+        return super().fetch_trial_data(
+            trial=trial,
+            noisy=noisy,
+            **kwargs,
         )
+
+    def f(self, x: np.ndarray) -> Mapping[str, Any]:
+        if self.index < len(FIDELITY):
+            self.index += 1
+
+        x1, x2 = x
+        fidelity = FIDELITY[self.index]
+
+        fidelity_penalty = random() * math.pow(1.0 - fidelity, 2.0)
+        mean = checked_cast(float, branin(x1=x1, x2=x2)) - fidelity_penalty
+
+        return {"mean": mean, "fidelity": fidelity}
