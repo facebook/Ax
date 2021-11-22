@@ -16,6 +16,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData, MapKeyInfo
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -350,6 +351,25 @@ def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
         "df": map_data.df,
         "map_keys": map_data.map_keys,
         "description": map_data.description,
+    }
+
+
+def miles_map_data_to_dict(map_data: MilesMapData) -> Dict[str, Any]:
+    """Convert Ax map data to a dictionary."""
+    return {
+        "__type": map_data.__class__.__name__,
+        "df": map_data.map_df,
+        "map_key_infos": map_data.map_key_infos,
+        "description": map_data.description,
+    }
+
+
+def map_key_info_to_dict(mki: MapKeyInfo) -> Dict[str, Any]:
+    """Convert Ax map data metadata to a dictionary."""
+    return {
+        "__type": mki.__class__.__name__,
+        "key": mki.key,
+        "default_value": mki.default_value,
     }
 
 

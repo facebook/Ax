@@ -18,6 +18,8 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData, MapKeyInfo
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -44,6 +46,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryProblemType, ChemistryMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
@@ -74,6 +77,8 @@ from ax.storage.json_store.encoders import (
     generation_strategy_to_dict,
     generator_run_to_dict,
     map_data_to_dict,
+    miles_map_data_to_dict,
+    map_key_info_to_dict,
     metric_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
@@ -110,6 +115,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     BenchmarkProblem: benchmark_problem_to_dict,
     BoTorchModel: botorch_model_to_dict,
     BraninMetric: metric_to_dict,
+    BraninTimestampMapMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
     Experiment: experiment_to_dict,
@@ -122,7 +128,10 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
     MapData: map_data_to_dict,
+    MilesMapData: miles_map_data_to_dict,
+    MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
+    MilesMapMetric: metric_to_dict,
     Metric: metric_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -173,6 +182,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
     "BraninMetric": BraninMetric,
+    "BraninTimestampMapMetric": BraninTimestampMapMetric,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
     "ChoiceParameter": ChoiceParameter,
@@ -191,6 +201,9 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
+    "MilesMapData": MilesMapData,
+    "MilesMapMetric": MilesMapMetric,
+    "MapKeyInfo": MapKeyInfo,
     "MapMetric": MapMetric,
     "Metric": Metric,
     "Models": Models,

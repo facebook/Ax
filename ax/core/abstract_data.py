@@ -170,8 +170,7 @@ class AbstractDataFrameData(AbstractData, Base):
     @property
     def df(self) -> pd.DataFrame:
         """Return a flattened `DataFrame` representation of this data's metrics."""
-        # pyre-ignore [16]: Undefined attribute. _df will be defined in subclasses.
-        return self._df
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def true_df(self) -> pd.DataFrame:

@@ -74,6 +74,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
     get_arm,
     get_branin_data,
     get_branin_experiment,
@@ -88,7 +89,6 @@ from ax.utils.testing.core_stubs import (
     get_scalarized_outcome_constraint,
     get_fixed_parameter,
     get_generator_run,
-    get_map_data,
     get_multi_objective_optimization_config,
     get_multi_type_experiment,
     get_objective,
@@ -355,13 +355,14 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-        exp = get_experiment_with_map_data_type()
+        exp = get_branin_experiment_with_timestamp_map_metric()
         save_experiment(exp)
-        new_trial = exp.new_batch_trial(generator_run=get_generator_run())
-        exp.attach_data(get_map_data(trial_index=new_trial.index))
+        generator_run = Models.SOBOL(search_space=exp.search_space).gen(n=1)
+        trial = exp.new_trial(generator_run=generator_run)
+        exp.attach_data(trial.run().fetch_data())
         save_or_update_trials(
             experiment=exp,
-            trials=[new_trial],
+            trials=[trial],
             batch_size=2,
         )
         loaded_experiment = load_experiment(exp.name)

@@ -21,6 +21,8 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.miles_map_data import MilesMapData, MapKeyInfo
+from ax.core.miles_map_metric import MilesMapMetric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
@@ -111,6 +113,19 @@ def get_experiment_with_map_data_type():
         status_quo=get_status_quo(),
         description="test description",
         tracking_metrics=[MapMetric(name="tracking")],
+        is_test=True,
+        default_data_type=DataType.MAP_DATA,
+    )
+
+
+def get_experiment_with_miles_map_data_type():
+    return Experiment(
+        name="test_miles_map_data",
+        search_space=get_search_space(),
+        optimization_config=get_miles_map_optimization_config(),
+        status_quo=get_status_quo(),
+        description="test description",
+        tracking_metrics=[MilesMapMetric(name="tracking")],
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
@@ -337,6 +352,14 @@ def get_experiment_with_map_data() -> Experiment:
     experiment.new_trial()
     experiment.add_tracking_metric(MapMetric("ax_test_metric"))
     experiment.attach_data(data=get_map_data())
+    return experiment
+
+
+def get_experiment_with_miles_map_data() -> Experiment:
+    experiment = get_experiment_with_miles_map_data_type()
+    experiment.new_trial()
+    experiment.add_tracking_metric(metric=MilesMapMetric("ax_test_metric"))
+    experiment.attach_data(data=get_miles_map_data())
     return experiment
 
 
@@ -956,6 +979,10 @@ def get_map_objective() -> Objective:
     return Objective(metric=MapMetric(name="m1"), minimize=False)
 
 
+def get_miles_map_objective() -> Objective:
+    return Objective(metric=MilesMapMetric(name="m1"), minimize=False)
+
+
 def get_multi_objective() -> Objective:
     return MultiObjective(
         objectives=[
@@ -1015,6 +1042,11 @@ def get_optimization_config() -> OptimizationConfig:
 
 def get_map_optimization_config() -> OptimizationConfig:
     objective = get_map_objective()
+    return OptimizationConfig(objective=objective)
+
+
+def get_miles_map_optimization_config() -> OptimizationConfig:
+    objective = get_miles_map_objective()
     return OptimizationConfig(objective=objective)
 
 
@@ -1311,6 +1343,34 @@ def get_map_data(trial_index: int = 0) -> MapData:
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
         map_keys=["epoch"],
+    )
+
+
+def get_miles_map_data(trial_index: int = 0) -> MilesMapData:
+    evaluations = {
+        "status_quo": [
+            ({"epoch": 1}, {"ax_test_metric": (1.0, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (2.0, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (3.0, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+        ],
+        "0_0": [
+            ({"epoch": 1}, {"ax_test_metric": (3.7, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (3.8, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (3.9, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (4.0, 0.5)}),
+        ],
+        "0_1": [
+            ({"epoch": 1}, {"ax_test_metric": (3.0, 0.5)}),
+            ({"epoch": 2}, {"ax_test_metric": (5.0, 0.5)}),
+            ({"epoch": 3}, {"ax_test_metric": (6.0, 0.5)}),
+            ({"epoch": 4}, {"ax_test_metric": (1.0, 0.5)}),
+        ],
+    }
+    return MilesMapData.from_map_evaluations(
+        evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
+        trial_index=trial_index,
+        map_key_infos=[MapKeyInfo(key="epoch", default_value=0)],
     )
 
 

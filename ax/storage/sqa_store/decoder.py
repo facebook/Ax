@@ -951,11 +951,10 @@ class Decoder:
     def data_from_sqa(
         self,
         data_sqa: SQAData,
-        data_constructor: Optional[Type[AbstractDataFrameData]] = None,
+        data_constructor: Type[Data] = Data,
     ) -> AbstractDataFrameData:
         """Convert SQLAlchemy Data to AE Data."""
         # TODO: extract data type from SQAData after DataRegistry added.
-        data_constructor = data_constructor or Data
         kwargs = data_constructor.deserialize_init_args(
             args=dict(
                 json.loads(data_sqa.structure_metadata_json)
@@ -964,7 +963,6 @@ class Decoder:
             )
         )
 
-        # pyre-ignore[45]: Cannot instantiate abstract class. But this is concrete.
         dat = data_constructor(
             description=data_sqa.description,
             # NOTE: Need dtype=False, otherwise infers arm_names like

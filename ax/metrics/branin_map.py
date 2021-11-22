@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from random import random
 from typing import Mapping, Iterable, Any, Optional
@@ -50,6 +52,16 @@ class BraninTimestampMapMetric(MilesNoisyFunctionMapMetric):
             map_key_infos=[MapKeyInfo(key="timestamp", default_value=0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
+        )
+
+    def __eq__(self, o: BraninTimestampMapMetric) -> bool:
+        """Ignore _timestamp on equality checks"""
+        return (
+            self.name == o.name
+            and self.param_names == o.param_names
+            and self.map_key_infos == o.map_key_infos
+            and self.noise_sd == o.noise_sd
+            and self.lower_is_better == o.lower_is_better
         )
 
     def fetch_trial_data(

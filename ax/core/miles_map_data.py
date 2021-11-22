@@ -5,21 +5,23 @@
 
 from __future__ import annotations
 
-from typing import Dict, Type, TypeVar, Generic, Iterable, Optional
+from typing import Any, Dict, Type, TypeVar, Generic, Iterable, Optional
 
 import pandas as pd
 from ax.core.data import Data
 from ax.core.types import TMapTrialEvaluation
 from ax.exceptions.core import UnsupportedError
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
+from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 T = TypeVar("T")
 
 
-class MapKeyInfo(Generic[T], Base):
+class MapKeyInfo(Generic[T], SortableBase):
     """Helper class storing map keys and auxilary info for use in MilesMapData"""
 
     def __init__(
@@ -35,6 +37,9 @@ class MapKeyInfo(Generic[T], Base):
 
     def __hash__(self) -> int:
         return hash((self.key, self.default_value))
+
+    def _unique_id(self) -> str:
+        return str(self.__hash__())
 
     @property
     def key(self) -> str:
@@ -116,9 +121,10 @@ class MilesMapData(Data):
         self._memo_df = None
 
     def __eq__(self, o: MilesMapData) -> bool:
-        return set(self.map_key_infos) == set(
-            o.map_key_infos
-        ) and self.map_df.reset_index(drop=True).equals(o.map_df.reset_index(drop=True))
+        mkis_match = set(self.map_key_infos) == set(o.map_key_infos)
+        dfs_match = dataframe_equals(self.map_df, o.map_df)
+
+        return mkis_match and dfs_match
 
     @property
     def true_df(self):
@@ -250,3 +256,15 @@ class MilesMapData(Data):
         )
 
         return self._memo_df
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, extract the properties needed to initialize the metric.
+        Used for storage.
+        """
+
+        return {
+            "map_key_infos": [
+                MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
+            ]
+        }

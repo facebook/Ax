@@ -88,7 +88,11 @@ class MapData(AbstractDataFrameData):
 
     @property
     def true_df(self):
-        return self.df
+        return self._df
+
+    @property
+    def df(self):
+        return self._df
 
     @staticmethod
     # pyre-ignore [14]: `Iterable[Data]` not a supertype of overridden parameter.
@@ -217,6 +221,6 @@ class MapData(AbstractDataFrameData):
         map_keys = self.map_keys
         if len(map_keys) > 0:
             df = df.sort_values(map_keys).drop_duplicates(
-                MapData.DEDUPLICATE_BY_COLUMNS, keep=keep  # pyre-ignore
+                MapData.DEDUPLICATE_BY_COLUMNS, keep=keep
             )
         return MapData(df=df, map_keys=map_keys)

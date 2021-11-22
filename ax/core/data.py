@@ -82,8 +82,16 @@ class Data(AbstractDataFrameData):
         super().__init__(description=description)
 
     @property
-    def true_df(self):
-        return self.df
+    def true_df(self) -> pd.DataFrame:
+        """Return the `DataFrame` being used as the source of truth (avoid using
+        except for caching).
+        """
+
+        return self._df
+
+    @property
+    def df(self) -> pd.DataFrame:
+        return self._df
 
     @staticmethod
     # pyre-ignore [14]: `Iterable[Data]` not a supertype of overridden parameter.
