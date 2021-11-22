@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import Mock, patch
+
 import numpy as np
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.utils.common.testutils import TestCase
@@ -52,16 +54,28 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
-        arms, weights, _ = generator.gen(
-            n=5,
-            parameter_values=self.parameter_values,
-            objective_weights=np.array([1, 0]),
-        )
-        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
-        for weight, expected_weight in zip(
-            weights, [4 * i for i in [0.66, 0.25, 0.07, 0.02]]
+        with patch(
+            "ax.models.discrete.eb_thompson.EmpiricalBayesThompsonSampler",
+            return_value=(
+                [[4, 4], [3, 3], [2, 2], [1, 1]],
+                [
+                    2.67,
+                    0,
+                    0.25,
+                    0.07,
+                ],
+            ),
         ):
-            self.assertAlmostEqual(weight, expected_weight, 1)
+            arms, weights, _ = generator.gen(
+                n=5,
+                parameter_values=self.parameter_values,
+                objective_weights=np.array([1, 0]),
+            )
+            self.assertEqual(arms, [[4, 4], [3, 3], [2, 2], [1, 1]])
+            for weight, expected_weight in zip(
+                weights, [4 * i for i in [0.66, 0.25, 0.07, 0.02]]
+            ):
+                self.assertAlmostEqual(weight, expected_weight, 1)
 
     def testEmpiricalBayesThompsonSamplerWarning(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
