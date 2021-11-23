@@ -107,8 +107,8 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
 
-    def testPrintDeprectationWarning(self):
-        warnings.simplefilter("always", append=True)
+    def testPrintDeprecationWarning(self):
+        warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
                 search_space=None,
