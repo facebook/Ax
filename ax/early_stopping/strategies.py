@@ -196,7 +196,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             trial should be stopped, and `reason` is an (optional) string providing
             information on why the trial should or should not be stopped.
         """
-        logger.debug(f"Considering trial {trial_index} for early stopping.")
+        logger.info(f"Considering trial {trial_index} for early stopping.")
         if self.trial_indices_to_ignore is not None:
             if trial_index in set(self.trial_indices_to_ignore):
                 logger.info(
@@ -275,7 +275,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             f"{percentile_threshold:.1f}-th percentile ({percentile_value}) "
             "across comparable trials."
         )
-        logger.debug(
+        logger.info(
             f"Early stopping decision for {trial_index}: {should_early_stop}. "
             f"Reason: {reason}"
         )

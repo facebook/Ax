@@ -10,9 +10,9 @@ import itertools
 from typing import Iterable, Dict, Optional, Union
 
 import pandas as pd
+from ax.core.map_data import MapKeyInfo
 from ax.metrics.curve import AbstractCurveMetric
 from ax.utils.common.logger import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ try:
     class TensorboardCurveMetric(AbstractCurveMetric):
         """A `CurveMetric` for getting Tensorboard curves."""
 
-        MAP_KEY = "steps"
+        MAP_KEY = MapKeyInfo(key="steps", default_value=0)
 
         @classmethod
         def get_curves_from_ids(
@@ -78,7 +78,15 @@ try:
                 )
             )
             key = item["tag"]
-            tb_run_data[key] = pd.Series(index=steps, data=vals).dropna()
+            series = pd.Series(index=steps, data=vals).dropna()
+            if any(series.index.duplicated()):  # pyre-ignore[16]
+                # take average of repeated observations of the same "step"
+                series = series.groupby(steps).mean()  # pyre-ignore[16]
+                logger.info(
+                    f"Found duplicate steps for tag {key}. "
+                    "Removing duplicates by averaging."
+                )
+            tb_run_data[key] = series
         return tb_run_data
 
 
