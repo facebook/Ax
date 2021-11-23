@@ -129,7 +129,5 @@ class TrialAsTask(Transform):
                 pval = obsf.parameters.pop(p_name)
             if self.inverse_map is not None:
                 # pyre-fixme[61]: `pval` may not be initialized here.
-                # pyre-fixme[6]: Expected `str` for 1st param but got `Union[None,
-                #  bool, float, int, str]`.
                 obsf.trial_index = np.int64(self.inverse_map[pval])
         return observation_features

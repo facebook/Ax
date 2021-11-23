@@ -99,7 +99,6 @@ def aggregate_problem_results(
             # pyre-ignore [16]
             pareto_frontiers[method] = get_observed_pareto_frontiers(
                 experiment=experiment,
-                # pyre-ignore [6]
                 data=experiment.fetch_data(),
             )[0]
 
