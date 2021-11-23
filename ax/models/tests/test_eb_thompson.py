@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
