@@ -102,7 +102,6 @@ class MapData(Data):
                 extra_column_names=self.map_keys
             )
             if extra_columns:
-                breakpoint()
                 raise UnsupportedError(
                     f"Columns {[mki.key for mki in extra_columns]} are not supported."
                 )
