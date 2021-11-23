@@ -11,7 +11,6 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
@@ -195,6 +194,8 @@ class ReportUtilsTest(TestCase):
         self.assertDictEqual(expected_output, actual_output)
 
     def test_get_standard_plots(self):
+        # TODO[bbeckerman]: Add mocks for `Models.BOTORCH` outputs to make this
+        # this test faster (currently takes 90 seconds).
         exp = get_branin_experiment()
         self.assertEqual(
             len(
@@ -206,9 +207,9 @@ class ReportUtilsTest(TestCase):
         )
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
-        gs = choose_generation_strategy(search_space=exp.search_space)
-        gs._model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
-        plots = get_standard_plots(experiment=exp, model=gs.model)
+        plots = get_standard_plots(
+            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+        )
         self.assertEqual(len(plots), 6)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
@@ -223,14 +224,14 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
-        gs = choose_generation_strategy(
-            search_space=exp.search_space, optimization_config=exp.optimization_config
+        plots = get_standard_plots(
+            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
         )
-        gs._model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
-        plots = get_standard_plots(experiment=exp, model=gs.model)
         self.assertEqual(len(plots), 8)
 
         # All plots are successfully created when objective thresholds are absent
         exp.optimization_config._objective_thresholds = []
-        plots = get_standard_plots(experiment=exp, model=gs.model)
+        plots = get_standard_plots(
+            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+        )
         self.assertEqual(len(plots), 8)
