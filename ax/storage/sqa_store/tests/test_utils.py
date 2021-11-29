@@ -61,3 +61,27 @@ class SQAStoreUtilsTest(TestCase):
         save_experiment(exp)
 
         self.assertNotEqual(exp.trials[0].arms[0].db_id, exp.trials[1].arms[0].db_id)
+
+    def test_copy_db_ids_none_search_space(self):
+        exp1 = get_experiment_with_batch_trial()
+        save_experiment(exp1)
+        exp2 = load_experiment(exp1.name)
+        self.assertEqual(exp1, exp2)
+
+        # empty search_space of exp1
+        exp1._search_space = None
+
+        # empty some of exp2 db_ids
+        exp2.trials[0].db_id = None
+        exp2.trials[0].generator_runs[0].arms[0].db_id = None
+
+        with self.assertWarnsRegex(
+            Warning,
+            "Encountered two objects of different types",
+        ):
+            # copy db_ids from exp1 to exp2
+            copy_db_ids(exp1, exp2)
+
+        # empty search space of exp2 for comparison
+        exp2._search_space = None
+        self.assertEqual(exp1, exp2)

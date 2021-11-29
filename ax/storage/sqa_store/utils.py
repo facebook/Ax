@@ -4,9 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from typing import Any, List, Optional
 
 from ax.core.experiment import Experiment
+from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import SQADecodeError
 from ax.utils.common.base import Base, SortableBase
 
@@ -40,10 +42,18 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
 
     if type(source) != type(target):
         if not issubclass(type(target), type(source)):
-            raise SQADecodeError(
-                error_message_prefix + "Encountered two objects of different "
-                f"types: {type(source)} and {type(target)}."
-            )
+            if source is None and isinstance(target, SearchSpace):
+                warnings.warn(
+                    error_message_prefix + "Encountered two objects of different "
+                    f"types: {type(source)} and {type(target)}. Continuing in the "
+                    "special case that `source is None` and `target` is a "
+                    "`SearchSpace`."
+                )
+            else:
+                raise SQADecodeError(
+                    error_message_prefix + "Encountered two objects of different "
+                    f"types: {type(source)} and {type(target)}."
+                )
 
     if isinstance(source, Base):
         for attr, val in source.__dict__.items():
