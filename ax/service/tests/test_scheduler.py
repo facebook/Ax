@@ -52,6 +52,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_search_space,
     get_generator_run,
+    DummyEarlyStoppingStrategy,
 )
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -282,15 +283,6 @@ class TestAxScheduler(TestCase):
         )
 
     def test_validate_early_stopping_strategy(self):
-        class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
-            def should_stop_trials_early(
-                self,
-                trial_indices: Set[int],
-                experiment: Experiment,
-                **kwargs: Dict[str, Any],
-            ) -> Set[int]:
-                return {}
-
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,

@@ -8,9 +8,10 @@ import json
 import logging
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
+from typing import Set, Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 
 import ax.service.utils.best_point as best_point_utils
+import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
 from ax.core.abstract_data import AbstractDataFrameData
@@ -28,9 +29,11 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import OptimizationComplete
 from ax.exceptions.core import UnsupportedPlotError, UnsupportedError
+from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -133,6 +136,10 @@ class AxClient(WithDBSettingsBase):
             encounted. Only use if SQL storage is not important for the given use
             case, since this will only log, but not raise, an exception if its
             encountered while saving to DB or loading from it.
+
+        early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
+            whether a trial should be stopped given the current state of
+            the experiment. Used in ``should_stop_trials_early``.
     """
 
     BACH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
@@ -150,6 +157,7 @@ class AxClient(WithDBSettingsBase):
         random_seed: Optional[int] = None,
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
+        early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
     ) -> None:
         super().__init__(
             db_settings=db_settings, suppress_all_errors=suppress_storage_errors
@@ -168,6 +176,7 @@ class AxClient(WithDBSettingsBase):
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
         self._suppress_storage_errors = suppress_storage_errors
+        self._early_stopping_strategy = early_stopping_strategy
         if random_seed is not None:
             logger.warning(
                 f"Random seed set to {random_seed}. Note that this setting "
@@ -263,6 +272,8 @@ class AxClient(WithDBSettingsBase):
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
         """
+        self._validate_early_stopping_strategy(support_intermediate_data)
+
         objective_kwargs = {}
         if (objective_name or minimize is not None) and objectives:
             raise UnsupportedError(
@@ -337,9 +348,17 @@ class AxClient(WithDBSettingsBase):
         Returns:
             Tuple of trial parameterization, trial index
         """
-        trial = self.experiment.new_trial(
-            generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
-        )
+        try:
+            trial = self.experiment.new_trial(
+                generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
+            )
+        except MaxParallelismReachedException as e:
+            if self._early_stopping_strategy is not None:
+                e.message += (  # noqa: B306
+                    " When stopping trials early, make sure to call `stop_trial_early` "
+                    "on the stopped trial."
+                )
+            raise e
         logger.info(
             f"Generated new trial {trial.index} with parameters "
             f"{round_floats_for_logging(item=not_none(trial.arm).parameters)}."
@@ -1046,6 +1065,29 @@ class AxClient(WithDBSettingsBase):
             == parameterization
         )
 
+    def should_stop_trials_early(
+        self, trial_indices: Set[int]
+    ) -> Dict[int, Optional[str]]:
+        """Evaluate whether to early-stop running trials.
+
+        Args:
+            trial_indices: Indices of trials to consider for early stopping.
+
+        Returns:
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason.
+        """
+        return early_stopping_utils.should_stop_trials_early(
+            early_stopping_strategy=self._early_stopping_strategy,
+            trial_indices=trial_indices,
+            experiment=self.experiment,
+        )
+
+    def stop_trial_early(self, trial_index: int) -> None:
+        trial = self._get_trial(trial_index)
+        trial.mark_early_stopped()
+        logger.info(f"Early stopped trial {trial_index}.")
+
     # ------------------ JSON serialization & storage methods. -----------------
 
     def save_to_json_file(self, filepath: str = "ax_client_snapshot.json") -> None:
@@ -1443,6 +1485,16 @@ class AxClient(WithDBSettingsBase):
                     "fetched in `experiment.fetch_data()`, but you can still use "
                     "`experiment.lookup_data_for_trial` to get all attached data."
                 )
+
+    def _validate_early_stopping_strategy(
+        self, support_intermediate_data: bool
+    ) -> None:
+        if self._early_stopping_strategy is not None and not support_intermediate_data:
+            raise ValueError(
+                "Early stopping is only supported for experiments which allow "
+                " reporting intermediate trial data by setting passing "
+                "`support_intermediate_data=True`."
+            )
 
     # -------- Backward-compatibility with old save / load method names. -------
 

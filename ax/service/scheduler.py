@@ -27,6 +27,7 @@ from typing import (
     cast,
 )
 
+import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
@@ -1076,12 +1077,10 @@ class Scheduler(WithDBSettingsBase):
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason.
         """
-        if self.options.early_stopping_strategy is None:
-            return {}
-
-        early_stopping_strategy = not_none(self.options.early_stopping_strategy)
-        return early_stopping_strategy.should_stop_trials_early(
-            trial_indices=trial_indices, experiment=self.experiment
+        return early_stopping_utils.should_stop_trials_early(
+            early_stopping_strategy=self.options.early_stopping_strategy,
+            trial_indices=trial_indices,
+            experiment=self.experiment,
         )
 
     def _abort_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:

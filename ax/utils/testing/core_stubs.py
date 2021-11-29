@@ -7,7 +7,7 @@
 
 from collections import OrderedDict
 from datetime import timedelta, datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Type, cast
+from typing import Set, Any, Dict, Iterable, List, MutableMapping, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
@@ -56,6 +56,7 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.early_stopping.strategies import (
+    BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
@@ -1394,6 +1395,19 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
         min_curves=10,
         trial_indices_to_ignore=[0, 1, 2],
     )
+
+
+class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+    def __init__(self, early_stop_trials: Optional[Dict[int, str]] = None):
+        self.early_stop_trials = early_stop_trials or {}
+
+    def should_stop_trials_early(
+        self,
+        trial_indices: Set[int],
+        experiment: Experiment,
+        **kwargs: Dict[str, Any],
+    ) -> Dict[int, Optional[str]]:
+        return self.early_stop_trials
 
 
 ##############################

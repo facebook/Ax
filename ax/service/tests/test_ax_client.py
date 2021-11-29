@@ -27,6 +27,7 @@ from ax.core.parameter import (
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedPlotError
 from ax.exceptions.core import UnsupportedError
+from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -46,6 +47,7 @@ from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.utils.sampling import manual_seed
@@ -1691,6 +1693,80 @@ class TestAxClient(TestCase):
             params, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
         self.assertEqual(len(ax_client.experiment.trials), 10)
+
+    def test_should_stop_trials_early(self):
+        expected = {
+            1: "Stopped due to testing.",
+            3: "Stopped due to testing.",
+        }
+        ax_client = AxClient(
+            early_stopping_strategy=DummyEarlyStoppingStrategy(expected)
+        )
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            support_intermediate_data=True,
+        )
+        actual = ax_client.should_stop_trials_early(trial_indices=[1, 2, 3])
+        self.assertEqual(actual, expected)
+
+    def test_stop_trial_early(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            support_intermediate_data=True,
+        )
+        _, idx = ax_client.get_next_trial()
+        ax_client.stop_trial_early(idx)
+        trial = ax_client._get_trial(idx)
+        self.assertTrue(trial.status.is_early_stopped)
+
+    def test_max_parallelism_exception_when_early_stopping(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            support_intermediate_data=True,
+        )
+
+        exception = MaxParallelismReachedException(
+            step_index=1, model_name="test", num_running=10
+        )
+
+        def fake_new_trial(*args, **kwargs):
+            raise exception
+
+        ax_client._experiment.new_trial = fake_new_trial
+
+        # Without early stopping.
+        with self.assertRaises(MaxParallelismReachedException) as cm:
+            ax_client.get_next_trial()
+        # Assert Exception's message is unchanged.
+        self.assertEqual(cm.exception.message, exception.message)
+
+        # With early stopping.
+        ax_client._early_stopping_strategy = DummyEarlyStoppingStrategy()
+        # Assert Exception's message is augmented to mention early stopping.
+        with self.assertRaisesRegex(MaxParallelismReachedException, ".*early.*stop"):
+            ax_client.get_next_trial()
+
+    def test_experiment_does_not_support_early_stopping(self):
+        ax_client = AxClient(early_stopping_strategy=DummyEarlyStoppingStrategy())
+        with self.assertRaisesRegex(ValueError, ".*`support_intermediate_data=True`.*"):
+            ax_client.create_experiment(
+                parameters=[
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+                ],
+                support_intermediate_data=False,
+            )
 
 
 def _resolve_db_id(gs_to_resolve, source_gs):
