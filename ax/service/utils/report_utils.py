@@ -11,7 +11,7 @@ from typing import Tuple, Union, Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from ax.core.abstract_data import AbstractDataFrameData
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
@@ -67,7 +67,7 @@ def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
 
 def _get_objective_trace_plot(
     experiment: Experiment,
-    data: AbstractDataFrameData,
+    data: Data,
     model_transitions: List[int],
 ) -> Optional[go.Figure]:
     if experiment.is_moo_problem:
@@ -201,7 +201,7 @@ def _get_shortest_unique_suffix_dict(
 def get_standard_plots(
     experiment: Experiment,
     model: Optional[ModelBridge],
-    data: Optional[AbstractDataFrameData] = None,
+    data: Optional[Data] = None,
     model_transitions: Optional[List[int]] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
@@ -332,7 +332,7 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
 
 def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
-    data: AbstractDataFrameData,
+    data: Data,
     key_components: List[str],
     metrics: List[Metric],
 ):

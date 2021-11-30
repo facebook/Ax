@@ -7,7 +7,6 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -860,7 +859,7 @@ class Encoder:
         return trial_sqa
 
     def data_to_sqa(
-        self, data: AbstractDataFrameData, trial_index: Optional[int], timestamp: int
+        self, data: Data, trial_index: Optional[int], timestamp: int
     ) -> SQAData:
         """Convert Ax data to SQLAlchemy."""
         # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[Data]`.

@@ -714,8 +714,6 @@ class GenerationStrategy(Base):
                 "implement fetching logic (check your metrics) or no data was "
                 "attached to experiment for completed trials."
             )
-        # pyre-ignore[7]: [7]: Expected `Data` but got
-        # `ax.core.abstract_data.AbstractDataFrameData`
         return data
 
     def _update_current_model(self, new_data: Data) -> None:
@@ -746,8 +744,6 @@ class GenerationStrategy(Base):
                     "No new data is attached to experiment; no need for model update."
                 )
                 return None
-            # pyre-ignore[7]: [7]: Expected `Data` but got
-            # `ax.core.abstract_data.AbstractDataFrameData`
             return new_data
 
         elif passed_in_data.df.empty:
@@ -780,8 +776,6 @@ class GenerationStrategy(Base):
         self._model = get_model_from_generator_run(
             generator_run=generator_run,
             experiment=self.experiment,
-            # pyre-ignore[6]: [7]: Expected `Data` but got
-            # `ax.core.abstract_data.AbstractDataFrameData`
             data=data,
             models_enum=models_enum,
         )

@@ -14,7 +14,6 @@ from functools import reduce
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -93,7 +92,7 @@ class Experiment(Base):
         self.runner = runner
         self.is_test = is_test
 
-        self._data_by_trial: Dict[int, OrderedDict[int, AbstractDataFrameData]] = {}
+        self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: Optional[str] = experiment_type
         self._optimization_config = None
         self._tracking_metrics: Dict[str, Metric] = {}
@@ -431,9 +430,7 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
-    def fetch_data(
-        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         """Fetches data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.
@@ -461,7 +458,7 @@ class Experiment(Base):
         trial_indices: Iterable[int],
         metrics: Optional[List[Metric]] = None,
         **kwargs: Any,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetches data for specific trials on the experiment.
 
         NOTE: For metrics that are not available while trial is running, the data
@@ -490,7 +487,7 @@ class Experiment(Base):
         trials: List[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
         **kwargs: Any,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
@@ -517,7 +514,7 @@ class Experiment(Base):
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         trial = self.trials[trial_index]
         return self._lookup_or_fetch_trials_data(
             trials=[trial], metrics=metrics, **kwargs
@@ -525,7 +522,7 @@ class Experiment(Base):
 
     def attach_data(
         self,
-        data: AbstractDataFrameData,
+        data: Data,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
     ) -> int:
@@ -615,13 +612,9 @@ class Experiment(Base):
                 )
             elif overwrite_existing_data:
                 current_trial_data = OrderedDict(
-                    {
-                        # pyre-ignore [45]: Cannot instantiate `AbstractDataFrameData`.
-                        cur_time_millis: data_type(trial_df, **data_init_args)
-                    }
+                    {cur_time_millis: data_type(trial_df, **data_init_args)}
                 )
             else:
-                # pyre-ignore [45]: Cannot instantiate `AbstractDataFrameData`.
                 current_trial_data[cur_time_millis] = data_type(
                     trial_df, **data_init_args
                 )
@@ -629,7 +622,7 @@ class Experiment(Base):
 
         return cur_time_millis
 
-    def lookup_data_for_ts(self, timestamp: int) -> AbstractDataFrameData:
+    def lookup_data_for_ts(self, timestamp: int) -> Data:
         """Collect data for all trials stored at this timestamp.
 
         Useful when many trials' data was fetched and stored simultaneously
@@ -654,7 +647,7 @@ class Experiment(Base):
     def lookup_data_for_trial(
         self,
         trial_index: int,
-    ) -> Tuple[AbstractDataFrameData, int]:
+    ) -> Tuple[Data, int]:
         """Lookup stored data for a specific trial.
 
         Returns latest data object, and its storage timestamp, present for this trial.
@@ -680,7 +673,7 @@ class Experiment(Base):
     def lookup_data(
         self,
         trial_indices: Optional[Iterable[int]] = None,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Lookup data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.

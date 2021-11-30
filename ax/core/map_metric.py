@@ -19,7 +19,7 @@ class MapMetric(Metric):
     subclassing, which specifies how to retrieve a Metric, for a given trial.
 
     A MapMetric must return a MapData object, which requires (at minimum) the following:
-        https://ax.dev/api/_modules/ax/core/abstract_data.html#AbstractDataFrameData.required_columns
+        https://ax.dev/api/_modules/ax/core/data.html#Data.required_columns
 
     Attributes:
         lower_is_better: Flag for metrics which should be minimized.

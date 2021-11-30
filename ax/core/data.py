@@ -7,15 +7,18 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Iterable, Optional, Set, Type
+from hashlib import md5
+from typing import Any, Dict, Iterable, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
+from ax.utils.common.base import Base
+from ax.utils.common.serialization import extract_init_args, serialize_init_args
+from ax.utils.common.typeutils import not_none, checked_cast
 
 
-class Data(AbstractDataFrameData):
+class Data(Base):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
@@ -33,7 +36,7 @@ class Data(AbstractDataFrameData):
     # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
     # either in your Metric class or in Data explicitly.
     REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
-    # pyre-ignore[15]: Inconsistent override. Adds FieldExperiment-specific fields
+
     COLUMN_DATA_TYPES = {
         "arm_name": str,
         "metric_name": str,
@@ -79,7 +82,92 @@ class Data(AbstractDataFrameData):
             # Reorder the columns for easier viewing
             col_order = [c for c in self.column_data_types() if c in df.columns]
             self._df = df[col_order]
-        super().__init__(description=description)
+
+        self.description = description
+
+    @classmethod
+    def _safecast_df(
+        cls, df: pd.DataFrame, extra_column_types: Optional[Dict[str, Type]] = None
+    ) -> pd.DataFrame:
+        """Function for safely casting df to standard data types.
+
+        Needed because numpy does not support NaNs in integer arrays.
+
+        Allows `Any` to be specified as a type, and will skip casting for that column.
+
+        Args:
+            df: DataFrame to safe-cast.
+            extra_column_types: types of columns only specified at instantiation-time.
+
+        Returns:
+            safe_df: DataFrame cast to standard dtypes.
+
+        """
+        extra_column_types = extra_column_types or {}
+        dtype = {
+            # Pandas timestamp handlng is weird
+            col: "datetime64[ns]" if coltype is pd.Timestamp else coltype
+            for col, coltype in cls.column_data_types(
+                extra_column_types=extra_column_types
+            ).items()
+            if col in df.columns.values
+            and not (
+                cls.column_data_types(extra_column_types)[col] is np.int64
+                and df.loc[:, col].isnull().any()
+            )
+            and not (coltype is Any)
+        }
+
+        return checked_cast(pd.DataFrame, df.astype(dtype=dtype))
+
+    @classmethod
+    def required_columns(cls) -> Set[str]:
+        """Names of columns that must be present in the underlying ``DataFrame``."""
+        return cls.REQUIRED_COLUMNS
+
+    @classmethod
+    def supported_columns(
+        cls, extra_column_names: Optional[Iterable[str]] = None
+    ) -> Set[str]:
+        """Names of columns supported (but not necessarily required) by this class."""
+        extra_column_names = set(extra_column_names or [])
+        extra_column_types: Dict[str, Any] = {name: Any for name in extra_column_names}
+        return cls.REQUIRED_COLUMNS.union(
+            cls.column_data_types(extra_column_types=extra_column_types)
+        )
+
+    @classmethod
+    def column_data_types(
+        cls,
+        extra_column_types: Optional[Dict[str, Type]] = None,
+        excluded_columns: Optional[Iterable[str]] = None,
+    ) -> Dict[str, Type]:
+        """Type specification for all supported columns."""
+        extra_column_types = extra_column_types or {}
+        excluded_columns = excluded_columns or []
+
+        columns = {**cls.COLUMN_DATA_TYPES, **extra_column_types}
+
+        for column in excluded_columns:
+            if column in columns:
+                del columns[column]
+
+        return columns
+
+    @classmethod
+    def serialize_init_args(cls, data: Data) -> Dict[str, Any]:
+        """Serialize the class-dependent properties needed to initialize this Data.
+        Used for storage and to help construct new similar Data. All kwargs
+        other than "dataframe" and "description" are considered structural.
+        """
+        return serialize_init_args(object=data, exclude_fields=["df", "description"])
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, extract the properties needed to initialize the metric.
+        Used for storage.
+        """
+        return extract_init_args(args=args, class_=cls)
 
     @property
     def true_df(self) -> pd.DataFrame:
@@ -93,8 +181,51 @@ class Data(AbstractDataFrameData):
     def df(self) -> pd.DataFrame:
         return self._df
 
+    @property
+    def df_hash(self) -> str:
+        """Compute hash of pandas DataFrame.
+
+        This first serializes the DataFrame and computes the md5 hash on the
+        resulting string. Note that this may cause performance issue for very large
+        DataFrames.
+
+        Args:
+            df: The DataFrame for which to compute the hash.
+
+        Returns
+            str: The hash of the DataFrame.
+
+        """
+        return md5(not_none(self.df.to_json()).encode("utf-8")).hexdigest()
+
+    @property
+    def metric_names(self) -> Set[str]:
+        """Set of metric names that appear in the underlying dataframe of
+        this object.
+        """
+        return set() if self.df.empty else set(self.df["metric_name"].values)
+
+    def get_filtered_results(self, **filters: Dict[str, Any]) -> pd.DataFrame:
+        """Return filtered subset of data.
+
+        Args:
+            filter: Column names and values they must match.
+
+        Returns
+            df: The filtered DataFrame.
+        """
+        df = self.df.copy()
+        columns = df.columns
+        for colname, value in filters.items():
+            if colname not in columns:
+                raise ValueError(
+                    f"{colname} not in the set of columns: {columns}"
+                    f"in this data object of type: {str(type(self))}."
+                )
+            df = df[df[colname] == value]
+        return df
+
     @staticmethod
-    # pyre-ignore [14]: `Iterable[Data]` not a supertype of overridden parameter.
     def from_multiple_data(
         data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
     ) -> Data:
@@ -205,6 +336,14 @@ class Data(AbstractDataFrameData):
             for record in records:
                 record["n"] = sample_sizes[str(record["arm_name"])]
         return Data(df=pd.DataFrame(records))
+
+    def copy_structure_with_df(self, df: pd.DataFrame) -> Data:
+        """Serialize the structural properties needed to initialize this Data.
+        Used for storage and to help construct new similar Data. All kwargs
+        other than ``df`` and ``description`` are considered structural.
+        """
+        cls = type(self)
+        return cls(df=df, **cls.serialize_init_args(self))
 
 
 def set_single_trial(data: Data) -> Data:

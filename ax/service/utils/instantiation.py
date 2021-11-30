@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from typing import Tuple, Dict, List, Optional, Union, cast
 
 import numpy as np
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -724,7 +723,7 @@ def data_and_evaluations_from_raw_data(
     sample_sizes: Dict[str, int],
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
-) -> Tuple[Dict[str, TEvaluationOutcome], AbstractDataFrameData]:
+) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
     """Transforms evaluations into Ax Data.
 
     Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}

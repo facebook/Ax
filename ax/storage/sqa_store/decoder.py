@@ -10,7 +10,6 @@ from enum import Enum
 from typing import cast, List, Optional, Tuple, Type, Union
 
 import pandas as pd
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
@@ -952,7 +951,7 @@ class Decoder:
         self,
         data_sqa: SQAData,
         data_constructor: Type[Data] = Data,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Convert SQLAlchemy Data to AE Data."""
         # TODO: extract data type from SQAData after DataRegistry added.
         kwargs = data_constructor.deserialize_init_args(

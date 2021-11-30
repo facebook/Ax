@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.runner import Runner
@@ -454,9 +454,7 @@ class BaseTrial(ABC, SortableBase):
             self.mark_completed()
         return self
 
-    def fetch_data(
-        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         """Fetch data for this trial for all metrics on experiment.
 
         Args:
@@ -474,7 +472,7 @@ class BaseTrial(ABC, SortableBase):
 
     def lookup_data(
         self,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Lookup cached data on experiment for this trial.
 
         Returns:

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
@@ -111,9 +110,7 @@ class Metric(SortableBase):
         """
         return extract_init_args(args=args, class_=cls)
 
-    def fetch_trial_data(
-        self, trial: core.base_trial.BaseTrial, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    def fetch_trial_data(self, trial: core.base_trial.BaseTrial, **kwargs: Any) -> Data:
         """Fetch data for one trial."""
         raise NotImplementedError(
             f"Metric {self.name} does not implement data-fetching logic."
@@ -121,7 +118,7 @@ class Metric(SortableBase):
 
     def fetch_experiment_data(
         self, experiment: core.experiment.Experiment, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch this metric's data for an experiment.
 
         Default behavior is to fetch data from all trials expecting data
@@ -141,14 +138,13 @@ class Metric(SortableBase):
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch multiple metrics data for one trial.
 
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
         dat = cls.data_constructor.from_multiple_data(
-            # pyre-fixme [6]: Expect `Iterable[Data]` got `List[AbstractDataFrameData]`
             [metric.fetch_trial_data(trial, **kwargs) for metric in metrics]
         )
         return dat
@@ -160,14 +156,13 @@ class Metric(SortableBase):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch multiple metrics data for an experiment.
 
         Default behavior calls `fetch_trial_data_multi` for each trial.
         Subclasses should override to batch data computation across trials + metrics.
         """
         return cls.data_constructor.from_multiple_data(
-            # pyre-fixme [6]: Expect `Iterable[Data]` got `List[AbstractDataFrameData]`
             [
                 cls.fetch_trial_data_multi(trial, metrics, **kwargs)
                 if trial.status.expecting_data
@@ -183,7 +178,7 @@ class Metric(SortableBase):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
         depending on whether they are available while running.
 
@@ -228,8 +223,6 @@ class Metric(SortableBase):
                     final_data = fetched_data
                 else:
                     final_data = cls.data_constructor.from_multiple_data(
-                        # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
-                        #   but got `AbstractDataFrameData`.
                         [cached_data, fetched_data]
                     )
             else:
@@ -282,8 +275,6 @@ class Metric(SortableBase):
                 fetched_trial_data = cls.data_constructor()
 
             final_data = cls.data_constructor.from_multiple_data(
-                # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
-                #   but got `AbstractDataFrameData`.
                 [cached_trial_data, fetched_trial_data]
             )
             if not final_data.df.empty:

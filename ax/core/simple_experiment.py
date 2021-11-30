@@ -9,7 +9,6 @@ import warnings
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -107,7 +106,7 @@ class SimpleExperiment(Experiment):
     def is_simple_experiment(self):
         return True
 
-    def eval_trial(self, trial: BaseTrial) -> AbstractDataFrameData:
+    def eval_trial(self, trial: BaseTrial) -> Data:
         """
         Evaluate trial arms with the evaluation function of this
         experiment.
@@ -157,8 +156,7 @@ class SimpleExperiment(Experiment):
 
         # TODO(jej)[T87591836] Support non-`Data` data types.
         return Data.from_multiple_data(
-            [  # pyre-fixme [6]: Incompatible paramtype: Expected `Data`
-                #   but got `AbstractDataFrameData`.
+            [
                 self.eval_trial(trial)
                 for trial in self.trials.values()
                 if trial.status != TrialStatus.FAILED
@@ -230,7 +228,7 @@ class SimpleExperiment(Experiment):
     @copy_doc(Experiment._fetch_trial_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         return self.eval_trial(self.trials[trial_index])
 
     @copy_doc(Experiment.add_tracking_metric)

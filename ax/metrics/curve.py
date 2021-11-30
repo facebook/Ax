@@ -15,8 +15,8 @@ from abc import abstractmethod, ABC
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.base_trial import BaseTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapKeyInfo, MapData
 from ax.core.map_metric import MapMetric
@@ -57,16 +57,14 @@ class AbstractCurveMetric(MapMetric, ABC):
     def overwrite_existing_data(cls) -> bool:
         return True
 
-    def fetch_trial_data(
-        self, trial: BaseTrial, **kwargs: Any
-    ) -> AbstractDataFrameData:
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
         """Fetch data for one trial."""
         return self.fetch_trial_data_multi(trial=trial, metrics=[self], **kwargs)
 
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch multiple metrics data for one trial."""
         return cls.fetch_experiment_data_multi(
             experiment=trial.experiment, metrics=metrics, trials=[trial], **kwargs
@@ -79,7 +77,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[BaseTrial]] = None,
         **kwargs: Any,
-    ) -> AbstractDataFrameData:
+    ) -> Data:
         """Fetch multiple metrics data for an experiment."""
         if trials is None:
             trials = list(experiment.trials.values())

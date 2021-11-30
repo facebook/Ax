@@ -14,10 +14,10 @@ import ax.service.utils.best_point as best_point_utils
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
-from ax.core.abstract_data import AbstractDataFrameData
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
@@ -1408,7 +1408,7 @@ class AxClient(WithDBSettingsBase):
         raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
         metadata: Optional[Dict[str, Union[str, int]]],
         sample_sizes: Optional[Dict[str, int]] = None,
-    ) -> Tuple[Dict[str, TEvaluationOutcome], AbstractDataFrameData]:
+    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
         """Formats given raw data as Ax evaluations and `Data`.
 
         Args:
@@ -1473,7 +1473,7 @@ class AxClient(WithDBSettingsBase):
                     f"on experiment creation for {p_name}."
                 )
 
-    def _validate_trial_data(self, trial: Trial, data: AbstractDataFrameData) -> None:
+    def _validate_trial_data(self, trial: Trial, data: Data) -> None:
         for metric_name in data.df["metric_name"].values:
             if metric_name not in self.experiment.metrics:
                 logger.info(
