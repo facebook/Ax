@@ -7,22 +7,113 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, List, Callable, Dict, Optional, Union
 
+from ax.core.data import Data  # Perhaps need to use `AbstractDataFrameData`?
+from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import (
     ModelRegistryBase,
 )
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import checked_cast
 
 
 TModelFactory = Callable[..., ModelBridge]
+CANNOT_SELECT_ONE_MODEL_MSG = """
+Base `GenerationNode` does not implement selection among fitted
+models, so exactly one `ModelSpec` must be specified when using
+`GenerationNode._pick_fitted_model_to_gen_from` (usually called
+by `GenerationNode.gen`.
+"""
 
 
-@dataclass
 class GenerationNode:
-    pass  # TODO[drfreund]
+    """Base class for generation node, capable of fitting one or more
+    model specs under the hood and generating candidates from them.
+    """
+
+    model_specs: List[ModelSpec]
+
+    def __init__(self, model_specs: List[ModelSpec]) -> None:
+        # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
+        # and `_pick_fitted_model_to_gen_from` methods, we validate the
+        # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
+        # to not require all `GenerationNode` subclasses to override an `__init__`
+        # method to bypass that validation.
+        self.model_specs = model_specs
+
+    def fit(
+        self,
+        experiment: Experiment,
+        data: Data,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> None:
+        """Fits the specified models to the given experiment + data using
+        the model kwargs set on each corresponding model spec.
+        """
+        for model_spec in self.model_specs:
+            model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
+                experiment=experiment,
+                data=data,
+                search_space=search_space,
+                optimization_config=optimization_config,
+            )
+
+    def update(self, experiment: Experiment, new_data: Data) -> None:
+        """Updates the specified models on the given experiment + new data."""
+        raise NotImplementedError("`update` is not supported yet.")
+
+    def gen(
+        self,
+        n: Optional[int] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+    ) -> GeneratorRun:
+        """Picks a fitted model, from which to generate candidates (via
+        ``self._pick_fitted_model_to_gen_from``) and generates candidates
+        from it. Uses the ``model_gen_kwargs`` set on the selected ``ModelSpec``
+        alongside any kwargs passed in to this function (with local kwargs)
+        taking precedent.
+
+        Args:
+            n: Optional nteger representing how many arms should be in the generator
+                run produced by this method. When this is ``None``, ``n`` will be
+                determined by the ``ModelSpec`` that we are generating from.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+
+        NOTE: Models must have been fit prior to calling ``gen``.
+        NOTE: Some underlying models may ignore the ``n`` argument and produce a
+            model-determined number of arms. In that case this method will also output
+            a generator run with number of arms (that can differ from ``n``).
+        """
+        model_spec = self._pick_fitted_model_to_gen_from()
+        return model_spec.gen(
+            # If `n` is not specified, ensure that the `None` value does not
+            # override the one set in `model_spec.model_gen_kwargs`.
+            n=model_spec.model_gen_kwargs.get("n")
+            if n is None and model_spec.model_gen_kwargs
+            else n,
+            # For `pending_observations`, prefer the input to this function, as
+            # `pending_observations` are dynamic throughout the experiment and thus
+            # unlikely to be specified in `model_spec.model_gen_kwargs`.
+            pending_observations=pending_observations,
+        )
+
+    def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
+        """Select one model to generate from among the fitted models on this
+        generation node.
+        """
+        if len(self.model_specs) != 1:
+            raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
+        return self.model_specs[0]
 
 
 @dataclass
@@ -88,42 +179,70 @@ class GenerationStep(GenerationNode, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
-
     """
 
+    # Required options:
     model: Union[ModelRegistryBase, Callable[..., ModelBridge]]
     num_trials: int
-    min_trials_observed: int = 0
-    max_parallelism: Optional[int] = None
-    use_update: bool = False
-    enforce_num_trials: bool = True
+
+    # Optional model specifications:
     # Kwargs to pass into the Models constructor (or factory function).
     model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass into the Model's `.gen` function.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
-    index: int = -1  # Index of this step, set internally.
-    # Whether the GS should deduplicate the suggested arms against
+
+    # Optional specifications for use in generation strategy:
+    min_trials_observed: int = 0
+    max_parallelism: Optional[int] = None
+    use_update: bool = False
+    enforce_num_trials: bool = True
+    # Whether the generation strategy should deduplicate the suggested arms against
     # the arms already present on the experiment. If this is `True`
     # on a given generation step, during that step the generation
     # strategy will discard a generator run that contains an arm
     # already present on the experiment and produce a new generator
     # run instead before returning it from `gen` or `_gen_multiple`.
     should_deduplicate: bool = False
+    index: int = -1  # Index of this step, set internally.
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.model, ModelRegistryBase):
+            if not callable(self.model):
+                raise UserInputError(
+                    "`model` in generation step must be either a `ModelRegistryBase` "
+                    "enum subclass entry or a callable factory function returning a "
+                    "model bridge instance."
+                )
+            model_spec = FactoryFunctionModelSpec(
+                factory_function=self.model,
+                model_kwargs=self.model_kwargs,
+                model_gen_kwargs=self.model_gen_kwargs,
+            )
+        else:
+            model_spec = ModelSpec(
+                model_enum=self.model,
+                model_kwargs=self.model_kwargs,
+                model_gen_kwargs=self.model_gen_kwargs,
+            )
+        super().__init__(model_specs=[model_spec])
+
+    @property
+    def model_spec(self) -> ModelSpec:
+        return self.model_specs[0]
 
     @property
     def model_name(self) -> str:
-        # Model can be defined as member of Models enum or as a factory function,
-        # so we use Models member (str) value if former and function name if latter.
-        if isinstance(self.model, ModelRegistryBase):
-            return checked_cast(str, checked_cast(ModelRegistryBase, self.model).value)
-        try:
-            # `model` is defined via a factory function.
-            return self.model.__name__  # pyre-fixme[16]: union has no attr __name__
-        except Exception:
-            raise TypeError(  # pragma: no cover
-                f"`model` {self.model} was not a member of `Models` or a function."
-            )
+        return self.model_spec.model_key
 
     @property
     def _unique_id(self) -> str:
         return str(self.index)
+
+
+class ModelSelectionGenerationNode(GenerationNode):
+    def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
+        """Select one model to generate from among the fitted models on this
+        generation node.
+        """
+        # TODO[adamobeng]: Add actual model-selection logic here
+        return self.model_specs[0]

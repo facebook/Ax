@@ -447,9 +447,9 @@ class GenerationStrategy(Base):
                 this method if `use_update` is True.
             n: Integer representing how many arms should be in the generator run
                 produced by this method. NOTE: Some underlying models may ignore
-                the `n` and produce a model-determined number of arms. In that
+                the ``n`` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
-                arms that can differ from `n`.
+                arms that can differ from ``n``.
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
