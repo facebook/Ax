@@ -24,6 +24,16 @@ Managed Loop
     :undoc-members:
     :show-inheritance:
 
+
+Scheduler
+~~~~~~~~~~
+
+.. automodule:: ax.service.scheduler
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Utils
 ------
 
@@ -63,10 +73,10 @@ WithDBSettingsBase
     :show-inheritance:
 
 
-Scheduler
-~~~~~~~~~~
+EarlyStopping
+~~~~~~~~~~~~~
 
-.. automodule:: ax.service.scheduler
+.. automodule:: ax.service.utils.early_stopping
     :members:
     :undoc-members:
     :show-inheritance:
