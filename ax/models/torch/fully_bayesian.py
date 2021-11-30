@@ -500,7 +500,6 @@ class FullyBayesianBotorchModelMixin:
         else:
             models = [self.model]
         lengthscales = []
-        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(Tensor.__iter__)[[Named(...
         for m in models:
             ls = m.covar_module.base_kernel.lengthscale
             lengthscales.append(ls)

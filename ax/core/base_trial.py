@@ -607,7 +607,6 @@ class BaseTrial(ABC, SortableBase):
 
         prev_step = (
             TrialStatus.STAGED
-            # pyre-fixme[16]: `Optional` has no attribute `staging_required`.
             if self._runner is not None and self._runner.staging_required
             else TrialStatus.CANDIDATE
         )
