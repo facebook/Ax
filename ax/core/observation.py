@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from typing import List, Optional, Tuple, Dict
+from typing import Iterable, List, Optional, Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -243,7 +243,7 @@ def _observations_from_dataframe(
     df: pd.DataFrame,
     cols: List[str],
     arm_name_only: bool,
-    map_keys: List[str],
+    map_keys: Iterable[str],
     include_abandoned: bool,
 ) -> List[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
@@ -325,13 +325,8 @@ def _observations_from_dataframe(
     return observations
 
 
-def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
-    if isinstance(data, MapData):
-        map_keys = data.map_keys
-    else:
-        map_keys = []
-
-    feature_cols = (OBS_COLS.intersection(data.df.columns)).union(map_keys)
+def get_feature_cols(data: Data) -> List[str]:
+    feature_cols = OBS_COLS.intersection(data.df.columns)
 
     for column in TIME_COLS:
         if column in feature_cols and len(data.df[column].unique()) > 1:
@@ -340,7 +335,20 @@ def get_map_keys_and_feature_cols(data: Data) -> Tuple[List[str], List[str]]:
             )
             feature_cols.discard(column)
 
-    return list(map_keys), list(feature_cols)
+    return list(feature_cols)
+
+
+def get_feature_cols_from_map_data(map_data: MapData) -> List[str]:
+    feature_cols = (OBS_COLS.intersection(map_data.df.columns)).union(map_data.map_keys)
+
+    for column in TIME_COLS:
+        if column in feature_cols and len(map_data.df[column].unique()) > 1:
+            warnings.warn(
+                f"`{column} is not consistent and being discarded from observation data"
+            )
+            feature_cols.discard(column)
+
+    return list(feature_cols)
 
 
 def observations_from_data(
@@ -363,12 +371,8 @@ def observations_from_data(
     Returns:
         List of Observation objects.
     """
-    if isinstance(data, MapData):
-        return observations_from_map_data(
-            experiment=experiment, map_data=data, include_abandoned=include_abandoned
-        )
 
-    _map_keys, feature_cols = get_map_keys_and_feature_cols(data)
+    feature_cols = get_feature_cols(data)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
@@ -438,7 +442,7 @@ def observations_from_map_data(
     Returns:
         List of Observation objects.
     """
-    map_keys, feature_cols = get_map_keys_and_feature_cols(map_data)
+    feature_cols = get_feature_cols_from_map_data(map_data)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
@@ -467,7 +471,7 @@ def observations_from_map_data(
             df=complete_df,
             cols=feature_cols,
             arm_name_only=arm_name_only,
-            map_keys=map_keys,
+            map_keys=map_data.map_keys,
             include_abandoned=include_abandoned,
         )
     )
@@ -479,7 +483,7 @@ def observations_from_map_data(
                 df=incomplete_df,
                 cols=complete_feature_cols,
                 arm_name_only=arm_name_only,
-                map_keys=map_keys,
+                map_keys=map_data.map_keys,
                 include_abandoned=include_abandoned,
             )
         )

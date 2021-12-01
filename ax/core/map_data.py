@@ -248,7 +248,7 @@ class MapData(Data):
 
         self._memo_df = (
             self.map_df.sort_values(list(self.map_keys))
-            .drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="first")
+            .drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
             .loc[:, ~self.map_df.columns.isin(self.map_keys)]
         )
 
