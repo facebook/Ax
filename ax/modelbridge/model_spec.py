@@ -64,23 +64,20 @@ class ModelSpec(Base):
         self,
         experiment: Experiment,
         data: Data,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
         **model_kwargs: Any,
     ) -> None:
         """Fits the specified model on the given experiment + data using the
         model kwargs set on the model spec, alongside any passed down as
         kwargs to this function (local kwargs take precedent)
         """
+        # NOTE: It's important to copy `self.model_kwargs` here to avoid actually
+        # adding contents of `model_kwargs` passed to this method, to
+        # `self.model_kwargs`.
+        combined_model_kwargs = {**(self.model_kwargs or {}), **model_kwargs}
         self._fitted_model = self.model_enum(
             experiment=experiment,
             data=data,
-            **self._prepare_model_fit_kwargs(
-                experiment=experiment,
-                search_space=search_space,
-                optimization_config=optimization_config,
-                **model_kwargs,
-            ),
+            **combined_model_kwargs,
         )
 
     def update(self, experiment: Experiment, new_data: Data) -> None:
@@ -121,25 +118,6 @@ class ModelSpec(Base):
         """Helper that verifies a model was fitted, raising an error if not"""
         if self._fitted_model is None:
             raise UserInputError("No fitted model found. Call fit() to generate one")
-
-    def _prepare_model_fit_kwargs(
-        self,
-        experiment: Experiment,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        **model_kwargs: Any,
-    ) -> Dict[str, Any]:
-        """Consolidate keyword arguments to ``Model`` and ``ModelBridge``
-        constructors, plugging in search space and optimization config
-        from the ``Experiment`` object if those are not explicitly specified.
-        """
-        return {
-            "search_space": search_space or experiment.search_space,
-            "optimization_config": optimization_config
-            or experiment.optimization_config,
-            **(self.model_kwargs or {}),
-            **model_kwargs,
-        }
 
 
 @dataclass
@@ -190,17 +168,18 @@ class FactoryFunctionModelSpec(ModelSpec):
         """
         factory_function = not_none(self.factory_function)
         self._fitted_model = factory_function(
+            # Factory functions do not have a unified signature; e.g. some factory
+            # functions (like `get_sobol`) require search space instead of experiment.
+            # Therefore, we filter kwargs to remove unnecessary ones and add additional
+            # arguments like `search_space` and `optimization_config`.
             **filter_kwargs(
                 factory_function,
                 experiment=experiment,
                 data=data,
-                # Some factory functions (like `get_sobol`) require search space
-                # instead of experiment.
-                **self._prepare_model_fit_kwargs(
-                    experiment=experiment,
-                    search_space=search_space,
-                    optimization_config=optimization_config,
-                    **model_kwargs,
-                ),
+                search_space=search_space or experiment.search_space,
+                optimization_config=optimization_config
+                or experiment.optimization_config,
+                **(self.model_kwargs or {}),
+                **model_kwargs,
             )
         )
