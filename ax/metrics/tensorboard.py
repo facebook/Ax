@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Iterable, Dict, Optional, Union
+from typing import Iterable, Dict, List, Optional, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo
@@ -71,10 +71,15 @@ try:
         ]
         tb_run_data = {}
         for item in raw_result:
-            steps = [e.step for e in item["event"]]
+            latest_start_time = _get_latest_start_time(item["event"])
+            steps = [e.step for e in item["event"] if e.wall_time >= latest_start_time]
             vals = list(
                 itertools.chain.from_iterable(
-                    [e.tensor_proto.float_val for e in item["event"]]
+                    [
+                        e.tensor_proto.float_val
+                        for e in item["event"]
+                        if e.wall_time >= latest_start_time
+                    ]
                 )
             )
             key = item["tag"]
@@ -82,12 +87,30 @@ try:
             if any(series.index.duplicated()):  # pyre-ignore[16]
                 # take average of repeated observations of the same "step"
                 series = series.groupby(steps).mean()  # pyre-ignore[16]
-                logger.info(
+                logger.warning(
                     f"Found duplicate steps for tag {key}. "
                     "Removing duplicates by averaging."
                 )
             tb_run_data[key] = series
         return tb_run_data
+
+    def _get_latest_start_time(events: List) -> float:
+        r"""In each directory, there may be previous training runs due
+        to restarting training jobs.
+
+        Args:
+            events: A list of TensorEvents.
+
+        Returns:
+            The start time of the latest training run.
+        """
+        events.sort(key=lambda e: e.wall_time)
+        start_time = events[0].wall_time
+        for i in range(1, len(events)):
+            # detect points in time where restarts occurred
+            if events[i].step < events[i - 1].step:
+                start_time = events[i].wall_time
+        return start_time
 
 
 except ImportError:
