@@ -75,7 +75,7 @@ class ParameterConstraint(SortableBase):
         )
         # Expected `int` for 2nd anonymous parameter to call `int.__le__` but got
         # `float`.
-        return weighted_sum <= self._bound
+        return weighted_sum <= self._bound + 1e-8  # allow for numerical imprecision
 
     def clone(self) -> ParameterConstraint:
         """Clone."""

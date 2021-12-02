@@ -52,10 +52,16 @@ class ParameterConstraintTest(TestCase):
         with self.assertRaises(ValueError):
             self.constraint.check(parameters)
 
+        # check slack constraint
         parameters = {"x": 4, "y": 1}
         self.assertTrue(self.constraint.check(parameters))
 
-        self.constraint.bound = 4.0
+        # check tight constraint (within numerical tolerance)
+        parameters = {"x": 4, "y": (2 - 0.5e-8) / 3}
+        self.assertTrue(self.constraint.check(parameters))
+
+        # check violated constraint
+        parameters = {"x": 4, "y": (2 - 0.5e-6) / 3}
         self.assertFalse(self.constraint.check(parameters))
 
     def testClone(self):
