@@ -153,10 +153,6 @@ class REMBOStrategy(GenerationStrategy):
         """Generate new points, rotating through projections each time."""
         if data is None:
             data = experiment.fetch_data()
-        if not isinstance(data, Data):
-            raise ValueError(
-                "Data fetched from experiment not an instance of PTS-supporting `Data`"
-            )
         # Get the next model in the rotation
         i = self.current_iteration % self.k
         data_by_proj = self._filter_data_to_projection(

@@ -1594,8 +1594,6 @@ def tile_observations(
     """
     if data is None:
         data = experiment.fetch_data()
-    if not isinstance(data, Data):
-        raise TypeError("data must be Data type")
     if arm_names is not None:
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
     m_ts = Models.THOMPSON(

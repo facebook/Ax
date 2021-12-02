@@ -170,8 +170,6 @@ def get_best_from_model_predictions_with_trial_index(
 
         if gr is not None and gr.best_arm_predictions is not None:  # pragma: no cover
             data = experiment.lookup_data()
-            if not isinstance(data, Data):
-                return _gr_to_prediction_with_trial_index(idx, gr)
 
             model = get_model_from_generator_run(
                 generator_run=gr, experiment=experiment, data=data
