@@ -210,11 +210,15 @@ class ModelBridge(ABC):
                     search_space=search_space,
                     observation_features=obs_feats,
                     observation_data=obs_data,
+                    modelbridge=self,
                     config=transform_configs.get(t.__name__, None),
                 )
                 search_space = t_instance.transform_search_space(search_space)
                 obs_feats = t_instance.transform_observation_features(obs_feats)
-                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
+                obs_data = t_instance.transform_observation_data(
+                    obs_data,
+                    obs_feats,
+                )
                 self.transforms[t.__name__] = t_instance
 
         return obs_feats, obs_data, search_space
@@ -784,7 +788,10 @@ class ModelBridge(ABC):
         search_space = self._model_space.clone()
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
-            obs_data = t.transform_observation_data(obs_data, obs_feats)
+            obs_data = t.transform_observation_data(
+                obs_data,
+                obs_feats,
+            )
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
@@ -930,7 +937,10 @@ class ModelBridge(ABC):
         """
         obsd = deepcopy(observation_data)
         for t in self.transforms.values():
-            obsd = t.transform_observation_data(obsd, [])
+            obsd = t.transform_observation_data(
+                obsd,
+                [],
+            )
         # Apply terminal transform and return
         return self._transform_observation_data(obsd)
 
