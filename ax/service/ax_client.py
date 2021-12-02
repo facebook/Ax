@@ -1090,6 +1090,11 @@ class AxClient(WithDBSettingsBase):
             A dictionary mapping trial indices that should be early stopped to
             (optional) messages with the associated reason.
         """
+        if self._early_stopping_strategy is None:
+            logger.warning(
+                "No early_stopping_strategy was passed to AxClient. "
+                "Defaulting to never stopping any trials early."
+            )
         return early_stopping_utils.should_stop_trials_early(
             early_stopping_strategy=self._early_stopping_strategy,
             trial_indices=trial_indices,
