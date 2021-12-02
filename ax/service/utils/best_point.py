@@ -171,9 +171,12 @@ def get_best_from_model_predictions_with_trial_index(
         if gr is not None and gr.best_arm_predictions is not None:  # pragma: no cover
             data = experiment.lookup_data()
 
-            model = get_model_from_generator_run(
-                generator_run=gr, experiment=experiment, data=data
-            )
+            try:
+                model = get_model_from_generator_run(
+                    generator_run=gr, experiment=experiment, data=data
+                )
+            except ValueError:
+                return _gr_to_prediction_with_trial_index(idx, gr)
 
             # If model is not ArrayModelBridge, just use the best arm frmo the
             # last good generator run
