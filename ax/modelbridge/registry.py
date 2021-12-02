@@ -507,10 +507,27 @@ def _combine_model_kwargs_and_state(
     if generator_run._model_state_after_gen is None:
         return model_kwargs
 
+    # We don't want to update `model_kwargs` on the `GenerationStep`,
+    # just to add to them for the purpose of this function.
+    return {
+        **model_kwargs,
+        **_extract_model_state_after_gen(
+            generator_run=generator_run, model_class=model_class
+        ),
+    }
+
+
+def _extract_model_state_after_gen(
+    generator_run: GeneratorRun, model_class: Type[Model]
+) -> Dict[str, Any]:
+    """Extracts serialized post-generation model state from a generator run and
+    deserializes it. Fails if no post-generation model state was specified on the
+    generator run.
+    """
     serialized_model_state = not_none(generator_run._model_state_after_gen)
     # We don't want to update `model_kwargs` on the `GenerationStep`,
     # just to add to them for the purpose of this function.
-    return {**model_kwargs, **model_class.deserialize_state(serialized_model_state)}
+    return model_class.deserialize_state(serialized_model_state)
 
 
 def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:
