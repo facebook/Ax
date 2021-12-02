@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
@@ -15,6 +15,10 @@ from ax.modelbridge.transforms.utils import get_data
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from scipy import stats
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 logger = get_logger(__name__)
@@ -29,6 +33,7 @@ class PercentileY(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         if len(observation_data) == 0:

@@ -44,12 +44,14 @@ class Transform:
     """
 
     config: TConfig
+    modelbridge: Optional[modelbridge_module.base.ModelBridge]
 
     def __init__(
         self,
         search_space: Optional[SearchSpace],
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         """Do any initial computations for preparing the transform.
@@ -60,11 +62,13 @@ class Transform:
             search_space: The search space
             observation_features: Observation features
             observation_data: Observation data
+            modelbridge: ModelBridge for referencing experiment, status quo, etc...
             config: A dictionary of options specific to each transform
         """
         if config is None:
             config = {}
         self.config = config
+        self.modelbridge = modelbridge
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Transform search space.

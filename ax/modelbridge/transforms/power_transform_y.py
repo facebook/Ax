@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -18,6 +18,10 @@ from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast_list
 from sklearn.preprocessing import PowerTransformer
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 logger = get_logger(__name__)
@@ -46,6 +50,7 @@ class PowerTransformY(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         if config is None:

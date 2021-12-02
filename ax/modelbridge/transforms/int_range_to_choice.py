@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 class IntRangeToChoice(Transform):
@@ -24,6 +28,7 @@ class IntRangeToChoice(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed

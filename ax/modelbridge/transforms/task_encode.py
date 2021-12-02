@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig, TParamValue
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 class TaskEncode(OrderedChoiceEncode):
@@ -30,6 +34,7 @@ class TaskEncode(OrderedChoiceEncode):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed

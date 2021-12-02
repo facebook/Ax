@@ -35,6 +35,7 @@ class InverseGaussianCdfY(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         self.dist = norm(loc=0, scale=1)

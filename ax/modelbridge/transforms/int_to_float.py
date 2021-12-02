@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
@@ -16,6 +16,10 @@ from ax.modelbridge.transforms.rounding import (
     randomized_round_parameters,
 )
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 logger = get_logger(__name__)
@@ -38,6 +42,7 @@ class IntToFloat(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         self.search_space = search_space

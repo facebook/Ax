@@ -36,6 +36,7 @@ class StandardizeY(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         if len(observation_data) == 0:

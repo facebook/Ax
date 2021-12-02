@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Dict, List, Optional, TypeVar
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -17,6 +17,10 @@ from ax.modelbridge.transforms.rounding import (
     strict_onehot_round,
 )
 from sklearn.preprocessing import LabelBinarizer, LabelEncoder
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 OH_PARAM_INFIX = "_OH_PARAM_"
@@ -84,6 +88,7 @@ class OneHot(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed

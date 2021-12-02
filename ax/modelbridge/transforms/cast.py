@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.typeutils import checked_cast
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 class Cast(Transform):
@@ -38,6 +42,7 @@ class Cast(Transform):
         search_space: SearchSpace,
         observation_features: Optional[List[ObservationFeatures]] = None,
         observation_data: Optional[List[ObservationData]] = None,
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         self.search_space = search_space.clone()
