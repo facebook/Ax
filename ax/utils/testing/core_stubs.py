@@ -113,7 +113,7 @@ def get_experiment_with_map_data_type():
         description="test description",
         tracking_metrics=[MapMetric(name="tracking")],
         is_test=True,
-        default_data_type=DataType._DATA,
+        default_data_type=DataType.MAP_DATA,
     )
 
 
@@ -185,7 +185,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         ),
         tracking_metrics=[BraninTimestampMapMetric(name="b", param_names=["x1", "x2"])],
         runner=SyntheticRunner(),
-        default_data_type=DataType._DATA,
+        default_data_type=DataType.MAP_DATA,
     )
 
 

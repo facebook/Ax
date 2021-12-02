@@ -40,12 +40,12 @@ logger: logging.Logger = get_logger(__name__)
 
 class DataType(Enum):
     DATA = 1
-    _DATA = 3
+    MAP_DATA = 3
 
 
 DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.DATA: Data,
-    DataType._DATA: MapData,
+    DataType.MAP_DATA: MapData,
 }
 
 
@@ -316,7 +316,7 @@ class Experiment(Base):
         self._optimization_config = optimization_config
 
         self._default_data_type = (
-            DataType._DATA
+            DataType.MAP_DATA
             if any(
                 isinstance(metric, MapMetric)
                 for metric in optimization_config.metrics.values()

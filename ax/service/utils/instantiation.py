@@ -647,7 +647,9 @@ def make_experiment(
         else [Metric(name=metric_name) for metric_name in tracking_metric_names]
     )
 
-    default_data_type = DataType._DATA if support_intermediate_data else DataType.DATA
+    default_data_type = (
+        DataType.MAP_DATA if support_intermediate_data else DataType.DATA
+    )
 
     immutable_ss_and_oc = immutable_search_space_and_opt_config
     properties = (
