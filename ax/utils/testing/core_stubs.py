@@ -1055,7 +1055,7 @@ def _validate_num_objectives(num_objectives: int) -> None:
 def get_branin_multi_objective_optimization_config(
     has_objective_thresholds: bool = False,
     num_objectives: int = 2,
-) -> OptimizationConfig:
+) -> MultiObjectiveOptimizationConfig:
     _validate_num_objectives(num_objectives=num_objectives)
     if has_objective_thresholds:
         objective_thresholds = [

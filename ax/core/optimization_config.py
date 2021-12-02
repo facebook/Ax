@@ -25,10 +25,10 @@ logger = get_logger(__name__)
 TRefPoint = List[ObjectiveThreshold]
 
 OC_TEMPLATE: str = (
-    "OptimizationConfig(objective={objective}, outcome_constraints=[{constraints}])"
+    "{cls_name}(objective={objective}, outcome_constraints=[{constraints}])"
 )
 MOOC_TEMPLATE: str = (
-    "OptimizationConfig(objective={objective}, outcome_constraints=[{constraints}], "
+    "{cls_name}(objective={objective}, outcome_constraints=[{constraints}], "
     "objective_thresholds=[{thresholds}])"
 )
 
@@ -208,6 +208,7 @@ class OptimizationConfig(Base):
 
     def __repr__(self) -> str:
         return OC_TEMPLATE.format(
+            cls_name=self.__class__.__name__,
             objective=repr(self.objective),
             constraints=", ".join(
                 constraint.__repr__() for constraint in self.outcome_constraints
@@ -383,6 +384,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
 
     def __repr__(self) -> str:
         return MOOC_TEMPLATE.format(
+            cls_name=self.__class__.__name__,
             objective=repr(self.objective),
             constraints=", ".join(
                 constraint.__repr__() for constraint in self.outcome_constraints

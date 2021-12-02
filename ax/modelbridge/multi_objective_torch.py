@@ -37,7 +37,7 @@ from ax.models.torch.frontier_utils import (
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast_optional, not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from torch import Tensor
 
 
@@ -79,22 +79,22 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     ) -> None:
         self._objective_metric_names = None
         # Optimization_config
-        mooc = optimization_config or checked_cast_optional(
-            MultiObjectiveOptimizationConfig, experiment.optimization_config
-        )
+        mooc = optimization_config or experiment.optimization_config
         # Extract objective_thresholds from optimization_config, or inject it.
         if not mooc:
             raise ValueError(
                 (
-                    "experiment must have an existing optimization_config "
-                    "of type MultiObjectiveOptimizationConfig "
-                    "or `optimization_config` must be passed as an argument."
+                    "Experiment must have an existing `optimization_config` "
+                    "of type `MultiObjectiveOptimizationConfig` "
+                    "or non-null `optimization_config` must be passed as an argument."
                 )
             )
         if not isinstance(mooc, MultiObjectiveOptimizationConfig):
-            raise ValueError(
-                "optimization_config must be a MultiObjectiveOptimizationConfig."
+            raise TypeError(
+                "`optimization_config` must be a `MultiObjectiveOptimizationConfig`;"
+                f" received: {mooc}."
             )
+        mooc = checked_cast(MultiObjectiveOptimizationConfig, mooc)
         if objective_thresholds:
             mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
 

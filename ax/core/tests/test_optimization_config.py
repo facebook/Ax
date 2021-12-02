@@ -29,7 +29,7 @@ OC_STR = (
 )
 
 MOOC_STR = (
-    "OptimizationConfig(objective=MultiObjective(objectives="
+    "MultiObjectiveOptimizationConfig(objective=MultiObjective(objectives="
     '[Objective(metric_name="m1", minimize=True), '
     'Objective(metric_name="m2", minimize=False)]), '
     "outcome_constraints=[OutcomeConstraint(m3 >= -0.25%), "
