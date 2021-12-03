@@ -840,7 +840,7 @@ class GenerationStrategy(Base):
         # to `model_update`. This information does not need to be stored, since when
         # restoring generation strategy from serialized form, all data will is
         # refetched and the underlying model is re-fit.
-        if any(s.use_update for s in self._steps):
+        if any(s.use_update for s in self._steps):  # pragma: no cover
             raise NotImplementedError(
                 "Updating completed trials with new data is not yet supported for "
                 "generation strategies that leverage `model.update` functionality."
