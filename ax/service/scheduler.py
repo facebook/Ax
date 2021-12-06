@@ -548,7 +548,9 @@ class Scheduler(WithDBSettingsBase):
         return self.runner.run_multiple(trials=trials)
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
-    def poll_trial_status(self) -> Dict[TrialStatus, Set[int]]:
+    def poll_trial_status(
+        self, poll_all_trial_statuses: bool = False
+    ) -> Dict[TrialStatus, Set[int]]:
         """Polling function, checks the status of any non-terminal trials
         and returns their indices as a mapping from TrialStatus to a list of indices.
 
@@ -562,7 +564,13 @@ class Scheduler(WithDBSettingsBase):
             include trials that at the time of polling already have a terminal
             (ABANDONED, FAILED, COMPLETED) status (but it may).
         """
-        return self.runner.poll_trial_status(trials=self.pending_trials)
+        return self.runner.poll_trial_status(
+            trials=(
+                self.experiment.trials.values()
+                if poll_all_trial_statuses
+                else self.pending_trials
+            )
+        )
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
@@ -946,7 +954,7 @@ class Scheduler(WithDBSettingsBase):
             updated_status_dict[status].add(trial_index)
         return updated_status_dict
 
-    def poll_and_process_results(self) -> bool:
+    def poll_and_process_results(self, poll_all_trial_statuses: bool = False) -> bool:
         """Takes the following actions:
             1. Poll trial runs for their statuses
             2. If any experiment metrics are available while running,
@@ -969,7 +977,9 @@ class Scheduler(WithDBSettingsBase):
         )
 
         # 1. Poll trial statuses
-        new_status_to_trial_idcs = self.poll_trial_status()
+        new_status_to_trial_idcs = self.poll_trial_status(
+            poll_all_trial_statuses=poll_all_trial_statuses
+        )
 
         # Note: We could use `new_status_to_trial_idcs[TrialStatus.Running]`
         # for the running_trial_indices, but we don't enforce
@@ -1039,7 +1049,7 @@ class Scheduler(WithDBSettingsBase):
             # Update trial statuses and record which trials were updated.
             trials = self.experiment.get_trials_by_indices(trial_idcs)
             for trial in trials:
-                trial.mark_as(status=status)
+                trial.mark_as(status=status, unsafe=True)
 
             # 6. Fetch data for newly completed trials
             if status.is_completed:

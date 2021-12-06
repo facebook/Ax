@@ -579,21 +579,29 @@ class BaseTrial(ABC, SortableBase):
     def abandoned_reason(self) -> Optional[str]:
         return self._abandoned_reason
 
-    def mark_staged(self) -> BaseTrial:
+    def mark_staged(self, unsafe: bool = False) -> BaseTrial:
         """Mark the trial as being staged for running.
 
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.CANDIDATE:
+        if not unsafe and self._status != TrialStatus.CANDIDATE:
             raise ValueError("Can only stage a candidate trial.")
         self._status = TrialStatus.STAGED
         self._time_staged = datetime.now()
         return self
 
-    def mark_running(self, no_runner_required: bool = False) -> BaseTrial:
+    def mark_running(
+        self, no_runner_required: bool = False, unsafe: bool = False
+    ) -> BaseTrial:
         """Mark trial has started running.
 
+        Args:
+            no_runner_required: Whether to skip the check for presence of a ``Runner``
+            on experiment.
+            unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
@@ -611,7 +619,7 @@ class BaseTrial(ABC, SortableBase):
             else TrialStatus.CANDIDATE
         )
         prev_step_str = "staged" if prev_step == TrialStatus.STAGED else "candidate"
-        if self._status != prev_step:
+        if not unsafe and self._status != prev_step:
             raise ValueError(
                 f"Can only mark this trial as running when {prev_step_str}."
             )
@@ -619,19 +627,23 @@ class BaseTrial(ABC, SortableBase):
         self._time_run_started = datetime.now()
         return self
 
-    def mark_completed(self) -> BaseTrial:
+    def mark_completed(self, unsafe: bool = False) -> BaseTrial:
         """Mark trial as completed.
 
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
+        if not unsafe and self._status != TrialStatus.RUNNING:
             raise ValueError("Can only complete trial that is currently running.")
         self._status = TrialStatus.COMPLETED
         self._time_completed = datetime.now()
         return self
 
-    def mark_abandoned(self, reason: Optional[str] = None) -> BaseTrial:
+    def mark_abandoned(
+        self, reason: Optional[str] = None, unsafe: bool = False
+    ) -> BaseTrial:
         """Mark trial as abandoned.
 
         NOTE: Arms in abandoned trials are considered to be 'pending points'
@@ -642,11 +654,12 @@ class BaseTrial(ABC, SortableBase):
 
         Args:
             abandoned_reason: The reason the trial was abandoned.
+            unsafe: Ignore sanity checks on state transitions.
 
         Returns:
             The trial instance.
         """
-        if self._status.is_terminal:
+        if not unsafe and self._status.is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
         self._abandoned_reason = reason
@@ -654,22 +667,26 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_failed(self) -> BaseTrial:
+    def mark_failed(self, unsafe: bool = False) -> BaseTrial:
         """Mark trial as failed.
 
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
-        if self._status != TrialStatus.RUNNING:
+        if not unsafe and self._status != TrialStatus.RUNNING:
             raise ValueError("Can only mark failed a trial that is currently running.")
 
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self
 
-    def mark_early_stopped(self) -> BaseTrial:
+    def mark_early_stopped(self, unsafe: bool = False) -> BaseTrial:
         """Mark trial as early stopped.
 
+        Args:
+            unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
@@ -679,11 +696,14 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_as(self, status: TrialStatus, **kwargs: Any) -> BaseTrial:
+    def mark_as(
+        self, status: TrialStatus, unsafe: bool = False, **kwargs: Any
+    ) -> BaseTrial:
         """Mark trial with a new TrialStatus.
 
         Args:
             status: The new status of the trial.
+            unsafe: Ignore sanity checks on state transitions.
             kwargs: Additional keyword args, as can be ued in the respective `mark_`
                 methods associated with the trial status.
 
@@ -691,18 +711,18 @@ class BaseTrial(ABC, SortableBase):
             The trial instance.
         """
         if status == TrialStatus.STAGED:
-            self.mark_staged()
+            self.mark_staged(unsafe=unsafe)
         elif status == TrialStatus.RUNNING:
             no_runner_required = kwargs.get("no_runner_required", False)
-            self.mark_running(no_runner_required=no_runner_required)
+            self.mark_running(no_runner_required=no_runner_required, unsafe=unsafe)
         elif status == TrialStatus.ABANDONED:
-            self.mark_abandoned(reason=kwargs.get("reason"))
+            self.mark_abandoned(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.FAILED:
-            self.mark_failed()
+            self.mark_failed(unsafe=unsafe)
         elif status == TrialStatus.COMPLETED:
-            self.mark_completed()
+            self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
-            self.mark_early_stopped()
+            self.mark_early_stopped(unsafe=unsafe)
         else:
             raise ValueError(f"Cannot mark trial as {status}.")
         return self
