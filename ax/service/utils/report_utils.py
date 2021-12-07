@@ -123,13 +123,18 @@ def _get_objective_v_param_plots(
     ]
     if len(range_params) > 1:
         # contour plots
-        output_plots += [
-            interact_contour_plotly(
-                model=not_none(model),
-                metric_name=metric_name,
-            )
-            for metric_name in metric_names
-        ]
+        try:
+            output_plots += [
+                interact_contour_plotly(
+                    model=not_none(model),
+                    metric_name=metric_name,
+                )
+                for metric_name in metric_names
+            ]
+        # `mean shape torch.Size` RunTimeErrors, pending resolution of
+        # https://github.com/cornellius-gp/gpytorch/issues/1853
+        except RuntimeError as e:
+            logger.warning(f"Contour plotting failed with error: {e}.")
     return output_plots
 
 
