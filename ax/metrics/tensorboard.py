@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 from typing import Iterable, Dict, List, Optional, Union
 
 import pandas as pd
@@ -23,6 +24,8 @@ try:
     from tensorboard.backend.event_processing import (
         plugin_event_multiplexer as event_multiplexer,
     )
+
+    logging.getLogger("tensorboard").setLevel(logging.CRITICAL)
 
     class TensorboardCurveMetric(AbstractCurveMetric):
         """A `CurveMetric` for getting Tensorboard curves."""
@@ -60,6 +63,7 @@ try:
             A dictionary mapping metric names to pandas Series of data.
             If the path does not exist, return None.
         """
+        logger.info(f"Reading TB logs from {path}.")
         mul = event_multiplexer.EventMultiplexer(max_reload_threads=20)
         mul.AddRunsFromDirectory(path, None)
         mul.Reload()
