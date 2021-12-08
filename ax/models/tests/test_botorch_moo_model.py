@@ -470,7 +470,12 @@ class BotorchMOOModelTest(TestCase):
                 bounds,
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 outcome_constraints=outcome_constraints,
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                model_gen_options={
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
+                    # do not used cached root decomposition since
+                    # MockPosterior does not have an mvn attribute
+                    "acquisition_function_kwargs": {"cache_root": False},
+                },
             )
             # the NEHVI acquisition function should be created only once.
             self.assertEqual(_mock_acqf.call_count, 3)
@@ -524,7 +529,12 @@ class BotorchMOOModelTest(TestCase):
                 bounds,
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 outcome_constraints=outcome_constraints,
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                model_gen_options={
+                    "optimizer_kwargs": _get_optimizer_kwargs(),
+                    # do not used cached root decomposition since
+                    # MockPosterior does not have an mvn attribute
+                    "acquisition_function_kwargs": {"cache_root": False},
+                },
                 objective_thresholds=provided_obj_t,
             )
             self.assertIn("objective_thresholds", gen_metadata)

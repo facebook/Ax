@@ -169,6 +169,7 @@ def get_NEHVI(
         ref_point=objective_thresholds.tolist(),
         marginalize_dim=kwargs.get("marginalize_dim"),
         match_right_most_batch_dim=kwargs.get("match_right_most_batch_dim", False),
+        cache_root=kwargs.get("cache_root", True),
     )
 
 
