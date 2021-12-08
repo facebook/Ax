@@ -54,9 +54,14 @@ class GenerationNode:
         data: Data,
         search_space: Optional[SearchSpace] = None,
         optimization_config: Optional[OptimizationConfig] = None,
+        **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
-        the model kwargs set on each corresponding model spec.
+        the model kwargs set on each corresponding model spec and the kwargs
+        passed to this method.
+
+        NOTE: Local kwargs take precedence over the ones stored in
+        ``ModelSpec.model_kwargs``.
         """
         for model_spec in self.model_specs:
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
@@ -64,6 +69,7 @@ class GenerationNode:
                 data=data,
                 search_space=search_space,
                 optimization_config=optimization_config,
+                **kwargs,
             )
 
     def update(self, experiment: Experiment, new_data: Data) -> None:

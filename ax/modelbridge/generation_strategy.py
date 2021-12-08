@@ -27,15 +27,9 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.registry import (
     ModelRegistryBase,
-    _combine_model_kwargs_and_state,
-    get_model_from_generator_run,
+    _extract_model_state_after_gen,
 )
 from ax.utils.common.base import Base
-from ax.utils.common.kwargs import (
-    consolidate_kwargs,
-    get_function_argument_names,
-    filter_kwargs,
-)
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -149,7 +143,7 @@ class GenerationStrategy(Base):
         """Current model in this strategy. Returns None if no model has been set
         yet (i.e., if no generator runs have been produced from this GS).
         """
-        return self._model  # pragma: no cover
+        return self._curr.model_spec._fitted_model
 
     @property
     def experiment(self) -> Experiment:
@@ -367,7 +361,7 @@ class GenerationStrategy(Base):
         if to_gen < -1:
             # `_num_trials_to_gen_and_complete_in_curr_step()` should return value
             # of -1 or greater always.
-            raise RuntimeError(
+            raise RuntimeError(  # pragma: no cover
                 "Number of trials left to generate in current generation step is "
                 f"{to_gen}. This is an unexpected state of the generation strategy."
             )
@@ -404,7 +398,7 @@ class GenerationStrategy(Base):
             )
             try:
                 model_name = step.model_name
-            except TypeError:
+            except TypeError:  # pragma: no cover
                 model_name = "model with unknown name"
 
             repr += f"{model_name} for {num_trials} trials, "
@@ -457,7 +451,6 @@ class GenerationStrategy(Base):
         self.experiment = experiment
         self._maybe_move_to_next_step()
         self._fit_or_update_current_model(data=data)
-        self._save_seen_trial_indices()
 
         # Make sure to not make too many generator runs and
         # exceed maximum allowed paralellism for the step.
@@ -472,20 +465,15 @@ class GenerationStrategy(Base):
                 self._curr.num_trials - self.num_can_complete_this_step,
             )
 
-        model = not_none(self.model)
-        model_gen_kwargs = consolidate_kwargs(
-            kwargs_iterable=[self._curr.model_gen_kwargs, kwargs],
-            keywords=get_function_argument_names(model.gen),
-        )
         generator_runs = []
         for _ in range(num_generator_runs):
             try:
-                generator_run = _produce_generator_run_from_model(
-                    model=model,
+                generator_run = _gen_from_generation_step(
+                    generation_step=self._curr,
                     input_max_gen_draws=MAX_GEN_DRAWS,
                     n=n,
                     pending_observations=pending_observations,
-                    model_gen_kwargs=model_gen_kwargs,
+                    model_gen_kwargs=kwargs,
                     should_deduplicate=self._curr.should_deduplicate,
                     arms_by_signature=self.experiment.arms_by_signature,
                 )
@@ -506,12 +494,20 @@ class GenerationStrategy(Base):
     # ------------------------- Model selection logic helpers. -------------------------
 
     def _fit_or_update_current_model(self, data: Optional[Data]) -> None:
+        """Fits or update the model on the current generation step (does not move between
+        generation steps).
+
+        Args:
+            data: Optional ``Data`` to fit or update with; if not specified, generation
+                strategy will obtain the data via ``experiment.lookup_data``.
+        """
         if self._model is not None and self._curr.use_update:
             new_data = self._get_data_for_update(passed_in_data=data)
             if new_data is not None:
                 self._update_current_model(new_data=new_data)
         else:
             self._fit_current_model(data=self._get_data_for_fit(passed_in_data=data))
+        self._save_seen_trial_indices()
 
     def _num_trials_to_gen_and_complete_in_curr_step(self) -> Tuple[int, int]:
         """Returns how many generator runs (to be made into a trial each) are left to
@@ -528,6 +524,7 @@ class GenerationStrategy(Base):
         # and more than `min_trials_observed` can be completed (if `min_trials_observed
         # < `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped
         # to lower bound of 0.
+        print("here", self._curr.num_trials, self.num_can_complete_this_step)
         left_to_gen = max(self._curr.num_trials - self.num_can_complete_this_step, 0)
         left_to_complete = max(
             self._curr.min_trials_observed - self.num_completed_this_step, 0
@@ -629,8 +626,6 @@ class GenerationStrategy(Base):
 
     def _fit_current_model(self, data: Data) -> None:
         """Instantiate the current model with all available data."""
-        model_kwargs = self._curr.model_kwargs or {}
-
         # If last generator run's index matches the current step, extract
         # model state from last generator run and pass it to the model
         # being instantiated in this function.
@@ -640,29 +635,26 @@ class GenerationStrategy(Base):
         # for now though as GS only allows `GenerationStep`-s for now.
         # Potential solution: store generator runs on `GenerationStep`-s and
         # split them per-model there.
+        model_state_on_lgr = {}
         if (
             lgr is not None
             and lgr._generation_step_index == self._curr.index
             and lgr._model_state_after_gen
+            and self.model
         ):
             # TODO[drfreund]: Consider moving this to `GenerationStep` or
             # `GenerationNode`.
-            model_kwargs = _combine_model_kwargs_and_state(
-                model_kwargs=model_kwargs,
+            model_state_on_lgr = _extract_model_state_after_gen(
                 generator_run=lgr,
-                model_class=not_none(not_none(self.model).model.__class__),
+                model_class=not_none(self.model).model.__class__,
             )
 
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
             logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
 
-        if isinstance(self._curr.model, ModelRegistryBase):
-            self._fit_current_model_from_models_enum(data=data, **model_kwargs)
-        else:
-            # If model was not specified as Models member, it was specified as a
-            # factory function.
-            self._fit_current_model_from_factory_function(data=data, **model_kwargs)
+        self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
+        self._model = self._curr.model_spec.fitted_model
 
     def _get_data_for_fit(self, passed_in_data: Optional[Data]) -> Data:
         if passed_in_data is None:
@@ -767,42 +759,8 @@ class GenerationStrategy(Base):
         NOTE: Uses model and model bridge kwargs stored on the generator run, as well
         as the model state attributes stored on the generator run.
         """
-        generator_run = self.last_generator_run
-        if generator_run is None:
-            raise ValueError("No generator run was stored on generation strategy.")
-        if self._experiment is None:  # pragma: no cover
-            raise ValueError("No experiment was set on this generation strategy.")
-        data = self.experiment.lookup_data()
-        self._model = get_model_from_generator_run(
-            generator_run=generator_run,
-            experiment=self.experiment,
-            data=data,
-            models_enum=models_enum,
-        )
-        self._save_seen_trial_indices()
-
-    def _fit_current_model_from_models_enum(self, data: Data, **kwargs: Any) -> None:
-        """Instantiate the current model, provided through a Models enum member
-        function, with the provided data and kwargs."""
-        self._model = self._curr.model(experiment=self.experiment, data=data, **kwargs)
-
-    def _fit_current_model_from_factory_function(
-        self, data: Data, **kwargs: Any
-    ) -> None:
-        """Instantiate the current model, provided through a callable factory
-        function, with the provided data and kwargs."""
-        model = self._curr.model
-        assert not isinstance(model, ModelRegistryBase) and callable(model)
-        self._model = self._curr.model(
-            **filter_kwargs(
-                self._curr.model,
-                experiment=self.experiment,
-                data=data,
-                # Some factory functions (like `get_sobol`) require search space
-                # instead of experiment.
-                search_space=self.experiment.search_space,
-                **kwargs,
-            )
+        self._fit_or_update_current_model(
+            data=self._get_data_for_fit(passed_in_data=None)
         )
 
     # ------------------------- State-tracking helpers. -------------------------
@@ -847,9 +805,9 @@ class GenerationStrategy(Base):
             )
 
 
-def _produce_generator_run_from_model(
+def _gen_from_generation_step(
     input_max_gen_draws: int,
-    model: ModelBridge,
+    generation_step: GenerationStep,
     n: int,
     pending_observations: Optional[Dict[str, List[ObservationFeatures]]],
     model_gen_kwargs: Any,
@@ -862,6 +820,7 @@ def _produce_generator_run_from_model(
     samples are generated during deduplication, this function produces a
     ``GenerationStrategyRepeatedPoints`` exception.
     """
+    # TODO[drfreund]: Consider moving dedulication to generation step itself.
     # NOTE: Might need to revisit the behavior of deduplication when
     # generating multi-arm generator runs (to be made into batch trials).
     should_generate_run = True
@@ -872,7 +831,7 @@ def _produce_generator_run_from_model(
     while should_generate_run:
         if n_gen_draws > input_max_gen_draws:
             raise GenerationStrategyRepeatedPoints(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
-        generator_run = model.gen(
+        generator_run = generation_step.gen(
             n=n,
             pending_observations=pending_observations,
             **model_gen_kwargs,

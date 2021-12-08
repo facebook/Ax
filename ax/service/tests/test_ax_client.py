@@ -1558,7 +1558,7 @@ class TestAxClient(TestCase):
             num_trials=20
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
-        ax_client.generation_strategy._fit_current_model(
+        ax_client.generation_strategy._fit_or_update_current_model(
             data=ax_client.experiment.lookup_data()
         )
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "MOO")
@@ -1627,7 +1627,7 @@ class TestAxClient(TestCase):
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
-        ax_client.generation_strategy._fit_current_model(
+        ax_client.generation_strategy._fit_or_update_current_model(
             data=ax_client.experiment.lookup_data()
         )
 
