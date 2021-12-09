@@ -94,17 +94,7 @@ def _get_objective_v_param_plots(
     model: ModelBridge,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
-    metric_names = (
-        [
-            objective.metric.name
-            # pyre-fixme[16]: Objective has no attribute objectives
-            for objective in not_none(
-                experiment.optimization_config
-            ).objective.objectives
-        ]
-        if experiment.is_moo_problem
-        else [not_none(experiment.optimization_config).objective.metric.name]
-    )
+    metric_names = model.metric_names
 
     range_params = list(search_space.range_parameters.keys())
     if len(range_params) < 1:
@@ -117,7 +107,7 @@ def _get_objective_v_param_plots(
     # parameter slice plot
     output_plots = [
         interact_slice_plotly(
-            model=not_none(model),
+            model=model,
         )
         for metric_name in metric_names
     ]
