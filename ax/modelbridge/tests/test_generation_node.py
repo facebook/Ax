@@ -6,16 +6,22 @@
 
 from unittest.mock import patch
 
+from ax.modelbridge.cross_validation import (
+    SingleDiagnosticBestModelSelector,
+    MetricAggregation,
+    DiagnosticCriterion,
+)
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import (
     GenerationNode,
-    ModelSelectionGenerationNode,
+    ModelSelectionNode,
     GenerationStep,
 )
 from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import get_branin_experiment_with_multi_objective
 
 
 class TestGenerationNode(TestCase):
@@ -118,31 +124,41 @@ class TestGenerationStep(TestCase):
         self.assertEqual(self.sobol_generation_step._unique_id, "-1")
 
 
-class TestModelSelectionGenerationNode(TestCase):
+class TestModelSelectionNode(TestCase):
     def setUp(self):
-        self.sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
-            model_kwargs={"init_position": 3},
-            model_gen_kwargs={"some_gen_kwarg": "some_value"},
+        self.branin_experiment = get_branin_experiment_with_multi_objective()
+        sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
+        sobol_run = sobol.gen(n=20)
+        self.branin_experiment.new_batch_trial().add_generator_run(
+            sobol_run
+        ).run().mark_completed()
+        data = self.branin_experiment.fetch_data()
+
+        ms_gpei = ModelSpec(model_enum=Models.GPEI)
+        ms_gpei.fit(experiment=self.branin_experiment, data=data)
+
+        ms_gpkg = ModelSpec(model_enum=Models.GPKG)
+        ms_gpkg.fit(experiment=self.branin_experiment, data=data)
+
+        self.fitted_model_specs = [ms_gpei, ms_gpkg]
+
+        self.model_selection_node = ModelSelectionNode(
+            model_specs=self.fitted_model_specs,
+            best_model_selector=SingleDiagnosticBestModelSelector(
+                diagnostic="Fisher exact test p",
+                criterion=MetricAggregation.MEAN,
+                metric_aggregation=DiagnosticCriterion.MIN,
+            ),
         )
-        self.uniform_model_spec = ModelSpec(
-            model_enum=Models.UNIFORM,
-        )
-        self.model_selection_generation_node = ModelSelectionGenerationNode(
-            model_specs=[self.uniform_model_spec, self.sobol_model_spec]
-        )
-        self.branin_experiment = get_branin_experiment(with_completed_trial=True)
 
     def test_gen(self):
-        self.model_selection_generation_node.fit(
+        self.model_selection_node.fit(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()
         )
-        # Check that with `ModelSelectionGenerationNode` generation from a node with
+        # Check that with `ModelSelectionNode` generation from a node with
         # multiple model specs does not fail.
-        gr = self.model_selection_generation_node.gen(
-            n=1, pending_observations={"branin": []}
-        )
-        # Currently, `ModelSelectionGenerationNode` should just pick the first model
+        gr = self.model_selection_node.gen(n=1, pending_observations={"branin": []})
+        # Currently, `ModelSelectionNode` should just pick the first model
         # spec as the one to generate from.
         # TODO[adamobeng]: Test correct behavior here when implemented.
-        self.assertEqual(gr._model_key, "Uniform")
+        self.assertEqual(gr._model_key, "GPEI")

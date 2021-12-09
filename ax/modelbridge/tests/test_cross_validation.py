@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import List
 from unittest import mock
 
 import numpy as np
@@ -23,6 +24,8 @@ from ax.modelbridge.cross_validation import (
     cross_validate,
     cross_validate_by_trial,
     has_good_opt_config_model_fit,
+    SingleDiagnosticBestModelSelector,
+    CVDiagnostics,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -76,6 +79,11 @@ class CrossValidationTest(TestCase):
                 metric_names=["a", "b"],
             )
         ] * 4
+        self.diagnostics: List[CVDiagnostics] = [
+            {"Fisher exact test p": {"y_a": 0.0, "y_b": 0.4}},
+            {"Fisher exact test p": {"y_a": 0.1, "y_b": 0.1}},
+            {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
+        ]
 
     def testCrossValidate(self):
         # Prepare input and output data
@@ -278,3 +286,27 @@ class CrossValidationTest(TestCase):
             assess_model_fit_result=assess_model_fit_result,
         )
         self.assertFalse(has_good_fit)
+
+    def testSingleDiagnosticBestModelSelector_min_mean(self):
+        s = SingleDiagnosticBestModelSelector(
+            diagnostic="Fisher exact test p",
+            criterion=min,
+            metric_aggregation=np.mean,
+        )
+        self.assertEqual(s.best_diagnostic(self.diagnostics), 1)
+
+    def testSingleDiagnosticBestModelSelector_min_min(self):
+        s = SingleDiagnosticBestModelSelector(
+            diagnostic="Fisher exact test p",
+            criterion=min,
+            metric_aggregation=min,
+        )
+        self.assertEqual(s.best_diagnostic(self.diagnostics), 0)
+
+    def testSingleDiagnosticBestModelSelector_max_mean(self):
+        s = SingleDiagnosticBestModelSelector(
+            diagnostic="Fisher exact test p",
+            criterion=max,
+            metric_aggregation=np.mean,
+        )
+        self.assertEqual(s.best_diagnostic(self.diagnostics), 2)

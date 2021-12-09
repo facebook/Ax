@@ -5,7 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from enum import Enum
+from functools import partial
+from numbers import Number
+from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Any
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData
@@ -379,3 +382,78 @@ def _fisher_exact_test_p(
     # Compute the test statistic
     _, p = fisher_exact(table, alternative="greater")
     return float(p)
+
+
+class BestModelSelector:
+    def best_diagnostic(self, diagnostics: List[CVDiagnostics]) -> int:
+        """
+        Return the index of the best diagnostic.
+        """
+        ...
+
+
+class CallableEnum(Enum):
+    def __call__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> Any:
+        return self.value(*args, **kwargs)
+
+
+class MetricAggregation(CallableEnum):
+    MEAN: Callable[[Iterable[Number]], Number] = partial(np.mean)
+
+
+class DiagnosticCriterion(CallableEnum):
+    MIN: Callable[[Iterable[Number]], Number] = partial(np.amin)
+
+
+class SingleDiagnosticBestModelSelector(BestModelSelector):
+    """Choose the best model using a single cross-validation diagnostic.
+
+    The input is a list of CVDiagnostics, each corresponding to one model.
+    The specified diagnostic is extracted from each of the CVDiagnostics,
+    its values (each of which corresponds to a separate metric) are
+    aggregated with the aggregation function, the best one is determined
+    with the criterion, and the index of the best diagnostic result is returned.
+
+
+     Example:
+
+     ::
+        s = SingleDiagnosticBestModelSelector(
+            diagnostic = 'Fisher exact test p',
+            criterion = DiagnosticCriterion.MIN,
+            metric_aggregation = MetricAggregation.MEAN,
+        )
+        best_diagnostic_index = s.best_diagnostic(diagnostics)
+
+    Args:
+         diagnostic (str): The name of the diagnostic to use, which should be
+             a key in CVDiagnostic.
+         metric_aggregation (MetricAggregation): Callable
+            applied to the values of the diagnostic for a single model to
+            produce a single number.
+         criterion (DiagnosticCriterion): Callable used
+            to determine which of the (aggregated) diagnostics is the best.
+
+
+     Returns:
+         int: index of the selected best diagnostic.
+
+    """
+
+    def __init__(
+        self,
+        diagnostic: str,
+        metric_aggregation: MetricAggregation,
+        criterion: DiagnosticCriterion,
+    ) -> None:
+        self.diagnostic = diagnostic
+        self.metric_aggregation = metric_aggregation
+        self.criterion = criterion
+
+    def best_diagnostic(self, diagnostics: List[CVDiagnostics]) -> int:
+        aggregated_diagnostic_values = [
+            self.metric_aggregation(list(d[self.diagnostic].values()))
+            for d in diagnostics
+        ]
+        best_diagnostic = self.criterion(aggregated_diagnostic_values)
+        return [d == best_diagnostic for d in aggregated_diagnostic_values].index(True)

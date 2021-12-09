@@ -17,6 +17,11 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.cross_validation import (
+    cross_validate,
+    compute_diagnostics,
+    BestModelSelector,
+)
 from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import (
     ModelRegistryBase,
@@ -245,10 +250,30 @@ class GenerationStep(GenerationNode, SortableBase):
         return str(self.index)
 
 
-class ModelSelectionGenerationNode(GenerationNode):
+class ModelSelectionNode(GenerationNode):
+    model_specs: List[ModelSpec]
+
+    def __init__(
+        self,
+        model_specs: List[ModelSpec],
+        best_model_selector: BestModelSelector,
+        cvkwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
+        # and `_pick_fitted_model_to_gen_from` methods, we validate the
+        # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
+        # to not require all `GenerationNode` subclasses to override an `__init__`
+        # method to bypass that validation.
+        self.model_specs = model_specs
+        self.best_model_selector = best_model_selector
+        self.cvkwargs = cvkwargs
+
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
-        """Select one model to generate from among the fitted models on this
-        generation node.
-        """
-        # TODO[adamobeng]: Add actual model-selection logic here
-        return self.model_specs[0]
+        cvkwargs = self.cvkwargs or {}
+        cv_diagnostics = []
+        for model_spec in self.model_specs:
+            cv_result = cross_validate(model_spec.fitted_model, **cvkwargs)
+            cv_diagnostics.append(compute_diagnostics(cv_result))
+
+        best_model_index = self.best_model_selector.best_diagnostic(cv_diagnostics)
+        return self.model_specs[best_model_index]
