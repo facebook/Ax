@@ -524,7 +524,6 @@ class GenerationStrategy(Base):
         # and more than `min_trials_observed` can be completed (if `min_trials_observed
         # < `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped
         # to lower bound of 0.
-        print("here", self._curr.num_trials, self.num_can_complete_this_step)
         left_to_gen = max(self._curr.num_trials - self.num_can_complete_this_step, 0)
         left_to_complete = max(
             self._curr.min_trials_observed - self.num_completed_this_step, 0
