@@ -27,6 +27,7 @@ from ax.modelbridge.registry import (
     ModelRegistryBase,
 )
 from ax.utils.common.base import SortableBase
+from ax.utils.common.typeutils import not_none
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -45,13 +46,20 @@ class GenerationNode:
 
     model_specs: List[ModelSpec]
 
-    def __init__(self, model_specs: List[ModelSpec]) -> None:
+    def __init__(
+        self,
+        model_specs: List[ModelSpec],
+        best_model_selector: Optional[BestModelSelector] = None,
+        cvkwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
         # and `_pick_fitted_model_to_gen_from` methods, we validate the
         # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
         # to not require all `GenerationNode` subclasses to override an `__init__`
         # method to bypass that validation.
         self.model_specs = model_specs
+        self.best_model_selector = best_model_selector
+        self.cvkwargs = cvkwargs
 
     def fit(
         self,
@@ -122,9 +130,21 @@ class GenerationNode:
         """Select one model to generate from among the fitted models on this
         generation node.
         """
-        if len(self.model_specs) != 1:
-            raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
-        return self.model_specs[0]
+        if self.best_model_selector is None:
+            if len(self.model_specs) != 1:
+                raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
+            return self.model_specs[0]
+
+        cvkwargs = self.cvkwargs or {}
+        cv_diagnostics = []
+        for model_spec in self.model_specs:
+            cv_result = cross_validate(model_spec.fitted_model, **cvkwargs)
+            cv_diagnostics.append(compute_diagnostics(cv_result))
+
+        best_model_index = not_none(self.best_model_selector).best_diagnostic(
+            cv_diagnostics
+        )
+        return self.model_specs[best_model_index]
 
 
 @dataclass
@@ -248,32 +268,3 @@ class GenerationStep(GenerationNode, SortableBase):
     @property
     def _unique_id(self) -> str:
         return str(self.index)
-
-
-class ModelSelectionNode(GenerationNode):
-    model_specs: List[ModelSpec]
-
-    def __init__(
-        self,
-        model_specs: List[ModelSpec],
-        best_model_selector: BestModelSelector,
-        cvkwargs: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
-        # and `_pick_fitted_model_to_gen_from` methods, we validate the
-        # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
-        # to not require all `GenerationNode` subclasses to override an `__init__`
-        # method to bypass that validation.
-        self.model_specs = model_specs
-        self.best_model_selector = best_model_selector
-        self.cvkwargs = cvkwargs
-
-    def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
-        cvkwargs = self.cvkwargs or {}
-        cv_diagnostics = []
-        for model_spec in self.model_specs:
-            cv_result = cross_validate(model_spec.fitted_model, **cvkwargs)
-            cv_diagnostics.append(compute_diagnostics(cv_result))
-
-        best_model_index = self.best_model_selector.best_diagnostic(cv_diagnostics)
-        return self.model_specs[best_model_index]

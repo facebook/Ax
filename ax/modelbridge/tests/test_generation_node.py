@@ -14,7 +14,6 @@ from ax.modelbridge.cross_validation import (
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import (
     GenerationNode,
-    ModelSelectionNode,
     GenerationStep,
 )
 from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
@@ -124,7 +123,7 @@ class TestGenerationStep(TestCase):
         self.assertEqual(self.sobol_generation_step._unique_id, "-1")
 
 
-class TestModelSelectionNode(TestCase):
+class TestGenerationNodeWithBestModelSelector(TestCase):
     def setUp(self):
         self.branin_experiment = get_branin_experiment_with_multi_objective()
         sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
@@ -142,7 +141,7 @@ class TestModelSelectionNode(TestCase):
 
         self.fitted_model_specs = [ms_gpei, ms_gpkg]
 
-        self.model_selection_node = ModelSelectionNode(
+        self.model_selection_node = GenerationNode(
             model_specs=self.fitted_model_specs,
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",
