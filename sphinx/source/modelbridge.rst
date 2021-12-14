@@ -351,6 +351,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.relativize`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.relativize
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Strategies
 -------------
 
