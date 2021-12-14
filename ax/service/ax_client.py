@@ -191,7 +191,9 @@ class AxClient(WithDBSettingsBase):
 
     def create_experiment(
         self,
-        parameters: List[Dict[str, Union[TParamValue, List[TParamValue]]]],
+        parameters: List[
+            Dict[str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]],
+        ],
         name: Optional[str] = None,
         objective_name: Optional[str] = None,
         minimize: Optional[bool] = None,

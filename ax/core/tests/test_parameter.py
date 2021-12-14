@@ -319,6 +319,15 @@ class ChoiceParameterTest(TestCase):
             hierarchical_param_2.dependents, {"a": "other_param", "b": "third_param"}
         )
 
+        # Test case where nonexisted value entails dependents.
+        with self.assertRaises(UserInputError):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b"],
+                dependents={"c": "other_param"},
+            )
+
 
 class FixedParameterTest(TestCase):
     def setUp(self):
@@ -382,6 +391,26 @@ class FixedParameterTest(TestCase):
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
+
+    def testHierarchical(self):
+        # Test case where only some of the values entail dependents.
+        hierarchical_param = FixedParameter(
+            name="x",
+            parameter_type=ParameterType.BOOL,
+            value=True,
+            dependents={True: "other_param"},
+        )
+        self.assertTrue(hierarchical_param.is_hierarchical)
+        self.assertEqual(hierarchical_param.dependents, {True: "other_param"})
+
+        # Test case where nonexistent value entails dependents.
+        with self.assertRaises(UserInputError):
+            FixedParameter(
+                name="x",
+                parameter_type=ParameterType.BOOL,
+                value=True,
+                dependents={False: "other_param"},
+            )
 
 
 class ParameterEqualityTest(TestCase):

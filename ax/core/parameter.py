@@ -94,7 +94,10 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     @property
     def is_hierarchical(self) -> bool:
-        return isinstance(self, ChoiceParameter) and self._dependents is not None
+        return (
+            isinstance(self, (ChoiceParameter, FixedParameter))
+            and self._dependents is not None
+        )
 
     @property
     def target_value(self) -> Optional[TParamValue]:
@@ -577,6 +580,7 @@ class FixedParameter(Parameter):
         value: TParamValue,
         is_fidelity: bool = False,
         target_value: Optional[TParamValue] = None,
+        dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
         """Initialize FixedParameter
 
@@ -587,6 +591,8 @@ class FixedParameter(Parameter):
             value: The fixed value of the parameter.
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
+            dependents: Optional mapping for parameters in hierarchical search
+                spaces; format is { value -> list of dependent parameter names }.
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
@@ -599,6 +605,15 @@ class FixedParameter(Parameter):
         self._value = self.cast(value)
         self._is_fidelity = is_fidelity
         self._target_value = self.cast(target_value)
+        # NOTE: We don't need to check that dependent parameters actually exist as
+        # that is done in `HierarchicalSearchSpace` constructor.
+        if dependents:
+            if len(dependents) > 1 or next(iter(dependents.keys())) != self.value:
+                raise UserInputError(
+                    "The only expected key in `dependents` for fixed parameter "
+                    f"{self.name}: {self.value}; got: {dependents}."
+                )
+        self._dependents = dependents
 
     @property
     def value(self) -> TParamValue:
@@ -619,6 +634,14 @@ class FixedParameter(Parameter):
         """
         return value == self._value
 
+    @property
+    def dependents(self) -> Dict[TParamValue, List[str]]:
+        if not self.is_hierarchical:
+            raise NotImplementedError(
+                "Only hierarchical parameters support the `dependents` property."
+            )
+        return not_none(self._dependents)
+
     def clone(self) -> FixedParameter:
         return FixedParameter(
             name=self._name,
@@ -626,6 +649,7 @@ class FixedParameter(Parameter):
             value=self._value,
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
+            dependents=self._dependents,
         )
 
     def __repr__(self) -> str:

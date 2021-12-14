@@ -59,7 +59,9 @@ logger = get_logger(__name__)
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
 
 
-TParameterRepresentation = Dict[str, Union[TParamValue, List[TParamValue]]]
+TParameterRepresentation = Dict[
+    str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]
+]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
 COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
@@ -162,7 +164,7 @@ def _make_choice_param(
 
 
 def _make_fixed_param(
-    name: str, representation: Dict[str, TParamValue], parameter_type: Optional[str]
+    name: str, representation: TParameterRepresentation, parameter_type: Optional[str]
 ) -> FixedParameter:
     assert "value" in representation, "Value is required for fixed parameters."
     value = representation["value"]
@@ -175,14 +177,15 @@ def _make_fixed_param(
         parameter_type=_get_parameter_type(type(value))  # pyre-ignore[6]
         if parameter_type is None
         else _get_parameter_type(PARAM_TYPES[parameter_type]),  # pyre-ignore[6]
-        value=value,
+        value=value,  # pyre-ignore[6]
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
-        target_value=representation.get("target_value", None),
+        target_value=representation.get("target_value", None),  # pyre-ignore[6]
+        dependents=representation.get("dependents", None),  # pyre-ignore[6]
     )
 
 
 def parameter_from_json(
-    representation: Dict[str, Union[TParamValue, List[TParamValue]]]
+    representation: TParameterRepresentation,
 ) -> Parameter:
     """Instantiate a parameter from JSON representation."""
     if "parameter_type" in representation:
@@ -214,7 +217,9 @@ def parameter_from_json(
 
     if parameter_class == "range":
         return _make_range_param(
-            name=name, representation=representation, parameter_type=parameter_type
+            name=name,
+            representation=representation,
+            parameter_type=parameter_type,
         )
 
     if parameter_class == "choice":
@@ -236,14 +241,16 @@ def parameter_from_json(
             del representation["values"]
         else:
             return _make_choice_param(
-                name=name, representation=representation, parameter_type=parameter_type
+                name=name,
+                representation=representation,
+                parameter_type=parameter_type,
             )
 
     if parameter_class == "fixed":
         assert not any(isinstance(val, list) for val in representation.values())
         return _make_fixed_param(
             name=name,
-            representation=cast(Dict[str, TParamValue], representation),
+            representation=representation,
             parameter_type=parameter_type,
         )
     else:

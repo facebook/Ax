@@ -6,6 +6,7 @@
 
 from ax.core.metric import Metric
 from ax.core.parameter import ParameterType, RangeParameter, FixedParameter
+from ax.core.search_space import HierarchicalSearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.instantiation import (
     _get_parameter_type,
@@ -13,6 +14,7 @@ from ax.service.utils.instantiation import (
     outcome_constraint_from_str,
     make_experiment,
     make_objectives,
+    make_search_space,
     make_optimization_config,
     raw_data_to_evaluation,
     parameter_from_json,
@@ -178,6 +180,41 @@ class TestInstantiationtUtils(TestCase):
         output = parameter_from_json(representation)
         self.assertIsInstance(output, FixedParameter)
         self.assertEqual(output.value, 1.0)
+
+    def test_hss(self):
+        parameter_dicts = [
+            {
+                "name": "root",
+                "type": "fixed",
+                "value": "HierarchicalSearchSpace",
+                "dependents": {"HierarchicalSearchSpace": ["foo_or_bar", "bazz"]},
+            },
+            {
+                "name": "foo_or_bar",
+                "type": "choice",
+                "values": ["Foo", "Bar"],
+                "dependents": {"Foo": ["an_int"], "Bar": ["a_float"]},
+            },
+            {
+                "name": "an_int",
+                "type": "choice",
+                "values": [1, 2, 3],
+                "dependents": None,
+            },
+            {"name": "a_float", "type": "range", "bounds": [1.0, 1000.0]},
+            {
+                "name": "bazz",
+                "type": "fixed",
+                "value": "Bazz",
+                "dependents": {"Bazz": ["another_int"]},
+            },
+            {"name": "another_int", "type": "fixed", "value": "2"},
+        ]
+        search_space = make_search_space(
+            parameters=parameter_dicts, parameter_constraints=[]
+        )
+        self.assertIsInstance(search_space, HierarchicalSearchSpace)
+        self.assertEqual(search_space._root.name, "root")
 
 
 class TestRawDataToEvaluation(TestCase):

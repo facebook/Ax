@@ -5,14 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from types import FunctionType
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, cast
 
 from ax.core.optimization_config import (
     OptimizationConfig,
     MultiObjectiveOptimizationConfig,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValue
+from ax.service.utils.instantiation import TParameterRepresentation
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.logger import get_logger
@@ -206,14 +206,17 @@ class SimpleBenchmarkProblem(BenchmarkProblem):
 
     def domain_as_ax_client_parameters(
         self,
-    ) -> List[Dict[str, Union[TParamValue, List[TParamValue]]]]:
-        return [  # pyre-ignore[7]: Union subtype
-            {
-                "name": f"x{i}",
-                "type": "range",
-                "bounds": list(self.domain[i]),
-                "value_type": "float",
-            }
+    ) -> List[TParameterRepresentation]:
+        return [
+            cast(
+                TParameterRepresentation,
+                {
+                    "name": f"x{i}",
+                    "type": "range",
+                    "bounds": list(self.domain[i]),
+                    "value_type": "float",
+                },
+            )
             for i in range(len(self.domain))
         ]
 
