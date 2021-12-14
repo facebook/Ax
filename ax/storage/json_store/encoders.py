@@ -162,6 +162,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
         "values": parameter.values,
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
+        "dependents": parameter.dependents if parameter.is_hierarchical else None,
     }
 
 
@@ -174,6 +175,7 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
         "value": parameter.value,
         "is_fidelity": parameter.is_fidelity,
         "target_value": parameter.target_value,
+        "dependents": parameter.dependents if parameter.is_hierarchical else None,
     }
 
 

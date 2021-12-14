@@ -86,6 +86,7 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
     get_trial,
     get_winsorization_config,
+    get_hierarchical_search_space,
 )
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
@@ -115,6 +116,7 @@ TEST_CASES = [
     ("FactorialMetric", get_factorial_metric),
     ("FixedParameter", get_fixed_parameter),
     ("Hartmann6Metric", get_hartmann_metric),
+    ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
     ("ListSurrogate", get_list_surrogate),

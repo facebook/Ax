@@ -36,7 +36,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
 from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
@@ -145,6 +145,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     RangeParameter: range_parameter_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
+    HierarchicalSearchSpace: search_space_to_dict,
     SimpleBenchmarkProblem: benchmark_problem_to_dict,
     SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
@@ -193,6 +194,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
     "Hartmann6Metric": Hartmann6Metric,
+    "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
