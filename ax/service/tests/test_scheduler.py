@@ -459,8 +459,8 @@ class TestAxScheduler(TestCase):
             scheduler.stop_trial_runs(trials=[scheduler.experiment.trials[0]])
             mock_runner_stop.assert_called_once()
 
-    @patch(f"{Scheduler.__module__}.MAX_SECONDS_BETWEEN_POLLS", 2)
-    def test_stop_at_MAX_SECONDS_BETWEEN_POLLS(self):
+    @patch(f"{Scheduler.__module__}.MAX_SECONDS_BETWEEN_REPORTS", 2)
+    def test_stop_at_MAX_SECONDS_BETWEEN_REPORTS(self):
         self.branin_experiment.runner = InfinitePollRunner()
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -475,10 +475,10 @@ class TestAxScheduler(TestCase):
         ) as mock_await_trials:
             scheduler.run_all_trials(timeout_hours=1 / 60 / 15)  # 4 second timeout.
             # We should be calling `wait_for_completed_trials_and_report_results`
-            # N = total runtime / `MAX_SECONDS_BETWEEN_POLLS` times.
+            # N = total runtime / `test_stop_at_MAX_SECONDS_BETWEEN_REPORTS` times.
             self.assertEqual(
                 len(mock_await_trials.call_args),
-                2,  # MAX_SECONDS_BETWEEN_POLLS as patched in decorator
+                2,  # test_stop_at_MAX_SECONDS_BETWEEN_REPORTS as patched in decorator
             )
 
     def test_timeout(self):

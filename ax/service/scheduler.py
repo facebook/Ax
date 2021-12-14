@@ -73,8 +73,8 @@ trials attached to the underlying Ax experiment '{experiment_name}'.
 """
 
 
-# Wait time b/w polls will not exceed 5 mins.
-MAX_SECONDS_BETWEEN_POLLS = 300
+# Wait time b/w reports will not exceed 15 mins.
+MAX_SECONDS_BETWEEN_REPORTS = 900
 
 
 class OptimizationResult(NamedTuple):  # TODO[T61776778]
@@ -616,11 +616,14 @@ class Scheduler(WithDBSettingsBase):
                 "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
                 "option."
             )
+
+        total_seconds_elapsed = 0
         seconds_between_polls = not_none(self.options.init_seconds_between_polls)
         while len(self.pending_trials) > 0 and not self.poll_and_process_results():
-            if seconds_between_polls > MAX_SECONDS_BETWEEN_POLLS:
+            if total_seconds_elapsed > MAX_SECONDS_BETWEEN_REPORTS:
                 break  # If maximum wait time reached, check the stopping
                 # criterion again and and re-attempt scheduling more trials.
+
             log_seconds = (
                 int(seconds_between_polls)
                 if seconds_between_polls > 2
@@ -630,8 +633,12 @@ class Scheduler(WithDBSettingsBase):
                 f"Waiting for completed trials (for {log_seconds} sec, "
                 f"currently running trials: {len(self.running_trials)})."
             )
+
             sleep(seconds_between_polls)
+
+            total_seconds_elapsed += seconds_between_polls
             seconds_between_polls *= self.options.seconds_between_polls_backoff_factor
+
         return self.report_results()
 
     def should_consider_optimization_complete(self) -> bool:
