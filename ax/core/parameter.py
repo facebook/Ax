@@ -6,18 +6,15 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
+from warnings import warn
 
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-
-logger: logging.Logger = get_logger(__name__)
 
 
 FIXED_CHOICE_PARAM_ERROR = (
@@ -464,7 +461,7 @@ class ChoiceParameter(Parameter):
 
     def _get_default_bool_and_warn(self, param_string: str) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
-        logger.warning(
+        warn(
             f'`{param_string}` is not specified for `ChoiceParameter` "{self._name}". '
             f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
