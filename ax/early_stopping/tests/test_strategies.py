@@ -74,6 +74,15 @@ class TestEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, {})
 
+        # True objective metric name
+        self.assertIsNone(
+            early_stopping_strategy.true_objective_metric_name
+        )  # default none
+        early_stopping_strategy.true_objective_metric_name = "true_obj_metric"
+        self.assertEqual(
+            early_stopping_strategy.true_objective_metric_name, "true_obj_metric"
+        )
+
     def test_percentile_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):

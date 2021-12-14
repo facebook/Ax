@@ -75,6 +75,7 @@ from ax.utils.testing.core_stubs import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_percentile_early_stopping_strategy,
+    get_percentile_early_stopping_strategy_with_true_objective_metric_name,
     get_range_parameter,
     get_scalarized_objective,
     get_search_space,
@@ -130,6 +131,10 @@ TEST_CASES = [
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),
+    (
+        "PercentileEarlyStoppingStrategy",
+        get_percentile_early_stopping_strategy_with_true_objective_metric_name,
+    ),
     ("ParameterConstraint", get_parameter_constraint),
     ("RangeParameter", get_range_parameter),
     ("ScalarizedObjective", get_scalarized_objective),

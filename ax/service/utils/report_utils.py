@@ -6,7 +6,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Tuple, Union, Any, Dict, List, Optional
+from typing import Iterable, Tuple, Union, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -69,24 +69,37 @@ def _get_objective_trace_plot(
     experiment: Experiment,
     data: Data,
     model_transitions: List[int],
-) -> Optional[go.Figure]:
+    true_objective_metric_name: Optional[str] = None,
+) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
         # TODO: implement `_get_hypervolume_trace()`
         return _pareto_frontier_scatter_2d_plotly(experiment=experiment)
-    metric_name = not_none(experiment.optimization_config).objective.metric.name
-    best_objectives = np.array([data.df[data.df["metric_name"] == metric_name]["mean"]])
-    return optimization_trace_single_method_plotly(
-        y=best_objectives,
-        title="Best objective found vs. # of iterations",
-        ylabel=not_none(experiment.optimization_config).objective.metric.name,
-        model_transitions=model_transitions,
-        optimization_direction=(
-            "minimize"
-            if not_none(experiment.optimization_config).objective.minimize
-            else "maximize"
-        ),
-        plot_trial_points=True,
+    metric_names = (
+        metric_name
+        for metric_name in [
+            not_none(experiment.optimization_config).objective.metric.name,
+            true_objective_metric_name,
+        ]
+        if metric_name is not None
     )
+
+    plots = [
+        optimization_trace_single_method_plotly(
+            y=np.array([data.df[data.df["metric_name"] == metric_name]["mean"]]),
+            title=f"Best {metric_name} found vs. # of iterations",
+            ylabel=not_none(experiment.optimization_config).objective.metric.name,
+            model_transitions=model_transitions,
+            optimization_direction=(
+                "minimize"
+                if not_none(experiment.optimization_config).objective.minimize
+                else "maximize"
+            ),
+            plot_trial_points=True,
+        )
+        for metric_name in metric_names
+    ]
+
+    return [plot for plot in plots if plot is not None]
 
 
 def _get_objective_v_param_plots(
@@ -94,7 +107,6 @@ def _get_objective_v_param_plots(
     model: ModelBridge,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
-    metric_names = model.metric_names
 
     range_params = list(search_space.range_parameters.keys())
     if len(range_params) < 1:
@@ -109,7 +121,6 @@ def _get_objective_v_param_plots(
         interact_slice_plotly(
             model=model,
         )
-        for metric_name in metric_names
     ]
     if len(range_params) > 1:
         # contour plots
@@ -119,7 +130,7 @@ def _get_objective_v_param_plots(
                     model=not_none(model),
                     metric_name=metric_name,
                 )
-                for metric_name in metric_names
+                for metric_name in model.metric_names
             ]
         # `mean shape torch.Size` RunTimeErrors, pending resolution of
         # https://github.com/cornellius-gp/gpytorch/issues/1853
@@ -198,6 +209,7 @@ def get_standard_plots(
     model: Optional[ModelBridge],
     data: Optional[Data] = None,
     model_transitions: Optional[List[int]] = None,
+    true_objective_metric_name: Optional[str] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -233,20 +245,21 @@ def get_standard_plots(
         return []
 
     if data is None:
-        data = experiment.lookup_data()
+        data = experiment.fetch_data()
 
     if data.df.empty:
         logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
         return []
 
     output_plot_list = []
-    output_plot_list.append(
+    output_plot_list.extend(
         _get_objective_trace_plot(
             experiment=experiment,
             data=data,
             model_transitions=model_transitions
             if model_transitions is not None
             else [],
+            true_objective_metric_name=true_objective_metric_name,
         )
     )
 

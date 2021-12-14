@@ -510,6 +510,7 @@ def percentile_early_stopping_strategy_to_dict(
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
+        "true_objective_metric_name": strategy.true_objective_metric_name,
     }
 
 

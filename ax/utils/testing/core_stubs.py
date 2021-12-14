@@ -1403,6 +1403,13 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
     )
 
 
+def get_percentile_early_stopping_strategy_with_true_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
+    strategy = get_percentile_early_stopping_strategy()
+    strategy.true_objective_metric_name = "true_objective"
+
+    return strategy
+
+
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(self, early_stop_trials: Optional[Dict[int, str]] = None):
         self.early_stop_trials = early_stop_trials or {}

@@ -25,6 +25,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     """Interface for heuristics that halt trials early, typically based on early
     results from that trial."""
 
+    def __init__(self, true_objective_metric_name: Optional[str] = None) -> None:
+        self._true_objective_metric_name: Optional[str] = true_objective_metric_name
+
     @abstractmethod
     def should_stop_trials_early(
         self,
@@ -48,6 +51,14 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         pass  # pragma: nocover
 
+    @property
+    def true_objective_metric_name(self) -> Optional[str]:
+        return self._true_objective_metric_name
+
+    @true_objective_metric_name.setter
+    def true_objective_metric_name(self, true_objective_metric_name: Optional[str]):
+        self._true_objective_metric_name = true_objective_metric_name
+
 
 class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """Implements the strategy of stopping a trial if its performance
@@ -55,6 +66,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
+        true_objective_metric_name: Optional[str] = None,
         percentile_threshold: float = 50.0,
         min_progression: float = 0.1,
         min_curves: float = 5,
@@ -78,6 +90,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 of them are correctly returning data, then do not apply early stopping).
             trial_indices_to_ignore: Trial indices that should not be early stopped.
         """
+        super().__init__(true_objective_metric_name=true_objective_metric_name)
+
         self.percentile_threshold = percentile_threshold
         self.min_progression = min_progression
         self.min_curves = min_curves
