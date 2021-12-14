@@ -153,7 +153,7 @@ def _make_choice_param(
         name=name,
         parameter_type=_to_parameter_type(values, parameter_type, name, "values"),
         values=values,
-        is_ordered=checked_cast(bool, representation.get("is_ordered", False)),
+        is_ordered=checked_cast_optional(bool, representation.get("is_ordered")),
         is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
         is_task=checked_cast(bool, representation.get("is_task", False)),
         target_value=representation.get("target_value", None),  # pyre-ignore[6]
