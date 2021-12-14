@@ -49,13 +49,14 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       run: |
-        pip install black
+        pip install black == 21.4b2
+        pip install ufmt
         pip install flake8
-    - name: Black
+    - name: ufmt
       run: |
-        black --check --diff .
+        ufmt diff .
     - name: Flake8
-      # run even if previous step (Black) failed
+      # run even if previous step (ufmt) failed
       if: ${{ always() }}
       run: |
         # don't use .flake8 config for now, since don't need custom plugin
