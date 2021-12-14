@@ -1124,17 +1124,31 @@ class Scheduler(WithDBSettingsBase):
         """
         if options.trial_type is BatchTrial:  # TODO[T61776778]: support batches
             raise NotImplementedError("Support for batched trials coming soon.")
+
         if not (0.0 <= options.tolerated_trial_failure_rate < 1.0):
             raise ValueError("`tolerated_trial_failure_rate` must be in [0, 1).")
-        if options.early_stopping_strategy is not None and not any(
-            m.is_available_while_running() for m in self.experiment.metrics.values()
-        ):
-            raise ValueError(
-                "Can only specify an early stopping strategy if at least one metric "
-                "is marked as `is_available_while_running`. Otherwise, we will be "
-                "unable to fetch intermediate results with which to evaluate "
-                "early stopping criteria."
-            )
+
+        if options.early_stopping_strategy is not None:
+            if not any(
+                m.is_available_while_running() for m in self.experiment.metrics.values()
+            ):
+                raise ValueError(
+                    "Can only specify an early stopping strategy if at least one "
+                    "metric is marked as `is_available_while_running`. Otherwise, we "
+                    "will be unable to fetch intermediate results with which to "
+                    "evaluate early stopping criteria."
+                )
+            if self.experiment.optimization_config is not None:
+                if self.experiment.optimization_config.is_moo_problem:
+                    raise UnsupportedError(
+                        "Early stopping is not supported on multi-objective problems."
+                    )
+
+                if len(self.experiment.optimization_config.outcome_constraints) > 0:
+                    raise UnsupportedError(
+                        "Early stopping is not supported on problems with outcome "
+                        "constraints."
+                    )
 
     def _prepare_trials(
         self, max_new_trials: int
