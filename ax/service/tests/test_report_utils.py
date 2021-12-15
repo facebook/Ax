@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.metric import Metric
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
@@ -40,6 +41,8 @@ EXPECTED_COLUMNS = [
 DUMMY_OBJECTIVE_MEAN = 1.2345
 DUMMY_SOURCE = "test_source"
 DUMMY_MAP_KEY = "test_map_key"
+TRUE_OBJECTIVE_NAME = "other_metric"
+TRUE_OBJECTIVE_MEAN = 2.3456
 
 
 class ReportUtilsTest(TestCase):
@@ -178,6 +181,30 @@ class ReportUtilsTest(TestCase):
             best_trial = get_best_trial(exp=exp)
         self.assertEqual(len(best_trial.index), 1)
         self.assertEqual(best_trial[OBJECTIVE_NAME][0], DUMMY_OBJECTIVE_MEAN)
+
+        exp.add_tracking_metric(metric=Metric(name=TRUE_OBJECTIVE_NAME))
+        mock_results = dummy_struct(
+            df=pd.DataFrame(
+                {
+                    "arm_name": ["0_0", "0_1"] * 2,
+                    "metric_name": [OBJECTIVE_NAME] * 2 + [TRUE_OBJECTIVE_NAME] * 2,
+                    "mean": [DUMMY_OBJECTIVE_MEAN] * 2
+                    + [TRUE_OBJECTIVE_MEAN, TRUE_OBJECTIVE_MEAN + 1],
+                    "sem": [0] * 4,
+                    "trial_index": [0, 1] * 2,
+                    "n": [123] * 4,
+                    "frac_nonnull": [1] * 4,
+                }
+            )
+        )
+        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+            best_trial = get_best_trial(
+                exp=exp,
+                true_objective_metric_name=TRUE_OBJECTIVE_NAME,
+                true_objective_minimize=False,
+            )
+        self.assertEqual(len(best_trial.index), 1)
+        self.assertEqual(best_trial[TRUE_OBJECTIVE_NAME][1], TRUE_OBJECTIVE_MEAN + 1)
 
     def test_get_shortest_unique_suffix_dict(self):
         expected_output = {

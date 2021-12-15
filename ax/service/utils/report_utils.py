@@ -16,7 +16,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import Objective, MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
@@ -522,6 +522,8 @@ def get_best_trial(
     exp: Experiment,
     additional_metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
+    true_objective_metric_name: Optional[str] = None,
+    true_objective_minimize: Optional[bool] = None,
     **kwargs: Any,
 ) -> Optional[pd.DataFrame]:
     """Finds the optimal trial given an experiment, based on raw objective value.
@@ -536,13 +538,27 @@ def get_best_trial(
         run_metadata_fields: fields to extract from trial.run_metadata for trial
             in experiment.trials. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
+        true_objective_metric_name: objective by which to choose best point (if
+            the objective attached to the experiment is being used as a proxy).
+        true_objective_minimize: whether the true objective should be minimized
+            instead of maximized. If not present will default to the experiment's
+            objective's direction.
         **kwargs: Custom named arguments, useful for passing complex
             objects from call-site to the `fetch_data` callback.
 
     Returns:
         DataFrame: A dataframe of inputs and metrics of the optimal trial.
     """
-    objective = not_none(exp.optimization_config).objective
+    objective = (
+        Objective(
+            metric=exp.metrics[true_objective_metric_name],
+            minimize=true_objective_minimize
+            if true_objective_minimize is not None
+            else not_none(exp.optimization_config).objective.minimize,
+        )
+        if true_objective_metric_name is not None
+        else not_none(exp.optimization_config).objective
+    )
     if isinstance(objective, MultiObjective):
         logger.warning(
             "No best trial is available for `MultiObjective` optimization. "
