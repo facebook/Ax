@@ -1011,7 +1011,6 @@ class Scheduler(WithDBSettingsBase):
 
         # 2. If any experiment metrics are available while running,
         #    fetch data for running trials
-        already_fetched_trial_idcs = set()
         if any(
             m.is_available_while_running() for m in self.experiment.metrics.values()
         ):
@@ -1023,7 +1022,6 @@ class Scheduler(WithDBSettingsBase):
                 "on experiment are available while trials are running."
             )
             self.experiment.fetch_trials_data(trial_indices=running_trial_indices)
-            already_fetched_trial_idcs = running_trial_indices
 
         # 3. Determine which trials to stop early
         stop_trial_info = self.should_stop_trials_early(
@@ -1060,9 +1058,7 @@ class Scheduler(WithDBSettingsBase):
 
             # 6. Fetch data for newly completed trials
             if status.is_completed:
-                newly_completed = (
-                    trial_idcs - prev_completed_trial_idcs - already_fetched_trial_idcs
-                )
+                newly_completed = trial_idcs - prev_completed_trial_idcs
                 # Fetch the data for newly completed trials; this will cache the data
                 # for all metrics. By pre-caching the data now, we remove the need to
                 # fetch it during candidate generation.
