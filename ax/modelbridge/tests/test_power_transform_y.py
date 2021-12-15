@@ -10,7 +10,12 @@ from copy import deepcopy
 from math import isfinite, isnan
 
 import numpy as np
+from ax.core.metric import Metric
+from ax.core.objective import Objective
 from ax.core.observation import ObservationData
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.power_transform_y import (
     PowerTransformY,
     _compute_power_transforms,
@@ -19,6 +24,14 @@ from ax.modelbridge.transforms.power_transform_y import (
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase
 from sklearn.preprocessing import PowerTransformer
+
+
+def get_constraint(metric, bound, relative):
+    return [
+        OutcomeConstraint(
+            metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative
+        )
+    ]
 
 
 class PowerTransformYTest(TestCase):
@@ -224,3 +237,72 @@ class PowerTransformYTest(TestCase):
         y2 = [data.means[0] for data in observation_data_tf]
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
+
+    def testTransformOptimizationConfig(self):
+        # basic test
+        m1 = Metric(name="m1")
+        objective_m1 = Objective(metric=m1, minimize=False)
+        oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
+        tf = PowerTransformY(
+            search_space=None,
+            observation_features=None,
+            observation_data=[self.obsd1, self.obsd2],
+            config={"metrics": ["m1"]},
+        )
+        oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+        self.assertEqual(oc_tf, oc)
+        # Output constraint on a different metric should not transform the bound
+        m2 = Metric(name="m2")
+        for bound in [-1.234, 0, 2.345]:
+            oc = OptimizationConfig(
+                objective=objective_m1,
+                outcome_constraints=get_constraint(
+                    metric=m2, bound=bound, relative=False
+                ),
+            )
+            oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+            self.assertEqual(oc_tf, oc)
+        # Output constraint on the same metric should transform the bound
+        objective_m2 = Objective(metric=m2, minimize=False)
+        for bound in [-1.234, 0, 2.345]:
+            oc = OptimizationConfig(
+                objective=objective_m2,
+                outcome_constraints=get_constraint(
+                    metric=m1, bound=bound, relative=False
+                ),
+            )
+            oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
+            oc_true = deepcopy(oc)
+            tf_bound = (
+                tf.power_transforms["m1"].transform(np.array(bound, ndmin=2)).item()
+            )
+            oc_true.outcome_constraints[0].bound = tf_bound
+            self.assertEqual(oc_tf, oc_true)
+        # Relative constraints aren't supported
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=get_constraint(metric=m1, bound=2.345, relative=True),
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "PowerTransformY cannot be applied to metric m1 since it is "
+            "subject to a relative constraint.",
+        ):
+            tf.transform_optimization_config(oc, None, None)
+        # Support for scalarized outcome constraints isn't implemented
+        m3 = Metric(name="m3")
+        oc = OptimizationConfig(
+            objective=objective_m2,
+            outcome_constraints=[
+                ScalarizedOutcomeConstraint(
+                    metrics=[m1, m3], op=ComparisonOp.GEQ, bound=2.345, relative=False
+                )
+            ],
+        )
+        with self.assertRaises(NotImplementedError) as cm:
+            tf.transform_optimization_config(oc, None, None)
+        self.assertEqual(
+            "PowerTransformY cannot be used for metric(s) {'m1'} "
+            "that are part of a ScalarizedOutcomeConstraint.",
+            str(cm.exception),
+        )

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
@@ -50,7 +52,7 @@ class PowerTransformY(Transform):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         if config is None:
@@ -108,6 +110,32 @@ class PowerTransformY(Transform):
                         clip_mean=True,
                     )
         return observation_data
+
+    def transform_optimization_config(
+        self,
+        optimization_config: OptimizationConfig,
+        modelbridge: Optional[modelbridge_module.base.ModelBridge],
+        fixed_features: ObservationFeatures,
+    ) -> OptimizationConfig:
+        for c in optimization_config.all_constraints:
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                c_metric_names = [metric.name for metric in c.metrics]
+                intersection = set(c_metric_names) & set(self.metric_names)
+                if intersection:
+                    raise NotImplementedError(
+                        f"PowerTransformY cannot be used for metric(s) {intersection} "
+                        "that are part of a ScalarizedOutcomeConstraint."
+                    )
+            elif c.metric.name in self.metric_names:
+                if c.relative:
+                    raise ValueError(
+                        f"PowerTransformY cannot be applied to metric {c.metric.name} "
+                        "since it is subject to a relative constraint."
+                    )
+                else:
+                    transform = self.power_transforms[c.metric.name].transform
+                    c.bound = transform(np.array(c.bound, ndmin=2)).item()
+        return optimization_config
 
 
 def _compute_power_transforms(
