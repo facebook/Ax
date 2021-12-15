@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_search_space,
 )
+from hypothesis import assume, settings, strategies as st, given
 
 
 class RelativizeDataTest(TestCase):
@@ -74,11 +75,13 @@ class RelativizeDataTest(TestCase):
             modelbridge=modelbridge,
         ).transform_observation_data(obs_data, obs_features)
         self.assertEqual(results[0].metric_names, ["foobar", "foobaz"])
+        # status quo means must always be zero
         self.assertTrue(
             np.allclose(results[0].means, np.array([0.0, 0.0])), results[0].means
         )
+        # status quo covariances must always be zero
         self.assertTrue(
-            np.allclose(results[0].covariance, np.array([[500.0, 0.0], [0.0, 160.0]])),
+            np.allclose(results[0].covariance, np.array([[0.0, 0.0], [0.0, 0.0]])),
             results[0].covariance,
         )
         self.assertEqual(results[1].metric_names, ["foobar", "foobaz"])
@@ -89,6 +92,51 @@ class RelativizeDataTest(TestCase):
             np.allclose(results[1].covariance, np.array([[812.5, 0.0], [0.0, 480.0]])),
             results[1].covariance,
         )
+
+    @given(
+        st.floats(min_value=-10.0, max_value=10.0),
+        st.floats(min_value=0, max_value=10.0),
+        st.floats(min_value=-10.0, max_value=10.0),
+        st.floats(min_value=0, max_value=10.0),
+    )
+    @settings(max_examples=1000)
+    def test_transform_status_quos_always_zero(
+        self,
+        sq_mean: float,
+        sq_sem: float,
+        mean: float,
+        sem: float,
+    ):
+        assume(abs(sq_mean) >= 1e-10)
+        assume(abs(sq_mean) != sq_sem)
+
+        obs_data = [
+            ObservationData(
+                metric_names=["foo"],
+                means=np.array([sq_mean]),
+                covariance=np.array([[sq_sem]]),
+            ),
+            ObservationData(
+                metric_names=["foo"],
+                means=np.array([mean]),
+                covariance=np.array([[sem]]),
+            ),
+        ]
+        obs_features = [
+            ObservationFeatures(parameters={"x": 1}),
+            ObservationFeatures(parameters={"x": 2}),
+        ]
+        modelbridge = Mock(status_quo=Mock(data=obs_data[0]))
+        transform = Relativize(
+            search_space=None,
+            observation_features=[],
+            observation_data=[],
+            modelbridge=modelbridge,
+        )
+        relative_data = transform.transform_observation_data(obs_data, obs_features)
+        self.assertEqual(relative_data[0].metric_names, ["foo"])
+        self.assertEqual(relative_data[0].means[0], 0)
+        self.assertEqual(relative_data[0].covariance[0][0], 0)
 
 
 class RelativizeDataOptConfigTest(TestCase):
