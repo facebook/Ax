@@ -106,13 +106,14 @@ class ModelSpec(Base):
         """
         fitted_model = self.fitted_model
         model_gen_kwargs = consolidate_kwargs(
-            kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
+            kwargs_iterable=[
+                self.model_gen_kwargs,
+                {"fixed_features": self.fixed_features},
+                model_gen_kwargs,
+            ],
             keywords=get_function_argument_names(fitted_model.gen),
         )
-        return fitted_model.gen(
-            **model_gen_kwargs,
-            fixed_features=self.fixed_features,
-        )
+        return fitted_model.gen(**model_gen_kwargs)
 
     def _assert_fitted(self) -> None:
         """Helper that verifies a model was fitted, raising an error if not"""
