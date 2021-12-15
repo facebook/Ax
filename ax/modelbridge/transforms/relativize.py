@@ -168,13 +168,22 @@ class Relativize(Transform):
                     "ObservationData for status quo is missing metrics"
                 )
 
-            means_rel, sems_rel = relativize(
-                means_t=data.means[i],
-                sems_t=sqrt(data.covariance[i][i]),
-                mean_c=status_quo_data.means[j],
-                sem_c=sqrt(status_quo_data.covariance[j][j]),
-                as_percent=True,
-            )
+            means_t = data.means[i]
+            sems_t = sqrt(data.covariance[i][i])
+            mean_c = status_quo_data.means[j]
+            sem_c = sqrt(status_quo_data.covariance[j][j])
+
+            # if the is the status quo
+            if means_t == mean_c and sems_t == sem_c:
+                means_rel, sems_rel = 0, 0
+            else:
+                means_rel, sems_rel = relativize(
+                    means_t=means_t,
+                    sems_t=sems_t,
+                    mean_c=mean_c,
+                    sem_c=sem_c,
+                    as_percent=True,
+                )
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel ** 2
         return result

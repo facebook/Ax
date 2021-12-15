@@ -31,6 +31,7 @@ DEV_REQUIRES = [
     "beautifulsoup4",
     "black",
     "flake8",
+    "hypothesis",
     "pytest>=4.6",
     "pytest-cov",
     "sphinx<4.0",
