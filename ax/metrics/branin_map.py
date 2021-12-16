@@ -25,9 +25,11 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         self,
         name: str,
         param_names: Iterable[str],
+        map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
         rate: Optional[float] = None,
+        cache_evaluations: bool = True,
     ) -> None:
         """A Branin map metric with an optional multiplicative factor
         of `1 + exp(-rate * t)` where `t` is the runtime of the trial.
@@ -49,9 +51,12 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         super().__init__(
             name=name,
             param_names=param_names,
-            map_key_infos=[MapKeyInfo(key="timestamp", default_value=0.0)],
+            map_key_infos=map_key_infos
+            if map_key_infos is not None
+            else [MapKeyInfo(key="timestamp", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
+            cache_evaluations=cache_evaluations,
         )
 
     def __eq__(self, o: BraninTimestampMapMetric) -> bool:
