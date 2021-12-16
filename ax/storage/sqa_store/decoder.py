@@ -419,7 +419,7 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-        args = dict(metric_sqa.properties or {})
+        args = dict(object_from_json(metric_sqa.properties) or {})
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
         args = metric_class.deserialize_init_args(args=args)

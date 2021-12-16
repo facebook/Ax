@@ -328,7 +328,7 @@ class Encoder:
             )  # pragma: no cover
 
         properties = metric_class.serialize_init_args(metric=metric)
-        return metric_type, properties
+        return metric_type, object_to_json(properties)
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
         """Convert Ax Metric to SQLAlchemy."""
