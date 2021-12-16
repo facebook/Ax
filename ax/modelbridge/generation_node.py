@@ -41,6 +41,7 @@ class GenerationNode:
     """
 
     model_specs: List[ModelSpec]
+    _model_spec_to_gen_from: Optional[ModelSpec] = None
 
     def __init__(
         self,
@@ -54,6 +55,17 @@ class GenerationNode:
         # method to bypass that validation.
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
+
+    @property
+    def model_spec_to_gen_from(self) -> ModelSpec:
+        """Returns the cached `_model_spec_to_gen_from` or gets it from
+        `_pick_fitted_model_to_gen_from` and then caches and returns it
+        """
+        if self._model_spec_to_gen_from is not None:
+            return self._model_spec_to_gen_from
+
+        self._model_spec_to_gen_from = self._pick_fitted_model_to_gen_from()
+        return self._model_spec_to_gen_from
 
     def fit(
         self,
@@ -70,6 +82,7 @@ class GenerationNode:
         NOTE: Local kwargs take precedence over the ones stored in
         ``ModelSpec.model_kwargs``.
         """
+        self._model_spec_to_gen_from = None
         for model_spec in self.model_specs:
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
@@ -123,6 +136,13 @@ class GenerationNode:
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
         """Select one model to generate from among the fitted models on this
         generation node.
+
+        NOTE: In base ``GenerationNode`` class, this method does the following:
+          1. if this ``GenerationNode`` has an associated ``BestModelSelector``,
+             use it to select one model to generate from among the fitted models
+             on this generation node.
+          2. otherwise, ensure that this ``GenerationNode`` only contains one
+             `ModelSpec` and select it.
         """
         if self.best_model_selector is None:
             if len(self.model_specs) != 1:
