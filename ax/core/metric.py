@@ -213,13 +213,9 @@ class Metric(SortableBase):
             # we'll combine data from all metric classes into a single dataframe
             # before attaching it to the experiment.
             if cached_data:
-                cached_metric_names = cached_data.metric_names
-
-                # if there is a collision (ie fetched = A cached = AB), just use
-                # the recently fetched. That way, if we call `fetch_data` twice
-                # in a row (not within a for loop), we don't end up with
-                # duplicate data
-                if len(cached_metric_names.intersection({m.name for m in metrics})) > 0:
+                # if the fetched data's metrics are a superset of the cached data's
+                # metrics, just used the fetched data to avoid duplication.
+                if fetched_data.metric_names.issuperset(cached_data.metric_names):
                     final_data = fetched_data
                 else:
                     final_data = cls.data_constructor.from_multiple_data(
@@ -277,6 +273,7 @@ class Metric(SortableBase):
             final_data = cls.data_constructor.from_multiple_data(
                 [cached_trial_data, fetched_trial_data]
             )
+
             if not final_data.df.empty:
                 experiment.attach_data(
                     final_data,
