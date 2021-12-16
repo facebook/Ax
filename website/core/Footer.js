@@ -57,7 +57,7 @@ class Footer extends React.Component {
           />
         </a>
         <section className="copyright">
-          Copyright &copy; {currentYear} Facebook Inc.
+          Copyright &copy; {currentYear} Meta Platforms, Inc.
         </section>
       </footer>
     );
