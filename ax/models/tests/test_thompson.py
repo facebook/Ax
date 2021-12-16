@@ -155,7 +155,7 @@ class ThompsonSamplerTest(TestCase):
         for weight, expected_weight in zip(
             weights, [4 * i for i in [0.4, 0.4, 0.15, 0.05]]
         ):
-            self.assertAlmostEqual(weight, expected_weight, delta=0.1)
+            self.assertAlmostEqual(weight, expected_weight, delta=0.15)
 
     def testThompsonSamplerOutcomeConstraintsInfeasible(self):
         generator = ThompsonSampler(min_weight=0.0)
