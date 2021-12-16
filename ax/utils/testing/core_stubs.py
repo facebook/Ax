@@ -58,6 +58,7 @@ from ax.core.types import (
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
+    ThresholdEarlyStoppingStrategy,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
@@ -1406,8 +1407,16 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
 def get_percentile_early_stopping_strategy_with_true_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
     strategy = get_percentile_early_stopping_strategy()
     strategy.true_objective_metric_name = "true_objective"
-
     return strategy
+
+
+def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
+    return ThresholdEarlyStoppingStrategy(
+        true_objective_metric_name="true_objective",
+        metric_threshold=0.1,
+        min_progression=10,
+        trial_indices_to_ignore=[0, 1, 2],
+    )
 
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):

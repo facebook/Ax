@@ -80,6 +80,7 @@ from ax.utils.testing.core_stubs import (
     get_scalarized_objective,
     get_search_space,
     get_simple_experiment_with_batch_trial,
+    get_threshold_early_stopping_strategy,
     get_sum_constraint1,
     get_sum_constraint2,
     get_surrogate,
@@ -154,6 +155,7 @@ TEST_CASES = [
     ("Type[Model]", get_model_type),
     ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
+    ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),
 ]

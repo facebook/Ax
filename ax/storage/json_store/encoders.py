@@ -34,6 +34,7 @@ from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
+    ThresholdEarlyStoppingStrategy,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
@@ -511,6 +512,19 @@ def percentile_early_stopping_strategy_to_dict(
         "percentile_threshold": strategy.percentile_threshold,
         "min_progression": strategy.min_progression,
         "min_curves": strategy.min_curves,
+        "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
+        "true_objective_metric_name": strategy.true_objective_metric_name,
+    }
+
+
+def threshold_early_stopping_strategy_to_dict(
+    strategy: ThresholdEarlyStoppingStrategy,
+) -> Dict[str, Any]:
+    """Convert Ax metric-threshold early stopping strategy to a dictionary."""
+    return {
+        "__type": strategy.__class__.__name__,
+        "metric_threshold": strategy.metric_threshold,
+        "min_progression": strategy.min_progression,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "true_objective_metric_name": strategy.true_objective_metric_name,
     }

@@ -42,6 +42,7 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
+    ThresholdEarlyStoppingStrategy,
 )
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -96,6 +97,7 @@ from ax.storage.json_store.encoders import (
     surrogate_to_dict,
     transform_type_to_dict,
     trial_to_dict,
+    threshold_early_stopping_strategy_to_dict,
     winsorization_config_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
@@ -151,6 +153,7 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
+    ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,
     Trial: trial_to_dict,
     ObservationFeatures: observation_features_to_dict,
     WinsorizationConfig: winsorization_config_to_dict,
@@ -229,6 +232,7 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
     "TrialStatus": TrialStatus,
+    "ThresholdEarlyStoppingStrategy": ThresholdEarlyStoppingStrategy,
     "ObservationFeatures": ObservationFeatures,
     "WinsorizationConfig": WinsorizationConfig,
 }
