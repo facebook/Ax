@@ -6,7 +6,7 @@
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Callable
+from typing import Tuple, List, Any, Dict, Optional, Callable
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -16,6 +16,12 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.cross_validation import (
+    compute_diagnostics,
+    cross_validate,
+    CVDiagnostics,
+    CVResult,
+)
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.kwargs import (
@@ -37,12 +43,20 @@ class ModelSpec(Base):
     model_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass to `ModelBridge.gen`.
     model_gen_kwargs: Optional[Dict[str, Any]] = None
+    # Kwargs to pass to `cross_validate`.
+    model_cv_kwargs: Optional[Dict[str, Any]] = None
     # Fixed generation features to pass into the Model's `.gen` function.
     fixed_features: Optional[ObservationFeatures] = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
     _fitted_model: Optional[ModelBridge] = None
+
+    # stored cross validation results set in cross validate
+    _cv_results: Optional[List[CVResult]] = None
+
+    # stored cross validation diagnostics set in cross validate
+    _diagnostics: Optional[CVDiagnostics] = None
 
     @property
     def fitted_model(self) -> ModelBridge:
@@ -70,6 +84,8 @@ class ModelSpec(Base):
         model kwargs set on the model spec, alongside any passed down as
         kwargs to this function (local kwargs take precedent)
         """
+        # unset any cross validation cache
+        self._cv_results, self._diagnostics = None, None
         # NOTE: It's important to copy `self.model_kwargs` here to avoid actually
         # adding contents of `model_kwargs` passed to this method, to
         # `self.model_kwargs`.
@@ -79,6 +95,44 @@ class ModelSpec(Base):
             data=data,
             **combined_model_kwargs,
         )
+
+    def cross_validate(
+        self,
+    ) -> Tuple[Optional[List[CVResult]], Optional[CVDiagnostics]]:
+        """
+        Call cross_validate, compute_diagnostics and cache the results
+        If the model cannot be cross validated, warn and return None
+        """
+        if self._cv_results is not None and self._diagnostics is not None:
+            return self._cv_results, self._diagnostics
+
+        try:
+            self._cv_results = cross_validate(
+                model=self.fitted_model,
+                **(self.model_cv_kwargs or {}),
+            )
+        except NotImplementedError:
+            warnings.warn(f"{self.model_enum.value} cannot be cross validated")
+            return None, None
+
+        self._diagnostics = compute_diagnostics(self._cv_results)
+        return self._cv_results, self._diagnostics
+
+    @property
+    def cv_results(self) -> Optional[List[CVResult]]:
+        """
+        Cached CV results from `self.cross_validate()`
+        if it has been successfully called
+        """
+        return self._cv_results
+
+    @property
+    def diagnostics(self) -> Optional[CVDiagnostics]:
+        """
+        Cached CV diagnostics from `self.cross_validate()`
+        if it has been successfully called
+        """
+        return self._diagnostics
 
     def update(self, experiment: Experiment, new_data: Data) -> None:
         """Updates the current fitted model on the given experiment + new data
