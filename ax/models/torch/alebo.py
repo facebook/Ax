@@ -278,6 +278,8 @@ def get_map_model(
             sd_best = m.state_dict()
     # Set the final value
     m = ALEBOGP(B=B, train_X=train_X, train_Y=train_Y, train_Yvar=train_Yvar)
+    # pyre-fixme[6]: Expected `OrderedDict[str, Tensor]` for 1st param but got
+    #  `Dict[typing.Any, typing.Any]`.
     m.load_state_dict(sd_best)
     mll = ExactMarginalLogLikelihood(m.likelihood, m)
     return mll
