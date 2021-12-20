@@ -48,8 +48,11 @@ jobs:
       with:
         python-version: 3.7
     - name: Install dependencies
+      # Pin ufmt deps so they match intermal pyfmt.
       run: |
         pip install black==21.4b2
+        pip install usort==0.6.4
+        pip install libcst==0.3.19
         pip install ufmt
         pip install flake8
     - name: ufmt
