@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from math import sqrt
-from typing import List, TYPE_CHECKING, Optional
+from typing import Dict, List, TYPE_CHECKING, Optional
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -39,6 +40,8 @@ class Relativize(Transform):
     Requires a modelbridge with a status quo set to work.
     """
 
+    MISSING_STATUS_QUO_ERROR = "Cannot relativize data without status quo data"
+
     def __init__(
         self,
         search_space: Optional[SearchSpace],
@@ -57,6 +60,13 @@ class Relativize(Transform):
         # self.modelbridge should NOT be modified
         self.modelbridge = not_none(
             modelbridge, "Relativize transform requires a modelbridge"
+        )
+        self.status_quo_by_trial = self._get_status_quo_by_trial(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            status_quo_feature=not_none(
+                self.modelbridge.status_quo, self.MISSING_STATUS_QUO_ERROR
+            ).features,
         )
 
     def transform_optimization_config(
@@ -128,11 +138,11 @@ class Relativize(Transform):
             self._get_relative_data(
                 data=datum,
                 status_quo_data=not_none(
-                    self.modelbridge.status_quo,
-                    "Cannot relativize data without status quo data",
-                ).data,
+                    self.status_quo_by_trial.get(obs_features.trial_index, None),
+                    self.MISSING_STATUS_QUO_ERROR,
+                ),
             )
-            for datum in observation_data
+            for datum, obs_features in zip(observation_data, observation_features)
         ]
 
     def untransform_observation_data(
@@ -187,3 +197,16 @@ class Relativize(Transform):
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel ** 2
         return result
+
+    @staticmethod
+    def _get_status_quo_by_trial(
+        observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        status_quo_feature: ObservationFeatures,
+    ) -> Dict[int, ObservationData]:
+        status_quo_signature = json.dumps(status_quo_feature.parameters, sort_keys=True)
+        return {
+            obs_f.trial_index: obs_data
+            for obs_data, obs_f in zip(observation_data, observation_features)
+            if json.dumps(obs_f.parameters, sort_keys=True) == status_quo_signature
+        }

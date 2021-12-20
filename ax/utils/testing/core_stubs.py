@@ -414,7 +414,7 @@ def get_branin_with_multi_task(with_multi_objective: bool = False):
         is_test=True,
     )
 
-    exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+    exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0}, name="status_quo")
 
     sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
     sobol_run = sobol_generator.gen(n=5)
