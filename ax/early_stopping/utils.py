@@ -59,6 +59,11 @@ def align_partial_results(
             logger.info(f"No data from metric {m} yet.")
     # drop arm names (assumes 1:1 map between trial indices and arm names)
     df = df.drop("arm_name", axis=1)
+    # remove duplicates (same trial, metric, progr_key), which can happen
+    # if the same progression is erroneously reported more than once
+    df = df.drop_duplicates(
+        subset=["trial_index", "metric_name", progr_key], keep="first"
+    )
     # set multi-index over trial, metric, and progression key
     df = df.set_index(["trial_index", "metric_name", progr_key])
     # sort index
