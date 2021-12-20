@@ -194,25 +194,6 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             candidate_metadata,
         )
 
-    def _transform_data(
-        self,
-        obs_feats: List[ObservationFeatures],
-        obs_data: List[ObservationData],
-        search_space: SearchSpace,
-        transforms: Optional[List[Type[Transform]]],
-        transform_configs: Optional[Dict[str, TConfig]],
-    ) -> Tuple[List[ObservationFeatures], List[ObservationData], SearchSpace]:
-        """Initialize transforms and apply them to provided data."""
-        # Run superclass version to fit transforms to observations
-        obs_feats, obs_data, search_space = super()._transform_data(
-            obs_feats=obs_feats,
-            obs_data=obs_data,
-            search_space=search_space,
-            transforms=transforms,
-            transform_configs=transform_configs,
-        )
-        return obs_feats, obs_data, search_space
-
     @copy_doc(TorchModelBridge.gen)
     def gen(
         self,
