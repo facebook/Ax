@@ -198,7 +198,31 @@ class RelativizeDataTest(TestCase):
             modelbridge=modelbridge,
         )
         relative_obs_data = transform.transform_observation_data(obs_data, obs_features)
-        self.assertEqual(relative_obs_data, expected_obs_data)
+        self.maxDiff = None
+        # this assertion just checks that order is the same, which
+        # is only important for the purposes of this test
+        self.assertEqual(
+            [datum.metric_names for datum in relative_obs_data],
+            [datum.metric_names for datum in expected_obs_data],
+        )
+        means = [
+            np.array([datum.means for datum in relative_obs_data]),
+            np.array([datum.means for datum in expected_obs_data]),
+        ]
+        # `self.assertAlmostEqual(relative_obs_data, expected_obs_data)`
+        # fails 1% of the time, so we check with numpy.
+        self.assertTrue(
+            all(np.isclose(means[0], means[1])),
+            means,
+        )
+        covariances = [
+            np.array([datum.covariance for datum in expected_obs_data]),
+            np.array([datum.covariance for datum in relative_obs_data]),
+        ]
+        self.assertTrue(
+            all(np.isclose(covariances[0], covariances[1])),
+            covariances,
+        )
 
 
 class RelativizeDataOptConfigTest(TestCase):
