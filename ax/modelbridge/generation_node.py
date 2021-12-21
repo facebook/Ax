@@ -17,7 +17,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.cross_validation import BestModelSelector
+from ax.modelbridge.cross_validation import CVResult, CVDiagnostics, BestModelSelector
 from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import (
     ModelRegistryBase,
@@ -66,6 +66,49 @@ class GenerationNode:
 
         self._model_spec_to_gen_from = self._pick_fitted_model_to_gen_from()
         return self._model_spec_to_gen_from
+
+    @property
+    def model_enum(self) -> ModelRegistryBase:
+        """model_enum from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.model_enum
+
+    @property
+    def model_kwargs(self) -> Optional[Dict[str, Any]]:
+        """model_kwargs from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.model_kwargs
+
+    @property
+    def model_gen_kwargs(self) -> Optional[Dict[str, Any]]:
+        """model_gen_kwargs from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.model_gen_kwargs
+
+    @property
+    def model_cv_kwargs(self) -> Optional[Dict[str, Any]]:
+        """model_cv_kwargs from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.model_cv_kwargs
+
+    @property
+    def fitted_model(self) -> ModelBridge:
+        """fitted_model from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.fitted_model
+
+    @property
+    def fixed_features(self) -> Optional[ObservationFeatures]:
+        """fixed_features from self.model_spec_to_gen_from for convenience"""
+        if len({model_spec.fixed_features for model_spec in self.model_specs}) == 1:
+            return self.model_specs[0].fixed_features
+
+        return self.model_spec_to_gen_from.fixed_features
+
+    @property
+    def cv_results(self) -> Optional[List[CVResult]]:
+        """cv_results from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.cv_results
+
+    @property
+    def diagnostics(self) -> Optional[CVDiagnostics]:
+        """diagnostics from self.model_spec_to_gen_from for convenience"""
+        return self.model_spec_to_gen_from.diagnostics
 
     def fit(
         self,

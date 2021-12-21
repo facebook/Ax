@@ -6,6 +6,7 @@
 
 from unittest.mock import patch
 
+from ax.core.observation import ObservationFeatures
 from ax.modelbridge.cross_validation import (
     SingleDiagnosticBestModelSelector,
     MetricAggregation,
@@ -82,6 +83,62 @@ class TestGenerationNode(TestCase):
         # subclass.
         with self.assertRaises(NotImplementedError):
             generation_node.gen()
+
+    def test_properties(self):
+        node = GenerationNode(
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={"n": 1},
+                    fixed_features=ObservationFeatures(parameters={}, trial_index=0),
+                ),
+            ],
+        )
+        dat = self.branin_experiment.lookup_data()
+        node.fit(
+            experiment=self.branin_experiment,
+            data=dat,
+        )
+        self.assertEqual(node.model_enum, node.model_specs[0].model_enum)
+        self.assertEqual(node.model_kwargs, node.model_specs[0].model_kwargs)
+        self.assertEqual(node.model_gen_kwargs, node.model_specs[0].model_gen_kwargs)
+        self.assertEqual(node.model_cv_kwargs, node.model_specs[0].model_cv_kwargs)
+        self.assertEqual(node.fixed_features, node.model_specs[0].fixed_features)
+        self.assertEqual(node.cv_results, node.model_specs[0].cv_results)
+        self.assertEqual(node.diagnostics, node.model_specs[0].diagnostics)
+
+    def test_single_fixed_features(self) -> None:
+        node = GenerationNode(
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={"n": 2},
+                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                ),
+            ],
+        )
+        self.assertEqual(node.fixed_features, ObservationFeatures(parameters={"x": 0}))
+
+    def test_multiple_same_fixed_features(self) -> None:
+        node = GenerationNode(
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={"n": 2},
+                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                ),
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={"n": 3},
+                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                ),
+            ],
+        )
+        self.assertEqual(node.fixed_features, ObservationFeatures(parameters={"x": 0}))
 
 
 class TestGenerationStep(TestCase):
@@ -161,3 +218,15 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         # spec as the one to generate from.
         # TODO[adamobeng]: Test correct behavior here when implemented.
         self.assertEqual(gr._model_key, "GPEI")
+
+    def test_fixed_features_is_from_model_to_gen_from(self) -> None:
+        self.model_selection_node.model_specs[0].fixed_features = ObservationFeatures(
+            parameters={"x": 0}
+        )
+        self.model_selection_node.model_specs[1].fixed_features = ObservationFeatures(
+            parameters={"x": 1}
+        )
+        self.assertEqual(
+            self.model_selection_node.fixed_features,
+            self.model_selection_node.model_spec_to_gen_from.fixed_features,
+        )

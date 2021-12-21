@@ -106,6 +106,7 @@ class ModelSpec(Base):
         if self._cv_results is not None and self._diagnostics is not None:
             return self._cv_results, self._diagnostics
 
+        self._assert_fitted()
         try:
             self._cv_results = cross_validate(
                 model=self.fitted_model,
