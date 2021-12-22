@@ -95,19 +95,22 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             return None
 
         if not isinstance(data, MapData):
-            raise ValueError(
+            logger.info(
                 f"{self.__class__.__name__} expects MapData, but the "
-                f"data attached to experiment is of type {type(data)}."
+                f"data attached to experiment is of type {type(data)}. "
+                "Not stopping any trials."
             )
+            return None
 
         data = checked_cast(MapData, data)
         map_keys = data.map_keys
         if len(list(map_keys)) > 1:
-            raise ValueError(  # pragma: no cover
+            logger.info(
                 f"{self.__class__.__name__} expects MapData with a single "
                 "map key, but the data attached to the experiment has multiple: "
-                f"{data.map_keys}."
+                f"{data.map_keys}. Not stopping any trials."
             )
+            return None
         return data
 
 
@@ -182,11 +185,19 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         map_key = next(iter(data.map_keys))
         minimize = optimization_config.objective.minimize
         df = data.map_df
-        metric_to_aligned_means, _ = align_partial_results(
-            df=df,
-            progr_key=map_key,
-            metrics=[objective_name],
-        )
+        try:
+            metric_to_aligned_means, _ = align_partial_results(
+                df=df,
+                progr_key=map_key,
+                metrics=[objective_name],
+            )
+        except Exception as e:
+            logger.warning(
+                f"Encountered exception while aligning data: {e}. "
+                "Not early stopping any trials."
+            )
+            return {}
+
         aligned_means = metric_to_aligned_means[objective_name]
         decisions = {
             trial_index: self.should_stop_trial_early(

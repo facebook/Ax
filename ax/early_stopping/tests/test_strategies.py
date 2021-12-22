@@ -41,10 +41,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         exp.attach_data(data=exp.fetch_data())
 
         # Non-MapData attached
-        with self.assertRaisesRegex(ValueError, "expects MapData"):
-            early_stopping_strategy.should_stop_trials_early(
-                trial_indices=idcs, experiment=exp
-            )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
 
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
