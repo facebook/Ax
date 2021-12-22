@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 import warnings
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Tuple, List, Any, Dict, Optional, Callable
 
@@ -35,6 +37,13 @@ from ax.utils.common.typeutils import not_none
 TModelFactory = Callable[..., ModelBridge]
 
 
+class ModelSpecJSONEncoder(json.JSONEncoder):
+    """Generic encoder to avoid JSON errors in ModelSpec.__repr__"""
+
+    def default(self, o: Any) -> str:
+        return repr(o)
+
+
 @dataclass
 class ModelSpec(Base):
     model_enum: ModelRegistryBase
@@ -57,6 +66,11 @@ class ModelSpec(Base):
 
     # stored cross validation diagnostics set in cross validate
     _diagnostics: Optional[CVDiagnostics] = None
+
+    def __post_init__(self) -> None:
+        self.model_kwargs = self.model_kwargs or {}
+        self.model_gen_kwargs = self.model_gen_kwargs or {}
+        self.model_cv_kwargs = self.model_cv_kwargs or {}
 
     @property
     def fitted_model(self) -> ModelBridge:
@@ -170,10 +184,46 @@ class ModelSpec(Base):
         )
         return fitted_model.gen(**model_gen_kwargs)
 
+    def copy(self) -> "ModelSpec":
+        """`ModelSpec` is both a spec and an object that performs actions.
+        Copying is useful to avoid changes to a singleton model spec.
+        """
+        return self.__class__(
+            model_enum=self.model_enum,
+            model_kwargs=deepcopy(self.model_kwargs),
+            model_gen_kwargs=deepcopy(self.model_gen_kwargs),
+            model_cv_kwargs=deepcopy(self.model_cv_kwargs),
+        )
+
     def _assert_fitted(self) -> None:
         """Helper that verifies a model was fitted, raising an error if not"""
         if self._fitted_model is None:
             raise UserInputError("No fitted model found. Call fit() to generate one")
+
+    def __repr__(self) -> str:
+        model_kwargs = json.dumps(
+            self.model_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+        )
+        model_gen_kwargs = json.dumps(
+            self.model_gen_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+        )
+        model_cv_kwargs = json.dumps(
+            self.model_cv_kwargs, sort_keys=True, cls=ModelSpecJSONEncoder
+        )
+        return (
+            "ModelSpec("
+            f"\tmodel_enum={self.model_enum.value},\n"
+            f"\tmodel_kwargs={model_kwargs},\n"
+            f"\tmodel_gen_kwargs={model_gen_kwargs},\n"
+            f"\tmodel_cv_kwargs={model_cv_kwargs},\n"
+            ")"
+        )
+
+    def __hash__(self) -> int:
+        return hash(repr(self))
+
+    def __eq__(self, other: "ModelSpec") -> bool:
+        return repr(self) == repr(other)
 
 
 @dataclass

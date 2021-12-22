@@ -456,4 +456,4 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             for d in diagnostics
         ]
         best_diagnostic = self.criterion(aggregated_diagnostic_values)
-        return [d == best_diagnostic for d in aggregated_diagnostic_values].index(True)
+        return aggregated_diagnostic_values.index(best_diagnostic)
