@@ -4,13 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pandas as pd
 from ax.core.base_trial import TrialStatus
+from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
@@ -202,7 +205,6 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         3          105.762700   77.324501  35.847504         NaN  48.359101
         4           99.950007         NaN  30.522333         NaN  44.479018
         """
-
         # We consider trials 0, 2, and 4 for early stopping at progression 4,
         #    and choose to stop trial 0.
         # We consider trial 1 for early stopping at progression 3, and
@@ -213,8 +215,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             percentile_threshold=50,
             min_curves=3,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
-            trial_indices=set(exp.trials.keys()), experiment=exp
+        should_stop = _evaluate_early_stopping_with_df(
+            early_stopping_strategy=early_stopping_strategy,
+            experiment=exp,
+            df=data.map_df,
         )
         self.assertEqual(set(should_stop), {0, 1, 3})
 
@@ -260,8 +264,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             percentile_threshold=50,
             min_curves=3,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
-            trial_indices=set(exp.trials.keys()), experiment=exp
+        should_stop = _evaluate_early_stopping_with_df(
+            early_stopping_strategy=early_stopping_strategy,
+            experiment=exp,
+            df=data.map_df,
         )
         self.assertEqual(set(should_stop), {0, 1})
 
@@ -327,3 +333,32 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
+
+
+def _evaluate_early_stopping_with_df(
+    early_stopping_strategy: PercentileEarlyStoppingStrategy,
+    experiment: Experiment,
+    df: pd.DataFrame,
+):
+    """Helper function for testing PercentileEarlyStoppingStrategy
+    on an arbitrary (MapData) df."""
+    metric_to_aligned_means, _ = align_partial_results(
+        df=df,
+        progr_key="timestamp",
+        metrics=["branin"],
+    )
+    aligned_means = metric_to_aligned_means["branin"]
+    decisions = {
+        trial_index: early_stopping_strategy.should_stop_trial_early(
+            trial_index=trial_index,
+            experiment=experiment,
+            df=aligned_means,
+            minimize=experiment.optimization_config.objective.minimize,
+        )
+        for trial_index in set(experiment.trials.keys())
+    }
+    return {
+        trial_index: reason
+        for trial_index, (should_stop, reason) in decisions.items()
+        if should_stop
+    }
