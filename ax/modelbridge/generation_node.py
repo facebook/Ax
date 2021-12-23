@@ -163,7 +163,7 @@ class GenerationNode:
             model-determined number of arms. In that case this method will also output
             a generator run with number of arms (that can differ from ``n``).
         """
-        model_spec = self._pick_fitted_model_to_gen_from()
+        model_spec = self.model_spec_to_gen_from
         return model_spec.gen(
             # If `n` is not specified, ensure that the `None` value does not
             # override the one set in `model_spec.model_gen_kwargs`.
