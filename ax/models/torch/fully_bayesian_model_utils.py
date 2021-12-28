@@ -185,6 +185,8 @@ def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None
         mcmc_samples["outputscale"]
         .detach()
         .clone()
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `outputscale`.
         .view(model.covar_module.outputscale.shape)
     )
     model.mean_module.constant.data = (
@@ -201,6 +203,8 @@ def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None
             .clone()
             .view(model.input_transform.concentration0.shape),  # pyre-ignore
         )
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `_set_concentration`.
         model.input_transform._set_concentration(
             i=1,
             value=mcmc_samples["c1"]
