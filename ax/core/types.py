@@ -5,7 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
-from typing import Any, DefaultDict, Dict, Hashable, List, Optional, Tuple, Union
+from typing import (
+    Callable,
+    Any,
+    DefaultDict,
+    Dict,
+    Hashable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from botorch.acquisition import AcquisitionFunction
@@ -51,6 +61,7 @@ TEvaluationOutcome = Union[
     TFidelityTrialEvaluation,
     TMapTrialEvaluation,
 ]
+TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
 
 TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any], None]]
 TBucket = List[Dict[str, List[str]]]

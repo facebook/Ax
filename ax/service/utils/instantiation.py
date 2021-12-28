@@ -11,7 +11,7 @@ from typing import Tuple, Dict, List, Optional, Union, cast
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import DataType, Experiment, DEFAULT_OBJECTIVE_NAME
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -33,7 +33,6 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
 from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
-from ax.core.simple_experiment import DEFAULT_OBJECTIVE_NAME
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,

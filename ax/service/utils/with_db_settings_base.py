@@ -212,7 +212,7 @@ class WithDBSettingsBase:
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
         )
-        if not isinstance(experiment, Experiment) or experiment.is_simple_experiment:
+        if not isinstance(experiment, Experiment):
             raise ValueError("Service API only supports `Experiment`.")
         logger.info(
             f"Loaded experiment {experiment_name} in "

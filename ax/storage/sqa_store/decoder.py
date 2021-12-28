@@ -36,7 +36,6 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -127,41 +126,19 @@ class Decoder:
         # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
-        # Remove 'subclass' from experiment's properties, since its only
-        # used for decoding to the correct experiment subclass in storage.
-        subclass = properties.pop(Keys.SUBCLASS, None)
         default_data_type = experiment_sqa.default_data_type
-        if subclass == "SimpleExperiment":
-            if opt_config is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "SimpleExperiment must have an optimization config."
-                )
-            experiment = SimpleExperiment(
-                name=experiment_sqa.name,
-                search_space=search_space,
-                objective_name=opt_config.objective.metric.name,
-                minimize=opt_config.objective.minimize,
-                outcome_constraints=opt_config.outcome_constraints,
-                status_quo=status_quo,
-                properties=properties,
-                default_data_type=default_data_type,
-            )
-            experiment.description = experiment_sqa.description
-            experiment.is_test = experiment_sqa.is_test
-        else:
-            experiment = Experiment(
-                name=experiment_sqa.name,
-                description=experiment_sqa.description,
-                search_space=search_space,
-                optimization_config=opt_config,
-                tracking_metrics=tracking_metrics,
-                runner=runner,
-                status_quo=status_quo,
-                is_test=experiment_sqa.is_test,
-                properties=properties,
-                default_data_type=default_data_type,
-            )
-        return experiment
+        return Experiment(
+            name=experiment_sqa.name,
+            description=experiment_sqa.description,
+            search_space=search_space,
+            optimization_config=opt_config,
+            tracking_metrics=tracking_metrics,
+            runner=runner,
+            status_quo=status_quo,
+            is_test=experiment_sqa.is_test,
+            properties=properties,
+            default_data_type=default_data_type,
+        )
 
     def _init_mt_experiment_from_sqa(
         self, experiment_sqa: SQAExperiment

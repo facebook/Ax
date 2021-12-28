@@ -27,10 +27,6 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import (
-    SimpleExperiment,
-    unimplemented_evaluation_function,
-)
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import (
@@ -120,8 +116,6 @@ def object_from_json(object_json: Any) -> Any:
             return generation_strategy_from_json(generation_strategy_json=object_json)
         elif _class == MultiTypeExperiment:
             return multi_type_experiment_from_json(object_json=object_json)
-        elif _class == SimpleExperiment:
-            return simple_experiment_from_json(object_json=object_json)
         elif _class == Experiment:
             return experiment_from_json(object_json=object_json)
         elif _class == SearchSpace:
@@ -266,31 +260,6 @@ def multi_type_experiment_from_json(object_json: Dict[str, Any]) -> MultiTypeExp
     experiment._metric_to_canonical_name = _metric_to_canonical_name
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
-
-    _load_experiment_info(exp=experiment, exp_info=experiment_info)
-    return experiment
-
-
-def simple_experiment_from_json(object_json: Dict[str, Any]) -> SimpleExperiment:
-    """Load AE SimpleExperiment from JSON."""
-    experiment_info = _get_experiment_info(object_json)
-
-    description_json = object_json.pop("description")
-    is_test_json = object_json.pop("is_test")
-    optimization_config = object_from_json(object_json.pop("optimization_config"))
-    # not relevant to simple experiment
-    del object_json["tracking_metrics"]
-    del object_json["runner"]
-
-    kwargs = {k: object_from_json(v) for k, v in object_json.items()}
-    kwargs["evaluation_function"] = unimplemented_evaluation_function
-    kwargs["objective_name"] = optimization_config.objective.metric.name
-    kwargs["minimize"] = optimization_config.objective.minimize
-    kwargs["outcome_constraints"] = optimization_config.outcome_constraints
-
-    experiment = SimpleExperiment(**kwargs)
-    experiment.description = object_from_json(description_json)
-    experiment.is_test = object_from_json(is_test_json)
 
     _load_experiment_info(exp=experiment, exp_info=experiment_info)
     return experiment
