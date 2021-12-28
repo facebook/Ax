@@ -100,7 +100,14 @@ def scatter_plot_with_pareto_frontier_plotly(
             name="Experimental points",
         )
     ]
-    if Y_pareto is not None:
+    # No Pareto frontier is drawn if none is provided, or if the frontier consists of
+    # a single point and no reference points are provided.
+    if Y_pareto is None or (len(Y_pareto) == 1 and reference_point is None):
+        # `Y_pareto` input was not specified
+        range_x = extend_range(lower=min(Y[:, 0]), upper=max(Y[:, 0]))
+        range_y = extend_range(lower=min(Y[:, 1]), upper=max(Y[:, 1]))
+        pareto_step = reference_point_lines = reference_point_star = []
+    else:
         title += " with Pareto frontier"
         if reference_point:
             if minimize is None:
@@ -176,10 +183,6 @@ def scatter_plot_with_pareto_frontier_plotly(
 
             range_x = extend_range(lower=min(Y_pareto[:, 0]), upper=max(Y_pareto[:, 0]))
             range_y = extend_range(lower=min(Y_pareto[:, 1]), upper=max(Y_pareto[:, 1]))
-    else:  # `Y_pareto` input was not specified
-        range_x = extend_range(lower=min(Y[:, 0]), upper=max(Y[:, 0]))
-        range_y = extend_range(lower=min(Y[:, 1]), upper=max(Y[:, 1]))
-        pareto_step = reference_point_lines = reference_point_star = []
     layout = go.Layout(
         title=title,
         showlegend=False,

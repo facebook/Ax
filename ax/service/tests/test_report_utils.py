@@ -252,13 +252,13 @@ class ReportUtilsTest(TestCase):
         ]
         exp.trials[0].run()
         plots = get_standard_plots(
-            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+            experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 9)
+        self.assertEqual(len(plots), 7)
 
         # All plots are successfully created when objective thresholds are absent
         exp.optimization_config._objective_thresholds = []
         plots = get_standard_plots(
-            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+            experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 9)
+        self.assertEqual(len(plots), 7)

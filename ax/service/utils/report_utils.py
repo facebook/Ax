@@ -73,7 +73,7 @@ def _get_objective_trace_plot(
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
         # TODO: implement `_get_hypervolume_trace()`
-        return _pareto_frontier_scatter_2d_plotly(experiment=experiment)
+        return [_pareto_frontier_scatter_2d_plotly(experiment=experiment)]
     metric_names = (
         metric_name
         for metric_name in [
