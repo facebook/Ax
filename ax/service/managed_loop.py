@@ -14,9 +14,9 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
-from ax.core.simple_experiment import TEvaluationFunction
 from ax.core.trial import Trial
 from ax.core.types import (
+    TEvaluationFunction,
     TEvaluationOutcome,
     TModelPredictArm,
     TParameterization,

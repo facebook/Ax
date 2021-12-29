@@ -30,7 +30,6 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
@@ -67,11 +66,6 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
         "properties": experiment._properties,
         "default_data_type": experiment._default_data_type,
     }
-
-
-def simple_experiment_to_dict(experiment: SimpleExperiment) -> Dict[str, Any]:
-    """Convert AE simple experiment to a dictionary."""
-    return experiment_to_dict(experiment)
 
 
 def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> Dict[str, Any]:

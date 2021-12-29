@@ -36,7 +36,6 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment, TEvaluationOutcome
 from ax.core.trial import Trial
 from ax.core.types import TParameterization
 

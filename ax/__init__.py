@@ -27,7 +27,6 @@ from ax.core import (
     RangeParameter,
     Runner,
     SearchSpace,
-    SimpleExperiment,
     SumConstraint,
     Trial,
 )
@@ -67,7 +66,6 @@ __all__ = [
     "RangeParameter",
     "Runner",
     "SearchSpace",
-    "SimpleExperiment",
     "SumConstraint",
     "Trial",
     "optimize",

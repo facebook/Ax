@@ -34,7 +34,6 @@ from ax.utils.testing.core_stubs import (
     get_range_parameter,
     get_scalarized_objective,
     get_scalarized_outcome_constraint,
-    get_simple_experiment_with_batch_trial,
     get_sum_constraint1,
     get_sum_constraint2,
     get_experiment_with_map_data,
@@ -186,12 +185,6 @@ TEST_CASES = [
         get_range_parameter,
         Encoder.parameter_to_sqa,
         Decoder.parameter_from_sqa,
-    ),
-    (
-        "SimpleExperiment",
-        get_simple_experiment_with_batch_trial,
-        Encoder.experiment_to_sqa,
-        Decoder.experiment_from_sqa,
     ),
     (
         "SyntheticRunner",

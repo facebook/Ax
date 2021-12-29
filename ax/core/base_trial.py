@@ -300,10 +300,6 @@ class BaseTrial(ABC, SortableBase):
     @runner.setter
     @immutable_once_run
     def runner(self, runner: Optional[Runner]) -> None:
-        if self.experiment.is_simple_experiment:
-            raise NotImplementedError(
-                "SimpleExperiment does not support addition of runners."
-            )
         self._runner = runner
 
     @property
@@ -605,11 +601,6 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if self.experiment.is_simple_experiment:
-            self._status = TrialStatus.RUNNING
-            self._time_run_started = datetime.now()
-            return self
-
         if self._runner is None and not no_runner_required:
             raise ValueError("Cannot mark trial running without setting runner.")
 

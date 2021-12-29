@@ -48,6 +48,8 @@ DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.MAP_DATA: MapData,
 }
 
+DEFAULT_OBJECTIVE_NAME = "objective"
+
 
 # pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
@@ -148,12 +150,6 @@ class Experiment(Base):
         if is_test:
             logger.info(EXPERIMENT_IS_TEST_WARNING)
         self._is_test = is_test
-
-    @property
-    def is_simple_experiment(self):
-        """Whether this experiment is a regular Experiment or the subclassing
-        `SimpleExperiment`."""
-        return False
 
     @property
     def time_created(self) -> datetime:

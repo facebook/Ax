@@ -37,7 +37,6 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies import (
@@ -92,7 +91,6 @@ from ax.storage.json_store.encoders import (
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
-    simple_experiment_to_dict,
     sum_parameter_constraint_to_dict,
     surrogate_to_dict,
     transform_type_to_dict,
@@ -149,7 +147,6 @@ ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SearchSpace: search_space_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
     SimpleBenchmarkProblem: benchmark_problem_to_dict,
-    SimpleExperiment: simple_experiment_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
@@ -223,7 +220,6 @@ DECODER_REGISTRY: Dict[str, Type] = {
     "ScalarizedObjective": ScalarizedObjective,
     "SearchSpace": SearchSpace,
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
-    "SimpleExperiment": SimpleExperiment,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
     "SklearnModelType": SklearnModelType,

@@ -29,7 +29,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment,
     get_generator_run,
-    get_simple_experiment,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 
@@ -160,17 +159,6 @@ class TestWithDBSettingsBase(TestCase):
         self.assertEqual(db_exp, experiment)
         self.assertIsNotNone(db_gs)
         self.assertEqual(db_gs.name, generation_strategy.name)
-
-        simple_experiment = get_simple_experiment()
-        _save_experiment(
-            simple_experiment,
-            encoder=self.with_db_settings.db_settings.encoder,
-            decoder=self.with_db_settings.db_settings.decoder,
-        )
-        with self.assertRaisesRegex(ValueError, "Service API only"):
-            self.with_db_settings._load_experiment_and_generation_strategy(
-                simple_experiment.name
-            )
 
     def test_update_generation_strategy(self):
         _, generation_strategy = self.init_experiment_and_generation_strategy()

@@ -33,7 +33,6 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.core.simple_experiment import SimpleExperiment
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -180,9 +179,6 @@ class Encoder:
                     ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(not_none(experiment.runner)))
-
-        if isinstance(experiment, SimpleExperiment):
-            properties[Keys.SUBCLASS] = "SimpleExperiment"
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[

@@ -171,14 +171,6 @@ Objective
     :show-inheritance:
     :noindex:
 
-`SimpleExperiment`
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.core.simple_experiment
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `Trial`
 ~~~~~~~~
 
