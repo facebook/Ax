@@ -72,6 +72,7 @@ def _make_botorch_step(
     no_winsorization: bool = False,
     should_deduplicate: bool = False,
     verbose: Optional[bool] = None,
+    disable_progbar: Optional[bool] = None,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
 
@@ -93,6 +94,8 @@ def _make_botorch_step(
         )
     if verbose is not None:
         model_kwargs.update({"verbose": verbose})
+    if disable_progbar is not None:
+        model_kwargs.update({"disable_progbar": disable_progbar})
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -236,6 +239,7 @@ def choose_generation_strategy(
     should_deduplicate: bool = False,
     use_saasbo: bool = False,
     verbose: Optional[bool] = None,
+    disable_progbar: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
@@ -303,6 +307,12 @@ def choose_generation_strategy(
             outputs are currently only available for SAASBO, so if ``verbose is not
             None`` for a different model type, it will be overridden to ``None`` with
             a warning.
+        disable_progbar: Whether GP model should produce a progress bar. If not
+            ``None``, its value gets added to ``model_kwargs`` during
+            ``generation_strategy`` construction. Defaults to ``True`` for SAASBO, else
+            ``None``. Progress bars are currently only available for SAASBO, so if
+            ``disable_probar is not None`` for a different model type, it will be
+            overridden to ``None`` with a warning.
         experiment: If specified, ``_experiment`` attribute of the generation strategy
             will be set to this experiment (useful for associating a generation
             strategy with a given experiment before it's first used to ``gen`` with
@@ -363,7 +373,7 @@ def choose_generation_strategy(
             sobol_parallelism = None  # No restriction on Sobol phase
             bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
 
-        # `verbose` default behavior and overrides
+        # `verbose` and `disable_progbar` defaults and overrides
         model_is_saasbo = not_none(suggested_model).name in [
             "FULLYBAYESIANMOO",
             "FULLYBAYESIAN",
@@ -375,6 +385,12 @@ def choose_generation_strategy(
                 f"Overriding `verbose = {verbose}` to `None` for non-SAASBO GP step."
             )
             verbose = None
+        if disable_progbar is not None and not model_is_saasbo:
+            logger.warning(
+                f"Overriding `disable_progbar = {disable_progbar}` to `None` for "
+                "non-SAASBO GP step."
+            )
+            disable_progbar = None
 
         # create `generation_strategy`
         gs = GenerationStrategy(
@@ -394,6 +410,7 @@ def choose_generation_strategy(
                     max_parallelism=bo_parallelism,
                     should_deduplicate=should_deduplicate,
                     verbose=verbose,
+                    disable_progbar=disable_progbar,
                 ),
             ]
         )
