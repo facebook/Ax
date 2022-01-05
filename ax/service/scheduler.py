@@ -610,15 +610,38 @@ class Scheduler(WithDBSettingsBase):
         dict. The contents of the dict depend on the implementation of
         `report_results` in the given `Scheduler` subclass.
         """
-        if self.options.init_seconds_between_polls is None:
+        if (
+            self.options.init_seconds_between_polls is None
+            and self.options.early_stopping_strategy is None
+        ):
             raise ValueError(  # pragma: no cover
                 "Default `wait_for_completed_trials_and_report_results` in base "
                 "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
-                "option."
+                "option or for an EarlyStoppingStrategy to be specified."
+            )
+        elif (
+            self.options.init_seconds_between_polls is not None
+            and self.options.early_stopping_strategy is not None
+        ):
+            self.logger.warn(
+                "Both `init_seconds_between_polls` and `early_stopping_strategy "
+                "supplied. `init_seconds_between_polls="
+                f"{self.options.init_seconds_between_polls}` will be overrridden by "
+                "`early_stopping_strategy.seconds_between_polls="
+                f"{self.options.early_stopping_strategy.seconds_between_polls}` and "
+                "polling will take place at a constant rate."
             )
 
+        seconds_between_polls = self.options.init_seconds_between_polls
+        backoff_factor = self.options.seconds_between_polls_backoff_factor
+        if self.options.early_stopping_strategy is not None:
+            seconds_between_polls = (
+                self.options.early_stopping_strategy.seconds_between_polls
+            )
+            # Do not backoff with early stopping, a constant heartbeat is preferred
+            backoff_factor = 1
+
         total_seconds_elapsed = 0
-        seconds_between_polls = not_none(self.options.init_seconds_between_polls)
         while len(self.pending_trials) > 0 and not self.poll_and_process_results():
             if total_seconds_elapsed > MAX_SECONDS_BETWEEN_REPORTS:
                 break  # If maximum wait time reached, check the stopping
@@ -637,7 +660,7 @@ class Scheduler(WithDBSettingsBase):
             sleep(seconds_between_polls)
 
             total_seconds_elapsed += seconds_between_polls
-            seconds_between_polls *= self.options.seconds_between_polls_backoff_factor
+            seconds_between_polls *= backoff_factor
 
         return self.report_results()
 

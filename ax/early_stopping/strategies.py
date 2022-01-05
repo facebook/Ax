@@ -27,15 +27,19 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def __init__(
         self,
+        seconds_between_polls: int = 60,
         true_objective_metric_name: Optional[str] = None,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
         Args:
+            seconds_between_polls: How often to poll the early stopping metric to
+                evaluate whether or not the trial should be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
                 situations where early stopping uses a proxy objective (such as training
                 loss instead of eval loss) for stopping decisions.
         """
+        self._seconds_between_polls = seconds_between_polls
         self._true_objective_metric_name = true_objective_metric_name
 
     @abstractmethod
@@ -113,6 +117,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             return None
         return data
 
+    @property
+    def seconds_between_polls(self) -> int:
+        return self._seconds_between_polls
+
+    @seconds_between_polls.setter
+    def seconds_between_polls(self, seconds_between_polls: int) -> None:
+        if seconds_between_polls < 0:
+            raise ValueError("`seconds_between_polls may not be less than 0")
+
+        self._seconds_between_polls = seconds_between_polls
+
 
 class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """Implements the strategy of stopping a trial if its performance
@@ -120,6 +135,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
+        seconds_between_polls: int = 60,
         true_objective_metric_name: Optional[str] = None,
         percentile_threshold: float = 50.0,
         min_progression: float = 0.1,
@@ -149,7 +165,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 of them are correctly returning data, then do not apply early stopping).
             trial_indices_to_ignore: Trial indices that should not be early stopped.
         """
-        super().__init__(true_objective_metric_name=true_objective_metric_name)
+        super().__init__(
+            seconds_between_polls=seconds_between_polls,
+            true_objective_metric_name=true_objective_metric_name,
+        )
 
         self.percentile_threshold = percentile_threshold
         self.min_progression = min_progression
