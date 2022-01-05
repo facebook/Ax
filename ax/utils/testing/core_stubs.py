@@ -169,10 +169,11 @@ def get_branin_experiment(
 
 
 def get_branin_experiment_with_timestamp_map_metric(
+    with_status_quo: bool = False,
     rate: Optional[float] = None,
     incremental: Optional[bool] = False,
-):
-    return Experiment(
+) -> Experiment:
+    exp = Experiment(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
@@ -187,6 +188,11 @@ def get_branin_experiment_with_timestamp_map_metric(
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )
+
+    if with_status_quo:
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    return exp
 
 
 def get_multi_type_experiment(

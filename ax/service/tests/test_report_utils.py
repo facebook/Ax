@@ -22,6 +22,7 @@ from ax.service.utils.report_utils import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment,
     get_multi_type_experiment,
@@ -235,7 +236,8 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
         plots = get_standard_plots(
-            experiment=exp, model=Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+            experiment=exp,
+            model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 6)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
@@ -262,3 +264,32 @@ class ReportUtilsTest(TestCase):
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
         self.assertEqual(len(plots), 7)
+
+        exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
+        exp.new_trial().add_arm(exp.status_quo)
+        exp.trials[0].run()
+        exp.new_trial(
+            generator_run=Models.SOBOL(search_space=exp.search_space).gen(n=1)
+        )
+        exp.trials[1].run()
+        plots = get_standard_plots(
+            experiment=exp,
+            model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
+            true_objective_metric_name="b",
+        )
+
+        self.assertEqual(len(plots), 9)
+        self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+        self.assertIn(
+            "Objective branin vs. True Objective Metric b",
+            [p.layout.title.text for p in plots],
+        )
+
+        with self.assertRaisesRegex(
+            ValueError, "Please add a valid true_objective_metric_name"
+        ):
+            plots = get_standard_plots(
+                experiment=exp,
+                model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
+                true_objective_metric_name="not_present",
+            )

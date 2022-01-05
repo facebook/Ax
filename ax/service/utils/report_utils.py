@@ -28,7 +28,7 @@ from ax.plot.pareto_frontier import (
     _pareto_frontier_plot_input_processing,
 )
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
-from ax.plot.scatter import interact_fitted_plotly
+from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
@@ -236,6 +236,17 @@ def get_standard_plots(
               range parameters
 
     """
+    if (
+        true_objective_metric_name is not None
+        and true_objective_metric_name not in experiment.metrics.keys()
+    ):
+        raise ValueError(
+            f"true_objective_metric_name='{true_objective_metric_name}' is not present "
+            f"in experiment.metrics={experiment.metrics}. Please add a valid "
+            "true_objective_metric_name or remove the optional parameter to get "
+            "standard plots."
+        )
+
     objective = not_none(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
@@ -269,6 +280,14 @@ def get_standard_plots(
     if model:
         # TODO: Check if model can predict in favor of try/catch.
         try:
+            if true_objective_metric_name is not None:
+                output_plot_list.append(
+                    _objective_vs_true_objective_scatter(
+                        model=model,
+                        objective_metric_name=objective.metric_names[0],
+                        true_objective_metric_name=true_objective_metric_name,
+                    )
+                )
             output_plot_list.extend(
                 _get_objective_v_param_plots(
                     experiment=experiment,
@@ -633,3 +652,20 @@ def _pareto_frontier_scatter_2d_plotly(
         reference_point=reference_point,
         minimize=minimize,
     )
+
+
+def _objective_vs_true_objective_scatter(
+    model: ModelBridge,
+    objective_metric_name: str,
+    true_objective_metric_name: str,
+) -> go.Figure:
+    plot = plot_multiple_metrics(
+        model=model, metric_x=objective_metric_name, metric_y=true_objective_metric_name
+    )
+
+    fig = go.Figure(plot.data)
+    fig.layout.title.text = (
+        f"Objective {objective_metric_name} vs. True Objective "
+        f"Metric {true_objective_metric_name}"
+    )
+    return fig
