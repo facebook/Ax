@@ -324,6 +324,24 @@ def choose_generation_strategy(
         optimization_config=optimization_config,
         use_saasbo=use_saasbo,
     )
+    # Determine max parallelism for the generation steps.
+    if max_parallelism_override == -1:
+        # `max_parallelism_override` of -1 means no max parallelism enforcement in
+        # the generation strategy, which means `max_parallelism=None` in gen. steps.
+        sobol_parallelism = bo_parallelism = None
+    elif max_parallelism_override is not None:
+        sobol_parallelism = bo_parallelism = max_parallelism_override
+    elif max_parallelism_cap is not None:  # Max parallelism override is None by now
+        sobol_parallelism = max_parallelism_cap
+        bo_parallelism = min(max_parallelism_cap, DEFAULT_BAYESIAN_PARALLELISM)
+    elif not enforce_sequential_optimization:
+        # If no max parallelism settings specified and not enforcing sequential
+        # optimization, do not limit parallelism.
+        sobol_parallelism = bo_parallelism = None
+    else:  # No additional max parallelism settings, use defaults
+        sobol_parallelism = None  # No restriction on Sobol phase
+        bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
+
     if not no_bayesian_optimization and suggested_model is not None:
         if not enforce_sequential_optimization and (  # pragma: no cover
             max_parallelism_override or max_parallelism_cap
@@ -355,24 +373,6 @@ def choose_generation_strategy(
                     5, 2 * len(search_space.tunable_parameters)
                 )
 
-        # Determine max parallelism for the generation steps.
-        if max_parallelism_override == -1:
-            # `max_parallelism_override` of -1 means no max parallelism enforcement in
-            # the generation strategy, which means `max_parallelism=None` in gen. steps.
-            sobol_parallelism = bo_parallelism = None
-        elif max_parallelism_override is not None:
-            sobol_parallelism = bo_parallelism = max_parallelism_override
-        elif max_parallelism_cap is not None:  # Max parallelism override is None by now
-            sobol_parallelism = max_parallelism_cap
-            bo_parallelism = min(max_parallelism_cap, DEFAULT_BAYESIAN_PARALLELISM)
-        elif not enforce_sequential_optimization:
-            # If no max parallelism settings specified and not enforcing sequential
-            # optimization, do not limit parallelism.
-            sobol_parallelism = bo_parallelism = None
-        else:  # No additional max parallelism settings, use defaults
-            sobol_parallelism = None  # No restriction on Sobol phase
-            bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
-
         # `verbose` and `disable_progbar` defaults and overrides
         model_is_saasbo = not_none(suggested_model).name in [
             "FULLYBAYESIANMOO",
@@ -392,43 +392,50 @@ def choose_generation_strategy(
             )
             disable_progbar = None
 
-        # create `generation_strategy`
-        gs = GenerationStrategy(
-            steps=[
+        # Create `generation_strategy`, adding first Sobol step
+        # if `num_initialization_trials` is > 0.
+        steps = []
+        if num_initialization_trials is None or num_initialization_trials > 0:
+            steps.append(
                 _make_sobol_step(
                     num_trials=num_initialization_trials,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
                     max_parallelism=sobol_parallelism,
                     should_deduplicate=should_deduplicate,
-                ),
-                _make_botorch_step(
-                    model=suggested_model,
-                    optimization_config=optimization_config,
-                    winsorization_config=winsorization_config,
-                    no_winsorization=no_winsorization,
-                    max_parallelism=bo_parallelism,
-                    should_deduplicate=should_deduplicate,
-                    verbose=verbose,
-                    disable_progbar=disable_progbar,
-                ),
-            ]
+                )
+            )
+        steps.append(
+            _make_botorch_step(
+                model=suggested_model,
+                optimization_config=optimization_config,
+                winsorization_config=winsorization_config,
+                no_winsorization=no_winsorization,
+                max_parallelism=bo_parallelism,
+                should_deduplicate=should_deduplicate,
+                verbose=verbose,
+                disable_progbar=disable_progbar,
+            ),
         )
+        gs = GenerationStrategy(steps=steps)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
             f" {num_initialization_trials} will take longer to generate due to "
             " model-fitting."
         )
-    else:
+    else:  # `no_bayesian_optimization` is True or we could not suggest BO model
         if verbose is not None:
             logger.warning(
                 f"Ignoring `verbose = {verbose}` for `generation_strategy` "
                 "without a GP step."
             )
+
         gs = GenerationStrategy(
             steps=[
                 _make_sobol_step(
-                    seed=random_seed, should_deduplicate=should_deduplicate
+                    seed=random_seed,
+                    should_deduplicate=should_deduplicate,
+                    max_parallelism=sobol_parallelism,
                 )
             ]
         )
