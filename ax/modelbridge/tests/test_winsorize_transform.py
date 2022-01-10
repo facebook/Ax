@@ -398,15 +398,12 @@ class WinsorizeTransformTest(TestCase):
             transform = get_transform(
                 observation_data=deepcopy(all_obsd), config=config
             )
-            # TODO: [bbeckerman] find out why ws is of length 4 rather than 2 in
-            # github actions tests for python 3.8.
-            # self.assertEqual(len(ws), 2)  # One warning per objective
             for i in range(2):
-                self.assertEqual(
+                print([w.message for w in ws])
+                self.assertTrue(
                     "Automatic winsorization isn't supported for ScalarizedObjective. "
                     "Specify the winsorization settings manually if you want to "
-                    f"winsorize metric m{i + 1}.",
-                    str(ws[i].message),
+                    f"winsorize metric m{i + 1}." in [str(w.message) for w in ws]
                 )
         self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
         self.assertEqual(transform.cutoffs["m2"], (-float("inf"), float("inf")))
@@ -456,15 +453,12 @@ class WinsorizeTransformTest(TestCase):
             transform = get_transform(
                 observation_data=deepcopy(all_obsd), config=config
             )
-            # TODO: [bbeckerman] find out why ws is of length 4 rather than 2 in
-            # github actions tests for python 3.8.
-            # self.assertEqual(len(ws), 2)  # One warning per metric
             for i in range(2):
-                self.assertEqual(
+                self.assertTrue(
                     "Automatic winsorization isn't supported for a "
                     "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-                    f"manually if you want to winsorize metric m{['1', '3'][i]}.",
-                    str(ws[i].message),
+                    f"manually if you want to winsorize metric m{['1', '3'][i]}."
+                    in [str(w.message) for w in ws]
                 )
         # Making the constraint relative should print the same warning
         config["optimization_config"].outcome_constraints[0].relative = True
@@ -472,15 +466,12 @@ class WinsorizeTransformTest(TestCase):
             transform = get_transform(
                 observation_data=deepcopy(all_obsd), config=config
             )
-            # TODO: [bbeckerman] find out why ws is of length 4 rather than 2 in
-            # github actions tests for python 3.8.
-            # self.assertEqual(len(ws), 2)  # One warning per metric
             for i in range(2):
-                self.assertEqual(
+                self.assertTrue(
                     "Automatic winsorization isn't supported for a "
                     "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-                    f"manually if you want to winsorize metric m{['1', '3'][i]}.",
-                    str(ws[i].message),
+                    f"manually if you want to winsorize metric m{['1', '3'][i]}."
+                    in [str(w.message) for w in ws]
                 )
         # Multi-objective without objective thresholds (should print a warning)
         moo_objective = MultiObjective(
@@ -496,16 +487,13 @@ class WinsorizeTransformTest(TestCase):
             transform = get_transform(
                 observation_data=deepcopy(all_obsd), config=moo_config
             )
-            # TODO: [bbeckerman] find out why ws is of length 4 rather than 2 in
-            # github actions tests for python 3.8.
-            # self.assertEqual(len(ws), 2)  # One warning per objective
+            # TODO: [bbeckerman] uncomment when oss version to 1.19
             for i in range(2):
-                self.assertEqual(
+                self.assertTrue(
                     "Automatic winsorization isn't supported for an objective in "
                     "`MultiObjective` without objective thresholds. Specify the "
                     "winsorization settings manually if you want to winsorize "
-                    f"metric m{i + 1}.",
-                    str(ws[i].message),
+                    f"metric m{i + 1}." in [str(w.message) for w in ws]
                 )
         self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
         self.assertEqual(transform.cutoffs["m2"], (-float("inf"), float("inf")))
