@@ -72,7 +72,7 @@ class TestBestPointUtils(TestCase):
                     },
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp))
+                self.assertIsNotNone(get_best_parameters(exp, Models))
                 self.assertTrue(
                     any("Model fit is poor" in warning for warning in lg.output),
                     msg=lg.output,
@@ -89,17 +89,17 @@ class TestBestPointUtils(TestCase):
                     bad_fit_metrics_to_fisher_score={},
                 ),
             ):
-                self.assertIsNotNone(get_best_parameters(exp))
+                self.assertIsNotNone(get_best_parameters(exp, Models))
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
-        self.assertIsNotNone(get_best_parameters(exp))
+        self.assertIsNotNone(get_best_parameters(exp, Models))
 
     def test_best_raw_objective_point(self):
         exp = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp), None)
+        self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
@@ -167,7 +167,7 @@ class TestBestPointUtils(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp), None)
+        self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
@@ -184,7 +184,7 @@ class TestBestPointUtils(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
-        self.assertEqual(get_best_parameters(exp), None)
+        self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()

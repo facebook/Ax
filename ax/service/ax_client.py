@@ -39,6 +39,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
+from ax.modelbridge.registry import ModelRegistryBase
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
@@ -709,8 +710,34 @@ class AxClient(WithDBSettingsBase):
             )
         # TODO[drfreund]: Find a way to include data for last trial in the
         # calculation of best parameters.
-        return best_point_utils.get_best_parameters_with_trial_index(
-            experiment=self.experiment, use_model_predictions=use_model_predictions
+        if use_model_predictions:
+            current_model = self.generation_strategy._curr.model
+            # Cover for the case where source of `self._curr.model` was not a `Models`
+            # enum but a factory function, in which case we cannot do
+            # `get_model_from_generator_run` (since we don't have model type and inputs
+            # recorded on the generator run.
+            models_enum = (
+                current_model.__class__
+                if isinstance(current_model, ModelRegistryBase)
+                else None
+            )
+
+            if models_enum is not None:
+
+                res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
+                    experiment=self.experiment,
+                    models_enum=models_enum,
+                )
+
+                if res is not None:
+                    return res  # pragma: no cover
+
+                logger.info(
+                    "Could not use model predictions to identify best point, will use "
+                    "raw objective values."
+                )
+        return best_point_utils.get_best_by_raw_objective_with_trial_index(
+            experiment=self.experiment
         )
 
     def get_best_parameters(
@@ -742,9 +769,13 @@ class AxClient(WithDBSettingsBase):
                 "problems."
             )
 
-        return best_point_utils.get_best_parameters(
-            experiment=self.experiment, use_model_predictions=use_model_predictions
-        )
+        res = self.get_best_trial(use_model_predictions=use_model_predictions)
+
+        if res is None:
+            return res  # pragma: no cover
+
+        _, parameterization, vals = res
+        return parameterization, vals
 
     def get_pareto_optimal_parameters(
         self, use_model_predictions: bool = True

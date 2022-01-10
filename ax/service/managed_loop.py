@@ -27,8 +27,9 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
+from ax.modelbridge.registry import Models
 from ax.service.utils.best_point import (
-    get_best_from_model_predictions,
+    get_best_parameters_from_model_predictions,
     get_best_raw_objective_point,
 )
 from ax.service.utils.instantiation import (
@@ -242,7 +243,9 @@ class OptimizationLoop:
         """Obtains the best point encountered in the course
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
-        model_predictions = get_best_from_model_predictions(experiment=self.experiment)
+        model_predictions = get_best_parameters_from_model_predictions(
+            experiment=self.experiment, models_enum=Models
+        )
         if model_predictions is not None:
             return model_predictions
 

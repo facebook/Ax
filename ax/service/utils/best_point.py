@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from functools import reduce
-from typing import Dict, Optional, Tuple
+from typing import Type, Dict, Optional, Tuple
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -35,7 +35,11 @@ from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier as observed_pareto,
 )
 from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
-from ax.modelbridge.registry import get_model_from_generator_run, Models
+from ax.modelbridge.registry import (
+    ModelRegistryBase,
+    get_model_from_generator_run,
+    Models,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none, checked_cast
 from ax.utils.stats.statstools import relativize_data
@@ -51,7 +55,7 @@ def get_best_raw_objective_point_with_trial_index(
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
-    Args
+    Args:
         experiment: Experiment, on which to identify best raw objective arm.
         optimization_config: Optimization config to use in absence or in place of
             the one stored on the experiment.
@@ -103,6 +107,7 @@ def get_best_raw_objective_point_with_trial_index(
 def get_best_raw_objective_point(
     experiment: Experiment, optimization_config: Optional[OptimizationConfig] = None
 ) -> Tuple[TParameterization, Dict[str, Tuple[float, float]]]:
+
     _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
         experiment=experiment, optimization_config=optimization_config
     )
@@ -132,8 +137,8 @@ def _raw_values_to_model_predict_arm(
     )
 
 
-def get_best_from_model_predictions_with_trial_index(
-    experiment: Experiment,
+def get_best_parameters_from_model_predictions_with_trial_index(
+    experiment: Experiment, models_enum: Type[ModelRegistryBase]
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and corresponding
     prediction based on the most recent Trial with predictions. If no trials have
@@ -148,14 +153,14 @@ def get_best_from_model_predictions_with_trial_index(
         experiment: Experiment, on which to identify best raw objective arm.
 
     Returns:
-        Tuple of parameterization and model predictions for it.
+        Tuple of trial index, parameterization, and model predictions for it.
     """
     # pyre-ignore [16]
     if isinstance(experiment.optimization_config.objective, MultiObjective):
         logger.warning(
-            "get_best_from_model_predictions is deprecated for multi-objective "
-            "optimization configs. This method will return an arbitrary point on "
-            "the pareto frontier."
+            "get_best_parameters_from_model_predictions is deprecated for "
+            "multi-objective optimization configs. This method will return an "
+            "arbitrary point on the pareto frontier."
         )
     for idx, trial in sorted(
         experiment.trials.items(), key=lambda x: x[0], reverse=True
@@ -173,7 +178,10 @@ def get_best_from_model_predictions_with_trial_index(
 
             try:
                 model = get_model_from_generator_run(
-                    generator_run=gr, experiment=experiment, data=data
+                    generator_run=gr,
+                    experiment=experiment,
+                    data=data,
+                    models_enum=models_enum,
                 )
             except ValueError:
                 return _gr_to_prediction_with_trial_index(idx, gr)
@@ -217,10 +225,27 @@ def get_best_from_model_predictions_with_trial_index(
     return None
 
 
-def get_best_from_model_predictions(
-    experiment: Experiment,
+def get_best_parameters_from_model_predictions(
+    experiment: Experiment, models_enum: Type[ModelRegistryBase]
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-    res = get_best_from_model_predictions_with_trial_index(experiment=experiment)
+    """Given an experiment, returns the best predicted parameterization and corresponding
+    prediction based on the most recent Trial with predictions. If no trials have
+    predictions returns None.
+
+    Only some models return predictions. For instance GPEI does while Sobol does not.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Args:
+        experiment: Experiment, on which to identify best raw objective arm.
+
+    Returns:
+        Tuple of parameterization and model predictions for it.
+    """
+    res = get_best_parameters_from_model_predictions_with_trial_index(
+        experiment=experiment, models_enum=models_enum
+    )
 
     if res is None:
         return None
@@ -230,49 +255,21 @@ def get_best_from_model_predictions(
     return parameterization, vals
 
 
-def get_best_parameters_with_trial_index(
+def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
-    use_model_predictions: bool = True,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-    """Given an experiment, identifies the best arm.
-
-    First attempts according to do so with models used in optimization and
-    its corresponding predictions if available. Falls back to the best raw
-    objective based on the data fetched from the experiment.
+    """Given an experiment, identifies the arm that had the best raw objective,
+    based on the data fetched from the experiment.
 
     TModelPredictArm is of the form:
         ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
-        use_model_predictions: Whether to extract the best point using
-            model predictions or directly observed values. If ``True``,
-            the metric means and covariances in this method's output will
-            also be based on model predictions and may differ from the
-            observed values.
 
     Returns:
-        Tuple of parameterization and model predictions for it.
+        Tuple of trial index, parameterization, and model predictions for it.
     """
-    # pyre-ignore [16]
-    if isinstance(experiment.optimization_config.objective, MultiObjective):
-        logger.warning(
-            "get_best_parameters is deprecated for multi-objective optimization. "
-            "This method will return an arbitrary point on the pareto frontier."
-        )
-    # Find latest trial which has a generator_run attached and get its predictions
-    if use_model_predictions:
-        model_predictions = get_best_from_model_predictions_with_trial_index(
-            experiment=experiment
-        )
-        if model_predictions is not None:  # pragma: no cover
-            return model_predictions
-        logger.info(
-            "Could not use model predictions to identify best point, will use raw "
-            "objective values."
-        )
-
-    # Could not find through model, default to using raw objective.
     try:
         (
             trial_index,
@@ -288,12 +285,89 @@ def get_best_parameters_with_trial_index(
     )
 
 
+def get_best_by_raw_objective(
+    experiment: Experiment,
+) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    """Given an experiment, identifies the arm that had the best raw objective,
+    based on the data fetched from the experiment.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Args:
+        experiment: Experiment, on which to identify best raw objective arm.
+
+    Returns:
+        Tuple of parameterization, and model predictions for it.
+    """
+    res = get_best_by_raw_objective_with_trial_index(experiment=experiment)
+
+    if res is None:
+        return None
+
+    _, parameterization, vals = res
+    return parameterization, vals
+
+
+def get_best_parameters_with_trial_index(
+    experiment: Experiment,
+    models_enum: Type[ModelRegistryBase],
+) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    """Given an experiment, identifies the best arm.
+
+    First attempts according to do so with models used in optimization and
+    its corresponding predictions if available. Falls back to the best raw
+    objective based on the data fetched from the experiment.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Args:
+        experiment: Experiment, on which to identify best raw objective arm.
+
+    Returns:
+        Tuple of trial index, parameterization, and model predictions for it.
+    """
+    # pyre-ignore [16]
+    if isinstance(experiment.optimization_config.objective, MultiObjective):
+        logger.warning(
+            "get_best_parameters is deprecated for multi-objective optimization. "
+            "This method will return an arbitrary point on the pareto frontier."
+        )
+
+    # Find latest trial which has a generator_run attached and get its predictions
+    res = get_best_parameters_from_model_predictions_with_trial_index(
+        experiment=experiment, models_enum=models_enum
+    )
+
+    if res is not None:
+        return res
+
+    return get_best_by_raw_objective_with_trial_index(experiment=experiment)
+
+
 def get_best_parameters(
     experiment: Experiment,
-    use_model_predictions: bool = True,
+    models_enum: Type[ModelRegistryBase],
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    """Given an experiment, identifies the best arm.
+
+    First attempts according to do so with models used in optimization and
+    its corresponding predictions if available. Falls back to the best raw
+    objective based on the data fetched from the experiment.
+
+    TModelPredictArm is of the form:
+        ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
+
+    Args:
+        experiment: Experiment, on which to identify best raw objective arm.
+
+    Returns:
+        Tuple of parameterization and model predictions for it.
+    """
     res = get_best_parameters_with_trial_index(
-        experiment=experiment, use_model_predictions=use_model_predictions
+        experiment=experiment,
+        models_enum=models_enum,
     )
 
     if res is None:

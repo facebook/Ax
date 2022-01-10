@@ -249,7 +249,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("objective", vals[1]["objective"])
 
     @patch(
-        "ax.service.managed_loop.get_best_from_model_predictions",
+        "ax.service.managed_loop.get_best_parameters_from_model_predictions",
         autospec=True,
         return_value=({"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
     )

@@ -245,13 +245,20 @@ class ModelRegistryTest(TestCase):
         gr = initial_sobol.gen(n=1)
         # Restore the model as it was before generation.
         sobol = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data(), after_gen=False
+            generator_run=gr,
+            experiment=exp,
+            data=exp.fetch_data(),
+            models_enum=Models,
+            after_gen=False,
         )
         self.assertEqual(sobol.model.init_position, 0)
         self.assertEqual(sobol.model.seed, 239)
         # Restore the model as it was after generation (to resume generation).
         sobol_after_gen = get_model_from_generator_run(
-            generator_run=gr, experiment=exp, data=exp.fetch_data()
+            generator_run=gr,
+            experiment=exp,
+            data=exp.fetch_data(),
+            models_enum=Models,
         )
         self.assertEqual(sobol_after_gen.model.init_position, 1)
         self.assertEqual(sobol_after_gen.model.seed, 239)
@@ -266,7 +273,7 @@ class ModelRegistryTest(TestCase):
         gr._bridge_kwargs = gpei._bridge_kwargs
         gr._model_state_after_gen = {}
         gpei_restored = get_model_from_generator_run(
-            gr, experiment=exp, data=get_branin_data()
+            gr, experiment=exp, data=get_branin_data(), models_enum=Models
         )
         for key in gpei.__dict__:
             self.assertIn(key, gpei_restored.__dict__)

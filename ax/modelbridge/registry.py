@@ -445,7 +445,7 @@ def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
-    models_enum: Optional[Type[ModelRegistryBase]] = None,
+    models_enum: Type[ModelRegistryBase],
     after_gen: bool = True,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator
@@ -459,7 +459,7 @@ def get_model_from_generator_run(
             reinstantiate.
         experiment: The experiment for which the model is reinstantiated.
         data: Data, with which to reinstantiate the model.
-        models_enum: Optional subclass of `Models` registry, from which to obtain
+        models_enum: Subclass of `Models` registry, from which to obtain
             the settings of the model. Useful only if the generator run was
             created via a model that could not be included into the main registry,
             but can still be represented as a `ModelSetup` and was added to a
@@ -475,7 +475,7 @@ def get_model_from_generator_run(
             "Cannot restore model from generator run as no model key was "
             "on the generator run stored."
         )
-    model = (models_enum or Models)(generator_run._model_key)
+    model = models_enum(generator_run._model_key)
     model_kwargs = generator_run._model_kwargs or {}
     if after_gen:
         model_kwargs = _combine_model_kwargs_and_state(
