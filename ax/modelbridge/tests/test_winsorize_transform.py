@@ -487,7 +487,6 @@ class WinsorizeTransformTest(TestCase):
             transform = get_transform(
                 observation_data=deepcopy(all_obsd), config=moo_config
             )
-            # TODO: [bbeckerman] uncomment when oss version to 1.19
             for i in range(2):
                 self.assertTrue(
                     "Automatic winsorization isn't supported for an objective in "
