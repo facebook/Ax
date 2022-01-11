@@ -29,6 +29,7 @@ def get_rembo_initializer(
     search_space: SearchSpace,
     A: np.ndarray,
     bounds_d: List[Tuple[float, float]],
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> RandomModelBridge:
     """Instantiates a uniform random generator.
@@ -37,6 +38,7 @@ def get_rembo_initializer(
         search_space: Search space.
         A: Projection matrix.
         bounds_d: Bounds in low-d space.
+        seed: seed.
         kwargs: kwargs
 
     Returns:
@@ -44,7 +46,7 @@ def get_rembo_initializer(
     """
     return RandomModelBridge(
         search_space=search_space,
-        model=REMBOInitializer(A=A, bounds_d=bounds_d, **kwargs),
+        model=REMBOInitializer(A=A, bounds_d=bounds_d, seed=seed, **kwargs),
         transforms=[CenteredUnitX],
     )
 

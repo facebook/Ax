@@ -21,11 +21,14 @@ from ax.models.torch.alebo import ALEBO
 
 
 def get_ALEBOInitializer(
-    search_space: SearchSpace, B: np.ndarray, **model_kwargs: Any
+    search_space: SearchSpace,
+    B: np.ndarray,
+    seed: Optional[int] = None,
+    **model_kwargs: Any,
 ) -> RandomModelBridge:
     return RandomModelBridge(
         search_space=search_space,
-        model=ALEBOInitializer(B=B, **model_kwargs),
+        model=ALEBOInitializer(B=B, seed=seed, **model_kwargs),
         transforms=ALEBO_X_trans,
     )
 

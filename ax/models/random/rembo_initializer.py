@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig
@@ -22,16 +22,19 @@ class REMBOInitializer(UniformGenerator):
     Args:
         A: A (Dxd) linear embedding
         bounds_d: Box bounds in the low-d space
-        kwargs: kwargs for UniformGenerator
+        seed: seed for UniformGenerator
     """
 
     def __init__(
-        self, A: np.ndarray, bounds_d: List[Tuple[float, float]], **kwargs: Any
+        self,
+        A: np.ndarray,
+        bounds_d: List[Tuple[float, float]],
+        seed: Optional[int] = None,
     ) -> None:
         self.bounds_d = bounds_d
         self.A = A
         self.X_d_gen = []  # Store points in low-d space generated here
-        super().__init__(**kwargs)
+        super().__init__(seed=seed)
 
     def project_up(self, X: np.ndarray) -> np.ndarray:
         """Project to high-dimensional space."""

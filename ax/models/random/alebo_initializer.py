@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.types import TConfig
@@ -33,16 +33,20 @@ class ALEBOInitializer(UniformGenerator):
         B: A (dxD) projection down.
         nsamp: Number of samples to use for rejection sampling.
         init_bound: b for the initial sampling space described above.
-        kwargs: kwargs for UniformGenerator
+        seed: seed for UniformGenerator
     """
 
     def __init__(
-        self, B: np.ndarray, nsamp: int = 10000, init_bound: int = 16, **kwargs: Any
+        self,
+        B: np.ndarray,
+        nsamp: int = 10000,
+        init_bound: int = 16,
+        seed: Optional[int] = None,
     ) -> None:
         self.Q = np.linalg.pinv(B) @ B  # Projects down to B and then back up
         self.nsamp = nsamp
         self.init_bound = init_bound
-        super().__init__(**kwargs)
+        super().__init__(seed=seed)
 
     @copy_doc(UniformGenerator.gen)
     def gen(
