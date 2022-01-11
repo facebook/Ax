@@ -212,7 +212,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
                         + "results carefully."
                     )
 
-                return _get_best_poor_model_fit(experiment=experiment)
+                return get_best_by_raw_objective_with_trial_index(experiment=experiment)
 
             res = model.model_best_point()
             if res is None:
@@ -276,7 +276,10 @@ def get_best_by_raw_objective_with_trial_index(
             parameterization,
             values,
         ) = get_best_raw_objective_point_with_trial_index(experiment=experiment)
-    except ValueError:
+    except ValueError as err:
+        logger.error(
+            f"Encountered error while trying to identify the best point: {err}"
+        )
         return None
     return (
         trial_index,
@@ -639,24 +642,3 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     df_metric_arms_sems = df[name_mask]["sem"]
 
     return ((df_metric_arms_sems == 0) | df_metric_arms_sems == NaN).all()
-
-
-def _get_best_poor_model_fit(
-    experiment: Experiment,
-) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-    try:
-        (
-            trial_index,
-            parameterization,
-            values,
-        ) = get_best_raw_objective_point_with_trial_index(experiment=experiment)
-    except ValueError as err:
-        logger.error(
-            f"Encountered error while trying to identify the best point: {err}"
-        )
-        return None
-    return (
-        trial_index,
-        parameterization,
-        _raw_values_to_model_predict_arm(values),
-    )
