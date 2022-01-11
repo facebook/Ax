@@ -442,8 +442,7 @@ class HierarchicalSearchSpace(SearchSpace):
         # removed, but not altering those that are present if they have different
         # values in full parameterization as stored in metadata.
         full_parameterization = not_none(obs_feats.metadata)[Keys.FULL_PARAMETERIZATION]
-        full_parameterization.update(obs_feats.parameters)
-        obs_feats.parameters = full_parameterization
+        obs_feats.parameters = {**full_parameterization, **obs_feats.parameters}
 
         return obs_feats
 
