@@ -7,6 +7,7 @@
 import warnings
 from unittest.mock import Mock, patch
 
+from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
@@ -105,6 +106,14 @@ class ModelSpecTest(BaseModelSpecTest):
 
         mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
         mock_diagnostics.assert_not_called()
+
+    def test_fixed_features(self):
+        ms = ModelSpec(model_enum=Models.GPEI)
+        self.assertIsNone(ms.fixed_features)
+        new_features = ObservationFeatures(parameters={"a": 1.0})
+        ms.fixed_features = new_features
+        self.assertEqual(ms.fixed_features, new_features)
+        self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
 
 
 class FactoryFunctionModelSpecTest(BaseModelSpecTest):

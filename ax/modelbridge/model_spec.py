@@ -54,8 +54,6 @@ class ModelSpec(Base):
     model_gen_kwargs: Optional[Dict[str, Any]] = None
     # Kwargs to pass to `cross_validate`.
     model_cv_kwargs: Optional[Dict[str, Any]] = None
-    # Fixed generation features to pass into the Model's `.gen` function.
-    fixed_features: Optional[ObservationFeatures] = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
@@ -77,6 +75,26 @@ class ModelSpec(Base):
         """Returns the fitted Ax model, asserting fit() was called"""
         self._assert_fitted()
         return not_none(self._fitted_model)
+
+    @property
+    def fixed_features(self) -> Optional[ObservationFeatures]:
+        """
+        Fixed generation features to pass into the Model's `.gen` function.
+        """
+        return (
+            self.model_gen_kwargs.get("fixed_features")
+            if self.model_gen_kwargs is not None
+            else None
+        )
+
+    @fixed_features.setter
+    def fixed_features(self, value: Optional[ObservationFeatures]) -> None:
+        """
+        Fixed generation features to pass into the Model's `.gen` function.
+        """
+        if self.model_gen_kwargs is None:
+            self.model_gen_kwargs = {}
+        self.model_gen_kwargs["fixed_features"] = value
 
     @property
     def model_key(self) -> str:
@@ -177,7 +195,6 @@ class ModelSpec(Base):
         model_gen_kwargs = consolidate_kwargs(
             kwargs_iterable=[
                 self.model_gen_kwargs,
-                {"fixed_features": self.fixed_features},
                 model_gen_kwargs,
             ],
             keywords=get_function_argument_names(fitted_model.gen),

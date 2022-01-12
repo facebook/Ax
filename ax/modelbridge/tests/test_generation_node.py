@@ -90,8 +90,12 @@ class TestGenerationNode(TestCase):
                 ModelSpec(
                     model_enum=Models.GPEI,
                     model_kwargs={},
-                    model_gen_kwargs={"n": 1},
-                    fixed_features=ObservationFeatures(parameters={}, trial_index=0),
+                    model_gen_kwargs={
+                        "n": 1,
+                        "fixed_features": ObservationFeatures(
+                            parameters={}, trial_index=0
+                        ),
+                    },
                 ),
             ],
         )
@@ -114,8 +118,10 @@ class TestGenerationNode(TestCase):
                 ModelSpec(
                     model_enum=Models.GPEI,
                     model_kwargs={},
-                    model_gen_kwargs={"n": 2},
-                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                    model_gen_kwargs={
+                        "n": 2,
+                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
+                    },
                 ),
             ],
         )
@@ -127,14 +133,18 @@ class TestGenerationNode(TestCase):
                 ModelSpec(
                     model_enum=Models.GPEI,
                     model_kwargs={},
-                    model_gen_kwargs={"n": 2},
-                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                    model_gen_kwargs={
+                        "n": 2,
+                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
+                    },
                 ),
                 ModelSpec(
                     model_enum=Models.GPEI,
                     model_kwargs={},
-                    model_gen_kwargs={"n": 3},
-                    fixed_features=ObservationFeatures(parameters={"x": 0}),
+                    model_gen_kwargs={
+                        "n": 3,
+                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
+                    },
                 ),
             ],
         )
