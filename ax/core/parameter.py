@@ -654,7 +654,11 @@ class FixedParameter(Parameter):
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
-        ret_val += f"value={self._value}"
+
+        if self._parameter_type == ParameterType.STRING:
+            ret_val += f"value='{self._value}'"
+        else:
+            ret_val += f"value={self._value}"
 
         if self._is_fidelity:
             ret_val += (
