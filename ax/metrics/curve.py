@@ -104,15 +104,6 @@ class AbstractCurveMetric(MapMetric, ABC):
             logger.info("Could not get curves from ids. Returning empty data.")
             return MapData(map_key_infos=[cls.MAP_KEY])
 
-        for id_, curve_series in all_curve_series.items():
-            for m in metrics:
-                if m.curve_name not in curve_series:  # pyre-ignore [16]
-                    logger.info(
-                        f"{m.curve_name} not yet present in curves from {id_}. "
-                        "Returning empty data."
-                    )
-                    return MapData(map_key_infos=[cls.MAP_KEY])
-
         dfs = []
         for trial, id_ in zip(trials_filtered, ids_filtered):
             if id_ not in all_curve_series:
@@ -120,16 +111,22 @@ class AbstractCurveMetric(MapMetric, ABC):
                 continue
             curve_series = all_curve_series[id_]
             for m in metrics:
-                cs = curve_series[m.curve_name].rename("mean")  # pyre-ignore [6]
-                dfi = cs.reset_index().rename(  # pyre-ignore [16]
-                    columns={"index": cls.MAP_KEY.key}
-                )
-                dfi["trial_index"] = trial.index
-                dfi["arm_name"] = trial.arm.name
-                dfi["metric_name"] = m.name
-                dfi["sem"] = float("nan")
-                dfs.append(dfi.drop_duplicates())
-        df = pd.concat(dfs, axis=0, ignore_index=True)
+                if m.curve_name in curve_series:  # pyre-ignore [16]
+                    cs = curve_series[m.curve_name].rename("mean")  # pyre-ignore [6]
+                    dfi = cs.reset_index().rename(  # pyre-ignore [16]
+                        columns={"index": cls.MAP_KEY.key}
+                    )
+                    dfi["trial_index"] = trial.index
+                    dfi["arm_name"] = trial.arm.name
+                    dfi["metric_name"] = m.name
+                    dfi["sem"] = float("nan")
+                    dfs.append(dfi.drop_duplicates())
+                else:
+                    logger.info(
+                        f"{m.curve_name} not yet present in curves from {id_}. "
+                        "Returning without this metric."
+                    )
+        df = pd.concat(dfs, axis=0, ignore_index=True) if len(dfs) > 0 else None
         return MapData(df=df, map_key_infos=[cls.MAP_KEY])
 
     @classmethod
