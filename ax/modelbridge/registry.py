@@ -260,6 +260,18 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "FullyBayesian_MTGP": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=FullyBayesianBotorchModel,
+        transforms=ST_MTGP_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "FullyBayesianMOO_MTGP": ModelSetup(
+        bridge_class=MultiObjectiveTorchModelBridge,
+        model_class=FullyBayesianMOOBotorchModel,
+        transforms=ST_MTGP_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "ST_MTGP_NEHVI": ModelSetup(
         bridge_class=MultiObjectiveTorchModelBridge,
         model_class=MultiObjectiveBotorchModel,
@@ -427,6 +439,8 @@ class Models(ModelRegistryBase):
     FACTORIAL = "Factorial"
     FULLYBAYESIAN = "FullyBayesian"
     FULLYBAYESIANMOO = "FullyBayesianMOO"
+    FULLYBAYESIAN_MTGP = "FullyBayesian_MTGP"
+    FULLYBAYESIANMOO_MTGP = "FullyBayesianMOO_MTGP"
     THOMPSON = "Thompson"
     BOTORCH = "BO"
     BOTORCH_MODULAR = "BoTorch"
