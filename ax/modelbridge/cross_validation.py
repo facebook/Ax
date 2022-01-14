@@ -82,6 +82,11 @@ def cross_validate(
     n = len(arm_names)
     if folds > n:
         raise ValueError(f"Training data only has {n} arms, which is less than folds")
+    elif n == 0:
+        raise ValueError(
+            f"{model.__class__.__name__} has no training data.  Either it has been "
+            "incorrectly initialized or should not be cross validated."
+        )
     elif folds < 2 and folds != -1:
         raise ValueError("Folds must be -1 for LOO, or > 1.")
     elif folds == -1:

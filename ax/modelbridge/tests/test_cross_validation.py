@@ -27,7 +27,9 @@ from ax.modelbridge.cross_validation import (
     SingleDiagnosticBestModelSelector,
     CVDiagnostics,
 )
+from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class CrossValidationTest(TestCase):
@@ -198,6 +200,23 @@ class CrossValidationTest(TestCase):
         # Check result is correct
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].observed.features.trial_index, 2)
+
+    def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self):
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        with self.assertRaisesRegex(ValueError, "no training data"):
+            cross_validate(model=sobol)
+
+    def test_cross_validate_raises_not_implemented_error_for_non_cv_model_with_data(
+        self,
+    ):
+        exp = get_branin_experiment(with_batch=True)
+        exp.trials[0].run().complete()
+        sobol = Models.SOBOL(
+            experiment=exp, search_space=exp.search_space, data=exp.fetch_data()
+        )
+        with self.assertRaises(NotImplementedError):
+            cross_validate(model=sobol)
 
     def testComputeDiagnostics(self):
         # Construct CVResults
