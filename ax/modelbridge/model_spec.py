@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 import warnings
 from copy import deepcopy
@@ -201,7 +203,7 @@ class ModelSpec(Base):
         )
         return fitted_model.gen(**model_gen_kwargs)
 
-    def copy(self) -> "ModelSpec":
+    def copy(self) -> ModelSpec:
         """`ModelSpec` is both a spec and an object that performs actions.
         Copying is useful to avoid changes to a singleton model spec.
         """
@@ -239,7 +241,7 @@ class ModelSpec(Base):
     def __hash__(self) -> int:
         return hash(repr(self))
 
-    def __eq__(self, other: "ModelSpec") -> bool:
+    def __eq__(self, other: ModelSpec) -> bool:
         return repr(self) == repr(other)
 
 
