@@ -313,7 +313,7 @@ class Acquisition(Base):
         """
         # NOTE: `AcquisitionFunction.__call__` calls `forward`,
         # so below is equivalent to `self.acqf.forward(X=X)`.
-        return self.acqf(X=X)
+        return self.acqf(X=torch.unsqueeze(X, 1))
 
     @copy_doc(Surrogate.best_in_sample_point)
     def best_point(
