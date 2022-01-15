@@ -825,7 +825,7 @@ class ModelBridge(ABC):
     def evaluate_acquisition_function(
         self,
         observation_features: Union[
-            List[ObservationFeatures], List[List[ObservationFeatures], ...]
+            List[ObservationFeatures], List[List[ObservationFeatures]]
         ],
         search_space_digest: SearchSpaceDigest,
         objective_weights: np.ndarray,
