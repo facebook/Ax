@@ -9,7 +9,7 @@ from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -824,7 +824,9 @@ class ModelBridge(ABC):
 
     def evaluate_acquisition_function(
         self,
-        observation_features: List[ObservationFeatures],
+        observation_features: Union[
+            List[ObservationFeatures], List[List[ObservationFeatures], ...]
+        ],
         search_space_digest: SearchSpaceDigest,
         objective_weights: np.ndarray,
         objective_thresholds: Optional[np.ndarray] = None,
@@ -861,8 +863,13 @@ class ModelBridge(ABC):
             input observation features.
         """
         obs_feats = deepcopy(observation_features)
+        if not isinstance(obs_feats[0], list):
+            obs_feats = [obs_feats]
+
         for t in self.transforms.values():
-            obs_feats = t.transform_observation_features(obs_feats)
+            for i, batch in enumerate(obs_feats):
+                obs_feats[i] = t.transform_observation_features(batch)
+
         return self._evaluate_acquisition_function(
             observation_features=obs_feats,
             search_space_digest=search_space_digest,
