@@ -1061,7 +1061,8 @@ def observation_data_to_array(
 
 
 def observation_features_to_array(
-    parameters: List[str], obsf: List[ObservationFeatures]
+    parameters: List[str],
+    obsf: Union[List[ObservationFeatures], List[List[ObservationFeatures]]],
 ) -> np.ndarray:
     """Convert a list of Observation features to arrays."""
     return np.array([[of.parameters[p] for p in parameters] for of in obsf])
