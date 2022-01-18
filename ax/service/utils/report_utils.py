@@ -74,10 +74,15 @@ def _get_objective_trace_plot(
     if experiment.is_moo_problem:
         # TODO: implement `_get_hypervolume_trace()`
         return [_pareto_frontier_scatter_2d_plotly(experiment=experiment)]
+
+    optimization_config = experiment.optimization_config
+    if optimization_config is None:
+        return []
+
     metric_names = (
         metric_name
         for metric_name in [
-            not_none(experiment.optimization_config).objective.metric.name,
+            optimization_config.objective.metric.name,
             true_objective_metric_name,
         ]
         if metric_name is not None
@@ -87,12 +92,20 @@ def _get_objective_trace_plot(
         optimization_trace_single_method_plotly(
             y=np.array([data.df[data.df["metric_name"] == metric_name]["mean"]]),
             title=f"Best {metric_name} found vs. # of iterations",
-            ylabel=not_none(experiment.optimization_config).objective.metric.name,
+            ylabel=metric_name,
             model_transitions=model_transitions,
+            # Try and use the metric's lower_is_better property, but fall back on
+            # objective's minimize property if relevent
             optimization_direction=(
-                "minimize"
-                if not_none(experiment.optimization_config).objective.minimize
-                else "maximize"
+                (
+                    "minimize"
+                    if experiment.metrics[metric_name].lower_is_better is True
+                    else "maximize"
+                )
+                if experiment.metrics[metric_name].lower_is_better is not None
+                else (
+                    "minimize" if optimization_config.objective.minimize else "maximize"
+                )
             ),
             plot_trial_points=True,
         )
@@ -660,7 +673,11 @@ def _objective_vs_true_objective_scatter(
     true_objective_metric_name: str,
 ) -> go.Figure:
     plot = plot_multiple_metrics(
-        model=model, metric_x=objective_metric_name, metric_y=true_objective_metric_name
+        model=model,
+        metric_x=objective_metric_name,
+        metric_y=true_objective_metric_name,
+        rel_x=False,
+        rel_y=False,
     )
 
     fig = go.Figure(plot.data)
