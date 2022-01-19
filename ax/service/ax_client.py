@@ -10,7 +10,6 @@ import warnings
 from functools import partial
 from typing import Set, Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 
-import ax.service.utils.best_point as best_point_utils
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
@@ -24,8 +23,8 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.core.types import (
-    TEvaluationOutcome,
     TModelPredictArm,
+    TEvaluationOutcome,
     TParameterization,
     TParamValue,
 )
@@ -39,12 +38,12 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
-from ax.modelbridge.registry import ModelRegistryBase
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
     data_and_evaluations_from_raw_data,
     make_experiment,
@@ -58,6 +57,7 @@ from ax.storage.json_store.decoder import (
     object_from_json,
 )
 from ax.storage.json_store.encoder import object_to_json
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
@@ -83,7 +83,7 @@ round_floats_for_logging = partial(
 )
 
 
-class AxClient(WithDBSettingsBase):
+class AxClient(WithDBSettingsBase, BestPointMixin):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
@@ -161,8 +161,10 @@ class AxClient(WithDBSettingsBase):
         early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
     ) -> None:
         super().__init__(
-            db_settings=db_settings, suppress_all_errors=suppress_storage_errors
+            db_settings=db_settings,
+            suppress_all_errors=suppress_storage_errors,
         )
+
         if not verbose_logging:
             logger.setLevel(logging.WARNING)  # pragma: no cover
         else:
@@ -681,141 +683,6 @@ class AxClient(WithDBSettingsBase):
         """Retrieve the parameterization of the trial by the given index."""
         return not_none(self._get_trial(trial_index).arm).parameters
 
-    def get_best_trial(
-        self, use_model_predictions: bool = True
-    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-        """Identifies the best parameterization tried in the experiment so far.
-
-        First attempts to do so with the model used in optimization and
-        its corresponding predictions if available. Falls back to the best raw
-        objective based on the data fetched from the experiment.
-
-        NOTE: ``TModelPredictArm`` is of the form:
-            ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-        Args:
-            use_model_predictions: Whether to extract the best point using
-                model predictions or directly observed values. If ``True``,
-                the metric means and covariances in this method's output will
-                also be based on model predictions and may differ from the
-                observed values.
-
-        Returns:
-            Tuple of trial index, parameterization and model predictions for it.
-        """
-        if not_none(self.experiment.optimization_config).is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
-                "Please use `get_pareto_optimal_parameters` for multi-objective "
-                "problems."
-            )
-        # TODO[drfreund]: Find a way to include data for last trial in the
-        # calculation of best parameters.
-        if use_model_predictions:
-            current_model = self.generation_strategy._curr.model
-            # Cover for the case where source of `self._curr.model` was not a `Models`
-            # enum but a factory function, in which case we cannot do
-            # `get_model_from_generator_run` (since we don't have model type and inputs
-            # recorded on the generator run.
-            models_enum = (
-                current_model.__class__
-                if isinstance(current_model, ModelRegistryBase)
-                else None
-            )
-
-            if models_enum is not None:
-
-                res = best_point_utils.get_best_parameters_from_model_predictions_with_trial_index(  # noqa
-                    experiment=self.experiment,
-                    models_enum=models_enum,
-                )
-
-                if res is not None:
-                    return res  # pragma: no cover
-
-                logger.info(
-                    "Could not use model predictions to identify best point, will use "
-                    "raw objective values."
-                )
-        return best_point_utils.get_best_by_raw_objective_with_trial_index(
-            experiment=self.experiment
-        )
-
-    def get_best_parameters(
-        self, use_model_predictions: bool = True
-    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-        """Identifies the best parameterization tried in the experiment so far.
-
-        First attempts to do so with the model used in optimization and
-        its corresponding predictions if available. Falls back to the best raw
-        objective based on the data fetched from the experiment.
-
-        NOTE: ``TModelPredictArm`` is of the form:
-            ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
-
-        Args:
-            use_model_predictions: Whether to extract the best point using
-                model predictions or directly observed values. If ``True``,
-                the metric means and covariances in this method's output will
-                also be based on model predictions and may differ from the
-                observed values.
-
-        Returns:
-            Tuple of parameterization and model predictions for it.
-        """
-
-        if not_none(self.experiment.optimization_config).is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
-                "Please use `get_pareto_optimal_parameters` for multi-objective "
-                "problems."
-            )
-
-        res = self.get_best_trial(use_model_predictions=use_model_predictions)
-
-        if res is None:
-            return res  # pragma: no cover
-
-        _, parameterization, vals = res
-        return parameterization, vals
-
-    def get_pareto_optimal_parameters(
-        self, use_model_predictions: bool = True
-    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
-        """Identifies the best parameterizations tried in the experiment so far,
-        using model predictions if ``use_model_predictions`` is true and using
-        observed values from the experiment otherwise. By default, uses model
-        predictions to account for observation noise.
-
-        NOTE: The format of this method's output is as follows:
-        { trial_index --> (parameterization, (means, covariances) }, where means
-        are a dictionary of form { metric_name --> metric_mean } and covariances
-        are a nested dictionary of form
-        { one_metric_name --> { another_metric_name: covariance } }.
-
-        Args:
-            use_model_predictions: Whether to extract the Pareto frontier using
-                model predictions or directly observed values. If ``True``,
-                the metric means and covariances in this method's output will
-                also be based on model predictions and may differ from the
-                observed values.
-
-        Returns:
-            ``None`` if it was not possible to extract the Pareto frontier,
-            otherwise a mapping from trial index to the tuple of:
-            - the parameterization of the arm in that trial,
-            - two-item tuple of metric means dictionary and covariance matrix
-                (model-predicted if ``use_model_predictions=True`` and observed
-                otherwise).
-        """
-        if not not_none(self.experiment.optimization_config).is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
-                "Please use `get_best_parameters` for single-objective problems."
-            )
-        return best_point_utils.get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            use_model_predictions=use_model_predictions,
-        )
-
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
 
@@ -1236,6 +1103,36 @@ class AxClient(WithDBSettingsBase):
         """Returns the name of the objective in this optimization."""
         objective = self.objective
         return [m.name for m in objective.metrics]
+
+    @copy_doc(BestPointMixin.get_best_trial)
+    def get_best_trial(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+        return self._get_best_trial(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_best_parameters)
+    def get_best_parameters(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+        return self._get_best_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
+    def get_pareto_optimal_parameters(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+        return self._get_pareto_optimal_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
 
     def _update_trial_with_raw_data(
         self,
