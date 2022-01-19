@@ -10,7 +10,6 @@ import numpy as np
 import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -20,8 +19,6 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
-from ax.exceptions.core import AxError
-from ax.modelbridge.array import FIT_MODEL_ERROR
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
     parse_observation_features,
@@ -29,13 +26,8 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
-from ax.models.torch.frontier_utils import (
-    TFrontierEvaluator,
-    get_default_frontier_evaluator,
-)
-from ax.models.torch_base import TorchModel
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from torch import Tensor
@@ -58,14 +50,12 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     them to the model.
     """
 
-    _objective_metric_names: Optional[List[str]]
-
     def __init__(
         self,
         experiment: Experiment,
         search_space: SearchSpace,
         data: Data,
-        model: TorchModel,
+        model: MultiObjectiveBotorchModel,
         transforms: List[Type[Transform]],
         transform_configs: Optional[Dict[str, TConfig]] = None,
         torch_dtype: Optional[torch.dtype] = None,  # noqa T484
@@ -77,11 +67,8 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         objective_thresholds: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
-        self._objective_metric_names = None
-        # Optimization_config
-        mooc = optimization_config or experiment.optimization_config
-        # Extract objective_thresholds from optimization_config, or inject it.
-        if not mooc:
+        moo_config = optimization_config or experiment.optimization_config
+        if not moo_config:
             raise ValueError(
                 (
                     "Experiment must have an existing `optimization_config` "
@@ -89,16 +76,15 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
                     "or non-null `optimization_config` must be passed as an argument."
                 )
             )
-        if not isinstance(mooc, MultiObjectiveOptimizationConfig):
+        if not isinstance(moo_config, MultiObjectiveOptimizationConfig):
             raise TypeError(
                 "`optimization_config` must be a `MultiObjectiveOptimizationConfig`;"
-                f" received: {mooc}."
+                f" received: {moo_config}."
             )
-        mooc = checked_cast(MultiObjectiveOptimizationConfig, mooc)
         if objective_thresholds:
-            mooc = mooc.clone_with_args(objective_thresholds=objective_thresholds)
-
-        optimization_config = mooc
+            moo_config = moo_config.clone_with_args(
+                objective_thresholds=objective_thresholds
+            )
 
         super().__init__(
             experiment=experiment,
@@ -111,7 +97,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             torch_device=torch_device,
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
-            optimization_config=optimization_config,
+            optimization_config=moo_config,
             fit_out_of_design=fit_out_of_design,
             default_model_gen_options=default_model_gen_options,
         )
@@ -121,15 +107,11 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
     ) -> Dict[str, Any]:
         extra_kwargs_dict = {}
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
-            objective_thresholds = extract_objective_thresholds(
+            extra_kwargs_dict["objective_thresholds"] = extract_objective_thresholds(
                 objective_thresholds=optimization_config.objective_thresholds,
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
             )
-        else:
-            objective_thresholds = None
-        if objective_thresholds is not None:
-            extra_kwargs_dict["objective_thresholds"] = objective_thresholds
         return extra_kwargs_dict
 
     def _model_gen(
@@ -146,85 +128,29 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         target_fidelities: Optional[Dict[int, float]],
         objective_thresholds: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
-        if not self.model:  # pragma: no cover
-            raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
-        (obj_w, oc_c, l_c, pend_obs, obj_t,) = validate_and_apply_final_transform(
+        X, w, gen_metadata, candidate_metadata = super()._model_gen(
+            n=n,
+            bounds=bounds,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
             pending_observations=pending_observations,
-            objective_thresholds=objective_thresholds,
-            final_transform=self._array_to_tensor,
-        )
-        tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
-        augmented_model_gen_options = {
-            **self._default_model_gen_options,
-            **(model_gen_options or {}),
-        }
-        # pyre-fixme[16]: `Optional` has no attribute `gen`.
-        X, w, gen_metadata, candidate_metadata = self.model.gen(
-            n=n,
-            bounds=bounds,
-            objective_weights=obj_w,
-            outcome_constraints=oc_c,
-            objective_thresholds=obj_t,
-            linear_constraints=l_c,
-            fixed_features=fixed_features,
-            pending_observations=pend_obs,
-            model_gen_options=augmented_model_gen_options,
-            rounding_func=tensor_rounding_func,
-            target_fidelities=target_fidelities,
-        )
-        # if objective_thresholds are supplied by the user, then the
-        # transformed user-specified objective thresholds are in
-        # gen_metadata. Otherwise, inferred objective thresholds are
-        # in gen_metadata.
-        objective_thresholds = gen_metadata["objective_thresholds"]
-        obj_thlds = self.untransform_objective_thresholds(
-            objective_thresholds=objective_thresholds,
-            objective_weights=obj_w,
-            bounds=bounds,
-            fixed_features=fixed_features,
-        )
-        gen_metadata["objective_thresholds"] = obj_thlds
-        return (
-            X.detach().cpu().clone().numpy(),
-            w.detach().cpu().clone().numpy(),
-            gen_metadata,
-            candidate_metadata,
-        )
-
-    @copy_doc(TorchModelBridge.gen)
-    def gen(
-        self,
-        n: int,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
-        model_gen_options: Optional[TConfig] = None,
-    ) -> GeneratorRun:
-        if optimization_config:
-            # Update objective metric names if new optimization config is present.
-            self._objective_metric_names = [
-                m.name for m in optimization_config.objective.metrics
-            ]
-        return super().gen(
-            n=n,
-            search_space=search_space,
-            optimization_config=optimization_config,
-            pending_observations=pending_observations,
-            fixed_features=fixed_features,
             model_gen_options=model_gen_options,
+            rounding_func=rounding_func,
+            target_fidelities=target_fidelities,
+            objective_thresholds=objective_thresholds,
         )
-
-    def _get_frontier_evaluator(self) -> TFrontierEvaluator:
-        return (
-            # pyre-ignore [16]: `TorchModel has no attribute `frontier_evaluator`
-            not_none(self.model).frontier_evaluator
-            if hasattr(self.model, "frontier_evaluator")
-            else get_default_frontier_evaluator()
+        # If objective_thresholds are supplied by the user, then the transformed
+        # user-specified objective thresholds are in gen_metadata. Otherwise,
+        # inferred objective thresholds are in gen_metadata.
+        gen_metadata["objective_thresholds"] = self._untransform_objective_thresholds(
+            objective_thresholds=gen_metadata["objective_thresholds"],
+            objective_weights=gen_metadata["objective_weights"],
+            bounds=bounds,
+            fixed_features=fixed_features,
         )
+        return X, w, gen_metadata, candidate_metadata
 
     def infer_objective_thresholds(
         self,
@@ -241,22 +167,20 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         point, where the nadir point is scaled back based on the range of each
         objective across the current in-sample Pareto frontier.
         """
-        if search_space is None:
-            search_space = self._model_space
-        search_space = search_space.clone()
+        search_space = (search_space or self._model_space).clone()
         base_gen_args = self._get_transformed_gen_args(
             search_space=search_space,
             optimization_config=optimization_config,
             fixed_features=fixed_features,
         )
-        # get transformed args from ArrayModelbridge
+        # Get transformed args from ArrayModelbridge.
         array_model_gen_args = self._get_transformed_model_gen_args(
             search_space=base_gen_args.search_space,
             fixed_features=base_gen_args.fixed_features,
             pending_observations={},
             optimization_config=base_gen_args.optimization_config,
         )
-        # get transformed args from TorchModelbridge
+        # Get transformed args from TorchModelbridge.
         obj_w, oc_c, l_c, pend_obs, _ = validate_and_apply_final_transform(
             objective_weights=array_model_gen_args.objective_weights,
             outcome_constraints=array_model_gen_args.outcome_constraints,
@@ -264,33 +188,25 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             linear_constraints=array_model_gen_args.linear_constraints,
             final_transform=self._array_to_tensor,
         )
-        # infer objective thresholds
-        model = not_none(self.model)
-        try:
-            torch_model = model.model  # pyre-ignore [16]
-            Xs = model.Xs  # pyre-ignore [16]
-        except AttributeError:
-            raise AxError(
-                "infer_objective_thresholds requires a TorchModel with model "
-                "and Xs attributes."
-            )
+        # Infer objective thresholds.
+        model = checked_cast(MultiObjectiveBotorchModel, self.model)
         obj_thresholds_arr = infer_objective_thresholds(
-            model=torch_model,
+            model=not_none(model.model),
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
             outcome_constraints=oc_c,
             linear_constraints=l_c,
             fixed_features=array_model_gen_args.fixed_features,
-            Xs=Xs,
+            Xs=model.Xs,
         )
-        return self.untransform_objective_thresholds(
+        return self._untransform_objective_thresholds(
             objective_thresholds=obj_thresholds_arr,
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
             fixed_features=array_model_gen_args.fixed_features,
         )
 
-    def untransform_objective_thresholds(
+    def _untransform_objective_thresholds(
         self,
         objective_thresholds: Tensor,
         objective_weights: Tensor,
@@ -300,7 +216,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         objective_thresholds_np = objective_thresholds.cpu().numpy()
         objective_indices = objective_weights.nonzero().view(-1).tolist()
         objective_names = [self.outcomes[i] for i in objective_indices]
-        # create an ObservationData object for untransforming the objective thresholds
+        # Create an ObservationData object for untransforming the objective thresholds.
         observation_data = [
             ObservationData(
                 metric_names=objective_names,
@@ -310,7 +226,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
         ]
         # Untransform objective thresholds. Note: there is one objective threshold
         # for every outcome.
-        # Construct dummy observation features
+        # Construct dummy observation features.
         X = [bound[0] for bound in bounds]
         fixed_features = fixed_features or {}
         for i, val in fixed_features.items():
@@ -319,7 +235,7 @@ class MultiObjectiveTorchModelBridge(TorchModelBridge):
             X=np.array([X]),
             param_names=self.parameters,
         )
-        # Apply reverse transforms, in reverse order
+        # Apply reverse transforms, in reverse order.
         for t in reversed(self.transforms.values()):
             observation_data = t.untransform_observation_data(
                 observation_data=observation_data,

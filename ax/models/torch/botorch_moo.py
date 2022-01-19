@@ -278,7 +278,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
         full_outcome_constraints = outcome_constraints
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
-            full_objective_weights
             subset_model_results = subset_model(
                 model=model,
                 objective_weights=objective_weights,
@@ -375,6 +374,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         gen_metadata = {
             "expected_acquisition_value": expected_acquisition_value.tolist(),
             "objective_thresholds": not_none(full_objective_thresholds).cpu(),
+            "objective_weights": full_objective_weights.cpu(),
         }
         return (
             candidates.detach().cpu(),

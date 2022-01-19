@@ -20,6 +20,7 @@ from ax.modelbridge.modelbridge_utils import (
     SearchSpaceDigest,
 )
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch_base import TorchModel
 from ax.utils.common.typeutils import not_none
 from torch import Tensor
@@ -218,14 +219,16 @@ class TorchModelBridge(ArrayModelBridge):
         model_gen_options: Optional[TConfig],
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
+        objective_thresholds: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
-        obj_w, oc_c, l_c, pend_obs, _ = validate_and_apply_final_transform(
+        obj_w, oc_c, l_c, pend_obs, obj_t = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
             pending_observations=pending_observations,
+            objective_thresholds=objective_thresholds,
             final_transform=self._array_to_tensor,
         )
         tensor_rounding_func = self._array_callable_to_tensor_callable(rounding_func)
@@ -233,8 +236,12 @@ class TorchModelBridge(ArrayModelBridge):
             **self._default_model_gen_options,
             **(model_gen_options or {}),
         }
-        # pyre-fixme[16]: `Optional` has no attribute `gen`.
-        X, w, gen_metadata, candidate_metadata = self.model.gen(
+        # TODO(ehotaj): Use the optimization config to determine which type of model
+        # to use here, instead of isinstance checks.
+        extra_kwargs = {}
+        if isinstance(self.model, MultiObjectiveBotorchModel):
+            extra_kwargs = {"objective_thresholds": obj_t}
+        X, w, gen_metadata, candidate_metadata = not_none(self.model).gen(
             n=n,
             bounds=bounds,
             objective_weights=obj_w,
@@ -245,6 +252,7 @@ class TorchModelBridge(ArrayModelBridge):
             model_gen_options=augmented_model_gen_options,
             rounding_func=tensor_rounding_func,
             target_fidelities=target_fidelities,
+            **extra_kwargs
         )
         return (
             X.detach().cpu().clone().numpy(),

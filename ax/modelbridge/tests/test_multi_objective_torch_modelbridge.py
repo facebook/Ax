@@ -454,8 +454,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             mock_untransform_objective_thresholds = es.enter_context(
                 patch.object(
                     modelbridge,
-                    "untransform_objective_thresholds",
-                    wraps=modelbridge.untransform_objective_thresholds,
+                    "_untransform_objective_thresholds",
+                    wraps=modelbridge._untransform_objective_thresholds,
                 )
             )
             obj_thresholds = modelbridge.infer_objective_thresholds(
@@ -546,8 +546,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             mock_untransform_objective_thresholds = es.enter_context(
                 patch.object(
                     modelbridge,
-                    "untransform_objective_thresholds",
-                    wraps=modelbridge.untransform_objective_thresholds,
+                    "_untransform_objective_thresholds",
+                    wraps=modelbridge._untransform_objective_thresholds,
                 )
             )
             obj_thresholds = modelbridge.infer_objective_thresholds(
