@@ -49,6 +49,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_multi_objective,
     get_branin_experiment,
     get_branin_search_space,
     get_generator_run,
@@ -872,3 +873,57 @@ class TestAxScheduler(TestCase):
                 ),
                 idx + 1 if idx < 3 else idx,
             )
+
+    def test_get_best_trial(self):
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+
+        self.assertIsNone(scheduler.get_best_parameters())
+
+        scheduler.run_n_trials(max_trials=1)
+
+        trial, params, _arm = scheduler.get_best_trial()
+        just_params, _just_arm = scheduler.get_best_parameters()
+        just_params_unmodeled, _just_arm_unmodled = scheduler.get_best_parameters(
+            use_model_predictions=False
+        )
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_best_parameters`"
+        ):
+            scheduler.get_pareto_optimal_parameters()
+
+        self.assertEqual(trial, 0)
+        self.assertIn("x1", params)
+        self.assertIn("x2", params)
+
+        self.assertEqual(params, just_params)
+        self.assertEqual(params, just_params_unmodeled)
+
+    def test_get_best_trial_moo(self):
+        experiment = get_branin_experiment_with_multi_objective()
+        experiment.runner = self.runner
+
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=self.sobol_GPEI_GS,
+            options=SchedulerOptions(init_seconds_between_polls=0.1),
+        )
+
+        scheduler.run_n_trials(max_trials=1)
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            scheduler.get_best_trial()
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            scheduler.get_best_parameters()
+
+        self.assertIsNotNone(scheduler.get_pareto_optimal_parameters())

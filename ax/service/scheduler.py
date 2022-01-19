@@ -36,6 +36,7 @@ from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.core.types import TModelPredictArm, TParameterization
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import (
     UserInputError,
@@ -49,8 +50,10 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.utils.common.constants import Keys
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
     build_file_handler,
@@ -223,7 +226,7 @@ class SchedulerOptions:
     suppress_storage_errors_after_retries: bool = False
 
 
-class Scheduler(WithDBSettingsBase):
+class Scheduler(WithDBSettingsBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
@@ -502,6 +505,36 @@ class Scheduler(WithDBSettingsBase):
             1 for t in self.experiment.trials.values() if t.status.expecting_data
         )
         return expecting_data >= not_none(self.options.total_trials)
+
+    @copy_doc(BestPointMixin.get_best_trial)
+    def get_best_trial(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+        return self._get_best_trial(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_best_parameters)
+    def get_best_parameters(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+        return self._get_best_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
+    def get_pareto_optimal_parameters(
+        self, use_model_predictions: bool = True
+    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+        return self._get_pareto_optimal_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
 
     def report_results(self) -> Dict[str, Any]:
         """Optional user-defined function for reporting intermediate
