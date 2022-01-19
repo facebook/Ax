@@ -40,6 +40,12 @@ Utils
 Best Point Identification
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. automodule:: ax.service.utils.best_point_mixin
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 .. automodule:: ax.service.utils.best_point
     :members:
     :undoc-members:
