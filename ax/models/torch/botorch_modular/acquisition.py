@@ -104,9 +104,9 @@ class Acquisition(Base):
             linear_constraints=linear_constraints,
             fixed_features=fixed_features,
         )
-        # store objective thresholds for all outcomes (including non-objectives)
+        # Store objective thresholds for all outcomes (including non-objectives).
         self._objective_thresholds = objective_thresholds
-        full_objective_weights = objective_weights
+        self._full_objective_weights = objective_weights
         full_outcome_constraints = outcome_constraints
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
@@ -134,7 +134,7 @@ class Acquisition(Base):
         ):
             self._objective_thresholds = infer_objective_thresholds(
                 model=model,
-                objective_weights=full_objective_weights,
+                objective_weights=self._full_objective_weights,
                 outcome_constraints=full_outcome_constraints,
                 X_observed=X_observed,
                 subset_idcs=subset_idcs,
@@ -205,6 +205,11 @@ class Acquisition(Base):
         For non-objective outcomes, the objective thresholds are nans.
         """
         return self._objective_thresholds
+
+    @property
+    def objective_weights(self) -> Optional[Tensor]:
+        """The objective weights for all outcomes."""
+        return self._full_objective_weights
 
     def optimize(
         self,

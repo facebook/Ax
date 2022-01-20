@@ -295,6 +295,7 @@ class BoTorchModel(TorchModel, Base):
         }
         if objective_weights.nonzero().numel() > 1:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
+            gen_metadata["objective_weights"] = acqf.objective_weights
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.surrogate.dtype),
