@@ -201,6 +201,15 @@ Core Stubs
     :undoc-members:
     :show-inheritance:
 
+Mocking
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.mock
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Modeling Stubs
 ~~~~~~~~~~~~~~~
 
