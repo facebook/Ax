@@ -34,7 +34,6 @@ from ax.modelbridge.factory import (
     get_thompson,
     get_uniform,
 )
-from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.winsorize import WinsorizationConfig
@@ -244,7 +243,7 @@ class ModelBridgeFactoryTest(TestCase):
 
         multi_obj_exp.trials[0].run().mark_completed()
         moo_rs = get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
-        self.assertIsInstance(moo_rs, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(moo_rs, TorchModelBridge)
         self.assertEqual(
             {
                 "acquisition_function_kwargs": {
@@ -270,7 +269,7 @@ class ModelBridgeFactoryTest(TestCase):
         moo_parego = get_MOO_PAREGO(
             experiment=multi_obj_exp, data=multi_obj_exp.fetch_data()
         )
-        self.assertIsInstance(moo_parego, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(moo_parego, TorchModelBridge)
         self.assertEqual(
             {
                 "acquisition_function_kwargs": {
@@ -322,7 +321,7 @@ class ModelBridgeFactoryTest(TestCase):
             data=multi_obj_exp.fetch_data(),
             objective_thresholds=multi_objective_thresholds,
         )
-        self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(moo_ehvi, TorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
@@ -372,7 +371,7 @@ class ModelBridgeFactoryTest(TestCase):
             objective_thresholds=multi_objective_thresholds,
             trial_index=1,
         )
-        self.assertIsInstance(mt_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(mt_ehvi, TorchModelBridge)
         self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
         task_covar_factor = mt_ehvi.model.model.models[0].task_covar_module.covar_factor
         self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))
@@ -438,7 +437,7 @@ class ModelBridgeFactoryTest(TestCase):
             data=multi_obj_exp.fetch_data(),
             objective_thresholds=multi_objective_thresholds,
         )
-        self.assertIsInstance(moo_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(moo_ehvi, TorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
@@ -548,7 +547,7 @@ class ModelBridgeFactoryTest(TestCase):
             objective_thresholds=multi_objective_thresholds,
             trial_index=1,
         )
-        self.assertIsInstance(mt_ehvi, MultiObjectiveTorchModelBridge)
+        self.assertIsInstance(mt_ehvi, TorchModelBridge)
         self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
         task_covar_factor = mt_ehvi.model.model.models[0].task_covar_module.covar_factor
         self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))

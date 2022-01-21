@@ -24,8 +24,8 @@ from ax.modelbridge.modelbridge_utils import (
     observed_hypervolume,
     observed_pareto_frontier,
 )
-from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.registry import Cont_X_trans, Y_trans, ST_MTGP_trans
+from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
@@ -167,7 +167,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         exp.attach_data(
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
-        modelbridge = MultiObjectiveTorchModelBridge(
+        modelbridge = TorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
@@ -321,7 +321,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     trial_indices=exp.trials.keys(), num_objectives=num_objectives
                 )
             )
-            modelbridge = MultiObjectiveTorchModelBridge(
+            modelbridge = TorchModelBridge(
                 search_space=exp.search_space,
                 model=MultiObjectiveBotorchModel(),
                 optimization_config=optimization_config,
@@ -408,7 +408,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             get_branin_data_multi_objective(trial_indices=exp.trials.keys())
         )
         data = exp.fetch_data()
-        modelbridge = MultiObjectiveTorchModelBridge(
+        modelbridge = TorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
@@ -522,7 +522,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()
         torch.manual_seed(0)  # make model fitting deterministic
-        modelbridge = MultiObjectiveTorchModelBridge(
+        modelbridge = TorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
@@ -592,7 +592,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
 
-        bridge = MultiObjectiveTorchModelBridge(
+        bridge = TorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
