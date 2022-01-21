@@ -852,11 +852,9 @@ class ModelBridge(ABC):
             A list of acquisition function values, in the same order as the
             input observation features.
         """
-        obs_feats_tmp = deepcopy(observation_features)
+        obs_feats = deepcopy(observation_features)
         if not isinstance(obs_feats_tmp[0], list):
-            obs_feats = [obs_feats_tmp]
-        else:
-            obs_feats = obs_feats_tmp
+            obs_feats = [obs_feats]
 
         for t in self.transforms.values():
             for i, batch in enumerate(obs_feats):
