@@ -934,7 +934,7 @@ class ModelBridge(ABC):
         """
         obsd = deepcopy(observation_data)
         for t in self.transforms.values():
-            obsd = t.transform_observation_data(obsd, [],)
+            obsd = t.transform_observation_data(obsd, [])
         # Apply terminal transform and return
         return self._transform_observation_data(obsd)
 
