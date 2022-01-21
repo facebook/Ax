@@ -781,7 +781,7 @@ class ModelBridge(ABC):
         search_space = self._model_space.clone()
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
-            obs_data = t.transform_observation_data(obs_data, obs_feats,)
+            obs_data = t.transform_observation_data(obs_data, obs_feats)
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
