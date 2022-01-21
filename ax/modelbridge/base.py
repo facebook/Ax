@@ -830,8 +830,13 @@ class ModelBridge(ABC):
         features.
 
         Args:
-            observation_features: A list of observation features, representing
-                parameterizations, for which to evaluate the acquisition function.
+            observation_features: Either a list or a list of lists of observation 
+                features, representing parameterizations, for which to evaluate the
+                acquisition function. If a single list is passed, the acquisition
+                function is evaluated for each observation feature. If a list of lists
+                is passed each element (itself a list of observation features)
+                represents a batch of points for which to evaluate the joint acquisition
+                value.
             search_space_digest: A dataclass used to compactly represent a search space.
             objective_weights: The objective is to maximize a weighted sum of the
                 columns of f(x). These are the weights.
