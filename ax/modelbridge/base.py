@@ -211,7 +211,7 @@ class ModelBridge(ABC):
                 )
                 search_space = t_instance.transform_search_space(search_space)
                 obs_feats = t_instance.transform_observation_features(obs_feats)
-                obs_data = t_instance.transform_observation_data(obs_data, obs_feats,)
+                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
                 self.transforms[t.__name__] = t_instance
 
         return obs_feats, obs_data, search_space
@@ -781,7 +781,7 @@ class ModelBridge(ABC):
         search_space = self._model_space.clone()
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
-            obs_data = t.transform_observation_data(obs_data, obs_feats,)
+            obs_data = t.transform_observation_data(obs_data, obs_feats)
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
@@ -857,11 +857,9 @@ class ModelBridge(ABC):
             A list of acquisition function values, in the same order as the
             input observation features.
         """
-        obs_feats_tmp = deepcopy(observation_features)
+        obs_feats = deepcopy(observation_features)
         if not isinstance(obs_feats_tmp[0], list):
-            obs_feats = [obs_feats_tmp]
-        else:
-            obs_feats = obs_feats_tmp
+            obs_feats = [obs_feats]
 
         for t in self.transforms.values():
             for i, batch in enumerate(obs_feats):
@@ -941,7 +939,7 @@ class ModelBridge(ABC):
         """
         obsd = deepcopy(observation_data)
         for t in self.transforms.values():
-            obsd = t.transform_observation_data(obsd, [],)
+            obsd = t.transform_observation_data(obsd, [])
         # Apply terminal transform and return
         return self._transform_observation_data(obsd)
 
