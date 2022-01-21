@@ -433,7 +433,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with ExitStack() as es:
             mock_model_infer_obj_t = es.enter_context(
                 patch(
-                    "ax.modelbridge.multi_objective_torch.infer_objective_thresholds",
+                    "ax.modelbridge.torch.infer_objective_thresholds",
                     wraps=infer_objective_thresholds,
                 )
             )
@@ -539,7 +539,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with ExitStack() as es:
             mock_model_infer_obj_t = es.enter_context(
                 patch(
-                    "ax.modelbridge.multi_objective_torch.infer_objective_thresholds",
+                    "ax.modelbridge.torch.infer_objective_thresholds",
                     wraps=infer_objective_thresholds,
                 )
             )

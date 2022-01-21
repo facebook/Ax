@@ -127,6 +127,7 @@ class ModelRegistryTest(TestCase):
                 "transforms": Cont_X_trans + Y_trans,
                 "fit_out_of_design": False,
                 "default_model_gen_options": None,
+                "objective_thresholds": None,
             },
         )
         gpei = Models.GPEI(

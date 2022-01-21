@@ -21,7 +21,6 @@ from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.core_stubs import get_branin_experiment_with_multi_objective
 
 
 class TestGenerationNode(TestCase):
@@ -192,7 +191,7 @@ class TestGenerationStep(TestCase):
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
     def setUp(self):
-        self.branin_experiment = get_branin_experiment_with_multi_objective()
+        self.branin_experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
         sobol_run = sobol.gen(n=20)
         self.branin_experiment.new_batch_trial().add_generator_run(
