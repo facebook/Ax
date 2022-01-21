@@ -211,7 +211,7 @@ class ModelBridge(ABC):
                 )
                 search_space = t_instance.transform_search_space(search_space)
                 obs_feats = t_instance.transform_observation_features(obs_feats)
-                obs_data = t_instance.transform_observation_data(obs_data, obs_feats,)
+                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
                 self.transforms[t.__name__] = t_instance
 
         return obs_feats, obs_data, search_space
