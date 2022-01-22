@@ -11,7 +11,7 @@ Ax is a platform for optimizing any kind of experiment, including machine learni
 Ax has been successfully applied to a variety of product, infrastructure, ML, and research applications at Facebook.
 
 # Unique capabilities
-- **Support for noisy functions**.  Results of A/B tests and simulations with reinforcement learning agents often exhibit high amounts of noise.  Ax supports [state-of-the-art algorithms](https://research.fb.com/efficient-tuning-of-online-systems-using-bayesian-optimization/) which work better than traditional Bayesian optimization in high-noise settings.
+- **Support for noisy functions**.  Results of A/B tests and simulations with reinforcement learning agents often exhibit high amounts of noise.  Ax supports [state-of-the-art algorithms](https://research.facebook.com/blog/2018/09/efficient-tuning-of-online-systems-using-bayesian-optimization/) which work better than traditional Bayesian optimization in high-noise settings.
 - **Customization**.  Ax's developer API makes it easy to integrate custom data modeling and decision algorithms. This allows developers to build their own custom optimization services with minimal overhead.
 - **Multi-modal experimentation**.  Ax has first-class support for running and combining data from different types of experiments, such as "offline" simulation data and "online" data from real-world experiments.
 - **Multi-objective optimization**. Ax supports multi-objective and constrained optimization which are common to real-world problems, like improving load time without increasing data use.
