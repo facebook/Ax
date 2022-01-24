@@ -18,7 +18,6 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
     Cont_X_trans,
@@ -81,7 +80,7 @@ def get_MOO_NEHVI(
     status_quo_features: Optional[ObservationFeatures] = None,
     use_input_warping: bool = False,
     optimization_config: Optional[OptimizationConfig] = None,
-) -> MultiObjectiveTorchModelBridge:
+) -> TorchModelBridge:
     """Instantiates a multi-objective model using qNEHVI."""
     opt_config = optimization_config or experiment.optimization_config
     # pyre-ignore: [16] `Optional` has no attribute `objective`.
@@ -90,7 +89,7 @@ def get_MOO_NEHVI(
     if data.df.empty:  # pragma: no cover
         raise ValueError("MultiObjectiveOptimization requires non-empty data.")
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
@@ -170,7 +169,7 @@ def get_MTGP_NEHVI(
         )
 
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
@@ -505,7 +504,7 @@ def get_MOO_EHVI(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: Optional[torch.device] = None,
-) -> MultiObjectiveTorchModelBridge:
+) -> TorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
     Requires `objective_thresholds`,
@@ -525,7 +524,7 @@ def get_MOO_EHVI(
     if data.df.empty:  # pragma: no cover
         raise ValueError("MultiObjectiveOptimization requires non-empty data.")
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
@@ -553,7 +552,7 @@ def get_MOO_PAREGO(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-) -> MultiObjectiveTorchModelBridge:
+) -> TorchModelBridge:
     """Instantiates a multi-objective model that generates points with ParEGO.
 
     qParEGO optimizes random augmented chebyshev scalarizations of the multiple
@@ -565,7 +564,7 @@ def get_MOO_PAREGO(
     if data.df.empty:
         raise ValueError("MultiObjectiveOptimization requires non-empty data.")
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
@@ -591,7 +590,7 @@ def get_MOO_RS(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-) -> MultiObjectiveTorchModelBridge:
+) -> TorchModelBridge:
     """Instantiates a Random Scalarization multi-objective model.
 
     Chooses a different random linear scalarization of the objectives
@@ -604,7 +603,7 @@ def get_MOO_RS(
     if data.df.empty:
         raise ValueError("MultiObjectiveOptimization requires non-empty data.")
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
@@ -631,7 +630,7 @@ def get_MTGP_PAREGO(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-) -> MultiObjectiveTorchModelBridge:
+) -> TorchModelBridge:
     """Instantiates a multi-objective, multi-task model that uses qParEGO.
 
     qParEGO optimizes random augmented chebyshev scalarizations of the multiple
@@ -677,7 +676,7 @@ def get_MTGP_PAREGO(
             trial_index=trial_index,
         )
     return checked_cast(
-        MultiObjectiveTorchModelBridge,
+        TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,

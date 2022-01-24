@@ -17,7 +17,6 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.discrete import DiscreteModelBridge
-from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -214,13 +213,13 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans,
     ),
     "MOO": ModelSetup(
-        bridge_class=MultiObjectiveTorchModelBridge,
+        bridge_class=TorchModelBridge,
         model_class=MultiObjectiveBotorchModel,
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "MOO_Modular": ModelSetup(
-        bridge_class=MultiObjectiveTorchModelBridge,
+        bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
@@ -255,7 +254,7 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "FullyBayesianMOO": ModelSetup(
-        bridge_class=MultiObjectiveTorchModelBridge,
+        bridge_class=TorchModelBridge,
         model_class=FullyBayesianMOOBotorchModel,
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
@@ -267,13 +266,13 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "FullyBayesianMOO_MTGP": ModelSetup(
-        bridge_class=MultiObjectiveTorchModelBridge,
+        bridge_class=TorchModelBridge,
         model_class=FullyBayesianMOOBotorchModel,
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "ST_MTGP_NEHVI": ModelSetup(
-        bridge_class=MultiObjectiveTorchModelBridge,
+        bridge_class=TorchModelBridge,
         model_class=MultiObjectiveBotorchModel,
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,

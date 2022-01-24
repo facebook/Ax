@@ -295,7 +295,6 @@ def compute_posterior_pareto_frontier(
     Returns:
         ParetoFrontierResults: A NamedTuple with fields listed in its definition.
     """
-    # TODO(jej): Implement using MultiObjectiveTorchModelBridge's _pareto_frontier
     model_gen_options = {
         "acquisition_function_kwargs": {"chebyshev_scalarization": chebyshev}
     }
