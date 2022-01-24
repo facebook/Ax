@@ -34,12 +34,12 @@ from ax.modelbridge.modelbridge_utils import (
     predicted_pareto_frontier as predicted_pareto,
     observed_pareto_frontier as observed_pareto,
 )
-from ax.modelbridge.multi_objective_torch import MultiObjectiveTorchModelBridge
 from ax.modelbridge.registry import (
     ModelRegistryBase,
     get_model_from_generator_run,
     Models,
 )
+from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none, checked_cast
 from ax.utils.stats.statstools import relativize_data
@@ -429,23 +429,21 @@ def get_pareto_optimal_parameters(
             "Support for outcome constraints is currently under development."
         )
 
-    # Extract or instantiate modelbridge to use for Pareto frontier extraction.
-    mb = generation_strategy.model
-    if mb is None or not isinstance(mb, MultiObjectiveTorchModelBridge):
-        logger.info(
-            "Can only extract a Pareto frontier using a multi-objective model bridge"
-            f", but currently used model bridge is: {mb} of type {type(mb)}. Will "
-            "use `Models.MOO` instead to extract Pareto frontier."
-        )
-        mb = checked_cast(
-            MultiObjectiveTorchModelBridge,
-            Models.MOO(
-                experiment=experiment, data=checked_cast(Data, experiment.lookup_data())
-            ),
-        )
-    else:
-        # Make sure the model is up-to-date with the most recent data.
+    # Use existing modelbridge if it supports MOO otherwise create a new MOO modelbridge
+    # to use for Pareto frontier extraction.
+    modelbridge = generation_strategy.model
+    is_moo_modelbridge = (
+        modelbridge
+        and isinstance(modelbridge, TorchModelBridge)
+        and checked_cast(TorchModelBridge, modelbridge).is_moo_problem
+    )
+    if is_moo_modelbridge:
         generation_strategy._fit_or_update_current_model(data=None)
+    else:
+        modelbridge = Models.MOO(
+            experiment=experiment, data=checked_cast(Data, experiment.lookup_data())
+        )
+    modelbridge = checked_cast(TorchModelBridge, modelbridge)
 
     # If objective thresholds are not specified in optimization config, extract
     # the inferred ones if possible or infer them anew if not.
@@ -454,7 +452,7 @@ def get_pareto_optimal_parameters(
         lgr = generation_strategy.last_generator_run
         if lgr and lgr.gen_metadata and "objective_thresholds" in lgr.gen_metadata:
             objective_thresholds_override = lgr.gen_metadata["objective_thresholds"]
-        objective_thresholds_override = mb.infer_objective_thresholds(
+        objective_thresholds_override = modelbridge.infer_objective_thresholds(
             search_space=experiment.search_space,
             optimization_config=experiment.optimization_config,
             fixed_features=None,
@@ -469,7 +467,7 @@ def get_pareto_optimal_parameters(
     # { trial_index --> (parameterization, (means, covariances) }
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
-        modelbridge=mb, objective_thresholds=objective_thresholds_override
+        modelbridge=modelbridge, objective_thresholds=objective_thresholds_override
     )
     return {
         int(not_none(obs.features.trial_index)): (
