@@ -27,6 +27,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_multi_type_experiment,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
 
@@ -221,9 +222,8 @@ class ReportUtilsTest(TestCase):
         )
         self.assertDictEqual(expected_output, actual_output)
 
+    @fast_botorch_optimize
     def test_get_standard_plots(self):
-        # TODO[bbeckerman]: Add mocks for `Models.BOTORCH` outputs to make this
-        # this test faster (currently takes 90 seconds).
         exp = get_branin_experiment()
         self.assertEqual(
             len(

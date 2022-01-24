@@ -14,9 +14,11 @@ from ax.plot.trace import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TracesTest(TestCase):
+    @fast_botorch_optimize
     def testTraces(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()

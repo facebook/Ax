@@ -21,6 +21,7 @@ from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestGenerationNode(TestCase):
@@ -83,6 +84,7 @@ class TestGenerationNode(TestCase):
         with self.assertRaises(NotImplementedError):
             generation_node.gen()
 
+    @fast_botorch_optimize
     def test_properties(self):
         node = GenerationNode(
             model_specs=[
@@ -190,6 +192,7 @@ class TestGenerationStep(TestCase):
 
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
+    @fast_botorch_optimize
     def setUp(self):
         self.branin_experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
@@ -216,6 +219,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
             ),
         )
 
+    @fast_botorch_optimize
     def test_gen(self):
         self.model_selection_node.fit(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()

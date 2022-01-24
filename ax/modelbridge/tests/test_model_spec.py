@@ -14,6 +14,7 @@ from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class BaseModelSpecTest(TestCase):
@@ -28,6 +29,7 @@ class BaseModelSpecTest(TestCase):
 
 
 class ModelSpecTest(BaseModelSpecTest):
+    @fast_botorch_optimize
     def test_construct(self):
         ms = ModelSpec(model_enum=Models.GPEI)
         with self.assertRaises(UserInputError):

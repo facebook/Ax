@@ -21,12 +21,14 @@ from ax.service.utils.best_point import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
+    @fast_botorch_optimize
     def test_best_from_model_prediction(self):
         exp = get_branin_experiment()
 

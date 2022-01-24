@@ -17,6 +17,7 @@ from ax.plot.feature_importances import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 from plotly import graph_objects as go
 
 DUMMY_CAPTION = "test_caption"
@@ -33,6 +34,7 @@ def get_modelbridge() -> ModelBridge:
 
 
 class FeatureImportancesTest(TestCase):
+    @fast_botorch_optimize
     def testFeatureImportances(self):
         model = get_modelbridge()
         # Assert that each type of plot can be constructed successfully
