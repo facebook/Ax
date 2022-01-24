@@ -210,6 +210,15 @@ Modeling Stubs
     :show-inheritance:
 
 
+Mocking
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.mock
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Test Init Files
 ~~~~~~~~~~~~~~~
 
