@@ -22,13 +22,20 @@ from ax.core.outcome_constraint import (
 from ax.core.types import ComparisonOp
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features,
+    get_pending_observation_features_based_on_trial_status as get_pending_status,
     pending_observations_as_array,
     extract_outcome_constraints,
     extract_objective_thresholds,
     observation_data_to_array,
 )
+from ax.modelbridge.registry import Models
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment
+from ax.utils.common.typeutils import not_none
+from ax.utils.testing.core_stubs import (
+    get_experiment,
+    get_hierarchical_search_space_experiment,
+)
 
 
 class TestModelbridgeUtils(TestCase):
@@ -41,6 +48,33 @@ class TestModelbridgeUtils(TestCase):
         self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
         self.obs_feat = ObservationFeatures.from_arm(
             arm=self.trial.arm, trial_index=np.int64(self.trial.index)
+        )
+        self.hss_exp = get_hierarchical_search_space_experiment()
+        self.hss_sobol = Models.SOBOL(search_space=self.hss_exp.search_space)
+        self.hss_gr = self.hss_sobol.gen(n=1)
+        self.hss_trial = self.hss_exp.new_trial(self.hss_gr)
+        self.hss_arm = not_none(self.hss_trial.arm)
+        self.hss_cand_metadata = self.hss_trial._get_candidate_metadata(
+            arm_name=self.hss_arm.name
+        )
+        self.hss_full_parameterization = self.hss_cand_metadata.get(
+            Keys.FULL_PARAMETERIZATION
+        ).copy()
+        self.assertTrue(
+            all(
+                p_name in self.hss_full_parameterization
+                for p_name in self.hss_exp.search_space.parameters
+            )
+        )
+        self.hss_obs_feat = ObservationFeatures.from_arm(
+            arm=self.hss_arm,
+            trial_index=np.int64(self.hss_trial.index),
+            metadata=self.hss_cand_metadata,
+        )
+        self.hss_obs_feat_all_params = ObservationFeatures.from_arm(
+            arm=Arm(self.hss_full_parameterization),
+            trial_index=np.int64(self.hss_trial.index),
+            metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
         )
 
     def test_get_pending_observation_features(self):
@@ -131,6 +165,137 @@ class TestModelbridgeUtils(TestCase):
                 },
             )
 
+    def test_get_pending_observation_features_hss(self):
+        # Pending observations should be none if there aren't any.
+        self.assertIsNone(get_pending_observation_features(self.hss_exp))
+        self.hss_trial.mark_running(no_runner_required=True)
+        # Now that the trial is deployed, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        pending = get_pending_observation_features(self.hss_exp)
+        self.assertEqual(
+            pending,
+            {
+                "m1": [self.hss_obs_feat],
+                "m2": [self.hss_obs_feat],
+            },
+        )
+
+        # Check that transforming observation features works correctly since this
+        # is applying `Cast` transform, it should inject full parameterization into
+        # resulting obs.feats.). Therefore, transforming the extracted pending features
+        #  and observation features made from full parameterization should be the same.
+        self.assertEqual(
+            self.hss_sobol._transform_data(
+                obs_feats=pending["m1"],
+                obs_data=[],
+                search_space=self.hss_exp.search_space,
+                transforms=self.hss_sobol._raw_transforms,
+                transform_configs=None,
+            ),
+            self.hss_sobol._transform_data(
+                obs_feats=[self.hss_obs_feat_all_params.clone()],
+                obs_data=[],
+                search_space=self.hss_exp.search_space,
+                transforms=self.hss_sobol._raw_transforms,
+                transform_configs=None,
+            ),
+        )
+        # With `fetch_data` on trial returning data for metric "m2", that metric
+        # should no longer have pending observation features.
+        with patch.object(
+            self.hss_trial,
+            "lookup_data",
+            return_value=Data.from_evaluations(
+                {self.hss_trial.arm.name: {"m2": (1, 0)}},
+                trial_index=self.hss_trial.index,
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.hss_exp),
+                {"m2": [], "m1": [self.hss_obs_feat]},
+            )
+        # When a trial is marked failed, it should no longer appear in pending...
+        self.hss_trial.mark_failed()
+        self.assertIsNone(get_pending_observation_features(self.hss_exp))
+        # ... unless specified to include failed trials in pending observations.
+        self.assertEqual(
+            get_pending_observation_features(
+                self.hss_exp, include_failed_as_pending=True
+            ),
+            {
+                "m1": [self.hss_obs_feat],
+                "m2": [self.hss_obs_feat],
+            },
+        )
+
+        # When an arm is abandoned, it should appear in pending features whether
+        # or not there is data for it.
+        hss_exp = get_hierarchical_search_space_experiment()
+        hss_batch_trial = hss_exp.new_batch_trial(generator_run=self.hss_gr)
+        hss_batch_trial.mark_arm_abandoned(hss_batch_trial.arms[0].name)
+        # Checking with data for all metrics.
+        with patch.object(
+            hss_batch_trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
+                {
+                    hss_batch_trial.arms[0].name: {
+                        "m1": (1, 0),
+                        "m2": (1, 0),
+                    }
+                },
+                trial_index=hss_batch_trial.index,
+            ),
+        ):
+            pending = get_pending_observation_features(
+                hss_exp, include_failed_as_pending=True
+            )
+            self.assertEqual(
+                pending,
+                {
+                    "m1": [self.hss_obs_feat],
+                    "m2": [self.hss_obs_feat],
+                },
+            )
+            # Check that candidate metadata is property propagated for abandoned arm.
+            self.assertEqual(
+                self.hss_sobol._transform_data(
+                    obs_feats=pending["m1"],
+                    obs_data=[],
+                    search_space=hss_exp.search_space,
+                    transforms=self.hss_sobol._raw_transforms,
+                    transform_configs=None,
+                ),
+                self.hss_sobol._transform_data(
+                    obs_feats=[self.hss_obs_feat_all_params.clone()],
+                    obs_data=[],
+                    search_space=hss_exp.search_space,
+                    transforms=self.hss_sobol._raw_transforms,
+                    transform_configs=None,
+                ),
+            )
+        # Checking with data for all metrics.
+        with patch.object(
+            hss_batch_trial,
+            "fetch_data",
+            return_value=Data.from_evaluations(
+                {
+                    hss_batch_trial.arms[0].name: {
+                        "m1": (1, 0),
+                        "m2": (1, 0),
+                    }
+                },
+                trial_index=hss_batch_trial.index,
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(hss_exp),
+                {
+                    "m2": [self.hss_obs_feat],
+                    "m1": [self.hss_obs_feat],
+                },
+            )
+
     def test_get_pending_observation_features_batch_trial(self):
         # Check the same functionality for batched trials.
         self.assertIsNone(get_pending_observation_features(self.experiment_2))
@@ -152,12 +317,12 @@ class TestModelbridgeUtils(TestCase):
         # Pending observations should be none if there aren't any as trial is
         # candidate.
         self.assertTrue(self.trial.status.is_candidate)
-        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.assertIsNone(get_pending_status(self.experiment))
         self.trial.mark_staged()
         # Now that the trial is staged, it should become a pending trial on the
         # experiment and appear as pending for all metrics.
         self.assertEqual(
-            get_pending_observation_features(self.experiment),
+            get_pending_status(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
         # Same should be true for running trial.
@@ -168,19 +333,81 @@ class TestModelbridgeUtils(TestCase):
         # Now that the trial is staged, it should become a pending trial on the
         # experiment and appear as pending for all metrics.
         self.assertEqual(
-            get_pending_observation_features(self.experiment),
+            get_pending_status(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
         # When a trial is marked failed, it should no longer appear in pending.
         self.trial.mark_failed()
-        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.assertIsNone(get_pending_status(self.experiment))
         # And if the trial is abandoned, it should always appear in pending features.
         self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
         self.assertEqual(
-            get_pending_observation_features(
-                self.experiment, include_failed_as_pending=True
-            ),
+            get_pending_status(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+
+    def test_get_pending_observation_features_based_on_trial_status_hss(self):
+        self.assertTrue(self.hss_trial.status.is_candidate)
+        self.assertIsNone(get_pending_status(self.hss_exp))
+        self.hss_trial.mark_staged()
+        # Now that the trial is staged, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        pending = get_pending_status(self.hss_exp)
+        self.assertEqual(
+            pending,
+            {
+                "m1": [self.hss_obs_feat],
+                "m2": [self.hss_obs_feat],
+            },
+        )
+
+        # Same should be true for running trial.
+        # NOTE: Can't mark a staged trial running unless it uses a runner that
+        # specifically requires staging; hacking around that here since the marking
+        # logic does not matter for this test.
+        self.hss_trial._status = TrialStatus.RUNNING
+        # Now that the trial is staged, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        pending = get_pending_status(self.hss_exp)
+        self.assertEqual(
+            pending,
+            {
+                "m1": [self.hss_obs_feat],
+                "m2": [self.hss_obs_feat],
+            },
+        )
+        # When a trial is marked failed, it should no longer appear in pending.
+        self.hss_trial.mark_failed()
+        self.assertIsNone(get_pending_status(self.hss_exp))
+        # And if the trial is abandoned, it should always appear in pending features.
+        self.hss_trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
+        self.assertEqual(
+            pending,
+            {
+                "m1": [self.hss_obs_feat],
+                "m2": [self.hss_obs_feat],
+            },
+        )
+
+        # Check that transforming observation features works correctly since this
+        # is applying `Cast` transform, it should inject full parameterization into
+        # resulting obs.feats.). Therefore, transforming the extracted pending features
+        #  and observation features made from full parameterization should be the same.
+        self.assertEqual(
+            self.hss_sobol._transform_data(
+                obs_feats=pending["m1"],
+                obs_data=[],
+                search_space=self.hss_exp.search_space,
+                transforms=self.hss_sobol._raw_transforms,
+                transform_configs=None,
+            ),
+            self.hss_sobol._transform_data(
+                obs_feats=[self.hss_obs_feat_all_params],
+                obs_data=[],
+                search_space=self.hss_exp.search_space,
+                transforms=self.hss_sobol._raw_transforms,
+                transform_configs=None,
+            ),
         )
 
     def test_pending_observations_as_array(self):

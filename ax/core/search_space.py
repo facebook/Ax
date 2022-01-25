@@ -413,7 +413,7 @@ class HierarchicalSearchSpace(SearchSpace):
         if not obs_feats.metadata:
             obs_feats.metadata = full_parameterization_md  # pyre-ignore[8]
         else:
-            obs_feats.metadata.update(full_parameterization_md)  # pyre-ignore[6]
+            obs_feats.metadata = {**obs_feats.metadata, **full_parameterization_md}
 
         return obs_feats
 

@@ -337,7 +337,7 @@ def pending_observations_as_array(
             # metrics on the experiment or if a model just should not be fit for
             # some of the metrics attached to the experiment, so metrics that
             # appear in pending_observations (drawn from an experiment) but not
-            # in outcome_names (metrics, expected for the model) are filtered out.ß
+            # in outcome_names (metrics, expected for the model) are filtered out.
             if metric_name not in outcome_names:
                 continue
             pending_array[outcome_names.index(metric_name)] = np.array(
@@ -476,14 +476,22 @@ def get_pending_observation_features(
                     for arm in trial.arms:
                         not_none(pending_features.get(metric_name)).append(
                             ObservationFeatures.from_arm(
-                                arm=arm, trial_index=np.int64(trial_index)
+                                arm=arm,
+                                trial_index=np.int64(trial_index),
+                                metadata=trial._get_candidate_metadata(
+                                    arm_name=arm.name
+                                ),
                             )
                         )
                 abandoned_arms = trial.abandoned_arms
                 for abandoned_arm in abandoned_arms:
                     not_none(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
-                            arm=abandoned_arm, trial_index=np.int64(trial_index)
+                            arm=abandoned_arm,
+                            trial_index=np.int64(trial_index),
+                            metadata=trial._get_candidate_metadata(
+                                arm_name=abandoned_arm.name
+                            ),
                         )
                     )
 
@@ -495,7 +503,11 @@ def get_pending_observation_features(
                 ):
                     not_none(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
-                            arm=not_none(trial.arm), trial_index=np.int64(trial_index)
+                            arm=not_none(trial.arm),
+                            trial_index=np.int64(trial_index),
+                            metadata=trial._get_candidate_metadata(
+                                arm_name=not_none(trial.arm).name
+                            ),
                         )
                     )
     return pending_features if any(x for x in pending_features.values()) else None
@@ -540,7 +552,9 @@ def get_pending_observation_features_based_on_trial_status(
             for metric_name in experiment.metrics:
                 pending_features[metric_name].extend(
                     ObservationFeatures.from_arm(
-                        arm=arm, trial_index=np.int64(trial.index)
+                        arm=arm,
+                        trial_index=np.int64(trial.index),
+                        metadata=trial._get_candidate_metadata(arm_name=arm.name),
                     )
                     for arm in trial.arms
                 )
