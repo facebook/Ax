@@ -517,36 +517,6 @@ class ArrayModelBridge(ModelBridge):
     ) -> np.ndarray:
         raise NotImplementedError  # pragma: no cover
 
-    def _transform_callback(self, x: np.ndarray) -> np.ndarray:  # pragma: no cover
-        """A function that performs the `round trip` transformations.
-        This function is passed to _model_gen.
-        """
-        # apply reverse terminal transform to turn array to ObservationFeatures
-        observation_features = [
-            ObservationFeatures(
-                parameters={p: float(x[i]) for i, p in enumerate(self.parameters)}
-            )
-        ]
-        # reverse loop through the transforms and do untransform
-        for t in reversed(self.transforms.values()):
-            observation_features = t.untransform_observation_features(
-                observation_features
-            )
-        # forward loop through the transforms and do transform
-        for t in self.transforms.values():
-            observation_features = t.transform_observation_features(
-                observation_features
-            )
-        new_x: List[float] = [
-            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
-            #  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float,
-            #  int, str]`.
-            float(observation_features[0].parameters[p])
-            for p in self.parameters
-        ]
-        # turn it back into an array
-        return np.array(new_x)
-
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         importances_tensor = not_none(self.model).feature_importances()
         importances_dict = dict(zip(self.outcomes, importances_tensor))
