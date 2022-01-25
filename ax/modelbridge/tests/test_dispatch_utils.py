@@ -22,6 +22,8 @@ from ax.utils.testing.core_stubs import (
 )
 
 
+# TODO(ehotaj): Use Models enum in asserts instead of strings. This will make the test
+# code more robust to implementation changes of enum names.
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
@@ -92,6 +94,27 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
             self.assertIsNone(bo_mixed_2._steps[1].model_kwargs)
+        with self.subTest("BO_MIXED (purely categorical multi-objective optimization)"):
+            search_space = get_branin_search_space(with_choice_parameter=True)
+            search_space.parameters["x2"]._is_ordered = False
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(objectives=[])
+            )
+            moo_mixed = choose_generation_strategy(
+                search_space=search_space, optimization_config=optimization_config
+            )
+            self.assertEqual(moo_mixed._steps[0].model.value, "Sobol")
+            self.assertEqual(moo_mixed._steps[0].num_trials, 5)
+            self.assertEqual(moo_mixed._steps[1].model.value, "BO_MIXED")
+            model_kwargs = moo_mixed._steps[1].model_kwargs
+            self.assertEqual(
+                list(model_kwargs.keys()), ["transforms", "transform_configs"]
+            )
+            self.assertGreater(len(model_kwargs["transforms"]), 0)
+            transform_config_dict = {
+                "Winsorize": {"optimization_config": optimization_config}
+            }
+            self.assertEqual(model_kwargs["transform_configs"], transform_config_dict)
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy(
                 search_space=get_branin_search_space(),
