@@ -98,15 +98,6 @@ Torch Model Bridge
     :undoc-members:
     :show-inheritance:
 
-Multi-Objective Torch Model Bridge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.multi_objective_torch
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 Utilities
 ---------------
 
