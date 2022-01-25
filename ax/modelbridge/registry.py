@@ -4,6 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+Module containing a registry of standard models (and generators, samplers etc.)
+such as Sobol generator, GP+EI, Thompson sampler, etc.
+
+Use of `Models` enum allows for serialization and reinstantiation of models and
+generation strategies from generator runs they produced. To reinstantiate a model
+from generator run, use `get_model_from_generator_run` utility from this module.
+"""
+
+
 from __future__ import annotations
 
 from enum import Enum
@@ -67,17 +77,6 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger = get_logger(__name__)
-
-
-"""
-Module containing a registry of standard models (and generators, samplers etc.)
-such as Sobol generator, GP+EI, Thompson sampler, etc.
-
-Use of `Models` enum allows for serialization and reinstantiation of models and
-generation strategies from generator runs they produced. To reinstantiate a model
-from generator run, use `get_model_from_generator_run` utility from this module.
-"""
-
 
 Cont_X_trans: List[Type[Transform]] = [
     RemoveFixed,

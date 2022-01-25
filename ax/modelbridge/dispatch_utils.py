@@ -134,6 +134,7 @@ def _suggest_gp_model(
     5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.
     6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.
     """
+    # Count tunable parameter types.
     num_ordered_parameters = num_unordered_choices = 0
     num_enumerated_combinations = num_possible_points = 1
     all_range_parameters_are_discrete = True
@@ -165,8 +166,7 @@ def _suggest_gp_model(
         else:
             all_parameters_are_enumerated = False
 
-    # If number of trials is known and sufficient to try all possible points,
-    # we should use Sobol and not BO
+    # Use Sobol if number of trials is known and sufficient to try all possible points.
     if (
         num_trials is not None
         and all_range_parameters_are_discrete
@@ -180,26 +180,20 @@ def _suggest_gp_model(
     is_moo_problem = optimization_config and optimization_config.is_moo_problem
     if num_ordered_parameters > num_unordered_choices:
         logger.info(
-            "Using Bayesian optimization since there are more ordered "
-            "parameters than there are categories for the unordered categorical "
-            "parameters."
+            "Using Bayesian optimization since there are more ordered parameters than "
+            "there are categories for the unordered categorical parameters."
         )
-        if is_moo_problem and use_saasbo:
-            return Models.FULLYBAYESIANMOO
-        if is_moo_problem and not use_saasbo:
-            return Models.MOO
-        if use_saasbo:
-            return Models.FULLYBAYESIAN
-        return Models.GPEI
-    # The latter condition below is tied to the logic in `BO_MIXED`, which currently
+        if is_moo_problem:
+            return Models.FULLYBAYESIANMOO if use_saasbo else Models.MOO
+        return Models.FULLYBAYESIAN if use_saasbo else Models.GPEI
+
+    # Use mixed Bayesian optimization when appropriate. This logic is currently tied to
+    # the fact that acquisition function optimization for mixed BayesOpt currently
     # enumerates all combinations of choice parameters.
-    if not is_moo_problem and (
-        num_enumerated_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED
-        or (
-            all_parameters_are_enumerated
-            and num_enumerated_combinations
-            < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
-        )
+    if num_enumerated_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED or (
+        all_parameters_are_enumerated
+        and num_enumerated_combinations
+        < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
     ):
         logger.info(
             "Using Bayesian optimization with a categorical kernel for improved "
@@ -208,6 +202,7 @@ def _suggest_gp_model(
         if use_saasbo:
             logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
+
     logger.info(
         f"Using Sobol since there are more than {MAX_DISCRETE_ENUMERATIONS_MIXED} "
         "combinations of enumerated parameters. For improved performance, make sure "
@@ -217,7 +212,6 @@ def _suggest_gp_model(
     )
     if use_saasbo:
         logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
-
     return None
 
 
