@@ -611,6 +611,15 @@ def get_discrete_search_space() -> SearchSpace:
     )
 
 
+def get_small_discrete_search_space() -> SearchSpace:
+    return SearchSpace(
+        [
+            RangeParameter("x", ParameterType.INT, 0, 1),
+            ChoiceParameter("y", ParameterType.STRING, ["red", "panda"]),
+        ]
+    )
+
+
 def get_hierarchical_search_space() -> HierarchicalSearchSpace:
     return HierarchicalSearchSpace(
         parameters=[

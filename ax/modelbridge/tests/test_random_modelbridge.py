@@ -18,7 +18,7 @@ from ax.modelbridge.registry import Cont_X_trans
 from ax.models.random.base import RandomModel
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_discrete_search_space
+from ax.utils.testing.core_stubs import get_small_discrete_search_space
 
 
 class RandomModelBridgeTest(TestCase):
@@ -123,11 +123,11 @@ class RandomModelBridgeTest(TestCase):
 
     def test_deduplicate(self):
         sobol = RandomModelBridge(
-            search_space=get_discrete_search_space(),
+            search_space=get_small_discrete_search_space(),
             model=SobolGenerator(deduplicate=True),
             transforms=Cont_X_trans,
         )
-        for _ in range(24):  # Search space is {[0, 3], [5, 7], {"red", "panda"}}
+        for _ in range(4):  # Search space is {[0, 1], {"red", "panda"}}
             self.assertEqual(len(sobol.gen(1).arms), 1)
         with self.assertRaises(SearchSpaceExhausted):
             sobol.gen(1)
