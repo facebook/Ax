@@ -343,6 +343,10 @@ class Experiment(Base):
         """
         return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
 
+    @property
+    def tracking_metrics(self) -> List[Metric]:
+        return list(self._tracking_metrics.values())
+
     def add_tracking_metric(self, metric: Metric) -> Experiment:
         """Add a new metric to the experiment.
 
