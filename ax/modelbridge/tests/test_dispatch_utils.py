@@ -184,7 +184,7 @@ class TestDispatchUtils(TestCase):
         sobol = choose_generation_strategy(
             search_space=get_factorial_search_space(), random_seed=9
         )
-        sobol.gen(experiment=get_experiment())
+        sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually a bridge, second is the Sobol engine.
         self.assertEqual(sobol.model.model.seed, 9)
 
