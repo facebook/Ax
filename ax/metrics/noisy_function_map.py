@@ -100,23 +100,6 @@ class NoisyFunctionMapMetric(MapMetric):
 
         return MapData(df=df, map_key_infos=self.map_key_infos)
 
-    def _cached_f(self, x: np.ndarray, noisy: bool) -> Mapping[str, Any]:
-        noise_sd = self.noise_sd if noisy else 0.0
-        x_tuple = tuple(x)  # works since x is 1-d array
-
-        if not self.cache_evaluations:
-            res = {**self.f(x)}
-            res["mean"] += np.random.randn() * noise_sd
-            return res
-
-        if x_tuple in self.cache:
-            return self.cache[x_tuple]
-
-        res = {**self.f(x)}
-        res["mean"] += np.random.randn() * noise_sd
-        self.cache[x_tuple] = res
-        return res
-
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError

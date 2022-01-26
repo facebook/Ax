@@ -850,7 +850,7 @@ class ExperimentWithMapDataTest(TestCase):
         self.experiment = get_experiment_with_map_data_type()
 
     def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:
-        exp = get_branin_experiment_with_timestamp_map_metric(incremental=incremental)
+        exp = get_branin_experiment_with_timestamp_map_metric()
         batch = exp.new_batch_trial()
         batch.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
         batch.run()
@@ -914,8 +914,8 @@ class ExperimentWithMapDataTest(TestCase):
             set(batch_1_data.df["arm_name"].values), {a.name for a in batch_1.arms}
         )
         self.assertEqual(
-            exp.fetch_trials_data(trial_indices=[0, 1]),
-            MapData.from_multiple_data([batch_0_data, batch_1_data]),
+            exp.fetch_trials_data(trial_indices=[0, 1]).df.shape[0],
+            len(exp.arms_by_name) * 2,
         )
 
         # Since NoisyFunctionMap metric has overwrite_existing_data = True,
@@ -925,9 +925,11 @@ class ExperimentWithMapDataTest(TestCase):
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
             exp.fetch_trials_data(trial_indices=[2])
         # Try to fetch data when there are only metrics and no attached data.
-        exp.remove_tracking_metric(metric_name="b")  # Remove implemented metric.
-        exp.add_tracking_metric(MapMetric(name="b"))  # Add unimplemented metric.
-        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 30)
+        exp.remove_tracking_metric(metric_name="branin")  # Remove implemented metric.
+        exp.add_tracking_metric(
+            BraninMetric(name="branin", param_names=["x1", "x2"])
+        )  # Add unimplemented metric.
+        self.assertEqual(len(exp.fetch_trials_data(trial_indices=[0]).map_df), 10)
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)

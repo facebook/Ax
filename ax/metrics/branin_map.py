@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from random import random
 from typing import Mapping, Iterable, Any, Optional
 
 import numpy as np
+import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapKeyInfo, MapData
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
@@ -46,7 +48,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             rate: Parameter of the multiplicative factor.
         """
         self.rate = rate
-        self._timestamp = -1
+        self._trial_index_to_timestamp = defaultdict(int)
 
         super().__init__(
             name=name,
@@ -72,35 +74,48 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
     ) -> MapData:
-        # This timestamp parameter will be incremented each time f is called to
-        # simulate a true timestamp.
-        self._timestamp = -1
+        if self._trial_index_to_timestamp[trial.index] == 0 or trial.status.is_running:
+            self._trial_index_to_timestamp[trial.index] += 1
 
-        s = super()  # Must assign super() to capture outer scope inside comprehension
-        rows = [
-            s.fetch_trial_data(
-                trial=trial,
-                noisy=noisy,
-                **kwargs,
+        datas = []
+        for timestamp in range(self._trial_index_to_timestamp[trial.index]):
+            res = [
+                self.f(
+                    np.fromiter(arm.parameters.values(), dtype=float),
+                    timestamp=timestamp,
+                )
+                for arm in trial.arms
+            ]
+
+            df = pd.DataFrame(
+                {
+                    "arm_name": [arm.name for arm in trial.arms],
+                    "metric_name": self.name,
+                    "sem": self.noise_sd if noisy else 0.0,
+                    "trial_index": trial.index,
+                    "mean": [item["mean"] for item in res],
+                    **{
+                        mki.key: [item[mki.key] for item in res]
+                        for mki in self.map_key_infos
+                    },
+                }
             )
-            for _ in range(3)
-        ]
 
-        return MapData.from_multiple_map_data(rows)
+            datas.append(MapData(df=df, map_key_infos=self.map_key_infos))
 
-    def f(self, x: np.ndarray) -> Mapping[str, Any]:
-        self._timestamp += 1
+        return MapData.from_multiple_map_data(datas)
 
+    def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
 
         if self.rate is not None:
-            weight = 1.0 + np.exp(-not_none(self.rate) * self._timestamp)
+            weight = 1.0 + np.exp(-not_none(self.rate) * timestamp)
         else:
             weight = 1.0
 
         mean = checked_cast(float, branin(x1=x1, x2=x2)) * weight
 
-        return {"mean": mean, "timestamp": self._timestamp}
+        return {"mean": mean, "timestamp": timestamp}
 
 
 class BraninFidelityMapMetric(NoisyFunctionMapMetric):

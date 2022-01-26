@@ -275,13 +275,13 @@ class ReportUtilsTest(TestCase):
         plots = get_standard_plots(
             experiment=exp,
             model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
-            true_objective_metric_name="b",
+            true_objective_metric_name="branin",
         )
 
         self.assertEqual(len(plots), 9)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
         self.assertIn(
-            "Objective branin vs. True Objective Metric b",
+            "Objective branin_map vs. True Objective Metric branin",
             [p.layout.title.text for p in plots],
         )
 

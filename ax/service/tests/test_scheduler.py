@@ -51,6 +51,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_branin_experiment,
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_search_space,
     get_generator_run,
     DummyEarlyStoppingStrategy,
@@ -147,15 +148,17 @@ class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
     poll_trial_status_count = 0
 
     def poll_trial_status(self, trials: Iterable[BaseTrial]):
+        self.poll_trial_status_count += 1
+
         # In the first step, don't complete any trials
         # Trial #1 will be early stopped
-        if self.poll_trial_status_count == 0:
-            self.poll_trial_status_count += 1
+        if self.poll_trial_status_count == 1:
             return {}
 
-        # In the second step, complete trials 0 and 2
-        self.poll_trial_status_count += 1
-        return {TrialStatus.COMPLETED: {0, 2}}
+        if self.poll_trial_status_count == 2:
+            return {TrialStatus.COMPLETED: {2}}
+
+        return {TrialStatus.COMPLETED: {0}}
 
 
 class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
@@ -181,6 +184,10 @@ class TestAxScheduler(TestCase):
 
     def setUp(self):
         self.branin_experiment = get_branin_experiment()
+        self.branin_timestamp_map_metric_experiment = (
+            get_branin_experiment_with_timestamp_map_metric()
+        )
+
         self.runner = SyntheticRunnerWithStatusPolling()
         self.branin_experiment.runner = self.runner
         self.branin_experiment._properties[
@@ -745,9 +752,11 @@ class TestAxScheduler(TestCase):
                     )
                 return {idx: None for idx in trial_indices if idx % 2 == 1}
 
-        self.branin_experiment.runner = RunnerWithEarlyStoppingStrategy()
+        self.branin_timestamp_map_metric_experiment.runner = (
+            RunnerWithEarlyStoppingStrategy()
+        )
         scheduler = TestScheduler(
-            experiment=self.branin_experiment,
+            experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 init_seconds_between_polls=0.1,
@@ -760,14 +769,37 @@ class TestAxScheduler(TestCase):
             res_list = list(
                 scheduler.run_trials_and_yield_results(max_trials=total_trials)
             )
-            expected_num_steps = 2
+            expected_num_steps = 3
             self.assertEqual(len(res_list), expected_num_steps + 1)
             # Trial #1 early stopped in first step
             self.assertEqual(res_list[0]["trials_early_stopped_so_far"], {1})
             # All trials completed by end of second step
             self.assertEqual(res_list[1]["trials_early_stopped_so_far"], {1})
-            self.assertEqual(res_list[1]["trials_completed_so_far"], {0, 2})
+            self.assertEqual(res_list[1]["trials_completed_so_far"], {2})
+            self.assertEqual(res_list[2]["trials_completed_so_far"], {0, 2})
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_steps)
+
+        looked_up_data = scheduler.experiment.lookup_data()
+        fetched_data = scheduler.experiment.fetch_data()
+
+        # expect number of rows in regular df to equal num_metrics (2) * num_trials (3)
+        num_metrics = 2
+        expected_num_rows = num_metrics * total_trials
+        self.assertEqual(len(looked_up_data.df), expected_num_rows)
+        self.assertEqual(len(fetched_data.df), expected_num_rows)
+
+        # expect number of rows in map df to equal:
+        #   num_non_map_metrics * num_trials +
+        #   num_map_metrics * num_trials + an extra row, since trial 0 runs
+        #   longer and gets results for an extra timestamp
+        expected_num_rows = (1 * total_trials) + (1 * total_trials + 1)
+        self.assertEqual(len(fetched_data.map_df), expected_num_rows)
+        # NOTE: this is currently broken and will be fixed in follow-up diff
+        # self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
+
+        # Because overwrite_existing_data = True for NoisyFunctionMap,
+        # expect only one dataframe for each trial
+        self.assertEqual(len(scheduler.experiment.data_by_trial[0]), 1)
 
     def test_run_trials_in_batches(self):
         # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`
