@@ -8,11 +8,13 @@ import numpy as np
 import torch
 from ax.models.torch.cbo_lcem import LCEMBO
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.contextual_multioutput import LCEMGP, FixedNoiseLCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 
 
 class LCEMBOTest(TestCase):
+    @fast_botorch_optimize
     def testLCEMBO(self):
         d = 1
         train_x = torch.rand(10, d)

@@ -22,6 +22,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.models.torch.utils import HYPERSPHERE
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
@@ -103,6 +104,7 @@ class BotorchMOOModelTest(TestCase):
                 dtype=dtype, use_qnehvi=True
             )
 
+    @fast_botorch_optimize
     def test_BotorchMOOModel_with_random_scalarization(
         self, dtype=torch.float, cuda=False
     ):
@@ -119,9 +121,6 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -142,10 +141,7 @@ class BotorchMOOModelTest(TestCase):
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
             return_value=torch.tensor([0.7, 0.3], **tkwargs),
-        ) as _mock_sample_simplex, mock.patch(
-            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _mock_sample_simplex:
             model.gen(
                 n,
                 bounds,
@@ -163,10 +159,7 @@ class BotorchMOOModelTest(TestCase):
             SAMPLE_HYPERSPHERE_UTIL_PATH,
             autospec=True,
             return_value=torch.tensor([0.6, 0.8], **tkwargs),
-        ) as _mock_sample_hypersphere, mock.patch(
-            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _mock_sample_hypersphere:
             model.gen(
                 n,
                 bounds,
@@ -224,6 +217,7 @@ class BotorchMOOModelTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
+    @fast_botorch_optimize
     def test_BotorchMOOModel_with_chebyshev_scalarization(
         self, dtype=torch.float, cuda=False
     ):
@@ -240,9 +234,6 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -261,10 +252,7 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
-        ) as _mock_chebyshev_scalarization, mock.patch(
-            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _mock_chebyshev_scalarization:
             model.gen(
                 n,
                 bounds,
@@ -542,6 +530,7 @@ class BotorchMOOModelTest(TestCase):
             self.assertTrue(torch.equal(obj_t[:2], provided_obj_t[:2].cpu()))
             self.assertTrue(np.isnan(obj_t[2]))
 
+    @fast_botorch_optimize
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
@@ -559,9 +548,6 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
-
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -581,10 +567,7 @@ class BotorchMOOModelTest(TestCase):
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
             return_value=torch.tensor([0.7, 0.3], **tkwargs),
-        ) as _mock_sample_simplex, mock.patch(
-            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _mock_sample_simplex:
             model.gen(
                 n,
                 bounds,
@@ -601,6 +584,7 @@ class BotorchMOOModelTest(TestCase):
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
+    @fast_botorch_optimize
     def test_BotorchMOOModel_with_chebyshev_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
@@ -619,9 +603,6 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 Xs=Xs1 + Xs2,
@@ -638,10 +619,7 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
-        ) as _mock_chebyshev_scalarization, mock.patch(
-            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
-            return_value=(X_dummy, acqfv_dummy),
-        ) as _:
+        ) as _mock_chebyshev_scalarization:
             model.gen(
                 n,
                 bounds,
@@ -659,6 +637,7 @@ class BotorchMOOModelTest(TestCase):
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
+    @fast_botorch_optimize
     def test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
         self, dtype=torch.float, cuda=False, use_qnehvi=False
     ):
@@ -680,9 +659,6 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
-
-        X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-        acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -712,10 +688,7 @@ class BotorchMOOModelTest(TestCase):
             model,
             "acqf_constructor",
             wraps=botorch_moo_defaults.get_NEHVI,
-        ) as mock_get_nehvi, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acqfv_dummy),
-        ):
+        ) as mock_get_nehvi:
             model.gen(
                 n,
                 bounds,
@@ -743,10 +716,7 @@ class BotorchMOOModelTest(TestCase):
             model,
             "acqf_constructor",
             wraps=botorch_moo_defaults.get_NEHVI,
-        ) as mock_get_nehvi, mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            return_value=(X_dummy, acqfv_dummy),
-        ):
+        ) as mock_get_nehvi:
             model.gen(
                 n,
                 bounds,

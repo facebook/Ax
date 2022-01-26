@@ -21,6 +21,7 @@ from ax.models.torch.alebo import (
     get_map_model,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -55,6 +56,7 @@ class ALEBOTest(TestCase):
         )
         self.assertTrue(torch.equal(K, Ktrue))
 
+    @fast_botorch_optimize
     def testALEBOGP(self):
         # First non-batch
         B = torch.tensor(
@@ -251,6 +253,7 @@ class ALEBOTest(TestCase):
         Z = (B @ torch.pinverse(B) @ X[:, 0, :].t()).t()
         self.assertTrue(torch.allclose(Z, X[:, 0, :]))
 
+    @fast_botorch_optimize
     def testALEBO(self):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double

@@ -4,19 +4,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.cbo_lcea import LCEABO
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.contextual import LCEAGP
 from botorch.models.model_list_gp_regression import ModelListGP
 
 
 class LCEABOTest(TestCase):
-    @mock.patch("ax.models.torch.botorch_defaults.fit_gpytorch_model")
-    def testLCEABO(self, mock_model_fit):
+    @fast_botorch_optimize
+    def testLCEABO(self):
         train_X = torch.tensor(
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]
         )

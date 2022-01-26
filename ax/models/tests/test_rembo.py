@@ -10,9 +10,11 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class REMBOTest(TestCase):
+    @fast_botorch_optimize
     def testREMBOModel(self):
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
@@ -45,19 +47,17 @@ class REMBOTest(TestCase):
                 metric_names=my_metric_names,
             )
 
-        with mock.patch(
-            "ax.models.torch.botorch_defaults.fit_gpytorch_model", autospec=True
-        ):
-            m.fit(
-                Xs=Xs,
-                Ys=Ys,
-                Yvars=Yvars,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=bounds,
-                ),
-                metric_names=my_metric_names,
-            )
+        m.fit(
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=[],
+                bounds=bounds,
+            ),
+            metric_names=my_metric_names,
+        )
+
         # Check was fit with the low-d data.
         for x in m.Xs:
             self.assertTrue(torch.allclose(x, m.to_01(initial_X_d)))
