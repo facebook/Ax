@@ -145,6 +145,7 @@ class ModelBridgeFactoryTest(TestCase):
         gpkg_mf = get_GPKG(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpkg_mf, TorchModelBridge)
 
+    @fast_botorch_optimize
     def test_GPMES(self):
         """Tests GPMES instantiation."""
         exp = get_branin_experiment(with_batch=True)
