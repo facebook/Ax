@@ -12,7 +12,7 @@ Typically used to retrieve partial learning curves of ML training jobs.
 from __future__ import annotations
 
 from abc import abstractmethod, ABC
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Tuple, Any, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
@@ -86,14 +86,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                 f"Only (non-batch) Trials are supported by {cls.__name__}"
             )
         ids = cls.get_ids_from_trials(trials=trials)
-
-        trials_filtered, ids_filtered = [], []
-        for trial, id_ in zip(trials, ids):
-            if id_ is None:
-                logger.info(f"Could not get id for Trial {trial.index}. Ignoring.")
-            else:
-                trials_filtered.append(trial)
-                ids_filtered.append(id_)
+        trials_filtered, ids_filtered = _filter_trials_with_ids(trials, ids)
 
         if len(ids_filtered) == 0:
             logger.info("Could not get ids from trials. Returning empty data.")
@@ -173,3 +166,16 @@ class AbstractCurveMetric(MapMetric, ABC):
                                    200 | 0.2
         """
         ...  # pragma: nocover
+
+
+def _filter_trials_with_ids(
+    trials: Iterable[BaseTrial], ids: List[Optional[Union[int, str]]]
+) -> Tuple[Iterable[BaseTrial], List[Union[int, str]]]:
+    trials_filtered, ids_filtered = [], []
+    for trial, id_ in zip(trials, ids):
+        if id_ is None:
+            logger.info(f"Could not get id for Trial {trial.index}. Ignoring.")
+        else:
+            trials_filtered.append(trial)
+            ids_filtered.append(id_)
+    return trials_filtered, ids_filtered
