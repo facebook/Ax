@@ -84,6 +84,7 @@ TBestPointRecommender = Callable[
         Tensor,
         Optional[Tuple[Tensor, Tensor]],
         Optional[Tuple[Tensor, Tensor]],
+        Optional[List[Callable]],
         Optional[Dict[int, float]],
         Optional[TConfig],
         Optional[Dict[int, float]],
