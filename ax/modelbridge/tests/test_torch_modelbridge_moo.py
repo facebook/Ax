@@ -490,8 +490,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             self.assertTrue(
                 torch.equal(ckwargs["objective_weights"], expected_obj_weights)
             )
-            self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
-            self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
@@ -561,8 +559,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ckwargs = mock_model_infer_obj_t.call_args[1]
             self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
             mock_untransform_objective_thresholds.assert_called_once()
-            ckwargs = mock_untransform_objective_thresholds.call_args[1]
-            self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)

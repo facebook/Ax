@@ -21,7 +21,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.modelbridge_utils import (
-    parse_observation_features,
     extract_objective_thresholds,
     validate_and_apply_final_transform,
     SearchSpaceDigest,
@@ -484,57 +483,41 @@ class TorchModelBridge(ArrayModelBridge):
         bounds: List[Tuple[Union[int, float], Union[int, float]]],
         fixed_features: Optional[Dict[int, float]],
     ) -> List[ObjectiveThreshold]:
-        objective_thresholds_np = objective_thresholds.cpu().numpy()
-        objective_indices = objective_weights.nonzero().view(-1).tolist()
-        objective_names = [self.outcomes[i] for i in objective_indices]
-        # Create an ObservationData object for untransforming the objective thresholds.
-        observation_data = [
-            ObservationData(
-                metric_names=objective_names,
-                means=objective_thresholds_np[objective_indices].copy(),
-                covariance=np.zeros((len(objective_indices), len(objective_indices))),
+        thresholds_np = objective_thresholds.cpu().numpy()
+        idxs = objective_weights.nonzero().view(-1).tolist()
+        optimization_config = not_none(self._optimization_config)
+
+        # Create transformed ObjectiveThresholds from numpy thresholds.
+        thresholds = []
+        for idx in idxs:
+            sign = torch.sign(objective_weights[idx])
+            thresholds.append(
+                ObjectiveThreshold(
+                    metric=optimization_config.metrics[self.outcomes[idx]],
+                    bound=thresholds_np[idx],
+                    relative=False,
+                    op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
+                )
+            )
+
+        # Create dummy ObservationFeatures from the fixed features.
+        fixed = fixed_features or {}
+        observation_features = [
+            ObservationFeatures(
+                parameters={
+                    name: fixed.get(i, 0.0) for i, name in enumerate(self.parameters)
+                }
             )
         ]
-        # Untransform objective thresholds. Note: there is one objective threshold
-        # for every outcome.
-        # Construct dummy observation features.
-        X = [bound[0] for bound in bounds]
-        fixed_features = fixed_features or {}
-        for i, val in fixed_features.items():
-            X[i] = val
-        observation_features = parse_observation_features(
-            X=np.array([X]),
-            param_names=self.parameters,
-        )
-        # Apply reverse transforms, in reverse order.
+
+        # Untransform ObjectiveThresholds along with the dummy ObservationFeatures.
         for t in reversed(self.transforms.values()):
-            observation_data = t.untransform_observation_data(
-                observation_data=observation_data,
+            thresholds = t.untransform_objective_thresholds(
+                objective_thresholds=thresholds,
                 observation_features=observation_features,
             )
             observation_features = t.untransform_observation_features(
-                observation_features=observation_features,
+                observation_features
             )
-        observation_data = observation_data[0]
-        oc = not_none(self._optimization_config)
-        metrics_names_to_metric = oc.metrics
-        obj_thresholds = []
-        for idx, (name, bound) in enumerate(
-            zip(observation_data.metric_names, observation_data.means)
-        ):
-            if not np.isnan(bound):
-                obj_weight = objective_weights[objective_indices[idx]]
-                op = (
-                    ComparisonOp.LEQ
-                    if torch.sign(obj_weight) == -1.0
-                    else ComparisonOp.GEQ
-                )
-                obj_thresholds.append(
-                    ObjectiveThreshold(
-                        metric=metrics_names_to_metric[name],
-                        bound=bound,
-                        relative=False,
-                        op=op,
-                    )
-                )
-        return obj_thresholds
+
+        return thresholds
