@@ -94,7 +94,14 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for i in range(5):
             # only mark the first 4 complete
+            trial = exp.trials[i]
             if i < 4:
                 trial.mark_as(status=TrialStatus.COMPLETED)
 
@@ -183,6 +190,12 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for trial in exp.trials.values():
             trial.mark_as(status=TrialStatus.COMPLETED)
 
         # manually "unalign" timestamps to simulate real-world scenario
@@ -191,7 +204,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
         data.map_df.loc[
-            data.map_df["metric_name"] == "branin", "timestamp"
+            data.map_df["metric_name"] == "branin_map", "timestamp"
         ] = unaligned_timestamps
         exp.attach_data(data=data)
 
@@ -227,6 +240,12 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for trial in exp.trials.values():
             trial.mark_as(status=TrialStatus.COMPLETED)
 
         # manually "unalign" timestamps to simulate real-world scenario
@@ -235,11 +254,11 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
         data.map_df.loc[
-            data.map_df["metric_name"] == "branin", "timestamp"
+            data.map_df["metric_name"] == "branin_map", "timestamp"
         ] = unaligned_timestamps
         # manually remove timestamps 1 and 2 for arm 3
         data.map_df.drop(
-            [22, 23], inplace=True
+            [15, 16], inplace=True
         )  # TODO this wont work once we make map_df immutable (which we should)
         exp.attach_data(data=data)
 
@@ -278,6 +297,13 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
             trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for trial in exp.trials.values():
+            trial.mark_as(status=TrialStatus.COMPLETED)
 
         exp.attach_data(data=exp.fetch_data())
 
@@ -345,9 +371,9 @@ def _evaluate_early_stopping_with_df(
     metric_to_aligned_means, _ = align_partial_results(
         df=df,
         progr_key="timestamp",
-        metrics=["branin"],
+        metrics=["branin_map"],
     )
-    aligned_means = metric_to_aligned_means["branin"]
+    aligned_means = metric_to_aligned_means["branin_map"]
     decisions = {
         trial_index: early_stopping_strategy.should_stop_trial_early(
             trial_index=trial_index,
