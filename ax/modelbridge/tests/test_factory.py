@@ -74,6 +74,10 @@ class ModelBridgeFactoryTest(TestCase):
         botorch = get_botorch(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(botorch, TorchModelBridge)
 
+        # Check that .gen returns without failure
+        gpei_run = gpei.gen(n=1)
+        self.assertEqual(len(gpei_run.arms), 1)
+
     @fast_botorch_optimize
     def test_MTGP(self):
         """Tests MTGP instantiation."""
@@ -94,6 +98,9 @@ class ModelBridgeFactoryTest(TestCase):
             t.run().mark_completed()
         mtgp = get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
         self.assertIsInstance(mtgp, TorchModelBridge)
+        # mtgp_run = mtgp.gen(
+        #     n=1
+        # )  # TODO[T110948251]: This is broken at the ChoiceEncode level
 
         with self.assertRaises(ValueError):
             get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=9)
@@ -117,6 +124,10 @@ class ModelBridgeFactoryTest(TestCase):
         exp.trials[0].run().mark_completed()
         gpkg = get_GPKG(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpkg, TorchModelBridge)
+
+        # Check that .gen returns without failure
+        gr = gpkg.gen(n=1)
+        self.assertEqual(len(gr.arms), 1)
 
         # test transform_configs with winsorization
         configs = {
@@ -154,6 +165,10 @@ class ModelBridgeFactoryTest(TestCase):
         exp.trials[0].run()
         gpmes = get_GPMES(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpmes, TorchModelBridge)
+
+        # Check that .gen returns without failure
+        gr = gpmes.gen(n=1)
+        self.assertEqual(len(gr.arms), 1)
 
         # test transform_configs with winsorization
         configs = {
