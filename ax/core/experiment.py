@@ -311,14 +311,11 @@ class Experiment(Base):
                 self.remove_tracking_metric(metric_name)
         self._optimization_config = optimization_config
 
-        self._default_data_type = (
-            DataType.MAP_DATA
-            if any(
-                isinstance(metric, MapMetric)
-                for metric in optimization_config.metrics.values()
-            )
-            else DataType.DATA
-        )
+        if any(
+            isinstance(metric, MapMetric)
+            for metric in optimization_config.metrics.values()
+        ):
+            self._default_data_type = DataType.MAP_DATA
 
     @property
     def data_by_trial(self) -> Dict[int, OrderedDict]:
@@ -366,6 +363,9 @@ class Experiment(Base):
                 "OptimizationConfig. Set a new OptimizationConfig without this metric "
                 "before adding it to tracking metrics."
             )
+
+        if isinstance(metric, MapMetric):
+            self._default_data_type = DataType.MAP_DATA
 
         self._tracking_metrics[metric.name] = metric
         return self
