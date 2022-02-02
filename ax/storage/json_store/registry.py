@@ -168,7 +168,7 @@ DEPRECATED_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] =
     Transform: transform_type_to_dict,
 }
 
-DECODER_REGISTRY: Dict[str, Type] = {
+DEPRECATED_DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,

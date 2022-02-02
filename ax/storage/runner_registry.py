@@ -9,7 +9,10 @@ from typing import Dict, Optional, Type
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import runner_to_dict
-from ax.storage.json_store.registry import DECODER_REGISTRY, DEPRECATED_ENCODER_REGISTRY
+from ax.storage.json_store.registry import (
+    DEPRECATED_DECODER_REGISTRY,
+    DEPRECATED_ENCODER_REGISTRY,
+)
 
 
 """
@@ -37,4 +40,4 @@ def register_runner(runner_cls: Type[Runner], val: Optional[int] = None) -> None
     REVERSE_RUNNER_REGISTRY[registered_val] = runner_cls
 
     DEPRECATED_ENCODER_REGISTRY[runner_cls] = runner_to_dict
-    DECODER_REGISTRY[runner_cls.__name__] = runner_cls
+    DEPRECATED_DECODER_REGISTRY[runner_cls.__name__] = runner_cls

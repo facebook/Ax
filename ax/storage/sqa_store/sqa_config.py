@@ -21,6 +21,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.registry import (
     DEPRECATED_ENCODER_REGISTRY,
     DEPRECATED_CLASS_ENCODER_REGISTRY,
+    DEPRECATED_DECODER_REGISTRY,
 )
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
@@ -75,3 +76,4 @@ class SQAConfig(NamedTuple):
     generator_run_type_enum: Optional[Enum] = GeneratorRunType
     json_encoder_registry = DEPRECATED_ENCODER_REGISTRY
     json_class_encoder_registry = DEPRECATED_CLASS_ENCODER_REGISTRY
+    json_decoder_registry = DEPRECATED_DECODER_REGISTRY

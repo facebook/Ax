@@ -35,28 +35,35 @@ from ax.modelbridge.registry import (
     _decode_callables_from_references,
 )
 from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
-from ax.storage.json_store.registry import CLASS_DECODER_REGISTRY, DECODER_REGISTRY
+from ax.storage.json_store.registry import CLASS_DECODER_REGISTRY
 from ax.utils.common.typeutils import not_none, torch_type_from_str
 from ax.utils.measurement import synthetic_functions
 from ax.utils.measurement.synthetic_functions import from_botorch
 from botorch.test_functions import synthetic as botorch_synthetic
 
 
-def object_from_json(object_json: Any) -> Any:
+def object_from_json(object_json: Any, decoder_registry: Dict[str, Type]) -> Any:
     """Recursively load objects from a JSON-serializable dictionary."""
     if type(object_json) in (str, int, float, bool, type(None)) or isinstance(
         object_json, Enum
     ):
         return object_json
     elif isinstance(object_json, list):
-        return [object_from_json(i) for i in object_json]
+        return [
+            object_from_json(i, decoder_registry=decoder_registry) for i in object_json
+        ]
     elif isinstance(object_json, tuple):
-        return tuple(object_from_json(i) for i in object_json)
+        return tuple(
+            object_from_json(i, decoder_registry=decoder_registry) for i in object_json
+        )
     elif isinstance(object_json, dict):
         if "__type" not in object_json:
             # this is just a regular dictionary, e.g. the one in Parameter
             # containing parameterizations
-            return {k: object_from_json(v) for k, v in object_json.items()}
+            return {
+                k: object_from_json(v, decoder_registry=decoder_registry)
+                for k, v in object_json.items()
+            }
 
         _type = object_json.pop("__type")
 
@@ -66,7 +73,10 @@ def object_from_json(object_json: Any) -> Any:
             )
         elif _type == "OrderedDict":
             return OrderedDict(
-                [(k, object_from_json(v)) for k, v in object_json["value"]]
+                [
+                    (k, object_from_json(v, decoder_registry=decoder_registry))
+                    for k, v in object_json["value"]
+                ]
             )
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
@@ -76,13 +86,17 @@ def object_from_json(object_json: Any) -> Any:
             return np.array(object_json["value"])
         elif _type == "Tensor":
             device = (
-                object_from_json(object_json["device"])
+                object_from_json(
+                    object_json["device"], decoder_registry=decoder_registry
+                )
                 if torch.cuda.is_available()
                 else torch.device("cpu")
             )
             return torch.tensor(
                 object_json["value"],
-                dtype=object_from_json(object_json["dtype"]),
+                dtype=object_from_json(
+                    object_json["dtype"], decoder_registry=decoder_registry
+                ),
                 device=device,
             )
         elif _type.startswith("torch"):
@@ -95,7 +109,7 @@ def object_from_json(object_json: Any) -> Any:
         elif _type in CLASS_DECODER_REGISTRY:
             return CLASS_DECODER_REGISTRY[_type](object_json)
 
-        elif _type not in DECODER_REGISTRY:
+        elif _type not in decoder_registry:
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
                 f"{_type} that is not registered with a corresponding class in "
@@ -103,27 +117,43 @@ def object_from_json(object_json: Any) -> Any:
             )
             raise JSONDecodeError(err)
 
-        _class = DECODER_REGISTRY[_type]
+        _class = decoder_registry[_type]
 
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
         elif _class == GeneratorRun:
-            return generator_run_from_json(object_json=object_json)
+            return generator_run_from_json(
+                object_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == GenerationStep:
-            return generation_step_from_json(generation_step_json=object_json)
+            return generation_step_from_json(
+                generation_step_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == GenerationStrategy:
-            return generation_strategy_from_json(generation_strategy_json=object_json)
+            return generation_strategy_from_json(
+                generation_strategy_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == MultiTypeExperiment:
-            return multi_type_experiment_from_json(object_json=object_json)
+            return multi_type_experiment_from_json(
+                object_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == Experiment:
-            return experiment_from_json(object_json=object_json)
+            return experiment_from_json(
+                object_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == SearchSpace:
-            return search_space_from_json(search_space_json=object_json)
+            return search_space_from_json(
+                search_space_json=object_json, decoder_registry=decoder_registry
+            )
         elif _class == SimpleBenchmarkProblem:
-            return simple_benchmark_problem_from_json(object_json=object_json)
+            return simple_benchmark_problem_from_json(
+                object_json=object_json, decoder_registry=decoder_registry
+            )
 
-        return ax_class_from_json_dict(_class=_class, object_json=object_json)
+        return ax_class_from_json_dict(
+            _class=_class, object_json=object_json, decoder_registry=decoder_registry
+        )
     else:
         err = (
             f"The object {object_json} passed to `object_from_json` has an "
@@ -132,45 +162,71 @@ def object_from_json(object_json: Any) -> Any:
         raise JSONDecodeError(err)
 
 
-def ax_class_from_json_dict(_class: Type, object_json: Dict[str, Any]) -> Any:
+def ax_class_from_json_dict(
+    _class: Type, object_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> Any:
     """Reinstantiates an Ax class registered in `DECODER_REGISTRY` from a JSON
     dict.
     """
-    return _class(**{k: object_from_json(v) for k, v in object_json.items()})
+    return _class(
+        **{
+            k: object_from_json(v, decoder_registry=decoder_registry)
+            for k, v in object_json.items()
+        }
+    )
 
 
-def generator_run_from_json(object_json: Dict[str, Any]) -> GeneratorRun:
+def generator_run_from_json(
+    object_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> GeneratorRun:
     """Load Ax GeneratorRun from JSON."""
     time_created_json = object_json.pop("time_created")
     type_json = object_json.pop("generator_run_type")
     index_json = object_json.pop("index")
     generator_run = GeneratorRun(
-        **{k: object_from_json(v) for k, v in object_json.items()}
+        **{
+            k: object_from_json(v, decoder_registry=decoder_registry)
+            for k, v in object_json.items()
+        }
     )
-    generator_run._time_created = object_from_json(time_created_json)
-    generator_run._generator_run_type = object_from_json(type_json)
-    generator_run._index = object_from_json(index_json)
+    generator_run._time_created = object_from_json(
+        time_created_json, decoder_registry=decoder_registry
+    )
+    generator_run._generator_run_type = object_from_json(
+        type_json, decoder_registry=decoder_registry
+    )
+    generator_run._index = object_from_json(
+        index_json, decoder_registry=decoder_registry
+    )
     return generator_run
 
 
-def search_space_from_json(search_space_json: Dict[str, Any]) -> SearchSpace:
+def search_space_from_json(
+    search_space_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> SearchSpace:
     """Load a SearchSpace from JSON.
 
     This function is necessary due to the coupled loading of SearchSpace
     and parameter constraints.
     """
-    parameters = object_from_json(search_space_json.pop("parameters"))
+    parameters = object_from_json(
+        search_space_json.pop("parameters"), decoder_registry=decoder_registry
+    )
     json_param_constraints = search_space_json.pop("parameter_constraints")
     return SearchSpace(
         parameters=parameters,
         parameter_constraints=parameter_constraints_from_json(
-            parameter_constraint_json=json_param_constraints, parameters=parameters
+            parameter_constraint_json=json_param_constraints,
+            parameters=parameters,
+            decoder_registry=decoder_registry,
         ),
     )
 
 
 def parameter_constraints_from_json(
-    parameter_constraint_json: List[Dict[str, Any]], parameters: List[Parameter]
+    parameter_constraint_json: List[Dict[str, Any]],
+    parameters: List[Parameter],
+    decoder_registry: Dict[str, Type],
 ) -> List[ParameterConstraint]:
     """Load ParameterConstraints from JSON.
 
@@ -205,19 +261,25 @@ def parameter_constraints_from_json(
                 )
             )
         else:
-            parameter_constraints.append(object_from_json(constraint))
+            parameter_constraints.append(
+                object_from_json(constraint, decoder_registry=decoder_registry)
+            )
     return parameter_constraints
 
 
 def trials_from_json(
-    experiment: Experiment, trials_json: Dict[str, Any]
+    experiment: Experiment,
+    trials_json: Dict[str, Any],
+    decoder_registry: Dict[str, Type],
 ) -> Dict[int, BaseTrial]:
     """Load Ax Trials from JSON."""
     loaded_trials = {}
     for index, batch_json in trials_json.items():
         is_trial = batch_json["__type"] == "Trial"
         batch_json = {
-            k: object_from_json(v) for k, v in batch_json.items() if k != "__type"
+            k: object_from_json(v, decoder_registry=decoder_registry)
+            for k, v in batch_json.items()
+            if k != "__type"
         }
         loaded_trials[int(index)] = (
             trial_from_json(experiment=experiment, **batch_json)
@@ -228,10 +290,12 @@ def trials_from_json(
 
 
 def data_from_json(
-    data_by_trial_json: Dict[str, Any]
+    data_by_trial_json: Dict[str, Any], decoder_registry: Dict[str, Type]
 ) -> Dict[int, "OrderedDict[int, Data]"]:
     """Load Ax Data from JSON."""
-    data_by_trial = object_from_json(data_by_trial_json)
+    data_by_trial = object_from_json(
+        data_by_trial_json, decoder_registry=decoder_registry
+    )
     # hack necessary because Python's json module converts dictionary
     # keys to strings: https://stackoverflow.com/q/1450957
     return {
@@ -240,18 +304,27 @@ def data_from_json(
     }
 
 
-def multi_type_experiment_from_json(object_json: Dict[str, Any]) -> MultiTypeExperiment:
+def multi_type_experiment_from_json(
+    object_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> MultiTypeExperiment:
     """Load AE MultiTypeExperiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
 
     _metric_to_canonical_name = object_json.pop("_metric_to_canonical_name")
     _metric_to_trial_type = object_json.pop("_metric_to_trial_type")
-    _trial_type_to_runner = object_from_json(object_json.pop("_trial_type_to_runner"))
-    tracking_metrics = object_from_json(object_json.pop("tracking_metrics"))
+    _trial_type_to_runner = object_from_json(
+        object_json.pop("_trial_type_to_runner"), decoder_registry=decoder_registry
+    )
+    tracking_metrics = object_from_json(
+        object_json.pop("tracking_metrics"), decoder_registry=decoder_registry
+    )
     # not relevant to multi type experiment
     del object_json["runner"]
 
-    kwargs = {k: object_from_json(v) for k, v in object_json.items()}
+    kwargs = {
+        k: object_from_json(v, decoder_registry=decoder_registry)
+        for k, v in object_json.items()
+    }
     kwargs["default_runner"] = _trial_type_to_runner[object_json["default_trial_type"]]
 
     experiment = MultiTypeExperiment(**kwargs)
@@ -261,18 +334,29 @@ def multi_type_experiment_from_json(object_json: Dict[str, Any]) -> MultiTypeExp
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
 
-    _load_experiment_info(exp=experiment, exp_info=experiment_info)
+    _load_experiment_info(
+        exp=experiment, exp_info=experiment_info, decoder_registry=decoder_registry
+    )
     return experiment
 
 
-def experiment_from_json(object_json: Dict[str, Any]) -> Experiment:
+def experiment_from_json(
+    object_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> Experiment:
     """Load Ax Experiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
 
-    experiment = Experiment(**{k: object_from_json(v) for k, v in object_json.items()})
+    experiment = Experiment(
+        **{
+            k: object_from_json(v, decoder_registry=decoder_registry)
+            for k, v in object_json.items()
+        }
+    )
     experiment._arms_by_name = {}
 
-    _load_experiment_info(exp=experiment, exp_info=experiment_info)
+    _load_experiment_info(
+        exp=experiment, exp_info=experiment_info, decoder_registry=decoder_registry
+    )
     return experiment
 
 
@@ -286,12 +370,22 @@ def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _load_experiment_info(exp: Experiment, exp_info: Dict[str, Any]) -> None:
+def _load_experiment_info(
+    exp: Experiment, exp_info: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> None:
     """Loads `Experiment` object with basic information."""
-    exp._time_created = object_from_json(exp_info.get("time_created_json"))
-    exp._trials = trials_from_json(exp, exp_info.get("trials_json"))
-    exp._experiment_type = object_from_json(exp_info.get("experiment_type_json"))
-    exp._data_by_trial = data_from_json(exp_info.get("data_by_trial_json"))
+    exp._time_created = object_from_json(
+        exp_info.get("time_created_json"), decoder_registry=decoder_registry
+    )
+    exp._trials = trials_from_json(
+        exp, exp_info.get("trials_json"), decoder_registry=decoder_registry
+    )
+    exp._experiment_type = object_from_json(
+        exp_info.get("experiment_type_json"), decoder_registry=decoder_registry
+    )
+    exp._data_by_trial = data_from_json(
+        exp_info.get("data_by_trial_json"), decoder_registry=decoder_registry
+    )
     for trial in exp._trials.values():
         for arm in trial.arms:
             exp._register_arm(arm)
@@ -320,7 +414,9 @@ def _convert_generation_step_keys_for_backwards_compatibility(
     return object_json
 
 
-def generation_step_from_json(generation_step_json: Dict[str, Any]) -> GenerationStep:
+def generation_step_from_json(
+    generation_step_json: Dict[str, Any], decoder_registry: Dict[str, Type]
+) -> GenerationStep:
     """Load generation step from JSON."""
     generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
         generation_step_json
@@ -328,16 +424,22 @@ def generation_step_from_json(generation_step_json: Dict[str, Any]) -> Generatio
     kwargs = generation_step_json.pop("model_kwargs", None)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     return GenerationStep(
-        model=object_from_json(generation_step_json.pop("model")),
+        model=object_from_json(
+            generation_step_json.pop("model"), decoder_registry=decoder_registry
+        ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         use_update=generation_step_json.pop("use_update", False),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
-        model_kwargs=_decode_callables_from_references(object_from_json(kwargs))
+        model_kwargs=_decode_callables_from_references(
+            object_from_json(kwargs, decoder_registry=decoder_registry),
+        )
         if kwargs
         else None,
-        model_gen_kwargs=_decode_callables_from_references(object_from_json(gen_kwargs))
+        model_gen_kwargs=_decode_callables_from_references(
+            object_from_json(gen_kwargs, decoder_registry=decoder_registry),
+        )
         if gen_kwargs
         else None,
         index=generation_step_json.pop("index", -1),
@@ -348,18 +450,25 @@ def generation_step_from_json(generation_step_json: Dict[str, Any]) -> Generatio
 
 
 def generation_strategy_from_json(
-    generation_strategy_json: Dict[str, Any], experiment: Optional[Experiment] = None
+    generation_strategy_json: Dict[str, Any],
+    decoder_registry: Dict[str, Type],
+    experiment: Optional[Experiment] = None,
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
-    steps = object_from_json(generation_strategy_json.pop("steps"))
+    steps = object_from_json(
+        generation_strategy_json.pop("steps"), decoder_registry=decoder_registry
+    )
     gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
-    gs._db_id = object_from_json(generation_strategy_json.pop("db_id"))
+    gs._db_id = object_from_json(
+        generation_strategy_json.pop("db_id"), decoder_registry=decoder_registry
+    )
     gs._experiment = experiment or object_from_json(
-        generation_strategy_json.pop("experiment")
+        generation_strategy_json.pop("experiment"), decoder_registry=decoder_registry
     )
     gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
     gs._generator_runs = object_from_json(
-        generation_strategy_json.pop("generator_runs")
+        generation_strategy_json.pop("generator_runs"),
+        decoder_registry=decoder_registry,
     )
     if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
         # If model in the current step was not directly from the `Models` enum,
@@ -377,7 +486,7 @@ def generation_strategy_from_json(
 
 
 def simple_benchmark_problem_from_json(
-    object_json: Dict[str, Any]
+    object_json: Dict[str, Any], decoder_registry: Dict[str, Type]
 ) -> SimpleBenchmarkProblem:
     """Load a benchmark problem from JSON."""
     uses_synthetic_function = object_json.pop("uses_synthetic_function")
@@ -392,7 +501,9 @@ def simple_benchmark_problem_from_json(
             f = getattr(synthetic_functions, function_name)()
     else:
         f = pickle.loads(object_json.pop("f").encode())
-    domain = object_from_json(object_json.pop("domain"))
+    domain = object_from_json(
+        object_json.pop("domain"), decoder_registry=decoder_registry
+    )
     assert isinstance(domain, list) and all(
         isinstance(x, (tuple, list)) for x in domain
     )

@@ -396,7 +396,13 @@ class Decoder:
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
-        args = dict(object_from_json(metric_sqa.properties) or {})
+        args = dict(
+            object_from_json(
+                metric_sqa.properties,
+                decoder_registry=self.config.json_decoder_registry,
+            )
+            or {}
+        )
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
         args = metric_class.deserialize_init_args(args=args)
@@ -710,19 +716,32 @@ class Decoder:
             model_key=generator_run_sqa.model_key,
             model_kwargs=None
             if reduced_state
-            else object_from_json(generator_run_sqa.model_kwargs),
+            else object_from_json(
+                generator_run_sqa.model_kwargs,
+                decoder_registry=self.config.json_decoder_registry,
+            ),
             bridge_kwargs=None
             if reduced_state
-            else object_from_json(generator_run_sqa.bridge_kwargs),
+            else object_from_json(
+                generator_run_sqa.bridge_kwargs,
+                decoder_registry=self.config.json_decoder_registry,
+            ),
             gen_metadata=None
             if reduced_state
-            else object_from_json(generator_run_sqa.gen_metadata),
+            else object_from_json(
+                generator_run_sqa.gen_metadata,
+                decoder_registry=self.config.json_decoder_registry,
+            ),
             model_state_after_gen=None
             if reduced_state
-            else object_from_json(generator_run_sqa.model_state_after_gen),
+            else object_from_json(
+                generator_run_sqa.model_state_after_gen,
+                decoder_registry=self.config.json_decoder_registry,
+            ),
             generation_step_index=generator_run_sqa.generation_step_index,
             candidate_metadata_by_arm_signature=object_from_json(
-                generator_run_sqa.candidate_metadata_by_arm_signature
+                generator_run_sqa.candidate_metadata_by_arm_signature,
+                decoder_registry=self.config.json_decoder_registry,
             ),
         )
         generator_run._time_created = generator_run_sqa.time_created
@@ -741,7 +760,9 @@ class Decoder:
         reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
-        steps = object_from_json(gs_sqa.steps)
+        steps = object_from_json(
+            gs_sqa.steps, decoder_registry=self.config.json_decoder_registry
+        )
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
         gs._curr = gs._steps[gs_sqa.curr_index]
         immutable_ss_and_oc = (
