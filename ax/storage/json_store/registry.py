@@ -104,7 +104,7 @@ from botorch.models.model import Model
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 
-ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+DEPRECATED_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,

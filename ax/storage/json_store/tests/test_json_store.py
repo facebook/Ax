@@ -24,7 +24,10 @@ from ax.storage.json_store.decoders import class_from_json
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import botorch_modular_to_dict
 from ax.storage.json_store.load import load_experiment
-from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY
+from ax.storage.json_store.registry import (
+    CLASS_ENCODER_REGISTRY,
+    DEPRECATED_ENCODER_REGISTRY,
+)
 from ax.storage.json_store.save import save_experiment
 from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
@@ -164,7 +167,10 @@ class JSONStoreTest(TestCase):
         self.experiment = get_experiment_with_batch_and_single_trial()
 
     def testJSONEncodeFailure(self):
-        self.assertRaises(JSONEncodeError, object_to_json, RuntimeError("foobar"))
+        with self.assertRaises(JSONEncodeError):
+            object_to_json(
+                obj=RuntimeError("foobar"), encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            )
 
     def testJSONDecodeFailure(self):
         self.assertRaises(JSONDecodeError, object_from_json, RuntimeError("foobar"))
@@ -172,18 +178,30 @@ class JSONStoreTest(TestCase):
 
     def testSaveAndLoad(self):
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
-            save_experiment(self.experiment, f.name)
+            save_experiment(
+                self.experiment, f.name, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            )
             loaded_experiment = load_experiment(f.name)
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
 
     def testSaveValidation(self):
         with self.assertRaises(ValueError):
-            save_experiment(self.experiment.trials[0], "test.json")
+            save_experiment(
+                self.experiment.trials[0],
+                "test.json",
+                encoder_registry=DEPRECATED_ENCODER_REGISTRY,
+            )
 
     def testValidateFilename(self):
         bad_filename = "test"
-        self.assertRaises(ValueError, save_experiment, self.experiment, bad_filename)
+        self.assertRaises(
+            ValueError,
+            save_experiment,
+            self.experiment,
+            bad_filename,
+            DEPRECATED_ENCODER_REGISTRY,
+        )
 
     def testEncodeDecode(self):
         for class_, fake_func in TEST_CASES:
@@ -198,7 +216,9 @@ class JSONStoreTest(TestCase):
                 continue
 
             original_object = fake_func()
-            json_object = object_to_json(original_object)
+            json_object = object_to_json(
+                original_object, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            )
             converted_object = object_from_json(json_object)
 
             if class_ == "SimpleExperiment":
@@ -226,7 +246,7 @@ class JSONStoreTest(TestCase):
             "dtype": {"__type": "torch_dtype", "value": "torch.float64"},
             "device": {"__type": "torch_device", "value": "cpu"},
         }
-        x_json = object_to_json(x)
+        x_json = object_to_json(x, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
         self.assertEqual(expected_json, x_json)
         x2 = object_from_json(x_json)
         self.assertTrue(torch.equal(x, x2))
@@ -234,7 +254,9 @@ class JSONStoreTest(TestCase):
     def testDecodeGenerationStrategy(self):
         generation_strategy = get_generation_strategy()
         experiment = get_branin_experiment()
-        gs_json = object_to_json(generation_strategy)
+        gs_json = object_to_json(
+            generation_strategy, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+        )
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
@@ -249,7 +271,9 @@ class JSONStoreTest(TestCase):
         # expect it.
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         gr = generation_strategy.gen(experiment)
-        gs_json = object_to_json(generation_strategy)
+        gs_json = object_to_json(
+            generation_strategy, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+        )
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
@@ -263,7 +287,9 @@ class JSONStoreTest(TestCase):
         experiment.new_trial(gr)  # Add previously generated GR as trial.
         # Make generation strategy aware of the trial's data via `gen`.
         generation_strategy.gen(experiment, data=get_branin_data())
-        gs_json = object_to_json(generation_strategy)
+        gs_json = object_to_json(
+            generation_strategy, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+        )
         new_generation_strategy = generation_strategy_from_json(gs_json)
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
@@ -271,13 +297,24 @@ class JSONStoreTest(TestCase):
 
     def testEncodeDecodeNumpy(self):
         arr = np.array([[1, 2, 3], [4, 5, 6]])
-        self.assertTrue(np.array_equal(arr, object_from_json(object_to_json(arr))))
+        self.assertTrue(
+            np.array_equal(
+                arr,
+                object_from_json(
+                    object_to_json(arr, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
+                ),
+            )
+        )
 
     def testEncodeDecodeSimpleBenchmarkProblem(self):
         branin_problem = get_branin_simple_benchmark_problem()
         sum_problem = get_sum_simple_benchmark_problem()
-        new_branin_problem = object_from_json(object_to_json(branin_problem))
-        new_sum_problem = object_from_json(object_to_json(sum_problem))
+        new_branin_problem = object_from_json(
+            object_to_json(branin_problem, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
+        )
+        new_sum_problem = object_from_json(
+            object_to_json(sum_problem, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
+        )
         self.assertEqual(
             branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
         )
@@ -286,7 +323,9 @@ class JSONStoreTest(TestCase):
         ackley_problem = SimpleBenchmarkProblem(
             f=from_botorch(Ackley()), noise_sd=0.0, minimize=True
         )
-        new_ackley_problem = object_from_json(object_to_json(ackley_problem))
+        new_ackley_problem = object_from_json(
+            object_to_json(ackley_problem, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
+        )
         self.assertEqual(
             ackley_problem.f(1, 2), new_ackley_problem.f(1, 2), ackley(1, 2)
         )
@@ -309,7 +348,9 @@ class JSONStoreTest(TestCase):
         experiment.runner = MyRunner()
         experiment.add_tracking_metric(MyMetric(name="my_metric"))
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
-            save_experiment(experiment, f.name)
+            save_experiment(
+                experiment, f.name, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            )
             loaded_experiment = load_experiment(f.name)
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
@@ -324,7 +365,7 @@ class JSONStoreTest(TestCase):
         with self.assertRaisesRegex(
             ValueError, "is a class. Add it to the CLASS_ENCODER_REGISTRY"
         ):
-            object_to_json(UnknownClass)
+            object_to_json(UnknownClass, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
         # `UnknownClass` type is registered in the CLASS_ENCODER_REGISTRY and uses the
         # `botorch_modular_to_dict` encoder, but `UnknownClass` is not registered in
         # the `botorch_modular_registry.py` file.
@@ -333,7 +374,7 @@ class JSONStoreTest(TestCase):
             ValueError,
             "does not have a corresponding parent class in CLASS_TO_REGISTRY",
         ):
-            object_to_json(UnknownClass)
+            object_to_json(UnknownClass, encoder_registry=DEPRECATED_ENCODER_REGISTRY)
 
     def testDecodeUnknownClassFromJson(self):
         with self.assertRaisesRegex(

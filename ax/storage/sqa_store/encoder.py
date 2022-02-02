@@ -324,7 +324,9 @@ class Encoder:
             )  # pragma: no cover
 
         properties = metric_class.serialize_init_args(metric=metric)
-        return metric_type, object_to_json(properties)
+        return metric_type, object_to_json(
+            properties, encoder_registry=self.config.json_encoder_registry
+        )
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
         """Convert Ax Metric to SQLAlchemy."""
@@ -677,21 +679,34 @@ class Encoder:
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             model_key=generator_run._model_key,
-            model_kwargs=object_to_json(generator_run._model_kwargs)
+            model_kwargs=object_to_json(
+                generator_run._model_kwargs,
+                encoder_registry=self.config.json_encoder_registry,
+            )
             if not reduced_state
             else None,
-            bridge_kwargs=object_to_json(generator_run._bridge_kwargs)
+            bridge_kwargs=object_to_json(
+                generator_run._bridge_kwargs,
+                encoder_registry=self.config.json_encoder_registry,
+            )
             if not reduced_state
             else None,
-            gen_metadata=object_to_json(generator_run._gen_metadata)
+            gen_metadata=object_to_json(
+                generator_run._gen_metadata,
+                encoder_registry=self.config.json_encoder_registry,
+            )
             if not reduced_state
             else None,
-            model_state_after_gen=object_to_json(generator_run._model_state_after_gen)
+            model_state_after_gen=object_to_json(
+                generator_run._model_state_after_gen,
+                encoder_registry=self.config.json_encoder_registry,
+            )
             if not reduced_state
             else None,
             generation_step_index=generator_run._generation_step_index,
             candidate_metadata_by_arm_signature=object_to_json(
-                generator_run._candidate_metadata_by_arm_signature
+                generator_run._candidate_metadata_by_arm_signature,
+                encoder_registry=self.config.json_encoder_registry,
             ),
         )
         return gr_sqa
@@ -724,7 +739,10 @@ class Encoder:
         gs_sqa = gs_class(
             id=generation_strategy.db_id,
             name=generation_strategy.name,
-            steps=object_to_json(generation_strategy._steps),
+            steps=object_to_json(
+                generation_strategy._steps,
+                encoder_registry=self.config.json_encoder_registry,
+            ),
             curr_index=generation_strategy._curr.index,
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
@@ -870,6 +888,9 @@ class Encoder:
             time_created=timestamp,
             trial_index=trial_index,
             structure_metadata_json=json.dumps(
-                object_to_json(data.serialize_init_args(data))
+                object_to_json(
+                    data.serialize_init_args(data),
+                    encoder_registry=self.config.json_encoder_registry,
+                )
             ),
         )

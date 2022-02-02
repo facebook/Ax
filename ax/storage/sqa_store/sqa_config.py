@@ -18,6 +18,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.storage.json_store.registry import DEPRECATED_ENCODER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -50,6 +51,8 @@ class SQAConfig(NamedTuple):
             classes to provide custom save functionality.
         experiment_type_enum: Enum containing valid Experiment types.
         generator_run_type_enum: Enum containing valid Generator Run types.
+        json_encoder_registry: Mapping from user-facing types to their json
+            serialization function.
     """
 
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
@@ -67,3 +70,4 @@ class SQAConfig(NamedTuple):
     }
     experiment_type_enum: Optional[Enum] = None
     generator_run_type_enum: Optional[Enum] = GeneratorRunType
+    json_encoder_registry = DEPRECATED_ENCODER_REGISTRY

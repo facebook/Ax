@@ -5,12 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+from typing import Any, Callable, Type, Dict
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.encoder import object_to_json
 
 
-def save_experiment(experiment: Experiment, filepath: str) -> None:
+def save_experiment(
+    experiment: Experiment,
+    filepath: str,
+    encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
+) -> None:
     """Save experiment to file.
 
     1) Convert Ax experiment to JSON-serializable dictionary.
@@ -22,6 +27,6 @@ def save_experiment(experiment: Experiment, filepath: str) -> None:
     if not filepath.endswith(".json"):
         raise ValueError("Filepath must end in .json")
 
-    json_experiment = object_to_json(experiment)
+    json_experiment = object_to_json(experiment, encoder_registry=encoder_registry)
     with open(filepath, "w+") as file:
         file.write(json.dumps(json_experiment))

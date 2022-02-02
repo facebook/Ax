@@ -16,7 +16,7 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
-from ax.storage.json_store.registry import DECODER_REGISTRY, ENCODER_REGISTRY
+from ax.storage.json_store.registry import DECODER_REGISTRY, DEPRECATED_ENCODER_REGISTRY
 
 
 """
@@ -53,5 +53,5 @@ def register_metric(metric_cls: Type[Metric], val: Optional[int] = None) -> None
     METRIC_REGISTRY[metric_cls] = registered_val
     REVERSE_METRIC_REGISTRY[registered_val] = metric_cls
 
-    ENCODER_REGISTRY[metric_cls] = metric_to_dict
+    DEPRECATED_ENCODER_REGISTRY[metric_cls] = metric_to_dict
     DECODER_REGISTRY[metric_cls.__name__] = metric_cls

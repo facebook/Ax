@@ -57,6 +57,7 @@ from ax.storage.json_store.decoder import (
     object_from_json,
 )
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.registry import DEPRECATED_ENCODER_REGISTRY
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -1036,8 +1037,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
         """
         return {
             "_type": self.__class__.__name__,
-            "experiment": object_to_json(self._experiment),
-            "generation_strategy": object_to_json(self._generation_strategy),
+            "experiment": object_to_json(
+                self._experiment, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            ),
+            "generation_strategy": object_to_json(
+                self._generation_strategy, encoder_registry=DEPRECATED_ENCODER_REGISTRY
+            ),
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
         }
 
