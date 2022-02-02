@@ -15,13 +15,14 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.exceptions.storage import JSONEncodeError
-from ax.storage.json_store.registry import CLASS_ENCODER_REGISTRY
 from ax.utils.common.serialization import _is_named_tuple
 from ax.utils.common.typeutils import numpy_type_to_python_type, torch_type_to_str
 
 
 def object_to_json(
-    obj: Any, encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]]
+    obj: Any,
+    encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
+    class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
 ) -> Any:
     """Convert an Ax object to a JSON-serializable dictionary.
 
@@ -42,11 +43,15 @@ def object_to_json(
 
     # Type[MyClass] encoding (encoding of classes, not instances)
     if isclass(obj):
-        for class_type in CLASS_ENCODER_REGISTRY:
+        for class_type in class_encoder_registry:
             if issubclass(obj, class_type):
-                obj_dict = CLASS_ENCODER_REGISTRY[class_type](obj)
+                obj_dict = class_encoder_registry[class_type](obj)
                 return {
-                    k: object_to_json(v, encoder_registry=encoder_registry)
+                    k: object_to_json(
+                        v,
+                        encoder_registry=encoder_registry,
+                        class_encoder_registry=class_encoder_registry,
+                    )
                     for k, v in obj_dict.items()
                 }
         raise ValueError(
@@ -57,7 +62,11 @@ def object_to_json(
     if _type in encoder_registry:
         obj_dict = encoder_registry[_type](obj)
         return {
-            k: object_to_json(v, encoder_registry=encoder_registry)
+            k: object_to_json(
+                v,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            )
             for k, v in obj_dict.items()
         }
 
@@ -65,19 +74,41 @@ def object_to_json(
     if _type in (str, int, float, bool, type(None)):
         return obj
     elif _type is list:
-        return [object_to_json(x, encoder_registry=encoder_registry) for x in obj]
+        return [
+            object_to_json(
+                x,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            )
+            for x in obj
+        ]
     elif _type is tuple:
-        return tuple(object_to_json(x, encoder_registry=encoder_registry) for x in obj)
+        return tuple(
+            object_to_json(
+                x,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            )
+            for x in obj
+        )
     elif _type is dict:
         return {
-            k: object_to_json(v, encoder_registry=encoder_registry)
+            k: object_to_json(
+                v,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            )
             for k, v in obj.items()
         }
     elif _is_named_tuple(obj):
         return {  # pragma: no cover
             "__type": _type.__name__,
             **{
-                k: object_to_json(v, encoder_registry=encoder_registry)
+                k: object_to_json(
+                    v,
+                    encoder_registry=encoder_registry,
+                    class_encoder_registry=class_encoder_registry,
+                )
                 for k, v in obj._asdict().items()
             },
         }
@@ -85,7 +116,11 @@ def object_to_json(
         return {
             "__type": _type.__name__,
             **{
-                k: object_to_json(v, encoder_registry=encoder_registry)
+                k: object_to_json(
+                    v,
+                    encoder_registry=encoder_registry,
+                    class_encoder_registry=class_encoder_registry,
+                )
                 for k, v in dataclasses.asdict(obj).items()
             },
         }
@@ -95,7 +130,14 @@ def object_to_json(
         return {
             "__type": _type.__name__,
             "value": [
-                (k, object_to_json(v, encoder_registry=encoder_registry))
+                (
+                    k,
+                    object_to_json(
+                        v,
+                        encoder_registry=encoder_registry,
+                        class_encoder_registry=class_encoder_registry,
+                    ),
+                )
                 for k, v in obj.items()
             ],
         }
@@ -115,8 +157,16 @@ def object_to_json(
             "__type": _type.__name__,
             # TODO: check size and add warning for large tensors: T69137799
             "value": obj.tolist(),
-            "dtype": object_to_json(obj.dtype, encoder_registry=encoder_registry),
-            "device": object_to_json(obj.device, encoder_registry=encoder_registry),
+            "dtype": object_to_json(
+                obj.dtype,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            ),
+            "device": object_to_json(
+                obj.device,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            ),
         }
     elif _type.__module__ == "torch":
         # Torch does not support saving to string, so save to buffer first

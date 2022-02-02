@@ -15,6 +15,7 @@ def save_experiment(
     experiment: Experiment,
     filepath: str,
     encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
+    class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
 ) -> None:
     """Save experiment to file.
 
@@ -27,6 +28,10 @@ def save_experiment(
     if not filepath.endswith(".json"):
         raise ValueError("Filepath must end in .json")
 
-    json_experiment = object_to_json(experiment, encoder_registry=encoder_registry)
+    json_experiment = object_to_json(
+        experiment,
+        encoder_registry=encoder_registry,
+        class_encoder_registry=class_encoder_registry,
+    )
     with open(filepath, "w+") as file:
         file.write(json.dumps(json_experiment))

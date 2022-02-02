@@ -18,7 +18,10 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.json_store.registry import DEPRECATED_ENCODER_REGISTRY
+from ax.storage.json_store.registry import (
+    DEPRECATED_ENCODER_REGISTRY,
+    DEPRECATED_CLASS_ENCODER_REGISTRY,
+)
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -71,3 +74,4 @@ class SQAConfig(NamedTuple):
     experiment_type_enum: Optional[Enum] = None
     generator_run_type_enum: Optional[Enum] = GeneratorRunType
     json_encoder_registry = DEPRECATED_ENCODER_REGISTRY
+    json_class_encoder_registry = DEPRECATED_CLASS_ENCODER_REGISTRY

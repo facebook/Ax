@@ -160,7 +160,7 @@ DEPRECATED_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+DEPRECATED_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,
     AcquisitionFunction: botorch_modular_to_dict,
     MarginalLogLikelihood: botorch_modular_to_dict,

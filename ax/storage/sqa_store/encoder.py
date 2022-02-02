@@ -325,7 +325,9 @@ class Encoder:
 
         properties = metric_class.serialize_init_args(metric=metric)
         return metric_type, object_to_json(
-            properties, encoder_registry=self.config.json_encoder_registry
+            properties,
+            encoder_registry=self.config.json_encoder_registry,
+            class_encoder_registry=self.config.json_class_encoder_registry,
         )
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
@@ -682,24 +684,28 @@ class Encoder:
             model_kwargs=object_to_json(
                 generator_run._model_kwargs,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             )
             if not reduced_state
             else None,
             bridge_kwargs=object_to_json(
                 generator_run._bridge_kwargs,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             )
             if not reduced_state
             else None,
             gen_metadata=object_to_json(
                 generator_run._gen_metadata,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             )
             if not reduced_state
             else None,
             model_state_after_gen=object_to_json(
                 generator_run._model_state_after_gen,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             )
             if not reduced_state
             else None,
@@ -707,6 +713,7 @@ class Encoder:
             candidate_metadata_by_arm_signature=object_to_json(
                 generator_run._candidate_metadata_by_arm_signature,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             ),
         )
         return gr_sqa
@@ -742,6 +749,7 @@ class Encoder:
             steps=object_to_json(
                 generation_strategy._steps,
                 encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
             ),
             curr_index=generation_strategy._curr.index,
             generator_runs=generator_runs_sqa,
@@ -891,6 +899,7 @@ class Encoder:
                 object_to_json(
                     data.serialize_init_args(data),
                     encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
                 )
             ),
         )
