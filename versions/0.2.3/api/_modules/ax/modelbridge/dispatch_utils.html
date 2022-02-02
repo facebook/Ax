@@ -1,0 +1,516 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.3/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.3/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.3/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.3/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.3/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.3/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.3/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.3/css/main.css"/><script src="/versions/0.2.3/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.3/"><img class="logo" src="/versions/0.2.3/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.3/versions.html"><h3>0.2.3</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.3/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.3/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.3/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.dispatch_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">ceil</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStep</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Cont_X_trans</span><span class="p">,</span> <span class="n">Models</span><span class="p">,</span> <span class="n">Y_trans</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.winsorize</span> <span class="kn">import</span> <span class="n">WinsorizationConfig</span><span class="p">,</span> <span class="n">Winsorize</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">DEFAULT_BAYESIAN_PARALLELISM</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="c1"># `BO_MIXED` optimizes all range parameters once for each combination of choice</span>
+<span class="c1"># parameters, then takes the optimum of those optima. The cost associated with this</span>
+<span class="c1"># method grows with the number of combinations, and so it is only used when the</span>
+<span class="c1"># number of enumerated discrete combinations is below some maximum value.</span>
+<span class="n">MAX_DISCRETE_ENUMERATIONS_MIXED</span> <span class="o">=</span> <span class="mi">65</span>
+<span class="n">MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION</span> <span class="o">=</span> <span class="mf">1e4</span>
+<span class="n">SAASBO_INCOMPATIBLE_MESSAGE</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"SAASBO is incompatible with </span><span class="si">{}</span><span class="s2"> generation strategy. "</span>
+    <span class="s2">"Disregarding user input `use_saasbo = True`."</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_make_sobol_step</span><span class="p">(</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">min_trials_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">enforce_num_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_parallelism</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenerationStep</span><span class="p">:</span>
+    <span class="sd">"""Shortcut for creating a Sobol generation step."""</span>
+    <span class="k">return</span> <span class="n">GenerationStep</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
+        <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="c1"># NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.</span>
+        <span class="n">min_trials_observed</span><span class="o">=</span><span class="n">min_trials_observed</span> <span class="ow">or</span> <span class="n">ceil</span><span class="p">(</span><span class="n">num_trials</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">enforce_num_trials</span><span class="o">=</span><span class="n">enforce_num_trials</span><span class="p">,</span>
+        <span class="n">max_parallelism</span><span class="o">=</span><span class="n">max_parallelism</span><span class="p">,</span>
+        <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"deduplicate"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"seed"</span><span class="p">:</span> <span class="n">seed</span><span class="p">},</span>
+        <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_make_botorch_step</span><span class="p">(</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_trials_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">enforce_num_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">max_parallelism</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Models</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">GPEI</span><span class="p">,</span>
+    <span class="n">winsorization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="n">WinsorizationConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">WinsorizationConfig</span><span class="p">]]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">no_winsorization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenerationStep</span><span class="p">:</span>
+    <span class="sd">"""Shortcut for creating a BayesOpt generation step."""</span>
+
+    <span class="n">winsorization_transform_config</span> <span class="o">=</span> <span class="n">_get_winsorization_transform_config</span><span class="p">(</span>
+        <span class="n">winsorization_config</span><span class="o">=</span><span class="n">winsorization_config</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">no_winsorization</span><span class="o">=</span><span class="n">no_winsorization</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">model_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">winsorization_transform_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">model_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"transforms"</span><span class="p">:</span> <span class="p">[</span><span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">],</span> <span class="n">Winsorize</span><span class="p">)]</span>
+                <span class="o">+</span> <span class="n">Cont_X_trans</span>
+                <span class="o">+</span> <span class="n">Y_trans</span><span class="p">,</span>
+                <span class="s2">"transform_configs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"Winsorize"</span><span class="p">:</span> <span class="n">winsorization_transform_config</span><span class="p">},</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">model_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"verbose"</span><span class="p">:</span> <span class="n">verbose</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">GenerationStep</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="c1"># NOTE: ceil(-1 / 2) = 0, so this is safe to do when num trials is -1.</span>
+        <span class="n">min_trials_observed</span><span class="o">=</span><span class="n">min_trials_observed</span> <span class="ow">or</span> <span class="n">ceil</span><span class="p">(</span><span class="n">num_trials</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">enforce_num_trials</span><span class="o">=</span><span class="n">enforce_num_trials</span><span class="p">,</span>
+        <span class="n">max_parallelism</span><span class="o">=</span><span class="n">max_parallelism</span><span class="p">,</span>
+        <span class="c1"># `model_kwargs` should default to `None` if empty</span>
+        <span class="n">model_kwargs</span><span class="o">=</span><span class="n">model_kwargs</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_kwargs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_suggest_gp_model</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_saasbo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">Models</span><span class="p">]:</span>
+    <span class="sd">"""Suggest a model based on the search space. None means we use Sobol.</span>
+
+<span class="sd">    1. We use Sobol if the number of total iterations in the optimization is</span>
+<span class="sd">    known in advance and there are fewer distinct points in the search space</span>
+<span class="sd">    than the known intended number of total iterations.</span>
+<span class="sd">    2. We use ``BO_MIXED`` if there are fewer ordered parameters in the search space</span>
+<span class="sd">    than the sum of options for the *unordered* choice parameters, and the number</span>
+<span class="sd">    of discrete enumerations to be performed by the optimizer is less than</span>
+<span class="sd">    ``MAX_DISCRETE_ENUMERATIONS_MIXED``, or if there are only choice parameters and</span>
+<span class="sd">    the number of choice combinations to enumerate is less than</span>
+<span class="sd">    ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. ``BO_MIXED`` is not currently enabled</span>
+<span class="sd">    for multi-objective optimization.</span>
+<span class="sd">    3. We use ``MOO`` if ``optimization_config`` has multiple objectives and</span>
+<span class="sd">    ``use_saasbo is False``.</span>
+<span class="sd">    4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives</span>
+<span class="sd">    and ``use_saasbo is True``.</span>
+<span class="sd">    5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.</span>
+<span class="sd">    6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.</span>
+<span class="sd">    """</span>
+    <span class="n">num_ordered_parameters</span> <span class="o">=</span> <span class="n">num_unordered_choices</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">num_enumerated_combinations</span> <span class="o">=</span> <span class="n">num_possible_points</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">all_range_parameters_are_discrete</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">all_parameters_are_enumerated</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">tunable_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">should_enumerate_param</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">num_param_discrete_values</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">):</span>
+            <span class="n">num_param_discrete_values</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+            <span class="n">num_possible_points</span> <span class="o">*=</span> <span class="n">num_param_discrete_values</span>
+            <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_ordered</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="n">num_unordered_choices</span> <span class="o">+=</span> <span class="n">num_param_discrete_values</span>
+                <span class="n">should_enumerate_param</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">num_ordered_parameters</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">should_enumerate_param</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">):</span>
+            <span class="n">num_ordered_parameters</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">:</span>
+                <span class="n">all_range_parameters_are_discrete</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">should_enumerate_param</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">num_param_discrete_values</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">upper</span> <span class="o">-</span> <span class="n">parameter</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">num_possible_points</span> <span class="o">*=</span> <span class="n">num_param_discrete_values</span>
+                <span class="n">should_enumerate_param</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">not_none</span><span class="p">(</span><span class="n">should_enumerate_param</span><span class="p">):</span>
+            <span class="n">num_enumerated_combinations</span> <span class="o">*=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">num_param_discrete_values</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">all_parameters_are_enumerated</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># If number of trials is known and sufficient to try all possible points,</span>
+    <span class="c1"># we should use Sobol and not BO</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">num_trials</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">all_range_parameters_are_discrete</span>
+        <span class="ow">and</span> <span class="n">num_possible_points</span> <span class="o">&lt;=</span> <span class="n">num_trials</span>
+    <span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Using Sobol since we can enumerate the search space."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">use_saasbo</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">SAASBO_INCOMPATIBLE_MESSAGE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">"Sobol"</span><span class="p">))</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">is_moo_problem</span> <span class="o">=</span> <span class="n">optimization_config</span> <span class="ow">and</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">is_moo_problem</span>
+    <span class="k">if</span> <span class="n">num_ordered_parameters</span> <span class="o">&gt;</span> <span class="n">num_unordered_choices</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Using Bayesian optimization since there are more ordered "</span>
+            <span class="s2">"parameters than there are categories for the unordered categorical "</span>
+            <span class="s2">"parameters."</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_moo_problem</span> <span class="ow">and</span> <span class="n">use_saasbo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Models</span><span class="o">.</span><span class="n">FULLYBAYESIANMOO</span>
+        <span class="k">if</span> <span class="n">is_moo_problem</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">use_saasbo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Models</span><span class="o">.</span><span class="n">MOO</span>
+        <span class="k">if</span> <span class="n">use_saasbo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Models</span><span class="o">.</span><span class="n">FULLYBAYESIAN</span>
+        <span class="k">return</span> <span class="n">Models</span><span class="o">.</span><span class="n">GPEI</span>
+    <span class="c1"># The latter condition below is tied to the logic in `BO_MIXED`, which currently</span>
+    <span class="c1"># enumerates all combinations of choice parameters.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_moo_problem</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">num_enumerated_combinations</span> <span class="o">&lt;=</span> <span class="n">MAX_DISCRETE_ENUMERATIONS_MIXED</span>
+        <span class="ow">or</span> <span class="p">(</span>
+            <span class="n">all_parameters_are_enumerated</span>
+            <span class="ow">and</span> <span class="n">num_enumerated_combinations</span>
+            <span class="o">&lt;</span> <span class="n">MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION</span>
+        <span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Using Bayesian optimization with a categorical kernel for improved "</span>
+            <span class="s2">"performance with a large number of unordered categorical parameters."</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">use_saasbo</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">SAASBO_INCOMPATIBLE_MESSAGE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">"`BO_MIXED`"</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">Models</span><span class="o">.</span><span class="n">BO_MIXED</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Using Sobol since there are more than </span><span class="si">{</span><span class="n">MAX_DISCRETE_ENUMERATIONS_MIXED</span><span class="si">}</span><span class="s2"> "</span>
+        <span class="s2">"combinations of enumerated parameters. For improved performance, make sure "</span>
+        <span class="s2">"that all ordered `ChoiceParameter`s are encoded as such (`is_ordered=True`), "</span>
+        <span class="s2">"and use `RangeParameter`s in place of ordered `ChoiceParameter`s where "</span>
+        <span class="s2">"possible. Also, consider removing some or all unordered `ChoiceParameter`s."</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">use_saasbo</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">SAASBO_INCOMPATIBLE_MESSAGE</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">"Sobol"</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="choose_generation_strategy"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.dispatch_utils.choose_generation_strategy">[docs]</a><span class="k">def</span> <span class="nf">choose_generation_strategy</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">use_batch_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">enforce_sequential_optimization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">winsorization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="n">WinsorizationConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">WinsorizationConfig</span><span class="p">]]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">no_winsorization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">no_bayesian_optimization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_initialization_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_parallelism_cap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_parallelism_override</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">use_saasbo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenerationStrategy</span><span class="p">:</span>
+    <span class="sd">"""Select an appropriate generation strategy based on the properties of</span>
+<span class="sd">    the search space and expected settings of the experiment, such as number of</span>
+<span class="sd">    arms per trial, optimization algorithm settings, expected number of trials</span>
+<span class="sd">    in the experiment, etc.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        search_space: SearchSpace, based on the properties of which to select the</span>
+<span class="sd">            generation strategy.</span>
+<span class="sd">        use_batch_trials: Whether this generation strategy will be used to generate</span>
+<span class="sd">            batched trials instead of 1-arm trials.</span>
+<span class="sd">        enforce_sequential_optimization: Whether to enforce that 1) the generation</span>
+<span class="sd">            strategy needs to be updated with ``min_trials_observed`` observations for</span>
+<span class="sd">            a given generation step before proceeding to the next one and 2) maximum</span>
+<span class="sd">            number of trials running at once (max_parallelism) if enforced for the</span>
+<span class="sd">            BayesOpt step. NOTE: ``max_parallelism_override`` and</span>
+<span class="sd">            ``max_parallelism_cap`` settings will still take their effect on max</span>
+<span class="sd">            parallelism even if ``enforce_sequential_optimization=False``, so if those</span>
+<span class="sd">            settings are specified, max parallelism will be enforced.</span>
+<span class="sd">        random_seed: Fixed random seed for the Sobol generator.</span>
+<span class="sd">        winsorize_botorch_model: Whether to apply the winsorization transform</span>
+<span class="sd">            prior to applying other transforms for fitting the BoTorch model.</span>
+<span class="sd">        winsorization_config: Explicit winsorization settings, if winsorizing. Usually</span>
+<span class="sd">            only `upper_quantile_margin` is set when minimizing, and only</span>
+<span class="sd">            `lower_quantile_margin` when maximizing.</span>
+<span class="sd">        no_bayesian_optimization: If True, Bayesian optimization generation</span>
+<span class="sd">            strategy will not be suggested and quasi-random strategy will be used.</span>
+<span class="sd">        num_trials: Total number of trials in the optimization, if</span>
+<span class="sd">            known in advance.</span>
+<span class="sd">        num_initialization_trials: Specific number of initialization trials, if wanted.</span>
+<span class="sd">            Typically, initialization trials are generated quasi-randomly.</span>
+<span class="sd">        max_parallelism_override: Integer, with which to override the default max</span>
+<span class="sd">            parallelism setting for all steps in the generation strategy returned from</span>
+<span class="sd">            this function. Each generation step has a ``max_parallelism`` value, which</span>
+<span class="sd">            restricts how many trials can run simultaneously during a given generation</span>
+<span class="sd">            step. By default, the parallelism setting is chosen as appropriate for the</span>
+<span class="sd">            model in a given generation step. If ``max_parallelism_override`` is -1,</span>
+<span class="sd">            no max parallelism will be enforced for any step of the generation</span>
+<span class="sd">            strategy. Be aware that parallelism is limited to improve performance of</span>
+<span class="sd">            Bayesian optimization, so only disable its limiting if necessary.</span>
+<span class="sd">        max_parallelism_cap: Integer cap on parallelism in this generation strategy.</span>
+<span class="sd">            If specified, ``max_parallelism`` setting in each generation step will be</span>
+<span class="sd">            set to the minimum of the default setting for that step and the value of</span>
+<span class="sd">            this cap. ``max_parallelism_cap`` is meant to just be a hard limit on</span>
+<span class="sd">            parallelism (e.g. to avoid overloading machine(s) that evaluate the</span>
+<span class="sd">            experiment trials). Specify only if not specifying</span>
+<span class="sd">            ``max_parallelism_override``.</span>
+<span class="sd">        optimization_config: used to infer whether to use MOO and will be passed in to</span>
+<span class="sd">            ``Winsorize`` via its ``transform_config`` in order to determine default</span>
+<span class="sd">            winsorization behavior when necessary.</span>
+<span class="sd">        should_deduplicate: Whether to deduplicate the parameters of proposed arms</span>
+<span class="sd">            against those of previous arms via rejection sampling. If this is True,</span>
+<span class="sd">            the generation strategy will discard generator runs produced from the</span>
+<span class="sd">            generation step that has `should_deduplicate=True` if they contain arms</span>
+<span class="sd">            already present on the experiment and replace them with new generator runs.</span>
+<span class="sd">            If no generator run with entirely unique arms could be produced in 5</span>
+<span class="sd">            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we</span>
+<span class="sd">            assume that the optimization converged when the model can no longer suggest</span>
+<span class="sd">            unique arms.</span>
+<span class="sd">        use_saasbo: Whether to use SAAS prior for any GPEI generation steps.</span>
+<span class="sd">        verbose: Whether GP model should produce verbose logs. If not ``None``, its</span>
+<span class="sd">            value gets added to ``model_kwargs`` during ``generation_strategy``</span>
+<span class="sd">            construction. Defaults to ``True`` for SAASBO, else ``None``. Verbose</span>
+<span class="sd">            outputs are currently only available for SAASBO, so if ``verbose is not</span>
+<span class="sd">            None`` for a different model type, it will be overridden to ``None`` with</span>
+<span class="sd">            a warning.</span>
+<span class="sd">        experiment: If specified, ``_experiment`` attribute of the generation strategy</span>
+<span class="sd">            will be set to this experiment (useful for associating a generation</span>
+<span class="sd">            strategy with a given experiment before it's first used to ``gen`` with</span>
+<span class="sd">            that experiment).</span>
+<span class="sd">    """</span>
+    <span class="n">suggested_model</span> <span class="o">=</span> <span class="n">_suggest_gp_model</span><span class="p">(</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">use_saasbo</span><span class="o">=</span><span class="n">use_saasbo</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">no_bayesian_optimization</span> <span class="ow">and</span> <span class="n">suggested_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">enforce_sequential_optimization</span> <span class="ow">and</span> <span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">max_parallelism_override</span> <span class="ow">or</span> <span class="n">max_parallelism_cap</span>
+        <span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"If `enforce_sequential_optimization` is False, max parallelism is "</span>
+                <span class="s2">"not enforced and other max parallelism settings will be ignored."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_parallelism_override</span> <span class="ow">and</span> <span class="n">max_parallelism_cap</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"If `max_parallelism_override` specified, cannot also apply "</span>
+                <span class="s2">"`max_parallelism_cap`."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If number of initialization trials is not specified, estimate it.</span>
+        <span class="k">if</span> <span class="n">num_initialization_trials</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">use_batch_trials</span><span class="p">:</span>  <span class="c1"># Batched trials.</span>
+                <span class="n">num_initialization_trials</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">num_trials</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># 1-arm trials with specified `num_trials`.</span>
+                <span class="n">num_initialization_trials</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">5</span><span class="p">,</span>
+                    <span class="nb">min</span><span class="p">(</span>
+                        <span class="n">not_none</span><span class="p">(</span><span class="n">num_trials</span><span class="p">)</span> <span class="o">//</span> <span class="mi">5</span><span class="p">,</span>
+                        <span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">tunable_parameters</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># 1-arm trials.</span>
+                <span class="n">num_initialization_trials</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">tunable_parameters</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Determine max parallelism for the generation steps.</span>
+        <span class="k">if</span> <span class="n">max_parallelism_override</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># `max_parallelism_override` of -1 means no max parallelism enforcement in</span>
+            <span class="c1"># the generation strategy, which means `max_parallelism=None` in gen. steps.</span>
+            <span class="n">sobol_parallelism</span> <span class="o">=</span> <span class="n">bo_parallelism</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">max_parallelism_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sobol_parallelism</span> <span class="o">=</span> <span class="n">bo_parallelism</span> <span class="o">=</span> <span class="n">max_parallelism_override</span>
+        <span class="k">elif</span> <span class="n">max_parallelism_cap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># Max parallelism override is None by now</span>
+            <span class="n">sobol_parallelism</span> <span class="o">=</span> <span class="n">max_parallelism_cap</span>
+            <span class="n">bo_parallelism</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_parallelism_cap</span><span class="p">,</span> <span class="n">DEFAULT_BAYESIAN_PARALLELISM</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">enforce_sequential_optimization</span><span class="p">:</span>
+            <span class="c1"># If no max parallelism settings specified and not enforcing sequential</span>
+            <span class="c1"># optimization, do not limit parallelism.</span>
+            <span class="n">sobol_parallelism</span> <span class="o">=</span> <span class="n">bo_parallelism</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># No additional max parallelism settings, use defaults</span>
+            <span class="n">sobol_parallelism</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># No restriction on Sobol phase</span>
+            <span class="n">bo_parallelism</span> <span class="o">=</span> <span class="n">DEFAULT_BAYESIAN_PARALLELISM</span>
+
+        <span class="c1"># `verbose` default behavior and overrides</span>
+        <span class="n">model_is_saasbo</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">suggested_model</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"FULLYBAYESIANMOO"</span><span class="p">,</span>
+            <span class="s2">"FULLYBAYESIAN"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">model_is_saasbo</span><span class="p">:</span>
+            <span class="n">verbose</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">verbose</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">model_is_saasbo</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Overriding `verbose = </span><span class="si">{</span><span class="n">verbose</span><span class="si">}</span><span class="s2">` to `None` for non-SAASBO GP step."</span>
+            <span class="p">)</span>
+            <span class="n">verbose</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># create `generation_strategy`</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+            <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">_make_sobol_step</span><span class="p">(</span>
+                    <span class="n">num_trials</span><span class="o">=</span><span class="n">num_initialization_trials</span><span class="p">,</span>
+                    <span class="n">enforce_num_trials</span><span class="o">=</span><span class="n">enforce_sequential_optimization</span><span class="p">,</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="n">random_seed</span><span class="p">,</span>
+                    <span class="n">max_parallelism</span><span class="o">=</span><span class="n">sobol_parallelism</span><span class="p">,</span>
+                    <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">_make_botorch_step</span><span class="p">(</span>
+                    <span class="n">model</span><span class="o">=</span><span class="n">suggested_model</span><span class="p">,</span>
+                    <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+                    <span class="n">winsorization_config</span><span class="o">=</span><span class="n">winsorization_config</span><span class="p">,</span>
+                    <span class="n">no_winsorization</span><span class="o">=</span><span class="n">no_winsorization</span><span class="p">,</span>
+                    <span class="n">max_parallelism</span><span class="o">=</span><span class="n">bo_parallelism</span><span class="p">,</span>
+                    <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span><span class="p">,</span>
+                    <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Using Bayesian Optimization generation strategy: </span><span class="si">{</span><span class="n">gs</span><span class="si">}</span><span class="s2">. Iterations after"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">num_initialization_trials</span><span class="si">}</span><span class="s2"> will take longer to generate due to "</span>
+            <span class="s2">" model-fitting."</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Ignoring `verbose = </span><span class="si">{</span><span class="n">verbose</span><span class="si">}</span><span class="s2">` for `generation_strategy` "</span>
+                <span class="s2">"without a GP step."</span>
+            <span class="p">)</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+            <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">_make_sobol_step</span><span class="p">(</span>
+                    <span class="n">seed</span><span class="o">=</span><span class="n">random_seed</span><span class="p">,</span> <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Using Sobol generation strategy."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">experiment</span><span class="p">:</span>
+        <span class="n">gs</span><span class="o">.</span><span class="n">experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+    <span class="k">return</span> <span class="n">gs</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_winsorization_transform_config</span><span class="p">(</span>
+    <span class="n">winsorization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="n">WinsorizationConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">WinsorizationConfig</span><span class="p">]]</span>
+    <span class="p">],</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">],</span>
+    <span class="n">no_winsorization</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">no_winsorization</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="n">winsorization_config</span> <span class="ow">or</span> <span class="n">optimization_config</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">winsorization_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">"`no_winsorization = True` but `winsorization_config` has been set. "</span>
+                <span class="s2">"Not winsorizing."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">transform_config</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">winsorization_config</span><span class="p">:</span>
+        <span class="n">transform_config</span><span class="p">[</span><span class="s2">"winsorization_config"</span><span class="p">]</span> <span class="o">=</span> <span class="n">winsorization_config</span>
+    <span class="k">if</span> <span class="n">optimization_config</span><span class="p">:</span>
+        <span class="n">transform_config</span><span class="p">[</span><span class="s2">"optimization_config"</span><span class="p">]</span> <span class="o">=</span> <span class="n">optimization_config</span>
+    <span class="k">return</span> <span class="n">transform_config</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.3/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Meta Platforms, Inc.</section></footer></div></body></html>

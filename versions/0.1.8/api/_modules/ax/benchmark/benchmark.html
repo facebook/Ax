@@ -1,0 +1,485 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.8/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.8/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.8/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.8/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.8/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.8/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.8/css/main.css"/><script src="/versions/0.1.8/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.8/"><img class="logo" src="/versions/0.1.8/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.8/versions.html"><h3>0.1.8</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.8/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.8/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.8/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.benchmark.benchmark</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="sd">"""</span>
+<span class="sd">Module for benchmarking Ax algorithms.</span>
+
+<span class="sd">Key terms used:</span>
+
+<span class="sd">* Trial –– usual Ax `Trial` or `BatchTral`, one execution of a given arm or</span>
+<span class="sd">  group of arms.</span>
+<span class="sd">* Replication –– one run of an optimization loop; 1 method + problem combination.</span>
+<span class="sd">* Test –– multiple replications, ran for statistical significance.</span>
+<span class="sd">* Full run –– multiple tests: run all methods with all problems.</span>
+<span class="sd">* Method –– (one of) the algorithm(s) being benchmarked.</span>
+<span class="sd">* Problem –– a synthetic function, a surrogate surface, or an ML model, on which</span>
+<span class="sd">  to assess the performance of algorithms.</span>
+
+<span class="sd">"""</span>
+
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">FunctionType</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="kn">import</span> <span class="n">BenchmarkProblem</span><span class="p">,</span> <span class="n">SimpleBenchmarkProblem</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.runners.synthetic</span> <span class="kn">import</span> <span class="n">SyntheticRunner</span>
+<span class="kn">from</span> <span class="nn">ax.service.ax_client</span> <span class="kn">import</span> <span class="n">AxClient</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">ax.utils.measurement.synthetic_functions</span> <span class="kn">import</span> <span class="n">SyntheticFunction</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="c1"># To bypass catching of exceptions during benchmarking, since all other exceptions</span>
+<span class="c1"># will be caught and recorded, but will not necessarily terminate the benchmarking</span>
+<span class="c1"># run.</span>
+<div class="viewcode-block" id="NonRetryableBenchmarkingError"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark.NonRetryableBenchmarkingError">[docs]</a><span class="k">class</span> <span class="nc">NonRetryableBenchmarkingError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">"""Error that indicates an issue with the benchmarking setup (e.g. unexpected</span>
+<span class="sd">    problem setup, a benchmarking function called incorrectly, etc.) –– something</span>
+<span class="sd">    that prevents the benchmarking suite itself from running, rather than an error</span>
+<span class="sd">    that occurs during the runs of the benchmarking trials, replications, or tests.</span>
+<span class="sd">    """</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="benchmark_trial"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark.benchmark_trial">[docs]</a><span class="k">def</span> <span class="nf">benchmark_trial</span><span class="p">(</span>
+    <span class="n">parameterization</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">evaluation_function</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">SyntheticFunction</span><span class="p">,</span> <span class="n">FunctionType</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Data</span><span class="p">]:</span>  <span class="c1"># Mean and SEM or a Data object.</span>
+    <span class="sd">"""Evaluates one trial from benchmarking replication (an Ax trial or batched</span>
+<span class="sd">    trial). Evaluation requires either the `parameterization` and `evalution_</span>
+<span class="sd">    function` parameters or the `experiment` and `trial_index` parameters.</span>
+
+<span class="sd">    Note: evaluation function relies on the ordering of items in the</span>
+<span class="sd">    parameterization nd-array.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        parameterization: The parameterization to evaluate.</span>
+<span class="sd">        evaluation_function: The evaluation function for the benchmark objective.</span>
+<span class="sd">        experiment: Experiment, for a trial on which to fetch data.</span>
+<span class="sd">        trial_index: Index of the trial, for which to fetch data.</span>
+<span class="sd">    """</span>
+    <span class="n">use_Service_API</span> <span class="o">=</span> <span class="n">parameterization</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">evaluation_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">use_Dev_API</span> <span class="o">=</span> <span class="n">experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">use_Service_API</span> <span class="o">^</span> <span class="n">use_Dev_API</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NonRetryableBenchmarkingError</span><span class="p">(</span>  <span class="c1"># TODO[T53975770]: test</span>
+            <span class="s2">"A parameterization and an evaluation function required for Service-"</span>
+            <span class="s2">"API-style trial evaluation and an experiment and trial index are "</span>
+            <span class="s2">"required for Dev API trial evalution via fetching metric data."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">use_Service_API</span><span class="p">:</span>
+        <span class="n">sem</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation_function</span><span class="p">,</span> <span class="n">SyntheticFunction</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">evaluation_function</span><span class="p">(</span><span class="n">parameterization</span><span class="p">),</span> <span class="n">sem</span>  <span class="c1"># pyre-ignore[29]: call err.</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">trial_index</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_index</span><span class="p">))</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="benchmark_replication"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark.benchmark_replication">[docs]</a><span class="k">def</span> <span class="nf">benchmark_replication</span><span class="p">(</span>  <span class="c1"># One optimization loop.</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">replication_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">raise_all_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">benchmark_trial</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">,</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Number of trials that need to fail for a replication to be considered failed.</span>
+    <span class="n">failed_trials_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+    <span class="sd">"""Runs one benchmarking replication (equivalent to one optimization loop).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        problem: Problem to benchmark on.</span>
+<span class="sd">        method: Method to benchmark, represented as generation strategies.</span>
+<span class="sd">        num_trials: Number of trials in each test experiment.</span>
+<span class="sd">        batch_size: Batch size for this replication, defaults to 1.</span>
+<span class="sd">        raise_all_exceptions: If set to True, any encountered exception will be</span>
+<span class="sd">            raised; alternatively, failure tolerance thresholds are used and a few</span>
+<span class="sd">            number of trials `failed_trials_tolerated` can fail before a replication</span>
+<span class="sd">            is considered failed.</span>
+<span class="sd">        benchmark_trial: Function that runs a single trial. Defaults</span>
+<span class="sd">            to `benchmark_trial` in this module and must have the same signature.</span>
+<span class="sd">        verbose_logging: Whether logging level should be set to `INFO`.</span>
+<span class="sd">        failed_trials_tolerated: How many trials can fail before a replication is</span>
+<span class="sd">            considered failed and aborted. Defaults to 5.</span>
+<span class="sd">    """</span>
+    <span class="n">trial_exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">experiment_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{method.name}</span><span class="s2">_on_</span><span class="si">{problem.name}</span><span class="s2">"</span>
+    <span class="k">if</span> <span class="n">replication_index</span><span class="p">:</span>
+        <span class="n">experiment_name</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"__v</span><span class="si">{replication_index}</span><span class="s2">"</span>
+    <span class="c1"># Make sure the generation strategy starts from the beginning.</span>
+    <span class="n">method</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">clone_reset</span><span class="p">()</span>
+
+    <span class="c1"># Choose whether to run replication via Service or Developer API, based on</span>
+    <span class="c1"># whether the problem was set up using Ax classes like `SearchSpace` and</span>
+    <span class="c1"># `OptimizationConfig` or using "RESTful" Service API-like constructs like</span>
+    <span class="c1"># dict parameter representations and `SyntheticFunction`-s or custom callables</span>
+    <span class="c1"># for evaluation function.</span>
+    <span class="n">replication_runner</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_benchmark_replication_Service_API</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">SimpleBenchmarkProblem</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">_benchmark_replication_Dev_API</span>
+    <span class="p">)</span>
+    <span class="n">experiment</span><span class="p">,</span> <span class="n">exceptions</span> <span class="o">=</span> <span class="n">replication_runner</span><span class="p">(</span>
+        <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>  <span class="c1"># pyre-ignore[6]</span>
+        <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+        <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">raise_all_exceptions</span><span class="o">=</span><span class="n">raise_all_exceptions</span><span class="p">,</span>
+        <span class="n">benchmark_trial</span><span class="o">=</span><span class="n">benchmark_trial</span><span class="p">,</span>
+        <span class="n">verbose_logging</span><span class="o">=</span><span class="n">verbose_logging</span><span class="p">,</span>
+        <span class="n">failed_trials_tolerated</span><span class="o">=</span><span class="n">failed_trials_tolerated</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">trial_exceptions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">experiment</span></div>
+
+
+<div class="viewcode-block" id="benchmark_test"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark.benchmark_test">[docs]</a><span class="k">def</span> <span class="nf">benchmark_test</span><span class="p">(</span>  <span class="c1"># One test, multiple replications.</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">num_replications</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">raise_all_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">benchmark_replication</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_replication</span><span class="p">,</span>
+    <span class="n">benchmark_trial</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">,</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Number of trials that need to fail for a replication to be considered failed.</span>
+    <span class="n">failed_trials_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="c1"># Number of replications that need to fail for a test to be considered failed.</span>
+    <span class="n">failed_replications_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]:</span>
+    <span class="sd">"""Runs one benchmarking test (equivalent to one problem-method combination),</span>
+<span class="sd">    translates into `num_replication` replications, ran for statistical</span>
+<span class="sd">    significance of the results.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        problem: Problem to benchmark on.</span>
+<span class="sd">        method: Method to benchmark, represented as generation strategies.</span>
+<span class="sd">        num_replications: Number of times to run each test (each problem-method</span>
+<span class="sd">            combination), for an aggregated result.</span>
+<span class="sd">        num_trials: Number of trials in each test experiment, defaults to 20.</span>
+<span class="sd">        batch_size: Batch size for this test, defaults to 1.</span>
+<span class="sd">        raise_all_exceptions: If set to True, any encountered exception will be</span>
+<span class="sd">            raised; alternatively, failure tolerance thresholds are used and a few</span>
+<span class="sd">            number of trials `failed_trials_tolerated` can fail before a replication</span>
+<span class="sd">            is considered failed, as well some replications</span>
+<span class="sd">            `failed_replications_tolerated` can fail before a benchmarking test</span>
+<span class="sd">            is considered failed.</span>
+<span class="sd">        benchmark_replication: Function that runs a single benchmarking replication.</span>
+<span class="sd">            Defaults to `benchmark_replication` in this module and must have the</span>
+<span class="sd">            same signature.</span>
+<span class="sd">        benchmark_trial: Function that runs a single trial. Defaults</span>
+<span class="sd">            to `benchmark_trial` in this module and must have the same signature.</span>
+<span class="sd">        verbose_logging: Whether logging level should be set to `INFO`.</span>
+<span class="sd">        failed_trials_tolerated: How many trials can fail before a replication is</span>
+<span class="sd">            considered failed and aborted. Defaults to 5.</span>
+<span class="sd">        failed_replications_tolerated: How many replications can fail before a</span>
+<span class="sd">            test is considered failed and aborted. Defaults to 3.</span>
+<span class="sd">    """</span>
+    <span class="n">replication_exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">test_replications</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">replication_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_replications</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">test_replications</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">benchmark_replication</span><span class="p">(</span>
+                    <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+                    <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+                    <span class="n">replication_index</span><span class="o">=</span><span class="n">replication_idx</span><span class="p">,</span>
+                    <span class="n">num_trials</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+                    <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+                    <span class="n">raise_all_exceptions</span><span class="o">=</span><span class="n">raise_all_exceptions</span><span class="p">,</span>
+                    <span class="n">verbose_logging</span><span class="o">=</span><span class="n">verbose_logging</span><span class="p">,</span>
+                    <span class="n">failed_trials_tolerated</span><span class="o">=</span><span class="n">failed_trials_tolerated</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">raise_all_exceptions</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">replication_exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>  <span class="c1"># TODO[T53975770]: test</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">replication_exceptions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">failed_replications_tolerated</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>  <span class="c1"># TODO[T53975770]: test</span>
+                <span class="sa">f</span><span class="s2">"More than </span><span class="si">{failed_replications_tolerated}</span><span class="s2"> failed for "</span>
+                <span class="s2">"</span><span class="si">{method.name}</span><span class="s2">_on_</span><span class="si">{problem.name}</span><span class="s2">."</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">test_replications</span></div>
+
+
+<div class="viewcode-block" id="full_benchmark_run"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark.full_benchmark_run">[docs]</a><span class="k">def</span> <span class="nf">full_benchmark_run</span><span class="p">(</span>  <span class="c1"># Full run, multiple tests.</span>
+    <span class="n">problems</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">BenchmarkProblem</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">methods</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">GenerationStrategy</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">num_replications</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">raise_all_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">benchmark_test</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_test</span><span class="p">,</span>
+    <span class="n">benchmark_replication</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_replication</span><span class="p">,</span>
+    <span class="n">benchmark_trial</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">,</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Number of trials that need to fail for a replication to be considered failed.</span>
+    <span class="n">failed_trials_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="c1"># Number of replications that need to fail for a test to be considered failed.</span>
+    <span class="n">failed_replications_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]]]:</span>
+    <span class="sd">"""Full run of the benchmarking suite. To make benchmarking distrubuted at</span>
+<span class="sd">    a level of a test, a replication, or a trial (or any combination of those),</span>
+<span class="sd">    by passing in a wrapped (in some scheduling logic) version of a corresponding</span>
+<span class="sd">    function from this module.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        problems: Problems to benchmark on, represented as BenchmarkProblem-s</span>
+<span class="sd">            or string keys (must be in standard BOProblems). Defaults to all</span>
+<span class="sd">            standard BOProblems.</span>
+<span class="sd">        methods: Methods to benchmark, represented as generation strategies or</span>
+<span class="sd">            or string keys (must be in standard BOMethods). Defaults to all</span>
+<span class="sd">            standard BOMethods.</span>
+<span class="sd">        num_replications: Number of times to run each test (each problem-method</span>
+<span class="sd">            combination), for an aggregated result.</span>
+<span class="sd">        num_trials: Number of trials in each test experiment.</span>
+<span class="sd">        raise_all_exceptions: If set to True, any encountered exception will be</span>
+<span class="sd">            raised; alternatively, failure tolerance thresholds are used and a few</span>
+<span class="sd">            number of trials `failed_trials_tolerated` can fail before a replication</span>
+<span class="sd">            is considered failed, as well some replications</span>
+<span class="sd">            `failed_replications_tolerated` can fail before a benchmarking test</span>
+<span class="sd">            is considered failed.</span>
+<span class="sd">        benchmark_test: Function that runs a single benchmarking test. Defaults</span>
+<span class="sd">            to `benchmark_test` in this module and must have the same signature.</span>
+<span class="sd">        benchmark_replication: Function that runs a single benchmarking replication.</span>
+<span class="sd">            Defaults to `benchmark_replication` in this module and must have the</span>
+<span class="sd">            same signature.</span>
+<span class="sd">        benchmark_trial: Function that runs a single trial. Defaults</span>
+<span class="sd">            to `benchmark_trial` in this module and must have the same signature.</span>
+<span class="sd">        verbose_logging: Whether logging level should be set to `INFO`.</span>
+<span class="sd">        failed_trials_tolerated: How many trials can fail before a replication is</span>
+<span class="sd">            considered failed and aborted. Defaults to 5.</span>
+<span class="sd">        failed_replications_tolerated: How many replications can fail before a</span>
+<span class="sd">            test is considered failed and aborted. Defaults to 3.</span>
+<span class="sd">    """</span>
+    <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tests</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">problems</span><span class="p">,</span> <span class="n">methods</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_problems_and_methods</span><span class="p">(</span>
+        <span class="n">problems</span><span class="o">=</span><span class="n">problems</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="n">methods</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">problem_idx</span><span class="p">,</span> <span class="n">problem</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">problems</span><span class="p">):</span>
+        <span class="n">tests</span><span class="p">[</span><span class="n">problem</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">method_idx</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">methods</span><span class="p">):</span>
+            <span class="n">tests</span><span class="p">[</span><span class="n">problem</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="n">method</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">tests</span><span class="p">[</span><span class="n">problem</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="n">method</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">benchmark_test</span><span class="p">(</span>
+                    <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="p">,</span>
+                    <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+                    <span class="n">num_replications</span><span class="o">=</span><span class="n">num_replications</span><span class="p">,</span>
+                    <span class="c1"># For arguments passed as either numbers, or matrices,</span>
+                    <span class="c1"># xtract corresponding values for the given combination.</span>
+                    <span class="n">num_trials</span><span class="o">=</span><span class="n">utils</span><span class="o">.</span><span class="n">get_corresponding</span><span class="p">(</span>
+                        <span class="n">num_trials</span><span class="p">,</span> <span class="n">problem_idx</span><span class="p">,</span> <span class="n">method_idx</span>
+                    <span class="p">),</span>
+                    <span class="n">batch_size</span><span class="o">=</span><span class="n">utils</span><span class="o">.</span><span class="n">get_corresponding</span><span class="p">(</span>
+                        <span class="n">batch_size</span><span class="p">,</span> <span class="n">problem_idx</span><span class="p">,</span> <span class="n">method_idx</span>
+                    <span class="p">),</span>
+                    <span class="n">benchmark_replication</span><span class="o">=</span><span class="n">benchmark_replication</span><span class="p">,</span>
+                    <span class="n">benchmark_trial</span><span class="o">=</span><span class="n">benchmark_trial</span><span class="p">,</span>
+                    <span class="n">raise_all_exceptions</span><span class="o">=</span><span class="n">raise_all_exceptions</span><span class="p">,</span>
+                    <span class="n">verbose_logging</span><span class="o">=</span><span class="n">verbose_logging</span><span class="p">,</span>
+                    <span class="n">failed_replications_tolerated</span><span class="o">=</span><span class="n">failed_replications_tolerated</span><span class="p">,</span>
+                    <span class="n">failed_trials_tolerated</span><span class="o">=</span><span class="n">failed_trials_tolerated</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">raise_all_exceptions</span><span class="p">:</span>
+                    <span class="k">raise</span>
+                <span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>  <span class="c1"># TODO[T53975770]: test</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Obtained benchmarking test experiments: </span><span class="si">{tests}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tests</span></div>
+
+
+<span class="k">def</span> <span class="nf">_benchmark_replication_Service_API</span><span class="p">(</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="n">SimpleBenchmarkProblem</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">raise_all_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">benchmark_trial</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">,</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Number of trials that need to fail for a replication to be considered failed.</span>
+    <span class="n">failed_trials_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Experiment</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="ne">Exception</span><span class="p">]]:</span>
+    <span class="sd">"""Run a benchmark replication via the Service API because the problem was</span>
+<span class="sd">    set up in a simplified way, without the use of Ax classes like `OptimizationConfig`</span>
+<span class="sd">    or `SearchSpace`.</span>
+<span class="sd">    """</span>
+    <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">batch_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ax_client</span> <span class="o">=</span> <span class="n">AxClient</span><span class="p">(</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">verbose_logging</span><span class="o">=</span><span class="n">verbose_logging</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover, TODO[T53975770]</span>
+        <span class="k">assert</span> <span class="n">batch_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"Batch size of 1 or greater is expected."</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Batched benchmarking on `SimpleBenchmarkProblem`-s not yet implemented."</span>
+        <span class="p">)</span>
+    <span class="n">ax_client</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">domain_as_ax_client_parameters</span><span class="p">(),</span>
+        <span class="n">minimize</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+        <span class="n">objective_name</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ax_client</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">assert</span> <span class="n">num_trials</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_trials</span><span class="p">):</span>
+        <span class="n">parameterization</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">ax_client</span><span class="o">.</span><span class="n">get_next_trial</span><span class="p">()</span>
+        <span class="n">param_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">parameterization</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">parameter_names</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mean</span><span class="p">,</span> <span class="n">sem</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">(</span>
+                <span class="n">parameterization</span><span class="o">=</span><span class="n">param_values</span><span class="p">,</span> <span class="n">evaluation_function</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">f</span>
+            <span class="p">)</span>
+            <span class="c1"># If problem indicates a noise level and is using a synthetic callable,</span>
+            <span class="c1"># add normal noise to the measurement of the mean.</span>
+            <span class="k">if</span> <span class="n">problem</span><span class="o">.</span><span class="n">uses_synthetic_function</span> <span class="ow">and</span> <span class="n">problem</span><span class="o">.</span><span class="n">noise_sd</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">noise</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span> <span class="o">*</span> <span class="n">problem</span><span class="o">.</span><span class="n">noise_sd</span>
+                <span class="n">sem</span> <span class="o">=</span> <span class="p">(</span><span class="n">sem</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="n">problem</span><span class="o">.</span><span class="n">noise_sd</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Adding noise of </span><span class="si">{noise}</span><span class="s2"> to the measurement mean (</span><span class="si">{mean}</span><span class="s2">)."</span>
+                    <span class="sa">f</span><span class="s2">"Problem noise SD setting: </span><span class="si">{problem.noise_sd}</span><span class="s2">."</span>
+                <span class="p">)</span>
+                <span class="n">mean</span> <span class="o">=</span> <span class="n">mean</span> <span class="o">+</span> <span class="n">noise</span>
+            <span class="n">ax_client</span><span class="o">.</span><span class="n">complete_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="p">(</span><span class="n">mean</span><span class="p">,</span> <span class="n">sem</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># TODO[T53975770]: test</span>
+            <span class="k">if</span> <span class="n">raise_all_exceptions</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">failed_trials_tolerated</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>  <span class="c1"># TODO[T53975770]: test</span>
+                <span class="sa">f</span><span class="s2">"More than </span><span class="si">{failed_trials_tolerated}</span><span class="s2"> failed for </span><span class="si">{experiment_name}</span><span class="s2">."</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ax_client</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">exceptions</span>
+
+
+<span class="k">def</span> <span class="nf">_benchmark_replication_Dev_API</span><span class="p">(</span>
+    <span class="n">problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">raise_all_exceptions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">benchmark_trial</span><span class="p">:</span> <span class="n">FunctionType</span> <span class="o">=</span> <span class="n">benchmark_trial</span><span class="p">,</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Number of trials that need to fail for a replication to be considered failed.</span>
+    <span class="n">failed_trials_tolerated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Experiment</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="ne">Exception</span><span class="p">]]:</span>
+    <span class="sd">"""Run a benchmark replication via the Developer API because the problem was</span>
+<span class="sd">    set up with Ax classes (likely to allow for additional complexity like</span>
+<span class="sd">    adding constraints or non-range parameters).</span>
+<span class="sd">    """</span>
+    <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">experiment</span> <span class="o">=</span> <span class="n">Experiment</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">runner</span><span class="o">=</span><span class="n">SyntheticRunner</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_trials</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">gr</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">batch_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">batch_size</span> <span class="o">&gt;</span> <span class="mi">1</span>
+                <span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># TODO[T53975770]: test</span>
+            <span class="k">if</span> <span class="n">raise_all_exceptions</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">exceptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">failed_trials_tolerated</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>  <span class="c1"># TODO[T53975770]: test</span>
+                <span class="sa">f</span><span class="s2">"More than </span><span class="si">{failed_trials_tolerated}</span><span class="s2"> failed for </span><span class="si">{experiment_name}</span><span class="s2">."</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">experiment</span><span class="p">,</span> <span class="n">exceptions</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.8/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

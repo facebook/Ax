@@ -1,0 +1,641 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.5/css/main.css"/><script src="/versions/0.1.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.5/"><img class="logo" src="/versions/0.1.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.5/versions.html"><h3>0.1.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.utils">
+<span id="ax-utils"></span><h1>ax.utils<a class="headerlink" href="#module-ax.utils" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="common">
+<h2>Common<a class="headerlink" href="#common" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.common.equality">
+<span id="equality"></span><h3>Equality<a class="headerlink" href="#module-ax.utils.common.equality" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.equality.datetime_equals">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">datetime_equals</code><span class="sig-paren">(</span><em class="sig-param">dt1</em>, <em class="sig-param">dt2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/equality.html#datetime_equals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.datetime_equals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare equality of two datetimes, ignoring microseconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.equality_typechecker">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">equality_typechecker</code><span class="sig-paren">(</span><em class="sig-param">eq_func</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/equality.html#equality_typechecker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.equality_typechecker" title="Permalink to this definition">¶</a></dt>
+<dd><p>A decorator to wrap all __eq__ methods to ensure that the inputs
+are of the right type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.same_elements">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">same_elements</code><span class="sig-paren">(</span><em class="sig-param">list1</em>, <em class="sig-param">list2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/equality.html#same_elements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.same_elements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare equality of two lists of core Ax objects.</p>
+<dl class="simple">
+<dt>Assumptions:</dt><dd><p>– The contents of each list are types that implement __eq__
+– The lists do not contain duplicates</p>
+</dd>
+</dl>
+<p>Checking equality is then the same as checking that the lists are the same
+length, and that one is a subset of the other.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.logger">
+<span id="logger"></span><h3>Logger<a class="headerlink" href="#module-ax.utils.common.logger" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.logger.get_logger">
+<code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">get_logger</code><span class="sig-paren">(</span><em class="sig-param">name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/logger.html#get_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.get_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get an Axlogger.</p>
+<p>Sets default level to INFO, instead of WARNING.
+Adds timestamps to logger messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Logger" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Logger</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.docutils">
+<span id="docutils"></span><h3>Docutils<a class="headerlink" href="#module-ax.utils.common.docutils" title="Permalink to this headline">¶</a></h3>
+<p>Support functions for sphinx et. al</p>
+<dl class="function">
+<dt id="ax.utils.common.docutils.copy_doc">
+<code class="sig-prename descclassname">ax.utils.common.docutils.</code><code class="sig-name descname">copy_doc</code><span class="sig-paren">(</span><em class="sig-param">src</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/docutils.html#copy_doc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.docutils.copy_doc" title="Permalink to this definition">¶</a></dt>
+<dd><p>A decorator that copies the docstring of another object</p>
+<p>Since <code class="docutils literal notranslate"><span class="pre">sphinx</span></code> actually loads the python modules to grab the docstrings
+this works with both <code class="docutils literal notranslate"><span class="pre">sphinx</span></code> and the <code class="docutils literal notranslate"><span class="pre">help</span></code> function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Cat</span><span class="p">(</span><span class="n">Mamal</span><span class="p">):</span>
+
+  <span class="nd">@property</span>
+  <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Mamal</span><span class="o">.</span><span class="n">is_feline</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">is_feline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">true</span><span class="p">:</span>
+      <span class="o">...</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>~_T</p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.typeutils">
+<span id="typeutils"></span><h3>Typeutils<a class="headerlink" href="#module-ax.utils.common.typeutils" title="Permalink to this headline">¶</a></h3>
+<dl class="data">
+<dt id="ax.utils.common.typeutils.T">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">T</code><em class="property"> = ~T</em><a class="headerlink" href="#ax.utils.common.typeutils.T" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="data">
+<dt id="ax.utils.common.typeutils.V">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">V</code><em class="property"> = ~V</em><a class="headerlink" href="#ax.utils.common.typeutils.V" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast</code><span class="sig-paren">(</span><em class="sig-param">typ</em>, <em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast a value to a type (with a runtime safety check).</p>
+<p>Returns the value unchanged and checks its type at runtime. This signals to the
+typechecker that the value has the designated type.</p>
+<p>Like <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.cast">typing.cast</a> <code class="docutils literal notranslate"><span class="pre">check_cast</span></code> performs no runtime conversion on its argument,
+but, unlike <code class="docutils literal notranslate"><span class="pre">typing.cast</span></code>, <code class="docutils literal notranslate"><span class="pre">checked_cast</span></code> will throw an error if the value is
+not of the expected type. The type passed as an argument should be a python class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>typ</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Type" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[~V]) – the type to cast to</p></li>
+<li><p><strong>val</strong> (<em>~V</em>) – the value that we are casting</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>~T</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the <code class="docutils literal notranslate"><span class="pre">val</span></code> argument, unchanged</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_list">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_list</code><span class="sig-paren">(</span><em class="sig-param">typ</em>, <em class="sig-param">l</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls checked_cast on all items in a list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_optional">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_optional</code><span class="sig-paren">(</span><em class="sig-param">typ</em>, <em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_optional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_optional" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls checked_cast only if value is not None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_to_tuple">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_to_tuple</code><span class="sig-paren">(</span><em class="sig-param">typ</em>, <em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_to_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_to_tuple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast a value to a union of multiple types (with a runtime safety check).
+This function is similar to <cite>checked_cast</cite>, but allows for the type to be
+defined as a tuple of types, in which case the value is cast as a union of
+the types in the tuple.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>typ</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Type" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Type</span></code></a>[~V], …]) – the tuple of types to cast to</p></li>
+<li><p><strong>val</strong> (<em>~V</em>) – the value that we are casting</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>~T</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the <code class="docutils literal notranslate"><span class="pre">val</span></code> argument, unchanged</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.not_none">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">not_none</code><span class="sig-paren">(</span><em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#not_none"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.not_none" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unbox an optional type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>val</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[~T]) – the value to cast to a non <code class="docutils literal notranslate"><span class="pre">None</span></code> type</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Retruns:</dt><dd><p>V:  <code class="docutils literal notranslate"><span class="pre">val</span></code> when <code class="docutils literal notranslate"><span class="pre">val</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+<dt>Throws:</dt><dd><p>ValueError if <code class="docutils literal notranslate"><span class="pre">val</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>~T</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.numpy_type_to_python_type">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">numpy_type_to_python_type</code><span class="sig-paren">(</span><em class="sig-param">value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/typeutils.html#numpy_type_to_python_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.numpy_type_to_python_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>If <cite>value</cite> is a Numpy int or float, coerce to a Python int or float.
+This is necessary because some of our transforms return Numpy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="notebook">
+<h2>Notebook<a class="headerlink" href="#notebook" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.notebook.plotting">
+<span id="plotting"></span><h3>Plotting<a class="headerlink" href="#module-ax.utils.notebook.plotting" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.notebook.plotting.init_notebook_plotting">
+<code class="sig-prename descclassname">ax.utils.notebook.plotting.</code><code class="sig-name descname">init_notebook_plotting</code><span class="sig-paren">(</span><em class="sig-param">offline=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/notebook/plotting.html#init_notebook_plotting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.notebook.plotting.init_notebook_plotting" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize plotting in notebooks, either in online or offline mode.</p>
+</dd></dl>
+<dl class="data">
+<dt id="ax.utils.notebook.plotting.logger">
+<code class="sig-prename descclassname">ax.utils.notebook.plotting.</code><code class="sig-name descname">logger</code><em class="property"> = &lt;Logger ipy_plotting (INFO)&gt;</em><a class="headerlink" href="#ax.utils.notebook.plotting.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.notebook.plotting.render">
+<code class="sig-prename descclassname">ax.utils.notebook.plotting.</code><code class="sig-name descname">render</code><span class="sig-paren">(</span><em class="sig-param">plot_config</em>, <em class="sig-param">inject_helpers=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/notebook/plotting.html#render"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.notebook.plotting.render" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render plot config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="report">
+<h2>Report<a class="headerlink" href="#report" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.report.render">
+<span id="render"></span><h3>Render<a class="headerlink" href="#module-ax.utils.report.render" title="Permalink to this headline">¶</a></h3>
+<dl class="data">
+<dt id="ax.utils.report.render.REPORT_ELEMENT_TEMPLATE">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">REPORT_ELEMENT_TEMPLATE</code><em class="property"> = 'simple_template.html'</em><a class="headerlink" href="#ax.utils.report.render.REPORT_ELEMENT_TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.h2_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">h2_html</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#h2_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.h2_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in subheading tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.h3_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">h3_html</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#h3_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.h3_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in subsubheading tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.link_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">link_html</code><span class="sig-paren">(</span><em class="sig-param">text</em>, <em class="sig-param">href</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#link_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.link_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text and reference address into link tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.list_item_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">list_item_html</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#list_item_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.list_item_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in list element tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.p_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">p_html</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#p_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.p_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in paragraph tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.render_report_elements">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">render_report_elements</code><span class="sig-paren">(</span><em class="sig-param">experiment_name</em>, <em class="sig-param">html_elements</em>, <em class="sig-param">header=True</em>, <em class="sig-param">offline=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#render_report_elements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.render_report_elements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate Ax HTML report for a given experiment from HTML elements.</p>
+<p>Uses Jinja2 for template. Injects Plotly JS for graph rendering.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">html_elements</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">h2_html</span><span class="p">(</span><span class="s2">"Subsection with plot"</span><span class="p">),</span>
+    <span class="n">p_html</span><span class="p">(</span><span class="s2">"This is an example paragraph."</span><span class="p">),</span>
+    <span class="n">plot_html</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">gp_model</span><span class="p">,</span> <span class="s1">'perf_metric'</span><span class="p">)),</span>
+    <span class="n">h2_html</span><span class="p">(</span><span class="s2">"Subsection with table"</span><span class="p">),</span>
+    <span class="n">pandas_html</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">),</span>
+<span class="p">]</span>
+<span class="n">html</span> <span class="o">=</span> <span class="n">render_report_elements</span><span class="p">(</span><span class="s1">'My experiment'</span><span class="p">,</span> <span class="n">html_elements</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>experiment_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – the name of the experiment to use for title.</p></li>
+<li><p><strong>html_elements</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – list of HTML strings to render in report
+body.</p></li>
+<li><p><strong>header</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, render experiment title as a header.
+Meant to be used for standalone reports (e.g. via email), as opposed
+to served on the front-end.</p></li>
+<li><p><strong>offline</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – if True, entire Plotly library is bundled
+with report.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>HTML string.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_cell_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_cell_html</code><span class="sig-paren">(</span><em class="sig-param">text</em>, <em class="sig-param">width=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#table_cell_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_cell_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text or an HTML element into table cell tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_heading_cell_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_heading_cell_html</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#table_heading_cell_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_heading_cell_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text or an HTML element into table heading cell tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_html</code><span class="sig-paren">(</span><em class="sig-param">table_rows</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#table_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of HTML elements into table tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_row_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_row_html</code><span class="sig-paren">(</span><em class="sig-param">table_cells</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#table_row_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_row_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of HTML elements into table row tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.unordered_list_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">unordered_list_html</code><span class="sig-paren">(</span><em class="sig-param">list_items</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/report/render.html#unordered_list_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.unordered_list_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of html elements into an unordered list tag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="stats">
+<h2>Stats<a class="headerlink" href="#stats" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.stats.statstools">
+<span id="statstools"></span><h3>Statstools<a class="headerlink" href="#module-ax.utils.stats.statstools" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.agresti_coull_sem">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">agresti_coull_sem</code><span class="sig-paren">(</span><em class="sig-param">n_numer</em>, <em class="sig-param">n_denom</em>, <em class="sig-param">prior_successes=2</em>, <em class="sig-param">prior_failures=2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#agresti_coull_sem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.agresti_coull_sem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Agresti-Coull style standard error for a binomial proportion.</p>
+<p>Reference:
+<em>Agresti, Alan, and Brent A. Coull. Approximate Is Better than ‘Exact’ for
+Interval Estimation of Binomial Proportions.” The American Statistician,
+vol. 52, no. 2, 1998, pp. 119-126. JSTOR, www.jstor.org/stable/2685469.</em></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.inverse_variance_weight">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">inverse_variance_weight</code><span class="sig-paren">(</span><em class="sig-param">means</em>, <em class="sig-param">variances</em>, <em class="sig-param">conflicting_noiseless='warn'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#inverse_variance_weight"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.inverse_variance_weight" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform inverse variance weighting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – The means of the observations.</p></li>
+<li><p><strong>variances</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – The variances of the observations.</p></li>
+<li><p><strong>conflicting_noiseless</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – How to handle the case of
+multiple observations with zero variance but different means.
+Options are “warn” (default), “ignore” or “raise”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="data">
+<dt id="ax.utils.stats.statstools.logger">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">logger</code><em class="property"> = &lt;Logger Statstools (INFO)&gt;</em><a class="headerlink" href="#ax.utils.stats.statstools.logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.marginal_effects">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">marginal_effects</code><span class="sig-paren">(</span><em class="sig-param">df</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#marginal_effects"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.marginal_effects" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method calculates the relative (in %) change in the outcome achieved
+by using any individual factor level versus randomizing across all factor
+levels. It does this by estimating a baseline under the experiment by
+marginalizing over all factors/levels. For each factor level, then,
+it conditions on that level for the individual factor and then marginalizes
+over all levels for all other factors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>df</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – Dataframe containing columns named mean and sem. All other columns
+are assumed to be factors for which to calculate marginal effects.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>A dataframe containing columns “Name”, “Level”, “Beta” and “SE”</dt><dd><p>corresponding to the factor, level, effect and standard error.
+Results are relativized as percentage changes.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="data">
+<dt id="ax.utils.stats.statstools.num_mixed">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">num_mixed</code><em class="property"> = typing.Union[numpy.ndarray, typing.List[float]]</em><a class="headerlink" href="#ax.utils.stats.statstools.num_mixed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.positive_part_james_stein">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">positive_part_james_stein</code><span class="sig-paren">(</span><em class="sig-param">means</em>, <em class="sig-param">sems</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#positive_part_james_stein"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.positive_part_james_stein" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimation method for Positive-part James-Stein estimator.</p>
+<p>This method takes a vector of K means (<cite>y_i</cite>) and standard errors
+(<cite>sigma_i</cite>) and calculates the positive-part James Stein estimator.</p>
+<p>Resulting estimates are the shrunk means and standard errors. The positive
+part James-Stein estimator shrinks each constituent average to the grand
+average:</p>
+<blockquote>
+<div><p>y_i - phi_i * y_i + phi_i * ybar</p>
+</div></blockquote>
+<p>The variable phi_i determines the amount of shrinkage. For <cite>phi_i = 1</cite>,
+<cite>mu_hat</cite> is equal to <cite>ybar</cite> (the mean of all <cite>y_i</cite>), while for <cite>phi_i = 0</cite>,
+<cite>mu_hat</cite> is equal to <cite>y_i</cite>. It can be shown that restricting <cite>phi_i &lt;= 1</cite>
+dominates the unrestricted estimator, so this method restricts <cite>phi_i</cite> in
+this manner. The amount of shrinkage, <cite>phi_i</cite>, is determined by:</p>
+<blockquote>
+<div><p>(K - 3) * sigma2_i / s2</p>
+</div></blockquote>
+<p>That is, less shrinkage is applied when individual means are estimated with
+greater precision, and more shrinkage is applied when individual means are
+very tightly clustered together. We also restrict <cite>phi_i</cite> to never be larger
+than 1.</p>
+<p>The variance of the mean estimator is:</p>
+<blockquote>
+<div><p>(1 - phi_i) * sigma2_i
++ phi * sigma2_i / K
++ 2 * phi_i ** 2 * (y_i - ybar)^2 / (K - 3)</p>
+</div></blockquote>
+<p>The first term is the variance component from <cite>y_i</cite>, the second term is the
+contribution from the mean of all <cite>y_i</cite>, and the third term is the
+contribution from the uncertainty in the sum of squared deviations of <cite>y_i</cite>
+from the mean of all <cite>y_i</cite>.</p>
+<p>For more information, see <a class="reference external" href="https://fburl.com/empirical_bayes">https://fburl.com/empirical_bayes</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]) – Means of each arm</p></li>
+<li><p><strong>sems</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]]) – Standard errors of each arm</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Empirical Bayes estimate of each arm’s mean
+sem_i: Empirical Bayes estimate of each arm’s sem</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>mu_hat_i</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.relativize">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">relativize</code><span class="sig-paren">(</span><em class="sig-param">means_t</em>, <em class="sig-param">sems_t</em>, <em class="sig-param">mean_c</em>, <em class="sig-param">sem_c</em>, <em class="sig-param">bias_correction=True</em>, <em class="sig-param">cov_means=0.0</em>, <em class="sig-param">as_percent=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#relativize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.relativize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ratio estimator based on the delta method.</p>
+<p>This uses the delta method (i.e. a Taylor series approximation) to estimate
+the mean and standard deviation of the sampling distribution of the ratio
+between test and control – that is, the sampling distribution of an
+estimator of the true population value under the assumption that the means
+in test and control have a known covariance:</p>
+<blockquote>
+<div><p>(mu_t / mu_c) - 1.</p>
+</div></blockquote>
+<p>Under a second-order Taylor expansion, the sampling distribution of the
+relative change in empirical means, which is <cite>m_t / m_c - 1</cite>, is
+approximately normally distributed with mean</p>
+<blockquote>
+<div><p>[(mu_t - mu_c) / mu_c] - [(sigma_c)^2 * mu_t] / (mu_c)^3</p>
+</div></blockquote>
+<p>and variance</p>
+<blockquote>
+<div><p>(sigma_t / mu_c)^2
+- 2 * mu_t _ sigma_tc / mu_c^3
++ [(sigma_c * mu_t)^2 / (mu_c)^4]</p>
+</div></blockquote>
+<p>as the higher terms are assumed to be close to zero in the full Taylor
+series. To estimate these parameters, we plug in the empirical means and
+standard errors. This gives us the estimators:</p>
+<blockquote>
+<div><p>[(m_t - m_c) / m_c] - [(s_c)^2 * m_t] / (m_c)^3</p>
+</div></blockquote>
+<p>and</p>
+<blockquote>
+<div><p>(s_t / m_c)^2 - 2 * m_t * s_tc / m_c^3 + [(s_c * m_t)^2 / (m_c)^4]</p>
+</div></blockquote>
+<p>Note that the delta method does NOT take as input the empirical standard
+deviation of a metric, but rather the standard error of the mean of that
+metric – that is, the standard deviation of the metric after division by
+the square root of the total number of observations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means_t</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – Sample means (test)</p></li>
+<li><p><strong>sems_t</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – Sample standard errors of the means (test)</p></li>
+<li><p><strong>mean_c</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Sample mean (control)</p></li>
+<li><p><strong>sem_c</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Sample standard error of the mean (control)</p></li>
+<li><p><strong>cov_means</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – Sample covariance between test and control</p></li>
+<li><p><strong>as_percent</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – If true, return results in percent (* 100)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Inferred means of the sampling distribution of</dt><dd><p>the relative change <cite>(mean_t / mean_c) - 1</cite></p>
+</dd>
+<dt>sem_hat: Inferred standard deviation of the sampling</dt><dd><p>distribution of rel_hat – i.e. the standard error.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>rel_hat</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.total_variance">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">total_variance</code><span class="sig-paren">(</span><em class="sig-param">means</em>, <em class="sig-param">variances</em>, <em class="sig-param">sample_sizes</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/stats/statstools.html#total_variance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.total_variance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute total variance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.utils</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#common">Common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notebook">Notebook</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#report">Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stats">Stats</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="storage.html" title="previous chapter">ax.storage</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

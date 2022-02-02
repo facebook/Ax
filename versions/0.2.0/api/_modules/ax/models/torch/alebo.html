@@ -1,0 +1,851 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.0/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.0/css/main.css"/><script src="/versions/0.2.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.0/"><img class="logo" src="/versions/0.2.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.0/versions.html"><h3>0.2.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.alebo</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">gpytorch</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpaceDigest</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TCandidateMetadata</span><span class="p">,</span> <span class="n">TConfig</span><span class="p">,</span> <span class="n">TGenMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.models.random.alebo_initializer</span> <span class="kn">import</span> <span class="n">ALEBOInitializer</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch</span> <span class="kn">import</span> <span class="n">BotorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_defaults</span> <span class="kn">import</span> <span class="n">get_NEI</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.analytic</span> <span class="kn">import</span> <span class="n">ExpectedImprovement</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gp_regression</span> <span class="kn">import</span> <span class="n">FixedNoiseGP</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gpytorch</span> <span class="kn">import</span> <span class="n">GPyTorchModel</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model_list_gp_regression</span> <span class="kn">import</span> <span class="n">ModelListGP</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.fit</span> <span class="kn">import</span> <span class="n">fit_gpytorch_scipy</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.initializers</span> <span class="kn">import</span> <span class="n">initialize_q_batch_nonneg</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.numpy_converter</span> <span class="kn">import</span> <span class="n">module_to_array</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.optimize</span> <span class="kn">import</span> <span class="n">optimize_acqf</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.utils</span> <span class="kn">import</span> <span class="n">_scipy_objective_and_grad</span>
+<span class="kn">from</span> <span class="nn">botorch.posteriors.gpytorch</span> <span class="kn">import</span> <span class="n">GPyTorchPosterior</span>
+<span class="kn">from</span> <span class="nn">gpytorch.distributions.multivariate_normal</span> <span class="kn">import</span> <span class="n">MultivariateNormal</span>
+<span class="kn">from</span> <span class="nn">gpytorch.kernels.kernel</span> <span class="kn">import</span> <span class="n">Kernel</span>
+<span class="kn">from</span> <span class="nn">gpytorch.kernels.rbf_kernel</span> <span class="kn">import</span> <span class="n">postprocess_rbf</span>
+<span class="kn">from</span> <span class="nn">gpytorch.kernels.scale_kernel</span> <span class="kn">import</span> <span class="n">ScaleKernel</span>
+<span class="kn">from</span> <span class="nn">gpytorch.mlls.exact_marginal_log_likelihood</span> <span class="kn">import</span> <span class="n">ExactMarginalLogLikelihood</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">approx_fprime</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ALEBOKernel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBOKernel">[docs]</a><span class="k">class</span> <span class="nc">ALEBOKernel</span><span class="p">(</span><span class="n">Kernel</span><span class="p">):</span>
+    <span class="sd">"""The kernel for ALEBO.</span>
+
+<span class="sd">    Suppose there exists an ARD RBF GP on an (unknown) linear embedding with</span>
+<span class="sd">    projection matrix A. We make function evaluations in a different linear</span>
+<span class="sd">    embedding with projection matrix B (known). This is the appropriate kernel</span>
+<span class="sd">    for fitting those data.</span>
+
+<span class="sd">    This kernel computes a Mahalanobis distance, and the (d x d) PD distance</span>
+<span class="sd">    matrix Gamma is a parameter that must be fit. This is done by fitting its</span>
+<span class="sd">    upper Cholesky decomposition, U.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: (d x D) Projection matrix.</span>
+<span class="sd">        batch_shape: Batch shape as usual for gpytorch kernels.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">has_lengthscale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ard_num_dims</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">batch_shape</span><span class="o">=</span><span class="n">batch_shape</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">&lt;</span> <span class="n">D</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">B</span>
+        <span class="c1"># Initialize U</span>
+        <span class="n">Arnd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">Arnd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">qr</span><span class="p">(</span><span class="n">Arnd</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ABinv</span> <span class="o">=</span> <span class="n">Arnd</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="p">:]</span> <span class="o">@</span> <span class="n">torch</span><span class="o">.</span><span class="n">pinverse</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+        <span class="c1"># U is the upper Cholesky decomposition of Gamma, the Mahalanobis</span>
+        <span class="c1"># matrix. Uvec is the upper triangular portion of U squeezed out into</span>
+        <span class="c1"># a vector.</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ABinv</span><span class="o">.</span><span class="n">t</span><span class="p">(),</span> <span class="n">ABinv</span><span class="p">),</span> <span class="n">upper</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">triu_indx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">Uvec</span> <span class="o">=</span> <span class="n">U</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">triu_indx</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="o">*</span><span class="n">batch_shape</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Uvec"</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">Uvec</span><span class="p">))</span>
+
+<div class="viewcode-block" id="ALEBOKernel.forward"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBOKernel.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x1</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">x2</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">diag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">last_dim_is_batch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">"""Compute kernel distance."""</span>
+        <span class="c1"># Unpack Uvec into an upper triangular matrix U</span>
+        <span class="n">shapeU</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Uvec</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">])</span>
+        <span class="n">U_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shapeU</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">U_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">triu_indx</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">triu_indx</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Uvec</span>
+        <span class="c1"># Compute kernel distance</span>
+        <span class="n">z1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">U_t</span><span class="p">)</span>
+        <span class="n">z2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">U_t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">covar_dist</span><span class="p">(</span>
+            <span class="n">z1</span><span class="p">,</span>
+            <span class="n">z2</span><span class="p">,</span>
+            <span class="n">square_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">diag</span><span class="o">=</span><span class="n">diag</span><span class="p">,</span>
+            <span class="n">dist_postprocess_func</span><span class="o">=</span><span class="n">postprocess_rbf</span><span class="p">,</span>
+            <span class="n">postprocess</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">params</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ALEBOGP"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBOGP">[docs]</a><span class="k">class</span> <span class="nc">ALEBOGP</span><span class="p">(</span><span class="n">FixedNoiseGP</span><span class="p">):</span>
+    <span class="sd">"""The GP for ALEBO.</span>
+
+<span class="sd">    Uses the Mahalanobis kernel defined in ALEBOKernel, along with a</span>
+<span class="sd">    ScaleKernel to add a kernel variance and a fitted constant mean.</span>
+
+<span class="sd">    In non-batch mode, there is a single kernel that produces MVN predictions</span>
+<span class="sd">    as usual for a GP.</span>
+<span class="sd">    With b batches, each batch has its own set of kernel hyperparameters and</span>
+<span class="sd">    each batch represents a sample from the hyperparameter posterior</span>
+<span class="sd">    distribution. When making a prediction (with `__call__`), these samples are</span>
+<span class="sd">    integrated over using moment matching. So, the predictions are an MVN as</span>
+<span class="sd">    usual with the same shape as in non-batch mode.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: (d x D) Projection matrix.</span>
+<span class="sd">        train_X: (n x d) X training data.</span>
+<span class="sd">        train_Y: (n x 1) Y training data.</span>
+<span class="sd">        train_Yvar: (n x 1) Noise variances of each training Y.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">train_X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">train_Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">train_Yvar</span><span class="p">:</span> <span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span> <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">covar_module</span> <span class="o">=</span> <span class="n">ScaleKernel</span><span class="p">(</span>
+            <span class="n">base_kernel</span><span class="o">=</span><span class="n">ALEBOKernel</span><span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span> <span class="n">batch_shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_aug_batch_shape</span><span class="p">),</span>
+            <span class="n">batch_shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_aug_batch_shape</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">train_X</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultivariateNormal</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        If model is non-batch, then just make a prediction. If model has</span>
+<span class="sd">        multiple batches, then these are samples from the kernel hyperparameter</span>
+<span class="sd">        posterior and we integrate over them with moment matching.</span>
+
+<span class="sd">        The shape of the MVN that this outputs will be the same regardless of</span>
+<span class="sd">        whether the model is batched or not.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Point to be predicted.</span>
+
+<span class="sd">        Returns: MultivariateNormal distribution of prediction.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aug_batch_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Else, approximately integrate over batches with moment matching.</span>
+        <span class="c1"># Take X as (b) x q x d, and expand to (b) x ns x q x d</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Don't know how to predict this shape"</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_aug_batch_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>  <span class="c1"># pyre-ignore</span>
+            <span class="o">+</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="p">)</span>
+        <span class="n">mvn_b</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">mvn_b</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">mvn_b</span><span class="o">.</span><span class="n">covariance_matrix</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">3</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">mvn_b</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">mvn_b</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
+            <span class="o">/</span> <span class="n">mvn_b</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">mu</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">mu</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span>
+        <span class="p">)</span>  <span class="c1"># Law of Total Covariance</span>
+        <span class="n">mvn</span> <span class="o">=</span> <span class="n">MultivariateNormal</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mvn</span>
+
+<div class="viewcode-block" id="ALEBOGP.posterior"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBOGP.posterior">[docs]</a>    <span class="k">def</span> <span class="nf">posterior</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">output_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">observation_noise</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GPyTorchPosterior</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">output_indices</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">observation_noise</span>
+        <span class="n">mvn</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">GPyTorchPosterior</span><span class="p">(</span><span class="n">mvn</span><span class="o">=</span><span class="n">mvn</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="get_fitted_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.get_fitted_model">[docs]</a><span class="k">def</span> <span class="nf">get_fitted_model</span><span class="p">(</span>
+    <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">restarts</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">nsamp</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">init_state_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ALEBOGP</span><span class="p">:</span>
+    <span class="sd">"""Get a fitted ALEBO GP.</span>
+
+<span class="sd">    We do random restart optimization to get a MAP model, then use the Laplace</span>
+<span class="sd">    approximation to draw posterior samples of kernel hyperparameters, and</span>
+<span class="sd">    finally construct a batch-mode model where each batch is one of those</span>
+<span class="sd">    sampled sets of kernel hyperparameters.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: Projection matrix.</span>
+<span class="sd">        train_X: X training data.</span>
+<span class="sd">        train_Y: Y training data.</span>
+<span class="sd">        train_Yvar: Noise variances of each training Y.</span>
+<span class="sd">        restarts: Number of restarts for MAP estimation.</span>
+<span class="sd">        nsamp: Number of samples to draw from kernel hyperparameter posterior.</span>
+<span class="sd">        init_state_dict: Optionally begin MAP estimation with this state dict.</span>
+
+<span class="sd">    Returns: Batch-mode (nsamp batches) fitted ALEBO GP.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get MAP estimate.</span>
+    <span class="n">mll</span> <span class="o">=</span> <span class="n">get_map_model</span><span class="p">(</span>
+        <span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span>
+        <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span>
+        <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span>
+        <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">,</span>
+        <span class="n">restarts</span><span class="o">=</span><span class="n">restarts</span><span class="p">,</span>
+        <span class="n">init_state_dict</span><span class="o">=</span><span class="n">init_state_dict</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Compute Laplace approximation of posterior</span>
+    <span class="n">Uvec_batch</span><span class="p">,</span> <span class="n">mean_constant_batch</span><span class="p">,</span> <span class="n">output_scale_batch</span> <span class="o">=</span> <span class="n">laplace_sample_U</span><span class="p">(</span>
+        <span class="n">mll</span><span class="o">=</span><span class="n">mll</span><span class="p">,</span> <span class="n">nsamp</span><span class="o">=</span><span class="n">nsamp</span>
+    <span class="p">)</span>
+    <span class="c1"># Construct batch model with samples</span>
+    <span class="n">m_b</span> <span class="o">=</span> <span class="n">get_batch_model</span><span class="p">(</span>
+        <span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span>
+        <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span>
+        <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span>
+        <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">,</span>
+        <span class="n">Uvec_batch</span><span class="o">=</span><span class="n">Uvec_batch</span><span class="p">,</span>
+        <span class="n">mean_constant_batch</span><span class="o">=</span><span class="n">mean_constant_batch</span><span class="p">,</span>
+        <span class="n">output_scale_batch</span><span class="o">=</span><span class="n">output_scale_batch</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">m_b</span></div>
+
+
+<div class="viewcode-block" id="get_map_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.get_map_model">[docs]</a><span class="k">def</span> <span class="nf">get_map_model</span><span class="p">(</span>
+    <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">restarts</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">init_state_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">:</span>
+    <span class="sd">"""Do random-restart optimization for MAP fitting of an ALEBO GP model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: Projection matrix.</span>
+<span class="sd">        train_X: X training data.</span>
+<span class="sd">        train_Y: Y training data.</span>
+<span class="sd">        train_Yvar: Noise variances of each training Y.</span>
+<span class="sd">        restarts: Number of restarts for MAP estimation.</span>
+<span class="sd">        init_state_dict: Optionally begin MAP estimation with this state dict.</span>
+
+<span class="sd">    Returns: non-batch ALEBO GP with MAP kernel hyperparameters.</span>
+<span class="sd">    """</span>
+    <span class="n">f_best</span> <span class="o">=</span> <span class="mf">1e8</span>
+    <span class="n">sd_best</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># Fit with random restarts</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">restarts</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">ALEBOGP</span><span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span> <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span> <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">init_state_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st</span>
+            <span class="c1">#  param but got `Dict[str, Tensor]`.</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">init_state_dict</span><span class="p">)</span>
+        <span class="n">mll</span> <span class="o">=</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">likelihood</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+        <span class="n">mll</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">mll</span><span class="p">,</span> <span class="n">info_dict</span> <span class="o">=</span> <span class="n">fit_gpytorch_scipy</span><span class="p">(</span><span class="n">mll</span><span class="p">,</span> <span class="n">track_iterations</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"tnc"</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">info_dict</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[58]: `&lt;` is not supported for operand types</span>
+        <span class="c1">#  `Union[List[botorch.optim.fit.OptimizationIteration], float]` and `float`.</span>
+        <span class="k">if</span> <span class="n">info_dict</span><span class="p">[</span><span class="s2">"fopt"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">f_best</span><span class="p">:</span>
+            <span class="n">f_best</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">info_dict</span><span class="p">[</span><span class="s2">"fopt"</span><span class="p">])</span>  <span class="c1"># pyre-ignore</span>
+            <span class="n">sd_best</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+    <span class="c1"># Set the final value</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">ALEBOGP</span><span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span> <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span> <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">)</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">sd_best</span><span class="p">)</span>
+    <span class="n">mll</span> <span class="o">=</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">likelihood</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mll</span></div>
+
+
+<div class="viewcode-block" id="laplace_sample_U"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.laplace_sample_U">[docs]</a><span class="k">def</span> <span class="nf">laplace_sample_U</span><span class="p">(</span>
+    <span class="n">mll</span><span class="p">:</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">,</span> <span class="n">nsamp</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sd">"""Draw posterior samples of kernel hyperparameters using Laplace</span>
+<span class="sd">    approximation.</span>
+
+<span class="sd">    Only the Mahalanobis distance matrix is sampled.</span>
+
+<span class="sd">    The diagonal of the Hessian is estimated using finite differences of the</span>
+<span class="sd">    autograd gradients. The Laplace approximation is then N(p_map, inv(-H)).</span>
+<span class="sd">    We construct a set of nsamp kernel hyperparameters by drawing nsamp-1</span>
+<span class="sd">    values from this distribution, and prepending as the first sample the MAP</span>
+<span class="sd">    parameters.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mll: MLL object of MAP ALEBO GP.</span>
+<span class="sd">        nsamp: Number of samples to return.</span>
+
+<span class="sd">    Returns: Batch tensors of the kernel hyperparameters Uvec, mean constant,</span>
+<span class="sd">        and output scale.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Estimate diagonal of the Hessian</span>
+    <span class="n">mll</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="n">x0</span><span class="p">,</span> <span class="n">property_dict</span><span class="p">,</span> <span class="n">bounds</span> <span class="o">=</span> <span class="n">module_to_array</span><span class="p">(</span><span class="n">module</span><span class="o">=</span><span class="n">mll</span><span class="p">)</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>  <span class="c1"># This is the MAP parameters</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">x0</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">x0</span><span class="p">)))</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-4</span> <span class="o">+</span> <span class="mf">1e-3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">x0</span><span class="p">):</span>
+        <span class="c1"># Compute gradient of df/dx_i wrt x_i</span>
+        <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="n">x_all</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">x_all</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">_scipy_objective_and_grad</span><span class="p">(</span><span class="n">x_all</span><span class="p">,</span> <span class="n">mll</span><span class="p">,</span> <span class="n">property_dict</span><span class="p">)[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">approx_fprime</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x0</span><span class="p">[</span><span class="n">i</span><span class="p">]]),</span> <span class="n">f</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="n">epsilon</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>  <span class="c1"># pyre-ignore</span>
+
+    <span class="c1"># Sample only Uvec; leave mean and output scale fixed.</span>
+    <span class="k">assert</span> <span class="nb">list</span><span class="p">(</span><span class="n">property_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="p">[</span>
+        <span class="s2">"model.mean_module.constant"</span><span class="p">,</span>
+        <span class="s2">"model.covar_module.raw_outputscale"</span><span class="p">,</span>
+        <span class="s2">"model.covar_module.base_kernel.Uvec"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">H</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:]</span>
+    <span class="n">H</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="o">-</span><span class="mf">1e-3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>  <span class="c1"># Add a nugget for inverse stability</span>
+    <span class="n">Sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="o">-</span><span class="n">H</span><span class="p">)</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="n">x0</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="n">cov</span><span class="o">=</span><span class="n">Sigma</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nsamp</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># Include the MAP estimate</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">x0</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="n">samples</span><span class="p">))</span>
+    <span class="c1"># Reshape</span>
+    <span class="n">attrs</span> <span class="o">=</span> <span class="n">property_dict</span><span class="p">[</span><span class="s2">"model.covar_module.base_kernel.Uvec"</span><span class="p">]</span>
+    <span class="n">Uvec_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">attrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">attrs</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+        <span class="n">nsamp</span><span class="p">,</span> <span class="o">*</span><span class="n">attrs</span><span class="o">.</span><span class="n">shape</span>
+    <span class="p">)</span>
+    <span class="c1"># Get the other properties into batch mode</span>
+    <span class="n">mean_constant_batch</span> <span class="o">=</span> <span class="n">mll</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">nsamp</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">output_scale_batch</span> <span class="o">=</span> <span class="n">mll</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">raw_outputscale</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">nsamp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Uvec_batch</span><span class="p">,</span> <span class="n">mean_constant_batch</span><span class="p">,</span> <span class="n">output_scale_batch</span></div>
+
+
+<div class="viewcode-block" id="get_batch_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.get_batch_model">[docs]</a><span class="k">def</span> <span class="nf">get_batch_model</span><span class="p">(</span>
+    <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Uvec_batch</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">mean_constant_batch</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">output_scale_batch</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ALEBOGP</span><span class="p">:</span>
+    <span class="sd">"""Construct a batch-mode ALEBO GP using batch tensors of hyperparameters.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: Projection matrix.</span>
+<span class="sd">        train_X: X training data.</span>
+<span class="sd">        train_Y: Y training data.</span>
+<span class="sd">        train_Yvar: Noise variances of each training Y.</span>
+<span class="sd">        Uvec_batch: Batch tensor of Uvec hyperparameters.</span>
+<span class="sd">        mean_constant_batch: Batch tensor of mean constant hyperparameter.</span>
+<span class="sd">        output_scale_batch: Batch tensor of output scale hyperparameter.</span>
+
+<span class="sd">    Returns: Batch-mode ALEBO GP.</span>
+<span class="sd">    """</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">Uvec_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">m_b</span> <span class="o">=</span> <span class="n">ALEBOGP</span><span class="p">(</span>
+        <span class="n">B</span><span class="o">=</span><span class="n">B</span><span class="p">,</span>
+        <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="c1"># Set mean constant</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">mean_constant_batch</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Set output scale</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">raw_outputscale</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">raw_outputscale</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">output_scale_batch</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">raw_outputscale</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Set Uvec</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">Uvec</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">Uvec</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">Uvec_batch</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">Uvec</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">m_b</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">m_b</span></div>
+
+
+<div class="viewcode-block" id="extract_map_statedict"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.extract_map_statedict">[docs]</a><span class="k">def</span> <span class="nf">extract_map_statedict</span><span class="p">(</span>
+    <span class="n">m_b</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ALEBOGP</span><span class="p">,</span> <span class="n">ModelListGP</span><span class="p">],</span> <span class="n">num_outputs</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]:</span>
+    <span class="sd">"""Extract MAP statedict from the batch-mode ALEBO GP.</span>
+
+<span class="sd">    The batch GP can be either a single ALEBO GP or a ModelListGP of ALEBO GPs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        m_b: Batch-mode GP.</span>
+<span class="sd">        num_outputs: Number of outputs being modeled.</span>
+<span class="sd">    """</span>
+    <span class="n">is_modellist</span> <span class="o">=</span> <span class="n">num_outputs</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="n">map_sds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">OrderedDict</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_outputs</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">sd</span> <span class="o">=</span> <span class="n">m_b</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># Extract model index and parameter name</span>
+        <span class="k">if</span> <span class="n">is_modellist</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^models\.([0-9]+)\.(.*)$"</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                    <span class="s2">"Unable to parse ModelList structure"</span>
+                <span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">model_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">param_name</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">param_name</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">map_sds</span><span class="p">[</span><span class="n">model_idx</span><span class="p">][</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">map_sds</span></div>
+
+
+<div class="viewcode-block" id="ei_or_nei"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ei_or_nei">[docs]</a><span class="k">def</span> <span class="nf">ei_or_nei</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ALEBOGP</span><span class="p">,</span> <span class="n">ModelListGP</span><span class="p">],</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">q</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">noiseless</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionFunction</span><span class="p">:</span>
+    <span class="sd">"""Use analytic EI if appropriate, otherwise Monte Carlo NEI.</span>
+
+<span class="sd">    Analytic EI can be used if: Single outcome, no constraints, no pending</span>
+<span class="sd">    points, not batch, and no noise.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: GP.</span>
+<span class="sd">        objective_weights: Weights on each outcome for the objective.</span>
+<span class="sd">        outcome_constraints: Outcome constraints.</span>
+<span class="sd">        X_observed: Observed points for NEI.</span>
+<span class="sd">        X_pending: Pending points.</span>
+<span class="sd">        q: Batch size.</span>
+<span class="sd">        noiseless: True if evaluations are noiseless.</span>
+
+<span class="sd">    Returns: An AcquisitionFunction, either analytic EI or MC NEI.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">objective_weights</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="ow">and</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">X_pending</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">q</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="ow">and</span> <span class="n">noiseless</span>
+    <span class="p">):</span>
+        <span class="n">maximize</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">maximize</span><span class="p">:</span>
+            <span class="n">best_f</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train_targets</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">best_f</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train_targets</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ExpectedImprovement</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">best_f</span><span class="o">=</span><span class="n">best_f</span><span class="p">,</span> <span class="n">maximize</span><span class="o">=</span><span class="n">maximize</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">gpytorch</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">max_cholesky_size</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+            <span class="n">acq</span> <span class="o">=</span> <span class="n">get_NEI</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+                <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">acq</span></div>
+
+
+<div class="viewcode-block" id="alebo_acqf_optimizer"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.alebo_acqf_optimizer">[docs]</a><span class="k">def</span> <span class="nf">alebo_acqf_optimizer</span><span class="p">(</span>
+    <span class="n">acq_function</span><span class="p">:</span> <span class="n">AcquisitionFunction</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">inequality_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]],</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">raw_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">num_restarts</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Optimize the acquisition function for ALEBO.</span>
+
+<span class="sd">    We are optimizing over a polytope within the subspace, and so begin each</span>
+<span class="sd">    random restart of the acquisition function optimization with points that</span>
+<span class="sd">    lie within that polytope.</span>
+<span class="sd">    """</span>
+    <span class="n">candidate_list</span><span class="p">,</span> <span class="n">acq_value_list</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([],</span> <span class="n">device</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">base_X_pending</span> <span class="o">=</span> <span class="n">acq_function</span><span class="o">.</span><span class="n">X_pending</span>
+        <span class="n">acq_has_X_pend</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">base_X_pending</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">acq_has_X_pend</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="c1"># Generate initial points for optimization inside embedding</span>
+        <span class="n">m_init</span> <span class="o">=</span> <span class="n">ALEBOInitializer</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">nsamp</span><span class="o">=</span><span class="mi">10</span> <span class="o">*</span> <span class="n">raw_samples</span><span class="p">)</span>
+        <span class="n">Xrnd_npy</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">m_init</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">raw_samples</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">Xrnd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Xrnd_npy</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Yrnd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Xrnd</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">t</span><span class="p">())</span>  <span class="c1"># Project down to the embedding</span>
+        <span class="k">with</span> <span class="n">gpytorch</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">max_cholesky_size</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="n">alpha</span> <span class="o">=</span> <span class="n">acq_function</span><span class="p">(</span><span class="n">Yrnd</span><span class="p">)</span>
+
+            <span class="n">Yinit</span> <span class="o">=</span> <span class="n">initialize_q_batch_nonneg</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">Yrnd</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">num_restarts</span><span class="p">)</span>
+
+            <span class="c1"># Optimize the acquisition function, separately for each random restart.</span>
+            <span class="n">candidate</span><span class="p">,</span> <span class="n">acq_value</span> <span class="o">=</span> <span class="n">optimize_acqf</span><span class="p">(</span>
+                <span class="n">acq_function</span><span class="o">=</span><span class="n">acq_function</span><span class="p">,</span>
+                <span class="n">bounds</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>  <span class="c1"># pyre-ignore</span>
+                <span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">num_restarts</span><span class="o">=</span><span class="n">num_restarts</span><span class="p">,</span>
+                <span class="n">raw_samples</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">"method"</span><span class="p">:</span> <span class="s2">"SLSQP"</span><span class="p">,</span> <span class="s2">"batch_limit"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">inequality_constraints</span><span class="p">,</span>
+                <span class="n">batch_initial_conditions</span><span class="o">=</span><span class="n">Yinit</span><span class="p">,</span>
+                <span class="n">sequential</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">candidate_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+            <span class="n">acq_value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">acq_value</span><span class="p">)</span>
+            <span class="n">candidates</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">candidate_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">acq_has_X_pend</span><span class="p">:</span>
+                <span class="n">acq_function</span><span class="o">.</span><span class="n">set_X_pending</span><span class="p">(</span>
+                    <span class="c1"># pyre-fixme[6]: Expected `Union[List[Tensor],</span>
+                    <span class="c1">#  typing.Tuple[Tensor, ...]]` for 1st param but got</span>
+                    <span class="c1">#  `List[Union[Tensor, torch.nn.Module]]`.</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">base_X_pending</span><span class="p">,</span> <span class="n">candidates</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">base_X_pending</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="n">candidates</span>
+                <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Generated sequential candidate </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">acq_has_X_pend</span><span class="p">:</span>
+        <span class="c1"># pyre-fixme[6]: Expected `Optional[Tensor]` for 1st param but got</span>
+        <span class="c1">#  `Union[None, Tensor, torch.nn.Module]`.</span>
+        <span class="n">acq_function</span><span class="o">.</span><span class="n">set_X_pending</span><span class="p">(</span><span class="n">base_X_pending</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">acq_value_list</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ALEBO"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO">[docs]</a><span class="k">class</span> <span class="nc">ALEBO</span><span class="p">(</span><span class="n">BotorchModel</span><span class="p">):</span>
+    <span class="sd">"""Does Bayesian optimization in a linear subspace with ALEBO.</span>
+
+<span class="sd">    The (d x D) projection down matrix B must be provided, and must be that</span>
+<span class="sd">    used for the initialization.</span>
+
+<span class="sd">    Function evaluations happen in the high-D space. We only evaluate points</span>
+<span class="sd">    such that x = pinverse(B) @ B @ x (that is, points inside the subspace).</span>
+<span class="sd">    Under that constraint, the projection is invertible.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        B: (d x D) projection matrix (projects down).</span>
+<span class="sd">        laplace_nsamp: Number of samples for posterior sampling of kernel</span>
+<span class="sd">            hyperparameters.</span>
+<span class="sd">        fit_restarts: Number of random restarts for MAP estimation.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">laplace_nsamp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span> <span class="n">fit_restarts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">B</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Binv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">pinverse</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">laplace_nsamp</span> <span class="o">=</span> <span class="n">laplace_nsamp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_restarts</span> <span class="o">=</span> <span class="n">fit_restarts</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">refit_on_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Important to not get stuck in local opt.</span>
+            <span class="n">refit_on_cv</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">warm_start_refitting</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">ei_or_nei</span><span class="p">,</span>  <span class="c1"># pyre-ignore</span>
+            <span class="n">acqf_optimizer</span><span class="o">=</span><span class="n">alebo_acqf_optimizer</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="ALEBO.fit"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.fit">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">fit</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">task_features</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">b</span> <span class="o">==</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># GP is fit in the low-d space, so project Xs down.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">@</span> <span class="n">X</span><span class="o">.</span><span class="n">t</span><span class="p">())</span><span class="o">.</span><span class="n">t</span><span class="p">()</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span> <span class="o">=</span> <span class="n">Ys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="n">Yvars</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_and_fit_model</span><span class="p">(</span><span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ALEBO.predict"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.predict">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">predict</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">Xd</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">@</span> <span class="n">X</span><span class="o">.</span><span class="n">t</span><span class="p">())</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>  <span class="c1"># Project down</span>
+        <span class="k">with</span> <span class="n">gpytorch</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">max_cholesky_size</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">Xd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ALEBO.best_point"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.best_point">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">best_point</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">best_point</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target_fidelities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="ALEBO.gen"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.gen">[docs]</a>    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target_fidelities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">TGenMetadata</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]:</span>
+        <span class="sd">"""Generate candidates.</span>
+
+<span class="sd">        Candidates are generated in the linear embedding with the polytope</span>
+<span class="sd">        constraints described in the paper.</span>
+
+<span class="sd">        model_gen_options can contain 'raw_samples' (number of samples used for</span>
+<span class="sd">        initializing the acquisition function optimization) and 'num_restarts'</span>
+<span class="sd">        (number of restarts for acquisition function optimization).</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">b</span> <span class="o">==</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># The following can be easily handled in the future when needed</span>
+        <span class="k">assert</span> <span class="n">linear_constraints</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="n">fixed_features</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="n">pending_observations</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="c1"># Setup constraints</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">Binv</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">Binv</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Binv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">linear_constraints</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="n">noiseless</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">Yvar</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">Yvar</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-5</span>
+        <span class="k">if</span> <span class="n">model_gen_options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">model_gen_options</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">model_gen_options</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"acquisition_function_kwargs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"q"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span> <span class="s2">"noiseless"</span><span class="p">:</span> <span class="n">noiseless</span><span class="p">},</span>
+            <span class="s2">"optimizer_kwargs"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"raw_samples"</span><span class="p">:</span> <span class="n">model_gen_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"raw_samples"</span><span class="p">,</span> <span class="mi">1000</span><span class="p">),</span>
+                <span class="s2">"num_restarts"</span><span class="p">:</span> <span class="n">model_gen_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_restarts"</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+                <span class="s2">"B"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">Xd_opt</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">gen_metadata</span><span class="p">,</span> <span class="n">candidate_metadata</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="o">-</span><span class="mf">1e8</span><span class="p">,</span> <span class="mf">1e8</span><span class="p">)]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Project up</span>
+        <span class="n">Xopt</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Binv</span> <span class="o">@</span> <span class="n">Xd_opt</span><span class="o">.</span><span class="n">t</span><span class="p">())</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>
+        <span class="c1"># Sometimes numerical tolerance can have Xopt epsilon outside [-1, 1],</span>
+        <span class="c1"># so clip it back.</span>
+        <span class="k">if</span> <span class="n">Xopt</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">or</span> <span class="n">Xopt</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Clipping from [</span><span class="si">{</span><span class="n">Xopt</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">Xopt</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+            <span class="n">Xopt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">Xopt</span><span class="p">,</span> <span class="nb">min</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],</span>
+        <span class="c1">#  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[typing.Any, Tensor,</span>
+        <span class="c1">#  Dict[str, typing.Any], None]`.</span>
+        <span class="k">return</span> <span class="n">Xopt</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">gen_metadata</span><span class="p">,</span> <span class="n">candidate_metadata</span></div>
+
+<div class="viewcode-block" id="ALEBO.update"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.update">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">update</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"Cannot update model that has not been fit"</span>
+            <span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">@</span> <span class="n">X</span><span class="o">.</span><span class="n">t</span><span class="p">())</span><span class="o">.</span><span class="n">t</span><span class="p">()</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">]</span>  <span class="c1"># Project down.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span> <span class="o">=</span> <span class="n">Ys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="n">Yvars</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_update</span><span class="p">:</span>
+            <span class="n">state_dicts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">state_dicts</span> <span class="o">=</span> <span class="n">extract_map_statedict</span><span class="p">(</span>
+                <span class="n">m_b</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">num_outputs</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_and_fit_model</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">,</span> <span class="n">state_dicts</span><span class="o">=</span><span class="n">state_dicts</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ALEBO.cross_validate"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.cross_validate">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">cross_validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars_train</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">X_test</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"Cannot cross-validate model that has not been fit"</span>
+            <span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_cv</span><span class="p">:</span>
+            <span class="n">state_dicts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">state_dicts</span> <span class="o">=</span> <span class="n">extract_map_statedict</span><span class="p">(</span>
+                <span class="n">m_b</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">num_outputs</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+            <span class="p">)</span>
+        <span class="n">Xs_train</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">t</span><span class="p">()</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs_train</span><span class="p">]</span>  <span class="c1"># Project down.</span>
+        <span class="n">X_test</span> <span class="o">=</span> <span class="n">X_test</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_and_fit_model</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs_train</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="n">Ys_train</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars_train</span><span class="p">,</span> <span class="n">state_dicts</span><span class="o">=</span><span class="n">state_dicts</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_predictor</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X_test</span><span class="p">)</span>  <span class="c1"># pyre-ignore: [28]</span></div>
+
+<div class="viewcode-block" id="ALEBO.get_and_fit_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.alebo.ALEBO.get_and_fit_model">[docs]</a>    <span class="k">def</span> <span class="nf">get_and_fit_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">state_dicts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GPyTorchModel</span><span class="p">:</span>
+        <span class="sd">"""Get a fitted ALEBO model for each outcome.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            Xs: X for each outcome, already projected down.</span>
+<span class="sd">            Ys: Y for each outcome.</span>
+<span class="sd">            Yvars: Noise variance of Y for each outcome.</span>
+<span class="sd">            state_dicts: State dicts to initialize model fitting.</span>
+
+<span class="sd">        Returns: Fitted ALEBO model.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">state_dicts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state_dicts</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+            <span class="n">fit_restarts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_restarts</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fit_restarts</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Warm-started</span>
+        <span class="n">Yvars</span> <span class="o">=</span> <span class="p">[</span><span class="n">Yvar</span><span class="o">.</span><span class="n">clamp_min_</span><span class="p">(</span><span class="mf">1e-7</span><span class="p">)</span> <span class="k">for</span> <span class="n">Yvar</span> <span class="ow">in</span> <span class="n">Yvars</span><span class="p">]</span>
+        <span class="n">models</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">get_fitted_model</span><span class="p">(</span>
+                <span class="n">B</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
+                <span class="n">train_X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+                <span class="n">train_Y</span><span class="o">=</span><span class="n">Ys</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">train_Yvar</span><span class="o">=</span><span class="n">Yvars</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">restarts</span><span class="o">=</span><span class="n">fit_restarts</span><span class="p">,</span>
+                <span class="n">nsamp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">laplace_nsamp</span><span class="p">,</span>
+                <span class="c1"># pyre-fixme[6]: Expected `Optional[Dict[str, Tensor]]` for 7th</span>
+                <span class="c1">#  param but got `Optional[MutableMapping[str, Tensor]]`.</span>
+                <span class="n">init_state_dict</span><span class="o">=</span><span class="n">state_dicts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">X</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">models</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">ModelListGP</span><span class="p">(</span><span class="o">*</span><span class="n">models</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">model</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

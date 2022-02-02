@@ -1,0 +1,573 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.2/css/main.css"/><script src="/versions/0.2.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.2/"><img class="logo" src="/versions/0.2.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.2/versions.html"><h3>0.2.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.json_store.encoders</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="kn">import</span> <span class="n">BenchmarkProblem</span><span class="p">,</span> <span class="n">SimpleBenchmarkProblem</span>
+<span class="kn">from</span> <span class="nn">ax.core</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.map_data</span> <span class="kn">import</span> <span class="n">MapData</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.multi_type_experiment</span> <span class="kn">import</span> <span class="n">MultiTypeExperiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OrderConstraint</span><span class="p">,</span>
+    <span class="n">ParameterConstraint</span><span class="p">,</span>
+    <span class="n">SumConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.simple_experiment</span> <span class="kn">import</span> <span class="n">SimpleExperiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.early_stopping.strategies</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PercentileEarlyStoppingStrategy</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStep</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">_encode_callables_as_references</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.model</span> <span class="kn">import</span> <span class="n">BoTorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.surrogate</span> <span class="kn">import</span> <span class="n">Surrogate</span>
+<span class="kn">from</span> <span class="nn">ax.runners.synthetic</span> <span class="kn">import</span> <span class="n">SyntheticRunner</span>
+<span class="kn">from</span> <span class="nn">ax.storage.botorch_modular_registry</span> <span class="kn">import</span> <span class="n">CLASS_TO_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.storage.transform_registry</span> <span class="kn">import</span> <span class="n">TRANSFORM_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.serialization</span> <span class="kn">import</span> <span class="n">serialize_init_args</span>
+
+
+<div class="viewcode-block" id="experiment_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.experiment_to_dict">[docs]</a><span class="k">def</span> <span class="nf">experiment_to_dict</span><span class="p">(</span><span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax experiment to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+        <span class="s2">"description"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+        <span class="s2">"experiment_type"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">experiment_type</span><span class="p">,</span>
+        <span class="s2">"search_space"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="s2">"optimization_config"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="s2">"tracking_metrics"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+        <span class="s2">"runner"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">runner</span><span class="p">,</span>
+        <span class="s2">"status_quo"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span><span class="p">,</span>
+        <span class="s2">"time_created"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">time_created</span><span class="p">,</span>
+        <span class="s2">"trials"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">,</span>
+        <span class="s2">"is_test"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">is_test</span><span class="p">,</span>
+        <span class="s2">"data_by_trial"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">data_by_trial</span><span class="p">,</span>
+        <span class="s2">"properties"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">,</span>
+        <span class="s2">"default_data_type"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_default_data_type</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="simple_experiment_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.simple_experiment_to_dict">[docs]</a><span class="k">def</span> <span class="nf">simple_experiment_to_dict</span><span class="p">(</span><span class="n">experiment</span><span class="p">:</span> <span class="n">SimpleExperiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert AE simple experiment to a dictionary."""</span>
+    <span class="k">return</span> <span class="n">experiment_to_dict</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="multi_type_experiment_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.multi_type_experiment_to_dict">[docs]</a><span class="k">def</span> <span class="nf">multi_type_experiment_to_dict</span><span class="p">(</span><span class="n">experiment</span><span class="p">:</span> <span class="n">MultiTypeExperiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert AE multitype experiment to a dictionary."""</span>
+    <span class="n">multi_type_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"default_trial_type"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_default_trial_type</span><span class="p">,</span>
+        <span class="s2">"_metric_to_canonical_name"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_metric_to_canonical_name</span><span class="p">,</span>
+        <span class="s2">"_metric_to_trial_type"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_metric_to_trial_type</span><span class="p">,</span>
+        <span class="s2">"_trial_type_to_runner"</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">_trial_type_to_runner</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">multi_type_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">experiment_to_dict</span><span class="p">(</span><span class="n">experiment</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">multi_type_dict</span></div>
+
+
+<div class="viewcode-block" id="batch_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.batch_to_dict">[docs]</a><span class="k">def</span> <span class="nf">batch_to_dict</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">BatchTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax batch to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"index"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="s2">"trial_type"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">trial_type</span><span class="p">,</span>
+        <span class="s2">"ttl_seconds"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">ttl_seconds</span><span class="p">,</span>
+        <span class="s2">"status"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+        <span class="s2">"status_quo"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">status_quo</span><span class="p">,</span>
+        <span class="s2">"status_quo_weight_override"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">_status_quo_weight_override</span><span class="p">,</span>
+        <span class="s2">"time_created"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">time_created</span><span class="p">,</span>
+        <span class="s2">"time_completed"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">time_completed</span><span class="p">,</span>
+        <span class="s2">"time_staged"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">time_staged</span><span class="p">,</span>
+        <span class="s2">"time_run_started"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">time_run_started</span><span class="p">,</span>
+        <span class="s2">"abandoned_reason"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">abandoned_reason</span><span class="p">,</span>
+        <span class="s2">"run_metadata"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">run_metadata</span><span class="p">,</span>
+        <span class="s2">"stop_metadata"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">stop_metadata</span><span class="p">,</span>
+        <span class="s2">"generator_run_structs"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">generator_run_structs</span><span class="p">,</span>
+        <span class="s2">"runner"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">runner</span><span class="p">,</span>
+        <span class="s2">"abandoned_arms_metadata"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span><span class="p">,</span>
+        <span class="s2">"num_arms_created"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">_num_arms_created</span><span class="p">,</span>
+        <span class="s2">"optimize_for_power"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">optimize_for_power</span><span class="p">,</span>
+        <span class="s2">"generation_step_index"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">_generation_step_index</span><span class="p">,</span>
+        <span class="s2">"properties"</span><span class="p">:</span> <span class="n">batch</span><span class="o">.</span><span class="n">_properties</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="trial_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.trial_to_dict">[docs]</a><span class="k">def</span> <span class="nf">trial_to_dict</span><span class="p">(</span><span class="n">trial</span><span class="p">:</span> <span class="n">Trial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax trial to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"index"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="s2">"trial_type"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">trial_type</span><span class="p">,</span>
+        <span class="s2">"ttl_seconds"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">ttl_seconds</span><span class="p">,</span>
+        <span class="s2">"status"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+        <span class="s2">"time_created"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">time_created</span><span class="p">,</span>
+        <span class="s2">"time_completed"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">time_completed</span><span class="p">,</span>
+        <span class="s2">"time_staged"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">time_staged</span><span class="p">,</span>
+        <span class="s2">"time_run_started"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">time_run_started</span><span class="p">,</span>
+        <span class="s2">"abandoned_reason"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">abandoned_reason</span><span class="p">,</span>
+        <span class="s2">"run_metadata"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">run_metadata</span><span class="p">,</span>
+        <span class="s2">"stop_metadata"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">stop_metadata</span><span class="p">,</span>
+        <span class="s2">"generator_run"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">generator_run</span><span class="p">,</span>
+        <span class="s2">"runner"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">runner</span><span class="p">,</span>
+        <span class="s2">"num_arms_created"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">_num_arms_created</span><span class="p">,</span>
+        <span class="s2">"generation_step_index"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span><span class="p">,</span>
+        <span class="s2">"properties"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">_properties</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="range_parameter_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.range_parameter_to_dict">[docs]</a><span class="k">def</span> <span class="nf">range_parameter_to_dict</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">RangeParameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax range parameter to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"parameter_type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+        <span class="s2">"lower"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span>
+        <span class="s2">"upper"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">upper</span><span class="p">,</span>
+        <span class="s2">"log_scale"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">log_scale</span><span class="p">,</span>
+        <span class="s2">"digits"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">digits</span><span class="p">,</span>
+        <span class="s2">"is_fidelity"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">,</span>
+        <span class="s2">"target_value"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="choice_parameter_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.choice_parameter_to_dict">[docs]</a><span class="k">def</span> <span class="nf">choice_parameter_to_dict</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">ChoiceParameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax choice parameter to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"is_ordered"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">,</span>
+        <span class="s2">"is_task"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_task</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"parameter_type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+        <span class="s2">"values"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="s2">"is_fidelity"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">,</span>
+        <span class="s2">"target_value"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="fixed_parameter_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.fixed_parameter_to_dict">[docs]</a><span class="k">def</span> <span class="nf">fixed_parameter_to_dict</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">FixedParameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax fixed parameter to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"parameter_type"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span><span class="p">,</span>
+        <span class="s2">"value"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="s2">"is_fidelity"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">,</span>
+        <span class="s2">"target_value"</span><span class="p">:</span> <span class="n">parameter</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="order_parameter_constraint_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.order_parameter_constraint_to_dict">[docs]</a><span class="k">def</span> <span class="nf">order_parameter_constraint_to_dict</span><span class="p">(</span>
+    <span class="n">parameter_constraint</span><span class="p">:</span> <span class="n">OrderConstraint</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax order parameter constraint to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"lower_name"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">lower_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"upper_name"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">upper_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="sum_parameter_constraint_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.sum_parameter_constraint_to_dict">[docs]</a><span class="k">def</span> <span class="nf">sum_parameter_constraint_to_dict</span><span class="p">(</span>
+    <span class="n">parameter_constraint</span><span class="p">:</span> <span class="n">SumConstraint</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax sum parameter constraint to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"parameter_names"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">_parameter_names</span><span class="p">,</span>
+        <span class="s2">"is_upper_bound"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">_is_upper_bound</span><span class="p">,</span>
+        <span class="c1"># SumParameterConstraint constructor takes in absolute value of</span>
+        <span class="c1"># the bound and transforms it based on the is_upper_bound value</span>
+        <span class="s2">"bound"</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">parameter_constraint</span><span class="o">.</span><span class="n">_bound</span><span class="p">),</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="parameter_constraint_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.parameter_constraint_to_dict">[docs]</a><span class="k">def</span> <span class="nf">parameter_constraint_to_dict</span><span class="p">(</span>
+    <span class="n">parameter_constraint</span><span class="p">:</span> <span class="n">ParameterConstraint</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax sum parameter constraint to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"constraint_dict"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">constraint_dict</span><span class="p">,</span>
+        <span class="s2">"bound"</span><span class="p">:</span> <span class="n">parameter_constraint</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="arm_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.arm_to_dict">[docs]</a><span class="k">def</span> <span class="nf">arm_to_dict</span><span class="p">(</span><span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax arm to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">arm</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"parameters"</span><span class="p">:</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">arm</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="search_space_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.search_space_to_dict">[docs]</a><span class="k">def</span> <span class="nf">search_space_to_dict</span><span class="p">(</span><span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax search space to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">search_space</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"parameters"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+        <span class="s2">"parameter_constraints"</span><span class="p">:</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="metric_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.metric_to_dict">[docs]</a><span class="k">def</span> <span class="nf">metric_to_dict</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax metric to a dictionary."""</span>
+    <span class="n">properties</span> <span class="o">=</span> <span class="n">serialize_init_args</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
+    <span class="n">properties</span><span class="p">[</span><span class="s2">"__type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="k">return</span> <span class="n">properties</span></div>
+
+
+<div class="viewcode-block" id="objective_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.objective_to_dict">[docs]</a><span class="k">def</span> <span class="nf">objective_to_dict</span><span class="p">(</span><span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax objective to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"metric"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+        <span class="s2">"minimize"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="multi_objective_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.multi_objective_to_dict">[docs]</a><span class="k">def</span> <span class="nf">multi_objective_to_dict</span><span class="p">(</span><span class="n">objective</span><span class="p">:</span> <span class="n">MultiObjective</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax objective to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"objectives"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">objectives</span><span class="p">,</span>
+        <span class="s2">"weights"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="scalarized_objective_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.scalarized_objective_to_dict">[docs]</a><span class="k">def</span> <span class="nf">scalarized_objective_to_dict</span><span class="p">(</span><span class="n">objective</span><span class="p">:</span> <span class="n">ScalarizedObjective</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax objective to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"metrics"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span>
+        <span class="s2">"weights"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
+        <span class="s2">"minimize"</span><span class="p">:</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="outcome_constraint_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.outcome_constraint_to_dict">[docs]</a><span class="k">def</span> <span class="nf">outcome_constraint_to_dict</span><span class="p">(</span><span class="n">outcome_constraint</span><span class="p">:</span> <span class="n">OutcomeConstraint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax outcome constraint to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"metric"</span><span class="p">:</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
+        <span class="s2">"op"</span><span class="p">:</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">op</span><span class="p">,</span>
+        <span class="s2">"bound"</span><span class="p">:</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+        <span class="s2">"relative"</span><span class="p">:</span> <span class="n">outcome_constraint</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="optimization_config_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.optimization_config_to_dict">[docs]</a><span class="k">def</span> <span class="nf">optimization_config_to_dict</span><span class="p">(</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax optimization config to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">optimization_config</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"objective"</span><span class="p">:</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span>
+        <span class="s2">"outcome_constraints"</span><span class="p">:</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="multi_objective_optimization_config_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.multi_objective_optimization_config_to_dict">[docs]</a><span class="k">def</span> <span class="nf">multi_objective_optimization_config_to_dict</span><span class="p">(</span>
+    <span class="n">multi_objective_optimization_config</span><span class="p">:</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax optimization config to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">multi_objective_optimization_config</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"objective"</span><span class="p">:</span> <span class="n">multi_objective_optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span>
+        <span class="s2">"outcome_constraints"</span><span class="p">:</span> <span class="n">multi_objective_optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="s2">"objective_thresholds"</span><span class="p">:</span> <span class="n">multi_objective_optimization_config</span><span class="o">.</span><span class="n">objective_thresholds</span><span class="p">,</span>  <span class="c1"># noqa E501</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="generator_run_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.generator_run_to_dict">[docs]</a><span class="k">def</span> <span class="nf">generator_run_to_dict</span><span class="p">(</span><span class="n">generator_run</span><span class="p">:</span> <span class="n">GeneratorRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax generator run to a dictionary."""</span>
+    <span class="n">gr</span> <span class="o">=</span> <span class="n">generator_run</span>
+    <span class="n">cand_metadata</span> <span class="o">=</span> <span class="n">gr</span><span class="o">.</span><span class="n">candidate_metadata_by_arm_signature</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"arms"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">arms</span><span class="p">,</span>
+        <span class="s2">"weights"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
+        <span class="s2">"optimization_config"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="s2">"search_space"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="s2">"time_created"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">time_created</span><span class="p">,</span>
+        <span class="s2">"model_predictions"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">model_predictions</span><span class="p">,</span>
+        <span class="s2">"best_arm_predictions"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">best_arm_predictions</span><span class="p">,</span>
+        <span class="s2">"generator_run_type"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">generator_run_type</span><span class="p">,</span>
+        <span class="s2">"index"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="s2">"fit_time"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">fit_time</span><span class="p">,</span>
+        <span class="s2">"gen_time"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">gen_time</span><span class="p">,</span>
+        <span class="s2">"model_key"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_model_key</span><span class="p">,</span>
+        <span class="s2">"model_kwargs"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_model_kwargs</span><span class="p">,</span>
+        <span class="s2">"bridge_kwargs"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_bridge_kwargs</span><span class="p">,</span>
+        <span class="s2">"gen_metadata"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_gen_metadata</span><span class="p">,</span>
+        <span class="s2">"model_state_after_gen"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_model_state_after_gen</span><span class="p">,</span>
+        <span class="s2">"generation_step_index"</span><span class="p">:</span> <span class="n">gr</span><span class="o">.</span><span class="n">_generation_step_index</span><span class="p">,</span>
+        <span class="s2">"candidate_metadata_by_arm_signature"</span><span class="p">:</span> <span class="n">cand_metadata</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="runner_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.runner_to_dict">[docs]</a><span class="k">def</span> <span class="nf">runner_to_dict</span><span class="p">(</span><span class="n">runner</span><span class="p">:</span> <span class="n">SyntheticRunner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax synthetic runner to a dictionary."""</span>
+    <span class="n">properties</span> <span class="o">=</span> <span class="n">serialize_init_args</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="n">runner</span><span class="p">)</span>
+    <span class="n">properties</span><span class="p">[</span><span class="s2">"__type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="k">return</span> <span class="n">properties</span></div>
+
+
+<div class="viewcode-block" id="data_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.data_to_dict">[docs]</a><span class="k">def</span> <span class="nf">data_to_dict</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax data to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"df"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">,</span>
+        <span class="s2">"description"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="map_data_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.map_data_to_dict">[docs]</a><span class="k">def</span> <span class="nf">map_data_to_dict</span><span class="p">(</span><span class="n">map_data</span><span class="p">:</span> <span class="n">MapData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax data to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">map_data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"df"</span><span class="p">:</span> <span class="n">map_data</span><span class="o">.</span><span class="n">df</span><span class="p">,</span>
+        <span class="s2">"map_keys"</span><span class="p">:</span> <span class="n">map_data</span><span class="o">.</span><span class="n">map_keys</span><span class="p">,</span>
+        <span class="s2">"description"</span><span class="p">:</span> <span class="n">map_data</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="transform_type_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.transform_type_to_dict">[docs]</a><span class="k">def</span> <span class="nf">transform_type_to_dict</span><span class="p">(</span><span class="n">transform_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert a transform class to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="s2">"Type[Transform]"</span><span class="p">,</span>
+        <span class="s2">"index_in_registry"</span><span class="p">:</span> <span class="n">TRANSFORM_REGISTRY</span><span class="p">[</span><span class="n">transform_type</span><span class="p">],</span>
+        <span class="s2">"transform_type"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">transform_type</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="generation_step_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.generation_step_to_dict">[docs]</a><span class="k">def</span> <span class="nf">generation_step_to_dict</span><span class="p">(</span><span class="n">generation_step</span><span class="p">:</span> <span class="n">GenerationStep</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Converts Ax generation step to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"model"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+        <span class="s2">"num_trials"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">num_trials</span><span class="p">,</span>
+        <span class="s2">"min_trials_observed"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">min_trials_observed</span><span class="p">,</span>
+        <span class="s2">"max_parallelism"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">max_parallelism</span><span class="p">,</span>
+        <span class="s2">"use_update"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">use_update</span><span class="p">,</span>
+        <span class="s2">"enforce_num_trials"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">enforce_num_trials</span><span class="p">,</span>
+        <span class="s2">"model_kwargs"</span><span class="p">:</span> <span class="n">_encode_callables_as_references</span><span class="p">(</span>
+            <span class="n">generation_step</span><span class="o">.</span><span class="n">model_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="p">),</span>
+        <span class="s2">"model_gen_kwargs"</span><span class="p">:</span> <span class="n">_encode_callables_as_references</span><span class="p">(</span>
+            <span class="n">generation_step</span><span class="o">.</span><span class="n">model_gen_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="p">),</span>
+        <span class="s2">"index"</span><span class="p">:</span> <span class="n">generation_step</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="generation_strategy_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.generation_strategy_to_dict">[docs]</a><span class="k">def</span> <span class="nf">generation_strategy_to_dict</span><span class="p">(</span>
+    <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Converts Ax generation strategy to a dictionary."""</span>
+    <span class="k">if</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">uses_non_registered_models</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+            <span class="s2">"Generation strategies that use custom models provided through "</span>
+            <span class="s2">"callables cannot be serialized and stored."</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"db_id"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_db_id</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"steps"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_steps</span><span class="p">,</span>
+        <span class="s2">"curr_index"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_curr</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="s2">"generator_runs"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_generator_runs</span><span class="p">,</span>
+        <span class="s2">"had_initialized_model"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"experiment"</span><span class="p">:</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">_experiment</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="observation_features_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.observation_features_to_dict">[docs]</a><span class="k">def</span> <span class="nf">observation_features_to_dict</span><span class="p">(</span><span class="n">obs_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Converts Ax observation features to a dictionary"""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"parameters"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">trial_index</span><span class="p">,</span>
+        <span class="s2">"start_time"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+        <span class="s2">"end_time"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">end_time</span><span class="p">,</span>
+        <span class="s2">"random_split"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">random_split</span><span class="p">,</span>
+        <span class="s2">"metadata"</span><span class="p">:</span> <span class="n">obs_features</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="benchmark_problem_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.benchmark_problem_to_dict">[docs]</a><span class="k">def</span> <span class="nf">benchmark_problem_to_dict</span><span class="p">(</span><span class="n">benchmark_problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Converts an Ax benchmark problem to a serializable dictionary."""</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">benchmark_problem</span><span class="p">,</span> <span class="n">SimpleBenchmarkProblem</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">uses_synthetic_function</span><span class="p">:</span>
+            <span class="n">function_name</span> <span class="o">=</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">f</span><span class="o">.</span><span class="n">name</span>  <span class="c1"># pyre-ignore[16]</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">function_name</span> <span class="o">=</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">f</span><span class="o">.</span><span class="vm">__name__</span>  <span class="c1"># pyre-ignore[16]</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">benchmark_problem</span><span class="o">.</span><span class="n">f</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"__type"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">"uses_synthetic_function"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">uses_synthetic_function</span><span class="p">,</span>
+            <span class="s2">"function_name"</span><span class="p">:</span> <span class="n">function_name</span><span class="p">,</span>
+            <span class="c1"># If the benchamrk problem uses a custom callable, pickle it.</span>
+            <span class="s2">"f"</span><span class="p">:</span> <span class="n">f</span><span class="p">,</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"domain"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span>
+            <span class="s2">"minimize"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="s2">"noise_sd"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">noise_sd</span><span class="p">,</span>
+            <span class="s2">"evaluate_suggested"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">evaluate_suggested</span><span class="p">,</span>
+            <span class="s2">"optimal_value"</span><span class="p">:</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="n">optimal_value</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">benchmark_problem</span><span class="p">,</span> <span class="n">BenchmarkProblem</span><span class="p">):</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="n">serialize_init_args</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="n">benchmark_problem</span><span class="p">)</span>
+        <span class="n">properties</span><span class="p">[</span><span class="s2">"__type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">benchmark_problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">return</span> <span class="n">properties</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected benchmark problem, got: </span><span class="si">{</span><span class="n">benchmark_problem</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="botorch_model_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.botorch_model_to_dict">[docs]</a><span class="k">def</span> <span class="nf">botorch_model_to_dict</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">BoTorchModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax model to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"surrogate"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">surrogate</span><span class="p">,</span>
+        <span class="s2">"surrogate_options"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">surrogate_options</span><span class="p">,</span>
+        <span class="s2">"acquisition_class"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">acquisition_class</span><span class="p">,</span>
+        <span class="s2">"botorch_acqf_class"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">_botorch_acqf_class</span><span class="p">,</span>
+        <span class="s2">"acquisition_options"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">acquisition_options</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="s2">"refit_on_update"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">refit_on_update</span><span class="p">,</span>
+        <span class="s2">"refit_on_cv"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">refit_on_cv</span><span class="p">,</span>
+        <span class="s2">"warm_start_refit"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">warm_start_refit</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="surrogate_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.surrogate_to_dict">[docs]</a><span class="k">def</span> <span class="nf">surrogate_to_dict</span><span class="p">(</span><span class="n">surrogate</span><span class="p">:</span> <span class="n">Surrogate</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax surrogate to a dictionary."""</span>
+    <span class="n">dict_representation</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"__type"</span><span class="p">:</span> <span class="n">surrogate</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">}</span>
+    <span class="n">dict_representation</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">surrogate</span><span class="o">.</span><span class="n">_serialize_attributes_as_kwargs</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">dict_representation</span></div>
+
+
+<div class="viewcode-block" id="botorch_modular_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.botorch_modular_to_dict">[docs]</a><span class="k">def</span> <span class="nf">botorch_modular_to_dict</span><span class="p">(</span><span class="n">class_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert any class to a dictionary."""</span>
+    <span class="k">for</span> <span class="n">_class</span> <span class="ow">in</span> <span class="n">CLASS_TO_REGISTRY</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">_class</span><span class="p">):</span>
+            <span class="n">registry</span> <span class="o">=</span> <span class="n">CLASS_TO_REGISTRY</span><span class="p">[</span><span class="n">_class</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">class_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">registry</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="sa">f</span><span class="s2">"Class `</span><span class="si">{</span><span class="n">class_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">` not in Type[</span><span class="si">{</span><span class="n">_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">] "</span>
+                    <span class="s2">"registry, please add it. BoTorch object registries are "</span>
+                    <span class="s2">"located in `ax/storage/botorch_modular_registry.py`."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">"__type"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Type[</span><span class="si">{</span><span class="n">_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">]"</span><span class="p">,</span>
+                <span class="s2">"index"</span><span class="p">:</span> <span class="n">registry</span><span class="p">[</span><span class="n">class_type</span><span class="p">],</span>
+                <span class="s2">"class"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_class</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">}</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">class_type</span><span class="si">}</span><span class="s2"> does not have a corresponding parent class in "</span>
+        <span class="s2">"CLASS_TO_REGISTRY."</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="percentile_early_stopping_strategy_to_dict"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.encoders.percentile_early_stopping_strategy_to_dict">[docs]</a><span class="k">def</span> <span class="nf">percentile_early_stopping_strategy_to_dict</span><span class="p">(</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="n">PercentileEarlyStoppingStrategy</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Convert Ax percentile early stopping strategy to a dictionary."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"__type"</span><span class="p">:</span> <span class="n">strategy</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"percentile_threshold"</span><span class="p">:</span> <span class="n">strategy</span><span class="o">.</span><span class="n">percentile_threshold</span><span class="p">,</span>
+        <span class="s2">"min_progression"</span><span class="p">:</span> <span class="n">strategy</span><span class="o">.</span><span class="n">min_progression</span><span class="p">,</span>
+        <span class="s2">"min_curves"</span><span class="p">:</span> <span class="n">strategy</span><span class="o">.</span><span class="n">min_curves</span><span class="p">,</span>
+    <span class="p">}</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

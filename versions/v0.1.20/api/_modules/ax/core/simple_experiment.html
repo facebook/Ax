@@ -1,0 +1,304 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.20/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.20/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.20/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.20/css/main.css"/><script src="/versions/v0.1.20/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.20/"><img class="logo" src="/versions/v0.1.20/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.20/versions.html"><h3>v0.1.20</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/v0.1.20/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.20/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.20/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.simple_experiment</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TEvaluationOutcome</span><span class="p">,</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">TTrialEvaluation</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span><span class="p">,</span> <span class="n">numpy_type_to_python_type</span>
+
+
+<span class="n">DEFAULT_OBJECTIVE_NAME</span> <span class="o">=</span> <span class="s2">"objective"</span>
+
+<span class="c1"># Function that evaluates one parameter configuration.</span>
+<span class="n">TEvaluationFunction</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">TParameterization</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="n">TEvaluationOutcome</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="unimplemented_evaluation_function"><a class="viewcode-back" href="../../../core.html#ax.unimplemented_evaluation_function">[docs]</a><span class="k">def</span> <span class="nf">unimplemented_evaluation_function</span><span class="p">(</span>
+    <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TEvaluationOutcome</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Default evaluation function used if none is provided during initialization.</span>
+<span class="sd">    The evaluation function must be manually set before use.</span>
+<span class="sd">    """</span>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">"The evaluation function has not been set yet."</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SimpleExperiment"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment">[docs]</a><span class="k">class</span> <span class="nc">SimpleExperiment</span><span class="p">(</span><span class="n">Experiment</span><span class="p">):</span>
+    <span class="sd">"""</span>
+<span class="sd">    Simplified experiment class with defaults.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        search_space: Parameter space.</span>
+<span class="sd">        name: Name of this experiment.</span>
+<span class="sd">        objective_name: Which of the metrics computed by the evaluation</span>
+<span class="sd">            function is the objective.</span>
+<span class="sd">        evaluation_function: Function that evaluates</span>
+<span class="sd">            mean and standard error for a parameter configuration. This</span>
+<span class="sd">            function should accept a dictionary of parameter names to parameter</span>
+<span class="sd">            values (TParametrization) and optionally a weight, and return a</span>
+<span class="sd">            dictionary of metric names to a tuple of means and standard errors</span>
+<span class="sd">            (TEvaluationOutcome). The function can also return a single tuple,</span>
+<span class="sd">            in which case we assume the metric is the objective.</span>
+<span class="sd">        minimize: Whether the objective should be minimized,</span>
+<span class="sd">            defaults to `False`.</span>
+<span class="sd">        outcome_constraints: constraints on the outcome,</span>
+<span class="sd">            if any.</span>
+<span class="sd">        status_quo: Arm representing existing "control" arm.</span>
+<span class="sd">        properties: Dictionary of this experiment's properties.</span>
+<span class="sd">    """</span>
+
+    <span class="n">_evaluation_function</span><span class="p">:</span> <span class="n">TEvaluationFunction</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">objective_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">evaluation_function</span><span class="p">:</span> <span class="n">TEvaluationFunction</span> <span class="o">=</span> <span class="n">unimplemented_evaluation_function</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">Metric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">objective_name</span> <span class="ow">or</span> <span class="n">DEFAULT_OBJECTIVE_NAME</span><span class="p">),</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span> <span class="o">=</span> <span class="n">evaluation_function</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">is_simple_experiment</span><span class="p">)</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_simple_experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="SimpleExperiment.eval_trial"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.eval_trial">[docs]</a>    <span class="k">def</span> <span class="nf">eval_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Evaluate trial arms with the evaluation function of this</span>
+<span class="sd">        experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: trial, whose arms to evaluate.</span>
+<span class="sd">        """</span>
+        <span class="n">cached_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cached_data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cached_data</span>
+
+        <span class="n">evaluations</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_evaluation_function</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="sa">f</span><span class="s2">"Cannot evaluate trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> as no attached data was "</span>
+                <span class="s2">"found and no evaluation function is set on this `SimpleExperiment.`"</span>
+                <span class="s2">"`SimpleExperiment` is geared to synchronous and sequential cases "</span>
+                <span class="s2">"where each trial is evaluated before more trials are created. "</span>
+                <span class="s2">"For all other cases, use `Experiment`."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">Trial</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">Data</span><span class="p">()</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">()</span>
+            <span class="n">evaluations</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_function_outer</span><span class="p">(</span>
+                <span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">Data</span><span class="p">()</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">arm</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">normalized_arm_weights</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">arm_parameters</span><span class="p">:</span> <span class="n">TParameterization</span> <span class="o">=</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span>
+                <span class="n">evaluations</span><span class="p">[</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_function_outer</span><span class="p">(</span>
+                    <span class="n">arm_parameters</span><span class="p">,</span> <span class="n">weight</span>
+                <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_evaluations</span><span class="p">(</span><span class="n">evaluations</span><span class="p">,</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attach_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="SimpleExperiment.eval"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Evaluate all arms in the experiment with the evaluation</span>
+<span class="sd">        function passed as argument to this SimpleExperiment.</span>
+<span class="sd">        """</span>
+
+        <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eval_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span>
+            <span class="p">]</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">has_evaluation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether this `SimpleExperiment` has a valid evaluation function</span>
+<span class="sd">        attached."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">unimplemented_evaluation_function</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">evaluation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TEvaluationFunction</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Get the evaluation function.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span>
+
+    <span class="nd">@evaluation_function</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">evaluation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluation_function</span><span class="p">:</span> <span class="n">TEvaluationFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Set the evaluation function.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span> <span class="o">=</span> <span class="n">evaluation_function</span>
+
+<div class="viewcode-block" id="SimpleExperiment.evaluation_function_outer"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.evaluation_function_outer">[docs]</a>    <span class="k">def</span> <span class="nf">evaluation_function_outer</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TTrialEvaluation</span><span class="p">:</span>
+        <span class="n">signature</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span><span class="p">)</span>
+        <span class="n">num_evaluation_function_params</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">num_evaluation_function_params</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[20]: Anonymous call expects argument `$1`.</span>
+            <span class="n">evaluation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span><span class="p">(</span><span class="n">parameterization</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">num_evaluation_function_params</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">evaluation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_function</span><span class="p">(</span><span class="n">parameterization</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Evaluation function must take either one parameter "</span>
+                <span class="s2">"(parameterization) or two parameters (parameterization and weight)."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">evaluation</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `objective`.</span>
+            <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">evaluation</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="n">numpy_type_to_python_type</span><span class="p">(</span><span class="n">evaluation</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+            <span class="s2">"Evaluation function returned an invalid type. The function must "</span>
+            <span class="s2">"either return a dictionary of metric names to mean, sem tuples "</span>
+            <span class="s2">"or a single mean, sem tuple, or a single mean."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SimpleExperiment.fetch_data"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.fetch_data">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fetch_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span></div>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">_fetch_trial_data</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_fetch_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_trial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">])</span>
+
+<div class="viewcode-block" id="SimpleExperiment.add_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.add_tracking_metric">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">add_tracking_metric</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">add_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SimpleExperiment"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"SimpleExperiment does not support metric addition."</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SimpleExperiment.update_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.SimpleExperiment.update_tracking_metric">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Experiment</span><span class="o">.</span><span class="n">update_tracking_metric</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">update_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SimpleExperiment"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"SimpleExperiment does not support metric updates."</span><span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.20/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

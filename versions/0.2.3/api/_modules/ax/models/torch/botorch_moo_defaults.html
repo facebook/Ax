@@ -1,0 +1,607 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.3/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.3/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.3/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.3/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.3/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.3/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.3/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.3/css/main.css"/><script src="/versions/0.2.3/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.3/"><img class="logo" src="/versions/0.2.3/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.3/versions.html"><h3>0.2.3</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.3/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.3/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.3/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.botorch_moo_defaults</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="sd">"""</span>
+<span class="sd">References</span>
+
+<span class="sd">.. [Daulton2020qehvi]</span>
+<span class="sd">    S. Daulton, M. Balandat, and E. Bakshy. Differentiable Expected Hypervolume</span>
+<span class="sd">    Improvement for Parallel Multi-Objective Bayesian Optimization. Advances in Neural</span>
+<span class="sd">    Information Processing Systems 33, 2020.</span>
+
+<span class="sd">.. [Daulton2021nehvi]</span>
+<span class="sd">    S. Daulton, M. Balandat, and E. Bakshy. Parallel Bayesian Optimization of</span>
+<span class="sd">    Multiple Noisy Objectives with Expected Hypervolume Improvement. Advances</span>
+<span class="sd">    in Neural Information Processing Systems 34, 2021.</span>
+
+<span class="sd">"""</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">AxError</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_get_X_pending_and_observed</span><span class="p">,</span>
+    <span class="n">_to_inequality_constraints</span><span class="p">,</span>
+    <span class="n">subset_model</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.utils</span> <span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa F40</span>
+    <span class="n">_to_inequality_constraints</span><span class="p">,</span>
+    <span class="n">get_outcome_constraint_transforms</span><span class="p">,</span>
+    <span class="n">predict_from_model</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.multi_objective.objective</span> <span class="kn">import</span> <span class="n">WeightedMCMultiOutputObjective</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.multi_objective.utils</span> <span class="kn">import</span> <span class="n">get_default_partitioning_alpha</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_acquisition_function</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.optim.optimize</span> <span class="kn">import</span> <span class="n">optimize_acqf_list</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.multi_objective.hypervolume</span> <span class="kn">import</span> <span class="n">infer_reference_point</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.multi_objective.pareto</span> <span class="kn">import</span> <span class="n">is_non_dominated</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="n">DEFAULT_EHVI_MC_SAMPLES</span> <span class="o">=</span> <span class="mi">128</span>
+
+
+<span class="c1"># Callable that takes tensors of observations and model parameters,</span>
+<span class="c1"># then returns means of observations that make up a pareto frontier,</span>
+<span class="c1"># along with their covariances and their index in the input observations.</span>
+<span class="n">TFrontierEvaluator</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">TorchModel</span><span class="p">,</span>
+        <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+    <span class="p">],</span>
+    <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="get_default_frontier_evaluator"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.get_default_frontier_evaluator">[docs]</a><span class="k">def</span> <span class="nf">get_default_frontier_evaluator</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">TFrontierEvaluator</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">pareto_frontier_evaluator</span></div>
+
+
+<div class="viewcode-block" id="get_weighted_mc_objective_and_objective_thresholds"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.get_weighted_mc_objective_and_objective_thresholds">[docs]</a><span class="k">def</span> <span class="nf">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">(</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Tensor</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">WeightedMCMultiOutputObjective</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">"""Construct weighted objective and apply the weights to objective thresholds.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        objective_weights: The objective is to maximize a weighted sum of</span>
+<span class="sd">            the columns of f(x). These are the weights.</span>
+<span class="sd">        objective_thresholds: A tensor containing thresholds forming a reference point</span>
+<span class="sd">            from which to calculate pareto frontier hypervolume. Points that do not</span>
+<span class="sd">            dominate the objective_thresholds contribute nothing to hypervolume.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A two-element tuple with the objective and objective thresholds:</span>
+
+<span class="sd">            - The objective</span>
+<span class="sd">            - The objective thresholds</span>
+
+<span class="sd">    """</span>
+    <span class="n">nonzero_idcs</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">as_tuple</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="p">[</span><span class="n">nonzero_idcs</span><span class="p">]</span>
+    <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">objective_thresholds</span><span class="p">[</span><span class="n">nonzero_idcs</span><span class="p">]</span>
+    <span class="n">objective</span> <span class="o">=</span> <span class="n">WeightedMCMultiOutputObjective</span><span class="p">(</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="n">nonzero_idcs</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">objective_thresholds</span><span class="p">,</span> <span class="n">objective_weights</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">objective</span><span class="p">,</span> <span class="n">objective_thresholds</span></div>
+
+
+<div class="viewcode-block" id="get_NEHVI"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.get_NEHVI">[docs]</a><span class="k">def</span> <span class="nf">get_NEHVI</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionFunction</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">"""Instantiates a qNoisyExpectedHyperVolumeImprovement acquisition function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The underlying model which the acqusition function uses</span>
+<span class="sd">            to estimate acquisition values of candidates.</span>
+<span class="sd">        objective_weights: The objective is to maximize a weighted sum of</span>
+<span class="sd">            the columns of f(x). These are the weights.</span>
+<span class="sd">        outcome_constraints: A tuple of (A, b). For k outcome constraints</span>
+<span class="sd">            and m outputs at f(x), A is (k x m) and b is (k x 1) such that</span>
+<span class="sd">            A f(x) &lt;= b. (Not used by single task models)</span>
+<span class="sd">        X_observed: A tensor containing points observed for all objective</span>
+<span class="sd">            outcomes and outcomes that appear in the outcome constraints (if</span>
+<span class="sd">            there are any).</span>
+<span class="sd">        X_pending: A tensor containing points whose evaluation is pending (i.e.</span>
+<span class="sd">            that have been submitted for evaluation) present for all objective</span>
+<span class="sd">            outcomes and outcomes that appear in the outcome constraints (if</span>
+<span class="sd">            there are any).</span>
+<span class="sd">        mc_samples: The number of MC samples to use (default: 512).</span>
+<span class="sd">        qmc: If True, use qMC instead of MC (default: True).</span>
+<span class="sd">        prune_baseline: If True, prune the baseline points for NEI (default: True).</span>
+<span class="sd">        chebyshev_scalarization: Use augmented Chebyshev scalarization.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">X_observed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"There are no feasible observed points."</span><span class="p">)</span>
+    <span class="c1"># construct Objective module</span>
+    <span class="p">(</span>
+        <span class="n">objective</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">(</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span> <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span>
+    <span class="p">)</span>
+    <span class="c1"># For EHVI acquisition functions we pass the constraint transform directly.</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="n">get_outcome_constraint_transforms</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span>
+    <span class="n">num_objectives</span> <span class="o">=</span> <span class="n">objective_thresholds</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">get_acquisition_function</span><span class="p">(</span>
+        <span class="n">acquisition_function_name</span><span class="o">=</span><span class="s2">"qNEHVI"</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>  <span class="c1"># pyre-ignore [6]</span>
+        <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+        <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+        <span class="n">constraints</span><span class="o">=</span><span class="n">cons_tfs</span><span class="p">,</span>
+        <span class="n">prune_baseline</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"prune_baseline"</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="n">mc_samples</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mc_samples"</span><span class="p">,</span> <span class="n">DEFAULT_EHVI_MC_SAMPLES</span><span class="p">),</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">"alpha"</span><span class="p">,</span> <span class="n">get_default_partitioning_alpha</span><span class="p">(</span><span class="n">num_objectives</span><span class="o">=</span><span class="n">num_objectives</span><span class="p">)</span>
+        <span class="p">),</span>
+        <span class="n">qmc</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"qmc"</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="c1"># pyre-fixme[6]: Expected `Optional[int]` for 11th param but got</span>
+        <span class="c1">#  `Union[float, int]`.</span>
+        <span class="n">seed</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,))</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+        <span class="n">ref_point</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="n">marginalize_dim</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"marginalize_dim"</span><span class="p">),</span>
+        <span class="n">match_right_most_batch_dim</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"match_right_most_batch_dim"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+        <span class="n">cache_root</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cache_root"</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_EHVI"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.get_EHVI">[docs]</a><span class="k">def</span> <span class="nf">get_EHVI</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionFunction</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">"""Instantiates a qExpectedHyperVolumeImprovement acquisition function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The underlying model which the acqusition function uses</span>
+<span class="sd">            to estimate acquisition values of candidates.</span>
+<span class="sd">        objective_weights: The objective is to maximize a weighted sum of</span>
+<span class="sd">            the columns of f(x). These are the weights.</span>
+<span class="sd">        objective_thresholds:  A tensor containing thresholds forming a reference point</span>
+<span class="sd">            from which to calculate pareto frontier hypervolume. Points that do not</span>
+<span class="sd">            dominate the objective_thresholds contribute nothing to hypervolume.</span>
+<span class="sd">        outcome_constraints: A tuple of (A, b). For k outcome constraints</span>
+<span class="sd">            and m outputs at f(x), A is (k x m) and b is (k x 1) such that</span>
+<span class="sd">            A f(x) &lt;= b. (Not used by single task models)</span>
+<span class="sd">        X_observed: A tensor containing points observed for all objective</span>
+<span class="sd">            outcomes and outcomes that appear in the outcome constraints (if</span>
+<span class="sd">            there are any).</span>
+<span class="sd">        X_pending: A tensor containing points whose evaluation is pending (i.e.</span>
+<span class="sd">            that have been submitted for evaluation) present for all objective</span>
+<span class="sd">            outcomes and outcomes that appear in the outcome constraints (if</span>
+<span class="sd">            there are any).</span>
+<span class="sd">        mc_samples: The number of MC samples to use (default: 512).</span>
+<span class="sd">        qmc: If True, use qMC instead of MC (default: True).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        qExpectedHypervolumeImprovement: The instantiated acquisition function.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">X_observed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"There are no feasible observed points."</span><span class="p">)</span>
+    <span class="c1"># construct Objective module</span>
+    <span class="p">(</span>
+        <span class="n">objective</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">(</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span> <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span>
+    <span class="p">)</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="n">X_observed</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span>
+    <span class="c1"># For EHVI acquisition functions we pass the constraint transform directly.</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="n">get_outcome_constraint_transforms</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span>
+    <span class="n">num_objectives</span> <span class="o">=</span> <span class="n">objective_thresholds</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">get_acquisition_function</span><span class="p">(</span>
+        <span class="n">acquisition_function_name</span><span class="o">=</span><span class="s2">"qEHVI"</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="c1"># TODO (jej): Fix pyre error below by restructuring class hierarchy.</span>
+        <span class="c1"># pyre-fixme[6]: Expected `botorch.acquisition.objective.</span>
+        <span class="c1">#  MCAcquisitionObjective` for 3rd parameter `objective` to call</span>
+        <span class="c1">#  `get_acquisition_function` but got `IdentityMCMultiOutputObjective`.</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">objective</span><span class="p">,</span>
+        <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+        <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+        <span class="n">constraints</span><span class="o">=</span><span class="n">cons_tfs</span><span class="p">,</span>
+        <span class="n">mc_samples</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mc_samples"</span><span class="p">,</span> <span class="n">DEFAULT_EHVI_MC_SAMPLES</span><span class="p">),</span>
+        <span class="n">qmc</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"qmc"</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">"alpha"</span><span class="p">,</span> <span class="n">get_default_partitioning_alpha</span><span class="p">(</span><span class="n">num_objectives</span><span class="o">=</span><span class="n">num_objectives</span><span class="p">)</span>
+        <span class="p">),</span>
+        <span class="c1"># pyre-fixme[6]: Expected `Optional[int]` for 10th param but got</span>
+        <span class="c1">#  `Union[float, int]`.</span>
+        <span class="n">seed</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,))</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+        <span class="n">ref_point</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="n">Y</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># TODO (jej): rewrite optimize_acqf wrappers to avoid duplicate code.</span>
+<div class="viewcode-block" id="scipy_optimizer_list"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.scipy_optimizer_list">[docs]</a><span class="k">def</span> <span class="nf">scipy_optimizer_list</span><span class="p">(</span>
+    <span class="n">acq_function_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcquisitionFunction</span><span class="p">],</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">inequality_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.</span>
+
+<span class="sd">    The ith acquisition in the sequence uses the ith given acquisition_function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        acq_function_list: A list of botorch AcquisitionFunctions,</span>
+<span class="sd">            optimized sequentially.</span>
+<span class="sd">        bounds: A `2 x d`-dim tensor, where `bounds[0]` (`bounds[1]`) are the</span>
+<span class="sd">            lower (upper) bounds of the feasible hyperrectangle.</span>
+<span class="sd">        n: The number of candidates to generate.</span>
+<span class="sd">        inequality constraints: A list of tuples (indices, coefficients, rhs),</span>
+<span class="sd">            with each tuple encoding an inequality constraint of the form</span>
+<span class="sd">            `\sum_i (X[indices[i]] * coefficients[i]) &gt;= rhs`</span>
+<span class="sd">        fixed_features: A map {feature_index: value} for features that should</span>
+<span class="sd">            be fixed to a particular value during generation.</span>
+<span class="sd">        rounding_func: A function that rounds an optimization result</span>
+<span class="sd">            appropriately (i.e., according to `round-trip` transformations).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        2-element tuple containing</span>
+
+<span class="sd">        - A `n x d`-dim tensor of generated candidates.</span>
+<span class="sd">        - A `n`-dim tensor of conditional acquisition</span>
+<span class="sd">          values, where `i`-th element is the expected acquisition value</span>
+<span class="sd">          conditional on having observed candidates `0,1,...,i-1`.</span>
+<span class="sd">    """</span>
+    <span class="n">num_restarts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">NUM_RESTARTS</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="n">raw_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">RAW_SAMPLES</span><span class="p">,</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">num_restarts</span><span class="p">)</span>
+
+    <span class="c1"># use SLSQP by default for small problems since it yields faster wall times</span>
+    <span class="k">if</span> <span class="s2">"method"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"method"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"SLSQP"</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">expected_acquisition_value</span> <span class="o">=</span> <span class="n">optimize_acqf_list</span><span class="p">(</span>
+        <span class="n">acq_function_list</span><span class="o">=</span><span class="n">acq_function_list</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+        <span class="n">num_restarts</span><span class="o">=</span><span class="n">num_restarts</span><span class="p">,</span>
+        <span class="n">raw_samples</span><span class="o">=</span><span class="n">raw_samples</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">inequality_constraints</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="n">post_processing_func</span><span class="o">=</span><span class="n">rounding_func</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">expected_acquisition_value</span></div>
+
+
+<div class="viewcode-block" id="pareto_frontier_evaluator"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.pareto_frontier_evaluator">[docs]</a><span class="k">def</span> <span class="nf">pareto_frontier_evaluator</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">TorchModel</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">Yvar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sd">"""Return outcomes predicted to lie on a pareto frontier.</span>
+
+<span class="sd">    Given a model and points to evaluate, use the model to predict which points</span>
+<span class="sd">    lie on the Pareto frontier.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: Model used to predict outcomes.</span>
+<span class="sd">        objective_weights: A `m` tensor of values indicating the weight to put</span>
+<span class="sd">            on different outcomes. For pareto frontiers only the sign matters.</span>
+<span class="sd">        objective_thresholds:  A tensor containing thresholds forming a reference point</span>
+<span class="sd">            from which to calculate pareto frontier hypervolume. Points that do not</span>
+<span class="sd">            dominate the objective_thresholds contribute nothing to hypervolume.</span>
+<span class="sd">        X: A `n x d` tensor of features to evaluate.</span>
+<span class="sd">        Y: A `n x m` tensor of outcomes to use instead of predictions.</span>
+<span class="sd">        Yvar: A `n x m x m` tensor of input covariances (NaN if unobserved).</span>
+<span class="sd">        outcome_constraints: A tuple of (A, b). For k outcome constraints</span>
+<span class="sd">            and m outputs at f(x), A is (k x m) and b is (k x 1) such that</span>
+<span class="sd">            A f(x) &lt;= b.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        3-element tuple containing</span>
+
+<span class="sd">        - A `j x m` tensor of outcome on the pareto frontier. j is the number</span>
+<span class="sd">            of frontier points.</span>
+<span class="sd">        - A `j x m x m` tensor of predictive covariances.</span>
+<span class="sd">            cov[j, m1, m2] is Cov[m1@j, m2@j].</span>
+<span class="sd">        - A `j` tensor of the index of each frontier point in the input Y.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="c1"># model.predict returns cpu tensors</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">Yvar</span> <span class="o">=</span> <span class="n">Yvar</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">Y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">Yvar</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Requires `X` to predict or both `Y` and `Yvar` to select a subset of "</span>
+            <span class="s2">"points on the pareto frontier."</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Apply objective_weights to outcomes and objective_thresholds.</span>
+    <span class="c1"># If objective_thresholds is not None use a dummy tensor of zeros.</span>
+    <span class="p">(</span>
+        <span class="n">obj</span><span class="p">,</span>
+        <span class="n">weighted_objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">(</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">objective_thresholds</span>
+            <span class="k">if</span> <span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="n">objective_weights</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">objective_weights</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">objective_weights</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">Y_obj</span> <span class="o">=</span> <span class="n">obj</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+    <span class="n">indx_frontier</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">Y</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="c1"># Filter Y, Yvar, Y_obj to items that dominate all objective thresholds</span>
+    <span class="k">if</span> <span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">objective_thresholds_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y_obj</span> <span class="o">&gt;=</span> <span class="n">weighted_objective_thresholds</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">Y</span><span class="p">[</span><span class="n">objective_thresholds_mask</span><span class="p">]</span>
+        <span class="n">Yvar</span> <span class="o">=</span> <span class="n">Yvar</span><span class="p">[</span><span class="n">objective_thresholds_mask</span><span class="p">]</span>
+        <span class="n">Y_obj</span> <span class="o">=</span> <span class="n">Y_obj</span><span class="p">[</span><span class="n">objective_thresholds_mask</span><span class="p">]</span>
+        <span class="n">indx_frontier</span> <span class="o">=</span> <span class="n">indx_frontier</span><span class="p">[</span><span class="n">objective_thresholds_mask</span><span class="p">]</span>
+
+    <span class="c1"># Get feasible points that do not violate outcome_constraints</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="n">get_outcome_constraint_transforms</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span>
+        <span class="c1"># pyre-ignore [16]</span>
+        <span class="n">feas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">c</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cons_tfs</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">Y</span><span class="p">[</span><span class="n">feas</span><span class="p">]</span>
+        <span class="n">Yvar</span> <span class="o">=</span> <span class="n">Yvar</span><span class="p">[</span><span class="n">feas</span><span class="p">]</span>
+        <span class="n">Y_obj</span> <span class="o">=</span> <span class="n">Y_obj</span><span class="p">[</span><span class="n">feas</span><span class="p">]</span>
+        <span class="n">indx_frontier</span> <span class="o">=</span> <span class="n">indx_frontier</span><span class="p">[</span><span class="n">feas</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># if there are no feasible points that are better than the reference point</span>
+        <span class="c1"># return empty tensors</span>
+        <span class="k">return</span> <span class="n">Y</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">Yvar</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">indx_frontier</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+
+    <span class="c1"># calculate pareto front with only objective outcomes:</span>
+    <span class="n">frontier_mask</span> <span class="o">=</span> <span class="n">is_non_dominated</span><span class="p">(</span><span class="n">Y_obj</span><span class="p">)</span>
+
+    <span class="c1"># Apply masks</span>
+    <span class="n">Y_frontier</span> <span class="o">=</span> <span class="n">Y</span><span class="p">[</span><span class="n">frontier_mask</span><span class="p">]</span>
+    <span class="n">Yvar_frontier</span> <span class="o">=</span> <span class="n">Yvar</span><span class="p">[</span><span class="n">frontier_mask</span><span class="p">]</span>
+    <span class="n">indx_frontier</span> <span class="o">=</span> <span class="n">indx_frontier</span><span class="p">[</span><span class="n">frontier_mask</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Y_frontier</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">Yvar_frontier</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">indx_frontier</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="infer_objective_thresholds"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch_moo_defaults.infer_objective_thresholds">[docs]</a><span class="k">def</span> <span class="nf">infer_objective_thresholds</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>  <span class="c1"># objective_directions</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">subset_idcs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">Xs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="sd">"""Infer objective thresholds.</span>
+
+<span class="sd">    This method uses the model-estimated Pareto frontier over the in-sample points</span>
+<span class="sd">    to infer absolute (not relativized) objective thresholds.</span>
+
+<span class="sd">    This uses a heuristic that sets the objective threshold to be a scaled nadir</span>
+<span class="sd">    point, where the nadir point is scaled back based on the range of each</span>
+<span class="sd">    objective across the current in-sample Pareto frontier.</span>
+
+<span class="sd">    See `botorch.utils.multi_objective.hypervolume.infer_reference_point` for</span>
+<span class="sd">    details on the heuristic.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: A fitted botorch Model.</span>
+<span class="sd">        objective_weights: The objective is to maximize a weighted sum of</span>
+<span class="sd">            the columns of f(x). These are the weights. These should not</span>
+<span class="sd">            be subsetted.</span>
+<span class="sd">        bounds: A list of (lower, upper) tuples for each column of X.</span>
+<span class="sd">        outcome_constraints: A tuple of (A, b). For k outcome constraints</span>
+<span class="sd">            and m outputs at f(x), A is (k x m) and b is (k x 1) such that</span>
+<span class="sd">            A f(x) &lt;= b. These should not be subsetted.</span>
+<span class="sd">        linear_constraints: A tuple of (A, b). For k linear constraints on</span>
+<span class="sd">            d-dimensional x, A is (k x d) and b is (k x 1) such that</span>
+<span class="sd">            A x &lt;= b.</span>
+<span class="sd">        fixed_features: A map {feature_index: value} for features that</span>
+<span class="sd">            should be fixed to a particular value during generation.</span>
+<span class="sd">        subset_idcs: The indices of the outcomes that are modeled by the</span>
+<span class="sd">            provided model. If subset_idcs not None, this method infers</span>
+<span class="sd">            whether the model is subsetted.</span>
+<span class="sd">        Xs: A list of m (k_i x d) feature tensors X. Number of rows k_i can</span>
+<span class="sd">            vary from i=1,...,m.</span>
+<span class="sd">        X_observed: A `n x d`-dim tensor of in-sample points to use for</span>
+<span class="sd">            determining the current in-sample Pareto frontier.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A `m`-dim tensor of objective thresholds, where the objective</span>
+<span class="sd">            threshold is `nan` if the outcome is not an objective.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">X_observed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"bounds is required if X_observed is None."</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">Xs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Xs is required if X_observed is None."</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">X_observed</span> <span class="o">=</span> <span class="n">_get_X_pending_and_observed</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">num_outcomes</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">subset_idcs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># check if only a subset of outcomes are modeled</span>
+        <span class="n">nonzero</span> <span class="o">=</span> <span class="n">objective_weights</span> <span class="o">!=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">outcome_constraints</span>
+            <span class="n">nonzero</span> <span class="o">=</span> <span class="n">nonzero</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">A</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">expected_subset_idcs</span> <span class="o">=</span> <span class="n">nonzero</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">num_outputs</span> <span class="o">&gt;</span> <span class="n">expected_subset_idcs</span><span class="o">.</span><span class="n">numel</span><span class="p">():</span>
+            <span class="c1"># subset the model so that we only compute the posterior</span>
+            <span class="c1"># over the relevant outcomes</span>
+            <span class="n">subset_model_results</span> <span class="o">=</span> <span class="n">subset_model</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">model</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">objective_weights</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">outcome_constraints</span>
+            <span class="n">subset_idcs</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">indices</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># model is already subsetted.</span>
+            <span class="n">subset_idcs</span> <span class="o">=</span> <span class="n">expected_subset_idcs</span>
+            <span class="c1"># subset objective weights and outcome constraints</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="p">[</span><span class="n">subset_idcs</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="n">subset_idcs</span><span class="p">],</span>
+                    <span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="p">[</span><span class="n">subset_idcs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="n">subset_idcs</span><span class="p">],</span>
+                <span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="p">)</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">X_observed</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cons_tfs</span> <span class="o">=</span> <span class="n">get_outcome_constraint_transforms</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span>
+        <span class="c1"># pyre-ignore [16]</span>
+        <span class="n">feas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">c</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cons_tfs</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="n">feas</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">AxError</span><span class="p">(</span><span class="s2">"There are no feasible observed points."</span><span class="p">)</span>
+    <span class="n">obj_mask</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">obj_weights_subset</span> <span class="o">=</span> <span class="n">objective_weights</span><span class="p">[</span><span class="n">obj_mask</span><span class="p">]</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">obj_mask</span><span class="p">]</span> <span class="o">*</span> <span class="n">obj_weights_subset</span>
+    <span class="n">pareto_obj</span> <span class="o">=</span> <span class="n">obj</span><span class="p">[</span><span class="n">is_non_dominated</span><span class="p">(</span><span class="n">obj</span><span class="p">)]</span>
+    <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">infer_reference_point</span><span class="p">(</span>
+        <span class="n">pareto_Y</span><span class="o">=</span><span class="n">pareto_obj</span><span class="p">,</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># multiply by objective weights to return objective thresholds in the</span>
+    <span class="c1"># unweighted space</span>
+    <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="n">objective_thresholds</span> <span class="o">*</span> <span class="n">obj_weights_subset</span>
+    <span class="n">full_objective_thresholds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">num_outcomes</span><span class="p">,),</span>
+        <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">objective_weights</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">objective_weights</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">obj_idcs</span> <span class="o">=</span> <span class="n">subset_idcs</span><span class="p">[</span><span class="n">obj_mask</span><span class="p">]</span>
+    <span class="n">full_objective_thresholds</span><span class="p">[</span><span class="n">obj_idcs</span><span class="p">]</span> <span class="o">=</span> <span class="n">objective_thresholds</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">full_objective_thresholds</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.3/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Meta Platforms, Inc.</section></footer></div></body></html>

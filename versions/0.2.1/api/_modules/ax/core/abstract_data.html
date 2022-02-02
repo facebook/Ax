@@ -1,0 +1,310 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.1/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.1/css/main.css"/><script src="/versions/0.2.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.1/"><img class="logo" src="/versions/0.2.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.1/versions.html"><h3>0.2.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.abstract_data</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">md5</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.serialization</span> <span class="kn">import</span> <span class="n">serialize_init_args</span><span class="p">,</span> <span class="n">extract_init_args</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationData</span>
+
+
+<div class="viewcode-block" id="AbstractData"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractData">[docs]</a><span class="k">class</span> <span class="nc">AbstractData</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Abstract Base Class for storing data for an experiment."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Init Data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            description: Human-readable description of data.</span>
+
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+
+<div class="viewcode-block" id="AbstractData.from_multiple_data"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractData.from_multiple_data">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">from_multiple_data</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">AbstractData</span><span class="p">],</span> <span class="n">subset_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractData</span><span class="p">:</span>
+        <span class="sd">"""Combines multiple data objects into one (with the concatenated</span>
+<span class="sd">        underlying dataframe).</span>
+
+<span class="sd">        NOTE: if one or more data objects in the iterable is of a custom</span>
+<span class="sd">        subclass of this Data type, object of that class will be returned. If</span>
+<span class="sd">        the iterable contains incompatible types of `Data`, an error will be</span>
+<span class="sd">        raised.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data: Iterable of data objects to combine.</span>
+<span class="sd">            subset_metrics: If specified, combined data will only contain</span>
+<span class="sd">                metrics that appear in this iterable.</span>
+<span class="sd">        """</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">metric_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Set of metrics contained in this data."""</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+
+<div class="viewcode-block" id="AbstractData.to_observation_data"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractData.to_observation_data">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">to_observation_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">"ObservationData"</span><span class="p">]:</span>
+        <span class="sd">"""Convert to ObservationData"""</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div></div>
+
+
+<div class="viewcode-block" id="AbstractDataFrameData"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData">[docs]</a><span class="k">class</span> <span class="nc">AbstractDataFrameData</span><span class="p">(</span><span class="n">AbstractData</span><span class="p">,</span> <span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Abstract Base Class for storing `DataFrame`-backed Data for an experiment.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        df: DataFrame with underlying data, and required columns.</span>
+<span class="sd">        description: Human-readable description of data.</span>
+
+<span class="sd">    """</span>
+
+    <span class="n">REQUIRED_COLUMNS</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">COLUMN_DATA_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"arm_name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">"metric_name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="s2">"mean"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="s2">"sem"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Init Data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            description: Human-readable description of data.</span>
+
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_safecast_df</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">extra_column_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">"""Function for safely casting df to standard data types.</span>
+
+<span class="sd">        Needed because numpy does not support NaNs in integer arrays.</span>
+
+<span class="sd">        Allows `Any` to be specified as a type, and will skip casting for that column.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df: DataFrame to safe-cast.</span>
+<span class="sd">            extra_column_types: types of columns only specified at instantiation-time.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            safe_df: DataFrame cast to standard dtypes.</span>
+
+<span class="sd">        """</span>
+        <span class="n">extra_column_types</span> <span class="o">=</span> <span class="n">extra_column_types</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># Pandas timestamp handlng is weird</span>
+            <span class="n">col</span><span class="p">:</span> <span class="s2">"datetime64[ns]"</span> <span class="k">if</span> <span class="n">coltype</span> <span class="ow">is</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="k">else</span> <span class="n">coltype</span>
+            <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">coltype</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">(</span>
+                <span class="n">extra_column_types</span><span class="o">=</span><span class="n">extra_column_types</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">(</span><span class="n">extra_column_types</span><span class="p">)[</span><span class="n">col</span><span class="p">]</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+                <span class="ow">and</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">coltype</span> <span class="ow">is</span> <span class="n">Any</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="c1"># pyre-fixme[7]: Expected `DataFrame` but got</span>
+        <span class="c1">#  `Union[pd.core.frame.DataFrame, pd.core.series.Series]`.</span>
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AbstractDataFrameData.required_columns"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.required_columns">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">required_columns</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Names of required columns."""</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">REQUIRED_COLUMNS</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.supported_columns"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.supported_columns">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">supported_columns</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">extra_column_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Names of columns supported (but not necessarily required) by this class."""</span>
+        <span class="n">extra_column_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">extra_column_names</span> <span class="ow">or</span> <span class="p">[])</span>
+        <span class="n">extra_column_types</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">Any</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">extra_column_names</span><span class="p">}</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">REQUIRED_COLUMNS</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">column_data_types</span><span class="p">(</span><span class="n">extra_column_types</span><span class="o">=</span><span class="n">extra_column_types</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.column_data_types"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.column_data_types">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">column_data_types</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">extra_column_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">]:</span>
+        <span class="sd">"""Type specification for all supported columns."""</span>
+        <span class="n">extra_column_types</span> <span class="o">=</span> <span class="n">extra_column_types</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="bp">cls</span><span class="o">.</span><span class="n">COLUMN_DATA_TYPES</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_column_types</span><span class="p">}</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">"""Return a flattened `DataFrame` representation of this data's metrics."""</span>
+        <span class="c1"># pyre-ignore [16]: Undefined attribute. _df will be defined in subclasses.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">df_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Compute hash of pandas DataFrame.</span>
+
+<span class="sd">        This first serializes the DataFrame and computes the md5 hash on the</span>
+<span class="sd">        resulting string. Note that this may cause performance issue for very large</span>
+<span class="sd">        DataFrames.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df: The DataFrame for which to compute the hash.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            str: The hash of the DataFrame.</span>
+
+<span class="sd">        """</span>
+        <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `encode`.</span>
+        <span class="k">return</span> <span class="n">md5</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metric_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Set of metric names that appear in the underlying dataframe of</span>
+<span class="sd">        this object.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AbstractDataFrameData.get_filtered_results"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.get_filtered_results">[docs]</a>    <span class="k">def</span> <span class="nf">get_filtered_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">filters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">"""Return filtered subset of data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filter: Column names and values they must match.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            df: The filtered DataFrame.</span>
+<span class="sd">        """</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">for</span> <span class="n">colname</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">filters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">colname</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">colname</span><span class="si">}</span><span class="s2"> not in the set of columns: </span><span class="si">{</span><span class="n">columns</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="sa">f</span><span class="s2">"in this data object of type: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">colname</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">df</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.to_observation_data"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.to_observation_data">[docs]</a>    <span class="k">def</span> <span class="nf">to_observation_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">"ObservationData"</span><span class="p">]:</span>
+        <span class="sd">"""Convert to ObservationData"""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>  <span class="c1"># pragma: no cover</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.serialize_init_args"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.serialize_init_args">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">serialize_init_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">AbstractDataFrameData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Serialize the class-dependent properties needed to initialize this Data.</span>
+<span class="sd">        Used for storage and to help construct new similar Data. All kwargs</span>
+<span class="sd">        other than "dataframe" and "description" are considered structural.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">serialize_init_args</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">exclude_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"df"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.deserialize_init_args"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.deserialize_init_args">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">deserialize_init_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Given a dictionary, extract the properties needed to initialize the metric.</span>
+<span class="sd">        Used for storage.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">extract_init_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">,</span> <span class="n">class_</span><span class="o">=</span><span class="bp">cls</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractDataFrameData.copy_structure_with_df"><a class="viewcode-back" href="../../../core.html#ax.core.abstract_data.AbstractDataFrameData.copy_structure_with_df">[docs]</a>    <span class="k">def</span> <span class="nf">copy_structure_with_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractDataFrameData</span><span class="p">:</span>
+        <span class="sd">"""Serialize the structural properties needed to initialize this Data.</span>
+<span class="sd">        Used for storage and to help construct new similar Data. All kwargs</span>
+<span class="sd">        other than "dataframe" and "description" are considered structural.</span>
+<span class="sd">        """</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># pyre-ignore[45]: Cannot insantiate abstract class</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="o">**</span><span class="bp">cls</span><span class="o">.</span><span class="n">serialize_init_args</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>
