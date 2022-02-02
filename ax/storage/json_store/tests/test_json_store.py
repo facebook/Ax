@@ -28,6 +28,7 @@ from ax.storage.json_store.registry import (
     DEPRECATED_CLASS_ENCODER_REGISTRY,
     DEPRECATED_ENCODER_REGISTRY,
     DEPRECATED_DECODER_REGISTRY,
+    DEPRECATED_CLASS_DECODER_REGISTRY,
 )
 from ax.storage.json_store.save import save_experiment
 from ax.storage.metric_registry import register_metric
@@ -181,12 +182,14 @@ class JSONStoreTest(TestCase):
             object_from_json,
             RuntimeError("foobar"),
             DEPRECATED_DECODER_REGISTRY,
+            DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertRaises(
             JSONDecodeError,
             object_from_json,
             {"__type": "foobar"},
             DEPRECATED_DECODER_REGISTRY,
+            DEPRECATED_CLASS_DECODER_REGISTRY,
         )
 
     def testSaveAndLoad(self):
@@ -198,7 +201,9 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             )
             loaded_experiment = load_experiment(
-                f.name, decoder_registry=DEPRECATED_DECODER_REGISTRY
+                f.name,
+                decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
             )
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
@@ -242,7 +247,9 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             )
             converted_object = object_from_json(
-                json_object, decoder_registry=DEPRECATED_DECODER_REGISTRY
+                json_object,
+                decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
             )
 
             if class_ == "SimpleExperiment":
@@ -276,7 +283,11 @@ class JSONStoreTest(TestCase):
             class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
         )
         self.assertEqual(expected_json, x_json)
-        x2 = object_from_json(x_json, decoder_registry=DEPRECATED_DECODER_REGISTRY)
+        x2 = object_from_json(
+            x_json,
+            decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
+        )
         self.assertTrue(torch.equal(x, x2))
 
     def testDecodeGenerationStrategy(self):
@@ -288,7 +299,9 @@ class JSONStoreTest(TestCase):
             class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
         )
         new_generation_strategy = generation_strategy_from_json(
-            gs_json, decoder_registry=DEPRECATED_DECODER_REGISTRY
+            gs_json,
+            decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
@@ -309,7 +322,9 @@ class JSONStoreTest(TestCase):
             class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
         )
         new_generation_strategy = generation_strategy_from_json(
-            gs_json, decoder_registry=DEPRECATED_DECODER_REGISTRY
+            gs_json,
+            decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
@@ -329,7 +344,9 @@ class JSONStoreTest(TestCase):
             class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
         )
         new_generation_strategy = generation_strategy_from_json(
-            gs_json, decoder_registry=DEPRECATED_DECODER_REGISTRY
+            gs_json,
+            decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
@@ -347,6 +364,7 @@ class JSONStoreTest(TestCase):
                         class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
                     ),
                     decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                    class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
                 ),
             )
         )
@@ -361,6 +379,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             ),
             decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         new_sum_problem = object_from_json(
             object_to_json(
@@ -369,6 +388,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             ),
             decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(
             branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
@@ -385,6 +405,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             ),
             decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         self.assertEqual(
             ackley_problem.f(1, 2), new_ackley_problem.f(1, 2), ackley(1, 2)
@@ -415,7 +436,9 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             )
             loaded_experiment = load_experiment(
-                f.name, decoder_registry=DEPRECATED_DECODER_REGISTRY
+                f.name,
+                decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
             )
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)

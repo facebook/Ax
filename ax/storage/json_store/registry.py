@@ -235,7 +235,7 @@ DEPRECATED_DECODER_REGISTRY: Dict[str, Type] = {
 
 
 # Registry for class types, not instances.
-CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
+DEPRECATED_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
     "Type[MarginalLogLikelihood]": class_from_json,

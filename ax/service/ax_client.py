@@ -61,6 +61,7 @@ from ax.storage.json_store.registry import (
     DEPRECATED_ENCODER_REGISTRY,
     DEPRECATED_CLASS_ENCODER_REGISTRY,
     DEPRECATED_DECODER_REGISTRY,
+    DEPRECATED_CLASS_DECODER_REGISTRY,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
@@ -1060,7 +1061,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
         experiment = object_from_json(
-            serialized.pop("experiment"), decoder_registry=DEPRECATED_DECODER_REGISTRY
+            serialized.pop("experiment"),
+            decoder_registry=DEPRECATED_DECODER_REGISTRY,
+            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
         )
         serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = cls(
@@ -1068,6 +1071,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
                 generation_strategy_json=serialized_generation_strategy,
                 experiment=experiment,
                 decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
             )
             if serialized_generation_strategy is not None
             else None,

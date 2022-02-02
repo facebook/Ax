@@ -400,6 +400,7 @@ class Decoder:
             object_from_json(
                 metric_sqa.properties,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             )
             or {}
         )
@@ -719,29 +720,34 @@ class Decoder:
             else object_from_json(
                 generator_run_sqa.model_kwargs,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             ),
             bridge_kwargs=None
             if reduced_state
             else object_from_json(
                 generator_run_sqa.bridge_kwargs,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             ),
             gen_metadata=None
             if reduced_state
             else object_from_json(
                 generator_run_sqa.gen_metadata,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             ),
             model_state_after_gen=None
             if reduced_state
             else object_from_json(
                 generator_run_sqa.model_state_after_gen,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             ),
             generation_step_index=generator_run_sqa.generation_step_index,
             candidate_metadata_by_arm_signature=object_from_json(
                 generator_run_sqa.candidate_metadata_by_arm_signature,
                 decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             ),
         )
         generator_run._time_created = generator_run_sqa.time_created
@@ -761,7 +767,9 @@ class Decoder:
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
         steps = object_from_json(
-            gs_sqa.steps, decoder_registry=self.config.json_decoder_registry
+            gs_sqa.steps,
+            decoder_registry=self.config.json_decoder_registry,
+            class_decoder_registry=self.config.json_class_decoder_registry,
         )
         gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
         gs._curr = gs._steps[gs_sqa.curr_index]
