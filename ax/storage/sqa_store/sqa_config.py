@@ -4,8 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import field, dataclass
 from enum import Enum
-from typing import Dict, NamedTuple, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type
 
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
@@ -41,13 +42,8 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.utils.common.base import Base
 
 
-# pyre-fixme[9]: class_to_sqa_class has type `Dict[Type[Base], Type[SQABase]]`; used
-#  as `Dict[Type[Union[AbandonedArm, Arm, Data, Experiment, GenerationStrategy,
-#  GeneratorRun, Metric, Parameter, ParameterConstraint, Runner, Trial]],
-#  Type[Union[SQAAbandonedArm, SQAArm, SQAData, SQAExperiment, SQAGenerationStrategy,
-#  SQAGeneratorRun, SQAMetric, SQAParameter, SQAParameterConstraint, SQARunner,
-#  SQATrial]]]`.
-class SQAConfig(NamedTuple):
+@dataclass
+class SQAConfig:
     """Metadata needed to save and load an experiment to SQLAlchemy.
 
     Attributes:
@@ -60,22 +56,36 @@ class SQAConfig(NamedTuple):
             serialization function.
     """
 
-    class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = {
-        AbandonedArm: SQAAbandonedArm,
-        Arm: SQAArm,
-        Data: SQAData,
-        Experiment: SQAExperiment,
-        GenerationStrategy: SQAGenerationStrategy,
-        GeneratorRun: SQAGeneratorRun,
-        Parameter: SQAParameter,
-        ParameterConstraint: SQAParameterConstraint,
-        Metric: SQAMetric,
-        Runner: SQARunner,
-        Trial: SQATrial,
-    }
+    def _default_class_to_sqa_class(self=None) -> Dict[Type[Base], Type[SQABase]]:
+        # pyre-ignore [7]
+        return {
+            AbandonedArm: SQAAbandonedArm,
+            Arm: SQAArm,
+            Data: SQAData,
+            Experiment: SQAExperiment,
+            GenerationStrategy: SQAGenerationStrategy,
+            GeneratorRun: SQAGeneratorRun,
+            Parameter: SQAParameter,
+            ParameterConstraint: SQAParameterConstraint,
+            Metric: SQAMetric,
+            Runner: SQARunner,
+            Trial: SQATrial,
+        }
+
+    class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = field(
+        default_factory=_default_class_to_sqa_class
+    )
     experiment_type_enum: Optional[Enum] = None
-    generator_run_type_enum: Optional[Enum] = GeneratorRunType
-    json_encoder_registry = DEPRECATED_ENCODER_REGISTRY
-    json_class_encoder_registry = DEPRECATED_CLASS_ENCODER_REGISTRY
-    json_decoder_registry = DEPRECATED_DECODER_REGISTRY
-    json_class_decoder_registry = DEPRECATED_CLASS_DECODER_REGISTRY
+    generator_run_type_enum: Optional[Enum] = GeneratorRunType  # pyre-ignore [8]
+    json_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
+        default_factory=lambda: DEPRECATED_ENCODER_REGISTRY
+    )
+    json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
+        default_factory=lambda: DEPRECATED_CLASS_ENCODER_REGISTRY
+    )
+    json_decoder_registry: Dict[str, Type] = field(
+        default_factory=lambda: DEPRECATED_DECODER_REGISTRY
+    )
+    json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
+        default_factory=lambda: DEPRECATED_CLASS_DECODER_REGISTRY
+    )

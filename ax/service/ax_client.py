@@ -8,7 +8,7 @@ import json
 import logging
 import warnings
 from functools import partial
-from typing import Set, Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
+from typing import Callable, Set, Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
 
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
@@ -1033,45 +1033,69 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
             serialized = json.loads(file.read())
             return cls.from_json_snapshot(serialized=serialized, **kwargs)
 
-    def to_json_snapshot(self) -> Dict[str, Any]:
+    def to_json_snapshot(
+        self,
+        encoder_registry: Optional[Dict[Type, Callable[[Any], Dict[str, Any]]]] = None,
+        class_encoder_registry: Optional[
+            Dict[Type, Callable[[Any], Dict[str, Any]]]
+        ] = None,
+    ) -> Dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
 
         Returns:
             A JSON-safe dict representation of this `AxClient`.
         """
+        if encoder_registry is None:
+            encoder_registry = DEPRECATED_ENCODER_REGISTRY
+
+        if class_encoder_registry is None:
+            class_encoder_registry = DEPRECATED_CLASS_ENCODER_REGISTRY
+
         return {
             "_type": self.__class__.__name__,
             "experiment": object_to_json(
                 self._experiment,
-                encoder_registry=DEPRECATED_ENCODER_REGISTRY,
-                class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
             ),
             "generation_strategy": object_to_json(
                 self._generation_strategy,
-                encoder_registry=DEPRECATED_ENCODER_REGISTRY,
-                class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
             ),
             "_enforce_sequential_optimization": self._enforce_sequential_optimization,
         }
 
     @classmethod
     def from_json_snapshot(
-        cls: Type[AxClientSubclass], serialized: Dict[str, Any], **kwargs
+        cls: Type[AxClientSubclass],
+        serialized: Dict[str, Any],
+        decoder_registry: Optional[Dict[str, Type]] = None,
+        class_decoder_registry: Optional[
+            Dict[str, Callable[[Dict[str, Any]], Any]]
+        ] = None,
+        **kwargs,
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
+        if decoder_registry is None:
+            decoder_registry = DEPRECATED_DECODER_REGISTRY
+
+        if class_decoder_registry is None:
+            class_decoder_registry = DEPRECATED_CLASS_DECODER_REGISTRY
+
         experiment = object_from_json(
             serialized.pop("experiment"),
-            decoder_registry=DEPRECATED_DECODER_REGISTRY,
-            class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
         )
         serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = cls(
             generation_strategy=generation_strategy_from_json(
                 generation_strategy_json=serialized_generation_strategy,
                 experiment=experiment,
-                decoder_registry=DEPRECATED_DECODER_REGISTRY,
-                class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
             )
             if serialized_generation_strategy is not None
             else None,
