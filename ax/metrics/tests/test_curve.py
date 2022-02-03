@@ -12,6 +12,5 @@ from ax.utils.common.testutils import TestCase
 class AbstractCurveMetricTest(TestCase):
     def testAbstractCurveMetric(self):
         self.assertTrue(AbstractCurveMetric.is_available_while_running())
-        self.assertTrue(AbstractCurveMetric.overwrite_existing_data())
         with self.assertRaises(TypeError):
             AbstractCurveMetric("foo", "bar")

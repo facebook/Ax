@@ -53,10 +53,6 @@ class AbstractCurveMetric(MapMetric, ABC):
     def is_available_while_running(cls) -> bool:
         return True
 
-    @classmethod
-    def overwrite_existing_data(cls) -> bool:
-        return True
-
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
         """Fetch data for one trial."""
         return self.fetch_trial_data_multi(trial=trial, metrics=[self], **kwargs)

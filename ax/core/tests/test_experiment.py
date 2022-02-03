@@ -614,8 +614,6 @@ class ExperimentTest(TestCase):
             Data.from_multiple_data([batch_0_data, batch_1_data]),
         )
 
-        # Since NoisyFunction metric has overwrite_existing_data = False,
-        # we should have two dfs per trial now
         self.assertEqual(len(exp.data_by_trial[0]), 2)
 
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):

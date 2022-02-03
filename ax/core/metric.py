@@ -65,20 +65,6 @@ class Metric(SortableBase):
         """
         return False
 
-    @classmethod
-    def overwrite_existing_data(cls) -> bool:
-        """Indicates whether, when attaching data, we should overwrite all previously
-        attached data with the new dataframe.
-        """
-        return False
-
-    @classmethod
-    def combine_with_last_data(cls) -> bool:
-        """Indicates whether, when attaching data, we should merge the new dataframe
-        into the most recently attached dataframe.
-        """
-        return False
-
     @property
     def name(self) -> str:
         """Get name of metric."""
