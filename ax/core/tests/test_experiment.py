@@ -520,6 +520,13 @@ class ExperimentTest(TestCase):
         self.assertTrue(ts in exp._data_by_trial[0])
         self.assertTrue(ts in exp._data_by_trial[1])
 
+        with self.assertRaisesRegex(
+            ValueError, "new data contains only a subset of the metrics"
+        ):
+            # prevent users from overwriting metrics
+            data.df["metric_name"] = "a"
+            exp.attach_data(data, overwrite_existing_data=True)
+
     def testEmptyMetrics(self):
         empty_experiment = Experiment(
             name="test_experiment", search_space=get_search_space()

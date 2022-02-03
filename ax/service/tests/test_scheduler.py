@@ -779,6 +779,13 @@ class TestAxScheduler(TestCase):
             self.assertEqual(res_list[2]["trials_completed_so_far"], {0, 2})
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_steps)
 
+        # There should be 2 dataframes for Trial 0 -- one from its *last* intermediate
+        # poll and one from when the trial was completed. If Scheduler.poll_and_process
+        # results didn't specify overwrite_existing_results=True on the intermediate
+        # polls, we'd have 3 dataframes instead -- one from *each* intermediate poll
+        # and one from when the trial was completed.
+        self.assertEqual(len(scheduler.experiment.data_by_trial[0]), 2)
+
         looked_up_data = scheduler.experiment.lookup_data()
         fetched_data = scheduler.experiment.fetch_data()
 

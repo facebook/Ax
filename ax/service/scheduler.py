@@ -1077,7 +1077,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 f"Fetching data for trials: {idcs} because some metrics "
                 "on experiment are available while trials are running."
             )
-            self.experiment.fetch_trials_data(trial_indices=running_trial_indices)
+            self.experiment.fetch_trials_data(
+                trial_indices=running_trial_indices,
+                overwrite_existing_data=True,
+            )
 
         # 3. Determine which trials to stop early
         stop_trial_info = self.should_stop_trials_early(

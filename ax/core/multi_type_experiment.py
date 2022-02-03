@@ -185,7 +185,13 @@ class MultiTypeExperiment(Experiment):
         return self
 
     @copy_doc(Experiment.fetch_data)
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self,
+        metrics: Optional[List[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
+        **kwargs: Any,
+    ) -> Data:
         return self.default_data_constructor.from_multiple_data(
             [
                 trial.fetch_data(**kwargs, metrics=metrics)

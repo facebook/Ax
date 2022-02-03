@@ -430,7 +430,13 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self,
+        metrics: Optional[List[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
+        **kwargs: Any,
+    ) -> Data:
         """Fetches data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.
@@ -450,13 +456,19 @@ class Experiment(Base):
             Data for the experiment.
         """
         return self._lookup_or_fetch_trials_data(
-            trials=list(self.trials.values()), metrics=metrics, **kwargs
+            trials=list(self.trials.values()),
+            metrics=metrics,
+            combine_with_last_data=combine_with_last_data,
+            overwrite_existing_data=overwrite_existing_data,
+            **kwargs,
         )
 
     def fetch_trials_data(
         self,
         trial_indices: Iterable[int],
         metrics: Optional[List[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         """Fetches data for specific trials on the experiment.
@@ -479,6 +491,8 @@ class Experiment(Base):
         return self._lookup_or_fetch_trials_data(
             trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
+            combine_with_last_data=combine_with_last_data,
+            overwrite_existing_data=overwrite_existing_data,
             **kwargs,
         )
 
@@ -486,6 +500,8 @@ class Experiment(Base):
         self,
         trials: List[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
         if not self.metrics and not metrics:
@@ -514,7 +530,11 @@ class Experiment(Base):
             data_list.append(metric_data)
         data = self.default_data_constructor.from_multiple_data(data=data_list)
         if contains_new_data and not data.df.empty:
-            self.attach_data(data=data)
+            self.attach_data(
+                data=data,
+                combine_with_last_data=combine_with_last_data,
+                overwrite_existing_data=overwrite_existing_data,
+            )
         return data
 
     @copy_doc(BaseTrial.fetch_data)
@@ -617,6 +637,16 @@ class Experiment(Base):
                     ]
                 )
             elif overwrite_existing_data:
+                if len(current_trial_data) > 0:
+                    _, last_data = list(current_trial_data.items())[-1]
+                    last_data_metrics = set(last_data.df["metric_name"])
+                    new_data_metrics = set(trial_df["metric_name"])
+                    if last_data_metrics.difference(new_data_metrics):
+                        raise ValueError(
+                            "overwrite_trial_data is True, but the new data contains "
+                            "only a subset of the metrics that are present in the "
+                            "previous data."
+                        )
                 current_trial_data = OrderedDict(
                     {cur_time_millis: data_type(trial_df, **data_init_args)}
                 )
