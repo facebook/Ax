@@ -722,6 +722,8 @@ class ExperimentTest(TestCase):
             # All fetched data should get cached, so no fetch should happen next time.
             exp.fetch_data()
             mock_fetch_exp_data_multi.assert_not_called()
+            # No new data should be attached to the experiment
+            self.assertEqual(len(exp._data_by_trial), 2)
 
     def testWarmStartFromOldExperiment(self):
         # create old_experiment
@@ -917,10 +919,6 @@ class ExperimentWithMapDataTest(TestCase):
             exp.fetch_trials_data(trial_indices=[0, 1]).df.shape[0],
             len(exp.arms_by_name) * 2,
         )
-
-        # Since NoisyFunctionMap metric has overwrite_existing_data = True,
-        # we should only have one df per trial now
-        self.assertEqual(len(exp.data_by_trial[0]), 1)
 
         with self.assertRaisesRegex(ValueError, ".* not associated .*"):
             exp.fetch_trials_data(trial_indices=[2])

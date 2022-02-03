@@ -794,12 +794,7 @@ class TestAxScheduler(TestCase):
         #   longer and gets results for an extra timestamp
         expected_num_rows = (1 * total_trials) + (1 * total_trials + 1)
         self.assertEqual(len(fetched_data.map_df), expected_num_rows)
-        # NOTE: this is currently broken and will be fixed in follow-up diff
-        # self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
-
-        # Because overwrite_existing_data = True for NoisyFunctionMap,
-        # expect only one dataframe for each trial
-        self.assertEqual(len(scheduler.experiment.data_by_trial[0]), 1)
+        self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
 
     def test_run_trials_in_batches(self):
         # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`

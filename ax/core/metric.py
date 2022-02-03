@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple, Type
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
@@ -178,9 +178,11 @@ class Metric(SortableBase):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Data:
+    ) -> Tuple[Data, bool]:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
-        depending on whether they are available while running.
+        depending on whether they are available while running. Return a tuple
+        containing the data, along with a boolean that will be True if new
+        data was fetched, and False if all data was looked up from cache.
 
         If metric is available while running, its data can change (and therefore
         we should always re-fetch it). If metric is available only upon trial
@@ -195,42 +197,10 @@ class Metric(SortableBase):
         # If this metric is available while trial is running, just default to
         # `fetch_experiment_data_multi`.
         if cls.is_available_while_running():
-            cached_data = (
-                experiment.lookup_data(
-                    trial_indices=[trial.index for trial in trials],
-                )
-                if trials
-                else None
-            )
-
             fetched_data = cls.fetch_experiment_data_multi(
                 experiment=experiment, metrics=metrics, trials=trials, **kwargs
             )
-
-            # If there is cached data, consider combining it with fetched data.
-            # That way, if this function is being called from within a loop over
-            # multiple metric classes (as is currently the case in lookup_data),
-            # we'll combine data from all metric classes into a single dataframe
-            # before attaching it to the experiment.
-            if cached_data:
-                # if the fetched data's metrics are a superset of the cached data's
-                # metrics, just used the fetched data to avoid duplication.
-                if fetched_data.metric_names.issuperset(cached_data.metric_names):
-                    final_data = fetched_data
-                else:
-                    final_data = cls.data_constructor.from_multiple_data(
-                        [cached_data, fetched_data]
-                    )
-            else:
-                final_data = fetched_data
-
-            if not fetched_data.df.empty:
-                experiment.attach_data(
-                    final_data,
-                    overwrite_existing_data=cls.overwrite_existing_data(),
-                    combine_with_last_data=cls.combine_with_last_data(),
-                )
-            return fetched_data
+            return fetched_data, True
 
         # If this metric is available only upon trial completion, look up data
         # on experiment and only fetch data that is not already cached.
@@ -242,9 +212,10 @@ class Metric(SortableBase):
             completed_trials = [t for t in trials if t.status.is_completed]
 
         if not completed_trials:
-            return cls.data_constructor()
+            return cls.data_constructor(), False
 
         trials_data = []
+        contains_new_data = False
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
                 trial_index=trial.index,
@@ -265,7 +236,7 @@ class Metric(SortableBase):
                     trials=[trial],
                     **kwargs,
                 )
-
+                contains_new_data = True
             except NotImplementedError:
                 # Metric does not implement fetching logic and only uses lookup.
                 fetched_trial_data = cls.data_constructor()
@@ -274,16 +245,12 @@ class Metric(SortableBase):
                 [cached_trial_data, fetched_trial_data]
             )
 
-            if not final_data.df.empty:
-                experiment.attach_data(
-                    final_data,
-                    overwrite_existing_data=cls.overwrite_existing_data(),
-                    combine_with_last_data=cls.combine_with_last_data(),
-                )
             trials_data.append(final_data)
-
-        return cls.data_constructor.from_multiple_data(
-            trials_data, subset_metrics=[m.name for m in metrics]
+        return (
+            cls.data_constructor.from_multiple_data(
+                trials_data, subset_metrics=[m.name for m in metrics]
+            ),
+            contains_new_data,
         )
 
     def clone(self) -> "Metric":

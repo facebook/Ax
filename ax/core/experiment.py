@@ -499,17 +499,33 @@ class Experiment(Base):
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
         data_list = []
+        contains_new_data = False
         for metric_cls in metrics_by_class:
-            data_list.append(
-                metric_cls.lookup_or_fetch_experiment_data_multi(
-                    experiment=self,
-                    metrics=metrics_by_class[metric_cls],
-                    trials=trials,
-                    **kwargs,
-                )
+            (
+                metric_data,
+                metric_data_contains_new_data,
+            ) = metric_cls.lookup_or_fetch_experiment_data_multi(
+                experiment=self,
+                metrics=metrics_by_class[metric_cls],
+                trials=trials,
+                **kwargs,
             )
-
-        return self.default_data_constructor.from_multiple_data(data=data_list)
+            contains_new_data = contains_new_data or metric_data_contains_new_data
+            data_list.append(metric_data)
+        data = self.default_data_constructor.from_multiple_data(data=data_list)
+        overwrite_existing_data = all(
+            metric_cls.overwrite_existing_data() for metric_cls in metrics_by_class
+        )
+        combine_with_last_data = all(
+            metric_cls.combine_with_last_data() for metric_cls in metrics_by_class
+        )
+        if contains_new_data and not data.df.empty:
+            self.attach_data(
+                data,
+                overwrite_existing_data=overwrite_existing_data,
+                combine_with_last_data=combine_with_last_data,
+            )
+        return data
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
