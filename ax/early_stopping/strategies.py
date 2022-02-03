@@ -84,7 +84,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         optimization_config = not_none(experiment.optimization_config)
         objective_name = optimization_config.objective.metric.name
 
-        data = experiment.fetch_data()
+        data = experiment.lookup_data()
         if data.df.empty:
             logger.info(
                 f"{self.__class__.__name__} received empty data. "
