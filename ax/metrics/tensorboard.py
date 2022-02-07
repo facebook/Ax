@@ -17,9 +17,6 @@ from ax.utils.common.logger import get_logger
 
 logger = get_logger(__name__)
 
-RESULTS_KEY = "vis_metrics"
-
-
 try:
     from tensorboard.backend.event_processing import (
         plugin_event_multiplexer as event_multiplexer,
