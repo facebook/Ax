@@ -245,6 +245,7 @@ def _observations_from_dataframe(
     arm_name_only: bool,
     map_keys: Iterable[str],
     include_abandoned: bool,
+    map_keys_as_parameters: bool = False,
 ) -> List[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
 
@@ -256,6 +257,8 @@ def _observations_from_dataframe(
             e.g. `timestamp` in timeseries data, `epoch` in ML training traces.
         include_abandoned: Whether data for abandoned trials and arms should
             be included in the observations, returned from this function.
+        map_keys_as_parameters: Whether map_keys should be returned as part of
+            the parameters of the Observation objects.
 
     Returns:
         List of Observation objects.
@@ -307,7 +310,7 @@ def _observations_from_dataframe(
             obs_parameters.update(json.loads(fidelities))
 
         for map_key in map_keys:
-            if map_key in obs_parameters:
+            if map_key in obs_parameters or map_keys_as_parameters:
                 obs_parameters[map_key] = features[map_key]
             else:
                 obs_kwargs[Keys.METADATA][map_key] = features[map_key]
@@ -424,6 +427,7 @@ def observations_from_map_data(
     experiment: Experiment,
     map_data: MapData,
     include_abandoned: bool = False,
+    map_keys_as_parameters: bool = False,
 ) -> List[Observation]:
     """Convert Data to observations.
 
@@ -438,6 +442,8 @@ def observations_from_map_data(
         data: Data of observations.
         include_abandoned: Whether data for abandoned trials and arms should
             be included in the observations, returned from this function.
+        map_keys_as_parameters: Whether map_keys should be returned as part of
+            the parameters of the Observation objects.
 
     Returns:
         List of Observation objects.
@@ -451,8 +457,9 @@ def observations_from_map_data(
     incomplete_df_cols = isnull[isnull_any].any()
 
     # Get the incomplete_df columns that are complete, and usable as groupby keys.
+    obs_cols_and_map = OBS_COLS.union(map_data.map_keys)
     complete_feature_cols = list(
-        OBS_COLS.intersection(incomplete_df_cols.index[~incomplete_df_cols])
+        obs_cols_and_map.intersection(incomplete_df_cols.index[~incomplete_df_cols])
     )
 
     if set(feature_cols) == set(complete_feature_cols):
@@ -473,6 +480,7 @@ def observations_from_map_data(
             arm_name_only=arm_name_only,
             map_keys=map_data.map_keys,
             include_abandoned=include_abandoned,
+            map_keys_as_parameters=map_keys_as_parameters,
         )
     )
     if incomplete_df is not None:
@@ -485,6 +493,7 @@ def observations_from_map_data(
                 arm_name_only=arm_name_only,
                 map_keys=map_data.map_keys,
                 include_abandoned=include_abandoned,
+                map_keys_as_parameters=map_keys_as_parameters,
             )
         )
     return observations
