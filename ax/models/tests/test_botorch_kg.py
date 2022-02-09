@@ -17,7 +17,7 @@ from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradie
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.objective import (
     LinearMCObjective,
-    ScalarizedObjective,
+    ScalarizedPosteriorTransform,
 )
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
@@ -125,8 +125,8 @@ class KnowledgeGradientTest(TestCase):
             )
             mock_warmstart_initialization.assert_called_once()
 
-        obj = ScalarizedObjective(weights=self.objective_weights)
-        dummy_acq = PosteriorMean(model=model.model, objective=obj)
+        posterior_tf = ScalarizedPosteriorTransform(weights=self.objective_weights)
+        dummy_acq = PosteriorMean(model=model.model, posterior_transform=posterior_tf)
         with mock.patch(
             "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
@@ -314,28 +314,39 @@ class KnowledgeGradientTest(TestCase):
         )
 
         # test _instantiate_KG
-        objective = ScalarizedObjective(weights=self.objective_weights)
+        posterior_tf = ScalarizedPosteriorTransform(weights=self.objective_weights)
 
         # test acquisition setting
         acq_function = _instantiate_KG(
-            model=model.model, objective=objective, n_fantasies=10, qmc=True
+            model=model.model,
+            posterior_transform=posterior_tf,
+            n_fantasies=10,
+            qmc=True,
         )
         self.assertIsInstance(acq_function.sampler, SobolQMCNormalSampler)
-        self.assertIsInstance(acq_function.objective, ScalarizedObjective)
+        self.assertIsInstance(
+            acq_function.posterior_transform, ScalarizedPosteriorTransform
+        )
         self.assertEqual(acq_function.num_fantasies, 10)
 
         acq_function = _instantiate_KG(
-            model=model.model, objective=objective, n_fantasies=10, qmc=False
+            model=model.model,
+            posterior_transform=posterior_tf,
+            n_fantasies=10,
+            qmc=False,
         )
         self.assertIsInstance(acq_function.sampler, IIDNormalSampler)
 
         acq_function = _instantiate_KG(
-            model=model.model, objective=objective, qmc=False
+            model=model.model, posterior_transform=posterior_tf, qmc=False
         )
         self.assertIsNone(acq_function.inner_sampler)
 
         acq_function = _instantiate_KG(
-            model=model.model, objective=objective, qmc=True, X_pending=self.X_dummy
+            model=model.model,
+            posterior_transform=posterior_tf,
+            qmc=True,
+            X_pending=self.X_dummy,
         )
         self.assertIsNone(acq_function.inner_sampler)
         self.assertTrue(torch.equal(acq_function.X_pending, self.X_dummy))
@@ -384,7 +395,7 @@ class KnowledgeGradientTest(TestCase):
 
         acq_function = _instantiate_KG(
             model=model.model,
-            objective=objective,
+            posterior_transform=posterior_tf,
             target_fidelities={2: 1.0},
             current_value=0,
         )
@@ -400,7 +411,7 @@ class KnowledgeGradientTest(TestCase):
         with self.assertRaises(RuntimeError):
             _instantiate_KG(
                 model=model.model,
-                objective=objective,
+                posterior_transform=posterior_tf,
                 target_fidelities={1: 1.0},
                 fidelity_weights={2: 1.0},
                 current_value=0,
