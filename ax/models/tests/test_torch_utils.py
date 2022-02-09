@@ -7,13 +7,15 @@ from typing import Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import torch
-from ax.models.torch.utils import _get_X_pending_and_observed, get_botorch_objective
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    get_botorch_objective_and_transform,
+)
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
-    LinearMCObjective,
-    ScalarizedObjective,
+    ScalarizedPosteriorTransform,
 )
 from botorch.exceptions.errors import BotorchTensorDimensionError
 from botorch.models.model import Model
@@ -63,68 +65,45 @@ class TorchUtilsTest(TestCase):
         expected = Xs[0]
         self.assertEqual(_to_obs_set(expected), _to_obs_set(X_observed))
 
-    @patch(f"{get_botorch_objective.__module__}.get_infeasible_cost", return_value=1.0)
+    @patch(
+        f"{get_botorch_objective_and_transform.__module__}.get_infeasible_cost",
+        return_value=1.0,
+    )
     def test_get_botorch_objective(self, _):
-        # Whether `use_scalarized_objective` is specified or not, when there are
-        # outcome constraints, `ConstrainedMCObjective` should be picked.
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=self.mock_botorch_model,
-                outcome_constraints=self.outcome_constraints,
-                objective_weights=self.objective_weights,
-                X_observed=self.X_dummy,
-                use_scalarized_objective=False,
-            ),
-            ConstrainedMCObjective,
+        # If there are outcome constraints, use a ConstrainedMCObjective
+        obj, tf = get_botorch_objective_and_transform(
+            model=self.mock_botorch_model,
+            outcome_constraints=self.outcome_constraints,
+            objective_weights=self.objective_weights,
+            X_observed=self.X_dummy,
         )
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=self.mock_botorch_model,
-                outcome_constraints=self.outcome_constraints,
-                objective_weights=self.objective_weights,
-                X_observed=self.X_dummy,
-            ),
-            ConstrainedMCObjective,
-        )
+        self.assertIsInstance(obj, ConstrainedMCObjective)
+        self.assertIsNone(tf)
 
-        # In absence of outcome constraints and with not using scalarized objective,
-        # `LinearMCObjective` should be picked.
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=self.mock_botorch_model,
-                objective_weights=self.objective_weights,
-                X_observed=self.X_dummy,
-                use_scalarized_objective=False,
-            ),
-            LinearMCObjective,
+        # By default, `ScalarizedPosteriorTransform` should be picked in absence of
+        # outcome constraints.
+        obj, tf = get_botorch_objective_and_transform(
+            model=self.mock_botorch_model,
+            objective_weights=self.objective_weights,
+            X_observed=self.X_dummy,
         )
-
-        # By default, `ScalarizedObjective` should be picked in absence of outcome
-        # constraints.
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=self.mock_botorch_model,
-                objective_weights=self.objective_weights,
-                X_observed=self.X_dummy,
-            ),
-            ScalarizedObjective,
-        )
+        self.assertIsNone(obj)
+        self.assertIsInstance(tf, ScalarizedPosteriorTransform)
 
         # Test MOO case.
         with self.assertRaises(BotorchTensorDimensionError):
-            get_botorch_objective(
+            get_botorch_objective_and_transform(
                 model=self.mock_botorch_model,
                 objective_weights=self.objective_weights,  # Only has 1 objective.
                 X_observed=self.X_dummy,
                 objective_thresholds=self.objective_thresholds,
             )
 
-        self.assertIsInstance(
-            get_botorch_objective(
-                model=self.mock_botorch_model,
-                objective_weights=self.moo_objective_weights,  # Has 2 objectives.
-                X_observed=self.X_dummy,
-                objective_thresholds=self.objective_thresholds,
-            ),
-            WeightedMCMultiOutputObjective,
+        obj, tf = get_botorch_objective_and_transform(
+            model=self.mock_botorch_model,
+            objective_weights=self.moo_objective_weights,  # Has 2 objectives.
+            X_observed=self.X_dummy,
+            objective_thresholds=self.objective_thresholds,
         )
+        self.assertIsInstance(obj, WeightedMCMultiOutputObjective)
+        self.assertIsNone(tf)

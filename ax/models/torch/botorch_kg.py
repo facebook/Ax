@@ -13,7 +13,7 @@ from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
-    get_botorch_objective,
+    get_botorch_objective_and_transform,
     get_out_of_sample_best_point_acqf,
     subset_model,
 )
@@ -24,7 +24,7 @@ from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
     qMultiFidelityKnowledgeGradient,
 )
-from botorch.acquisition.objective import AcquisitionObjective, MCAcquisitionObjective
+from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.utils import (
     expand_trace_observations,
     project_to_target_fidelity,
@@ -139,7 +139,7 @@ class KnowledgeGradient(BotorchModel):
             objective_weights = subset_model_results.objective_weights
             outcome_constraints = subset_model_results.outcome_constraints
 
-        objective = get_botorch_objective(
+        objective, posterior_transform = get_botorch_objective_and_transform(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -182,6 +182,7 @@ class KnowledgeGradient(BotorchModel):
         acq_function = _instantiate_KG(
             model=model,
             objective=objective,
+            posterior_transform=posterior_transform,
             qmc=qmc,
             n_fantasies=n_fantasies,
             num_trace_observations=options.get("num_trace_observations", 0),
@@ -292,7 +293,8 @@ class KnowledgeGradient(BotorchModel):
 
 def _instantiate_KG(
     model: Model,
-    objective: AcquisitionObjective,
+    objective: Optional[MCAcquisitionObjective] = None,
+    posterior_transform: Optional[PosteriorTransform] = None,
     qmc: bool = True,
     n_fantasies: int = 64,
     mc_samples: int = 256,
@@ -343,6 +345,7 @@ def _instantiate_KG(
             num_fantasies=n_fantasies,
             sampler=fantasy_sampler,
             objective=objective,
+            posterior_transform=posterior_transform,
             inner_sampler=inner_sampler,
             X_pending=X_pending,
             current_value=current_value,
@@ -356,6 +359,7 @@ def _instantiate_KG(
         num_fantasies=n_fantasies,
         sampler=fantasy_sampler,
         objective=objective,
+        posterior_transform=posterior_transform,
         inner_sampler=inner_sampler,
         X_pending=X_pending,
         current_value=current_value,
