@@ -20,11 +20,7 @@ from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
-from botorch.acquisition.objective import (
-    ConstrainedMCObjective,
-    MCAcquisitionObjective,
-    ScalarizedObjective,
-)
+from botorch.acquisition.objective import ConstrainedMCObjective, MCAcquisitionObjective
 from botorch.acquisition.objective import (
     PosteriorTransform,
     ScalarizedPosteriorTransform,
