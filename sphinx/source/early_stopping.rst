@@ -8,15 +8,34 @@ ax.early_stopping
 .. currentmodule:: ax.early_stopping
 
 Strategies
-~~~~~~~~~~~~~~~~~~
+----------
 
-.. automodule:: ax.early_stopping.strategies
+Base Strategies
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.early_stopping.strategies.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`PercentileEarlyStoppingStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.early_stopping.strategies.percentile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ThresholdEarlyStoppingStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.early_stopping.strategies.threshold
     :members:
     :undoc-members:
     :show-inheritance:
 
 Utils
-~~~~~~~~~~~~~~~~~~
+-----
 
 .. automodule:: ax.early_stopping.utils
     :members:
