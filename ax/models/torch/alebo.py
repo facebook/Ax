@@ -21,6 +21,7 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import ExpectedImprovement
+from botorch.acquisition.objective import PosteriorTransform
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -177,12 +178,16 @@ class ALEBOGP(FixedNoiseGP):
         X: Tensor,
         output_indices: Optional[List[int]] = None,
         observation_noise: Union[bool, Tensor] = False,
+        posterior_transform: Optional[PosteriorTransform] = None,
         **kwargs: Any,
     ) -> GPyTorchPosterior:
         assert output_indices is None
         assert not observation_noise
         mvn = self(X)
-        return GPyTorchPosterior(mvn=mvn)
+        posterior = GPyTorchPosterior(mvn=mvn)
+        if posterior_transform is not None:
+            return posterior_transform(posterior)
+        return posterior
 
 
 def get_fitted_model(

@@ -23,7 +23,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
-    get_botorch_objective,
+    get_botorch_objective_and_transform,
     subset_model,
 )
 from ax.utils.common.base import Base
@@ -31,9 +31,8 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import AnalyticAcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
-from botorch.acquisition.objective import AcquisitionObjective
+from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
 from botorch.optim.optimize import optimize_acqf_mixed, optimize_acqf_discrete
@@ -144,7 +143,7 @@ class Acquisition(Base):
                 if subset_idcs is not None
                 else self._objective_thresholds
             )
-        objective = self.get_botorch_objective(
+        objective, posterior_transform = self.get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,
             objective_weights=objective_weights,
@@ -175,6 +174,7 @@ class Acquisition(Base):
             model=model,
             training_data=self.surrogate.training_data,
             objective=objective,
+            posterior_transform=posterior_transform,
             **input_constructor_kwargs,
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
@@ -389,7 +389,7 @@ class Acquisition(Base):
         """
         return {}
 
-    def get_botorch_objective(
+    def get_botorch_objective_and_transform(
         self,
         botorch_acqf_class: Type[AcquisitionFunction],
         model: Model,
@@ -397,13 +397,10 @@ class Acquisition(Base):
         objective_thresholds: Optional[Tensor] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         X_observed: Optional[Tensor] = None,
-    ) -> AcquisitionObjective:
-        return get_botorch_objective(
+    ) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
+        return get_botorch_objective_and_transform(
             model=model,
             objective_weights=objective_weights,
-            use_scalarized_objective=issubclass(
-                botorch_acqf_class, AnalyticAcquisitionFunction
-            ),
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
             X_observed=X_observed,

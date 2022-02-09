@@ -21,11 +21,13 @@ from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
-    AcquisitionObjective,
     ConstrainedMCObjective,
-    LinearMCObjective,
     MCAcquisitionObjective,
     ScalarizedObjective,
+)
+from botorch.acquisition.objective import (
+    PosteriorTransform,
+    ScalarizedPosteriorTransform,
 )
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
@@ -36,7 +38,6 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
-
 
 logger = get_logger(__name__)
 
@@ -336,24 +337,19 @@ def tensor_callable_to_array_callable(
     return array_func
 
 
-def get_botorch_objective(
+def get_botorch_objective_and_transform(
     model: Model,
     objective_weights: Tensor,
-    use_scalarized_objective: bool = True,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     objective_thresholds: Optional[Tensor] = None,
     X_observed: Optional[Tensor] = None,
-) -> AcquisitionObjective:
+) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
     """Constructs a BoTorch `AcquisitionObjective` object.
 
     Args:
         model: A BoTorch Model
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
-        use_scalarized_objective: A boolean parameter that defaults to True,
-            specifying whether ScalarizedObjective should be used.
-            NOTE: when using outcome_constraints, use_scalarized_objective
-            will be ignored.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
@@ -364,26 +360,23 @@ def get_botorch_objective(
             objective or the constraints. None if there are no such points.
 
     Returns:
-        A BoTorch `AcquisitionObjective` object. It will be one of:
-        `ScalarizedObjective`, `LinearMCOObjective`, `ConstrainedMCObjective`.
+        A two-tuple containing (optioally) an `MCAcquisitionObjective` and
+        (optionally) a `PosteriorTransform`.
     """
     if objective_thresholds is not None:
+        # we are doing multi-objective optimization
         nonzero_idcs = torch.nonzero(objective_weights).view(-1)
         objective_weights = objective_weights[nonzero_idcs]
-        return WeightedMCMultiOutputObjective(
+        objective = WeightedMCMultiOutputObjective(
             weights=objective_weights, outcomes=nonzero_idcs.tolist()
         )
+        return objective, None
     if X_observed is None:
         raise UnsupportedError(
-            "X_observed is required to construct a BoTorch Objective."
+            "X_observed is required to construct a BoTorch objective."
         )
     if outcome_constraints:
-        if use_scalarized_objective:
-            logger.warning(
-                "Currently cannot use ScalarizedObjective when there are outcome "
-                "constraints. Ignoring (default) kwarg `use_scalarized_objective`"
-                "= True. Creating ConstrainedMCObjective."
-            )
+        # If there are outcome constraints, we use MC Acquistion functions
         obj_tf = get_objective_weights_transform(objective_weights)
 
         def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
@@ -391,12 +384,13 @@ def get_botorch_objective(
 
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
         inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-        return ConstrainedMCObjective(
+        objective = ConstrainedMCObjective(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
-    elif use_scalarized_objective:
-        return ScalarizedObjective(weights=objective_weights)
-    return LinearMCObjective(weights=objective_weights)
+        return objective, None
+    # Case of linear weights - use ScalarizedPosteriorTransform
+    transform = ScalarizedPosteriorTransform(weights=objective_weights)
+    return None, transform
 
 
 def get_out_of_sample_best_point_acqf(
@@ -457,19 +451,23 @@ def get_out_of_sample_best_point_acqf(
         qmc=qmc,
         seed_inner=seed_inner,
     )
-    objective = get_botorch_objective(
+    objective, posterior_transform = get_botorch_objective_and_transform(
         model=model,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         X_observed=X_observed,
     )
-    if not isinstance(objective, (ScalarizedObjective, MCAcquisitionObjective)):
-        raise UnsupportedError(
-            f"Unknown objective type: {objective.__class__}"  # pragma: nocover
-        )
-    else:
-        # pyre-ignore[28]: All acq. functions here expect `objective` kwarg.
-        acqf = acqf_class(model=model, objective=objective, **acqf_options)
+
+    if objective is not None:
+        if not isinstance(objective, MCAcquisitionObjective):
+            raise UnsupportedError(
+                f"Unknown objective type: {objective.__class__}"  # pragma: nocover
+            )
+        acqf_options = {"objective": objective, **acqf_options}
+    if posterior_transform is not None:
+        acqf_options = {"posterior_transform": posterior_transform, **acqf_options}
+
+    acqf = acqf_class(model=model, **acqf_options)  # pyre-ignore [45]
 
     if fixed_features:
         acqf = FixedFeatureAcquisitionFunction(

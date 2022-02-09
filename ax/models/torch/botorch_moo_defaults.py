@@ -153,7 +153,7 @@ def get_NEHVI(
     return get_acquisition_function(
         acquisition_function_name="qNEHVI",
         model=model,
-        objective=objective,  # pyre-ignore [6]
+        objective=objective,
         X_observed=X_observed,
         X_pending=X_pending,
         constraints=cons_tfs,
@@ -228,10 +228,6 @@ def get_EHVI(
     return get_acquisition_function(
         acquisition_function_name="qEHVI",
         model=model,
-        # TODO (jej): Fix pyre error below by restructuring class hierarchy.
-        # pyre-fixme[6]: Expected `botorch.acquisition.objective.
-        #  MCAcquisitionObjective` for 3rd parameter `objective` to call
-        #  `get_acquisition_function` but got `IdentityMCMultiOutputObjective`.
         objective=objective,
         X_observed=X_observed,
         X_pending=X_pending,

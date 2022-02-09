@@ -110,7 +110,7 @@ class AcquisitionTest(TestCase):
         f"{ACQUISITION_PATH}.subset_model",
         return_value=SubsetModelData(None, torch.ones(1), None, None, None),
     )
-    @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective")
+    @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective_and_transform")
     @mock.patch(
         f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
         return_value={"current_value": 1.2},
@@ -122,7 +122,7 @@ class AcquisitionTest(TestCase):
         self,
         mock_botorch_acqf_class,
         mock_compute_model_deps,
-        mock_get_objective,
+        mock_get_objective_and_transform,
         mock_subset_model,
         mock_get_X,
     ):
@@ -134,7 +134,7 @@ class AcquisitionTest(TestCase):
             )
 
         botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
-        mock_get_objective.return_value = botorch_objective
+        mock_get_objective_and_transform.return_value = (botorch_objective, None)
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = Acquisition(
             surrogate=self.surrogate,
@@ -167,7 +167,7 @@ class AcquisitionTest(TestCase):
             objective_thresholds=self.objective_thresholds,
         )
         mock_subset_model.reset_mock()
-        mock_get_objective.reset_mock()
+        mock_get_objective_and_transform.reset_mock()
         self.mock_input_constructor.reset_mock()
         mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
@@ -183,14 +183,13 @@ class AcquisitionTest(TestCase):
             options=self.options,
         )
         mock_subset_model.assert_not_called()
-        # Check `get_botorch_objective` kwargs
-        mock_get_objective.assert_called_once()
-        _, ckwargs = mock_get_objective.call_args
+        # Check `get_botorch_objective_and_transform` kwargs
+        mock_get_objective_and_transform.assert_called_once()
+        _, ckwargs = mock_get_objective_and_transform.call_args
         self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
         self.assertIs(ckwargs["objective_weights"], self.objective_weights)
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
-        self.assertFalse(ckwargs["use_scalarized_objective"])
         # Check final `acqf` creation
         model_deps = {Keys.CURRENT_VALUE: 1.2}
         self.mock_input_constructor.assert_called_once()
