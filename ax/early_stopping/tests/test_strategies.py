@@ -8,11 +8,9 @@ import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.early_stopping.strategies import (
-    BaseEarlyStoppingStrategy,
-    PercentileEarlyStoppingStrategy,
-    ThresholdEarlyStoppingStrategy,
-)
+from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
+from ax.early_stopping.strategies import ThresholdEarlyStoppingStrategy
 from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast

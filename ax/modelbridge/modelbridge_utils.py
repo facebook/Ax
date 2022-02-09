@@ -1096,6 +1096,12 @@ def _get_modelbridge_training_data(
     modelbridge: modelbridge_module.array.ArrayModelBridge,
 ) -> Tuple[List[ObservationFeatures], List[ObservationData], List[Optional[str]]]:
     obs = modelbridge.get_training_data()
+    return _unpack_observations(obs=obs)
+
+
+def _unpack_observations(
+    obs: List[Observation],
+) -> Tuple[List[ObservationFeatures], List[ObservationData], List[Optional[str]]]:
     obs_feats, obs_data, arm_names = [], [], []
     for ob in obs:
         obs_feats.append(ob.features)
