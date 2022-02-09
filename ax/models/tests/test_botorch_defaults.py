@@ -27,9 +27,9 @@ from gpytorch.priors.prior import Prior
 
 class BotorchDefaultsTest(TestCase):
     def test_get_model(self):
-        x = torch.zeros(2, 2)
-        y = torch.zeros(2, 1)
-        var = torch.zeros(2, 1)
+        x = torch.rand(2, 2)
+        y = torch.rand(2, 1)
+        var = torch.rand(2, 1)
         partial_var = torch.tensor([0, float("nan")]).unsqueeze(-1)
         unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
         model = _get_model(x, y, unknown_var, None)
