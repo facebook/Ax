@@ -7,8 +7,8 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig
 from ax.models.random.uniform import UniformGenerator
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 
 

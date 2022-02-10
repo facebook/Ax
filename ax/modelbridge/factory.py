@@ -16,7 +16,6 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig, TRefPoint
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -45,6 +44,7 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
 )
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 

@@ -9,10 +9,10 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
 import numpy as np
 import torch
-from ax.core.types import TConfig
 from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
 from ax.models.random.sobol import SobolGenerator
+from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction

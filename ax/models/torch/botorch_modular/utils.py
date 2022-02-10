@@ -8,7 +8,7 @@ from typing import List, Dict, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TConfig
+from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast

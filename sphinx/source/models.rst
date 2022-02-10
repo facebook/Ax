@@ -19,6 +19,14 @@ ax.models.base
     :undoc-members:
     :show-inheritance:
 
+ax.models.types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.types
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.discrete\_base module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List, Optional
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
+from ax.models.types import TConfig
 
 
 if TYPE_CHECKING:

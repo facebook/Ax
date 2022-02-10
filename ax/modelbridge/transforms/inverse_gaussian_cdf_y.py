@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import match_ci_width_truncated
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
 

@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, List, Optional, Set
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

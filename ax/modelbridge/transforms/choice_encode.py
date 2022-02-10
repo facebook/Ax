@@ -10,9 +10,10 @@ import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TParamValue
+from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import ClosestLookupDict
+from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

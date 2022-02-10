@@ -12,8 +12,8 @@ import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
 

@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
@@ -27,6 +27,7 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger

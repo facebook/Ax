@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TConfig
 from ax.models.model_utils import (
     mk_discrete_choices,
     enumerate_discrete_combinations,
@@ -26,6 +25,7 @@ from ax.models.torch.utils import (
     get_botorch_objective_and_transform,
     subset_model,
 )
+from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc

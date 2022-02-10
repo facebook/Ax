@@ -12,13 +12,14 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig
+from ax.core.types import TCandidateMetadata
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
     _to_inequality_constraints,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
+from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger

@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from ax.core.types import TConfig
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.base import Model
 from ax.models.model_utils import (
@@ -17,6 +16,7 @@ from ax.models.model_utils import (
     tunable_feature_indices,
     validate_bounds,
 )
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.utils.sampling import HitAndRunPolytopeSampler

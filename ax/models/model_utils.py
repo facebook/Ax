@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Un
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TConfig, TParamCounter
+from ax.core.types import TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.numpy_base import NumpyModel
 from ax.models.torch_base import TorchModel
-
+from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

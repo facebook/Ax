@@ -11,8 +11,9 @@ from operator import mul
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
+from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.models.discrete_base import DiscreteModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 

@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
@@ -24,6 +24,7 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc

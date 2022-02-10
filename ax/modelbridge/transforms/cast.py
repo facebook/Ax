@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:

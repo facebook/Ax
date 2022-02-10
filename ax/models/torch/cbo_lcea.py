@@ -7,11 +7,12 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig
+from ax.core.types import TCandidateMetadata
 from ax.models.torch.alebo import ei_or_nei
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.fit import fit_gpytorch_model

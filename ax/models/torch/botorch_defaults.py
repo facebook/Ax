@@ -7,13 +7,13 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
-from ax.core.types import TConfig
 from ax.models.model_utils import best_observed_point, get_observed
 from ax.models.torch.utils import (  # noqa F401
     _to_inequality_constraints,
     predict_from_model,
 )
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction

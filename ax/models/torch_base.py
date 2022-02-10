@@ -8,8 +8,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.base import Model as BaseModel
+from ax.models.types import TConfig
 from torch import Tensor
 
 

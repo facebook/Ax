@@ -18,7 +18,6 @@ from typing import (
 )
 
 import numpy as np
-from botorch.acquisition import AcquisitionFunction
 
 
 TNumeric = Union[float, int]
@@ -63,7 +62,6 @@ TEvaluationOutcome = Union[
 ]
 TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
 
-TConfig = Dict[str, Union[int, float, str, AcquisitionFunction, Dict[str, Any], None]]
 TBucket = List[Dict[str, List[str]]]
 
 TGenMetadata = Dict[str, Any]

@@ -7,7 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
@@ -17,6 +17,7 @@ from ax.models.torch.utils import (
     get_out_of_sample_best_point_acqf,
     subset_model,
 )
+from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility

@@ -18,7 +18,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
 from ax.modelbridge.modelbridge_utils import (
     parse_observation_features,
@@ -31,6 +31,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast, not_none
 from torch import Tensor
 

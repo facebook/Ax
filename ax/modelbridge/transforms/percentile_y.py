@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, List, Optional
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from scipy import stats

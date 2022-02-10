@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TParamValue
+from ax.core.types import TParamValue
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy

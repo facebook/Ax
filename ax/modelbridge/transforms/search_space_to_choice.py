@@ -10,8 +10,8 @@ from ax.core.arm import Arm
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:

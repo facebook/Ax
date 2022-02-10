@@ -8,10 +8,10 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from ax.core.types import TConfig
 from ax.models.base import Model
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from torch.quasirandom import SobolEngine

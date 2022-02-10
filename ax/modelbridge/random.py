@@ -11,7 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata
+from ax.core.types import TGenMetadata
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
@@ -21,6 +21,7 @@ from ax.modelbridge.modelbridge_utils import (
     transform_callback,
 )
 from ax.models.random.base import RandomModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 
 

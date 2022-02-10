@@ -12,11 +12,12 @@ import gpytorch
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TConfig, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch_base import TorchModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction

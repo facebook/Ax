@@ -10,7 +10,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TGenMetadata, TParamValueList
+from ax.core.types import TGenMetadata, TParamValueList
 from ax.modelbridge.array import (
     extract_objective_weights,
     extract_outcome_constraints,
@@ -19,6 +19,7 @@ from ax.modelbridge.array import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.modelbridge_utils import array_to_observation_data
 from ax.models.discrete_base import DiscreteModel
+from ax.models.types import TConfig
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."

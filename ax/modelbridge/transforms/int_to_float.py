@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import (
     contains_constrained_integer,
     randomized_round_parameters,
 )
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:

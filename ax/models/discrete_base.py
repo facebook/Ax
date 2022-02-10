@@ -7,8 +7,9 @@
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
+from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.models.base import Model
+from ax.models.types import TConfig
 
 
 class DiscreteModel(Model):

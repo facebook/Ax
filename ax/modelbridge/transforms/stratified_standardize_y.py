@@ -12,9 +12,10 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig, TParamValue
+from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import compute_standardization_parameters
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 
 

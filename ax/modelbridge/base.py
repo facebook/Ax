@@ -30,7 +30,6 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import (
     TCandidateMetadata,
-    TConfig,
     TGenMetadata,
     TModelCov,
     TModelMean,
@@ -38,6 +37,7 @@ from ax.core.types import (
 )
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
+from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 

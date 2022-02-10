@@ -18,8 +18,8 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.search_space import SearchSpace
-from ax.core.types import TConfig
 from ax.modelbridge.transforms.base import Transform
+from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize
 

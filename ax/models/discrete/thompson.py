@@ -9,10 +9,11 @@ import json
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.types import TConfig, TGenMetadata, TParamValue, TParamValueList
+from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
 from ax.exceptions.model import ModelError
 from ax.models.discrete_base import DiscreteModel
+from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 
 
