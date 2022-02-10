@@ -60,7 +60,7 @@ try:
             A dictionary mapping metric names to pandas Series of data.
             If the path does not exist, return None.
         """
-        logger.info(f"Reading TB logs from {path}.")
+        logger.debug(f"Reading TB logs from {path}.")
         mul = event_multiplexer.EventMultiplexer(max_reload_threads=20)
         mul.AddRunsFromDirectory(path, None)
         mul.Reload()
@@ -88,7 +88,7 @@ try:
             if any(series.index.duplicated()):  # pyre-ignore[16]
                 # take average of repeated observations of the same "step"
                 series = series.groupby(steps).mean()  # pyre-ignore[16]
-                logger.warning(
+                logger.debug(
                     f"Found duplicate steps for tag {key}. "
                     "Removing duplicates by averaging."
                 )

@@ -85,18 +85,18 @@ class AbstractCurveMetric(MapMetric, ABC):
         trials_filtered, ids_filtered = _filter_trials_with_ids(trials, ids)
 
         if len(ids_filtered) == 0:
-            logger.info("Could not get ids from trials. Returning empty data.")
+            logger.debug("Could not get ids from trials. Returning empty data.")
             return MapData(map_key_infos=[cls.MAP_KEY])
 
         all_curve_series = cls.get_curves_from_ids(ids=ids_filtered)
         if all(id_ not in all_curve_series for id_ in ids_filtered):
-            logger.info("Could not get curves from ids. Returning empty data.")
+            logger.debug("Could not get curves from ids. Returning empty data.")
             return MapData(map_key_infos=[cls.MAP_KEY])
 
         dfs = []
         for trial, id_ in zip(trials_filtered, ids_filtered):
             if id_ not in all_curve_series:
-                logger.info(f"Could not get curve data for id {id_}. Ignoring.")
+                logger.debug(f"Could not get curve data for id {id_}. Ignoring.")
                 continue
             curve_series = all_curve_series[id_]
             for m in metrics:
@@ -111,7 +111,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                     dfi["sem"] = float("nan")
                     dfs.append(dfi.drop_duplicates())
                 else:
-                    logger.info(
+                    logger.debug(
                         f"{m.curve_name} not yet present in curves from {id_}. "
                         "Returning without this metric."
                     )
@@ -170,7 +170,7 @@ def _filter_trials_with_ids(
     trials_filtered, ids_filtered = [], []
     for trial, id_ in zip(trials, ids):
         if id_ is None:
-            logger.info(f"Could not get id for Trial {trial.index}. Ignoring.")
+            logger.debug(f"Could not get id for Trial {trial.index}. Ignoring.")
         else:
             trials_filtered.append(trial)
             ids_filtered.append(id_)
