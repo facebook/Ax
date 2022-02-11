@@ -37,7 +37,6 @@ from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
-from ax.storage.metric_registry import METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -314,13 +313,13 @@ class Encoder:
         json blob.
         """
         metric_class = type(metric)
-        metric_type = METRIC_REGISTRY.get(metric_class)
+        metric_type = self.config.metric_registry[metric_class]
         if metric_type is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
                 f"subclass ({metric_class}) is missing from the registry. "
                 "The metric registry currently contains the following: "
-                f"{','.join(map(str, METRIC_REGISTRY.keys()))}"
+                f"{','.join(map(str, self.config.metric_registry.keys()))}"
             )  # pragma: no cover
 
         properties = metric_class.serialize_init_args(metric=metric)
@@ -420,7 +419,7 @@ class Encoder:
             parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
                 id=multi_objective.db_id,
                 name="multi_objective",
-                metric_type=METRIC_REGISTRY[Metric],
+                metric_type=self.config.metric_registry[Metric],
                 intent=MetricIntent.MULTI_OBJECTIVE,
                 scalarized_objective_children_metrics=children_objectives,
             )
@@ -467,7 +466,7 @@ class Encoder:
         parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
             id=objective.db_id,
             name="scalarized_objective",
-            metric_type=METRIC_REGISTRY[Metric],
+            metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.SCALARIZED_OBJECTIVE,
             minimize=objective.minimize,
             lower_is_better=objective.minimize,
@@ -541,7 +540,7 @@ class Encoder:
         parent_metric = parent_metric_cls(  # pyre-ignore[29]: `SQAMetric` not a func.
             id=outcome_constraint.db_id,
             name="scalarized_outcome_constraint",
-            metric_type=METRIC_REGISTRY[Metric],
+            metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT,
             bound=outcome_constraint.bound,
             op=outcome_constraint.op,

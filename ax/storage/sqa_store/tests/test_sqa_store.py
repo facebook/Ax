@@ -22,7 +22,12 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.metric_registry import METRIC_REGISTRY, register_metric
+from ax.storage.json_store.encoders import metric_to_dict
+from ax.storage.json_store.registry import (
+    DEPRECATED_DECODER_REGISTRY,
+    DEPRECATED_ENCODER_REGISTRY,
+)
+from ax.storage.metric_registry import DEPRECATED_METRIC_REGISTRY
 from ax.storage.runner_registry import RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
     get_engine,
@@ -915,7 +920,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=METRIC_REGISTRY[BraninMetric],
+            metric_type=DEPRECATED_METRIC_REGISTRY[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -932,7 +937,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=METRIC_REGISTRY[BraninMetric],
+            metric_type=DEPRECATED_METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -955,7 +960,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = METRIC_REGISTRY[BraninMetric]
+        sqa_metric.metric_type = DEPRECATED_METRIC_REGISTRY[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -1028,14 +1033,23 @@ class SQAStoreTest(TestCase):
         class MyMetric(Metric):
             pass
 
-        register_metric(MyMetric)
         register_runner(MyRunner)
+
+        encoder_registry = {MyMetric: metric_to_dict, **DEPRECATED_ENCODER_REGISTRY}
+        decoder_registry = {MyMetric.__name__: MyMetric, **DEPRECATED_DECODER_REGISTRY}
+        metric_registry = {MyMetric: 1118, **DEPRECATED_METRIC_REGISTRY}
+
+        sqa_config = SQAConfig(
+            json_encoder_registry=encoder_registry,
+            json_decoder_registry=decoder_registry,
+            metric_registry=metric_registry,
+        )
 
         experiment = get_experiment_with_batch_trial()
         experiment.runner = MyRunner()
         experiment.add_tracking_metric(MyMetric(name="my_metric"))
-        save_experiment(experiment)
-        loaded_experiment = load_experiment(experiment.name)
+        save_experiment(experiment, config=sqa_config)
+        loaded_experiment = load_experiment(experiment.name, config=sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
     def testEncodeDecodeGenerationStrategy(self):

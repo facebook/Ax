@@ -41,7 +41,6 @@ from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models, ModelRegistryBase
 from ax.storage.json_store.decoder import object_from_json
-from ax.storage.metric_registry import REVERSE_METRIC_REGISTRY
 from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
@@ -390,12 +389,13 @@ class Decoder:
 
     def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
-        metric_class = REVERSE_METRIC_REGISTRY.get(metric_sqa.metric_type)
-        if metric_class is None:
+        if metric_sqa.metric_type not in self.config.reverse_metric_registry:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type."
             )
+        metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
+
         args = dict(
             object_from_json(
                 metric_sqa.properties,

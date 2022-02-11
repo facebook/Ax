@@ -25,6 +25,7 @@ from ax.storage.json_store.registry import (
     DEPRECATED_DECODER_REGISTRY,
     DEPRECATED_CLASS_DECODER_REGISTRY,
 )
+from ax.storage.metric_registry import DEPRECATED_METRIC_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -77,6 +78,7 @@ class SQAConfig:
     )
     experiment_type_enum: Optional[Enum] = None
     generator_run_type_enum: Optional[Enum] = GeneratorRunType  # pyre-ignore [8]
+
     json_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
         default_factory=lambda: DEPRECATED_ENCODER_REGISTRY
     )
@@ -89,3 +91,11 @@ class SQAConfig:
     json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
         default_factory=lambda: DEPRECATED_CLASS_DECODER_REGISTRY
     )
+
+    metric_registry: Dict[Type[Metric], int] = field(
+        default_factory=lambda: DEPRECATED_METRIC_REGISTRY
+    )
+
+    @property
+    def reverse_metric_registry(self):
+        return {v: k for k, v in self.metric_registry.items()}

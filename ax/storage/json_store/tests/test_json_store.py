@@ -22,7 +22,7 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.decoders import class_from_json
 from ax.storage.json_store.encoder import object_to_json
-from ax.storage.json_store.encoders import botorch_modular_to_dict
+from ax.storage.json_store.encoders import metric_to_dict, botorch_modular_to_dict
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.registry import (
     DEPRECATED_CLASS_ENCODER_REGISTRY,
@@ -31,7 +31,6 @@ from ax.storage.json_store.registry import (
     DEPRECATED_CLASS_DECODER_REGISTRY,
 )
 from ax.storage.json_store.save import save_experiment
-from ax.storage.metric_registry import register_metric
 from ax.storage.runner_registry import register_runner
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
@@ -422,8 +421,10 @@ class JSONStoreTest(TestCase):
         class MyMetric(Metric):
             pass
 
-        register_metric(MyMetric)
         register_runner(MyRunner)
+
+        encoder_registry = {MyMetric: metric_to_dict, **DEPRECATED_ENCODER_REGISTRY}
+        decoder_registry = {MyMetric.__name__: MyMetric, **DEPRECATED_DECODER_REGISTRY}
 
         experiment = get_experiment_with_batch_and_single_trial()
         experiment.runner = MyRunner()
@@ -432,12 +433,12 @@ class JSONStoreTest(TestCase):
             save_experiment(
                 experiment,
                 f.name,
-                encoder_registry=DEPRECATED_ENCODER_REGISTRY,
+                encoder_registry=encoder_registry,
                 class_encoder_registry=DEPRECATED_CLASS_ENCODER_REGISTRY,
             )
             loaded_experiment = load_experiment(
                 f.name,
-                decoder_registry=DEPRECATED_DECODER_REGISTRY,
+                decoder_registry=decoder_registry,
                 class_decoder_registry=DEPRECATED_CLASS_DECODER_REGISTRY,
             )
             self.assertEqual(loaded_experiment, experiment)
