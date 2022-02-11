@@ -58,10 +58,10 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.registry import (
-    DEPRECATED_ENCODER_REGISTRY,
-    DEPRECATED_CLASS_ENCODER_REGISTRY,
-    DEPRECATED_DECODER_REGISTRY,
-    DEPRECATED_CLASS_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+    CORE_CLASS_ENCODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+    CORE_CLASS_DECODER_REGISTRY,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
@@ -1047,10 +1047,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
             A JSON-safe dict representation of this `AxClient`.
         """
         if encoder_registry is None:
-            encoder_registry = DEPRECATED_ENCODER_REGISTRY
+            encoder_registry = CORE_ENCODER_REGISTRY
 
         if class_encoder_registry is None:
-            class_encoder_registry = DEPRECATED_CLASS_ENCODER_REGISTRY
+            class_encoder_registry = CORE_CLASS_ENCODER_REGISTRY
 
         return {
             "_type": self.__class__.__name__,
@@ -1079,10 +1079,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
         if decoder_registry is None:
-            decoder_registry = DEPRECATED_DECODER_REGISTRY
+            decoder_registry = CORE_DECODER_REGISTRY
 
         if class_decoder_registry is None:
-            class_decoder_registry = DEPRECATED_CLASS_DECODER_REGISTRY
+            class_decoder_registry = CORE_CLASS_DECODER_REGISTRY
 
         experiment = object_from_json(
             serialized.pop("experiment"),

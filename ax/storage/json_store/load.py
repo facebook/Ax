@@ -9,12 +9,18 @@ from typing import Any, Callable, Type, Dict
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.decoder import object_from_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+)
 
 
 def load_experiment(
     filepath: str,
-    decoder_registry: Dict[str, Type],
-    class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]],
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
 ) -> Experiment:
     """Load experiment from file.
 

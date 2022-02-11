@@ -20,13 +20,13 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.registry import (
-    DEPRECATED_ENCODER_REGISTRY,
-    DEPRECATED_CLASS_ENCODER_REGISTRY,
-    DEPRECATED_DECODER_REGISTRY,
-    DEPRECATED_CLASS_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+    CORE_CLASS_ENCODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+    CORE_CLASS_DECODER_REGISTRY,
 )
-from ax.storage.metric_registry import DEPRECATED_METRIC_REGISTRY
-from ax.storage.runner_registry import DEPRECATED_RUNNER_REGISTRY
+from ax.storage.metric_registry import CORE_METRIC_REGISTRY
+from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -81,23 +81,23 @@ class SQAConfig:
     generator_run_type_enum: Optional[Enum] = GeneratorRunType  # pyre-ignore [8]
 
     json_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
-        default_factory=lambda: DEPRECATED_ENCODER_REGISTRY
+        default_factory=lambda: CORE_ENCODER_REGISTRY
     )
     json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
-        default_factory=lambda: DEPRECATED_CLASS_ENCODER_REGISTRY
+        default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY
     )
     json_decoder_registry: Dict[str, Type] = field(
-        default_factory=lambda: DEPRECATED_DECODER_REGISTRY
+        default_factory=lambda: CORE_DECODER_REGISTRY
     )
     json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
-        default_factory=lambda: DEPRECATED_CLASS_DECODER_REGISTRY
+        default_factory=lambda: CORE_CLASS_DECODER_REGISTRY
     )
 
     metric_registry: Dict[Type[Metric], int] = field(
-        default_factory=lambda: DEPRECATED_METRIC_REGISTRY
+        default_factory=lambda: CORE_METRIC_REGISTRY
     )
     runner_registry: Dict[Type[Runner], int] = field(
-        default_factory=lambda: DEPRECATED_RUNNER_REGISTRY
+        default_factory=lambda: CORE_RUNNER_REGISTRY
     )
 
     @property

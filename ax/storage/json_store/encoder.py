@@ -15,14 +15,22 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.exceptions.storage import JSONEncodeError
+from ax.storage.json_store.registry import (
+    CORE_CLASS_ENCODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+)
 from ax.utils.common.serialization import _is_named_tuple
 from ax.utils.common.typeutils import numpy_type_to_python_type, torch_type_to_str
 
 
 def object_to_json(
     obj: Any,
-    encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
-    class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
+    encoder_registry: Dict[
+        Type, Callable[[Any], Dict[str, Any]]
+    ] = CORE_ENCODER_REGISTRY,
+    class_encoder_registry: Dict[
+        Type, Callable[[Any], Dict[str, Any]]
+    ] = CORE_CLASS_ENCODER_REGISTRY,
 ) -> Any:
     """Convert an Ax object to a JSON-serializable dictionary.
 

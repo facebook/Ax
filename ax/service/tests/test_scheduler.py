@@ -41,10 +41,10 @@ from ax.service.utils.with_db_settings_base import (
 )
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import (
-    DEPRECATED_DECODER_REGISTRY,
-    DEPRECATED_ENCODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
 )
-from ax.storage.runner_registry import DEPRECATED_RUNNER_REGISTRY
+from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -619,15 +619,15 @@ class TestAxScheduler(TestCase):
         init_test_engine_and_session_factory(force_init=True)
         encoder_registry = {
             SyntheticRunnerWithStatusPolling: runner_to_dict,
-            **DEPRECATED_ENCODER_REGISTRY,
+            **CORE_ENCODER_REGISTRY,
         }
         decoder_registry = {
             SyntheticRunnerWithStatusPolling.__name__: SyntheticRunnerWithStatusPolling,
-            **DEPRECATED_DECODER_REGISTRY,
+            **CORE_DECODER_REGISTRY,
         }
         runner_registry = {
             SyntheticRunnerWithStatusPolling: 1998,
-            **DEPRECATED_RUNNER_REGISTRY,
+            **CORE_RUNNER_REGISTRY,
         }
 
         config = SQAConfig(

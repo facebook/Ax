@@ -104,7 +104,7 @@ from botorch.models.model import Model
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
 
-DEPRECATED_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
@@ -160,7 +160,7 @@ DEPRECATED_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-DEPRECATED_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,
     AcquisitionFunction: botorch_modular_to_dict,
     MarginalLogLikelihood: botorch_modular_to_dict,
@@ -168,7 +168,7 @@ DEPRECATED_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] =
     Transform: transform_type_to_dict,
 }
 
-DEPRECATED_DECODER_REGISTRY: Dict[str, Type] = {
+CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
@@ -235,7 +235,7 @@ DEPRECATED_DECODER_REGISTRY: Dict[str, Type] = {
 
 
 # Registry for class types, not instances.
-DEPRECATED_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
+CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
     "Type[MarginalLogLikelihood]": class_from_json,

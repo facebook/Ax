@@ -9,13 +9,21 @@ from typing import Any, Callable, Type, Dict
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_ENCODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+)
 
 
 def save_experiment(
     experiment: Experiment,
     filepath: str,
-    encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
-    class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
+    encoder_registry: Dict[
+        Type, Callable[[Any], Dict[str, Any]]
+    ] = CORE_ENCODER_REGISTRY,
+    class_encoder_registry: Dict[
+        Type, Callable[[Any], Dict[str, Any]]
+    ] = CORE_CLASS_ENCODER_REGISTRY,
 ) -> None:
     """Save experiment to file.
 

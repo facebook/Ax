@@ -22,13 +22,8 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.json_store.encoders import runner_to_dict, metric_to_dict
-from ax.storage.json_store.registry import (
-    DEPRECATED_DECODER_REGISTRY,
-    DEPRECATED_ENCODER_REGISTRY,
-)
-from ax.storage.metric_registry import DEPRECATED_METRIC_REGISTRY
-from ax.storage.runner_registry import DEPRECATED_RUNNER_REGISTRY
+from ax.storage.metric_registry import register_metric, CORE_METRIC_REGISTRY
+from ax.storage.runner_registry import register_runner, CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import (
     get_engine,
     get_session,
@@ -920,7 +915,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=DEPRECATED_METRIC_REGISTRY[BraninMetric],
+            metric_type=CORE_METRIC_REGISTRY[BraninMetric],
         )
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -937,7 +932,7 @@ class SQAStoreTest(TestCase):
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
-            metric_type=DEPRECATED_METRIC_REGISTRY[BraninMetric],
+            metric_type=CORE_METRIC_REGISTRY[BraninMetric],
             generator_run_id=0,
         )
         with session_scope() as session:
@@ -960,7 +955,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        sqa_metric.metric_type = DEPRECATED_METRIC_REGISTRY[BraninMetric]
+        sqa_metric.metric_type = CORE_METRIC_REGISTRY[BraninMetric]
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -978,7 +973,7 @@ class SQAStoreTest(TestCase):
             self.decoder.runner_from_sqa(sqa_runner)
 
     def testRunnerValidation(self):
-        sqa_runner = SQARunner(runner_type=DEPRECATED_RUNNER_REGISTRY[SyntheticRunner])
+        sqa_runner = SQARunner(runner_type=CORE_RUNNER_REGISTRY[SyntheticRunner])
         with self.assertRaises(ValueError):
             with session_scope() as session:
                 session.add(sqa_runner)
@@ -992,7 +987,7 @@ class SQAStoreTest(TestCase):
                 session.add(sqa_runner)
 
         sqa_runner = SQARunner(
-            runner_type=DEPRECATED_RUNNER_REGISTRY[SyntheticRunner], trial_id=0
+            runner_type=CORE_RUNNER_REGISTRY[SyntheticRunner], trial_id=0
         )
         with session_scope() as session:
             session.add(sqa_runner)
@@ -1035,18 +1030,16 @@ class SQAStoreTest(TestCase):
         class MyMetric(Metric):
             pass
 
-        encoder_registry = {
-            MyMetric: metric_to_dict,
-            MyRunner: runner_to_dict,
-            **DEPRECATED_ENCODER_REGISTRY,
-        }
-        decoder_registry = {
-            MyMetric.__name__: MyMetric,
-            MyRunner.__name__: MyRunner,
-            **DEPRECATED_DECODER_REGISTRY,
-        }
-        metric_registry = {MyMetric: 1118, **DEPRECATED_METRIC_REGISTRY}
-        runner_registry = {MyRunner: 1118, **DEPRECATED_RUNNER_REGISTRY}
+        (
+            metric_registry,
+            partial_encoder_registry,
+            partial_decoder_registry,
+        ) = register_metric(metric_cls=MyMetric)
+        runner_registry, encoder_registry, decoder_registry = register_runner(
+            runner_cls=MyRunner,
+            encoder_registry=partial_encoder_registry,
+            decoder_registry=partial_decoder_registry,
+        )
 
         sqa_config = SQAConfig(
             json_encoder_registry=encoder_registry,
