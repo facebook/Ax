@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.models.types import TConfig
 
@@ -170,3 +172,46 @@ class Transform:
         Returns: observation data in original space.
         """
         return observation_data
+
+    def untransform_objective_thresholds(
+        self,
+        objective_thresholds: List[ObjectiveThreshold],
+        observation_features: List[ObservationFeatures],
+    ) -> List[ObjectiveThreshold]:
+        """Untransforms objective thresholds.
+
+        By default, we untransform objective thresholds in the same way as the
+        observation data.
+
+        Args:
+            objective_thresholds: Objective thresholds in transformed space.
+            observation_features: Observation features in transformed space. Required
+                to correctly untransform thresholds for stratified observation data.
+        """
+        # Create dummy ObservationData from objective_thresholds so we can easily
+        # untransform them using the existing Transform methods.
+        means = np.array([t.bound for t in objective_thresholds])
+        metric_names = [t.metric.name for t in objective_thresholds]
+        observation_data = [
+            ObservationData(
+                means=means,
+                metric_names=metric_names,
+                covariance=np.zeros((len(metric_names), len(metric_names))),
+            )
+        ]
+        observation_data = self.untransform_observation_data(
+            observation_data, observation_features
+        )[0]
+
+        untransformed_thresholds = []
+        for threshold, bound in zip(objective_thresholds, observation_data.means):
+            if not np.isnan(bound):
+                untransformed_thresholds.append(
+                    ObjectiveThreshold(
+                        metric=threshold.metric,
+                        bound=bound,
+                        relative=False,
+                        op=threshold.op,
+                    )
+                )
+        return untransformed_thresholds
