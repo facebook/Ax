@@ -41,7 +41,6 @@ from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models, ModelRegistryBase
 from ax.storage.json_store.decoder import object_from_json
-from ax.storage.runner_registry import REVERSE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -828,12 +827,13 @@ class Decoder:
 
     def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
-        runner_class = REVERSE_RUNNER_REGISTRY.get(runner_sqa.runner_type)
-        if runner_class is None:
+        if runner_sqa.runner_type not in self.config.reverse_runner_registry:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type."
             )
+        runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
+
         args = runner_class.deserialize_init_args(
             args=dict(runner_sqa.properties or {})
         )

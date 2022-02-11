@@ -39,7 +39,12 @@ from ax.service.scheduler import (
 from ax.service.utils.with_db_settings_base import (
     WithDBSettingsBase,
 )
-from ax.storage.runner_registry import register_runner
+from ax.storage.json_store.encoders import runner_to_dict
+from ax.storage.json_store.registry import (
+    DEPRECATED_DECODER_REGISTRY,
+    DEPRECATED_ENCODER_REGISTRY,
+)
+from ax.storage.runner_registry import DEPRECATED_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -72,9 +77,6 @@ class SyntheticRunnerWithStatusPolling(SyntheticRunner):
             running = [t.index for t in trials]
             return {TrialStatus.COMPLETED: {running[randint(0, len(running) - 1)]}}
         return {}
-
-
-register_runner(SyntheticRunnerWithStatusPolling)
 
 
 class TestScheduler(Scheduler):
@@ -615,7 +617,24 @@ class TestAxScheduler(TestCase):
 
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)
-        config = SQAConfig()
+        encoder_registry = {
+            SyntheticRunnerWithStatusPolling: runner_to_dict,
+            **DEPRECATED_ENCODER_REGISTRY,
+        }
+        decoder_registry = {
+            SyntheticRunnerWithStatusPolling.__name__: SyntheticRunnerWithStatusPolling,
+            **DEPRECATED_DECODER_REGISTRY,
+        }
+        runner_registry = {
+            SyntheticRunnerWithStatusPolling: 1998,
+            **DEPRECATED_RUNNER_REGISTRY,
+        }
+
+        config = SQAConfig(
+            json_encoder_registry=encoder_registry,
+            json_decoder_registry=decoder_registry,
+            runner_registry=runner_registry,
+        )
         encoder = Encoder(config=config)
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)

@@ -26,6 +26,7 @@ from ax.storage.json_store.registry import (
     DEPRECATED_CLASS_DECODER_REGISTRY,
 )
 from ax.storage.metric_registry import DEPRECATED_METRIC_REGISTRY
+from ax.storage.runner_registry import DEPRECATED_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -95,7 +96,14 @@ class SQAConfig:
     metric_registry: Dict[Type[Metric], int] = field(
         default_factory=lambda: DEPRECATED_METRIC_REGISTRY
     )
+    runner_registry: Dict[Type[Runner], int] = field(
+        default_factory=lambda: DEPRECATED_RUNNER_REGISTRY
+    )
 
     @property
-    def reverse_metric_registry(self):
+    def reverse_metric_registry(self) -> Dict[int, Type[Metric]]:
         return {v: k for k, v in self.metric_registry.items()}
+
+    @property
+    def reverse_runner_registry(self) -> Dict[int, Type[Runner]]:
+        return {v: k for k, v in self.runner_registry.items()}

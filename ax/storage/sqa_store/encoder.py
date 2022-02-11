@@ -37,7 +37,6 @@ from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
-from ax.storage.runner_registry import RUNNER_REGISTRY
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
     SQAArm,
@@ -761,13 +760,13 @@ class Encoder:
     ) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
         runner_class = type(runner)
-        runner_type = RUNNER_REGISTRY.get(runner_class)
+        runner_type = self.config.runner_registry.get(runner_class)
         if runner_type is None:
             raise SQAEncodeError(
                 "Cannot encode runner to SQLAlchemy because runner's "
                 f"subclass ({runner_class}) is missing from the registry. "
                 "The runner registry currently contains the following: "
-                f"{','.join(map(str, RUNNER_REGISTRY.keys()))}"
+                f"{','.join(map(str, self.config.runner_registry.keys()))}"
             )  # pragma: no cover
         properties = runner_class.serialize_init_args(runner=runner)
 
