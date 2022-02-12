@@ -308,4 +308,6 @@ branin = Branin()
 aug_branin = Aug_Branin()
 
 # Synthetic functions constructed from BoTorch.
-ackley = from_botorch(botorch_synthetic_function=botorch_synthetic.Ackley())
+ackley: SyntheticFunction = from_botorch(
+    botorch_synthetic_function=botorch_synthetic.Ackley()
+)

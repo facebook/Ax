@@ -19,7 +19,7 @@ from ax.plot.scatter import _error_scatter_data
 COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]
 
 
-def get_color(x: float, ci: float, rel: bool, reverse: bool):
+def get_color(x: float, ci: float, rel: bool, reverse: bool) -> str:
     """Determine the color of the table cell."""
     if not rel:
         # Color coding is meant to be relative to the status quo,

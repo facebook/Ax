@@ -16,7 +16,11 @@ def get_optimizer_kwargs() -> Dict[str, int]:
 
 
 def get_torch_test_data(
-    dtype=torch.float, cuda=False, constant_noise=True, task_features=None, offset=0.0
+    dtype=torch.float,
+    cuda: bool = False,
+    constant_noise: bool = True,
+    task_features=None,
+    offset: float = 0.0,
 ):
     device = torch.device("cuda") if cuda else torch.device("cpu")
     Xs = [
