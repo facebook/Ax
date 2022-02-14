@@ -462,7 +462,10 @@ class BotorchMOOModelTest(TestCase):
                     "optimizer_kwargs": _get_optimizer_kwargs(),
                     # do not used cached root decomposition since
                     # MockPosterior does not have an mvn attribute
-                    "acquisition_function_kwargs": {"cache_root": False},
+                    "acquisition_function_kwargs": {
+                        "cache_root": False,
+                        "prune_baseline": False,
+                    },
                 },
             )
             # the NEHVI acquisition function should be created only once.
@@ -521,7 +524,10 @@ class BotorchMOOModelTest(TestCase):
                     "optimizer_kwargs": _get_optimizer_kwargs(),
                     # do not used cached root decomposition since
                     # MockPosterior does not have an mvn attribute
-                    "acquisition_function_kwargs": {"cache_root": False},
+                    "acquisition_function_kwargs": {
+                        "cache_root": False,
+                        "prune_baseline": False,
+                    },
                 },
                 objective_thresholds=provided_obj_t,
             )

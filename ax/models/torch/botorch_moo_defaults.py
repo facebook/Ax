@@ -369,7 +369,9 @@ def pareto_frontier_evaluator(
 
     # Filter Y, Yvar, Y_obj to items that dominate all objective thresholds
     if objective_thresholds is not None:
-        objective_thresholds_mask = (Y_obj >= weighted_objective_thresholds).all(dim=1)
+        objective_thresholds_mask = torch.all(
+            Y_obj >= weighted_objective_thresholds, dim=1
+        )
         Y = Y[objective_thresholds_mask]
         Yvar = Yvar[objective_thresholds_mask]
         Y_obj = Y_obj[objective_thresholds_mask]
