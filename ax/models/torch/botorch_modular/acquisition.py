@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-import itertools
+from functools import partial
+from itertools import product
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
@@ -15,9 +16,7 @@ from ax.models.model_utils import (
     mk_discrete_choices,
     enumerate_discrete_combinations,
 )
-from ax.models.torch.botorch_modular.default_options import (
-    get_default_optimizer_options,
-)
+from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
@@ -166,6 +165,8 @@ class Acquisition(Base):
             "X_pending": X_pending,
             "objective_thresholds": objective_thresholds,
             "outcome_constraints": outcome_constraints,
+            "target_fidelities": search_space_digest.target_fidelities,
+            "bounds": search_space_digest.bounds,
             **model_deps,
             **self.options,
         }
@@ -240,18 +241,19 @@ class Acquisition(Base):
         """
         # NOTE: Could make use of `optimizer_class` when its added to BoTorch
         # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
-
-        optimizer_options_with_defaults = {
-            **get_default_optimizer_options(acqf_class=self.botorch_acqf_class),
-            **(optimizer_options or {}),
-        }
+        _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
-        tkwargs = {"dtype": self.dtype, "device": self.device}
-        # pyre-fixme[6]: Expected `Optional[Type[torch._dtype]]` for 2nd param but
-        #  got `Union[Type[torch._dtype], torch.device]`.
-        bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
-        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
+        bounds = _tensorize(ssd.bounds).t()
 
+        # Prepare arguments for optimizer
+        optimizer_options_with_defaults = optimizer_argparse(
+            self.acqf,
+            bounds=bounds,
+            q=n,
+            optimizer_options=optimizer_options,
+        )
+
+        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
         if fixed_features is not None:
             for i in fixed_features:
                 if not 0 <= i < len(ssd.feature_names):
@@ -277,9 +279,7 @@ class Acquisition(Base):
             # For now we just enumerate all possible discrete combinations. This is not
             # scalable and and only works for a reasonably small number of choices.
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
-            # pyre-fixme[6]: Expected `Optional[Type[torch._dtype]]` for 2nd param
-            #  but got `Union[Type[torch._dtype], torch.device]`.
-            all_choices = torch.tensor(list(itertools.product(*all_choices)), **tkwargs)
+            all_choices = _tensorize(tuple(product(*all_choices)))
 
             return optimize_acqf_discrete(
                 acq_function=self.acqf,
