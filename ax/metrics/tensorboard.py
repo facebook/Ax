@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
-from typing import Iterable, Dict, List, Optional, Union
+from typing import Iterable, Dict, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo
@@ -21,6 +20,7 @@ try:
     from tensorboard.backend.event_processing import (
         plugin_event_multiplexer as event_multiplexer,
     )
+    from tensorboard.compat.proto import types_pb2
 
     logging.getLogger("tensorboard").setLevel(logging.CRITICAL)
 
@@ -74,15 +74,11 @@ try:
         for item in raw_result:
             latest_start_time = _get_latest_start_time(item["event"])
             steps = [e.step for e in item["event"] if e.wall_time >= latest_start_time]
-            vals = list(
-                itertools.chain.from_iterable(
-                    [
-                        e.tensor_proto.float_val
-                        for e in item["event"]
-                        if e.wall_time >= latest_start_time
-                    ]
-                )
-            )
+            vals = [
+                _get_event_value(e)
+                for e in item["event"]
+                if e.wall_time >= latest_start_time
+            ]
             key = item["tag"]
             series = pd.Series(index=steps, data=vals).dropna()
             if any(series.index.duplicated()):  # pyre-ignore[16]
@@ -112,6 +108,19 @@ try:
             if events[i].step < events[i - 1].step:
                 start_time = events[i].wall_time
         return start_time
+
+    def _get_event_value(e: NamedTuple) -> float:
+        r"""Helper function to check the dtype and then get the value
+        stored in a TensorEvent."""
+        tensor = e.tensor_proto  # pyre-ignore[16]
+        if tensor.dtype == types_pb2.DT_FLOAT:
+            return tensor.float_val[0]
+        elif tensor.dtype == types_pb2.DT_DOUBLE:
+            return tensor.double_val[0]
+        elif tensor.dtype == types_pb2.DT_INT32:
+            return tensor.int_val[0]
+        else:
+            raise ValueError(f"Tensorboard dtype {tensor.dtype} not supported.")
 
 
 except ImportError:
