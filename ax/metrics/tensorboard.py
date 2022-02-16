@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Dict, List, NamedTuple, Optional, Union
+from typing import Iterable, Dict, List, NamedTuple, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo
@@ -35,30 +35,26 @@ try:
         ) -> Dict[Union[int, str], Dict[str, pd.Series]]:
             """Get curve data from tensorboard logs.
 
+            NOTE: If the ids are not simple paths/posix locations, subclass this metric
+            and replace this method with an appropriate one that retrieves the log
+            results.
+
             Args:
                 ids: A list of string paths to tensorboard log directories.
 
-            NOTE: If the ids are not simple paths/posix locations, subclass this
-                metric and replace this method with an appropriate one that
-                retrieves the log results.
+            Returns:
+                A dictionary mapping metric names to pandas Series of data.
             """
-            result = {}
-            for id_ in ids:
-                tb = get_tb_from_posix(str(id_))
-                if tb is not None:
-                    result[id_] = tb
-            return result
+            return {idx: get_tb_from_posix(str(idx)) for idx in ids}
 
-    def get_tb_from_posix(path: str) -> Optional[Dict[str, pd.Series]]:
+    def get_tb_from_posix(path: str) -> Dict[str, pd.Series]:
         r"""Get Tensorboard data from a posix path.
 
         Args:
-            path: The posix path for the directory that contains the
-                tensorboard logs.
+            path: The posix path for the directory that contains the tensorboard logs.
 
         Returns:
             A dictionary mapping metric names to pandas Series of data.
-            If the path does not exist, return None.
         """
         logger.debug(f"Reading TB logs from {path}.")
         mul = event_multiplexer.EventMultiplexer(max_reload_threads=20)
@@ -92,8 +88,8 @@ try:
         return tb_run_data
 
     def _get_latest_start_time(events: List) -> float:
-        r"""In each directory, there may be previous training runs due
-        to restarting training jobs.
+        """In each directory, there may be previous training runs due to restarting
+        training jobs.
 
         Args:
             events: A list of TensorEvents.
