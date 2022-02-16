@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from contextlib import ExitStack
 from itertools import chain
 from typing import Any
@@ -17,6 +19,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import SubsetModelData
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import (
     ACQF_INPUT_CONSTRUCTOR_REGISTRY,
     get_acqf_input_constructor,
@@ -39,11 +42,14 @@ SURROGATE_PATH = Surrogate.__module__
 
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
-class DummyACQFClass:
+class DummyAcquisitionFunction(AcquisitionFunction):
     def __init__(self, **kwargs: Any) -> None:
         pass
 
     def __call__(self, **kwargs: Any) -> None:
+        pass
+
+    def forward(self, X: torch.Tensor) -> None:
         pass
 
 
@@ -55,7 +61,7 @@ class AcquisitionTest(TestCase):
         )
         # Adding wrapping here to be able to count calls and inspect arguments.
         _register_acqf_input_constructor(
-            acqf_cls=DummyACQFClass,
+            acqf_cls=DummyAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
         self.botorch_model_class = SingleTaskGP
@@ -75,7 +81,7 @@ class AcquisitionTest(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
         )
-        self.botorch_acqf_class = DummyACQFClass
+        self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]])]
@@ -103,7 +109,7 @@ class AcquisitionTest(TestCase):
 
     def tearDown(self):
         # Avoid polluting the registry for other tests.
-        ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyACQFClass)
+        ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
@@ -116,7 +122,8 @@ class AcquisitionTest(TestCase):
         return_value={"current_value": 1.2},
     )
     @mock.patch(
-        f"{DummyACQFClass.__module__}.DummyACQFClass.__init__", return_value=None
+        f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
+        return_value=None,
     )
     def test_init(
         self,
@@ -360,7 +367,8 @@ class AcquisitionTest(TestCase):
         )
 
     @mock.patch(
-        f"{DummyACQFClass.__module__}.DummyACQFClass.__call__", return_value=None
+        f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__call__",
+        return_value=None,
     )
     def test_evaluate(self, mock_call):
         self.acquisition.evaluate(X=self.X)

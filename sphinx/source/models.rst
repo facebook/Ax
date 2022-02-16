@@ -235,11 +235,18 @@ ax.models.torch.botorch_modular.model module
     :undoc-members:
     :show-inheritance:
 
-
 ax.models.torch.botorch_modular.multi_fidelity module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.torch.botorch_modular.multi_fidelity
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ax.models.torch.botorch_modular.optimizer_argparse module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.optimizer_argparse
     :members:
     :undoc-members:
     :show-inheritance:
