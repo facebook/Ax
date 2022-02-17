@@ -23,9 +23,7 @@ Mapping of Metric classes to ints.
 
 All metrics will be stored in the same table in the database. When
 saving, we look up the metric subclass in METRIC_REGISTRY, and store
-the corresponding type field in the database. When loading, we look
-up the type field in REVERSE_METRIC_REGISTRY, and initialize the
-corresponding metric subclass.
+the corresponding type field in the database.
 """
 CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
     Metric: 0,
@@ -42,7 +40,7 @@ CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
 
 def register_metric(
     metric_cls: Type[Metric],
-    metric_registry: Dict[Type[Metric], int] = CORE_METRIC_REGISTRY,
+    metric_registry: Optional[Dict[Type[Metric], int]] = None,
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
@@ -57,6 +55,8 @@ def register_metric(
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
 
+    metric_registry = metric_registry or {Metric: 0}
+
     registered_val = val or abs(hash(metric_cls.__name__)) % (10 ** 5)
 
     new_metric_registry = {metric_cls: registered_val, **metric_registry}
@@ -68,7 +68,7 @@ def register_metric(
 
 def register_metrics(
     metric_clss: Dict[Type[Metric], Optional[int]],
-    metric_registry: Dict[Type[Metric], int] = CORE_METRIC_REGISTRY,
+    metric_registry: Optional[Dict[Type[Metric], int]] = None,
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
@@ -81,6 +81,8 @@ def register_metrics(
     """Add custom metric classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
+
+    metric_registry = metric_registry or {Metric: 1}
 
     new_metric_registry = {
         **{
