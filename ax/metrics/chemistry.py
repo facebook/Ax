@@ -42,6 +42,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.types import TParameterization, TParamValue
+from ax.utils.common.typeutils import not_none
 
 
 class ChemistryProblemType(Enum):
@@ -73,21 +74,40 @@ def _get_data(problem_type: ChemistryProblemType) -> ChemistryData:
 
 
 class ChemistryMetric(Metric):
+    """Metric for modeling chemical reactions.
+
+    Metric describing the outcomes of chemical reactions. Based on tabulate data.
+    Problems typically contain many discrete and categorical parameters.
+
+    Args:
+        name: The name of the metric.
+        noiseless: If True, consider observations noiseless, otherwise
+            assume unknown Gaussian observation noise.
+        problem_type: The problem type.
+
+    Attributes:
+        noiseless: If True, consider observations noiseless, otherwise
+            assume unknown Gaussian observation noise.
+        lower_is_better: If True, the metric should be minimized.
+    """
+
     def __init__(
         self,
         name: str,
         noiseless: bool = False,
         problem_type: ChemistryProblemType = ChemistryProblemType.SUZUKI,
+        lower_is_better: bool = False,
     ) -> None:
         self.noiseless = noiseless
         self.problem_type = problem_type
-        super().__init__(name=name, lower_is_better=False)
+        super().__init__(name=name, lower_is_better=lower_is_better)
 
     def clone(self) -> ChemistryMetric:
         return self.__class__(
             name=self._name,
             noiseless=self.noiseless,
             problem_type=self.problem_type,
+            lower_is_better=not_none(self.lower_is_better),
         )
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
