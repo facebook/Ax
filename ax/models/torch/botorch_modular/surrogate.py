@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import inspect
 from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
 
@@ -67,9 +68,13 @@ class Surrogate(Base):
     """
 
     botorch_model_class: Type[Model]
-    mll_class: Type[MarginalLogLikelihood]
     model_options: Dict[str, Any]
-    kernel_class: Optional[Type[Kernel]] = None
+    mll_class: Type[MarginalLogLikelihood]
+    mll_options: Dict[str, Any]
+    covar_module_class: Optional[Type[Kernel]] = None
+    covar_module_options: Dict[str, Any]
+    likelihood_class: Optional[Type[Likelihood]] = None
+    likelihood_options: Dict[str, Any]
     _training_data: Optional[TrainingData] = None
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
@@ -84,21 +89,20 @@ class Surrogate(Base):
         botorch_model_class: Type[Model],
         model_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
-        kernel_class: Optional[Type[Kernel]] = None,  # TODO: use.
-        likelihood: Optional[Type[Likelihood]] = None,  # TODO: use.
         mll_options: Optional[Dict[str, Any]] = None,
-        kernel_options: Optional[Dict[str, Any]] = None,  # TODO: use.
+        covar_module_class: Optional[Type[Kernel]] = None,
+        covar_module_options: Optional[Dict[str, Any]] = None,
+        likelihood_class: Optional[Type[Likelihood]] = None,
+        likelihood_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.botorch_model_class = botorch_model_class
-        self.mll_class = mll_class
         self.model_options = model_options or {}
+        self.mll_class = mll_class
         self.mll_options = mll_options or {}
-
-        # Temporary validation while we develop these customizations.
-        if likelihood is not None:
-            raise NotImplementedError("Customizing likelihood not yet implemented.")
-        if kernel_class is not None or kernel_options:
-            raise NotImplementedError("Customizing kernel not yet implemented.")
+        self.covar_module_class = covar_module_class
+        self.covar_module_options = covar_module_options or {}
+        self.likelihood_class = likelihood_class
+        self.likelihood_options = likelihood_options or {}
 
     @property
     def model(self) -> Model:
@@ -166,14 +170,29 @@ class Surrogate(Base):
             raise ValueError(  # pragma: no cover
                 "Base `Surrogate` expects training data for single outcome."
             )
-
         input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
         self._training_data = training_data
 
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
             training_data=self.training_data, **input_constructor_kwargs
         )
-        # pyre-ignore[45]: Py raises informative msg if `model_cls` abstract.
+
+        # TODO: We currently only pass in `covar_module` and `likelihood` if they are
+        # inputs to the BoTorch model. This interface will need to be expanded to a
+        # ModelFactory, see D22457664, to accommodate different models in the future.
+        botorch_model_class_args = inspect.getfullargspec(self.botorch_model_class).args
+        if "covar_module" in botorch_model_class_args and self.covar_module_class:
+            # pyre-ignore [45]
+            formatted_model_inputs["covar_module"] = self.covar_module_class(
+                **self.covar_module_options
+            )
+        if "likelihood" in botorch_model_class_args and self.likelihood_class:
+            # pyre-ignore [45]
+            formatted_model_inputs["likelihood"] = self.likelihood_class(
+                **self.likelihood_options
+            )
+
+        # pyre-ignore [45]
         self._model = self.botorch_model_class(**formatted_model_inputs)
 
     def fit(
@@ -398,7 +417,11 @@ class Surrogate(Base):
         """
         return {
             "botorch_model_class": self.botorch_model_class,
-            "mll_class": self.mll_class,
             "model_options": self.model_options,
+            "mll_class": self.mll_class,
+            "covar_module_class": self.covar_module_class,
+            "likelihood_class": self.likelihood_class,
+            "covar_module_options": self.covar_module_options,
             "mll_options": self.mll_options,
+            "likelihood_options": self.likelihood_options,
         }

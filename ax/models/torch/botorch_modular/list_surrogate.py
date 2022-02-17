@@ -15,7 +15,6 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from botorch.models.model import Model, TrainingData
 from botorch.models.model_list_gp_regression import ModelListGP
-from gpytorch.kernels import Kernel
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
@@ -50,8 +49,8 @@ class ListSurrogate(Surrogate):
     submodel_options_per_outcome: Dict[str, Dict[str, Any]]
     submodel_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
-    kernel_class: Optional[Type[Kernel]] = None
-
+    # TODO: Allow passing down `covar_module_class`, `covar_module_options`,
+    # `likelihood_class`, and `likelihood_options`.
     _training_data_per_outcome: Optional[Dict[str, TrainingData]] = None
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,

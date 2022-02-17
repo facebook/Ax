@@ -246,4 +246,8 @@ class ListSurrogateTest(TestCase):
         # so we remove them from the expected dict.
         expected.pop("botorch_model_class")
         expected.pop("model_options")
+        expected.pop("covar_module_class")
+        expected.pop("covar_module_options")
+        expected.pop("likelihood_class")
+        expected.pop("likelihood_options")
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)

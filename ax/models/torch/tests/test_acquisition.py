@@ -33,6 +33,7 @@ from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.containers import TrainingData
 from botorch.utils.testing import MockPosterior
+from torch import Tensor
 
 
 ACQUISITION_PATH = Acquisition.__module__
@@ -43,11 +44,16 @@ SURROGATE_PATH = Surrogate.__module__
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
 class DummyAcquisitionFunction(AcquisitionFunction):
+    X_pending = None
+
     def __init__(self, **kwargs: Any) -> None:
         pass
 
-    def __call__(self, **kwargs: Any) -> None:
-        pass
+    def __call__(self, X, **kwargs: Any) -> None:
+        return X.sum(dim=-1)
+
+    def set_X_pending(self, X: Tensor, **kwargs: Any) -> None:
+        self.X_pending = X
 
     def forward(self, X: torch.Tensor) -> None:
         pass
@@ -64,11 +70,12 @@ class AcquisitionTest(TestCase):
             acqf_cls=DummyAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
+        tkwargs = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-        self.Y = torch.tensor([[3.0], [4.0]])
-        self.Yvar = torch.tensor([[0.0], [2.0]])
+        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
+        self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
+        self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = TrainingData.from_block_design(
             X=self.X, Y=self.Y, Yvar=self.Yvar
         )
@@ -84,12 +91,23 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
-        self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]])]
-        self.outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
+        self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **tkwargs)]
+        self.outcome_constraints = (
+            torch.tensor([[1.0]], **tkwargs),
+            torch.tensor([[0.5]], **tkwargs),
+        )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
         self.options = {"best_f": 0.0}
-        self.acquisition = Acquisition(
+        self.inequality_constraints = [
+            (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
+        ]
+        self.rounding_func = lambda x: x
+        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
+        self.tkwargs = tkwargs
+
+    def get_acquisition_function(self, fixed_features=None):
+        return Acquisition(
             botorch_acqf_class=self.botorch_acqf_class,
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
@@ -98,14 +116,9 @@ class AcquisitionTest(TestCase):
             pending_observations=self.pending_observations,
             outcome_constraints=self.outcome_constraints,
             linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            fixed_features=fixed_features or {},
             options=self.options,
         )
-        self.inequality_constraints = [
-            (torch.tensor([0, 1]), torch.tensor([-1.0, 1.0]), 1)
-        ]
-        self.rounding_func = lambda x: x
-        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
 
     def tearDown(self):
         # Avoid polluting the registry for other tests.
@@ -193,7 +206,7 @@ class AcquisitionTest(TestCase):
         # Check `get_botorch_objective_and_transform` kwargs
         mock_get_objective_and_transform.assert_called_once()
         _, ckwargs = mock_get_objective_and_transform.call_args
-        self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
         self.assertIs(ckwargs["objective_weights"], self.objective_weights)
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
@@ -202,7 +215,7 @@ class AcquisitionTest(TestCase):
         self.mock_input_constructor.assert_called_once()
         mock_botorch_acqf_class.assert_called_once()
         _, ckwargs = self.mock_input_constructor.call_args
-        self.assertIs(ckwargs["model"], self.acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
         for k, v in chain(self.options.items(), model_deps.items()):
@@ -210,7 +223,8 @@ class AcquisitionTest(TestCase):
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
     def test_optimize(self, mock_optimize_acqf):
-        self.acquisition.optimize(
+        acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
+        acquisition.optimize(
             n=3,
             search_space_digest=self.search_space_digest,
             inequality_constraints=self.inequality_constraints,
@@ -219,7 +233,7 @@ class AcquisitionTest(TestCase):
             optimizer_options=self.optimizer_options,
         )
         mock_optimize_acqf.assert_called_with(
-            acq_function=self.acquisition.acqf,
+            acq_function=acquisition.acqf,
             bounds=mock.ANY,
             q=3,
             inequality_constraints=self.inequality_constraints,
@@ -230,99 +244,104 @@ class AcquisitionTest(TestCase):
         # can't use assert_called_with on bounds due to ambiguous bool comparison
         expected_bounds = torch.tensor(
             self.search_space_digest.bounds,
-            dtype=self.acquisition.dtype,
-            device=self.acquisition.device,
+            dtype=acquisition.dtype,
+            device=acquisition.device,
         ).transpose(0, 1)
         self.assertTrue(
             torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
         )
 
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete")
-    def test_optimize_discrete(self, mock_optimize_acqf_discrete):
-        tkwargs = {
-            "dtype": self.acquisition.dtype,
-            "device": self.acquisition.device,
-        }
+    def test_optimize_discrete(self):
         ssd1 = SearchSpaceDigest(
-            feature_names=["a"],
-            bounds=[(0, 2)],
-            categorical_features=[0],
-            discrete_choices={0: [0, 1, 2]},
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2, 3), (2, 3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
         )
         # check fixed_feature index validation
         with self.assertRaisesRegex(ValueError, "Invalid fixed_feature index"):
-            self.acquisition.optimize(
+            acquisition = self.get_acquisition_function()
+            acquisition.optimize(
                 n=3,
                 search_space_digest=ssd1,
-                inequality_constraints=self.inequality_constraints,
-                fixed_features=self.fixed_features,
+                fixed_features={3: 2.0},
                 rounding_func=self.rounding_func,
                 optimizer_options=self.optimizer_options,
             )
         # check this works without any fixed_feature specified
-        self.acquisition.optimize(
-            n=3,
+        # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
+        # not be selected. [2, 3, 4] is the best point, but has already been picked
+        acquisition = self.get_acquisition_function()
+        X_selected, _ = acquisition.optimize(
+            n=2,
             search_space_digest=ssd1,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=None,
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
         )
-        mock_optimize_acqf_discrete.assert_called_with(
-            acq_function=self.acquisition.acqf,
-            q=3,
-            choices=mock.ANY,
-            **self.optimizer_options,
-        )
-        # can't use assert_called_with on choices due to ambiguous bool comparison
-        expected_choices = torch.tensor([[0], [1], [2]], **tkwargs)
+        expected = torch.tensor([[2, 2, 4], [2, 3, 3]]).to(self.X)
+        self.assertTrue(X_selected.shape == (2, 3))
         self.assertTrue(
-            torch.equal(
-                mock_optimize_acqf_discrete.call_args[1]["choices"], expected_choices
-            )
+            all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
         # check with fixed feature
+        # Since parameter 1 is fixed to 2, the best 3 candidates are
+        # [4, 2, 4], [3, 2, 4], [4, 2, 3]
         ssd2 = SearchSpaceDigest(
-            feature_names=["a", "b"],
-            bounds=[(0, 2), (0, 1)],
-            categorical_features=[0],
-            discrete_choices={0: [0, 1, 2]},
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 0, 0), (4, 4, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
-        self.acquisition.optimize(
+        X_selected, _ = acquisition.optimize(
             n=3,
             search_space_digest=ssd2,
-            inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
         )
-        mock_optimize_acqf_discrete.assert_called_with(
-            acq_function=self.acquisition.acqf,
-            q=3,
-            choices=mock.ANY,
-            **self.optimizer_options,
-        )
-        # can't use assert_called_with on choices due to ambiguous bool comparison
-        expected_choices = torch.tensor([[0, 2.0], [1, 2.0], [2, 2.0]], **tkwargs)
+        expected = torch.tensor([[4, 2, 4], [3, 2, 4], [4, 2, 3]]).to(self.X)
+        self.assertTrue(X_selected.shape == (3, 3))
         self.assertTrue(
-            torch.equal(
-                mock_optimize_acqf_discrete.call_args[1]["choices"], expected_choices
-            )
+            all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
+        # check with a constraint that -1 * x[0]  -1 * x[1] >= 0 which should make
+        # [0, 0, 4] the best candidate.
+        X_selected, _ = acquisition.optimize(
+            n=1,
+            search_space_digest=ssd2,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+            inequality_constraints=[
+                [torch.tensor([0, 1], dtype=torch.int64), -torch.ones(2), 0]
+            ],
+        )
+        expected = torch.tensor([[0, 0, 4]]).to(self.X)
+        self.assertTrue(torch.equal(expected, X_selected))
+        # Same thing but use two constraints instead
+        X_selected, _ = acquisition.optimize(
+            n=1,
+            search_space_digest=ssd2,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+            inequality_constraints=[
+                [torch.tensor([0], dtype=torch.int64), -torch.ones(1), 0],
+                [torch.tensor([1], dtype=torch.int64), -torch.ones(1), 0],
+            ],
+        )
+        expected = torch.tensor([[0, 0, 4]]).to(self.X)
+        self.assertTrue(torch.equal(expected, X_selected))
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
     def test_optimize_mixed(self, mock_optimize_acqf_mixed):
-        tkwargs = {
-            "dtype": self.acquisition.dtype,
-            "device": self.acquisition.device,
-        }
+        tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
             bounds=[(0, 1), (0, 2)],
             categorical_features=[1],
             discrete_choices={1: [0, 1, 2]},
         )
-        self.acquisition.optimize(
+        acquisition = self.get_acquisition_function()
+        acquisition.optimize(
             n=3,
             search_space_digest=ssd,
             inequality_constraints=self.inequality_constraints,
@@ -331,7 +350,7 @@ class AcquisitionTest(TestCase):
             optimizer_options=self.optimizer_options,
         )
         mock_optimize_acqf_mixed.assert_called_with(
-            acq_function=self.acquisition.acqf,
+            acq_function=acquisition.acqf,
             bounds=mock.ANY,
             q=3,
             fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
@@ -349,7 +368,8 @@ class AcquisitionTest(TestCase):
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.best_in_sample_point")
     def test_best_point(self, mock_best_point):
-        self.acquisition.best_point(
+        acquisition = self.get_acquisition_function(self.fixed_features)
+        acquisition.best_point(
             search_space_digest=self.search_space_digest,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
@@ -371,7 +391,8 @@ class AcquisitionTest(TestCase):
         return_value=None,
     )
     def test_evaluate(self, mock_call):
-        self.acquisition.evaluate(X=self.X)
+        acquisition = self.get_acquisition_function()
+        acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
@@ -384,23 +405,17 @@ class AcquisitionTest(TestCase):
             Ys=[self.Y] * 3,
             Yvars=[self.Yvar] * 3,
         )
-        moo_objective_weights = torch.tensor(
-            [-1.0, -1.0, 0.0],
-        )
+        moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
         moo_objective_thresholds = torch.tensor(
-            [0.5, 1.5, float("nan")],
+            [0.5, 1.5, float("nan")], **self.tkwargs
         )
         self.surrogate.construct(
             training_data=moo_training_data,
         )
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (
-            torch.tensor(
-                [[1.0, 0.0, 0.0]],
-            ),
-            torch.tensor(
-                [[10.0]],
-            ),
+            torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),
+            torch.tensor([[10.0]], **self.tkwargs),
         )
 
         acquisition = Acquisition(
@@ -428,6 +443,7 @@ class AcquisitionTest(TestCase):
                     [11.0, 2.0],
                     [9.0, 3.0],
                 ],
+                **self.tkwargs,
             )
             es.enter_context(
                 mock.patch.object(
@@ -452,7 +468,8 @@ class AcquisitionTest(TestCase):
             )
             self.assertTrue(
                 torch.equal(
-                    acquisition.objective_thresholds[:2], torch.tensor([9.9, 3.3])
+                    acquisition.objective_thresholds[:2],
+                    torch.tensor([9.9, 3.3], **self.tkwargs),
                 )
             )
             self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))

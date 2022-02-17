@@ -18,14 +18,24 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.containers import TrainingData
-from gpytorch.kernels import Kernel
-from gpytorch.likelihoods.likelihood import Likelihood
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-
+from gpytorch.constraints import Interval
+from gpytorch.kernels import Kernel, RBFKernel, ScaleKernel  # noqa: F401
+from gpytorch.likelihoods import (  # noqa: F401
+    FixedNoiseGaussianLikelihood,
+    GaussianLikelihood,
+    Likelihood,
+)
+from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
+from torch import Tensor
 
 ACQUISITION_PATH = f"{Acquisition.__module__}"
 CURRENT_PATH = f"{__name__}"
 SURROGATE_PATH = f"{Surrogate.__module__}"
+
+
+class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
+    def __init__(self, train_X: Tensor, train_Y: Tensor):
+        super().__init__(train_X=train_X, train_Y=train_Y)
 
 
 class SurrogateTest(TestCase):
@@ -69,14 +79,6 @@ class SurrogateTest(TestCase):
     def test_init(self, mock_Likelihood, mock_Kernel):
         self.assertEqual(self.surrogate.botorch_model_class, self.botorch_model_class)
         self.assertEqual(self.surrogate.mll_class, self.mll_class)
-        with self.assertRaisesRegex(NotImplementedError, "Customizing likelihood"):
-            Surrogate(
-                botorch_model_class=self.botorch_model_class, likelihood=Likelihood()
-            )
-        with self.assertRaisesRegex(NotImplementedError, "Customizing kernel"):
-            Surrogate(
-                botorch_model_class=self.botorch_model_class, kernel_class=Kernel()
-            )
 
     @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
     def test_mll_options(self, _):
@@ -160,6 +162,38 @@ class SurrogateTest(TestCase):
             mock_construct_inputs.assert_called_with(
                 training_data=self.training_data, some_option="some_value"
             )
+
+    def test_construct_custom_model(self):
+        # Make sure covar_module and likelihood are filtered for a model that doesn't
+        # support them.
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGPWithDifferentConstructor,
+            mll_class=self.mll_class,
+            covar_module_class=RBFKernel,
+            likelihood_class=FixedNoiseGaussianLikelihood,
+        )
+        surrogate.construct(self.training_data)
+        self.assertEqual(type(surrogate._model.covar_module), ScaleKernel)
+        self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
+        # Pass custom options to a SingleTaskGP and make sure they are used
+        noise_constraint = Interval(1e-6, 1e-1)
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGP,
+            mll_class=LeaveOneOutPseudoLikelihood,
+            covar_module_class=RBFKernel,
+            covar_module_options={"ard_num_dims": 1},
+            likelihood_class=GaussianLikelihood,
+            likelihood_options={"noise_constraint": noise_constraint},
+        )
+        surrogate.construct(self.training_data)
+        self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
+        self.assertEqual(
+            surrogate._model.likelihood.noise_covar.raw_noise_constraint,
+            noise_constraint,
+        )
+        self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
+        self.assertEqual(type(surrogate._model.covar_module), RBFKernel)
+        self.assertEqual(surrogate._model.covar_module.ard_num_dims, 1)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")

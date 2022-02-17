@@ -38,6 +38,9 @@ from botorch.optim.optimize import optimize_acqf_mixed, optimize_acqf_discrete
 from torch import Tensor
 
 
+DUPLICATE_TOL = 1e-6
+
+
 class Acquisition(Base):
     """
     **All classes in 'botorch_modular' directory are under
@@ -179,6 +182,8 @@ class Acquisition(Base):
             **input_constructor_kwargs,
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+        self.X_pending = X_pending
+        self.X_observed = X_observed
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -239,7 +244,7 @@ class Acquisition(Base):
             optimizer_options: Options for the optimizer function, e.g. ``sequential``
                 or ``raw_samples``.
         """
-        # NOTE: Could make use of `optimizer_class` when its added to BoTorch
+        # NOTE: Could make use of `optimizer_class` when it's added to BoTorch
         # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
@@ -280,6 +285,26 @@ class Acquisition(Base):
             # scalable and and only works for a reasonably small number of choices.
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
             all_choices = _tensorize(tuple(product(*all_choices)))
+
+            X_observed = self.X_observed
+            if self.X_pending is not None:
+                X_observed = torch.cat((X_observed, self.X_pending), dim=0)
+            # This can be vectorized, but using a for-loop to avoid memory issues
+            for x in X_observed:
+                all_choices = all_choices[
+                    (all_choices - x).abs().max(dim=-1).values > DUPLICATE_TOL
+                ]
+
+            # Filter out candidates that violate the constraints
+            # TODO: It will be more memory-efficient to do this filtering before
+            # converting the generator into a tensor. However, if we run into memory
+            # issues we are likely better off being smarter in how we optimize the
+            # acquisition function.
+            inequality_constraints = inequality_constraints or []
+            is_feasible = torch.ones(all_choices.shape[0], dtype=torch.bool)
+            for (inds, weights, bound) in inequality_constraints:
+                is_feasible &= (all_choices[..., inds] * weights).sum(dim=-1) >= bound
+            all_choices = all_choices[is_feasible]
 
             return optimize_acqf_discrete(
                 acq_function=self.acqf,
