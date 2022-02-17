@@ -483,8 +483,8 @@ class ArrayModelBridge(ModelBridge):
     def _evaluate_acquisition_function(
         self,
         observation_features: List[ObservationFeatures],
-        search_space_digest: SearchSpaceDigest,
-        objective_weights: np.ndarray,
+        search_space: SearchSpace,
+        optimization_config: OptimizationConfig,
         objective_thresholds: Optional[np.ndarray] = None,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
@@ -492,6 +492,12 @@ class ArrayModelBridge(ModelBridge):
         pending_observations: Optional[List[np.ndarray]] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
+        search_space_digest = extract_search_space_digest(
+            search_space=search_space, param_names=self.parameters
+        )
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
+        )
         return self._model_evaluate_acquisition_function(
             X=observation_features_to_array(self.parameters, observation_features),
             search_space_digest=search_space_digest,

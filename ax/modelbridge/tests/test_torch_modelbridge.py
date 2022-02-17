@@ -8,7 +8,10 @@ from unittest import mock
 
 import numpy as np
 import torch
+from ax.core.metric import Metric
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.torch import TorchModelBridge
@@ -251,16 +254,35 @@ class TorchModelBridgeTest(TestCase):
         model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
         model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
 
-        acqf_vals = ma.evaluate_acquisition_function(
-            observation_features=[ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
-            search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
-            objective_weights=np.array([1.0]),
-            objective_thresholds=None,
-            outcome_constraints=None,
-            linear_constraints=None,
-            fixed_features=None,
-            pending_observations=None,
-        )
+        ma._model_space = None
+        ma._optimization_config = None
+        ma.outcomes = ["test_metric"]
+
+        with self.assertRaisesRegex(ValueError, "optimization_config"):
+            ma.evaluate_acquisition_function(
+                observation_features=[
+                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
+                ],
+            )
+
+        with mock.patch(
+            "ax.modelbridge.array.extract_search_space_digest",
+            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
+        ):
+            acqf_vals = ma.evaluate_acquisition_function(
+                observation_features=[
+                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
+                ],
+                search_space=None,
+                optimization_config=OptimizationConfig(
+                    objective=Objective(metric=Metric(name="test_metric"))
+                ),
+                objective_thresholds=None,
+                outcome_constraints=None,
+                linear_constraints=None,
+                fixed_features=None,
+                pending_observations=None,
+            )
 
         self.assertEqual(acqf_vals, [5.0])
         t.transform_observation_features.assert_called_with(
