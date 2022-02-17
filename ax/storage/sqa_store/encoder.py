@@ -74,6 +74,9 @@ class Encoder:
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
 
+        # TODO[mpolson64] Remove this in a couple months
+        self.EXTRA_REGISTRY_ERROR_NOTE = ""
+
     @classmethod
     def validate_experiment_metadata(
         cls,
@@ -318,7 +321,8 @@ class Encoder:
                 "Cannot encode metric to SQLAlchemy because metric's "
                 f"subclass ({metric_class}) is missing from the registry. "
                 "The metric registry currently contains the following: "
-                f"{','.join(map(str, self.config.metric_registry.keys()))}"
+                f"{','.join(map(str, self.config.metric_registry.keys()))} "
+                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )  # pragma: no cover
 
         properties = metric_class.serialize_init_args(metric=metric)
@@ -766,7 +770,8 @@ class Encoder:
                 "Cannot encode runner to SQLAlchemy because runner's "
                 f"subclass ({runner_class}) is missing from the registry. "
                 "The runner registry currently contains the following: "
-                f"{','.join(map(str, self.config.runner_registry.keys()))}"
+                f"{','.join(map(str, self.config.runner_registry.keys()))} "
+                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )  # pragma: no cover
         properties = runner_class.serialize_init_args(runner=runner)
 

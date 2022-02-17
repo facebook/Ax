@@ -75,6 +75,9 @@ class Decoder:
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
 
+        # TODO[mpolson64] Remove this in a couple months
+        self.EXTRA_REGISTRY_ERROR_NOTE = ""
+
     def get_enum_name(
         self, value: Optional[int], enum: Optional[Enum]
     ) -> Optional[str]:
@@ -391,7 +394,8 @@ class Decoder:
         if metric_sqa.metric_type not in self.config.reverse_metric_registry:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
-                f"is an invalid type."
+                f"is an invalid type. "
+                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
 
@@ -830,7 +834,8 @@ class Decoder:
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
-                f"is an invalid type."
+                f"is an invalid type. "
+                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
