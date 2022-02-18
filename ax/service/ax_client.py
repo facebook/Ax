@@ -910,9 +910,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
         experiment, generation_strategy = self._load_experiment_and_generation_strategy(
             experiment_name=experiment_name
         )
-        if experiment is None:  # pragma: no cover
-            raise ValueError(f"Experiment by name '{experiment_name}' not found.")
-        self._experiment = experiment
+        self._experiment = not_none(
+            experiment, f"Experiment by name '{experiment_name}' not found."
+        )
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:  # pragma: no cover
             self._set_generation_strategy(
@@ -946,15 +946,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
             of predicted metric mean and SEM, of form:
             { trial_index -> { metric_name: ( mean, SEM ) } }.
         """
-        if self.generation_strategy.model is None:  # pragma: no cover
-            raise ValueError("No model has been instantiated yet.")
         if metric_names is None and self.experiment.metrics is None:
             raise ValueError(  # pragma: no cover
                 "No metrics to retrieve specified on the experiment or as "
                 "argument to `get_model_predictions`."
             )
         arm_info, _, _ = _get_in_sample_arms(
-            model=not_none(self.generation_strategy.model),
+            model=not_none(
+                self.generation_strategy.model, "No model has been instantiated yet."
+            ),
             metric_names=set(metric_names)
             if metric_names is not None
             else set(not_none(self.experiment.metrics).keys()),
@@ -1112,21 +1112,21 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
     @property
     def experiment(self) -> Experiment:
         """Returns the experiment set on this Ax client."""
-        if self._experiment is None:
-            raise ValueError(
+        return not_none(
+            self._experiment,
+            (
                 "Experiment not set on Ax client. Must first "
                 "call load_experiment or create_experiment to use handler functions."
-            )
-        return not_none(self._experiment)
+            ),
+        )
 
     @property
     def generation_strategy(self) -> GenerationStrategy:
         """Returns the generation strategy, set on this experiment."""
-        if self._generation_strategy is None:
-            raise ValueError(
-                "No generation strategy has been set on this optimization yet."
-            )
-        return not_none(self._generation_strategy)
+        return not_none(
+            self._generation_strategy,
+            "No generation strategy has been set on this optimization yet.",
+        )
 
     @property
     def objective(self) -> Objective:
