@@ -409,10 +409,13 @@ class Decoder:
         )
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
-        args = metric_class.deserialize_init_args(args=args)
-        metric = metric_class(**args)
-        metric.db_id = metric_sqa.id
-        return metric
+        try:
+            args = metric_class.deserialize_init_args(args=args)
+            metric = metric_class(**args)
+            metric.db_id = metric_sqa.id
+            return metric
+        except ValueError as err:
+            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
@@ -839,13 +842,16 @@ class Decoder:
             )
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
-        args = runner_class.deserialize_init_args(
-            args=dict(runner_sqa.properties or {})
-        )
-        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
-        runner = runner_class(**args)
-        runner.db_id = runner_sqa.id
-        return runner
+        try:
+            args = runner_class.deserialize_init_args(
+                args=dict(runner_sqa.properties or {})
+            )
+            # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+            runner = runner_class(**args)
+            runner.db_id = runner_sqa.id
+            return runner
+        except ValueError as err:
+            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
 
     def trial_from_sqa(
         self, trial_sqa: SQATrial, experiment: Experiment, reduced_state: bool = False
