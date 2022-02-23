@@ -558,7 +558,9 @@ def get_best_trial(
     true_objective_minimize: Optional[bool] = None,
     **kwargs: Any,
 ) -> Optional[pd.DataFrame]:
-    """Finds the optimal trial given an experiment, based on raw objective value.
+    """DEPRECATED! Please use Scheduler.get_best_trial or AxClient.get_best_trial
+
+    Finds the optimal trial given an experiment, based on raw objective value.
 
     Returns a 1-row dataframe. Should match the row of ``exp_to_df`` with the best
     raw objective value, given the same arguments.
