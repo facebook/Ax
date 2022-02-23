@@ -8,6 +8,10 @@ from functools import wraps
 from typing import Callable, Generator
 from unittest import mock
 
+from botorch.optim.initializers import (
+    gen_one_shot_kg_initial_conditions,
+    gen_batch_initial_conditions,
+)
 from scipy.optimize import minimize
 
 
@@ -26,6 +30,18 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         return minimize(*args, **kwargs)
 
+    def minimal_gen_ics(*args, **kwargs):
+        kwargs["num_restarts"] = 2
+        kwargs["raw_samples"] = 4
+
+        return gen_batch_initial_conditions(*args, **kwargs)
+
+    def minimal_gen_os_ics(*args, **kwargs):
+        kwargs["num_restarts"] = 2
+        kwargs["raw_samples"] = 4
+
+        return gen_one_shot_kg_initial_conditions(*args, **kwargs)
+
     with ExitStack() as es:
         mock_generation = es.enter_context(
             mock.patch(
@@ -41,9 +57,26 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
             )
         )
 
+        mock_gen_ics = es.enter_context(
+            mock.patch(
+                "botorch.optim.optimize.gen_batch_initial_conditions",
+                wraps=minimal_gen_ics,
+            )
+        )
+
+        mock_gen_os_ics = es.enter_context(
+            mock.patch(
+                "botorch.optim.optimize.gen_one_shot_kg_initial_conditions",
+                wraps=minimal_gen_os_ics,
+            )
+        )
+
         yield
 
-    if mock_generation.call_count < 1 and mock_fit.call_count < 1:
+    if all(
+        mock_.call_count < 1
+        for mock_ in [mock_generation, mock_fit, mock_gen_ics, mock_gen_os_ics]
+    ):
         raise AssertionError(
             "No mocks were called in the context manager. Please remove unused "
             "fast_botorch_optimize_context_manager()."
