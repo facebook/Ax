@@ -27,7 +27,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace, SearchSpaceDigest
+from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
     TGenMetadata,
@@ -825,8 +825,8 @@ class ModelBridge(ABC):
     def evaluate_acquisition_function(
         self,
         observation_features: List[ObservationFeatures],
-        search_space_digest: SearchSpaceDigest,
-        objective_weights: np.ndarray,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
         objective_thresholds: Optional[np.ndarray] = None,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
@@ -840,9 +840,9 @@ class ModelBridge(ABC):
         Args:
             observation_features: A list of observation features, representing
                 parameterizations, for which to evaluate the acquisition function.
-            search_space_digest: A dataclass used to compactly represent a search space.
-            objective_weights: The objective is to maximize a weighted sum of the
-                columns of f(x). These are the weights.
+            search_space: Search space for fitting the model.
+            optimization_config: Optimization config defining how to optimize
+                the model.
             objective_thresholds:  The `m`-dim tensor of objective thresholds. There is
                 one for each modeled metric.
             outcome_constraints: A tuple of (A, b). For k outcome constraints and m
@@ -860,13 +860,22 @@ class ModelBridge(ABC):
             A list of acquisition function values, in the same order as the
             input observation features.
         """
+        search_space = self._get_transformed_gen_args(
+            search_space=search_space or self._model_space,
+        ).search_space
+        optimization_config = optimization_config or self._optimization_config
+        if optimization_config is None:
+            raise ValueError(
+                "The `optimization_config` must be specified either while initializing "
+                "the ModelBridge or to the `evaluate_acquisition_function` call."
+            )
         obs_feats = deepcopy(observation_features)
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
         return self._evaluate_acquisition_function(
             observation_features=obs_feats,
-            search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
+            search_space=search_space,
+            optimization_config=optimization_config,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
@@ -878,8 +887,8 @@ class ModelBridge(ABC):
     def _evaluate_acquisition_function(
         self,
         observation_features: List[ObservationFeatures],
-        search_space_digest: SearchSpaceDigest,
-        objective_weights: np.ndarray,
+        search_space: SearchSpace,
+        optimization_config: OptimizationConfig,
         objective_thresholds: Optional[np.ndarray] = None,
         outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,

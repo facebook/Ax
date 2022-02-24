@@ -86,7 +86,7 @@ def extract_parameter_constraints(
 def extract_search_space_digest(
     search_space: SearchSpace, param_names: List[str]
 ) -> SearchSpaceDigest:
-    """Extract basic parameter prpoerties from a search space."""
+    """Extract basic parameter properties from a search space."""
     bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
     ordinal_features: List[int] = []
     categorical_features: List[int] = []
