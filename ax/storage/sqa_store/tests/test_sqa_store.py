@@ -16,6 +16,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.base import ModelBridge
@@ -694,7 +695,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(experiment, loaded_experiment)
 
     def testFailedLoad(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ObjectNotFoundError):
             load_experiment("nonexistent_experiment")
 
     def testExperimentTrackingMetricUpdates(self):
@@ -1057,7 +1058,7 @@ class SQAStoreTest(TestCase):
 
     def testEncodeDecodeGenerationStrategy(self):
         # Cannot load generation strategy before it has been saved
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ObjectNotFoundError):
             load_generation_strategy_by_id(gs_id=0)
 
         # Check that we can encode and decode the generation strategy *before*
@@ -1076,7 +1077,7 @@ class SQAStoreTest(TestCase):
         # Cannot load generation strategy before it has been saved
         experiment = get_branin_experiment()
         save_experiment(experiment)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ObjectNotFoundError):
             load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
 
         # Check that we can encode and decode the generation strategy *after*
@@ -1368,7 +1369,7 @@ class SQAStoreTest(TestCase):
             self.assertIsNone(exp.db_id)
             save_experiment(exp)
             delete_experiment(exp_name)
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ObjectNotFoundError):
                 load_experiment(exp_name)
 
     def testGetImmutableSearchSpaceAndOptConfig(self):

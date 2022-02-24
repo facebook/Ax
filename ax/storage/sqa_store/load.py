@@ -10,6 +10,7 @@ from typing import Any, List, Optional, Type, cast
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
+from ax.exceptions.core import ObjectNotFoundError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
@@ -120,7 +121,7 @@ def _get_experiment_sqa(
         sqa_experiment = query.one_or_none()
 
     if sqa_experiment is None:
-        raise ValueError(f"Experiment '{experiment_name}' not found.")
+        raise ObjectNotFoundError(f"Experiment '{experiment_name}' not found.")
 
     sqa_trials = _get_trials_sqa(
         experiment_id=sqa_experiment.id,
@@ -231,7 +232,7 @@ def _get_experiment_immutable_opt_config_and_search_space(
             .one_or_none()
         )
         if sqa_experiment_properties is None:
-            raise ValueError(f"Experiment '{experiment_name}' not found.")
+            raise ObjectNotFoundError(f"Experiment '{experiment_name}' not found.")
 
     sqa_experiment_properties = sqa_experiment_properties[0] or {}
     return sqa_experiment_properties.get(
@@ -308,7 +309,7 @@ def _load_generation_strategy_by_experiment_name(
         experiment_name=experiment_name, decoder=decoder
     )
     if gs_id is None:
-        raise ValueError(
+        raise ObjectNotFoundError(
             f"Experiment {experiment_name} does not have a generation strategy "
             "attached to it."
         )
@@ -404,7 +405,7 @@ def _get_generation_strategy_sqa(
             query = query.options(*query_options)
         gs_sqa = query.one_or_none()
     if gs_sqa is None:
-        raise ValueError(f"Generation strategy with ID #{gs_id} not found.")
+        raise ObjectNotFoundError(f"Generation strategy with ID #{gs_id} not found.")
     return gs_sqa
 
 

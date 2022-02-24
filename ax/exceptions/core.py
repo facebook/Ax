@@ -106,6 +106,18 @@ class OptimizationComplete(AxError):
         )
 
 
+class ObjectNotFoundError(AxError, ValueError):
+    """Raised when an object is not found in the database.
+
+    This exception replaces ValueError raised by code when an objects is not
+    found in the database. In order to maintain backwards compatibility
+    ObjectNotFoundError inherits from ValueError. Dependency on ValueError
+    may be removed in the future.
+    """
+
+    pass
+
+
 class SearchSpaceExhausted(OptimizationComplete):
     """Raised when using an algorithm that deduplicates points and no more
     new points can be sampled from the search space."""

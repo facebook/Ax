@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple, Type
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
@@ -232,10 +233,14 @@ class WithDBSettingsBase:
                 f"Loaded generation strategy for experiment {experiment_name} in "
                 f"{_round_floats_for_logging(time.time() - start_time)} seconds."
             )
-        except ValueError as err:
-            if "does not have a generation strategy" in str(err):
-                return experiment, None
-            raise  # `ValueError` here could signify more than just absence of GS.
+        except ObjectNotFoundError:
+            logger.info(
+                "There is no generation strategy associated with experiment "
+                f"{experiment_name}."
+            )
+
+            return experiment, None
+
         return experiment, generation_strategy
 
     def _save_experiment_to_db_if_possible(self, experiment: Experiment) -> bool:
