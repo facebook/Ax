@@ -13,6 +13,7 @@ from typing import Callable, Set, Any, Dict, List, Optional, Tuple, Union, TypeV
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
 import pandas as pd
+import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
@@ -136,6 +137,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
             seed, depends on whether the threads modify the random state in the
             same order across the two operations.
 
+        torch_device: An optional `torch.device` object, used to choose the device
+            used for generating new points for trials. Works only for torch-based
+            models, such as GPEI. Ignored if a `generation_strategy` is passed in
+            manually. To specify the device for a custom `generation_strategy`,
+            pass in `torch_device` as part of `model_kwargs`. See
+            https://ax.dev/tutorials/generation_strategy.html for a tutorial on
+            generation strategies.
+
         verbose_logging: Whether Ax should log significant optimization events,
             defaults to `True`.
 
@@ -162,6 +171,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
         db_settings: Optional[DBSettings] = None,
         enforce_sequential_optimization: bool = True,
         random_seed: Optional[int] = None,
+        torch_device: Optional[torch.device] = None,
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
         early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
@@ -180,10 +190,19 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
                 "values in the logs are rounded to "
                 f"{ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES} decimal points."
             )
+        if generation_strategy is not None and torch_device is not None:
+            warnings.warn(
+                "Both a `generation_strategy` and a `torch_device` were specified. "
+                "`torch_device` will be ignored. Instead, specify `torch_device` "
+                "by passing it in `model_kwargs` while creating the "
+                "`generation_strategy`.",
+                RuntimeWarning,
+            )
         self._generation_strategy = generation_strategy
         self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
+        self._torch_device = torch_device
         self._suppress_storage_errors = suppress_storage_errors
         self._early_stopping_strategy = early_stopping_strategy
         if random_seed is not None:
@@ -1294,6 +1313,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
                 optimization_config=self.experiment.optimization_config,
                 enforce_sequential_optimization=enforce_sequential_optimization,
                 random_seed=random_seed,
+                torch_device=self._torch_device,
                 experiment=self.experiment,
                 **choose_generation_strategy_kwargs,
             )

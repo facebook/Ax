@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.dispatch_utils import (
@@ -35,11 +36,16 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
-            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
+            self.assertEqual(sobol_gpei._steps[1].model_kwargs, {"torch_device": None})
+            device = torch.device("cpu")
             sobol_gpei = choose_generation_strategy(
-                search_space=get_branin_search_space(), verbose=True
+                search_space=get_branin_search_space(),
+                verbose=True,
+                torch_device=device,
             )
-            self.assertIsNone(sobol_gpei._steps[1].model_kwargs)
+            self.assertEqual(
+                sobol_gpei._steps[1].model_kwargs, {"torch_device": device}
+            )
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
@@ -53,7 +59,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].model.value, "MOO")
             model_kwargs = sobol_gpei._steps[1].model_kwargs
             self.assertEqual(
-                list(model_kwargs.keys()), ["transforms", "transform_configs"]
+                list(model_kwargs.keys()),
+                ["torch_device", "transforms", "transform_configs"],
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
             transform_config_dict = {
@@ -85,7 +92,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed._steps[0].num_trials, 6)
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
-            self.assertIsNone(bo_mixed._steps[1].model_kwargs)
+            self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
         with self.subTest("BO_MIXED (mixed search space)"):
             ss = get_branin_search_space(with_choice_parameter=True)
             ss.parameters["x2"]._is_ordered = False
@@ -93,7 +100,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
-            self.assertIsNone(bo_mixed_2._steps[1].model_kwargs)
+            self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
             search_space = get_branin_search_space(with_choice_parameter=True)
             search_space.parameters["x2"]._is_ordered = False
@@ -108,7 +115,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(moo_mixed._steps[1].model.value, "BO_MIXED")
             model_kwargs = moo_mixed._steps[1].model_kwargs
             self.assertEqual(
-                list(model_kwargs.keys()), ["transforms", "transform_configs"]
+                list(model_kwargs.keys()),
+                ["torch_device", "transforms", "transform_configs"],
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
             transform_config_dict = {

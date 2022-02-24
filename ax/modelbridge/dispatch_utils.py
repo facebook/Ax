@@ -7,8 +7,9 @@
 import logging
 import warnings
 from math import ceil
-from typing import Dict, cast, Optional, Type, Union
+from typing import Any, Dict, cast, Optional, Type, Union
 
+import torch
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -66,6 +67,7 @@ def _make_botorch_step(
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
     model: Models = Models.GPEI,
+    model_kwargs: Optional[Dict[str, Any]] = None,
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ] = None,
@@ -82,7 +84,7 @@ def _make_botorch_step(
         no_winsorization=no_winsorization,
     )
 
-    model_kwargs = {}
+    model_kwargs = model_kwargs or {}
     if winsorization_transform_config is not None:
         model_kwargs.update(
             {
@@ -220,6 +222,7 @@ def choose_generation_strategy(
     use_batch_trials: bool = False,
     enforce_sequential_optimization: bool = True,
     random_seed: Optional[int] = None,
+    torch_device: Optional[torch.device] = None,
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ] = None,
@@ -255,6 +258,11 @@ def choose_generation_strategy(
             parallelism even if ``enforce_sequential_optimization=False``, so if those
             settings are specified, max parallelism will be enforced.
         random_seed: Fixed random seed for the Sobol generator.
+        torch_device: The device to use for generation steps implemented in PyTorch
+            (e.g. via BoTorch). Some generation steps (in particular EHVI-based ones
+            for multi-objective optimization) can be sped up by running candidate
+            generation on the GPU. If not specified, uses the default torch device
+            (usually the CPU).
         winsorize_botorch_model: Whether to apply the winsorization transform
             prior to applying other transforms for fitting the BoTorch model.
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
@@ -406,6 +414,7 @@ def choose_generation_strategy(
                 winsorization_config=winsorization_config,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
+                model_kwargs={"torch_device": torch_device},
                 should_deduplicate=should_deduplicate,
                 verbose=verbose,
                 disable_progbar=disable_progbar,

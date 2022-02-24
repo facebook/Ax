@@ -31,7 +31,7 @@ from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
+from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -48,6 +48,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.utils.sampling import manual_seed
@@ -134,8 +135,11 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 
 def get_branin_optimization(
     generation_strategy: Optional[GenerationStrategy] = None,
+    torch_device: Optional[torch.device] = None,
 ) -> AxClient:
-    ax_client = AxClient(generation_strategy=generation_strategy)
+    ax_client = AxClient(
+        generation_strategy=generation_strategy, torch_device=torch_device
+    )
     ax_client.create_experiment(
         name="test_experiment",
         parameters=[
@@ -150,13 +154,7 @@ def get_branin_optimization(
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
 
-    def setUp(self):
-        # To avoid tests timing out due to GP fit / gen times.
-        patch.dict(
-            f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
-            {"GPEI": MODEL_KEY_TO_MODEL_SETUP["Sobol"]},
-        ).start()
-
+    @fast_botorch_optimize
     def test_interruption(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -209,6 +207,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
+    @fast_botorch_optimize
     def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax_client = get_branin_optimization()
@@ -255,6 +254,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
+    @fast_botorch_optimize
     def test_default_generation_strategy_continuous_gen_trials_in_batches(
         self, _
     ) -> None:
@@ -324,6 +324,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
+    @fast_botorch_optimize
     def test_default_generation_strategy_continuous_for_moo(
         self, _a, _b, _c, _d
     ) -> None:
@@ -823,6 +824,7 @@ class TestAxClient(TestCase):
                 outcome_constraints=["test_objective >= 3"],
             )
 
+    @fast_botorch_optimize
     def test_raw_data_format(self):
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -841,6 +843,7 @@ class TestAxClient(TestCase):
         ):
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
+    @fast_botorch_optimize
     def test_raw_data_format_with_map_results(self):
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1170,6 +1173,7 @@ class TestAxClient(TestCase):
                 outcome_constraints=["some_metric <= 4.0%"],
             )
 
+    @fast_botorch_optimize
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
@@ -1551,6 +1555,7 @@ class TestAxClient(TestCase):
         f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
         wraps=observed_pareto,
     )
+    @fast_botorch_optimize
     def test_get_pareto_optimal_points(
         self, mock_observed_pareto, mock_predicted_pareto
     ):
@@ -1575,7 +1580,15 @@ class TestAxClient(TestCase):
             ax_client.get_best_trial()
 
         # Check model-predicted Pareto frontier using model on GS.
-        predicted_pareto = ax_client.get_pareto_optimal_parameters()
+        # NOTE: model predictions are very poor due to `fast_botorch_optimize`.
+        # This overwrites the `predict` call to return the original observations,
+        # while testing the rest of the code as if we're using predictions.
+        model = ax_client.generation_strategy.model.model
+        ys = torch.cat(model.Ys, dim=-1)
+        with patch.object(
+            model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
+        ):
+            predicted_pareto = ax_client.get_pareto_optimal_parameters()
         self.assertEqual(len(predicted_pareto), 3)
         self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
@@ -1620,6 +1633,7 @@ class TestAxClient(TestCase):
         f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
         wraps=observed_pareto,
     )
+    @fast_botorch_optimize
     def test_get_pareto_optimal_points_objective_threshold_inference(
         self, mock_observed_pareto, mock_predicted_pareto
     ):
@@ -1767,6 +1781,19 @@ class TestAxClient(TestCase):
                 ],
                 support_intermediate_data=False,
             )
+
+    def test_torch_device(self):
+        device = torch.device("cpu")
+        with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
+            AxClient(
+                generation_strategy=GenerationStrategy(
+                    [GenerationStep(Models.SOBOL, num_trials=3)]
+                ),
+                torch_device=device,
+            )
+        ax_client = get_branin_optimization(torch_device=device)
+        gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
+        self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
 
 def _resolve_db_id(gs_to_resolve, source_gs):
