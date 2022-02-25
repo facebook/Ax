@@ -34,6 +34,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
@@ -508,7 +509,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
-        self, use_model_predictions: bool = True
+        self,
+        optimization_config: Optional[OptimizationConfig] = None,
+        use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_trial(
             experiment=self.experiment,
@@ -518,7 +521,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @copy_doc(BestPointMixin.get_best_parameters)
     def get_best_parameters(
-        self, use_model_predictions: bool = True
+        self,
+        optimization_config: Optional[OptimizationConfig] = None,
+        use_model_predictions: bool = True,
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_parameters(
             experiment=self.experiment,
@@ -528,7 +533,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
     def get_pareto_optimal_parameters(
-        self, use_model_predictions: bool = True
+        self,
+        optimization_config: Optional[OptimizationConfig] = None,
+        use_model_predictions: bool = True,
     ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,

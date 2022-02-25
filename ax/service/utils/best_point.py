@@ -13,7 +13,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     OptimizationConfig,
     MultiObjectiveOptimizationConfig,
@@ -22,7 +22,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.core.types import TModelPredictArm, TParameterization
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UserInputError, UnsupportedError
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
@@ -57,29 +57,30 @@ def get_best_raw_objective_point_with_trial_index(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
-        optimization_config: Optimization config to use in absence or in place of
-            the one stored on the experiment.
+        optimization_config: Optimization config to use in place of the one stored
+        on the experiment.
 
     Returns:
         Tuple of parameterization and a mapping from metric name to a tuple of
             the corresponding objective mean and SEM.
     """
-    # pyre-ignore [16]
-    if isinstance(experiment.optimization_config.objective, MultiObjective):
+    optimization_config = optimization_config or experiment.optimization_config
+    if optimization_config is None:
+        raise UserInputError(
+            "Cannot identify the best point without an optimization config, but no "
+            "optimization config was provided on the experiment or as an argument."
+        )
+    if optimization_config.is_moo_problem:
         logger.warning(
             "get_best_raw_objective_point is deprecated for multi-objective "
             "optimization. This method will return an arbitrary point on the "
             "pareto frontier."
         )
-    opt_config = optimization_config or experiment.optimization_config
-    assert opt_config is not None, (
-        "Cannot identify the best point without an optimization config, but no "
-        "optimization config was provided on the experiment or as an argument."
-    )
+
     dat = experiment.fetch_data()
     if dat.df.empty:
         raise ValueError("Cannot identify best point if experiment contains no data.")
-    objective = opt_config.objective
+    objective = optimization_config.objective
     if isinstance(objective, ScalarizedObjective):
         best_row = _get_best_row_for_scalarized_objective(
             df=dat.df, objective=objective
@@ -87,7 +88,7 @@ def get_best_raw_objective_point_with_trial_index(
     else:
         best_row = _get_best_feasible_row_for_single_objective(
             df=dat.df,
-            optimization_config=opt_config,
+            optimization_config=optimization_config,
             status_quo=experiment.status_quo,
         )
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
@@ -138,7 +139,9 @@ def _raw_values_to_model_predict_arm(
 
 
 def get_best_parameters_from_model_predictions_with_trial_index(
-    experiment: Experiment, models_enum: Type[ModelRegistryBase]
+    experiment: Experiment,
+    models_enum: Type[ModelRegistryBase],
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and corresponding
     prediction based on the most recent Trial with predictions. If no trials have
@@ -151,12 +154,21 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        models_enum: Registry of all models that may be in the experiment's
+            generation strategy.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of trial index, parameterization, and model predictions for it.
     """
-    # pyre-ignore [16]
-    if isinstance(experiment.optimization_config.objective, MultiObjective):
+    optimization_config = optimization_config or experiment.optimization_config
+    if optimization_config is None:
+        raise ValueError(
+            "Cannot identify the best point without an optimization config, but no "
+            "optimization config was provided on the experiment or as an argument."
+        )
+    if optimization_config.is_moo_problem:
         logger.warning(
             "get_best_parameters_from_model_predictions is deprecated for "
             "multi-objective optimization configs. This method will return an "
@@ -195,7 +207,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             cv_results = cross_validate(model=model)
             diagnostics = compute_diagnostics(result=cv_results)
             assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
-            objective_name = experiment.optimization_config.objective.metric.name
+            objective_name = optimization_config.objective.metric.name
             # If model fit is bad use raw results
             if (
                 objective_name
@@ -212,7 +224,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
                         + "results carefully."
                     )
 
-                return get_best_by_raw_objective_with_trial_index(experiment=experiment)
+                return get_best_by_raw_objective_with_trial_index(
+                    experiment=experiment, optimization_config=optimization_config
+                )
 
             res = model.model_best_point()
             if res is None:
@@ -239,6 +253,10 @@ def get_best_parameters_from_model_predictions(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        models_enum: Registry of all models that may be in the experiment's
+            generation strategy.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of parameterization and model predictions for it.
@@ -257,6 +275,7 @@ def get_best_parameters_from_model_predictions(
 
 def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
@@ -266,6 +285,8 @@ def get_best_by_raw_objective_with_trial_index(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of trial index, parameterization, and model predictions for it.
@@ -275,7 +296,9 @@ def get_best_by_raw_objective_with_trial_index(
             trial_index,
             parameterization,
             values,
-        ) = get_best_raw_objective_point_with_trial_index(experiment=experiment)
+        ) = get_best_raw_objective_point_with_trial_index(
+            experiment=experiment, optimization_config=optimization_config
+        )
     except ValueError as err:
         logger.error(
             f"Encountered error while trying to identify the best point: {err}"
@@ -290,6 +313,7 @@ def get_best_by_raw_objective_with_trial_index(
 
 def get_best_by_raw_objective(
     experiment: Experiment,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
@@ -299,11 +323,15 @@ def get_best_by_raw_objective(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of parameterization, and model predictions for it.
     """
-    res = get_best_by_raw_objective_with_trial_index(experiment=experiment)
+    res = get_best_by_raw_objective_with_trial_index(
+        experiment=experiment, optimization_config=optimization_config
+    )
 
     if res is None:
         return None
@@ -315,6 +343,7 @@ def get_best_by_raw_objective(
 def get_best_parameters_with_trial_index(
     experiment: Experiment,
     models_enum: Type[ModelRegistryBase],
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
@@ -327,12 +356,22 @@ def get_best_parameters_with_trial_index(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        models_enum: Registry of all models that may be in the experiment's
+            generation strategy.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of trial index, parameterization, and model predictions for it.
     """
-    # pyre-ignore [16]
-    if isinstance(experiment.optimization_config.objective, MultiObjective):
+    optimization_config = optimization_config or experiment.optimization_config
+    if optimization_config is None:
+        raise ValueError(
+            "Cannot identify the best point without an optimization config, but no "
+            "optimization config was provided on the experiment or as an argument."
+        )
+
+    if optimization_config.is_moo_problem:
         logger.warning(
             "get_best_parameters is deprecated for multi-objective optimization. "
             "This method will return an arbitrary point on the pareto frontier."
@@ -340,18 +379,23 @@ def get_best_parameters_with_trial_index(
 
     # Find latest trial which has a generator_run attached and get its predictions
     res = get_best_parameters_from_model_predictions_with_trial_index(
-        experiment=experiment, models_enum=models_enum
+        experiment=experiment,
+        models_enum=models_enum,
+        optimization_config=optimization_config,
     )
 
     if res is not None:
         return res
 
-    return get_best_by_raw_objective_with_trial_index(experiment=experiment)
+    return get_best_by_raw_objective_with_trial_index(
+        experiment=experiment, optimization_config=optimization_config
+    )
 
 
 def get_best_parameters(
     experiment: Experiment,
     models_enum: Type[ModelRegistryBase],
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
@@ -364,6 +408,10 @@ def get_best_parameters(
 
     Args:
         experiment: Experiment, on which to identify best raw objective arm.
+        models_enum: Registry of all models that may be in the experiment's
+            generation strategy.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
 
     Returns:
         Tuple of parameterization and model predictions for it.
@@ -371,6 +419,7 @@ def get_best_parameters(
     res = get_best_parameters_with_trial_index(
         experiment=experiment,
         models_enum=models_enum,
+        optimization_config=optimization_config,
     )
 
     if res is None:
@@ -383,6 +432,7 @@ def get_best_parameters(
 def get_pareto_optimal_parameters(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
+    optimization_config: Optional[OptimizationConfig] = None,
     use_model_predictions: bool = True,
 ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
     """Identifies the best parameterizations tried in the experiment so far,
@@ -399,6 +449,8 @@ def get_pareto_optimal_parameters(
     Args:
         experiment: Experiment, from which to find Pareto-optimal arms.
         generation_strategy: Generation strategy containing the modelbridge.
+        optimization_config: Optimization config to use in place of the one stored
+            on the experiment.
         use_model_predictions: Whether to extract the Pareto frontier using
             model predictions or directly observed values. If ``True``,
             the metric means and covariances in this method's output will
@@ -413,15 +465,22 @@ def get_pareto_optimal_parameters(
             (model-predicted if ``use_model_predictions=True`` and observed
             otherwise).
     """
+    optimization_config = optimization_config or experiment.optimization_config
+    if optimization_config is None:
+        raise ValueError(
+            "Cannot identify the best point without an optimization config, but no "
+            "optimization config was provided on the experiment or as an argument."
+        )
+
     # Validate aspects of the experiment: that it is a MOO experiment and
     # that the current model can be used to produce the Pareto frontier.
-    if not not_none(experiment.optimization_config).is_moo_problem:
+    if not optimization_config.is_moo_problem:
         raise UnsupportedError(
             "Please use `get_best_parameters` for single-objective problems."
         )
 
     moo_optimization_config = checked_cast(
-        MultiObjectiveOptimizationConfig, experiment.optimization_config
+        MultiObjectiveOptimizationConfig, optimization_config
     )
     if moo_optimization_config.outcome_constraints:
         # TODO[drfreund]: Test this flow and remove error.
@@ -454,7 +513,7 @@ def get_pareto_optimal_parameters(
             objective_thresholds_override = lgr.gen_metadata["objective_thresholds"]
         objective_thresholds_override = modelbridge.infer_objective_thresholds(
             search_space=experiment.search_space,
-            optimization_config=experiment.optimization_config,
+            optimization_config=optimization_config,
             fixed_features=None,
         )
         logger.info(
