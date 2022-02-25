@@ -9,14 +9,12 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.metric import Metric
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
-    get_best_trial,
     get_standard_plots,
     Experiment,
 )
@@ -128,85 +126,6 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
-
-    def test_get_best_trial(self):
-        exp = get_branin_experiment(with_batch=True, minimize=True)
-
-        # exp with no completed trials should return None
-        self.assertIsNone(get_best_trial(exp))
-
-        # exp with completed trials should return optimal row
-        # Hack in `noise_sd` value to ensure full reproducibility.
-        exp.metrics[OBJECTIVE_NAME].noise_sd = 0.0
-        exp.trials[0].run()
-        df = exp_to_df(exp)
-        best_trial = get_best_trial(exp)
-        pd.testing.assert_frame_equal(
-            df.sort_values(OBJECTIVE_NAME).head(1), best_trial
-        )
-
-        # exp with missing rows should return optimal row
-        dummy_struct = namedtuple("dummy_struct", "df")
-        mock_results = dummy_struct(
-            df=pd.DataFrame(
-                {
-                    "arm_name": ["0_0"],
-                    "metric_name": [OBJECTIVE_NAME],
-                    "mean": [DUMMY_OBJECTIVE_MEAN],
-                    "sem": [0],
-                    "trial_index": [0],
-                    "n": [123],
-                    "frac_nonnull": [1],
-                }
-            )
-        )
-        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
-            best_trial = get_best_trial(exp=exp)
-        self.assertEqual(best_trial[OBJECTIVE_NAME][0], DUMMY_OBJECTIVE_MEAN)
-
-        # when optimal objective is shared across multiple trials,
-        # arbitrarily return a single optimal row
-        mock_results = dummy_struct(
-            df=pd.DataFrame(
-                {
-                    "arm_name": ["0_0", "0_1"],
-                    "metric_name": [OBJECTIVE_NAME] * 2,
-                    "mean": [DUMMY_OBJECTIVE_MEAN] * 2,
-                    "sem": [0] * 2,
-                    "trial_index": [0, 1],
-                    "n": [123] * 2,
-                    "frac_nonnull": [1] * 2,
-                }
-            )
-        )
-        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
-            best_trial = get_best_trial(exp=exp)
-        self.assertEqual(len(best_trial.index), 1)
-        self.assertEqual(best_trial[OBJECTIVE_NAME][0], DUMMY_OBJECTIVE_MEAN)
-
-        exp.add_tracking_metric(metric=Metric(name=TRUE_OBJECTIVE_NAME))
-        mock_results = dummy_struct(
-            df=pd.DataFrame(
-                {
-                    "arm_name": ["0_0", "0_1"] * 2,
-                    "metric_name": [OBJECTIVE_NAME] * 2 + [TRUE_OBJECTIVE_NAME] * 2,
-                    "mean": [DUMMY_OBJECTIVE_MEAN] * 2
-                    + [TRUE_OBJECTIVE_MEAN, TRUE_OBJECTIVE_MEAN + 1],
-                    "sem": [0] * 4,
-                    "trial_index": [0, 1] * 2,
-                    "n": [123] * 4,
-                    "frac_nonnull": [1] * 4,
-                }
-            )
-        )
-        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
-            best_trial = get_best_trial(
-                exp=exp,
-                true_objective_metric_name=TRUE_OBJECTIVE_NAME,
-                true_objective_minimize=False,
-            )
-        self.assertEqual(len(best_trial.index), 1)
-        self.assertEqual(best_trial[TRUE_OBJECTIVE_NAME][1], TRUE_OBJECTIVE_MEAN + 1)
 
     def test_get_shortest_unique_suffix_dict(self):
         expected_output = {
