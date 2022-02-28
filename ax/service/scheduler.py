@@ -1219,6 +1219,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         "constraints."
                     )
 
+    def _get_max_pending_trials(self) -> int:
+        return self.options.max_pending_trials
+
     def _prepare_trials(
         self, max_new_trials: int
     ) -> Tuple[List[BaseTrial], List[BaseTrial]]:
@@ -1250,13 +1253,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # limit on pending trials and limit on total trials.
         n = capacity if self.options.run_trials_in_batches else 1
         total_trials = self.options.total_trials
-        max_pending_trials = self.options.max_pending_trials
+        max_pending_trials = self._get_max_pending_trials()
 
-        max_pending_upper_bound = max_pending_trials - len(self.pending_trials)
+        num_pending_trials = len(self.pending_trials)
+        max_pending_upper_bound = max_pending_trials - num_pending_trials
         if max_pending_upper_bound < 1:
             self.logger.debug(
-                f"`max_pending_trials={max_pending_trials}` trials are currently "
-                "pending."
+                f"`max_pending_trials={max_pending_trials}` and {num_pending_trials} "
+                "trials are currently pending; not initiating any additional trials."
             )
             return [], []
         n = max_pending_upper_bound if n == -1 else min(max_pending_upper_bound, n)
