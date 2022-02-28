@@ -151,34 +151,41 @@ class DataTest(TestCase):
             Data(df=pd.DataFrame([data_entry2]))
 
     def testFromEvaluations(self):
-        data = Data.from_evaluations(
-            evaluations={"0_1": {"b": (3.7, 0.5)}},
-            trial_index=0,
-            sample_sizes={"0_1": 2},
-            start_time=current_timestamp_in_millis(),
-            end_time=current_timestamp_in_millis(),
-        )
-        self.assertEqual(len(data.df), 1)
-        self.assertNotEqual(data, Data(self.df))
-        self.assertIn("start_time", data.df)
-        self.assertIn("end_time", data.df)
+        for sem in (0.5, None):
+            eval1 = (3.7, sem) if sem is not None else 3.7
+            data = Data.from_evaluations(
+                evaluations={"0_1": {"b": eval1}},
+                trial_index=0,
+                sample_sizes={"0_1": 2},
+                start_time=current_timestamp_in_millis(),
+                end_time=current_timestamp_in_millis(),
+            )
+            self.assertEqual(data.df["sem"].isnull()[0], sem is None)
+            self.assertEqual(len(data.df), 1)
+            self.assertNotEqual(data, Data(self.df))
+            self.assertIn("start_time", data.df)
+            self.assertIn("end_time", data.df)
 
     def testFromFidelityEvaluations(self):
-        data = Data.from_fidelity_evaluations(
-            evaluations={
-                "0_1": [
-                    ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
-                    ({"f1": 1.0, "f2": 0.75}, {"b": (3.8, 0.5)}),
-                ]
-            },
-            trial_index=0,
-            sample_sizes={"0_1": 2},
-            start_time=current_timestamp_in_millis(),
-            end_time=current_timestamp_in_millis(),
-        )
-        self.assertEqual(len(data.df), 2)
-        self.assertIn("start_time", data.df)
-        self.assertIn("end_time", data.df)
+        for sem in (0.5, None):
+            eval1 = (3.7, sem) if sem is not None else 3.7
+            eval2 = (3.8, sem) if sem is not None else 3.8
+            data = Data.from_fidelity_evaluations(
+                evaluations={
+                    "0_1": [
+                        ({"f1": 1.0, "f2": 0.5}, {"b": eval1}),
+                        ({"f1": 1.0, "f2": 0.75}, {"b": eval2}),
+                    ]
+                },
+                trial_index=0,
+                sample_sizes={"0_1": 2},
+                start_time=current_timestamp_in_millis(),
+                end_time=current_timestamp_in_millis(),
+            )
+            self.assertEqual(data.df["sem"].isnull().all(), sem is None)
+            self.assertEqual(len(data.df), 2)
+            self.assertIn("start_time", data.df)
+            self.assertIn("end_time", data.df)
 
     def testCloneWithoutMetrics(self):
         data = Data(df=self.df)
