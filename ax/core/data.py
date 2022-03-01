@@ -260,8 +260,9 @@ class Data(Base):
         Convert dict of evaluations to Ax data object.
 
         Args:
-            evaluations: Map from arm name to metric outcomes (itself a mapping
-                of metric names to tuples of mean and optionally a SEM).
+            evaluations: Map from arm name to metric outcomes, which itself is  a
+                mapping of metric names to means or tuples of mean and an SEM). If
+                SEM is not specified, it will be set to None and inferred from data.
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
             start_time: Optional start time of run of the trial that produced this
@@ -277,7 +278,7 @@ class Data(Base):
                 "arm_name": name,
                 "metric_name": metric_name,
                 "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else 0.0,
+                "sem": value[1] if isinstance(value, tuple) else None,
                 "trial_index": trial_index,
             }
             for name, evaluation in evaluations.items()
@@ -304,8 +305,9 @@ class Data(Base):
 
         Args:
             evaluations: Map from arm name to list of (fidelity, metric outcomes)
-                (where metric outcomes is itself a mapping of metric names to
-                tuples of mean and SEM).
+                where metric outcomes is itself a mapping of metric names to means
+                or tuples of mean and SEM. If SEM is not specified, it will be set
+                to None and inferred from data.
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
             start_time: Optional start time of run of the trial that produced this
@@ -321,7 +323,7 @@ class Data(Base):
                 "arm_name": name,
                 "metric_name": metric_name,
                 "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else 0.0,
+                "sem": value[1] if isinstance(value, tuple) else None,
                 "trial_index": trial_index,
                 "fidelities": json.dumps(fidelity),
             }

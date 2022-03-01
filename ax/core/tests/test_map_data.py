@@ -177,18 +177,21 @@ class MapDataTest(TestCase):
         )
 
     def test_from_map_evaluations(self):
-        map_data = MapData.from_map_evaluations(
-            evaluations={
-                "0_1": [
-                    ({"f1": 1.0, "f2": 0.5}, {"b": (3.7, 0.5)}),
-                    ({"f1": 1.0, "f2": 0.75}, {"b": (3.8, 0.5)}),
-                ]
-            },
-            trial_index=0,
-        )
-
-        self.assertEqual(len(map_data.map_df), 2)
-        self.assertEqual(set(map_data.map_keys), {"f1", "f2"})
+        for sem in (0.5, None):
+            eval1 = (3.7, sem) if sem is not None else 3.7
+            eval2 = (3.8, sem) if sem is not None else 3.8
+            map_data = MapData.from_map_evaluations(
+                evaluations={
+                    "0_1": [
+                        ({"f1": 1.0, "f2": 0.5}, {"b": eval1}),
+                        ({"f1": 1.0, "f2": 0.75}, {"b": eval2}),
+                    ]
+                },
+                trial_index=0,
+            )
+            self.assertEqual(map_data.map_df["sem"].isnull().all(), sem is None)
+            self.assertEqual(len(map_data.map_df), 2)
+            self.assertEqual(set(map_data.map_keys), {"f1", "f2"})
 
         with self.assertRaisesRegex(
             ValueError, "Inconsistent map_key sets in evaluations"

@@ -181,7 +181,7 @@ class MapData(Data):
                 "arm_name": name,
                 "metric_name": metric_name,
                 "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else 0.0,
+                "sem": value[1] if isinstance(value, tuple) else None,
                 "trial_index": trial_index,
                 **map_dict,
             }

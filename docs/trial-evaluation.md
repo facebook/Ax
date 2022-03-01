@@ -26,9 +26,9 @@ The data can be in the form of:
 - A single (mean, SEM) tuple
 - A single mean
 
-In the second case, Ax will assume that the mean and the SEM are for the experiment objective (if the evaluations are noiseless, simply provide a SEM of 0.0). In the third case, Ax will assume that observations are corrupted by Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data. Note that if the observation noise is non-zero (either provided or inferred), the "best arm" suggested by Ax may not always be the one whose evaluation returned the best observed value (as the "best arm" is selected based on the model-predicted mean).
+In the second case, Ax will assume that the mean and the SEM are for the experiment objective (if the evaluations are noiseless, simply provide an SEM of 0.0). In the third case, Ax will assume that observations are corrupted by Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data (this is equivalent to specifying an SEM of None). Note that if the observation noise is non-zero (either provided or inferred), the "best arm" suggested by Ax may not always be the one whose evaluation returned the best observed value (as the "best arm" is selected based on the model-predicted mean).
 
-For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm:
+For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm. We return `0.0` for SEM since the observations are noiseless:
 
 ```python
 from ax.utils.measurement.synthetic_functions import hartmann6
@@ -47,10 +47,18 @@ def branin_evaluation_function(parameterization):
     return (branin(parameterization.get("x1"), parameterization.get("x2")), 0.0)
 ```
 
-This form would be equivalent to the above, since SEM is 0:
+Alternatively, if the SEM is unknown, we could use the following form:
 
 ```python
 lambda parameterization: branin(parameterization.get("x1"), parameterization.get("x2"))
+```
+
+This is equivalent to returning `None` for the SEM:
+
+```python
+from ax.utils.measurement.synthetic_functions import branin
+def branin_evaluation_function_unknown_sem(parameterization):
+    return (branin(parameterization.get("x1"), parameterization.get("x2")), None)
 ```
 
 ## Loop API
