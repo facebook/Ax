@@ -1213,12 +1213,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         "Early stopping is not supported on multi-objective problems."
                     )
 
-                if len(self.experiment.optimization_config.outcome_constraints) > 0:
-                    raise UnsupportedError(
-                        "Early stopping is not supported on problems with outcome "
-                        "constraints."
-                    )
-
     def _get_max_pending_trials(self) -> int:
         return self.options.max_pending_trials
 
