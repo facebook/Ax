@@ -153,8 +153,9 @@ def get_observed_pareto_frontiers(
         metric.name
         for metric in experiment.optimization_config.objective.metrics  # pyre-ignore
     }
-    pfr_means = {name: [] for name in objective_metric_names}
-    pfr_sems = {name: [] for name in objective_metric_names}
+    obj_metr_list = sorted(objective_metric_names)
+    pfr_means = {name: [] for name in obj_metr_list}
+    pfr_sems = {name: [] for name in obj_metr_list}
 
     for obs in pareto_observations:
         for i, name in enumerate(obs.data.metric_names):
@@ -177,7 +178,7 @@ def get_observed_pareto_frontiers(
             # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
             sq_sems[metric] = sq_df["sem"][i]
         # Relativize
-        for name in objective_metric_names:
+        for name in pfr_means:
             if np.isnan(sq_sems[name]) or np.isnan(pfr_sems[name]).any():
                 # Just relativize means
                 pfr_means[name] = [
@@ -194,7 +195,7 @@ def get_observed_pareto_frontiers(
                 )
         absolute_metrics = []
     else:
-        absolute_metrics = list(objective_metric_names)
+        absolute_metrics = obj_metr_list
 
     objective_thresholds = {}
     if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
@@ -212,7 +213,7 @@ def get_observed_pareto_frontiers(
     param_dicts = [obs.features.parameters for obs in pareto_observations]
     pfr_arm_names = [obs.arm_name for obs in pareto_observations]
 
-    for metric_a, metric_b in combinations(objective_metric_names, 2):
+    for metric_a, metric_b in combinations(obj_metr_list, 2):
         pfr_list.append(
             ParetoFrontierResults(
                 param_dicts=param_dicts,
