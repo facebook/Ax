@@ -169,7 +169,7 @@ try:
                         else:
                             self.assertTrue(torch.equal(ckwargs["Yvar"], Yvar))
                         self.assertEqual(ckwargs["num_samples"], 4)
-                        self.assertEqual(ckwargs["warmup_steps"], 1024)
+                        self.assertEqual(ckwargs["warmup_steps"], 512)
                         self.assertEqual(ckwargs["max_tree_depth"], 1)
                         self.assertTrue(ckwargs["disable_progbar"])
                         self.assertEqual(
