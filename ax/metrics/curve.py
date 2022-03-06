@@ -77,6 +77,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         """Fetch multiple metrics data for an experiment."""
         if trials is None:
             trials = list(experiment.trials.values())
+        trials = [trial for trial in trials if trial.status.expecting_data]
         if any(not isinstance(trial, Trial) for trial in trials):
             raise RuntimeError(
                 f"Only (non-batch) Trials are supported by {cls.__name__}"
