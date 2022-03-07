@@ -33,7 +33,7 @@ from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -1000,7 +1000,18 @@ class Experiment(Base):
                     )
                     # Attach updated data to new trial on experiment and mark trial
                     # as completed.
-                    self.attach_data(data=Data(df=new_df))
+                    if self.default_data_type == DataType.MAP_DATA:
+                        map_key_infos = checked_cast(
+                            MapData, old_experiment.lookup_data()
+                        ).map_key_infos
+                        self.attach_data(
+                            data=self.default_data_constructor(
+                                df=new_df,
+                                map_key_infos=map_key_infos,
+                            )
+                        )
+                    else:
+                        self.attach_data(data=self.default_data_constructor(df=new_df))
                     new_trial.mark_completed()
                 else:
                     new_trial.mark_abandoned(reason=trial.abandoned_reason)

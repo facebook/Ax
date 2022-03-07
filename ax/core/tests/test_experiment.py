@@ -950,3 +950,57 @@ class ExperimentWithMapDataTest(TestCase):
         self.assertTrue(exp.is_moo_problem)
         exp._optimization_config = None
         self.assertFalse(exp.is_moo_problem)
+
+    def testWarmStartMapData(self):
+        # create old_experiment
+        len_old_trials = 5
+        i_failed_trial = 1
+        i_abandoned_trial = 3
+        old_experiment = get_branin_experiment_with_timestamp_map_metric()
+        for i_old_trial in range(len_old_trials):
+            sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
+            trial = old_experiment.new_trial(generator_run=sobol_run)
+            trial.mark_running(no_runner_required=True)
+            if i_old_trial == i_failed_trial:
+                trial.mark_failed()
+            elif i_old_trial == i_abandoned_trial:
+                trial.mark_abandoned(reason=DUMMY_ABANDONED_REASON)
+            else:
+                trial.mark_completed()
+        # make metric noiseless for exact reproducibility
+        old_experiment.optimization_config.objective.metric.noise_sd = 0
+        old_experiment.fetch_data()
+
+        # check that all non-failed trials are copied to new_experiment
+        new_experiment = get_branin_experiment_with_timestamp_map_metric()
+        # make metric noiseless for exact reproducibility
+        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        for _, trial in old_experiment.trials.items():
+            trial._run_metadata = DUMMY_RUN_METADATA
+        new_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment, copy_run_metadata=True
+        )
+        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
+        i_old_trial = 0
+        for _, trial in new_experiment.trials.items():
+            # skip failed trial
+            i_old_trial += i_old_trial == i_failed_trial
+            self.assertEqual(
+                trial.arm.parameters, old_experiment.trials[i_old_trial].arm.parameters
+            )
+            self.assertRegex(
+                trial._properties["source"], "Warm start.*Experiment.*trial"
+            )
+            self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
+            i_old_trial += 1
+
+        # Check that the data was attached for correct trials
+        old_df = old_experiment.fetch_data().df
+        new_df = new_experiment.fetch_data().df
+
+        # Factor 2 comes from 2 MapData rows per trial in this test experiment
+        self.assertEqual(len(new_df), (len_old_trials - 2) * 2)
+        pd.testing.assert_frame_equal(
+            old_df.drop(["arm_name", "trial_index"], axis=1),
+            new_df.drop(["arm_name", "trial_index"], axis=1),
+        )
