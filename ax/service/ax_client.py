@@ -46,12 +46,7 @@ from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.instantiation import (
-    data_and_evaluations_from_raw_data,
-    make_experiment,
-    ObjectiveProperties,
-    build_objective_threshold,
-)
+from ax.service.utils.instantiation import ObjectiveProperties, InstantiationBase
 from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -91,7 +86,7 @@ round_floats_for_logging = partial(
 )
 
 
-class AxClient(WithDBSettingsBase, BestPointMixin):
+class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
@@ -321,7 +316,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
                 for objective, properties in objectives.items()
             }
             objective_kwargs["objective_thresholds"] = [
-                build_objective_threshold(objective, properties)
+                self.build_objective_threshold(objective, properties)
                 for objective, properties in objectives.items()
                 if properties.threshold is not None
             ]
@@ -333,7 +328,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
                 category=DeprecationWarning,
             )
 
-        experiment = make_experiment(
+        experiment = self.make_experiment(
             name=name,
             parameters=parameters,
             parameter_constraints=parameter_constraints,
@@ -1442,7 +1437,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin):
         """
         raw_data_by_arm = self._raw_data_by_arm(trial=trial, raw_data=raw_data)
 
-        evaluations, data = data_and_evaluations_from_raw_data(
+        evaluations, data = self.data_and_evaluations_from_raw_data(
             raw_data=raw_data_by_arm,
             metric_names=self.objective_names,
             trial_index=trial.index,

@@ -32,11 +32,7 @@ from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions,
     get_best_raw_objective_point,
 )
-from ax.service.utils.instantiation import (
-    make_experiment,
-    TParameterRepresentation,
-    data_and_evaluations_from_raw_data,
-)
+from ax.service.utils.instantiation import TParameterRepresentation, InstantiationBase
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -99,7 +95,7 @@ class OptimizationLoop:
     ) -> "OptimizationLoop":
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
-        experiment = make_experiment(
+        experiment = InstantiationBase.make_experiment(
             name=experiment_name,
             parameters=parameters,
             objective_name=objective_name,
@@ -204,7 +200,7 @@ class OptimizationLoop:
         trial = self._get_new_trial()
 
         trial.mark_running(no_runner_required=True)
-        _, data = data_and_evaluations_from_raw_data(
+        _, data = InstantiationBase.data_and_evaluations_from_raw_data(
             raw_data={
                 arm.name: self._call_evaluation_function(arm.parameters, weight)
                 for arm, weight in self._get_weights_by_arm(trial)
