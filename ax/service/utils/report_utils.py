@@ -449,8 +449,6 @@ def exp_to_df(
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial. Output columns names
             will be prepended with ``"trial_properties_"``.
-        **kwargs: Custom named arguments, useful for passing complex
-            objects from call-site to the `fetch_data` callback.
 
     Returns:
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
@@ -458,6 +456,11 @@ def exp_to_df(
         dataframe. If no metric ouputs are available, returns a dataframe of inputs and
         metadata.
     """
+
+    if len(kwargs) > 0:
+        logger.warn(
+            "`kwargs` in exp_to_df is deprecated. Please remove extra arguments."
+        )
 
     # Accept Experiment and SimpleExperiment
     if isinstance(exp, MultiTypeExperiment):
@@ -475,12 +478,12 @@ def exp_to_df(
             )
 
     # Fetch results; in case arms_df is empty, return empty results (legacy behavior)
-    data = exp.fetch_data(metrics, **kwargs)
+    data = exp.lookup_data()
     results = data.df
     if len(arms_df.index) == 0:
         if len(results.index) != 0:
             raise ValueError(
-                "exp.fetch_data().df returned more rows than there are experimental "
+                "exp.lookup_data().df returned more rows than there are experimental "
                 "arms. This is an inconsistent experimental state. Please report to "
                 "Ax support."
             )

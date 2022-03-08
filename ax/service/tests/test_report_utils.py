@@ -66,6 +66,7 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(df.index), len(exp.arms_by_name))
 
         exp.trials[0].run()
+        exp.fetch_data()
 
         # assert result is df with expected columns and length
         df = exp_to_df(exp=exp)
@@ -107,7 +108,7 @@ class ReportUtilsTest(TestCase):
                 }
             )
         )
-        with patch.object(Experiment, "fetch_data", lambda self, metrics: mock_results):
+        with patch.object(Experiment, "lookup_data", lambda self: mock_results):
             df = exp_to_df(exp=exp)
 
         # all but one row should have a metric value of NaN
@@ -115,7 +116,7 @@ class ReportUtilsTest(TestCase):
 
         # an experiment with more results than arms raises an error
         with patch.object(
-            Experiment, "fetch_data", lambda self, metrics: mock_results
+            Experiment, "lookup_data", lambda self: mock_results
         ), self.assertRaisesRegex(ValueError, "inconsistent experimental state"):
             exp_to_df(exp=get_branin_experiment())
 
