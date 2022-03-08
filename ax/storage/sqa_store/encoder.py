@@ -74,8 +74,13 @@ class Encoder:
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
 
-        # TODO[mpolson64] Remove this in a couple months
-        self.EXTRA_REGISTRY_ERROR_NOTE = ""
+        # TODO[T113829027] Remove this in a couple months
+        self.EXTRA_REGISTRY_ERROR_NOTE = (
+            "ATTENTION: There have been some recent "
+            "changes to Metric/Runner registration in Ax. Please see "
+            "https://ax.dev/tutorials/gpei_hartmann_developer.html#9.-Save-to-JSON-or-SQL "  # noqa
+            "for the most up-to-date information on saving custom metrics."
+        )
 
     @classmethod
     def validate_experiment_metadata(
