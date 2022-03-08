@@ -209,6 +209,11 @@ Registries
     :undoc-members:
     :show-inheritance:
 
+.. automodule:: ax.storage.registry_bundle
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. automodule:: ax.storage.transform_registry
     :members:
     :undoc-members:
