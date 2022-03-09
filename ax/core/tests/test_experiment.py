@@ -805,6 +805,15 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 2)
 
+        # Warm start from an experiment with only a subset of metrics
+        map_data_experiment = get_branin_experiment_with_timestamp_map_metric()
+        map_data_experiment.warm_start_from_old_experiment(
+            old_experiment=old_experiment
+        )
+        self.assertEqual(
+            len(map_data_experiment.trials), len(old_experiment.trials) - 1
+        )
+
     def test_is_test_warning(self):
         experiments_module = "ax.core.experiment"
         with self.subTest("it warns on construction for a test"):

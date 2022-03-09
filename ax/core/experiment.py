@@ -1000,18 +1000,17 @@ class Experiment(Base):
                     )
                     # Attach updated data to new trial on experiment and mark trial
                     # as completed.
-                    if self.default_data_type == DataType.MAP_DATA:
-                        map_key_infos = checked_cast(
-                            MapData, old_experiment.lookup_data()
-                        ).map_key_infos
-                        self.attach_data(
-                            data=self.default_data_constructor(
-                                df=new_df,
-                                map_key_infos=map_key_infos,
-                            )
+                    old_data = (
+                        old_experiment.default_data_constructor(
+                            df=new_df,
+                            map_key_infos=checked_cast(
+                                MapData, old_experiment.lookup_data()
+                            ).map_key_infos,
                         )
-                    else:
-                        self.attach_data(data=self.default_data_constructor(df=new_df))
+                        if old_experiment.default_data_type == DataType.MAP_DATA
+                        else old_experiment.default_data_constructor(df=new_df)
+                    )
+                    self.attach_data(data=old_data)
                     new_trial.mark_completed()
                 else:
                     new_trial.mark_abandoned(reason=trial.abandoned_reason)
