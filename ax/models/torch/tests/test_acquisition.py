@@ -47,7 +47,7 @@ class DummyAcquisitionFunction(AcquisitionFunction):
     X_pending = None
 
     def __init__(self, **kwargs: Any) -> None:
-        pass
+        super().__init__(model=None)
 
     def __call__(self, X, **kwargs: Any) -> None:
         return X.sum(dim=-1)
@@ -330,6 +330,47 @@ class AcquisitionTest(TestCase):
         )
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
         self.assertTrue(torch.equal(expected, X_selected))
+
+    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search")
+    def test_optimize_acqf_discrete_local_search(
+        self, mock_optimize_acqf_discrete_local_search
+    ):
+        tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 0, 0), (1, 1, 1)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={  # 30 * 60 * 90 > 100,000
+                k: np.linspace(0, 1, 30 * (k + 1)).tolist() for k in range(3)
+            },
+        )
+        acquisition = self.get_acquisition_function()
+        acquisition.optimize(
+            n=3,
+            search_space_digest=ssd,
+            inequality_constraints=self.inequality_constraints,
+            fixed_features=None,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+        )
+        mock_optimize_acqf_discrete_local_search.assert_called_once()
+        args, kwargs = mock_optimize_acqf_discrete_local_search.call_args
+        self.assertEqual(kwargs["acq_function"], acquisition.acqf)
+        self.assertEqual(kwargs["q"], 3)
+        self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
+        self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
+        self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
+        self.assertTrue(
+            all(
+                torch.allclose(torch.linspace(0, 1, 30 * (k + 1), **tkwargs), c)
+                for k, c in enumerate(kwargs["discrete_choices"])
+            )
+        )
+        X_avoid_true = torch.cat((self.X, self.pending_observations[0]), dim=0)
+        self.assertEqual(kwargs["X_avoid"].shape, X_avoid_true.shape)
+        self.assertTrue(  # The order of the rows may not match
+            all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
+        )
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
     def test_optimize_mixed(self, mock_optimize_acqf_mixed):

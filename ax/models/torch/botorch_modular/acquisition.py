@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from functools import partial
+import operator
+from functools import partial, reduce
 from itertools import product
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
@@ -33,12 +34,17 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.models.model import Model
-from botorch.optim.optimize import optimize_acqf
-from botorch.optim.optimize import optimize_acqf_mixed, optimize_acqf_discrete
+from botorch.optim.optimize import (
+    optimize_acqf,
+    optimize_acqf_discrete,
+    optimize_acqf_discrete_local_search,
+    optimize_acqf_mixed,
+)
 from torch import Tensor
 
 
 DUPLICATE_TOL = 1e-6
+MAX_CHOICES_ENUMERATE = 100_000
 
 
 class Acquisition(Base):
@@ -233,7 +239,7 @@ class Acquisition(Base):
             n: The number of candidates to generate.
             search_space_digest: A ``SearchSpaceDigest`` object containing search space
                 properties, e.g. ``bounds`` for optimization.
-            inequality constraints: A list of tuples (indices, coefficients, rhs),
+            inequality_constraints: A list of tuples (indices, coefficients, rhs),
                 with each tuple encoding an inequality constraint of the form
                 ``sum_i (X[indices[i]] * coefficients[i]) >= rhs``.
             fixed_features: A map `{feature_index: value}` for features that
@@ -281,14 +287,32 @@ class Acquisition(Base):
 
         # 2a. Handle the fully discrete search space.
         if len(discrete_choices) == len(ssd.feature_names):
-            # For now we just enumerate all possible discrete combinations. This is not
-            # scalable and and only works for a reasonably small number of choices.
-            all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
-            all_choices = _tensorize(tuple(product(*all_choices)))
-
             X_observed = self.X_observed
             if self.X_pending is not None:
                 X_observed = torch.cat((X_observed, self.X_pending), dim=0)
+
+            # Special handling for search spaces with a large number of choices
+            total_choices = reduce(
+                operator.mul, [float(len(c)) for c in discrete_choices.values()]
+            )
+            if total_choices > MAX_CHOICES_ENUMERATE:
+                discrete_choices = [
+                    torch.tensor(c, device=self.device, dtype=self.dtype)
+                    for c in discrete_choices.values()
+                ]
+                return optimize_acqf_discrete_local_search(
+                    acq_function=self.acqf,
+                    q=n,
+                    discrete_choices=discrete_choices,
+                    inequality_constraints=inequality_constraints,
+                    X_avoid=X_observed,
+                    **optimizer_options_with_defaults,
+                )
+
+            # Enumerate all possible choices
+            all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
+            all_choices = _tensorize(tuple(product(*all_choices)))
+
             # This can be vectorized, but using a for-loop to avoid memory issues
             for x in X_observed:
                 all_choices = all_choices[
