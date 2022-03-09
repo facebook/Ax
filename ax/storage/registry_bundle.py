@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import abstractproperty, ABC
-from functools import cached_property
 from typing import Any, Callable, Optional, Type, Dict
 
 from ax.core.metric import Metric
@@ -136,10 +135,7 @@ class RegistryBundle(RegistryBundleBase):
             json_decoder_registry=json_decoder_registry,
             json_class_decoder_registry=json_class_decoder_registry,
         )
-
-    @cached_property
-    def sqa_config(self) -> SQAConfig:
-        return SQAConfig(
+        self._sqa_config = SQAConfig(
             json_encoder_registry={**self.encoder_registry, **CORE_ENCODER_REGISTRY},
             json_decoder_registry={**self.decoder_registry, **CORE_DECODER_REGISTRY},
             metric_registry=self.metric_registry,
@@ -148,10 +144,18 @@ class RegistryBundle(RegistryBundleBase):
             json_class_decoder_registry=self.class_decoder_registry,
         )
 
-    @cached_property
-    def encoder(self) -> Encoder:
-        return Encoder(self.sqa_config)
+        self._encoder = Encoder(self._sqa_config)
+        self._decoder = Decoder(self._sqa_config)
 
-    @cached_property
+    # TODO[mpolson64] change @property to @cached_property once we deprecate 3.7
+    @property
+    def sqa_config(self) -> SQAConfig:
+        return self._sqa_config
+
+    @property
+    def encoder(self) -> Encoder:
+        return self._encoder
+
+    @property
     def decoder(self) -> Decoder:
-        return Decoder(self.sqa_config)
+        return self._decoder
