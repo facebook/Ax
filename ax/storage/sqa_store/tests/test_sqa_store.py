@@ -24,6 +24,7 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import register_metric, CORE_METRIC_REGISTRY
+from ax.storage.registry_bundle import RegistryBundle
 from ax.storage.runner_registry import register_runner, CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import (
     get_engine,
@@ -1054,6 +1055,28 @@ class SQAStoreTest(TestCase):
         experiment.add_tracking_metric(MyMetric(name="my_metric"))
         save_experiment(experiment, config=sqa_config)
         loaded_experiment = load_experiment(experiment.name, config=sqa_config)
+        self.assertEqual(loaded_experiment, experiment)
+
+    def testRegistryBundle(self):
+        class MyRunner(Runner):
+            def run():
+                pass
+
+            def staging_required():
+                return False
+
+        class MyMetric(Metric):
+            pass
+
+        bundle = RegistryBundle(
+            metric_clss={MyMetric: 1998}, runner_clss={MyRunner: None}
+        )
+
+        experiment = get_experiment_with_batch_trial()
+        experiment.runner = MyRunner()
+        experiment.add_tracking_metric(MyMetric(name="my_metric"))
+        save_experiment(experiment, config=bundle.sqa_config)
+        loaded_experiment = load_experiment(experiment.name, config=bundle.sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
     def testEncodeDecodeGenerationStrategy(self):

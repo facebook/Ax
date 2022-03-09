@@ -35,6 +35,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
 )
 from ax.storage.json_store.save import save_experiment
+from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
@@ -449,6 +450,37 @@ class JSONStoreTest(TestCase):
                 f.name,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertEqual(loaded_experiment, experiment)
+            os.remove(f.name)
+
+    def testRegistryBundle(self):
+        class MyMetric(Metric):
+            pass
+
+        class MyRunner(Runner):
+            def run():
+                pass
+
+            def staging_required():
+                return False
+
+        bundle = RegistryBundle(
+            metric_clss={MyMetric: 1998}, runner_clss={MyRunner: None}
+        )
+
+        experiment = get_experiment_with_batch_and_single_trial()
+        experiment.runner = MyRunner()
+        experiment.add_tracking_metric(MyMetric(name="my_metric"))
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
+            save_experiment(
+                experiment,
+                f.name,
+                encoder_registry=bundle.encoder_registry,
+            )
+            loaded_experiment = load_experiment(
+                f.name,
+                decoder_registry=bundle.decoder_registry,
             )
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
