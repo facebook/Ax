@@ -78,13 +78,20 @@ class WithDBSettingsBase:
                 "structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "
                 "installed in your environment (can be installed through pip)."
             )
-        self._db_settings = db_settings
+        self._db_settings = db_settings or self._get_default_db_settings()
         self._suppress_all_errors = suppress_all_errors
         if self.db_settings_set:
             init_engine_and_session_factory(
                 creator=self.db_settings.creator, url=self.db_settings.url
             )
         logger.setLevel(logging_level)
+
+    @staticmethod
+    def _get_default_db_settings() -> Optional[DBSettings]:
+        """Overridable method to get default db_settings
+        if none are passed in __init__
+        """
+        return None
 
     @property
     def db_settings_set(self) -> bool:

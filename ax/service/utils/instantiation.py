@@ -100,6 +100,17 @@ class InstantiationBase:
     """
 
     @staticmethod
+    def _make_metric(
+        name: str,
+        lower_is_better: Optional[bool] = None,
+        metric_class_override: Optional[type] = None,
+    ) -> Metric:
+        metric_class = (
+            metric_class_override if metric_class_override is not None else Metric
+        )
+        return metric_class(name=name, lower_is_better=lower_is_better)
+
+    @staticmethod
     def _get_parameter_type(python_type: TParameterType) -> ParameterType:
         for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
             if py_type is python_type:
@@ -380,8 +391,8 @@ class InstantiationBase:
             bound=comparison_multiplier * bound,
         )
 
-    @staticmethod
-    def outcome_constraint_from_str(representation: str) -> OutcomeConstraint:
+    @classmethod
+    def outcome_constraint_from_str(cls, representation: str) -> OutcomeConstraint:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
         assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
@@ -399,7 +410,7 @@ class InstantiationBase:
         except ValueError:
             raise ValueError("Outcome constraint bound should be a float.")
         return OutcomeConstraint(
-            Metric(name=tokens[0]), op=op, bound=bound, relative=rel
+            cls._make_metric(name=tokens[0]), op=op, bound=bound, relative=rel
         )
 
     @classmethod
@@ -415,12 +426,12 @@ class InstantiationBase:
             op=oc.op,
         )
 
-    @staticmethod
-    def make_objectives(objectives: Dict[str, str]) -> List[Objective]:
+    @classmethod
+    def make_objectives(cls, objectives: Dict[str, str]) -> List[Objective]:
         try:
             return [
                 Objective(
-                    metric=Metric(
+                    metric=cls._make_metric(
                         name=metric_name,
                     ),
                     minimize=(
@@ -594,6 +605,7 @@ class InstantiationBase:
         cls,
         parameters: List[TParameterRepresentation],
         name: Optional[str] = None,
+        description: Optional[str] = None,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
         status_quo: Optional[TParameterization] = None,
@@ -679,13 +691,15 @@ class InstantiationBase:
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
         # TODO(jej): Needs to be decided per-metric when supporting heterogenous data.
-        metric_cls = MapMetric if support_intermediate_data else Metric
         if objectives is None:
             optimization_config = OptimizationConfig(
                 objective=Objective(
-                    metric=metric_cls(
+                    metric=cls._make_metric(
                         name=objective_name or DEFAULT_OBJECTIVE_NAME,
                         lower_is_better=minimize,
+                        metric_class_override=MapMetric
+                        if support_intermediate_data
+                        else Metric,
                     ),
                     minimize=minimize,
                 ),
@@ -704,7 +718,10 @@ class InstantiationBase:
         tracking_metrics = (
             None
             if tracking_metric_names is None
-            else [Metric(name=metric_name) for metric_name in tracking_metric_names]
+            else [
+                cls._make_metric(name=metric_name)
+                for metric_name in tracking_metric_names
+            ]
         )
 
         default_data_type = (
@@ -720,6 +737,7 @@ class InstantiationBase:
 
         return Experiment(
             name=name,
+            description=description,
             search_space=cls.make_search_space(parameters, parameter_constraints or []),
             optimization_config=optimization_config,
             status_quo=status_quo_arm,

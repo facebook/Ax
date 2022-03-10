@@ -8,7 +8,18 @@ import json
 import logging
 import warnings
 from functools import partial
-from typing import Callable, Set, Any, Dict, List, Optional, Tuple, Union, TypeVar, Type
+from typing import (
+    Callable,
+    Set,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    TypeVar,
+    Type,
+)
 
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
@@ -219,6 +230,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             Dict[str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]],
         ],
         name: Optional[str] = None,
+        description: Optional[str] = None,
         objective_name: Optional[str] = None,
         minimize: Optional[bool] = None,
         objectives: Optional[Dict[str, ObjectiveProperties]] = None,
@@ -256,6 +268,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 5. "is_task" (bool) for task parameters.
                 6. "digits" (int) for float-valued range parameters.
             name: Name of the experiment to be created.
+            description: Description of the experiment to be created.
             objective_name[DEPRECATED]: Name of the metric used as objective
                 in this experiment. This metric must be present in `raw_data`
                 argument to `complete_trial`.
@@ -330,6 +343,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         experiment = self.make_experiment(
             name=name,
+            description=description,
             parameters=parameters,
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
@@ -341,6 +355,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             is_test=is_test,
             **objective_kwargs,
         )
+        self._set_runner(experiment=experiment)
         self._set_experiment(
             experiment=experiment,
             overwrite_existing_experiment=overwrite_existing_experiment,
@@ -1295,6 +1310,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             # `overwrite_existing_experiment` kwarg to re-attempt exp. creation.
             self._experiment = None
             raise
+
+    def _set_runner(self, experiment: Experiment) -> None:
+        """Overridable method to sets a runner on the experiment."""
+        experiment.runner = None
 
     def _set_generation_strategy(
         self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None

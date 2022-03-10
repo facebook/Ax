@@ -584,7 +584,9 @@ class BaseTrial(ABC, SortableBase):
             The trial instance.
         """
         if not unsafe and self._status != TrialStatus.CANDIDATE:
-            raise ValueError("Can only stage a candidate trial.")
+            raise ValueError(
+                f"Can only stage a candidate trial.  This trial is {self._status}"
+            )
         self._status = TrialStatus.STAGED
         self._time_staged = datetime.now()
         return self
