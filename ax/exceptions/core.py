@@ -106,6 +106,16 @@ class OptimizationComplete(AxError):
         )
 
 
+class OptimizationShouldStop(OptimizationComplete):
+    """Raised when the Global Stopping Strategy suggests to stop the optimization."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message=message
+            or "The Global Stopping Strategy has decided to stop the optimization."
+        )
+
+
 class ObjectNotFoundError(AxError, ValueError):
     """Raised when an object is not found in the database.
 
