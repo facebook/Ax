@@ -43,9 +43,10 @@ from ax.core.types import (
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
-from ax.exceptions.core import OptimizationComplete
+from ax.exceptions.core import OptimizationComplete, OptimizationShouldStop
 from ax.exceptions.core import UnsupportedPlotError, UnsupportedError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -163,9 +164,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
             the experiment. Used in ``should_stop_trials_early``.
+
+        global_stopping_strategy: A ``BaseGlobalStoppingStrategy`` that determines
+            whether the full optimization should be stopped or not.
     """
 
-    BACH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
+    BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
         "Raw data must be a dict for batched trials."
     )
     TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
@@ -182,6 +186,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         verbose_logging: bool = True,
         suppress_storage_errors: bool = False,
         early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
+        global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None,
     ) -> None:
         super().__init__(
             db_settings=db_settings,
@@ -212,6 +217,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self._torch_device = torch_device
         self._suppress_storage_errors = suppress_storage_errors
         self._early_stopping_strategy = early_stopping_strategy
+        self._global_stopping_strategy = global_stopping_strategy
         if random_seed is not None:
             logger.warning(
                 f"Random seed set to {random_seed}. Note that this setting "
@@ -374,7 +380,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
     )
     def get_next_trial(
-        self, ttl_seconds: Optional[int] = None
+        self, ttl_seconds: Optional[int] = None, force: bool = False
     ) -> Tuple[TParameterization, int]:
         """
         Generate trial with the next set of parameters to try in the iteration process.
@@ -385,10 +391,28 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
+            force: If set to True, this function will bypass the global stopping
+                strategy's decision and generate a new trial anyway.
 
         Returns:
             Tuple of trial parameterization, trial index
         """
+
+        # Check if the global stopping strategy suggests to stop the optimization.
+        # This is needed only if there is actually a stopping strategy specified,
+        # and if this function is not forced to generate a new trial.
+        if self._global_stopping_strategy and (not force):
+            # The strategy itslef will check if enough trials have already been
+            # completed.
+            (
+                stop_optimization,
+                global_stopping_message,
+            ) = self._global_stopping_strategy.should_stop_optimization(
+                experiment=self.experiment
+            )
+            if stop_optimization:
+                raise OptimizationShouldStop(message=global_stopping_message)
+
         try:
             trial = self.experiment.new_trial(
                 generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
@@ -1412,7 +1436,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             raw_data_by_arm = checked_cast_complex(
                 Dict[str, TEvaluationOutcome],
                 raw_data,
-                message=cls.BACH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
+                message=cls.BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
             )
         elif isinstance(trial, Trial):
             arm_name = not_none(trial.arm).name

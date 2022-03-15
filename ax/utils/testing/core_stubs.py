@@ -14,6 +14,7 @@ import pandas as pd
 import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -59,6 +60,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
     BraninTimestampMapMetric,
@@ -81,7 +83,6 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-
 
 logger = get_logger(__name__)
 
@@ -1422,6 +1423,27 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         **kwargs: Dict[str, Any],
     ) -> Dict[int, Optional[str]]:
         return self.early_stop_trials
+
+
+class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
+    """
+    A dummy Global Stopping Strategy which stops the optimization after
+    a pre-specified number of trials are completed.
+    """
+
+    def __init__(self, min_trials: int, trial_to_stop: int):
+        super().__init__(min_trials=min_trials)
+        self.trial_to_stop = trial_to_stop
+
+    def should_stop_optimization(
+        self, experiment: Experiment, **kwargs: Dict[str, Any]
+    ):
+        num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
+
+        if num_completed_trials >= max([self.min_trials, self.trial_to_stop]):
+            return True, "Stop the optimization."
+        else:
+            return False, ""
 
 
 ##############################
