@@ -10,12 +10,14 @@ from typing import List
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
+    ObjectiveThreshold,
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from botorch.test_functions.base import BaseTestProblem
@@ -64,7 +66,7 @@ class BenchmarkProblem:
         )
 
         return cls(
-            name="{test_problem.__class__.__name__}",
+            name=f"{test_problem.__class__.__name__}",
             search_space=search_space,
             optimization_config=optimization_config,
             runner=BotorchTestProblemRunner(test_problem=test_problem),
@@ -92,7 +94,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         problem = BenchmarkProblem.from_botorch(test_problem=test_problem)
 
         return cls(
-            name="{test_problem.__class__.__name__}",
+            name=f"{test_problem.__class__.__name__}",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             runner=problem.runner,
@@ -122,25 +124,37 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
 
         problem = BenchmarkProblem.from_botorch(test_problem=test_problem)
 
-        # TODO[mpolson64] incorporate reference point into outcome constraints
+        metrics = [
+            BotorchTestProblemMetric(
+                name=f"{test_problem.__class__.__name__}_{i}",
+                noise_sd=(test_problem.noise_std or 0),
+                index=i,
+            )
+            for i in range(test_problem.num_objectives)
+        ]
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
                     Objective(
-                        metric=BotorchTestProblemMetric(
-                            name=f"{test_problem.__class__.__name__}_{i}",
-                            noise_sd=(test_problem.noise_std or 0),
-                            index=i,
-                        ),
+                        metric=metric,
                         minimize=True,
                     )
-                    for i in range(test_problem.num_objectives)
+                    for metric in metrics
                 ]
-            )
+            ),
+            objective_thresholds=[
+                ObjectiveThreshold(
+                    metric=metrics[i],
+                    bound=test_problem.ref_point[i],
+                    relative=False,
+                    op=ComparisonOp.LEQ,
+                )
+                for i in range(test_problem.num_objectives)
+            ],
         )
 
         return cls(
-            name="{test_problem.__class__.__name__}",
+            name=f"{test_problem.__class__.__name__}",
             search_space=problem.search_space,
             optimization_config=optimization_config,
             runner=problem.runner,
