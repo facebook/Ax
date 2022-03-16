@@ -34,7 +34,10 @@ from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.trial import Trial
 from ax.core.types import (
     TModelPredictArm,
@@ -1227,6 +1230,21 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_hypervolume)
+    def get_hypervolume(
+        self,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
+        use_model_predictions: bool = True,
+    ) -> float:
+        return BestPointMixin._get_hypervolume(
+            experiment=self.experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )

@@ -8,12 +8,18 @@ from abc import abstractmethod, ABCMeta
 from typing import Iterable, Dict, Tuple, Optional
 
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import ModelRegistryBase
+from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
+from ax.modelbridge.registry import get_model_from_generator_run, ModelRegistryBase
+from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 class BestPointMixin(metaclass=ABCMeta):
@@ -129,6 +135,29 @@ class BestPointMixin(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def get_hypervolume(
+        self,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
+        use_model_predictions: bool = True,
+    ) -> float:
+        """Calculate hypervolume of a pareto frontier based on either the posterior
+        means of given observation features or observed data.
+
+        Args:
+            optimization_config: Optimization config to use in place of the one stored
+                on the experiment.
+            trial_indices: Indices of trials for which to retrieve data. If None will
+                retrieve data from all available trials.
+            use_model_predictions: Whether to extract the Pareto frontier using
+                model predictions or directly observed values. If ``True``,
+                the metric means and covariances in this method's output will
+                also be based on model predictions and may differ from the
+                observed values.
+        """
+        pass
+
     @staticmethod
     def _get_best_trial(
         experiment: Experiment,
@@ -191,4 +220,60 @@ class BestPointMixin(metaclass=ABCMeta):
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
+        )
+
+    @staticmethod
+    def _get_hypervolume(
+        experiment: Experiment,
+        generation_strategy: GenerationStrategy,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
+        use_model_predictions: bool = True,
+    ) -> float:
+        moo_optimization_config = checked_cast(
+            MultiObjectiveOptimizationConfig,
+            optimization_config or experiment.optimization_config,
+        )
+
+        if use_model_predictions:
+            current_model = generation_strategy._curr.model
+            # Cover for the case where source of `self._curr.model` was not a `Models`
+            # enum but a factory function, in which case we cannot do
+            # `get_model_from_generator_run` (since we don't have model type and inputs
+            # recorded on the generator run.
+            models_enum = (
+                current_model.__class__
+                if isinstance(current_model, ModelRegistryBase)
+                else None
+            )
+
+            if models_enum is None:
+                raise ValueError(
+                    f"Model {current_model} is not in the ModelRegistry, cannot "
+                    "calculate predicted hypervolume."
+                )
+
+            model = get_model_from_generator_run(
+                generator_run=not_none(generation_strategy.last_generator_run),
+                experiment=experiment,
+                data=experiment.fetch_data(trial_indices=trial_indices),
+                models_enum=models_enum,
+            )
+            if not isinstance(model, ArrayModelBridge):
+                raise ValueError(
+                    f"Model {current_model} is not of type ArrayModelBridge, cannot "
+                    "calculate predicted hypervolume."
+                )
+
+            return predicted_hypervolume(
+                modelbridge=model, optimization_config=optimization_config
+            )
+
+        minimal_model = get_tensor_converter_model(
+            experiment=experiment,
+            data=experiment.lookup_data(trial_indices=trial_indices),
+        )
+
+        return observed_hypervolume(
+            modelbridge=minimal_model, optimization_config=moo_optimization_config
         )

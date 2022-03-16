@@ -1669,6 +1669,29 @@ class TestAxClient(TestCase):
         mock_predicted_pareto.assert_not_called()
         self.assertGreater(len(observed_pareto), 0)
 
+    @fast_botorch_optimize
+    def test_get_hypervolume(self):
+        # First check that hypervolume gets returned for observed data
+        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20
+        )
+        self.assertGreaterEqual(
+            ax_client.get_hypervolume(use_model_predictions=False), 0
+        )
+
+        # Cannot get predicted hypervolume with sobol model
+        with self.assertRaisesRegex(ValueError, "is not of type ArrayModelBridge"):
+            ax_client.get_hypervolume(use_model_predictions=True)
+
+        # Run one more trial and check predicted hypervolume gets returned
+        parameterization, trial_index = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index,
+            raw_data={"branin": 0, "currin": 0},
+        )
+
+        self.assertGreaterEqual(ax_client.get_hypervolume(), 0)
+
     def test_with_hss(self):
         ax_client = AxClient()
         ax_client.create_experiment(
