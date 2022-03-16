@@ -46,7 +46,6 @@ class BestPointMixin(metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
     def get_best_parameters(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -73,7 +72,16 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             Tuple of parameterization and model predictions for it.
         """
-        pass
+        res = self.get_best_trial(
+            optimization_config=optimization_config,
+            use_model_predictions=use_model_predictions,
+        )
+
+        if res is None:
+            return res  # pragma: no cover
+
+        _, parameterization, vals = res
+        return parameterization, vals
 
     @abstractmethod
     def get_pareto_optimal_parameters(
@@ -151,32 +159,6 @@ class BestPointMixin(metaclass=ABCMeta):
             experiment=experiment,
             optimization_config=optimization_config,
         )
-
-    @staticmethod
-    def _get_best_parameters(
-        experiment: Experiment,
-        generation_strategy: GenerationStrategy,
-        optimization_config: Optional[OptimizationConfig] = None,
-        use_model_predictions: bool = True,
-    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-        if not_none(experiment.optimization_config).is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
-                "Please use `get_pareto_optimal_parameters` for multi-objective "
-                "problems."
-            )
-
-        res = BestPointMixin._get_best_trial(
-            experiment=experiment,
-            generation_strategy=generation_strategy,
-            optimization_config=optimization_config,
-            use_model_predictions=use_model_predictions,
-        )
-
-        if res is None:
-            return res  # pragma: no cover
-
-        _, parameterization, vals = res
-        return parameterization, vals
 
     @staticmethod
     def _get_pareto_optimal_parameters(
