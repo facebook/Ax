@@ -7,6 +7,14 @@ ax.runners
 .. automodule:: ax.runners
 .. currentmodule:: ax.runners
 
+BoTorch Test Problem
+~~~~~~
+
+.. automodule:: ax.runners.botorch_test_problem
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Synthetic Runner
 ~~~~~~~~~~~~~~~~

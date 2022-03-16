@@ -8,6 +8,14 @@ ax.metrics
 .. currentmodule:: ax.metrics
 
 
+BoTorch Test Problem
+~~~~~~
+
+.. automodule:: ax.metrics.botorch_test_problem
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Branin
 ~~~~~~
 
