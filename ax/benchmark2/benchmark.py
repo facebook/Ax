@@ -17,6 +17,7 @@ Key terms used:
 
 """
 from time import time
+from typing import List, Iterable
 
 from ax.benchmark2.benchmark_method import BenchmarkMethod
 from ax.benchmark2.benchmark_problem import BenchmarkProblem
@@ -64,3 +65,18 @@ def benchmark_test(
             for _ in range(num_replications)
         ]
     )
+
+
+def benchmark_full_run(
+    problems: Iterable[BenchmarkProblem],
+    methods: Iterable[BenchmarkMethod],
+    num_replications: int = 10,
+) -> List[AggregatedBenchmarkResult]:
+
+    return [
+        benchmark_test(
+            problem=problem, method=method, num_replications=num_replications
+        )
+        for problem in problems
+        for method in methods
+    ]
