@@ -29,6 +29,7 @@ class BenchmarkProblem:
     config, and runner.
     """
 
+    name: str
     search_space: SearchSpace
     optimization_config: OptimizationConfig
     runner: Runner
@@ -63,6 +64,7 @@ class BenchmarkProblem:
         )
 
         return cls(
+            name="{test_problem.__class__.__name__}",
             search_space=search_space,
             optimization_config=optimization_config,
             runner=BotorchTestProblemRunner(test_problem=test_problem),
@@ -90,6 +92,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         problem = BenchmarkProblem.from_botorch(test_problem=test_problem)
 
         return cls(
+            name="{test_problem.__class__.__name__}",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             runner=problem.runner,
@@ -137,6 +140,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         )
 
         return cls(
+            name="{test_problem.__class__.__name__}",
             search_space=problem.search_space,
             optimization_config=optimization_config,
             runner=problem.runner,
