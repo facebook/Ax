@@ -519,18 +519,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             use_model_predictions=use_model_predictions,
         )
 
-    @copy_doc(BestPointMixin.get_best_parameters)
-    def get_best_parameters(
-        self,
-        optimization_config: Optional[OptimizationConfig] = None,
-        use_model_predictions: bool = True,
-    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-        return self._get_best_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-            use_model_predictions=use_model_predictions,
-        )
-
     @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
     def get_pareto_optimal_parameters(
         self,
