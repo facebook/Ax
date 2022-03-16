@@ -77,7 +77,7 @@ def get_best_raw_objective_point_with_trial_index(
             "pareto frontier."
         )
 
-    dat = experiment.fetch_data()
+    dat = experiment.lookup_data()
     if dat.df.empty:
         raise ValueError("Cannot identify best point if experiment contains no data.")
     objective = optimization_config.objective

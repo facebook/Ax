@@ -105,6 +105,7 @@ class TestBestPointUtils(TestCase):
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
+        exp.fetch_data()
         opt_conf = exp.optimization_config.clone()
         opt_conf.objective.metric._name = "not_branin"
         with self.assertRaisesRegex(ValueError, "No data has been logged"):
@@ -116,6 +117,7 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
         trial.mark_completed()
+        exp.fetch_data()
 
         opt_conf = exp.optimization_config.clone()
         opt_conf.outcome_constraints.append(
@@ -145,6 +147,7 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
         trial.mark_completed()
+        exp.fetch_data()
 
         with self.assertLogs(logger="ax.service.utils.best_point", level="WARN") as lg:
             get_best_raw_objective_point(exp, opt_conf)
@@ -158,6 +161,7 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[exp.status_quo])
         ).run()
         sq_trial.mark_completed()
+        exp.fetch_data()
 
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
@@ -173,6 +177,7 @@ class TestBestPointUtils(TestCase):
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
+        exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
 
     def test_best_raw_objective_point_scalarized_multi(self):
@@ -190,4 +195,5 @@ class TestBestPointUtils(TestCase):
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
+        exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
