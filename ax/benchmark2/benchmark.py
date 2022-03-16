@@ -20,7 +20,7 @@ from time import time
 
 from ax.benchmark2.benchmark_method import BenchmarkMethod
 from ax.benchmark2.benchmark_problem import BenchmarkProblem
-from ax.benchmark2.benchmark_result import BenchmarkResult
+from ax.benchmark2.benchmark_result import BenchmarkResult, AggregatedBenchmarkResult
 from ax.core.experiment import Experiment
 from ax.service.scheduler import Scheduler
 
@@ -51,4 +51,16 @@ def benchmark_replication(
 
     scheduler.run_all_trials()
 
-    return BenchmarkResult(experiment=scheduler.experiment)
+    return BenchmarkResult.from_scheduler(scheduler=scheduler)
+
+
+def benchmark_test(
+    problem: BenchmarkProblem, method: BenchmarkMethod, num_replications: int = 10
+) -> AggregatedBenchmarkResult:
+
+    return AggregatedBenchmarkResult.from_benchmark_results(
+        results=[
+            benchmark_replication(problem=problem, method=method)
+            for _ in range(num_replications)
+        ]
+    )
