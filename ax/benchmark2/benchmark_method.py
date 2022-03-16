@@ -17,6 +17,7 @@ class BenchmarkMethod:
     information like maximum parallelism, early stopping configuration, etc.)
     """
 
+    name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
 

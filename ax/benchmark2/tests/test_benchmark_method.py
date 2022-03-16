@@ -23,7 +23,9 @@ class TestBenchmarkMethod(TestCase):
             name="SOBOL",
         )
         options = SchedulerOptions(total_trials=10)
-        method = BenchmarkMethod(generation_strategy=gs, scheduler_options=options)
+        method = BenchmarkMethod(
+            name="Sobol10", generation_strategy=gs, scheduler_options=options
+        )
 
         self.assertEqual(method.generation_strategy, gs)
         self.assertEqual(method.scheduler_options, options)
@@ -43,4 +45,6 @@ class TestBenchmarkMethod(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "SchedulerOptions.total_trials may not be None"
         ):
-            BenchmarkMethod(generation_strategy=gs, scheduler_options=options)
+            BenchmarkMethod(
+                name="Sobol10", generation_strategy=gs, scheduler_options=options
+            )
