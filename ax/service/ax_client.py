@@ -9,6 +9,7 @@ import logging
 import warnings
 from functools import partial
 from typing import (
+    Iterable,
     Callable,
     Set,
     Any,
@@ -1206,11 +1207,13 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def get_best_trial(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_trial(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
+            trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
 
@@ -1218,11 +1221,13 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def get_pareto_optimal_parameters(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
+            trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
 

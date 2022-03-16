@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import abstractmethod, ABCMeta
-from typing import Dict, Tuple, Optional
+from typing import Iterable, Dict, Tuple, Optional
 
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
@@ -21,6 +21,7 @@ class BestPointMixin(metaclass=ABCMeta):
     def get_best_trial(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         """Identifies the best parameterization tried in the experiment so far.
@@ -35,6 +36,8 @@ class BestPointMixin(metaclass=ABCMeta):
         Args:
             optimization_config: Optimization config to use in place of the one stored
                 on the experiment.
+            trial_indices: Indices of trials for which to retrieve data. If None will
+                retrieve data from all available trials.
             use_model_predictions: Whether to extract the best point using
                 model predictions or directly observed values. If ``True``,
                 the metric means and covariances in this method's output will
@@ -49,6 +52,7 @@ class BestPointMixin(metaclass=ABCMeta):
     def get_best_parameters(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
         """Identifies the best parameterization tried in the experiment so far.
@@ -63,6 +67,8 @@ class BestPointMixin(metaclass=ABCMeta):
         Args:
             optimization_config: Optimization config to use in place of the one stored
                 on the experiment.
+            trial_indices: Indices of trials for which to retrieve data. If None will
+                retrieve data from all available trials.
             use_model_predictions: Whether to extract the best point using
                 model predictions or directly observed values. If ``True``,
                 the metric means and covariances in this method's output will
@@ -74,6 +80,7 @@ class BestPointMixin(metaclass=ABCMeta):
         """
         res = self.get_best_trial(
             optimization_config=optimization_config,
+            trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
 
@@ -87,6 +94,7 @@ class BestPointMixin(metaclass=ABCMeta):
     def get_pareto_optimal_parameters(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
         """Identifies the best parameterizations tried in the experiment so far,
@@ -103,6 +111,8 @@ class BestPointMixin(metaclass=ABCMeta):
         Args:
             optimization_config: Optimization config to use in place of the one stored
                 on the experiment.
+            trial_indices: Indices of trials for which to retrieve data. If None will
+                retrieve data from all available trials.
             use_model_predictions: Whether to extract the Pareto frontier using
                 model predictions or directly observed values. If ``True``,
                 the metric means and covariances in this method's output will
@@ -124,6 +134,7 @@ class BestPointMixin(metaclass=ABCMeta):
         experiment: Experiment,
         generation_strategy: GenerationStrategy,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         if not_none(experiment.optimization_config).is_moo_problem:
@@ -150,6 +161,7 @@ class BestPointMixin(metaclass=ABCMeta):
                     experiment=experiment,
                     models_enum=models_enum,
                     optimization_config=optimization_config,
+                    trial_indices=trial_indices,
                 )
 
                 if res is not None:
@@ -158,6 +170,7 @@ class BestPointMixin(metaclass=ABCMeta):
         return best_point_utils.get_best_by_raw_objective_with_trial_index(
             experiment=experiment,
             optimization_config=optimization_config,
+            trial_indices=trial_indices,
         )
 
     @staticmethod
@@ -165,6 +178,7 @@ class BestPointMixin(metaclass=ABCMeta):
         experiment: Experiment,
         generation_strategy: GenerationStrategy,
         optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
         if not not_none(experiment.optimization_config).is_moo_problem:
@@ -175,5 +189,6 @@ class BestPointMixin(metaclass=ABCMeta):
             experiment=experiment,
             generation_strategy=generation_strategy,
             optimization_config=optimization_config,
+            trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
