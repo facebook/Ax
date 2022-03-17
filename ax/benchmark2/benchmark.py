@@ -58,6 +58,7 @@ def benchmark_replication(
 def benchmark_test(
     problem: BenchmarkProblem, method: BenchmarkMethod, num_replications: int = 10
 ) -> AggregatedBenchmarkResult:
+    name = "miles"
 
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
