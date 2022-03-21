@@ -22,7 +22,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.models.torch.utils import HYPERSPHERE
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
@@ -104,7 +104,7 @@ class BotorchMOOModelTest(TestCase):
                 dtype=dtype, use_qnehvi=True
             )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchMOOModel_with_random_scalarization(
         self, dtype=torch.float, cuda=False
     ):
@@ -217,7 +217,7 @@ class BotorchMOOModelTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchMOOModel_with_chebyshev_scalarization(
         self, dtype=torch.float, cuda=False
     ):
@@ -536,7 +536,7 @@ class BotorchMOOModelTest(TestCase):
             self.assertTrue(torch.equal(obj_t[:2], provided_obj_t[:2].cpu()))
             self.assertTrue(np.isnan(obj_t[2]))
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
@@ -590,7 +590,7 @@ class BotorchMOOModelTest(TestCase):
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchMOOModel_with_chebyshev_scalarization_and_outcome_constraints(
         self, dtype=torch.float, cuda=False
     ):
@@ -643,7 +643,7 @@ class BotorchMOOModelTest(TestCase):
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
         self, dtype=torch.float, cuda=False, use_qnehvi=False
     ):

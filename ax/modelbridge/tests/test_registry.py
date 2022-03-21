@@ -41,14 +41,14 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_factorial_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
 from torch import float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
-    @fast_botorch_optimize
+    @fast_modeling
     def test_botorch_modular(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
@@ -70,7 +70,7 @@ class ModelRegistryTest(TestCase):
         # FixedNoiseGP should be picked since experiment data has fixed noise.
         self.assertIsInstance(gpei.model.surrogate.model, FixedNoiseGP)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_enum_sobol_GPEI(self):
         """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
@@ -240,7 +240,7 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_get_model_from_generator_run(self):
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
@@ -316,7 +316,7 @@ class ModelRegistryTest(TestCase):
             # Intersection of two sets should be empty
             self.assertEqual(model_args & bridge_args, set())
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_ST_MTGP(self):
         """Tests single type MTGP instantiation."""
         # Test Single-type MTGP
@@ -358,7 +358,7 @@ class ModelRegistryTest(TestCase):
                 status_quo_features=status_quo_features,
             )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_ALEBO(self):
         """Tests Alebo fitting and generations"""
         experiment = get_branin_experiment(with_batch=True)
@@ -398,7 +398,7 @@ class ModelRegistryTest(TestCase):
         gr = m.gen(n=2)
         self.assertEqual(len(gr.arms), 2)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_ST_MTGP_NEHVI(self):
         """Tests single type MTGP NEHVI instantiation."""
         multi_obj_exp = get_branin_experiment_with_multi_objective(

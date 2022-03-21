@@ -25,7 +25,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_multi_type_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
 
@@ -142,7 +142,7 @@ class ReportUtilsTest(TestCase):
         )
         self.assertDictEqual(expected_output, actual_output)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_get_standard_plots(self):
         exp = get_branin_experiment()
         self.assertEqual(

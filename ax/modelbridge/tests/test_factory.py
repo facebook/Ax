@@ -48,12 +48,12 @@ from ax.utils.testing.core_stubs import (
     get_factorial_experiment,
     get_multi_type_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.models.multitask import MultiTaskGP
 
 
 class ModelBridgeFactoryTest(TestCase):
-    @fast_botorch_optimize
+    @fast_modeling
     def test_sobol_GPEI(self):
         """Tests sobol + GPEI instantiation."""
         exp = get_branin_experiment()
@@ -78,7 +78,7 @@ class ModelBridgeFactoryTest(TestCase):
         gpei_run = gpei.gen(n=1)
         self.assertEqual(len(gpei_run.arms), 1)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MTGP(self):
         """Tests MTGP instantiation."""
         # Test Multi-type MTGP
@@ -115,7 +115,7 @@ class ModelBridgeFactoryTest(TestCase):
         with self.assertRaises(ValueError):
             get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_GPKG(self):
         """Tests GPKG instantiation."""
         exp = get_branin_experiment(with_batch=True)
@@ -156,7 +156,7 @@ class ModelBridgeFactoryTest(TestCase):
         gpkg_mf = get_GPKG(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpkg_mf, TorchModelBridge)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_GPMES(self):
         """Tests GPMES instantiation."""
         exp = get_branin_experiment(with_batch=True)
@@ -252,7 +252,7 @@ class ModelBridgeFactoryTest(TestCase):
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MOO_RS(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         with self.assertRaises(ValueError):
@@ -277,7 +277,7 @@ class ModelBridgeFactoryTest(TestCase):
         moo_rs_run = moo_rs.gen(n=2)
         self.assertEqual(len(moo_rs_run.arms), 2)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MOO_PAREGO(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         with self.assertRaises(ValueError):
@@ -304,7 +304,7 @@ class ModelBridgeFactoryTest(TestCase):
         moo_parego_run = moo_parego.gen(n=2)
         self.assertEqual(len(moo_parego_run.arms), 2)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MOO_EHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         metrics = single_obj_exp.optimization_config.objective.metrics
@@ -348,7 +348,7 @@ class ModelBridgeFactoryTest(TestCase):
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MTGP_PAREGO(self):
         """Tests MTGP ParEGO instantiation."""
         # Test Multi-type MTGP
@@ -424,7 +424,7 @@ class ModelBridgeFactoryTest(TestCase):
             objective_thresholds=multi_objective_thresholds,
         )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MOO_NEHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         metrics = single_obj_exp.optimization_config.objective.metrics
@@ -466,7 +466,7 @@ class ModelBridgeFactoryTest(TestCase):
         moo_ehvi_run = moo_ehvi.gen(n=1)
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MOO_with_more_outcomes_than_thresholds(self):
         experiment = get_branin_experiment_with_multi_objective(
             has_optimization_config=False
@@ -529,7 +529,7 @@ class ModelBridgeFactoryTest(TestCase):
                 self.assertEqual(obj_t[1], objective_thresholds[0])
                 self.assertEqual(len(obj_t), 2)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MTGP_NEHVI(self):
         single_obj_exp = get_branin_experiment(with_batch=True)
         metrics = single_obj_exp.optimization_config.objective.metrics

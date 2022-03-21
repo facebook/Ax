@@ -10,7 +10,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_mes import MaxValueEntropySearch, _instantiate_MES
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
     qMultiFidelityMaxValueEntropy,
@@ -49,7 +49,7 @@ class MaxValueEntropySearchTest(TestCase):
         }
         self.optimize_acqf = "ax.models.torch.botorch_mes.optimize_acqf"
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MaxValueEntropySearch(self):
 
         model = MaxValueEntropySearch()
@@ -167,7 +167,7 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_MaxValueEntropySearch_MultiFidelity(self):
         model = MaxValueEntropySearch()
         model.fit(
@@ -264,7 +264,7 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_instantiate_MES(self):
 
         model = MaxValueEntropySearch()

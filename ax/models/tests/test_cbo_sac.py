@@ -9,12 +9,12 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.cbo_sac import SACBO, SACGP
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.models.model_list_gp_regression import ModelListGP
 
 
 class SACBOTest(TestCase):
-    @fast_botorch_optimize
+    @fast_modeling
     def test_SACBO(self):
         train_X = torch.tensor(
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]

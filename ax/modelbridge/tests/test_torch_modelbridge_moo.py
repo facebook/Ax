@@ -40,7 +40,7 @@ from ax.utils.testing.core_stubs import (
     get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
@@ -141,7 +141,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    @fast_botorch_optimize
+    @fast_modeling
     def test_pareto_frontier(self, _):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
@@ -397,7 +397,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    @fast_botorch_optimize
+    @fast_modeling
     def test_infer_objective_thresholds(self, _, cuda=False):
         # lightweight test
         exp = get_branin_experiment_with_multi_objective(
@@ -578,7 +578,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_status_quo_for_non_monolithic_data(self):
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
         sobol_generator = get_sobol(
