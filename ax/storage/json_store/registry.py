@@ -60,11 +60,15 @@ from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.json_store.decoders import class_from_json, transform_type_from_json
+from ax.storage.json_store.decoders import (
+    class_from_json,
+    transform_type_from_json,
+)
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
     benchmark_problem_to_dict,
+    botorch_component_to_dict,
     botorch_model_to_dict,
     botorch_modular_to_dict,
     choice_parameter_to_dict,
@@ -101,7 +105,11 @@ from ax.storage.json_store.encoders import (
 from ax.storage.utils import DomainType, ParameterConstraintType
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
+from gpytorch.constraints import Interval
+from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from gpytorch.priors.torch_priors import GammaPrior
+from torch.nn import Module
 
 
 CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
@@ -118,10 +126,12 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
+    GammaPrior: botorch_component_to_dict,
     GenerationStep: generation_step_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
+    Interval: botorch_component_to_dict,
     ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
     MapData: map_data_to_dict,
@@ -161,11 +171,13 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
 CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
-    Acquisition: botorch_modular_to_dict,
-    AcquisitionFunction: botorch_modular_to_dict,
-    MarginalLogLikelihood: botorch_modular_to_dict,
-    Model: botorch_modular_to_dict,
-    Transform: transform_type_to_dict,
+    Acquisition: botorch_modular_to_dict,  # Ax MBM component
+    AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
+    Likelihood: botorch_modular_to_dict,  # BoTorch component
+    Module: botorch_modular_to_dict,  # BoTorch module
+    MarginalLogLikelihood: botorch_modular_to_dict,  # BoTorch component
+    Model: botorch_modular_to_dict,  # BoTorch component
+    Transform: transform_type_to_dict,  # Ax general (not just MBM) component
 }
 
 CORE_DECODER_REGISTRY: Dict[str, Type] = {
@@ -189,12 +201,14 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,
     "FixedParameter": FixedParameter,
+    "GammaPrior": GammaPrior,
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
+    "Interval": Interval,
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
@@ -238,6 +252,8 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
 CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
+    "Type[Likelihood]": class_from_json,
+    "Type[Module]": class_from_json,
     "Type[MarginalLogLikelihood]": class_from_json,
     "Type[Model]": class_from_json,
     "Type[Transform]": transform_type_from_json,

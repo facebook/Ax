@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import inspect
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
@@ -19,6 +21,9 @@ from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import CLASS_TO_REVERSE_REGISTRY
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 from ax.utils.common.kwargs import warn_on_kwargs
+from ax.utils.common.logger import get_logger
+
+logger: logging.Logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:
@@ -161,3 +166,32 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
         f"{class_path} does not have a corresponding entry in "
         "CLASS_TO_REVERSE_REGISTRY."
     )
+
+
+def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Type[Any]:
+    """Load any instance of `gpytorch.Module` or descendent registered in
+    `CLASS_DECODER_REGISTRY` from state dict."""
+    class_path = json.pop("class")
+    state_dict = json.pop("state_dict")
+    init_args = inspect.signature(botorch_class).parameters
+    required_args = {p for p, v in init_args.items() if v.default is inspect._empty}
+    allowable_args = set(init_args)
+    received_args = set(state_dict)
+    missing_args = required_args - received_args
+    if missing_args:
+        raise ValueError(
+            f"Missing required initialization args {missing_args} for class "
+            f"{class_path}. For gpytorch objects, this is likely because the "
+            "object's `state_dict` method does not return the args required "
+            "for initialization."
+        )
+    extra_args = received_args - allowable_args
+    if extra_args:
+        raise ValueError(
+            f"Received unused args {extra_args} for class {class_path}. "
+            "For gpytorch objects, this is likely because the object's "
+            "`state_dict` method returns these extra args, which could "
+            "indicate that the object's state will not be fully recreated "
+            "by this serialization/deserialization method."
+        )
+    return botorch_class(**state_dict)
