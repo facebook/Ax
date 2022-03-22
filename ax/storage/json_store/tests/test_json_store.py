@@ -20,12 +20,13 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
 )
-from ax.storage.json_store.decoders import class_from_json
+from ax.storage.json_store.decoders import class_from_json, botorch_component_from_json
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.encoders import (
     runner_to_dict,
     metric_to_dict,
     botorch_modular_to_dict,
+    botorch_component_to_dict,
 )
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.registry import (
@@ -45,7 +46,6 @@ from ax.utils.testing.benchmark_stubs import (
     get_sum_simple_benchmark_problem,
 )
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_timestamp_map_metric,
     get_abandoned_arm,
     get_acquisition_function_type,
     get_acquisition_type,
@@ -53,48 +53,51 @@ from ax.utils.testing.core_stubs import (
     get_augmented_branin_metric,
     get_augmented_hartmann_metric,
     get_batch_trial,
-    get_botorch_model,
     get_botorch_model_with_default_acquisition_class,
+    get_botorch_model,
     get_branin_data,
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_experiment,
     get_branin_metric,
     get_choice_parameter,
-    get_experiment_with_map_data,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
-    get_experiment_with_trial_with_ttl,
     get_experiment_with_map_data_type,
+    get_experiment_with_map_data,
+    get_experiment_with_trial_with_ttl,
     get_factorial_metric,
     get_fixed_parameter,
+    get_gamma_prior,
     get_generator_run,
-    get_map_data,
     get_hartmann_metric,
+    get_hierarchical_search_space,
+    get_interval,
     get_list_surrogate,
+    get_map_data,
     get_metric,
     get_mll_type,
     get_model_type,
-    get_multi_objective,
     get_multi_objective_optimization_config,
+    get_multi_objective,
     get_multi_type_experiment,
-    get_objective,
     get_objective_threshold,
+    get_objective,
     get_optimization_config,
     get_order_constraint,
     get_outcome_constraint,
     get_parameter_constraint,
-    get_percentile_early_stopping_strategy,
     get_percentile_early_stopping_strategy_with_true_objective_metric_name,
+    get_percentile_early_stopping_strategy,
     get_range_parameter,
     get_scalarized_objective,
     get_search_space,
-    get_threshold_early_stopping_strategy,
     get_sum_constraint1,
     get_sum_constraint2,
     get_surrogate,
     get_synthetic_runner,
+    get_threshold_early_stopping_strategy,
     get_trial,
     get_winsorization_config,
-    get_hierarchical_search_space,
 )
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
@@ -102,6 +105,7 @@ from ax.utils.testing.modeling_stubs import (
     get_transform_type,
 )
 from botorch.test_functions.synthetic import Ackley
+from torch.nn import Module
 
 
 TEST_CASES = [
@@ -125,8 +129,10 @@ TEST_CASES = [
     ("FixedParameter", get_fixed_parameter),
     ("Hartmann6Metric", get_hartmann_metric),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
+    ("GammaPrior", get_gamma_prior),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
+    ("Interval", get_interval),
     ("ListSurrogate", get_list_surrogate),
     ("MapData", get_map_data),
     ("MapData", get_map_data),
@@ -263,7 +269,14 @@ class JSONStoreTest(TestCase):
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
-
+            if isinstance(original_object, Module):
+                self.assertIsInstance(
+                    converted_object,
+                    original_object.__class__,
+                    msg=f"Error encoding/decoding {class_}.",
+                )
+                original_object = original_object.state_dict()
+                converted_object = converted_object.state_dict()
             self.assertEqual(
                 original_object,
                 converted_object,
@@ -520,3 +533,15 @@ class JSONStoreTest(TestCase):
             "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
+
+    def testBadStateDict(self):
+        interval = get_interval()
+        expected_json = botorch_component_to_dict(interval)
+        with self.assertRaisesRegex(ValueError, "Received unused args"):
+            expected_json = botorch_component_to_dict(interval)
+            expected_json["state_dict"]["foo"] = "bar"
+            botorch_component_from_json(interval.__class__, expected_json)
+        with self.assertRaisesRegex(ValueError, "Missing required initialization args"):
+            expected_json = botorch_component_to_dict(interval)
+            del expected_json["state_dict"]["lower_bound"]
+            botorch_component_from_json(interval.__class__, expected_json)

@@ -34,7 +34,11 @@ from ax.modelbridge.registry import (
     ModelRegistryBase,
     _decode_callables_from_references,
 )
-from ax.storage.json_store.decoders import batch_trial_from_json, trial_from_json
+from ax.storage.json_store.decoders import (
+    batch_trial_from_json,
+    trial_from_json,
+    botorch_component_from_json,
+)
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
@@ -43,6 +47,7 @@ from ax.utils.common.typeutils import not_none, torch_type_from_str
 from ax.utils.measurement import synthetic_functions
 from ax.utils.measurement.synthetic_functions import from_botorch
 from botorch.test_functions import synthetic as botorch_synthetic
+from torch.nn import Module
 
 
 def object_from_json(
@@ -156,6 +161,8 @@ def object_from_json(
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
+        elif isclass(_class) and issubclass(_class, Module):
+            return botorch_component_from_json(botorch_class=_class, json=object_json)
         elif _class == GeneratorRun:
             return generator_run_from_json(
                 object_json=object_json,

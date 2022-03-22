@@ -81,8 +81,10 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
+from gpytorch.constraints import Interval
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from gpytorch.priors.torch_priors import GammaPrior
 
 logger = get_logger(__name__)
 
@@ -1546,3 +1548,11 @@ def get_winsorization_config() -> WinsorizationConfig:
         lower_boundary=20,
         upper_boundary=50,
     )
+
+
+def get_gamma_prior() -> GammaPrior:
+    return GammaPrior(concentration=0.9, rate=10.0)
+
+
+def get_interval() -> Interval:
+    return Interval(lower_bound=1e-6, upper_bound=0.1)

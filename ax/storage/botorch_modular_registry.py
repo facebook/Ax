@@ -40,11 +40,18 @@ from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 
+# Miscellaneous BoTorch imports
+from gpytorch.constraints import Interval
+from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
+from gpytorch.likelihoods.likelihood import Likelihood
+
 # BoTorch `MarginalLogLikelihood` imports
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
-
+from gpytorch.priors.torch_priors import GammaPrior
+from torch.nn import Module
 
 # NOTE: When adding a new registry for a class, make sure to make changes
 # to `CLASS_TO_REGISTRY` and `CLASS_TO_REVERSE_REGISTRY` in this file.
@@ -93,9 +100,18 @@ Mapping of BoTorch `MarginalLogLikelihood` classes to class name strings.
 """
 MLL_REGISTRY: Dict[Type[MarginalLogLikelihood], str] = {
     ExactMarginalLogLikelihood: "ExactMarginalLogLikelihood",
+    LeaveOneOutPseudoLikelihood: "LeaveOneOutPseudoLikelihood",
     SumMarginalLogLikelihood: "SumMarginalLogLikelihood",
 }
 
+LIKELIHOOD_REGISTRY: Dict[Type[GaussianLikelihood], str] = {
+    GaussianLikelihood: "GaussianLikelihood"
+}
+
+GPYTORCH_COMPONENT_REGISTRY: Dict[Type[Module], str] = {
+    Interval: "Interval",
+    GammaPrior: "GammaPrior",
+}
 
 """
 Overarching mapping from encoded classes to registry map.
@@ -103,8 +119,11 @@ Overarching mapping from encoded classes to registry map.
 CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     Acquisition: ACQUISITION_REGISTRY,
     AcquisitionFunction: ACQUISITION_FUNCTION_REGISTRY,
+    Likelihood: LIKELIHOOD_REGISTRY,
     MarginalLogLikelihood: MLL_REGISTRY,
     Model: MODEL_REGISTRY,
+    Interval: GPYTORCH_COMPONENT_REGISTRY,
+    GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
 }
 
 
@@ -130,6 +149,13 @@ REVERSE_MLL_REGISTRY: Dict[str, Type[MarginalLogLikelihood]] = {
     v: k for k, v in MLL_REGISTRY.items()
 }
 
+REVERSE_LIKELIHOOD_REGISTRY: Dict[str, Type[Likelihood]] = {
+    v: k for k, v in LIKELIHOOD_REGISTRY.items()
+}
+
+REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[Module]] = {
+    v: k for k, v in GPYTORCH_COMPONENT_REGISTRY.items()
+}
 
 """
 Overarching mapping from encoded classes to reverse registry map.
@@ -137,8 +163,11 @@ Overarching mapping from encoded classes to reverse registry map.
 CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[str, Type[Any]]] = {
     Acquisition: REVERSE_ACQUISITION_REGISTRY,
     AcquisitionFunction: REVERSE_ACQUISITION_FUNCTION_REGISTRY,
+    Likelihood: REVERSE_LIKELIHOOD_REGISTRY,
     MarginalLogLikelihood: REVERSE_MLL_REGISTRY,
     Model: REVERSE_MODEL_REGISTRY,
+    Interval: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
+    GammaPrior: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
 }
 
 

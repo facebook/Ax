@@ -181,7 +181,8 @@ def object_to_json(
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}
 
     err = (
-        f"Object {obj} passed to `object_to_json` (of type {_type}) is "
-        f"not registered with a corresponding encoder in ENCODER_REGISTRY."
+        f"Object {obj} passed to `object_to_json` (of type {_type}, module: "
+        f"{_type.__module__}) is not registered with a corresponding encoder "
+        "in ENCODER_REGISTRY."
     )
     raise JSONEncodeError(err)

@@ -487,7 +487,7 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
                     "located in `ax/storage/botorch_modular_registry.py`."
                 )
             return {
-                "__type": f"Type[{_class.__name__}]",
+                "__type": "Type[Module]",
                 "index": registry[class_type],
                 "class": f"{_class}",
             }
@@ -495,6 +495,19 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
         f"{class_type} does not have a corresponding parent class in "
         "CLASS_TO_REGISTRY."
     )
+
+
+def botorch_component_to_dict(input_obj: Type[Any]) -> Dict[str, Any]:
+    class_type = input_obj.__class__
+    state_dict = input_obj.state_dict()
+    # Cast dict values to float to avoid errors with Tensors.
+    state_dict = {k: float(v) for k, v in state_dict.items()}
+    return {
+        "__type": f"{class_type.__name__}",
+        "index": class_type,
+        "class": f"{class_type}",
+        "state_dict": state_dict,
+    }
 
 
 def percentile_early_stopping_strategy_to_dict(
