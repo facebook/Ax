@@ -104,3 +104,12 @@ Tensorboard
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+TorchX
+~~~~~~~~~~~
+
+.. automodule:: ax.metrics.torchx
+    :members:
+    :undoc-members:
+    :show-inheritance:
