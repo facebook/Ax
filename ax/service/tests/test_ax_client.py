@@ -8,8 +8,8 @@ import math
 import sys
 import time
 from math import ceil
-from typing import List, Tuple, Optional
-from unittest.mock import patch
+from typing import Any, List, Tuple, Optional
+from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
@@ -93,7 +93,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     minimize: bool = False,
     include_objective_thresholds: bool = True,
     random_seed: int = RANDOM_SEED,
-) -> AxClient:
+) -> Tuple[AxClient, BraninCurrin]:
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
     ax_client.create_experiment(
@@ -1691,6 +1691,34 @@ class TestAxClient(TestCase):
         )
 
         self.assertGreaterEqual(ax_client.get_hypervolume(), 0)
+
+    @patch(
+        "ax.service.ax_client.render"
+    )  # it will error if it tries to render the mock plot
+    @patch(
+        "ax.service.ax_client.plot_pareto_frontier"
+    )  # it will error if it tries to plot the mock
+    @patch("ax.service.ax_client.compute_posterior_pareto_frontier")
+    def test_view_pareto_frontier_plot(self, mock_plot: Mock, *args: Any) -> None:
+        primary_metric_name, secondary_metric_name = "branin", "currin"
+        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20
+        )
+        ax_client.view_pareto_frontier_plot(
+            primary_metric_name=primary_metric_name,
+            secondary_metric_name=secondary_metric_name,
+        )
+        kwargs = mock_plot.mock_calls[0][2]
+        self.assertEqual(
+            kwargs["experiment"],
+            ax_client.experiment,
+        )
+        self.assertEqual(
+            kwargs["data"],
+            ax_client.experiment.fetch_data(),
+        )
+        self.assertEqual(kwargs["primary_objective"].name, primary_metric_name)
+        self.assertEqual(kwargs["secondary_objective"].name, secondary_metric_name)
 
     def test_with_hss(self):
         ax_client = AxClient()
