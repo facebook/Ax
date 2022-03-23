@@ -31,3 +31,11 @@ Simulated Backend Runner
     :members:
     :undoc-members:
     :show-inheritance:
+
+TorchX Runner
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.runners.torchx
+    :members:
+    :undoc-members:
+    :show-inheritance:

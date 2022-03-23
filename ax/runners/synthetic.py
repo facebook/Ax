@@ -16,7 +16,7 @@ class SyntheticRunner(Runner):
     Currently acts as a shell runner, only creating a name.
     """
 
-    def __init__(self, dummy_metadata: Optional[str] = None):
+    def __init__(self, dummy_metadata: Optional[str] = None) -> None:
         self.dummy_metadata = dummy_metadata
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
