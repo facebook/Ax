@@ -10,7 +10,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
@@ -62,7 +62,7 @@ class KnowledgeGradientTest(TestCase):
         self.moo_objective_weights = torch.ones(2, dtype=self.dtype, device=self.device)
         self.objective_thresholds = torch.tensor([0.5, 1.5])
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_KnowledgeGradient(self):
         model = KnowledgeGradient()
         model.fit(
@@ -198,7 +198,7 @@ class KnowledgeGradientTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_KnowledgeGradient_multifidelity(self):
         model = KnowledgeGradient()
         model.fit(
@@ -299,7 +299,7 @@ class KnowledgeGradientTest(TestCase):
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_KnowledgeGradient_helpers(self):
         model = KnowledgeGradient()
         model.fit(

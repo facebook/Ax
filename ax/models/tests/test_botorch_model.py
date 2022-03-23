@@ -17,7 +17,7 @@ from ax.models.torch.botorch_defaults import (
 )
 from ax.models.torch.utils import sample_simplex
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
@@ -118,7 +118,7 @@ class BotorchModelTest(TestCase):
                 0.6,
             )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True

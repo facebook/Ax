@@ -19,7 +19,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -134,7 +134,7 @@ class TestBenchmark(TestCase):
                 agg.optimization_trace["mean"][i], agg.optimization_trace["mean"][i - 1]
             )
 
-    @fast_botorch_optimize
+    @fast_modeling
     def test_full_run(self):
         aggs = benchmark_full_run(
             problems=[self.ackley],

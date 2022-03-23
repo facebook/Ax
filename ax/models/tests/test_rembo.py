@@ -10,11 +10,11 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 
 
 class REMBOTest(TestCase):
-    @fast_botorch_optimize
+    @fast_modeling
     def testREMBOModel(self):
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])

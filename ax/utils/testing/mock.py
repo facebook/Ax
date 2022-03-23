@@ -12,11 +12,12 @@ from botorch.optim.initializers import (
     gen_one_shot_kg_initial_conditions,
     gen_batch_initial_conditions,
 )
+from gpytorch import settings as gpt_settings
 from scipy.optimize import minimize
 
 
 @contextmanager
-def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
+def fast_botorch_context_manager() -> Generator[None, None, None]:
     """A context manager to force botorch to speed up optimization. Currently, the
     primary tactic is to force the underlying scipy methods to stop after just one
     iteration.
@@ -43,28 +44,28 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
         return gen_one_shot_kg_initial_conditions(*args, **kwargs)
 
     with ExitStack() as es:
-        mock_generation = es.enter_context(
+        es.enter_context(
             mock.patch(
                 "botorch.generation.gen.minimize",
                 wraps=one_iteration_minimize,
             )
         )
 
-        mock_fit = es.enter_context(
+        es.enter_context(
             mock.patch(
                 "botorch.optim.fit.minimize",
                 wraps=one_iteration_minimize,
             )
         )
 
-        mock_gen_ics = es.enter_context(
+        es.enter_context(
             mock.patch(
                 "botorch.optim.optimize.gen_batch_initial_conditions",
                 wraps=minimal_gen_ics,
             )
         )
 
-        mock_gen_os_ics = es.enter_context(
+        es.enter_context(
             mock.patch(
                 "botorch.optim.optimize.gen_one_shot_kg_initial_conditions",
                 wraps=minimal_gen_os_ics,
@@ -73,22 +74,49 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         yield
 
-    if all(
-        mock_.call_count < 1
-        for mock_ in [mock_generation, mock_fit, mock_gen_ics, mock_gen_os_ics]
-    ):
-        raise AssertionError(
-            "No mocks were called in the context manager. Please remove unused "
-            "fast_botorch_optimize_context_manager()."
-        )
 
-
-def fast_botorch_optimize(f: Callable) -> Callable:
-    """Wraps f in the fast_botorch_optimize_context_manager for use as a decorator."""
+def fast_botorch(f: Callable) -> Callable:
+    """Wraps f in the fast_modelingmanager for use as a decorator."""
 
     @wraps(f)
     def inner(*args, **kwargs):
-        with fast_botorch_optimize_context_manager():
+        with fast_botorch_context_manager():
             return f(*args, **kwargs)
+
+    return inner
+
+
+@contextmanager
+def fast_gpytorch_context_manager() -> Generator[None, None, None]:
+    """A context manager to force GPyTorch to use fast approximations to various
+    mathematical functions used in GP inference.
+    """
+    with ExitStack() as es:
+        es.enter_context(gpt_settings.fast_pred_var())
+        es.enter_context(gpt_settings.fast_pred_samples())
+        es.enter_context(gpt_settings.fast_computations())
+
+        yield
+
+
+def fast_gpytorch(f: Callable) -> Callable:
+    """Wraps f in the fast_gpytorch_context_manager for use as a decorator."""
+
+    @wraps(f)
+    def inner(*args, **kwargs):
+        with fast_gpytorch_context_manager():
+            return f(*args, **kwargs)
+
+    return inner
+
+
+def fast_modeling(f: Callable) -> Callable:
+    """Wraps f in various context managers to speed up modeling"""
+
+    @wraps(f)
+    @fast_botorch
+    @fast_gpytorch
+    def inner(*args, **kwargs):
+        return f(*args, **kwargs)
 
     return inner

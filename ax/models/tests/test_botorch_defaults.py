@@ -14,7 +14,7 @@ from ax.models.torch.botorch_defaults import (
     get_warping_transform,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import fast_modeling
 from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.models import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -102,7 +102,7 @@ class BotorchDefaultsTest(TestCase):
             _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs5)
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
-    @fast_botorch_optimize
+    @fast_modeling
     def test_task_feature(self, get_model_mock):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
