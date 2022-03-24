@@ -60,6 +60,8 @@ from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict, _get_in_sample_arms
+from ax.plot.pareto_frontier import plot_pareto_frontier
+from ax.plot.pareto_utils import compute_posterior_pareto_frontier
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import ObjectiveProperties, InstantiationBase
@@ -86,6 +88,7 @@ from ax.utils.common.typeutils import (
     checked_cast_optional,
     not_none,
 )
+from ax.utils.notebook.plotting import render
 from botorch.utils.sampling import manual_seed
 
 
@@ -1248,6 +1251,22 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
+
+    def view_pareto_frontier_plot(
+        self, primary_metric_name: str, secondary_metric_name: str
+    ) -> None:
+        metrics = self.experiment.metrics.values()
+        frontier = compute_posterior_pareto_frontier(
+            experiment=self.experiment,
+            data=self.experiment.fetch_data(),
+            primary_objective=next(
+                metric for metric in metrics if metric.name == primary_metric_name
+            ),
+            secondary_objective=next(
+                metric for metric in metrics if metric.name == secondary_metric_name
+            ),
+        )
+        render(plot_pareto_frontier(frontier, CI_level=0.9000))
 
     def _update_trial_with_raw_data(
         self,
