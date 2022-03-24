@@ -154,6 +154,14 @@ Objective
     :undoc-members:
     :show-inheritance:
 
+`ParameterDistribution`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.parameter_distribution
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `Runner`
 ~~~~~~~~~~~~~~~~
 
