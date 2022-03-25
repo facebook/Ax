@@ -104,6 +104,7 @@ class InstantiationBase:
         name: str,
         lower_is_better: Optional[bool] = None,
         metric_class_override: Optional[type] = None,
+        for_opt_config: bool = False,
     ) -> Metric:
         metric_class = (
             metric_class_override if metric_class_override is not None else Metric
@@ -410,7 +411,10 @@ class InstantiationBase:
         except ValueError:
             raise ValueError("Outcome constraint bound should be a float.")
         return OutcomeConstraint(
-            cls._make_metric(name=tokens[0]), op=op, bound=bound, relative=rel
+            cls._make_metric(name=tokens[0], for_opt_config=True),
+            op=op,
+            bound=bound,
+            relative=rel,
         )
 
     @classmethod
@@ -433,6 +437,7 @@ class InstantiationBase:
                 Objective(
                     metric=cls._make_metric(
                         name=metric_name,
+                        for_opt_config=True,
                     ),
                     minimize=(
                         MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
@@ -656,6 +661,7 @@ class InstantiationBase:
                     metric_class_override=MapMetric
                     if support_intermediate_data
                     else Metric,
+                    for_opt_config=True,
                 ),
                 minimize=minimize,
             ),
