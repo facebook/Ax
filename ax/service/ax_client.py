@@ -338,11 +338,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 objective: ("minimize" if properties.minimize else "maximize")
                 for objective, properties in objectives.items()
             }
-            objective_kwargs["objective_thresholds"] = [
-                self.build_objective_threshold(objective, properties)
-                for objective, properties in objectives.items()
-                if properties.threshold is not None
-            ]
+            objective_kwargs["objective_thresholds"] = self.build_objective_thresholds(
+                objectives
+            )
         elif objective_name or minimize is not None:
             objective_kwargs["objective_name"] = objective_name
             objective_kwargs["minimize"] = minimize or False
@@ -376,6 +374,46 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self._save_generation_strategy_to_db_if_possible(
             generation_strategy=self.generation_strategy,
         )
+
+    def set_status_quo(self, params: Optional[TParameterization]) -> None:
+        """Set, or unset status quo on the experiment.  There may be risk
+        in using this after a trial with the status quo arm has run.
+
+        Args:
+            status_quo: Parameterization of the current state of the system.
+                If set, this will be added to each trial to be evaluated alongside
+                test configurations.
+        """
+        self.experiment.status_quo = None if params is None else Arm(parameters=params)
+
+    def set_optimization_config(
+        self,
+        objectives: Optional[Dict[str, ObjectiveProperties]] = None,
+        outcome_constraints: Optional[List[str]] = None,
+    ) -> None:
+        """Overwrite experiment's optimization config
+
+        Args:
+            objectives: Mapping from an objective name to object containing:
+                minimize: Whether this experiment represents a minimization problem.
+                threshold: The bound in the objective's threshold constraint.
+            outcome_constraints: List of string representation of outcome
+                constraints of form "metric_name >= bound", like "m1 <= 3."
+        """
+        optimization_config = self.make_optimization_config_from_properties(
+            objectives=objectives,
+            outcome_constraints=outcome_constraints,
+            status_quo_defined=self.experiment.status_quo is not None,
+        )
+        if optimization_config:
+            self.experiment.optimization_config = optimization_config
+            self._save_experiment_to_db_if_possible(
+                experiment=self.experiment,
+            )
+        else:
+            raise ValueError(
+                "optimization config not set because it was missing objectives"
+            )
 
     @retry_on_exception(
         logger=logger,
