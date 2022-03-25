@@ -35,6 +35,7 @@ DEV_REQUIRES = [
     "black",
     "flake8",
     "hypothesis",
+    "Jinja2<3.1.0",
     "pytest>=4.6",
     "pytest-cov",
     "sphinx<4.0",
