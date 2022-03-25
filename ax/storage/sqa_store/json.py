@@ -24,6 +24,8 @@ class JSONEncodedObject(TypeDecorator):
 
     impl: VARCHAR = VARCHAR(JSON_FIELD_LENGTH)
 
+    cache_ok = True
+
     def __init__(
         self, object_pairs_hook: Any = None, *args: List[Any], **kwargs: Dict[Any, Any]
     ) -> None:

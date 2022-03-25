@@ -13,6 +13,7 @@ from sqlalchemy.types import Integer, TypeDecorator
 
 class IntTimestamp(TypeDecorator):
     impl = Integer
+    cache_ok = True
 
     # pyre-fixme[15]: `process_bind_param` overrides method defined in
     #  `TypeDecorator` inconsistently.

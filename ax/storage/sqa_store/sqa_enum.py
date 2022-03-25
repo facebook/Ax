@@ -12,6 +12,8 @@ from sqlalchemy import types
 
 
 class BaseNullableEnum(types.TypeDecorator):
+    cache_ok = True
+
     def __init__(self, enum: Any, *arg: List[Any], **kw: Dict[Any, Any]) -> None:
         types.TypeDecorator.__init__(self, *arg, **kw)
         self._member_map = enum._member_map_
