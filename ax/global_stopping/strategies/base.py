@@ -23,7 +23,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
     justify the cost of running these trials).
     """
 
-    def __init__(self, min_trials: int):
+    def __init__(self, min_trials: int) -> None:
         """
         Initiating a base stopping strategy.
 
