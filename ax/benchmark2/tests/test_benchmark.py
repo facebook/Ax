@@ -8,88 +8,25 @@ from ax.benchmark2.benchmark import (
     benchmark_test,
     benchmark_full_run,
 )
-from ax.benchmark2.benchmark_method import BenchmarkMethod
-from ax.benchmark2.benchmark_problem import (
-    SingleObjectiveBenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-)
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
-from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.service.scheduler import SchedulerOptions
-from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.benchmark_stubs import (
+    get_sobol_gpei_benchmark_method,
+    get_single_objective_benchmark_problem,
+    get_multi_objective_benchmark_problem,
+    get_sobol_benchmark_method,
+)
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
-from botorch.models.gp_regression import FixedNoiseGP
-from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Branin, Ackley
 
 
 class TestBenchmark(TestCase):
-    def setUp(self):
-        self.ackley = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-            test_problem=Ackley()
-        )
-        self.branin = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-            test_problem=Branin()
-        )
-        self.branin_currin = (
-            MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem=BraninCurrin()
-            )
-        )
-
-        options = SchedulerOptions(total_trials=4, init_seconds_between_polls=0)
-
-        self.sobol4 = BenchmarkMethod(
-            name="SOBOL",
-            generation_strategy=GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)],
-                name="SOBOL",
-            ),
-            scheduler_options=options,
-        )
-
-        self.mbo_sobol_gpei = BenchmarkMethod(
-            name="MBO_SOBOL_GPEI",
-            generation_strategy=GenerationStrategy(
-                name="Modular::Sobol+GPEI",
-                steps=[
-                    GenerationStep(
-                        model=Models.SOBOL, num_trials=3, min_trials_observed=3
-                    ),
-                    GenerationStep(
-                        model=Models.BOTORCH_MODULAR,
-                        num_trials=-1,
-                        model_kwargs={
-                            "surrogate": Surrogate(FixedNoiseGP),
-                            "botorch_acqf_class": qNoisyExpectedImprovement,
-                        },
-                        model_gen_kwargs={
-                            "model_gen_options": {
-                                Keys.OPTIMIZER_KWARGS: {
-                                    "num_restarts": 50,
-                                    "raw_samples": 1024,
-                                },
-                                Keys.ACQF_KWARGS: {
-                                    "prune_baseline": True,
-                                    "qmc": True,
-                                    "mc_samples": 512,
-                                },
-                            }
-                        },
-                    ),
-                ],
-            ),
-            scheduler_options=options,
-        )
-
     def test_replication_synthetic(self):
-        res = benchmark_replication(problem=self.ackley, method=self.sobol4)
+        method = get_sobol_benchmark_method()
+        res = benchmark_replication(
+            problem=get_single_objective_benchmark_problem(), method=method
+        )
 
         self.assertEqual(
-            self.sobol4.scheduler_options.total_trials,
+            method.scheduler_options.total_trials,
             len(res.experiment.trials),
         )
 
@@ -100,14 +37,18 @@ class TestBenchmark(TestCase):
             )
 
     def test_replication_moo(self):
-        res = benchmark_replication(problem=self.branin_currin, method=self.sobol4)
+        method = get_sobol_benchmark_method()
+
+        res = benchmark_replication(
+            problem=get_multi_objective_benchmark_problem(), method=method
+        )
 
         self.assertEqual(
-            self.sobol4.scheduler_options.total_trials,
+            method.scheduler_options.total_trials,
             len(res.experiment.trials),
         )
         self.assertEqual(
-            self.sobol4.scheduler_options.total_trials * 2,
+            method.scheduler_options.total_trials * 2,
             len(res.experiment.fetch_data().df),
         )
 
@@ -119,7 +60,9 @@ class TestBenchmark(TestCase):
 
     def test_test(self):
         agg = benchmark_test(
-            problem=self.ackley, method=self.sobol4, num_replications=2
+            problem=get_single_objective_benchmark_problem(),
+            method=get_sobol_benchmark_method(),
+            num_replications=2,
         )
 
         self.assertEqual(len(agg.experiments), 2)
@@ -137,8 +80,8 @@ class TestBenchmark(TestCase):
     @fast_botorch_optimize
     def test_full_run(self):
         aggs = benchmark_full_run(
-            problems=[self.ackley],
-            methods=[self.sobol4, self.mbo_sobol_gpei],
+            problems=[get_single_objective_benchmark_problem()],
+            methods=[get_sobol_benchmark_method(), get_sobol_gpei_benchmark_method()],
             num_replications=2,
         )
 
