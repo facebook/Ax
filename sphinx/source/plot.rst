@@ -35,6 +35,13 @@ Bandit Rollout
     :undoc-members:
     :show-inheritance:
 
+Benchmark
+~~~~~~~~~~~~~~~~
+.. automodule:: ax.plot.benchmark
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Contour Plot
 ~~~~~~~~~~~~~~~~~~~
 
