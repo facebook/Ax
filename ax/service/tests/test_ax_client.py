@@ -17,7 +17,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -186,6 +186,132 @@ class TestAxClient(TestCase):
             self.assertTrue(  # There should be no non-complete trials.
                 all(t.status.is_terminal for t in ax_client.experiment.trials.values())
             )
+
+    def test_set_status_quo(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+        )
+        status_quo_params = {"x": 1.0, "y": 1.0}
+        ax_client.set_status_quo(status_quo_params)
+        self.assertEqual(
+            ax_client.experiment.status_quo,
+            Arm(parameters=status_quo_params, name="status_quo"),
+        )
+
+    def test_set_optimization_config_to_moo_with_constraints(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            status_quo={"x": 1.0, "y": 1.0},
+        )
+        ax_client.set_optimization_config(
+            objectives={
+                "foo": ObjectiveProperties(minimize=True, threshold=3.1),
+                "bar": ObjectiveProperties(minimize=False, threshold=1.0),
+            },
+            outcome_constraints=["baz >= 7.2%"],
+        )
+        opt_config = ax_client.experiment.optimization_config
+        self.assertEqual(
+            opt_config.objective.objectives[0].metric.name,
+            "foo",
+        )
+        self.assertEqual(
+            opt_config.objective.objectives[0].minimize,
+            True,
+        )
+        self.assertEqual(
+            opt_config.objective.objectives[1].metric.name,
+            "bar",
+        )
+        self.assertEqual(
+            opt_config.objective.objectives[1].minimize,
+            False,
+        )
+        self.assertEqual(
+            opt_config.objective_thresholds[0],
+            ObjectiveThreshold(
+                metric=Metric(name="foo"),
+                bound=3.1,
+                relative=False,
+                op=ComparisonOp.LEQ,
+            ),
+        )
+        self.assertEqual(
+            opt_config.objective_thresholds[1],
+            ObjectiveThreshold(
+                metric=Metric(name="bar"),
+                bound=1.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            ),
+        )
+        self.assertEqual(
+            opt_config.outcome_constraints[0],
+            OutcomeConstraint(
+                metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
+            ),
+        )
+
+    def test_set_optimization_config_to_single_objective(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            status_quo={"x": 1.0, "y": 1.0},
+        )
+        ax_client.set_optimization_config(
+            objectives={
+                "foo": ObjectiveProperties(minimize=True),
+            },
+            outcome_constraints=["baz >= 7.2%"],
+        )
+        opt_config = ax_client.experiment.optimization_config
+        self.assertEqual(
+            opt_config.objective.metric.name,
+            "foo",
+        )
+        self.assertEqual(
+            opt_config.objective.minimize,
+            True,
+        )
+        self.assertEqual(
+            opt_config.outcome_constraints[0],
+            OutcomeConstraint(
+                metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
+            ),
+        )
+
+    def test_set_optimization_config_without_objectives_raises_error(self):
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            status_quo={"x": 1.0, "y": 1.0},
+        )
+        original_opt_config = ax_client.experiment.optimization_config
+        with self.assertRaisesRegex(
+            ValueError, "optimization config not set because it was missing objectives"
+        ):
+            ax_client.set_optimization_config(
+                outcome_constraints=["baz >= 7.2%"],
+            )
+        self.assertEqual(original_opt_config, ax_client.experiment.optimization_config)
 
     @patch(
         "ax.modelbridge.base.observations_from_data",

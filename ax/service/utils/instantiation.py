@@ -543,6 +543,41 @@ class InstantiationBase:
         )
 
     @classmethod
+    def make_optimization_config_from_properties(
+        cls,
+        objectives: Optional[Dict[str, ObjectiveProperties]] = None,
+        outcome_constraints: Optional[List[str]] = None,
+        status_quo_defined: bool = False,
+    ) -> Optional[OptimizationConfig]:
+        """Makes optimization config based on ObjectiveProperties objects
+
+        Args:
+            objectives: Mapping from an objective name to object containing:
+                minimize: Whether this experiment represents a minimization problem.
+                threshold: The bound in the objective's threshold constraint.
+            outcome_constraints: List of string representation of outcome
+                constraints of form "metric_name >= bound", like "m1 <= 3."
+            status_quo_defined: bool for whether the experiment has a status quo
+        """
+        if objectives is not None:
+            objective_thresholds = (
+                cls.build_objective_thresholds(objectives)
+                if objectives is not None
+                else []
+            )
+            simple_objectives = {
+                objective: ("minimize" if properties.minimize else "maximize")
+                for objective, properties in objectives.items()
+            }
+            return cls.make_optimization_config(
+                objectives=simple_objectives,
+                objective_thresholds=objective_thresholds,
+                outcome_constraints=outcome_constraints or [],
+                status_quo_defined=status_quo_defined,
+            )
+        return None
+
+    @classmethod
     def make_search_space(
         cls,
         parameters: List[TParameterRepresentation],
@@ -598,6 +633,35 @@ class InstantiationBase:
         return search_space_cls(
             parameters=typed_parameters,
             parameter_constraints=typed_parameter_constraints,
+        )
+
+    @classmethod
+    def _make_optimization_config_from_legacy_args(
+        cls,
+        objective_name: str,
+        minimize: bool = False,
+        support_intermediate_data: bool = False,
+        outcome_constraints: Optional[List[str]] = None,
+        status_quo_arm: Optional[Arm] = None,
+    ) -> Optional[OptimizationConfig]:
+        """This will create a single objective OptimizationConfig based on the
+        objective_name arg.  The return is optional because in subclasses
+        we may not wish to return any default optimization config
+        """
+        return OptimizationConfig(
+            objective=Objective(
+                metric=cls._make_metric(
+                    name=objective_name,
+                    lower_is_better=minimize,
+                    metric_class_override=MapMetric
+                    if support_intermediate_data
+                    else Metric,
+                ),
+                minimize=minimize,
+            ),
+            outcome_constraints=cls.make_outcome_constraints(
+                outcome_constraints or [], status_quo_arm is not None
+            ),
         )
 
     @classmethod
@@ -692,20 +756,12 @@ class InstantiationBase:
 
         # TODO(jej): Needs to be decided per-metric when supporting heterogenous data.
         if objectives is None:
-            optimization_config = OptimizationConfig(
-                objective=Objective(
-                    metric=cls._make_metric(
-                        name=objective_name or DEFAULT_OBJECTIVE_NAME,
-                        lower_is_better=minimize,
-                        metric_class_override=MapMetric
-                        if support_intermediate_data
-                        else Metric,
-                    ),
-                    minimize=minimize,
-                ),
-                outcome_constraints=cls.make_outcome_constraints(
-                    outcome_constraints or [], status_quo_arm is not None
-                ),
+            optimization_config = cls._make_optimization_config_from_legacy_args(
+                objective_name=objective_name or DEFAULT_OBJECTIVE_NAME,
+                minimize=minimize,
+                support_intermediate_data=support_intermediate_data,
+                outcome_constraints=outcome_constraints,
+                status_quo_arm=status_quo_arm,
             )
         else:
             optimization_config = cls.make_optimization_config(
@@ -852,6 +908,24 @@ class InstantiationBase:
                 "evaluations, which is not currently supported."
             )
         return evaluations, data
+
+    @classmethod
+    def build_objective_thresholds(
+        cls, objectives: Dict[str, ObjectiveProperties]
+    ) -> List[str]:
+        """Construct a list of constraint string for an objective thresholds
+        interpretable by `make_experiment()`
+
+        Args:
+            objectives: Mapping of name of the objective to Object containing:
+                minimize: Whether this experiment represents a minimization problem.
+                threshold: The bound in the objective's threshold constraint.
+        """
+        return [
+            cls.build_objective_threshold(objective, properties)
+            for objective, properties in objectives.items()
+            if properties.threshold is not None
+        ]
 
     @staticmethod
     def build_objective_threshold(
