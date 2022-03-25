@@ -17,3 +17,11 @@ Base Strategies
     :members:
     :undoc-members:
     :show-inheritance:
+
+`ImprovementGlobalStoppingStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.global_stopping.strategies.improvement
+    :members:
+    :undoc-members:
+    :show-inheritance:

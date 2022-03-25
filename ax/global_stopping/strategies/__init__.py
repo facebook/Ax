@@ -5,8 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 
 
 __all__ = [
     "BaseGlobalStoppingStrategy",
+    "ImprovementGlobalStoppingStrategy",
 ]
