@@ -27,7 +27,7 @@ from botorch.acquisition.objective import (
 )
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
-from botorch.models import ModelListGP, SingleTaskGP
+from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.model import Model
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
@@ -511,7 +511,11 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
         Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
     """
     with torch.no_grad():
-        posterior = model.posterior(X)
+        if isinstance(model, SaasFullyBayesianSingleTaskGP):
+            posterior = model.posterior(X, marginalize_over_mcmc_samples=True)
+        else:
+            posterior = model.posterior(X)
+
     mean = posterior.mean.cpu().detach()
     # TODO: Allow Posterior to (optionally) return the full covariance matrix
     variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore

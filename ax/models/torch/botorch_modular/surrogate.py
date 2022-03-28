@@ -25,7 +25,8 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_model, fit_fully_bayesian_model_nuts
+from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
 from botorch.utils.containers import TrainingData
 from gpytorch.kernels import Kernel
@@ -251,8 +252,13 @@ class Surrogate(Base):
             self.model.load_state_dict(not_none(state_dict))
 
         if state_dict is None or refit:
-            mll = self.mll_class(self.model.likelihood, self.model, **self.mll_options)
-            fit_gpytorch_model(mll)
+            if isinstance(self.model, SaasFullyBayesianSingleTaskGP):
+                fit_fully_bayesian_model_nuts(self.model, disable_progbar=True)
+            else:
+                mll = self.mll_class(
+                    self.model.likelihood, self.model, **self.mll_options
+                )
+                fit_gpytorch_model(mll)
 
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         """Predicts outcomes given a model and input tensor.
