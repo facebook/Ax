@@ -85,14 +85,14 @@ class AbstractCurveMetric(MapMetric, ABC):
             raise RuntimeError(
                 f"Only (non-batch) Trials are supported by {cls.__name__}"
             )
-        trial_index_to_id = cls.get_ids_from_trials(trials=trials)
 
-        if len(trial_index_to_id) == 0:
+        trial_idx_to_id = cls.get_ids_from_trials(trials=trials)
+        if len(trial_idx_to_id) == 0:
             logger.debug("Could not get ids from trials. Returning empty data.")
             return MapData(map_key_infos=[cls.MAP_KEY])
 
-        all_curve_series = cls.get_curves_from_ids(ids=trial_index_to_id.values())
-        if all(id_ not in all_curve_series for id_ in trial_index_to_id.values()):
+        all_curve_series = cls.get_curves_from_ids(ids=trial_idx_to_id.values())
+        if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
             logger.debug("Could not get curves from ids. Returning empty data.")
             return MapData(map_key_infos=[cls.MAP_KEY])
 
@@ -100,7 +100,7 @@ class AbstractCurveMetric(MapMetric, ABC):
             experiment=experiment,
             all_curve_series=all_curve_series,
             metrics=metrics,
-            trial_idx_to_id=trial_index_to_id,
+            trial_idx_to_id=trial_idx_to_id,
         )
         return MapData(df=df, map_key_infos=[cls.MAP_KEY])
 
@@ -126,7 +126,7 @@ class AbstractCurveMetric(MapMetric, ABC):
             A dataframe containing curve data or None if no curve data could be found.
         """
         dfs = []
-        for trial_index, id_ in trial_idx_to_id.items():
+        for trial_idx, id_ in trial_idx_to_id.items():
             if id_ not in all_curve_series:
                 logger.debug(f"Could not get curve data for id {id_}. Ignoring.")
                 continue
@@ -138,7 +138,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                         curve_name=m.curve_name,
                         metric_name=m.name,
                         map_key=cls.MAP_KEY.key,
-                        trial=experiment.trials[trial_index],
+                        trial=experiment.trials[trial_idx],
                     )
                     dfs.append(dfi)
                 else:
@@ -244,7 +244,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
             all_curve_series: A dict containing curve data, as output from
                 `get_curves_from_ids`.
             metrics: The metrics from which data is being fetched.
-            trial_index_to_id: A dict mapping trial index to ids.
+            trial_idx_to_id: A dict mapping trial index to ids.
 
         Returns:
             A dataframe containing curve data or None if no curve data could be found.
@@ -285,7 +285,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
         )
         # Do not create a common index across trials, only across the curves
         # involved in the scalarized metric.
-        for trial_index, dfi in all_data_df.groupby("trial_index"):
+        for trial_idx, dfi in all_data_df.groupby("trial_index"):
             # the `do_forward_fill = True` pads with the latest
             # observation to handle situations where learning curves
             # report different amounts of data.
@@ -300,7 +300,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                     dfs_mean=dfs_mean,
                     dfs_sem=dfs_sem,
                     metric=metric,  # pyre-ignore[6]
-                    trial=checked_cast(Trial, experiment.trials[trial_index]),
+                    trial=checked_cast(Trial, experiment.trials[trial_idx]),
                 )
                 sub_dfs.append(sub_df)
         return pd.concat(sub_dfs, axis=0, ignore_index=True)
