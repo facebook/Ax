@@ -438,6 +438,7 @@ class InstantiationBase:
                     metric=cls._make_metric(
                         name=metric_name,
                         for_opt_config=True,
+                        lower_is_better=(MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE)
                     ),
                     minimize=(
                         MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
