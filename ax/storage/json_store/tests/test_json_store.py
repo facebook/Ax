@@ -98,6 +98,8 @@ from ax.utils.testing.core_stubs import (
     get_threshold_early_stopping_strategy,
     get_trial,
     get_winsorization_config,
+    get_default_scheduler_options,
+    get_scheduler_options_batch_trial,
 )
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
@@ -154,6 +156,8 @@ TEST_CASES = [
     ("ParameterConstraint", get_parameter_constraint),
     ("RangeParameter", get_range_parameter),
     ("ScalarizedObjective", get_scalarized_objective),
+    ("SchedulerOptions", get_default_scheduler_options),
+    ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("SearchSpace", get_search_space),
     ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
     ("SimpleBenchmarkProblem", get_branin_simple_benchmark_problem),

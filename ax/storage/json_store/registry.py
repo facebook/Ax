@@ -60,6 +60,7 @@ from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
+from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
     transform_type_from_json,
@@ -232,6 +233,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
+    "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
@@ -241,6 +243,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "Surrogate": Surrogate,
     "SyntheticRunner": SyntheticRunner,
     "Trial": Trial,
+    "TrialType": TrialType,
     "TrialStatus": TrialStatus,
     "ThresholdEarlyStoppingStrategy": ThresholdEarlyStoppingStrategy,
     "ObservationFeatures": ObservationFeatures,
