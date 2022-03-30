@@ -945,8 +945,12 @@ class ExperimentWithMapDataTest(TestCase):
         # Try fetching attached data.
         exp.attach_data(batch_0_data)
         exp.attach_data(batch_1_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[0]), batch_0_data)
-        self.assertEqual(exp.fetch_trials_data(trial_indices=[1]), batch_1_data)
+        pd.testing.assert_frame_equal(
+            exp.fetch_trials_data(trial_indices=[0]).df, batch_0_data.df
+        )
+        pd.testing.assert_frame_equal(
+            exp.fetch_trials_data(trial_indices=[1]).df, batch_1_data.df
+        )
         self.assertEqual(set(batch_0_data.df["trial_index"].values), {0})
         self.assertEqual(
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
