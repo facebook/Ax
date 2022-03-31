@@ -25,7 +25,7 @@ from ax.global_stopping.strategies.improvement import (
     constraint_satisfaction,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment_with_data
+from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
 
 
 class TestImprovementGlobalStoppingStrategy(TestCase):
@@ -273,6 +273,17 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             message,
             "The improvement in best objective in the past 3 trials (=0.000) is "
             "less than 0.1.",
+        )
+
+    def test_safety_check(self):
+        experiment = get_experiment()
+        gss = ImprovementGlobalStoppingStrategy(min_trials=2, window_size=3)
+
+        stop, message = gss.should_stop_optimization(experiment=experiment)
+        self.assertFalse(stop)
+        self.assertEqual(
+            message,
+            "There are no completed trials yet.",
         )
 
     def test_constraint_satisfaction(self):
