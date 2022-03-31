@@ -79,7 +79,6 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
             message = "There are no completed trials yet."
             return False, message
-            max_completed_trial = 0
 
         max_completed_trial = max(
             experiment.trial_indices_by_status[TrialStatus.COMPLETED]
