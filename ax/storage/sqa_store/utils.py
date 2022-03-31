@@ -27,6 +27,8 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
     is violated, since this method is meant to be used when returning a new
     user-facing object after saving.
     """
+    print(source, target)
+
     if not path:
         path = []
 
