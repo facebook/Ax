@@ -203,6 +203,24 @@ class TestAxClient(TestCase):
             Arm(parameters=status_quo_params, name="status_quo"),
         )
 
+    def test_status_quo_property(self) -> None:
+        status_quo_params = {"x": 1.0, "y": 1.0}
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            status_quo=status_quo_params,
+        )
+        self.assertEqual(ax_client.status_quo, status_quo_params)
+        with self.subTest("it returns a copy"):
+            ax_client.status_quo.update({"x": 2.0})
+            ax_client.status_quo["y"] = 2.0
+            self.assertEqual(ax_client.status_quo["x"], 1.0)
+            self.assertEqual(ax_client.status_quo["y"], 1.0)
+
     def test_set_optimization_config_to_moo_with_constraints(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(

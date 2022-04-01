@@ -76,6 +76,10 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             message = "There are pending trials in the experiment."
             return False, message
 
+        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
+            message = "There are no completed trials yet."
+            return False, message
+
         max_completed_trial = max(
             experiment.trial_indices_by_status[TrialStatus.COMPLETED]
         )
@@ -198,6 +202,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         # Computing the interquartile for scaling the difference
         feasible_objectives = np.array(objectives)[is_feasible]
+        if len(feasible_objectives) <= 1:
+            message = "There are not enough feasible arms tried yet."
+            return False, message
 
         q3, q1 = np.percentile(feasible_objectives, [75, 25])
         iqr = q3 - q1
