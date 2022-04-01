@@ -469,13 +469,20 @@ def exp_to_df(
     key_components = ["trial_index", "arm_name"]
 
     # Get each trial-arm with parameters
-    arms_df = pd.DataFrame()
     for trial_index, trial in exp.trials.items():
+        arms_dfs = []
         for arm in trial.arms:
-            arms_df = arms_df.append(
-                {"arm_name": arm.name, "trial_index": trial_index, **arm.parameters},
-                ignore_index=True,
+            arms_dfs.append(
+                pd.DataFrame(
+                    {
+                        "arm_name": arm.name,
+                        "trial_index": trial_index,
+                        **arm.parameters,
+                    },
+                    index=[0],
+                ),
             )
+        arms_df = pd.concat(arms_dfs, ignore_index=True)
 
     # Fetch results; in case arms_df is empty, return empty results (legacy behavior)
     data = exp.lookup_data()
