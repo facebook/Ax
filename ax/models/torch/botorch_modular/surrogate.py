@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
+from ax.exceptions.core import UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
     _to_inequality_constraints,
@@ -28,6 +29,8 @@ from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_n
 from botorch.fit import fit_gpytorch_model, fit_fully_bayesian_model_nuts
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
+from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.containers import TrainingData
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -57,14 +60,23 @@ class Surrogate(Base):
     Args:
         botorch_model_class: ``Model`` class to be used as the underlying
             BoTorch model.
-        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
-        kernel_class: ``Kernel`` class, not yet used. Will be used to
-            construct custom BoTorch ``Model`` in the future.
-        kernel_options: Kernel kwargs, not yet used. Will be used to
-            construct custom BoTorch ``Model`` in the future.
+        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
+        mll_options: Dictionary of options / kwargs for the MLL.
+        outcome_transform: BoTorch outcome transforms. Passed down to the
+            BoTorch ``Model``. Multiple outcome transforms can be chained
+            together using ``ChainedOutcomeTransform``.
+        input_transform: BoTorch input transforms. Passed down to the
+            BoTorch ``Model``. Multiple input transforms can be chained
+            together using ``ChainedInputTransform``.
+        covar_module_class: Covariance module class, not yet used. Will be
+            used to construct custom BoTorch ``Model`` in the future.
+        covar_module_options: Covariance module kwargs, not yet used. Will be
+            used to construct custom BoTorch ``Model`` in the future.
         likelihood: ``Likelihood`` class, not yet used. Will be used to
+            construct custom BoTorch ``Model`` in the future.
+        likelihood_options: Likelihood options, not yet used. Will be used to
             construct custom BoTorch ``Model`` in the future.
     """
 
@@ -72,6 +84,8 @@ class Surrogate(Base):
     model_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
     mll_options: Dict[str, Any]
+    outcome_transform: Optional[OutcomeTransform] = None
+    input_transform: Optional[InputTransform] = None
     covar_module_class: Optional[Type[Kernel]] = None
     covar_module_options: Dict[str, Any]
     likelihood_class: Optional[Type[Likelihood]] = None
@@ -91,6 +105,8 @@ class Surrogate(Base):
         model_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
+        outcome_transform: Optional[OutcomeTransform] = None,
+        input_transform: Optional[InputTransform] = None,
         covar_module_class: Optional[Type[Kernel]] = None,
         covar_module_options: Optional[Dict[str, Any]] = None,
         likelihood_class: Optional[Type[Likelihood]] = None,
@@ -100,6 +116,8 @@ class Surrogate(Base):
         self.model_options = model_options or {}
         self.mll_class = mll_class
         self.mll_options = mll_options or {}
+        self.outcome_transform = outcome_transform
+        self.input_transform = input_transform
         self.covar_module_class = covar_module_class
         self.covar_module_options = covar_module_options or {}
         self.likelihood_class = likelihood_class
@@ -174,24 +192,37 @@ class Surrogate(Base):
         input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
         self._training_data = training_data
 
+        # TODO: Can we warn if the elements of `input_constructor_kwargs`
+        # are not used?
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
             training_data=self.training_data, **input_constructor_kwargs
         )
-
         # TODO: We currently only pass in `covar_module` and `likelihood` if they are
         # inputs to the BoTorch model. This interface will need to be expanded to a
         # ModelFactory, see D22457664, to accommodate different models in the future.
         botorch_model_class_args = inspect.getfullargspec(self.botorch_model_class).args
-        if "covar_module" in botorch_model_class_args and self.covar_module_class:
-            # pyre-ignore [45]
-            formatted_model_inputs["covar_module"] = self.covar_module_class(
-                **self.covar_module_options
-            )
-        if "likelihood" in botorch_model_class_args and self.likelihood_class:
-            # pyre-ignore [45]
-            formatted_model_inputs["likelihood"] = self.likelihood_class(
-                **self.likelihood_options
-            )
+
+        for input_name, input_class, input_options, input_object in (
+            ("covar_module", self.covar_module_class, self.covar_module_options, None),
+            ("likelihood", self.likelihood_class, self.likelihood_options, None),
+            ("outcome_transform", None, None, self.outcome_transform),
+            ("input_transform", None, None, self.input_transform),
+        ):
+            if input_class is None and input_object is None:
+                continue
+            if input_name not in botorch_model_class_args:
+                raise UserInputError(
+                    f"The BoTorch model class {self.botorch_model_class} does not "
+                    f"support the input {input_name}."
+                )
+            if input_class is not None and input_object is not None:  # pragma: no cover
+                raise RuntimeError(f"Got both a class and an object for {input_name}.")
+            if input_class is not None:
+                input_options = input_options or {}
+                # pyre-ignore [45]
+                formatted_model_inputs[input_name] = input_class(**input_options)
+            else:
+                formatted_model_inputs[input_name] = input_object
 
         # pyre-ignore [45]
         self._model = self.botorch_model_class(**formatted_model_inputs)
@@ -244,7 +275,7 @@ class Surrogate(Base):
             self.construct(
                 training_data=training_data,
                 metric_names=metric_names,
-                **dataclasses.asdict(search_space_digest)
+                **dataclasses.asdict(search_space_digest),
             )
         if state_dict:
             # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
@@ -426,9 +457,11 @@ class Surrogate(Base):
             "botorch_model_class": self.botorch_model_class,
             "model_options": self.model_options,
             "mll_class": self.mll_class,
-            "covar_module_class": self.covar_module_class,
-            "likelihood_class": self.likelihood_class,
-            "covar_module_options": self.covar_module_options,
             "mll_options": self.mll_options,
+            "outcome_transform": self.outcome_transform,
+            "input_transform": self.input_transform,
+            "covar_module_class": self.covar_module_class,
+            "covar_module_options": self.covar_module_options,
+            "likelihood_class": self.likelihood_class,
             "likelihood_options": self.likelihood_options,
         }
