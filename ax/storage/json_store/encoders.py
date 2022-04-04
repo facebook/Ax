@@ -487,7 +487,7 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
                     "located in `ax/storage/botorch_modular_registry.py`."
                 )
             return {
-                "__type": "Type[Module]",
+                "__type": f"Type[{_class.__name__}]",
                 "index": registry[class_type],
                 "class": f"{_class}",
             }
