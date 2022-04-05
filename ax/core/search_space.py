@@ -22,8 +22,9 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.types import TParameterization
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -64,6 +65,10 @@ class SearchSpace(Base):
         return isinstance(self, HierarchicalSearchSpace)
 
     @property
+    def is_robust(self) -> bool:
+        return isinstance(self, RobustSearchSpace)
+
+    @property
     def parameters(self) -> Dict[str, Parameter]:
         return self._parameters
 
@@ -75,7 +80,7 @@ class SearchSpace(Base):
     def range_parameters(self) -> Dict[str, Parameter]:
         return {
             name: parameter
-            for name, parameter in self._parameters.items()
+            for name, parameter in self.parameters.items()
             if isinstance(parameter, RangeParameter)
         }
 
@@ -83,7 +88,7 @@ class SearchSpace(Base):
     def tunable_parameters(self) -> Dict[str, Parameter]:
         return {
             name: parameter
-            for name, parameter in self._parameters.items()
+            for name, parameter in self.parameters.items()
             if not isinstance(parameter, FixedParameter)
         }
 
@@ -112,20 +117,20 @@ class SearchSpace(Base):
         # are not keeping two copies of the same parameter.
         for constraint in parameter_constraints:
             if isinstance(constraint, OrderConstraint):
-                constraint._lower_parameter = self._parameters[
+                constraint._lower_parameter = self.parameters[
                     constraint._lower_parameter.name
                 ]
-                constraint._upper_parameter = self._parameters[
+                constraint._upper_parameter = self.parameters[
                     constraint._upper_parameter.name
                 ]
             elif isinstance(constraint, SumConstraint):
                 for idx, parameter in enumerate(constraint.parameters):
-                    constraint.parameters[idx] = self._parameters[parameter.name]
+                    constraint.parameters[idx] = self.parameters[parameter.name]
 
         self._parameter_constraints: List[ParameterConstraint] = parameter_constraints
 
     def add_parameter(self, parameter: Parameter) -> None:
-        if parameter.name in self._parameters.keys():
+        if parameter.name in self.parameters.keys():
             raise ValueError(
                 f"Parameter `{parameter.name}` already exists in search space. "
                 "Use `update_parameter` to update an existing parameter."
@@ -165,7 +170,7 @@ class SearchSpace(Base):
             Whether the parameterization is contained in the search space.
         """
         parameterization_params = set(parameterization.keys())
-        ss_params = set(self._parameters.keys())
+        ss_params = set(self.parameters.keys())
         if parameterization_params != ss_params:
             if raise_error:
                 raise ValueError(
@@ -204,11 +209,11 @@ class SearchSpace(Base):
                 return False
 
         for name, value in parameterization.items():
-            if not self._parameters[name].validate(value):
+            if not self.parameters[name].validate(value):
                 if raise_error:
                     raise ValueError(
                         f"{value} is not a valid value for "
-                        f"parameter {self._parameters[name]}"
+                        f"parameter {self.parameters[name]}"
                     )
                 return False
 
@@ -217,7 +222,7 @@ class SearchSpace(Base):
             # pyre-fixme[6]: Expected `typing.Union[...oat]` but got `unknown`.
             name: float(value)
             for name, value in parameterization.items()
-            if self._parameters[name].is_numeric
+            if self.parameters[name].is_numeric
         }
 
         for constraint in self._parameter_constraints:
@@ -246,7 +251,7 @@ class SearchSpace(Base):
             Whether the parameterization has valid types.
         """
         for name, value in parameterization.items():
-            if name not in self._parameters:
+            if name not in self.parameters:
                 if raise_error:
                     raise ValueError(f"Parameter {name} not defined in search space")
                 return False
@@ -254,11 +259,11 @@ class SearchSpace(Base):
             if value is None and allow_none:
                 continue
 
-            if not self._parameters[name].is_valid_type(value):
+            if not self.parameters[name].is_valid_type(value):
                 if raise_error:
                     raise ValueError(
                         f"{value} is not a valid value for "
-                        f"parameter {self._parameters[name]}"
+                        f"parameter {self.parameters[name]}"
                     )
                 return False
 
@@ -280,10 +285,10 @@ class SearchSpace(Base):
         new_parameters: TParameterization = {}
         for name, value in arm.parameters.items():
             # Allow raw values for out of space parameters.
-            if name not in self._parameters:
+            if name not in self.parameters:
                 new_parameters[name] = value
             else:
-                new_parameters[name] = self._parameters[name].cast(value)
+                new_parameters[name] = self.parameters[name].cast(value)
         return Arm(new_parameters, arm.name if arm.has_name else None)
 
     def out_of_design_arm(self) -> Arm:
@@ -302,9 +307,8 @@ class SearchSpace(Base):
     def construct_arm(
         self, parameters: Optional[TParameterization] = None, name: Optional[str] = None
     ) -> Arm:
-        """Construct new arm using given parameters and name. Any
-        missing parameters fallback to the experiment defaults,
-        represented as None
+        """Construct new arm using given parameters and name. Any missing parameters
+        fallback to the experiment defaults, represented as None.
         """
         final_parameters: TParameterization = {k: None for k in self.parameters.keys()}
         if parameters is not None:
@@ -653,6 +657,122 @@ class HierarchicalSearchSpace(SearchSpace):
                 " is represented as a valid tree with a single root."
             )
         logger.debug(f"Visited all parameters in the tree: {visited}.")
+
+
+class RobustSearchSpace(SearchSpace):
+    """Search space for robust optimization that supports environmental variables
+    and input noise.
+
+    In addition to the usual search space properties, this allows specifying
+    environmental variables (parameters) and input noise distributions.
+    """
+
+    def __init__(
+        self,
+        parameters: List[Parameter],
+        parameter_distributions: List[ParameterDistribution],
+        environmental_variables: Optional[List[Parameter]] = None,
+        parameter_constraints: Optional[List[ParameterConstraint]] = None,
+    ) -> None:
+        """Initialize the robust search space.
+
+        Args:
+            parameters: List of parameter objects for the search space.
+            parameter_distributions: List of parameter distributions, each representing
+                the distribution of one or more parameters. These can be used to
+                specify the distribution of the environmental variables or the input
+                noise distribution on the parameters.
+            environmental_variables: List of parameter objects, each denoting an
+                environmental variable. These must have associated parameter
+                distributions.
+            parameter_constraints: List of parameter constraints.
+        """
+        self.parameter_distributions = parameter_distributions
+        # Make sure that there is at most one distribution per parameter.
+        distributional_parameters_list = []
+        for param_dist in parameter_distributions:
+            distributional_parameters_list.extend(param_dist.parameters)
+        self._distributional_parameters: Set[str] = set(distributional_parameters_list)
+        if len(self._distributional_parameters) != len(distributional_parameters_list):
+            raise UserInputError(
+                "Received multiple parameter distributions for at least one parameter. "
+                "Make sure that there is at most one distribution specified for any "
+                "given parameter / environmental variable."
+            )
+        # Make sure that all env vars have distributions specified,
+        # and the names are unique.
+        environmental_variables = environmental_variables or []
+        all_env_vars: Set[str] = {p.name for p in environmental_variables}
+        if len(all_env_vars) < len(environmental_variables):
+            raise UserInputError("Environmental variable names must be unique!")
+        if not all_env_vars.issubset(self._distributional_parameters):
+            raise UserInputError(
+                "All environmental variables must have a distribution specified."
+            )
+        self._environmental_variables: Dict[str, Parameter] = {
+            p.name: p for p in environmental_variables
+        }
+        # NOTE: We need `_environmental_variables` set before calling `__init__`.
+        super().__init__(
+            parameters=parameters, parameter_constraints=parameter_constraints
+        )
+        # NOTE: We do not support env var and input noise together since the existing
+        # acqfs are designed to work with only one of these.
+        if len(all_env_vars) > 0:
+            if all_env_vars != self._distributional_parameters:
+                raise UnsupportedError(
+                    "Environmental variables and input noise are currently not "
+                    "supported together. Use either environmental variables or "
+                    "input noise on the parameters, not both."
+                )
+            if not all(isinstance(p, RangeParameter) for p in environmental_variables):
+                raise UserInputError(
+                    "All environmental variables must be range parameters."
+                )
+        else:
+            if not all(
+                isinstance(self.parameters[p], RangeParameter)
+                for p in self._distributional_parameters
+            ):
+                raise UserInputError(
+                    "All parameters with an associated distribution must be "
+                    "range parameters."
+                )
+
+    @property
+    def is_environmental(self) -> bool:
+        return len(self._environmental_variables) > 0
+
+    @property
+    def parameters(self) -> Dict[str, Parameter]:
+        # NOTE: We include environmental variables here to support
+        # `transform_search_space` and other similar functionality.
+        # It also helps avoid having to overwrite a bunch of parent methods.
+        return {**self._parameters, **self._environmental_variables}
+
+    def update_parameter(self, parameter: Parameter) -> None:
+        raise UnsupportedError("RobustSearchSpace does not support `update_parameter`.")
+
+    def clone(self) -> RobustSearchSpace:
+        return self.__class__(
+            parameters=[p.clone() for p in self._parameters.values()],
+            parameter_distributions=[d.clone() for d in self.parameter_distributions],
+            environmental_variables=[
+                p.clone() for p in self._environmental_variables.values()
+            ],
+            parameter_constraints=[pc.clone() for pc in self._parameter_constraints],
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            "parameters=" + repr(list(self._parameters.values())) + ", "
+            "parameter_distributions=" + repr(self.parameter_distributions) + ", "
+            "environmental_variables="
+            + repr(list(self._environmental_variables.values()))
+            + ", "
+            "parameter_constraints=" + repr(self._parameter_constraints) + ")"
+        )
 
 
 @dataclass

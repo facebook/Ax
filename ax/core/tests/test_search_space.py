@@ -19,8 +19,14 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace, SearchSpaceDigest, HierarchicalSearchSpace
-from ax.exceptions.core import UserInputError
+from ax.core.parameter_distribution import ParameterDistribution
+from ax.core.search_space import (
+    RobustSearchSpace,
+    SearchSpace,
+    SearchSpaceDigest,
+    HierarchicalSearchSpace,
+)
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -636,3 +642,208 @@ class HierarchicalSearchSpaceTest(TestCase):
             ),
             hss_1_obs_feats_1,
         )
+
+
+class TestRobustSearchSpace(TestCase):
+    def setUp(self):
+        self.a = RangeParameter(
+            name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
+        )
+        self.b = RangeParameter(
+            name="b", parameter_type=ParameterType.INT, lower=2, upper=10
+        )
+        self.c = ChoiceParameter(
+            name="c", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
+        )
+        self.parameters = [self.a, self.b, self.c]
+        self.ab_dist = ParameterDistribution(
+            parameters=["a", "b"],
+            distribution_class="multivariate_normal",
+            distribution_parameters={},
+        )
+        self.constraints = [
+            OrderConstraint(lower_parameter=self.a, upper_parameter=self.b)
+        ]
+        self.rss1 = RobustSearchSpace(
+            parameters=self.parameters,
+            parameter_distributions=[self.ab_dist],
+            parameter_constraints=self.constraints,
+        )
+
+    def test_init_and_properties(self):
+        # Setup some parameters and distributions.
+        a_dist = ParameterDistribution(
+            parameters=["a"],
+            distribution_class="norm",
+            distribution_parameters={"loc": 0.0, "scale": 1.0},
+        )
+        b_dist = ParameterDistribution(
+            parameters=["b"],
+            distribution_class="binom",
+            distribution_parameters={"n": 2, "p": 0.3},
+        )
+        env1 = RangeParameter(
+            name="env1", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
+        )
+        env2 = RangeParameter(
+            name="env2", parameter_type=ParameterType.INT, lower=2.0, upper=10.0
+        )
+        env_choice = ChoiceParameter(
+            name="env_choice",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar", "baz"],
+        )
+        choice_dist = ParameterDistribution(
+            parameters=["c"],
+            distribution_class="binom",
+            distribution_parameters={"n": 2, "p": 0.3},
+        )
+        env1_dist = ParameterDistribution(
+            parameters=["env1"],
+            distribution_class="norm",
+            distribution_parameters={"loc": 0.0, "scale": 1.0},
+        )
+        env2_dist = ParameterDistribution(
+            parameters=["env2"],
+            distribution_class="binom",
+            distribution_parameters={"n": 2, "p": 0.3},
+        )
+        env_choice_dist = ParameterDistribution(
+            parameters=["env_choice"],
+            distribution_class="binom",
+            distribution_parameters={"n": 2, "p": 0.3},
+        )
+        # Error handling.
+        with self.assertRaisesRegex(UserInputError, "must be unique"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[env1_dist],
+                environmental_variables=[env1, env1],
+            )
+        with self.assertRaisesRegex(UserInputError, "must have a distribution"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[env1_dist],
+                environmental_variables=[env1, env2],
+            )
+        with self.assertRaisesRegex(
+            UserInputError, "environmental variables must be range parameters"
+        ):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[env1_dist, env_choice_dist],
+                environmental_variables=[env1, env_choice],
+            )
+        with self.assertRaisesRegex(UserInputError, "multiple parameter distributions"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[a_dist, a_dist],
+            )
+        with self.assertRaisesRegex(UnsupportedError, "supported together"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[a_dist, env1_dist],
+                environmental_variables=[env1],
+                parameter_constraints=self.constraints,
+            )
+        with self.assertRaisesRegex(UserInputError, "distribution must be"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[a_dist, choice_dist],
+                parameter_constraints=self.constraints,
+            )
+        # Test with environmental variables.
+        rss = RobustSearchSpace(
+            parameters=self.parameters,
+            parameter_distributions=[env1_dist, env2_dist],
+            environmental_variables=[env1, env2],
+            parameter_constraints=self.constraints,
+        )
+        self.assertTrue(rss.is_robust)
+        self.assertEqual(rss.parameter_constraints, self.constraints)
+        self.assertEqual(
+            rss.parameters,
+            {
+                "a": self.a,
+                "b": self.b,
+                "c": self.c,
+                "env1": env1,
+                "env2": env2,
+            },
+        )
+        self.assertEqual(rss.parameter_distributions, [env1_dist, env2_dist])
+        self.assertEqual(rss._distributional_parameters, {"env1", "env2"})
+        self.assertEqual(rss._environmental_variables, {"env1": env1, "env2": env2})
+        self.assertTrue(rss.is_environmental)
+        # Test with input noise.
+        rss = RobustSearchSpace(
+            parameters=self.parameters,
+            parameter_distributions=[a_dist, b_dist],
+            parameter_constraints=self.constraints,
+        )
+        self.assertTrue(rss.is_robust)
+        self.assertEqual(rss.parameter_constraints, self.constraints)
+        self.assertEqual(
+            rss.parameters,
+            {
+                "a": self.a,
+                "b": self.b,
+                "c": self.c,
+            },
+        )
+        self.assertEqual(rss.parameter_distributions, [a_dist, b_dist])
+        self.assertEqual(rss._distributional_parameters, {"a", "b"})
+        self.assertEqual(rss._environmental_variables, {})
+        self.assertFalse(rss.is_environmental)
+        # Tests with a multivariate distribution.
+        rss = self.rss1
+        self.assertEqual(rss.parameter_constraints, self.constraints)
+        self.assertEqual(
+            rss.parameters,
+            {
+                "a": self.a,
+                "b": self.b,
+                "c": self.c,
+            },
+        )
+        self.assertEqual(rss.parameter_distributions, [self.ab_dist])
+        self.assertEqual(rss._distributional_parameters, {"a", "b"})
+        self.assertEqual(rss._environmental_variables, {})
+        self.assertFalse(rss.is_environmental)
+
+    def test_update_parameter(self):
+        rss = self.rss1
+        with self.assertRaisesRegex(UnsupportedError, "update_parameter"):
+            rss.update_parameter(self.a)
+
+    def test_clone(self):
+        rss_clone = self.rss1.clone()
+        self.assertEqual(
+            rss_clone._environmental_variables, self.rss1._environmental_variables
+        )
+        self.assertEqual(rss_clone.parameters, self.rss1.parameters)
+        self.assertEqual(
+            rss_clone.parameter_constraints, self.rss1.parameter_constraints
+        )
+        self.assertEqual(
+            rss_clone.parameter_distributions, self.rss1.parameter_distributions
+        )
+        self.assertEqual(
+            rss_clone._distributional_parameters, self.rss1._distributional_parameters
+        )
+
+    def test_repr(self):
+        expected = (
+            "RobustSearchSpace("
+            "parameters=["
+            "RangeParameter(name='a', parameter_type=FLOAT, range=[0.5, 5.5]), "
+            "RangeParameter(name='b', parameter_type=INT, range=[2, 10]), "
+            "ChoiceParameter(name='c', parameter_type=STRING, "
+            "values=['foo', 'bar', 'baz'], is_ordered=False, sort_values=False)], "
+            "parameter_distributions=["
+            "ParameterDistribution(parameters=['a', 'b'], "
+            "distribution_class=multivariate_normal, distribution_parameters={})], "
+            "environmental_variables=[], "
+            "parameter_constraints=[OrderConstraint(a <= b)])"
+        )
+        self.assertEqual(str(self.rss1), expected)

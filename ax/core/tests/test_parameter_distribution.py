@@ -26,6 +26,15 @@ class ParameterDistributionTest(TestCase):
         self.assertEqual(dist_kwds["loc"], 0.0)
         self.assertEqual(dist_kwds["scale"], 1.0)
 
+        # Test repr.
+        expected_repr = (
+            "ParameterDistribution("
+            "parameters=['x1'], "
+            "distribution_class=norm, "
+            "distribution_parameters={'loc': 0.0, 'scale': 1.0})"
+        )
+        self.assertEqual(str(dist), expected_repr)
+
         # Test weird distribution name.
         dist = ParameterDistribution(
             parameters=["x1"],

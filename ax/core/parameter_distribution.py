@@ -3,7 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import functools
+from copy import deepcopy
 from importlib import import_module
 from typing import List, Any, Dict, Optional
 
@@ -60,6 +63,27 @@ class ParameterDistribution(Base):
             )
         return dist_class(**self.distribution_parameters)
 
+    def clone(self) -> ParameterDistribution:
+        """Clone."""
+        return ParameterDistribution(
+            parameters=self.parameters.copy(),
+            distribution_class=self.distribution_class,
+            distribution_parameters=deepcopy(self.distribution_parameters),
+        )
+
     def __hash__(self) -> int:
-        """Make the class hashable to support the use of `lru_cache` above."""
+        """Make the class hashable to support the use of `lru_cache` above.
+
+        NOTE: The hash of two `ParameterDistribution`s with identical attributes
+        will be the same. This is compatible with the use in `lru_cache` above,
+        since the resulting distributions will be the same.
+        """
         return hash(repr(self))
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            "parameters=" + repr(self.parameters) + ", "
+            "distribution_class=" + self.distribution_class + ", "
+            "distribution_parameters=" + repr(self.distribution_parameters) + ")"
+        )
