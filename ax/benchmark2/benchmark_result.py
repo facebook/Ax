@@ -12,6 +12,11 @@ from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 
+# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# `annotations` postpones evaluation of types and will break FBLearner's usage of
+# `BenchmarkResult` as return type annotation, used for serialization and rendering
+# in the UI.
+
 
 @dataclass(frozen=True)
 class BenchmarkResult(Base):

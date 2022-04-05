@@ -24,6 +24,11 @@ from botorch.test_functions.base import BaseTestProblem
 from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.test_functions.synthetic import SyntheticTestFunction
 
+# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# `annotations` postpones evaluation of types and will break FBLearner's usage of
+# `BenchmarkProblem` as return type annotation, used for serialization and rendering
+# in the UI.
+
 
 @dataclass(frozen=True)
 class BenchmarkProblem(Base):
