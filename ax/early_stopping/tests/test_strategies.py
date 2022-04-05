@@ -11,6 +11,10 @@ from ax.core.map_data import MapData
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.early_stopping.strategies import ThresholdEarlyStoppingStrategy
+from ax.early_stopping.strategies.logical import (
+    AndEarlyStoppingStrategy,
+    OrEarlyStoppingStrategy,
+)
 from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -357,6 +361,142 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
+
+
+class TestLogicalEarlyStoppingStrategy(TestCase):
+    def test_and_early_stopping_strategy(self):
+        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for trial in exp.trials.values():
+            trial.mark_as(status=TrialStatus.COMPLETED)
+
+        exp.attach_data(data=exp.fetch_data())
+
+        """
+        Data looks like this:
+        arm_name metric_name        mean  sem  trial_index  timestamp
+        0       0_0      branin  146.138620  0.0            0          0
+        1       0_0      branin  117.388086  0.0            0          1
+        2       0_0      branin   99.950007  0.0            0          2
+        3       1_0      branin  113.057480  0.0            1          0
+        4       1_0      branin   90.815154  0.0            1          1
+        5       1_0      branin   77.324501  0.0            1          2
+        6       2_0      branin   44.627226  0.0            2          0
+        7       2_0      branin   35.847504  0.0            2          1
+        8       2_0      branin   30.522333  0.0            2          2
+        9       3_0      branin  143.375669  0.0            3          0
+        10      3_0      branin  115.168704  0.0            3          1
+        11      3_0      branin   98.060315  0.0            3          2
+        12      4_0      branin   65.033535  0.0            4          0
+        13      4_0      branin   52.239184  0.0            4          1
+        14      4_0      branin   44.479018  0.0            4          2
+        """
+        idcs = set(exp.trials.keys())
+
+        left_early_stopping_strategy = ThresholdEarlyStoppingStrategy(
+            metric_threshold=50, min_progression=1
+        )
+
+        right_early_stopping_strategy = ThresholdEarlyStoppingStrategy(
+            metric_threshold=80, min_progression=1
+        )
+
+        and_early_stopping_strategy = AndEarlyStoppingStrategy(
+            left=left_early_stopping_strategy, right=right_early_stopping_strategy
+        )
+
+        left_should_stop = left_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        right_should_stop = right_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        and_should_stop = and_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+
+        intersection = set(left_should_stop.keys()).intersection(
+            set(right_should_stop.keys())
+        )
+
+        for idc in idcs:
+            if idc in intersection:
+                self.assertIn(idc, and_should_stop.keys())
+            else:
+                self.assertNotIn(idc, and_should_stop.keys())
+
+    def test_or_early_stopping_strategy(self):
+        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for trial in exp.trials.values():
+            trial.mark_as(status=TrialStatus.COMPLETED)
+
+        exp.attach_data(data=exp.fetch_data())
+
+        """
+        Data looks like this:
+        arm_name metric_name        mean  sem  trial_index  timestamp
+        0       0_0      branin  146.138620  0.0            0          0
+        1       0_0      branin  117.388086  0.0            0          1
+        2       0_0      branin   99.950007  0.0            0          2
+        3       1_0      branin  113.057480  0.0            1          0
+        4       1_0      branin   90.815154  0.0            1          1
+        5       1_0      branin   77.324501  0.0            1          2
+        6       2_0      branin   44.627226  0.0            2          0
+        7       2_0      branin   35.847504  0.0            2          1
+        8       2_0      branin   30.522333  0.0            2          2
+        9       3_0      branin  143.375669  0.0            3          0
+        10      3_0      branin  115.168704  0.0            3          1
+        11      3_0      branin   98.060315  0.0            3          2
+        12      4_0      branin   65.033535  0.0            4          0
+        13      4_0      branin   52.239184  0.0            4          1
+        14      4_0      branin   44.479018  0.0            4          2
+        """
+        idcs = set(exp.trials.keys())
+
+        left_early_stopping_strategy = ThresholdEarlyStoppingStrategy(
+            metric_threshold=50, min_progression=1
+        )
+
+        right_early_stopping_strategy = ThresholdEarlyStoppingStrategy(
+            metric_threshold=80, min_progression=1
+        )
+
+        or_early_stopping_strategy = OrEarlyStoppingStrategy(
+            left=left_early_stopping_strategy, right=right_early_stopping_strategy
+        )
+
+        left_should_stop = left_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        right_should_stop = right_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        or_should_stop = or_early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+
+        union = set(left_should_stop.keys()).union(set(right_should_stop.keys()))
+
+        for idc in idcs:
+            if idc in union:
+                self.assertIn(idc, or_should_stop.keys())
+            else:
+                self.assertNotIn(idc, or_should_stop.keys())
 
 
 def _evaluate_early_stopping_with_df(

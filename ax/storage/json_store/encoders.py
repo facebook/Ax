@@ -34,6 +34,7 @@ from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
+    LogicalEarlyStoppingStrategy,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
@@ -535,6 +536,16 @@ def threshold_early_stopping_strategy_to_dict(
         "min_progression": strategy.min_progression,
         "trial_indices_to_ignore": strategy.trial_indices_to_ignore,
         "true_objective_metric_name": strategy.true_objective_metric_name,
+    }
+
+
+def logical_early_stopping_strategy_to_dict(
+    strategy: LogicalEarlyStoppingStrategy,
+) -> Dict[str, Any]:
+    return {
+        "__type": strategy.__class__.__name__,
+        "left": strategy.left,
+        "right": strategy.right,
     }
 
 

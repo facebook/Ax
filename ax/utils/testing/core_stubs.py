@@ -60,6 +60,10 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.early_stopping.strategies.logical import (
+    OrEarlyStoppingStrategy,
+    AndEarlyStoppingStrategy,
+)
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
@@ -1411,6 +1415,20 @@ def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
         metric_threshold=0.1,
         min_progression=10,
         trial_indices_to_ignore=[0, 1, 2],
+    )
+
+
+def get_and_early_stopping_strategy() -> AndEarlyStoppingStrategy:
+    return AndEarlyStoppingStrategy(
+        left=get_percentile_early_stopping_strategy(),
+        right=get_threshold_early_stopping_strategy(),
+    )
+
+
+def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
+    return OrEarlyStoppingStrategy(
+        left=get_percentile_early_stopping_strategy(),
+        right=get_threshold_early_stopping_strategy(),
     )
 
 
