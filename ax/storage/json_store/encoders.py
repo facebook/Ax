@@ -29,6 +29,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
@@ -41,7 +42,6 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.runners.synthetic import SyntheticRunner
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
@@ -324,9 +324,10 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     }
 
 
-def runner_to_dict(runner: SyntheticRunner) -> Dict[str, Any]:
-    """Convert Ax synthetic runner to a dictionary."""
-    properties = serialize_init_args(object=runner)
+def runner_to_dict(runner: Runner) -> Dict[str, Any]:
+    """Convert Ax runner to a dictionary."""
+    runner_cls = type(runner)
+    properties = runner_cls.serialize_init_args(runner=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
@@ -445,10 +446,6 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
             "evaluate_suggested": benchmark_problem.evaluate_suggested,
             "optimal_value": benchmark_problem.optimal_value,
         }
-    elif isinstance(benchmark_problem, BenchmarkProblem):
-        properties = serialize_init_args(object=benchmark_problem)
-        properties["__type"] = benchmark_problem.__class__.__name__
-        return properties
     else:  # pragma: no cover
         raise ValueError(f"Expected benchmark problem, got: {benchmark_problem}.")
 

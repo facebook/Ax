@@ -20,13 +20,14 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
+from ax.utils.common.base import Base
 from botorch.test_functions.base import BaseTestProblem
 from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.test_functions.synthetic import SyntheticTestFunction
 
 
 @dataclass(frozen=True)
-class BenchmarkProblem:
+class BenchmarkProblem(Base):
     """Benchmark problem, represented in terms of Ax search space, optimization
     config, and runner.
     """

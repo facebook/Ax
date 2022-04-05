@@ -6,8 +6,14 @@
 
 from typing import Any, Callable, Dict, Type
 
-from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
-from ax.benchmark.benchmark_result import BenchmarkResult
+from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
+from ax.benchmark2.benchmark_method import BenchmarkMethod
+from ax.benchmark2.benchmark_problem import (
+    MultiObjectiveBenchmarkProblem,
+    SingleObjectiveBenchmarkProblem,
+    BenchmarkProblem,
+)
+from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -43,6 +49,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryProblemType, ChemistryMetric
@@ -59,6 +66,7 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
@@ -118,8 +126,9 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
     BatchTrial: batch_to_dict,
-    BenchmarkProblem: benchmark_problem_to_dict,
     BoTorchModel: botorch_model_to_dict,
+    BotorchTestProblemMetric: metric_to_dict,
+    BotorchTestProblemRunner: runner_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
@@ -187,9 +196,13 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "Arm": Arm,
     "BatchTrial": BatchTrial,
+    "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
+    "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkProblem": BenchmarkProblem,
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
+    "BotorchTestProblemMetric": BotorchTestProblemMetric,
+    "BotorchTestProblemRunner": BotorchTestProblemRunner,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
     "ChemistryMetric": ChemistryMetric,
@@ -218,6 +231,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "Metric": Metric,
     "Models": Models,
     "MultiObjective": MultiObjective,
+    "MultiObjectiveBenchmarkProblem": MultiObjectiveBenchmarkProblem,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,
@@ -236,6 +250,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
+    "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
     "SklearnModelType": SklearnModelType,

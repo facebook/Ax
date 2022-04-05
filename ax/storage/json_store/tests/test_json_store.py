@@ -40,10 +40,15 @@ from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
-    get_branin_benchmark_problem,
     get_branin_simple_benchmark_problem,
     get_mult_simple_benchmark_problem,
     get_sum_simple_benchmark_problem,
+    get_single_objective_benchmark_problem,
+    get_multi_objective_benchmark_problem,
+    get_benchmark_problem,
+    get_sobol_gpei_benchmark_method,
+    get_aggregated_benchmark_result,
+    get_benchmark_result,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -112,11 +117,14 @@ from torch.nn import Module
 
 TEST_CASES = [
     ("AbandonedArm", get_abandoned_arm),
+    ("AggregatedBenchmarkResult", get_aggregated_benchmark_result),
     ("Arm", get_arm),
     ("AugmentedBraninMetric", get_augmented_branin_metric),
     ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
     ("BatchTrial", get_batch_trial),
-    ("BenchmarkProblem", get_branin_benchmark_problem),
+    ("BenchmarkMethod", get_sobol_gpei_benchmark_method),
+    ("BenchmarkProblem", get_benchmark_problem),
+    ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BraninMetric", get_branin_metric),
@@ -140,6 +148,7 @@ TEST_CASES = [
     ("MapData", get_map_data),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
+    ("MultiObjectiveBenchmarkProblem", get_multi_objective_benchmark_problem),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
     ("MultiTypeExperiment", get_multi_type_experiment),
     ("ObservationFeatures", get_observation_features),
@@ -162,6 +171,7 @@ TEST_CASES = [
     ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
     ("SimpleBenchmarkProblem", get_branin_simple_benchmark_problem),
     ("SimpleBenchmarkProblem", get_sum_simple_benchmark_problem),
+    ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Surrogate", get_surrogate),
@@ -254,6 +264,7 @@ class JSONStoreTest(TestCase):
                 continue
 
             original_object = fake_func()
+
             json_object = object_to_json(
                 original_object,
                 encoder_registry=CORE_ENCODER_REGISTRY,

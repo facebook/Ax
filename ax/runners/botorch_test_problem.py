@@ -3,11 +3,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import importlib
 from typing import Set, Iterable, Any, Dict
 
 import torch
 from ax.core.base_trial import TrialStatus, BaseTrial
 from ax.core.runner import Runner
+from ax.utils.common.base import Base
+from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem
 
 
@@ -24,6 +28,16 @@ class BotorchTestProblemRunner(Runner):
     def __init__(self, test_problem: BaseTestProblem) -> None:
         self.test_problem = test_problem
 
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if not isinstance(other, BotorchTestProblemRunner):
+            return False
+
+        return (
+            self.test_problem.__class__.__name__
+            == other.test_problem.__class__.__name__
+        )
+
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         return {
             "Ys": {
@@ -38,3 +52,24 @@ class BotorchTestProblemRunner(Runner):
         self, trials: Iterable[BaseTrial]
     ) -> Dict[TrialStatus, Set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
+
+    @classmethod
+    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
+        """Serialize the properties needed to initialize the runner.
+        Used for storage.
+        """
+        runner = checked_cast(BotorchTestProblemRunner, runner)
+
+        return {
+            "test_problem_module": runner.test_problem.__module__,
+            "test_problem_class_name": runner.test_problem.__class__.__name__,
+        }
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Given a dictionary, deserialize the properties needed to initialize the runner.
+        Used for storage.
+        """
+        module = importlib.import_module(args["test_problem_module"])
+
+        return {"test_problem": getattr(module, args["test_problem_class_name"])()}

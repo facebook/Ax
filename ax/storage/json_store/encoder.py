@@ -62,6 +62,7 @@ def object_to_json(
                     )
                     for k, v in obj_dict.items()
                 }
+
         raise ValueError(
             f"{obj} is a class. Add it to the CLASS_ENCODER_REGISTRY "
             "(and remove it from the ENCODER_REGISTRY if needed)."
@@ -129,7 +130,7 @@ def object_to_json(
                     encoder_registry=encoder_registry,
                     class_encoder_registry=class_encoder_registry,
                 )
-                for k, v in dataclasses.asdict(obj).items()
+                for k, v in obj.__dict__.items()
             },
         }
 

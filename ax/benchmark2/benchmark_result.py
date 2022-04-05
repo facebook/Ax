@@ -11,13 +11,12 @@ from typing import List, Tuple, Iterable
 import numpy as np
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.core.utils import get_model_times
-from ax.service.scheduler import Scheduler
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.base import Base
+from ax.utils.common.equality import equality_typechecker
 
 
 @dataclass(frozen=True)
-class BenchmarkResult:
+class BenchmarkResult(Base):
     """The result of a single optimization loop from one
     (BenchmarkProblem, BenchmarkMethod) pair. More information will be added to the
     BenchmarkResult as the suite develops.
@@ -31,55 +30,22 @@ class BenchmarkResult:
     fit_time: float
     gen_time: float
 
-    @classmethod
-    def from_scheduler(cls, scheduler: Scheduler) -> BenchmarkResult:
-        fit_time, gen_time = get_model_times(experiment=scheduler.experiment)
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if not isinstance(other, BenchmarkResult):
+            return False
 
-        return cls(
-            name=scheduler.experiment.name,
-            experiment=scheduler.experiment,
-            optimization_trace=cls._get_trace(scheduler=scheduler),
-            fit_time=fit_time,
-            gen_time=gen_time,
-        )
-
-    @staticmethod
-    def _get_trace(scheduler: Scheduler) -> np.ndarray:
-        if scheduler.experiment.is_moo_problem:
-            return np.array(
-                [
-                    scheduler.get_hypervolume(
-                        trial_indices=[*range(i + 1)], use_model_predictions=False
-                    )
-                    if i != 0
-                    else 0
-                    # TODO[mpolson64] on i=0 we get an error with SearchspaceToChoice
-                    for i in range(len(scheduler.experiment.trials))
-                ],
-            )
-
-        best_trials = [
-            scheduler.get_best_trial(
-                trial_indices=[*range(i + 1)], use_model_predictions=False
-            )
-            for i in range(len(scheduler.experiment.trials))
-        ]
-
-        return np.array(
-            [
-                not_none(not_none(trial)[2])[0][
-                    not_none(
-                        scheduler.experiment.optimization_config
-                    ).objective.metric.name
-                ]
-                for trial in best_trials
-                if trial is not None and not_none(trial)[2] is not None
-            ]
+        return (
+            self.name == other.name
+            and self.experiment == other.experiment
+            and (self.optimization_trace == other.optimization_trace).all()
+            and self.fit_time == other.fit_time
+            and self.gen_time == other.gen_time
         )
 
 
 @dataclass(frozen=True)
-class AggregatedBenchmarkResult:
+class AggregatedBenchmarkResult(Base):
     """The result of a benchmark test, or series of replications. Scalar data present
     in the BenchmarkResult is here represented as (mean, sem) pairs. More information
     will be added to the AggregatedBenchmarkResult as the suite develops.
@@ -94,6 +60,19 @@ class AggregatedBenchmarkResult:
     # (mean, sem) pairs
     fit_time: Tuple[float, float]
     gen_time: Tuple[float, float]
+
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if not isinstance(other, AggregatedBenchmarkResult):
+            return False
+
+        return (
+            self.name == other.name
+            and self.experiments == other.experiments
+            and self.optimization_trace.eq(other.optimization_trace).all().all()
+            and self.fit_time == other.fit_time
+            and self.gen_time == other.gen_time
+        )
 
     @classmethod
     def from_benchmark_results(
