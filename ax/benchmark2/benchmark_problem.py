@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List
@@ -38,7 +37,7 @@ class BenchmarkProblem(Base):
     runner: Runner
 
     @classmethod
-    def from_botorch(cls, test_problem: BaseTestProblem) -> BenchmarkProblem:
+    def from_botorch(cls, test_problem: BaseTestProblem) -> "BenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
@@ -86,7 +85,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
     def from_botorch_synthetic(
         cls,
         test_problem: SyntheticTestFunction,
-    ) -> SingleObjectiveBenchmarkProblem:
+    ) -> "SingleObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
@@ -117,7 +116,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     def from_botorch_multi_objective(
         cls,
         test_problem: MultiObjectiveTestProblem,
-    ) -> MultiObjectiveBenchmarkProblem:
+    ) -> "MultiObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         once per trial and each Metric will retrieve its own result by index.
