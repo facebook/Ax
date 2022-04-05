@@ -16,7 +16,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.batch_trial import BatchTrial
+from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
@@ -824,6 +824,7 @@ class Experiment(Base):
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
+        lifecycle_stage: Optional[LifecycleStage] = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -842,6 +843,8 @@ class Experiment(Base):
                 'dead' trials, for which the evaluation process might have
                 crashed etc., and which should be considered failed after
                 their 'time to live' has passed.
+            lifecycle_stage: The stage of the experiment lifecycle that this
+                trial represents
         """
         if ttl_seconds is not None:
             self._trials_have_ttl = True
@@ -851,6 +854,7 @@ class Experiment(Base):
             generator_run=generator_run,
             optimize_for_power=optimize_for_power,
             ttl_seconds=ttl_seconds,
+            lifecycle_stage=lifecycle_stage,
         )
 
     def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:

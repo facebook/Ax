@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     DefaultDict,
@@ -39,6 +40,14 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
+
+
+class LifecycleStage(int, Enum):
+    EXPLORATION = 0
+    ITERATION = 1
+    BAKEOFF = 2
+    OFFLINE_OPTIMIZED = 3
+    EXPLORATION_CONCURRENT = 4
 
 
 @dataclass
@@ -111,6 +120,8 @@ class BatchTrial(BaseTrial):
             This should generally not be specified, as in the index will be
             automatically determined based on the number of existing trials.
             This is only used for the purpose of loading from storage.
+        lifecycle_stage: The stage of the experiment lifecycle that this
+            trial represents
     """
 
     def __init__(
@@ -121,6 +132,7 @@ class BatchTrial(BaseTrial):
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
         index: Optional[int] = None,
+        lifecycle_stage: Optional[LifecycleStage] = None,
     ) -> None:
         super().__init__(
             experiment=experiment,
@@ -154,6 +166,7 @@ class BatchTrial(BaseTrial):
         # for this object instead of one
         self._status_quo_generator_run_db_id: Optional[int] = None
         self._status_quo_arm_db_id: Optional[int] = None
+        self._lifecycle_stage = lifecycle_stage
 
     @property
     def experiment(self) -> core.experiment.Experiment:
@@ -197,6 +210,10 @@ class BatchTrial(BaseTrial):
             # If no override is specified, status quo does not appear in arm_weights.
             arm_weights[self.status_quo] = self._status_quo_weight_override
         return arm_weights
+
+    @property
+    def lifecycle_stage(self) -> Optional[LifecycleStage]:
+        return self._lifecycle_stage
 
     @arm_weights.setter
     def arm_weights(self, arm_weights: MutableMapping[Arm, float]) -> None:

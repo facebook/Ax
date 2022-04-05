@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ax.core.base_trial import TrialStatus
+from ax.core.batch_trial import LifecycleStage
 from ax.core.parameter import ParameterType
 from ax.core.types import (
     ComparisonOp,
@@ -381,6 +382,8 @@ class SQATrial(Base):
     index: int = Column(Integer, index=True, nullable=False)
     # pyre-fixme[8]: Attribute has type `bool`; used as `Column[bool]`.
     is_batch: bool = Column("is_batched", Boolean, nullable=False, default=True)
+    # pyre-fixme[8]: Attribute has type `LifecycleStage`; used as `Column[DataType]`.
+    lifecycle_stage: LifecycleStage = Column(IntEnum(LifecycleStage), nullable=True)
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     num_arms_created: int = Column(Integer, nullable=False, default=0)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
