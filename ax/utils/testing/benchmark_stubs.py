@@ -14,6 +14,7 @@ from ax.benchmark2.benchmark_method import BenchmarkMethod
 from ax.benchmark2.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
+    BenchmarkProblem as Benchmark2Problem,
 )
 from ax.benchmark2.benchmark_result import (
     AggregatedBenchmarkResult,
@@ -66,6 +67,10 @@ def get_branin_benchmark_problem() -> BenchmarkProblem:
 
 
 # Benchmark2
+def get_benchmark_problem() -> Benchmark2Problem:
+    return Benchmark2Problem.from_botorch(test_problem=Branin())
+
+
 def get_single_objective_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
     return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(test_problem=Branin())
 
@@ -144,4 +149,5 @@ def get_benchmark_result() -> BenchmarkResult:
 
 
 def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
-    return AggregatedBenchmarkResult.from_benchmark_results([get_benchmark_result()])
+    result = get_benchmark_result()
+    return AggregatedBenchmarkResult.from_benchmark_results([result, result])

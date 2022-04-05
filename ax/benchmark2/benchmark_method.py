@@ -7,11 +7,12 @@ from dataclasses import dataclass
 
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.service.scheduler import SchedulerOptions
+from ax.service.utils.scheduler_options import SchedulerOptions
+from ax.utils.common.base import Base
 
 
 @dataclass(frozen=True)
-class BenchmarkMethod:
+class BenchmarkMethod(Base):
     """Benchmark method, represented in terms of Ax generation strategy (which tells us
     which models to use when) and scheduler options (which tell us extra execution
     information like maximum parallelism, early stopping configuration, etc.)

@@ -26,6 +26,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -205,6 +206,8 @@ def object_from_json(
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
+        elif issubclass(_class, Runner):
+            return runner_from_json(_class=_class, runner_json=object_json)
 
         return ax_class_from_json_dict(
             _class=_class,
@@ -691,3 +694,10 @@ def simple_benchmark_problem_from_json(
         domain=cast(List[Tuple[float, float]], domain),
         minimize=object_json.pop("minimize"),
     )
+
+
+def runner_from_json(
+    _class: Type[Runner],
+    runner_json: Dict[str, Any],
+) -> Runner:
+    return _class(**_class.deserialize_init_args(args=runner_json))  # pyre-ignore[45]
