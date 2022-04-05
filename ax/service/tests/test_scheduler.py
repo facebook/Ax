@@ -281,7 +281,7 @@ class TestAxScheduler(TestCase):
                 "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
                 "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
                 "options=SchedulerOptions(max_pending_trials=10, "
-                "trial_type=<class 'ax.core.trial.Trial'>, "
+                "trial_type=<TrialType.TRIAL: 0>, "
                 "total_trials=0, tolerated_trial_failure_rate=0.2, "
                 "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"

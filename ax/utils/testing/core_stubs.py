@@ -74,6 +74,7 @@ from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.runners.synthetic import SyntheticRunner
+from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
@@ -1556,3 +1557,16 @@ def get_gamma_prior() -> GammaPrior:
 
 def get_interval() -> Interval:
     return Interval(lower_bound=1e-6, upper_bound=0.1)
+
+
+##############################
+# Scheduler
+##############################
+
+
+def get_default_scheduler_options() -> SchedulerOptions:
+    return SchedulerOptions()
+
+
+def get_scheduler_options_batch_trial() -> SchedulerOptions:
+    return SchedulerOptions(trial_type=TrialType.BATCH_TRIAL)

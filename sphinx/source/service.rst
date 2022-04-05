@@ -33,6 +33,10 @@ Scheduler
     :undoc-members:
     :show-inheritance:
 
+.. automodule:: ax.service.utils.scheduler_options
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Utils
 ------
