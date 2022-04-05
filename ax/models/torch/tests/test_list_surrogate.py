@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import (
     NOT_YET_FIT_MSG,
@@ -15,11 +16,15 @@ from ax.models.torch.botorch_modular.list_surrogate import (
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
+from ax.models.torch.tests.test_surrogate import SingleTaskGPWithDifferentConstructor
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
+from botorch.models import SingleTaskGP
 from botorch.models.model import TrainingData
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.outcome import Standardize
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
@@ -240,14 +245,51 @@ class ListSurrogateTest(TestCase):
         mock_MLL.assert_not_called()
         mock_fit_gpytorch.assert_not_called()
 
+    def test_with_botorch_transforms(self):
+        input_transforms = {"outcome_1": Normalize(d=3), "outcome_2": Normalize(d=3)}
+        outcome_transforms = {
+            "outcome_1": Standardize(m=1),
+            "outcome_2": Standardize(m=1),
+        }
+        surrogate = ListSurrogate(
+            botorch_submodel_class=SingleTaskGPWithDifferentConstructor,
+            mll_class=SumMarginalLogLikelihood,
+            submodel_outcome_transforms=outcome_transforms,
+            submodel_input_transforms=input_transforms,
+        )
+        with self.assertRaisesRegex(UserInputError, "The model class"):
+            surrogate.construct(
+                training_data=self.training_data,
+                metric_names=self.outcomes,
+            )
+        surrogate = ListSurrogate(
+            botorch_submodel_class=SingleTaskGP,
+            mll_class=SumMarginalLogLikelihood,
+            submodel_outcome_transforms=outcome_transforms,
+            submodel_input_transforms=input_transforms,
+        )
+        surrogate.construct(
+            training_data=self.training_data,
+            metric_names=self.outcomes,
+        )
+        models = surrogate.model.models
+        for i, outcome in enumerate(("outcome_1", "outcome_2")):
+            self.assertIs(models[i].outcome_transform, outcome_transforms[outcome])
+            self.assertIs(models[i].input_transform, input_transforms[outcome])
+
     def test_serialize_attributes_as_kwargs(self):
         expected = self.surrogate.__dict__
         # The two attributes below don't need to be saved as part of state,
         # so we remove them from the expected dict.
-        expected.pop("botorch_model_class")
-        expected.pop("model_options")
-        expected.pop("covar_module_class")
-        expected.pop("covar_module_options")
-        expected.pop("likelihood_class")
-        expected.pop("likelihood_options")
+        for attr_name in (
+            "botorch_model_class",
+            "model_options",
+            "covar_module_class",
+            "covar_module_options",
+            "likelihood_class",
+            "likelihood_options",
+            "outcome_transform",
+            "input_transform",
+        ):
+            expected.pop(attr_name)
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)

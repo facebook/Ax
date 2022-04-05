@@ -8,6 +8,7 @@ from unittest.mock import patch, MagicMock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
@@ -16,6 +17,8 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.model import Model
+from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.containers import TrainingData
 from gpytorch.constraints import Interval
@@ -97,6 +100,39 @@ class SurrogateTest(TestCase):
             refit=self.refit,
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
+
+    def test_botorch_transforms(self):
+        # Successfully passing down the transforms
+        input_transform = Normalize(d=self.Xs[0].shape[-1])
+        outcome_transform = Standardize(m=self.Ys[0].shape[-1])
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGP,
+            outcome_transform=outcome_transform,
+            input_transform=input_transform,
+        )
+        surrogate.fit(
+            training_data=self.training_data,
+            search_space_digest=self.search_space_digest,
+            metric_names=self.metric_names,
+            refit=self.refit,
+        )
+        botorch_model = surrogate.model
+        self.assertIs(botorch_model.input_transform, input_transform)
+        self.assertIs(botorch_model.outcome_transform, outcome_transform)
+
+        # Error handling if the model does not support transforms.
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGPWithDifferentConstructor,
+            outcome_transform=outcome_transform,
+            input_transform=input_transform,
+        )
+        with self.assertRaisesRegex(UserInputError, "BoTorch model"):
+            surrogate.fit(
+                training_data=self.training_data,
+                search_space_digest=self.search_space_digest,
+                metric_names=self.metric_names,
+                refit=self.refit,
+            )
 
     def test_model_property(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
@@ -182,17 +218,15 @@ class SurrogateTest(TestCase):
                 )
 
     def test_construct_custom_model(self):
-        # Make sure covar_module and likelihood are filtered for a model that doesn't
-        # support them.
+        # Test error for unsupported covar_module and likelihood.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
             mll_class=self.mll_class,
             covar_module_class=RBFKernel,
             likelihood_class=FixedNoiseGaussianLikelihood,
         )
-        surrogate.construct(self.training_data)
-        self.assertEqual(type(surrogate._model.covar_module), ScaleKernel)
-        self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
+        with self.assertRaisesRegex(UserInputError, "does not support"):
+            surrogate.construct(self.training_data)
         # Pass custom options to a SingleTaskGP and make sure they are used
         noise_constraint = Interval(1e-6, 1e-1)
         surrogate = Surrogate(
