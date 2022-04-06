@@ -51,6 +51,8 @@ from ax.utils.testing.benchmark_stubs import (
     get_benchmark_result,
 )
 from ax.utils.testing.core_stubs import (
+    get_or_early_stopping_strategy,
+    get_and_early_stopping_strategy,
     get_abandoned_arm,
     get_acquisition_function_type,
     get_acquisition_type,
@@ -118,6 +120,7 @@ from torch.nn import Module
 TEST_CASES = [
     ("AbandonedArm", get_abandoned_arm),
     ("AggregatedBenchmarkResult", get_aggregated_benchmark_result),
+    ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
     ("AugmentedBraninMetric", get_augmented_branin_metric),
     ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
@@ -155,6 +158,7 @@ TEST_CASES = [
     ("Objective", get_objective),
     ("ObjectiveThreshold", get_objective_threshold),
     ("OptimizationConfig", get_optimization_config),
+    ("OrEarlyStoppingStrategy", get_or_early_stopping_strategy),
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),

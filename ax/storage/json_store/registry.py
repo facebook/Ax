@@ -49,6 +49,8 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.early_stopping.strategies.logical import AndEarlyStoppingStrategy
+from ax.early_stopping.strategies.logical import OrEarlyStoppingStrategy
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -111,6 +113,7 @@ from ax.storage.json_store.encoders import (
     threshold_early_stopping_strategy_to_dict,
     winsorization_config_to_dict,
 )
+from ax.storage.json_store.encoders import logical_early_stopping_strategy_to_dict
 from ax.storage.utils import DomainType, ParameterConstraintType
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
@@ -123,6 +126,7 @@ from torch.nn import Module
 
 CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
+    AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
     BatchTrial: batch_to_dict,
@@ -159,6 +163,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Objective: objective_to_dict,
     ObjectiveThreshold: outcome_constraint_to_dict,
     OptimizationConfig: optimization_config_to_dict,
+    OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
@@ -192,6 +197,7 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 
 CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
+    "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "Arm": Arm,
@@ -239,6 +245,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
+    "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
     "ParameterConstraint": ParameterConstraint,

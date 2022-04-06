@@ -18,6 +18,14 @@ Base Strategies
     :undoc-members:
     :show-inheritance:
 
+Logical Strategies
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.early_stopping.strategies.logical
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `PercentileEarlyStoppingStrategy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
