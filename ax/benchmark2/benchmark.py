@@ -41,7 +41,7 @@ def benchmark_replication(
     """
 
     experiment = Experiment(
-        name=f"{problem.name}x{method.name}_{time()}",
+        name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
         runner=problem.runner,
