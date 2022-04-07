@@ -88,6 +88,15 @@ class AggregatedBenchmarkResult(Base):
             experiments=[result.experiment for result in results],
             optimization_trace=pd.DataFrame(
                 {
+                    "median": [
+                        np.median(
+                            [
+                                results[j].optimization_trace[i]
+                                for j in range(len(results))
+                            ]
+                        )
+                        for i in range(len(results[0].optimization_trace))
+                    ],
                     "mean": [
                         np.mean(
                             [
