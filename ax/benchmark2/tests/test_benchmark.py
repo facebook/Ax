@@ -4,6 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark2.benchmark import (
+    benchmark_scored_full_run,
+    get_sobol_baseline,
     benchmark_replication,
     benchmark_test,
     benchmark_full_run,
@@ -94,3 +96,27 @@ class TestBenchmark(TestCase):
                     agg.optimization_trace["mean"][i],
                     agg.optimization_trace["mean"][i - 1],
                 )
+
+    @fast_botorch_optimize
+    def test_scored(self):
+        problem = get_single_objective_benchmark_problem()
+        baseline = get_sobol_baseline(
+            problem=problem, num_replications=1, total_trials=5
+        )
+
+        scored_results = benchmark_scored_full_run(
+            problems_baseline_results=[(problem, baseline)],
+            methods=[get_sobol_gpei_benchmark_method()],
+            num_replications=1,
+        )
+
+        self.assertEqual(len(scored_results), 1)
+        self.assertTrue(
+            (scored_results[0].score < 100).all()
+        )  # Score should never be over 100
+
+        # Score should be monotonic decreasing
+        for i in range(len(scored_results[0].score) - 1):
+            self.assertLessEqual(
+                scored_results[0].score[i + 1], scored_results[0].score[i]
+            )
