@@ -223,10 +223,10 @@ def choose_generation_strategy(
     enforce_sequential_optimization: bool = True,
     random_seed: Optional[int] = None,
     torch_device: Optional[torch.device] = None,
+    no_winsorization: bool = False,
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ] = None,
-    no_winsorization: bool = False,
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
@@ -263,7 +263,7 @@ def choose_generation_strategy(
             for multi-objective optimization) can be sped up by running candidate
             generation on the GPU. If not specified, uses the default torch device
             (usually the CPU).
-        winsorize_botorch_model: Whether to apply the winsorization transform
+        no_winsorization: Whether to apply the winsorization transform
             prior to applying other transforms for fitting the BoTorch model.
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
@@ -274,6 +274,13 @@ def choose_generation_strategy(
             known in advance.
         num_initialization_trials: Specific number of initialization trials, if wanted.
             Typically, initialization trials are generated quasi-randomly.
+        max_parallelism_cap: Integer cap on parallelism in this generation strategy.
+            If specified, ``max_parallelism`` setting in each generation step will be
+            set to the minimum of the default setting for that step and the value of
+            this cap. ``max_parallelism_cap`` is meant to just be a hard limit on
+            parallelism (e.g. to avoid overloading machine(s) that evaluate the
+            experiment trials). Specify only if not specifying
+            ``max_parallelism_override``.
         max_parallelism_override: Integer, with which to override the default max
             parallelism setting for all steps in the generation strategy returned from
             this function. Each generation step has a ``max_parallelism`` value, which
@@ -283,13 +290,6 @@ def choose_generation_strategy(
             no max parallelism will be enforced for any step of the generation
             strategy. Be aware that parallelism is limited to improve performance of
             Bayesian optimization, so only disable its limiting if necessary.
-        max_parallelism_cap: Integer cap on parallelism in this generation strategy.
-            If specified, ``max_parallelism`` setting in each generation step will be
-            set to the minimum of the default setting for that step and the value of
-            this cap. ``max_parallelism_cap`` is meant to just be a hard limit on
-            parallelism (e.g. to avoid overloading machine(s) that evaluate the
-            experiment trials). Specify only if not specifying
-            ``max_parallelism_override``.
         optimization_config: used to infer whether to use MOO and will be passed in to
             ``Winsorize`` via its ``transform_config`` in order to determine default
             winsorization behavior when necessary.
