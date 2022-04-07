@@ -899,7 +899,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             [m.lower_is_better for m in optimization_config.objective.metrics],
-            [None, None],
+            [True, False],
         )
         self.assertEqual(
             [t.metric.name for t in optimization_config.objective_thresholds],

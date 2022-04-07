@@ -433,18 +433,19 @@ class InstantiationBase:
     @classmethod
     def make_objectives(cls, objectives: Dict[str, str]) -> List[Objective]:
         try:
-            return [
-                Objective(
-                    metric=cls._make_metric(
-                        name=metric_name,
-                        for_opt_config=True,
-                    ),
-                    minimize=(
-                        MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
-                    ),
+            output_objectives = []
+            for metric_name, min_or_max in objectives.items():
+                minimize = (
+                    MetricObjective[min_or_max.upper()] == MetricObjective.MINIMIZE
                 )
-                for metric_name, min_or_max in objectives.items()
-            ]
+                objective = Objective(
+                    metric=cls._make_metric(
+                        name=metric_name, lower_is_better=minimize, for_opt_config=True
+                    ),
+                    minimize=minimize,
+                )
+                output_objectives.append(objective)
+            return output_objectives
         except KeyError as k:
             raise ValueError(
                 "Objective values should specify "
