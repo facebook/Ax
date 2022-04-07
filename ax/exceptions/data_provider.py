@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any
+from typing import Iterable, Any
 
 
 class DataProviderError(Exception):
@@ -31,3 +31,16 @@ class DataProviderError(Exception):
             message=self.message,
             dp_error=self.data_provider_error,
         )
+
+
+class MissingDataError(Exception):
+    def __init__(self, missing_trial_indexes: Iterable[int]) -> None:
+        missing_trial_str = ", ".join([str(index) for index in missing_trial_indexes])
+        self.message: str = (
+            f"Unable to find data for the following trials: {missing_trial_str} "
+            "consider updating the data fetching kwargs or manually fetching "
+            "data via `refetch_data()`"
+        )
+
+    def __str__(self) -> str:
+        return self.message
