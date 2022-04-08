@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import TrialStatus, BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -56,10 +56,11 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
+from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
-from ax.plot.helper import _format_dict, _get_in_sample_arms
+from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import ObjectiveProperties, InstantiationBase
@@ -82,7 +83,6 @@ from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_complex,
-    checked_cast_dict,
     checked_cast_optional,
     not_none,
 )
@@ -1031,50 +1031,157 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 f" {generation_strategy}."
             )
 
+    def get_model_predictions_for_parameterizations(
+        self,
+        parameterizations: List[TParameterization],
+        metric_names: Optional[List[str]] = None,
+    ) -> List[Dict[str, Tuple[float, float]]]:
+        """Retrieve model-estimated means and covariances for all metrics
+        for the provided parameterizations.
+
+        Args:
+            metric_names: Names of the metrics for which to predict.
+                All metrics will be predicted if this argument is
+                not specified.
+            parameterizations: List of Parameterizations for which to predict.
+
+        Returns:
+            A list of predicted metric mean and SEM of form:
+            List[Tuple[float, float]].
+        """
+
+        parameterization_dict = {
+            i: parameterization for i, parameterization in enumerate(parameterizations)
+        }
+
+        predictions_dict = self.get_model_predictions(
+            metric_names=metric_names, parameterizations=parameterization_dict
+        )
+
+        predictions_array = [
+            predictions_dict[i] for i, _ in enumerate(parameterizations)
+        ]
+
+        return predictions_array
+
     def get_model_predictions(
-        self, metric_names: Optional[List[str]] = None
+        self,
+        metric_names: Optional[List[str]] = None,
+        include_out_of_sample: Optional[bool] = True,
+        parameterizations: Optional[Dict[int, TParameterization]] = None,
     ) -> Dict[int, Dict[str, Tuple[float, float]]]:
         """Retrieve model-estimated means and covariances for all metrics.
-        Note: this function retrieves the predictions for the 'in-sample' arms,
-        which means that the return mapping on this function will only contain
-        predictions for trials that have been completed with data.
 
         Args:
             metric_names: Names of the metrics, for which to retrieve predictions.
                 All metrics on experiment will be retrieved if this argument was
                 not specified.
+            include_out_of_sample: Defaults to True. Return predictions for
+                out-of-sample (i.e. not yet completed trials) data in
+                addition to in-sample (i.e. completed trials) data.
+            parameterizations: Optional mapping from an int label to
+                Parameterizations. When provided, predictions are performed *only*
+                on these data points, no predictions from trial data is performed,
+                and include_out_of_sample parameters is ignored.
 
         Returns:
             A mapping from trial index to a mapping of metric names to tuples
             of predicted metric mean and SEM, of form:
             { trial_index -> { metric_name: ( mean, SEM ) } }.
+            Note that AxClient currently support only 1-arm trials. i.e.
+            trial_index describes the single arms attached to the referenced
+            trial.
         """
+
+        # Ensure there are metrics specified
         if metric_names is None and self.experiment.metrics is None:
             raise ValueError(  # pragma: no cover
                 "No metrics to retrieve specified on the experiment or as "
                 "argument to `get_model_predictions`."
             )
-        arm_info, _, _ = _get_in_sample_arms(
-            model=not_none(
-                self.generation_strategy.model, "No model has been instantiated yet."
-            ),
-            metric_names=set(metric_names)
-            if metric_names is not None
-            else set(not_none(self.experiment.metrics).keys()),
-        )
-        trials = checked_cast_dict(int, Trial, self.experiment.trials)
 
-        return {
-            trial_index: {
-                m: (
-                    arm_info[not_none(trials[trial_index].arm).name].y_hat[m],
-                    arm_info[not_none(trials[trial_index].arm).name].se_hat[m],
+        # Fit model to ensure:
+        # - model is instantiated if needed
+        # - any new completed trials are fit to the model
+        self.fit_model()
+
+        # Shared info for subsequent calls
+        metric_names_to_predict = (
+            set(metric_names)
+            if metric_names is not None
+            else set(not_none(self.experiment.metrics).keys())
+        )
+        model = not_none(
+            self.generation_strategy.model, "No model has been instantiated yet."
+        )
+
+        # Construct a dictionary that maps from a label to an
+        # ObservationFeature to predict.
+        # - If returning trial predictions, the label is the trial index.
+        # - If predictions are for user-provided parameterization, the label
+        #   is provided in the input (also an int).
+        label_to_feature_dict = {}
+
+        # Predict on user-provided data
+        if parameterizations is not None:
+            logger.info(
+                '"parameterizations" have been provided, only these data '
+                "points will be predicted. No trial data prediction will be "
+                "returned."
+            )
+            for label in parameterizations.keys():
+                label_to_feature_dict[label] = ObservationFeatures(
+                    parameters=parameterizations[label]
                 )
-                for m in arm_info[not_none(trials[trial_index].arm).name].y_hat
-            }
-            for trial_index in trials
-            if not_none(trials[trial_index].arm).name in arm_info
-        }
+        # Predict on associated trials
+        else:
+            # Note that currently AxClient supports only 1-arm trials.
+            trials_dict = self.experiment.trials
+            for trial_index, trial in trials_dict.items():
+                # filter trials based on input params and trial statuses
+                if include_out_of_sample or trial.status.is_completed:
+                    arms = trial.arms
+                    if len(arms) > 1:
+                        raise ValueError("Currently only 1-arm trials are supported.")
+                    label_to_feature_dict[trial_index] = ObservationFeatures.from_arm(
+                        arms[0]
+                    )
+
+        return predict_by_features(
+            model=model,
+            label_to_feature_dict=label_to_feature_dict,
+            metric_names=metric_names_to_predict,
+        )
+
+    def fit_model(self) -> None:
+        """Fit any completed trial data to the model.
+        If no model is yet available a new one is instantiated. This
+        may be the case when get_next_trial() has never been called.
+        """
+
+        # Try to instantiate a model if there is none. This
+        # handles the case where trials have not be generated by calling
+        # get_next_trial().
+        if self.generation_strategy.model is None:
+            logger.info(
+                "get_model_predictions() has been called when no model is "
+                "instantiated. Attempting to instantiate the model for the "
+                "first time."
+            )
+            if not self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]:
+                raise ValueError(
+                    "At least one trial must be completed with data to instantiate "
+                    "a model."
+                )
+            self.generation_strategy._fit_or_update_current_model(data=None)
+            logger.info("Successfully instantiated a model for the first time.")
+
+        # Model update is normally tied to the GenerationStrategy.gen() call,
+        # which is called from get_next_trial(). In order to ensure that predictions
+        # can be performed without the need to call get_next_trial(), we update the
+        # model with all attached data. Note that this method keeps track of previously
+        # seen trials and will update the model if there is newly attached data.
+        self.generation_strategy._fit_or_update_current_model(data=None)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization

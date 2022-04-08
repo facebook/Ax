@@ -139,6 +139,11 @@ class GenerationStrategy(Base):
         return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))][:-1]
 
     @property
+    def current_step(self) -> GenerationStep:
+        """Current generation step."""
+        return self._curr
+
+    @property
     def model(self) -> Optional[ModelBridge]:
         """Current model in this strategy. Returns None if no model has been set
         yet (i.e., if no generator runs have been produced from this GS).
