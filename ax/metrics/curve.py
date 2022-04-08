@@ -250,6 +250,9 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
             A dataframe containing curve data or None if no curve data could be found.
         """
         dfs = []
+        complete_metrics_by_trial = {
+            trial_idx: [] for trial_idx in trial_idx_to_id.keys()
+        }
         for trial_idx, id_ in trial_idx_to_id.items():
             if id_ not in all_curve_series:
                 logger.debug(f"Could not get curve data for id {id_}. Ignoring.")
@@ -274,32 +277,34 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                         )
                         break
                 if len(curve_dfs) == len(m.coefficients):
+                    # only keep if all curves needed by the metric are available
                     dfs.extend(curve_dfs)
+                    # mark metrics who have all underlying curves
+                    complete_metrics_by_trial[trial_idx].append(m)
+
         if len(dfs) == 0:
             return None
 
         all_data_df = pd.concat(dfs, axis=0, ignore_index=True)
         sub_dfs = []
-        all_curve_names = list(
-            {cname for metric in metrics for cname in metric.coefficients}
-        )
         # Do not create a common index across trials, only across the curves
         # involved in the scalarized metric.
         for trial_idx, dfi in all_data_df.groupby("trial_index"):
             # the `do_forward_fill = True` pads with the latest
             # observation to handle situations where learning curves
             # report different amounts of data.
+            trial_curves = dfi["metric_name"].unique().tolist()
             dfs_mean, dfs_sem = align_partial_results(
                 dfi,
                 progr_key=cls.MAP_KEY.key,
-                metrics=all_curve_names,
+                metrics=trial_curves,
                 do_forward_fill=True,
             )
-            for metric in metrics:
+            for metric in complete_metrics_by_trial[trial_idx]:
                 sub_df = _get_scalarized_curve_metric_sub_df(
                     dfs_mean=dfs_mean,
                     dfs_sem=dfs_sem,
-                    metric=metric,  # pyre-ignore[6]
+                    metric=metric,
                     trial=checked_cast(Trial, experiment.trials[trial_idx]),
                 )
                 sub_dfs.append(sub_df)
