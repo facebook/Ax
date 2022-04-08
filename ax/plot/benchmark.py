@@ -8,13 +8,14 @@ from typing import Iterable, Optional
 from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult
 from ax.plot.base import AxPlotTypes, AxPlotConfig
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
+from ax.plot.helper import rgb
 from plotly import graph_objs as go
 
 
 def plot_modeling_times(
     aggregated_results: Iterable[AggregatedBenchmarkResult],
 ) -> AxPlotConfig:
-    """Plots wall times each method's fit and gen calls as a stack bar chart."""
+    """Plots wall times of each method's fit and gen calls as a stack bar chart."""
 
     data = [
         go.Bar(
@@ -46,7 +47,7 @@ def plot_modeling_times(
     layout = go.Layout(
         title="Modeling Times",
         showlegend=False,
-        yaxis={"title": "Time"},
+        yaxis={"title": "Time (s)"},
         xaxis={"title": "Method"},
         barmode="stack",
     )
@@ -79,6 +80,8 @@ def plot_optimization_trace(
                 },
                 mode="lines",
                 name=result.name,
+                customdata=result.optimization_trace["sem"],
+                hovertemplate="<br><b>Mean:</b> %{y}<br><b>SEM</b>: %{customdata}",
             ),
             go.Scatter(
                 x=x,
@@ -111,11 +114,12 @@ def plot_optimization_trace(
     optimum_scatter = (
         [
             go.Scatter(
-                x=[0, len(x) - 1],
-                y=[optimum] * 2,
+                x=x,
+                y=[optimum] * len(x),
                 mode="lines",
-                line={"dash": "dash", "color": COLORS.ORANGE.value},
+                line={"dash": "dash", "color": rgb(COLORS.ORANGE.value)},
                 name="Optimum",
+                hovertemplate="Optimum: %{y}",
             )
         ]
         if optimum is not None
