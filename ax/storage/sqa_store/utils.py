@@ -13,6 +13,9 @@ from ax.exceptions.storage import SQADecodeError
 from ax.utils.common.base import Base, SortableBase
 
 
+JSON_ATTRS = ["baseline_workflow_inputs"]
+
+
 def is_foreign_key_field(field: str) -> bool:
     """Return true if field name is a foreign key field, i.e. ends in `_id`."""
     return len(field) > 3 and field[-3:] == "_id"
@@ -84,6 +87,19 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 "_steps",
                 "analysis_scheduler",
             }:
+                continue
+
+            # For Json attributes we would like to simply test for equality and not
+            # recurse through the Json.
+            # TODO: Add json_attrs as an argument and plumb through to `copy_db_ids`.
+            if attr in JSON_ATTRS:
+                source_json = getattr(source, attr)
+                target_json = getattr(target, attr)
+                if source_json != target_json:
+                    SQADecodeError(
+                        error_message_prefix + f"Json attribute {attr} not matching "
+                        f"between source: {source_json} and target: {target_json}."
+                    )
                 continue
 
             # Arms are referenced twice on an Experiment object; once in
