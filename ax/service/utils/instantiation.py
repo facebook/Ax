@@ -440,7 +440,9 @@ class InstantiationBase:
                 )
                 objective = Objective(
                     metric=cls._make_metric(
-                        name=metric_name, lower_is_better=minimize, for_opt_config=True
+                        name=metric_name,
+                        for_opt_config=True,
+                        lower_is_better=minimize,
                     ),
                     minimize=minimize,
                 )
