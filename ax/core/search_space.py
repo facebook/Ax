@@ -687,6 +687,11 @@ class RobustSearchSpace(SearchSpace):
                 distributions.
             parameter_constraints: List of parameter constraints.
         """
+        if len(parameter_distributions) == 0:
+            raise UserInputError(
+                "RobustSearchSpace requires at least one distributional parameter. "
+                "Use SearchSpace instead."
+            )
         self.parameter_distributions = parameter_distributions
         # Make sure that there is at most one distribution per parameter.
         distributional_parameters_list = []
@@ -729,6 +734,11 @@ class RobustSearchSpace(SearchSpace):
                 raise UserInputError(
                     "All environmental variables must be range parameters."
                 )
+            if any(d.multiplicative for d in parameter_distributions):
+                raise UserInputError(
+                    "Distributions of environmental variables must have "
+                    "`multiplicative=False`."
+                )
         else:
             if not all(
                 isinstance(self.parameters[p], RangeParameter)
@@ -745,9 +755,12 @@ class RobustSearchSpace(SearchSpace):
 
     @property
     def parameters(self) -> Dict[str, Parameter]:
-        # NOTE: We include environmental variables here to support
-        # `transform_search_space` and other similar functionality.
-        # It also helps avoid having to overwrite a bunch of parent methods.
+        """Get all parameters and environmental variables.
+
+        We include environmental variables here to support `transform_search_space`
+        and other similar functionality. It also helps avoid having to overwrite a
+        bunch of parent methods.
+        """
         return {**self._parameters, **self._environmental_variables}
 
     def update_parameter(self, parameter: Parameter) -> None:

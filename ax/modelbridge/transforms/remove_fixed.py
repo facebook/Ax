@@ -55,7 +55,7 @@ class RemoveFixed(Transform):
                     obsf.parameters.pop(p_name)
         return observation_features
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         tunable_parameters: List[Union[ChoiceParameter, RangeParameter]] = []
         for p in search_space.parameters.values():
             if p.name not in self.fixed_parameters:

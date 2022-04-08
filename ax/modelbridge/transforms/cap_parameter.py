@@ -38,7 +38,7 @@ class CapParameter(Transform):
             p_name for p_name in search_space.parameters if p_name in self.config
         }
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters:
                 if not isinstance(p, RangeParameter):

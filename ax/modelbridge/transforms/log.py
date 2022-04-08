@@ -53,7 +53,7 @@ class Log(Transform):
                     obsf.parameters[p_name] = math.log10(param)
         return observation_features
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
                 p.set_log_scale(False).update_range(

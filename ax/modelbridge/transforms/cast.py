@@ -50,7 +50,7 @@ class Cast(Transform):
             config is None or checked_cast(bool, config.get("flatten_hss", True))
         ) and isinstance(search_space, HierarchicalSearchSpace)
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Flattens the hierarchical search space and returns the flat
         ``SearchSpace`` if this transform is configured to flatten hierarchical
         search spaces. Does nothing if the search space is not hierarchical.

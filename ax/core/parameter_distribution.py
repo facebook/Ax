@@ -30,6 +30,7 @@ class ParameterDistribution(Base):
         parameters: List[TParamName],
         distribution_class: TDistribution,
         distribution_parameters: Optional[Dict[str, Any]],
+        multiplicative: bool = False,
     ) -> None:
         """Initialize a parameter distribution.
 
@@ -42,11 +43,15 @@ class ParameterDistribution(Base):
             distribution_parameters: A dictionary of keyword arguments for initializing
                 the distribution class. The distribution will be initialized as
                 `distribution = distribution_class(**distribution_parameters)`.
+            multiplicative: A boolean denoting whether the distribution will be used as
+                a multiplicative input perturbation. Should be `False` for the
+                distributions of environmental variables.
         """
         super().__init__()
         self.parameters = parameters
         self.distribution_class = distribution_class
         self.distribution_parameters = distribution_parameters or {}
+        self.multiplicative = multiplicative
 
     @property
     @functools.lru_cache()
@@ -69,6 +74,7 @@ class ParameterDistribution(Base):
             parameters=self.parameters.copy(),
             distribution_class=self.distribution_class,
             distribution_parameters=deepcopy(self.distribution_parameters),
+            multiplicative=self.multiplicative,
         )
 
     def __hash__(self) -> int:
@@ -85,5 +91,6 @@ class ParameterDistribution(Base):
             f"{self.__class__.__name__}("
             "parameters=" + repr(self.parameters) + ", "
             "distribution_class=" + self.distribution_class + ", "
-            "distribution_parameters=" + repr(self.distribution_parameters) + ")"
+            "distribution_parameters=" + repr(self.distribution_parameters) + ", "
+            "multiplicative=" + repr(self.multiplicative) + ")"
         )

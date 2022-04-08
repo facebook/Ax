@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, RobustSearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 
@@ -27,6 +28,9 @@ class UnitX(Transform):
 
     Transform is done in-place.
     """
+
+    target_lb: float = 0.0
+    target_range: float = 1.0
 
     def __init__(
         self,
@@ -55,18 +59,18 @@ class UnitX(Transform):
                     # pyre: param is declared to have type `float` but is used
                     # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
                     param: float = obsf.parameters[p_name]
-                    obsf.parameters[p_name] = normalize_value(param, (l, u))
+                    obsf.parameters[p_name] = self._normalize_value(param, (l, u))
         return observation_features
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
             if p_name in self.bounds and isinstance(p, RangeParameter):
                 p.update_range(
-                    lower=normalize_value(p.lower, self.bounds[p_name]),
-                    upper=normalize_value(p.upper, self.bounds[p_name]),
+                    lower=self.target_lb,
+                    upper=self.target_lb + self.target_range,
                 )
             if p.target_value is not None:
-                p._target_value = normalize_value(
+                p._target_value = self._normalize_value(
                     p.target_value, self.bounds[p_name]  # pyre-ignore[6]
                 )
         new_constraints: List[ParameterConstraint] = []
@@ -77,8 +81,9 @@ class UnitX(Transform):
                 # p is RangeParameter, but may not be transformed (Int or log)
                 if p_name in self.bounds:
                     l, u = self.bounds[p_name]
-                    constraint_dict[p_name] = w * (u - l)
-                    bound -= w * l
+                    new_w = w * (u - l) / self.target_range
+                    constraint_dict[p_name] = new_w
+                    bound += self.target_lb * new_w - w * l
                 else:
                     constraint_dict[p_name] = w
             new_constraints.append(
@@ -95,15 +100,77 @@ class UnitX(Transform):
                 # pyre: param is declared to have type `float` but is used as
                 # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
                 param: float = obsf.parameters[p_name]
-                obsf.parameters[p_name] = param * (u - l) + l
+                obsf.parameters[p_name] = (
+                    param - self.target_lb
+                ) / self.target_range * (u - l) + l
         return observation_features
 
+    def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
+        """Transform the parameter distributions of the given search space, in-place.
 
-def normalize_value(value: float, bounds: Tuple[float, float]) -> float:
-    """Transform bounds to [0,1], and apply the same transform to the value.
+        This method should be called in transform_search_space before parameters
+        are transformed.
+        """
+        if not isinstance(search_space, RobustSearchSpace):
+            return
+        distributions = search_space.parameter_distributions
+        for dist in distributions:
+            if dist.multiplicative:
+                # TODO: Transforming multiplicative distributions is a bit more
+                # complicated. Will investigate further and implement as needed.
+                raise NotImplementedError(
+                    f"{self.__class__.__name__} transform of multiplicative "
+                    "distributions is not yet implemented."
+                )
+            if len(dist.parameters) != 1:
+                # Ignore if the ranges of all parameters are same as the target range.
+                if (
+                    all(
+                        self.bounds[p_name][1] - self.bounds[p_name][0]
+                        == self.target_range
+                        for p_name in dist.parameters
+                    )
+                    and not search_space.is_environmental
+                ):
+                    continue
+                # TODO: Support transforming multivariate distributions.
+                raise UnsupportedError(
+                    f"{self.__class__.__name__} transform of multivariate "
+                    "distributions is not supported. Consider manually normalizing "
+                    "the parameter and the corresponding distribution."
+                )
+            bounds = self.bounds[dist.parameters[0]]
+            p_range = bounds[1] - bounds[0]
+            if p_range == self.target_range and (
+                not search_space.is_environmental or bounds[0] == self.target_lb
+            ):
+                # NOTE: This helps avoid raising the error below if using a discrete
+                # distribution in cases where we do not need to transform.
+                continue
+            loc = dist.distribution_parameters.get("loc", 0.0)
+            if search_space.is_environmental:
+                loc = self._normalize_value(loc, bounds)
+            else:
+                loc = loc / p_range * self.target_range
+            dist.distribution_parameters["loc"] = loc
+            dist.distribution_parameters["scale"] = (
+                dist.distribution_parameters.get("scale", 1.0)
+                / p_range
+                * self.target_range
+            )
+            # Check that the distribution is valid after the transform.
+            try:
+                dist.distribution
+            except TypeError:
+                raise UnsupportedError(
+                    f"The distribution {str(dist)} does not support transforming via "
+                    "`loc` and `scale` arguments. Consider manually normalizing the "
+                    "parameter and the corresponding distribution."
+                )
 
-    Note: if the value is outside of the bounds, then the value will be mapped
-        outside of [0,1].
-    """
-    lower, upper = bounds
-    return (value - lower) / (upper - lower)
+    def _normalize_value(self, value: float, bounds: Tuple[float, float]) -> float:
+        """Normalize the given value - bounds pair to
+        [self.target_lb, self.target_lb + self.target_range].
+        """
+        lower, upper = bounds
+        return (value - lower) / (upper - lower) * self.target_range + self.target_lb

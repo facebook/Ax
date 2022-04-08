@@ -9,9 +9,12 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
+from ax.core.search_space import RobustSearchSpace
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class IntToFloatTransformTest(TestCase):
@@ -160,3 +163,29 @@ class IntToFloatTransformTest(TestCase):
                 )[0].parameters
             )
         )
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space()
+        # Transform a non-distributional parameter.
+        t = IntToFloat(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        # Make sure that the return value is still a RobustSearchSpace.
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(
+            rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
+        )
+        # Error with distributional parameter.
+        rss = get_robust_search_space(use_discrete=True)
+        t = IntToFloat(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            t.transform_search_space(rss)

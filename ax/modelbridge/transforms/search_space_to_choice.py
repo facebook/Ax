@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, List, Optional
 from ax.core.arm import Arm
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, RobustSearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
@@ -50,13 +51,17 @@ class SearchSpaceToChoice(Transform):
                 "Cannot perform SearchSpaceToChoice conversion if fidelity "
                 "parameters are present"
             )
+        if isinstance(search_space, RobustSearchSpace):
+            raise UnsupportedError(
+                "SearchSpaceToChoice transform is not supported for RobustSearchSpace."
+            )
         self.parameter_name = "arms"
         self.signature_to_parameterization = {
             Arm(parameters=obsf.parameters).signature: obsf.parameters
             for obsf in observation_features
         }
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         values = list(self.signature_to_parameterization.keys())
         if len(values) > 1:
             parameter = ChoiceParameter(

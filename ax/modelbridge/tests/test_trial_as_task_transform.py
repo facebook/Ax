@@ -9,8 +9,10 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TrialAsTaskTransformTest(TestCase):
@@ -123,3 +125,13 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"u1", "u2"})
         self.assertTrue(p.is_task)
+
+    def test_w_robust_search_space(self):
+        rss = get_robust_search_space()
+        # Raises an error in __init__.
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            TrialAsTask(
+                search_space=rss,
+                observation_features=[],
+                observation_data=None,
+            )

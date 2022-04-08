@@ -9,9 +9,11 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.logit import Logit
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 from scipy.special import logit, expit
 
 
@@ -114,3 +116,24 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss_target.parameters["x"].target_value, logit(0.123))
         self.assertEqual(ss_target.parameters["x"].lower, logit(0.1))
         self.assertEqual(ss_target.parameters["x"].upper, logit(0.3))
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space(use_discrete=True)
+        rss.parameters["y"].set_logit_scale(True)
+        # Transform a non-distributional parameter.
+        t = Logit(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        t.transform_search_space(rss)
+        self.assertFalse(rss.parameters.get("y").logit_scale)
+        # Error with distributional parameter.
+        rss.parameters["x"].set_logit_scale(True)
+        t = Logit(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            t.transform_search_space(rss)
