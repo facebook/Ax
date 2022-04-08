@@ -135,3 +135,45 @@ class AggregatedBenchmarkResult(Base):
     @staticmethod
     def _series_to_sem(series: List[float]) -> float:
         return np.std(series, ddof=1) / np.sqrt(len(series))
+
+
+@dataclass(frozen=True)
+class ScoredBenchmarkResult(AggregatedBenchmarkResult):
+    """An AggregatedBenchmarkResult normalized against some baseline method (for the
+    same problem), typically Sobol. The score is calculated in such a way that 0
+    corresponds to performance equivalent with the baseline and 100 indicates the true
+    optimum was found.
+    """
+
+    baseline_result: AggregatedBenchmarkResult
+    score: np.ndarray
+
+    @classmethod
+    def from_result_and_baseline(
+        cls,
+        aggregated_result: AggregatedBenchmarkResult,
+        baseline_result: AggregatedBenchmarkResult,
+        optimum: float,
+    ) -> "ScoredBenchmarkResult":
+        baseline = baseline_result.optimization_trace["mean"][
+            : len(aggregated_result.optimization_trace["mean"])
+        ]
+
+        score = (
+            100
+            * (
+                1
+                - (aggregated_result.optimization_trace["mean"] - optimum)
+                / (baseline - optimum)
+            )
+        ).to_numpy()
+
+        return cls(
+            name=aggregated_result.name,
+            experiments=aggregated_result.experiments,
+            optimization_trace=aggregated_result.optimization_trace,
+            fit_time=aggregated_result.fit_time,
+            gen_time=aggregated_result.gen_time,
+            baseline_result=baseline_result,
+            score=score,
+        )
