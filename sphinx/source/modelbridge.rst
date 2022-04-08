@@ -108,6 +108,13 @@ General Utilities
     :undoc-members:
     :show-inheritance:
 
+Prediction Utilities
+~~~~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.prediction_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Cross Validation
 ~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.cross_validation

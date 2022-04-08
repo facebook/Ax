@@ -14,6 +14,7 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
@@ -236,7 +237,7 @@ def _get_in_sample_arms(
             if fixed_features is not None:
                 features.update_features(fixed_features)
             # Make a prediction.
-            pred_y, pred_se = _predict_at_point(model, features, metric_names)
+            pred_y, pred_se = predict_at_point(model, features, metric_names)
         elif (trial_selector is not None) and (
             obs.features.trial_index != trial_selector
         ):
@@ -256,34 +257,6 @@ def _get_in_sample_arms(
             context_stratum=None,
         )
     return in_sample_plot, raw_data, arm_name_to_parameters
-
-
-def _predict_at_point(
-    model: ModelBridge, obsf: ObservationFeatures, metric_names: Set[str]
-) -> Tuple[Dict[str, float], Dict[str, float]]:
-    """Make a prediction at a point.
-
-    Returns mean and standard deviation in format expected by plotting.
-
-    Args:
-        model: ModelBridge
-        obsf: ObservationFeatures for which to predict
-        metric_names: Limit predictions to these metrics.
-
-    Returns:
-        A tuple containing
-
-        - Map from metric name to prediction.
-        - Map from metric name to standard error.
-    """
-    y_hat = {}
-    se_hat = {}
-    f_pred, cov_pred = model.predict([obsf])
-    for metric_name in f_pred:
-        if metric_name in metric_names:
-            y_hat[metric_name] = f_pred[metric_name][0]
-            se_hat[metric_name] = np.sqrt(cov_pred[metric_name][metric_name][0])
-    return y_hat, se_hat
 
 
 def _get_out_of_sample_arms(
@@ -317,7 +290,7 @@ def _get_out_of_sample_arms(
 
             # Make a prediction
             try:
-                pred_y, pred_se = _predict_at_point(model, obsf, metric_names)
+                pred_y, pred_se = predict_at_point(model, obsf, metric_names)
             except Exception:
                 # Check if it is an out-of-design arm.
                 if not model.model_space.check_membership(obsf.parameters):

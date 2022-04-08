@@ -1601,6 +1601,75 @@ class TestAxClient(TestCase):
         ax_client.experiment.trials[0].arm._name = "1_1"
         self.assertEqual(ax_client.get_model_predictions(), {0: {"branin": (9.0, 1.0)}})
 
+    def test_get_model_predictions_no_next_trial_all_trials(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_completed_trials(ax_client)
+        _attach_not_completed_trials(ax_client)
+
+        all_predictions_dict = ax_client.get_model_predictions()
+        # Expect all 4 trial predictions (2 completed + 2 not completed)
+        self.assertEqual(len(all_predictions_dict), 4)
+        # Expect two metrics (i.e. not filtered) per trial
+        self.assertEqual(len(all_predictions_dict[0].keys()), 2)
+
+    def test_get_model_predictions_no_next_trial_no_completed_trial(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_not_completed_trials(ax_client)
+
+        self.assertRaises(ValueError, ax_client.get_model_predictions)
+
+    def test_get_model_predictions_no_next_trial_filtered(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_completed_trials(ax_client)
+        _attach_not_completed_trials(ax_client)
+
+        all_predictions_dict = ax_client.get_model_predictions(
+            metric_names=["test_metric1"]
+        )
+        # Expect only one metric (i.e. filteres from two metrics) per trial
+        self.assertEqual(len(all_predictions_dict[0]), 1)
+
+    def test_get_model_predictions_no_next_trial_in_sample(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_completed_trials(ax_client)
+        _attach_not_completed_trials(ax_client)
+
+        in_sample_predictions_dict = ax_client.get_model_predictions(
+            include_out_of_sample=False
+        )
+        # Expect only 2 (completed) trial predictions
+        self.assertEqual(len(in_sample_predictions_dict), 2)
+
+    def test_get_model_predictions_no_next_trial_parameterizations(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_completed_trials(ax_client)
+
+        parameterizations = {
+            18: {"x1": 0.3, "x2": 0.5},
+            19: {"x1": 0.4, "x2": 0.5},
+            20: {"x1": 0.8, "x2": 0.5},
+        }
+        parameterization_predictions_dict = ax_client.get_model_predictions(
+            parameterizations=parameterizations
+        )
+        # Expect predicitons for only 3 input parameterizations,
+        # and no trial predictions
+        self.assertEqual(len(parameterization_predictions_dict), 3)
+
+    def test_get_model_predictions_for_parameterization_no_next_trial(self):
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        _attach_completed_trials(ax_client)
+
+        parameterizations = [
+            {"x1": 0.3, "x2": 0.5},
+            {"x1": 0.4, "x2": 0.5},
+            {"x1": 0.8, "x2": 0.5},
+        ]
+        predictions_list = ax_client.get_model_predictions_for_parameterizations(
+            parameterizations=parameterizations
+        )
+        self.assertEqual(len(predictions_list), 3)
+
     def test_deprecated_save_load_method_errors(self):
         ax_client = AxClient()
         with self.assertRaises(NotImplementedError):
@@ -1971,3 +2040,65 @@ def _resolve_db_id(gs_to_resolve, source_gs):
         .model_kwargs["transform_configs"]["Winsorize"]["optimization_config"]
         .objective.metric._db_id
     )
+
+
+# Utility functions for testing get_model_predictions without calling
+# get_next_trial. Create Ax Client with an experiment where
+# num_initial_trials kwarg is zero. Note that this kwarg is
+# needed to be able to instantiate the model for the first time
+# without calling get_next_trial().
+def _set_up_client_for_get_model_predictions_no_next_trial():
+    ax_client = AxClient()
+    ax_client.create_experiment(
+        name="test_experiment",
+        choose_generation_strategy_kwargs={"num_initialization_trials": 0},
+        parameters=[
+            {
+                "name": "x1",
+                "type": "range",
+                "bounds": [0.0, 1.0],
+            },
+            {
+                "name": "x2",
+                "type": "range",
+                "bounds": [0.1, 1.0],
+            },
+        ],
+        objective_name="test_metric1",
+        outcome_constraints=["test_metric2 <= 1.5"],
+    )
+
+    return ax_client
+
+
+def _attach_completed_trials(ax_client):
+    # Attach completed trials
+    trial1 = {"x1": 0.1, "x2": 0.1}
+    parameters, trial_index = ax_client.attach_trial(trial1)
+    ax_client.complete_trial(
+        trial_index=trial_index, raw_data=_evaluate_test_metrics(parameters)
+    )
+
+    trial2 = {"x1": 0.2, "x2": 0.1}
+    parameters, trial_index = ax_client.attach_trial(trial2)
+    ax_client.complete_trial(
+        trial_index=trial_index, raw_data=_evaluate_test_metrics(parameters)
+    )
+
+
+def _attach_not_completed_trials(ax_client):
+    # Attach not yet completed trials
+    trial3 = {"x1": 0.3, "x2": 0.1}
+    parameters, trial_index = ax_client.attach_trial(trial3)
+
+    trial4 = {"x1": 0.4, "x2": 0.1}
+    parameters, trial_index = ax_client.attach_trial(trial4)
+
+
+# def  _attach_multi_arm_trial(ax_client):
+
+
+# Test metric evaluation method
+def _evaluate_test_metrics(parameters):
+    x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
+    return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}
