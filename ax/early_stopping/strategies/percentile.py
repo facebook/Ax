@@ -34,6 +34,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """Construct a PercentileEarlyStoppingStrategy instance.
 
         Args:
+            seconds_between_polls: How often to poll the early stopping metric to
+                evaluate whether or not the trial should be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
                 situations where early stopping uses a proxy objective (such as training
                 loss instead of eval loss) for stopping decisions.

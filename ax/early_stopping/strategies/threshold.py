@@ -21,6 +21,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
+        seconds_between_polls: int = 60,
         true_objective_metric_name: Optional[str] = None,
         metric_threshold: float = 0.2,
         min_progression: float = 10,
@@ -29,6 +30,8 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """Construct a ThresholdEarlyStoppingStrategy instance.
 
         Args:
+            seconds_between_polls: How often to poll the early stopping metric to
+                evaluate whether or not the trial should be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
                 situations where early stopping uses a proxy objective (such as training
                 loss instead of eval loss) for stopping decisions.
@@ -38,8 +41,10 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 (e.g. timestamp) is greater than this threshold.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
         """
-        super().__init__(true_objective_metric_name=true_objective_metric_name)
-
+        super().__init__(
+            seconds_between_polls=seconds_between_polls,
+            true_objective_metric_name=true_objective_metric_name,
+        )
         self.metric_threshold = metric_threshold
         self.min_progression = min_progression
         self.trial_indices_to_ignore = trial_indices_to_ignore
