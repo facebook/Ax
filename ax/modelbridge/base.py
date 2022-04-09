@@ -148,7 +148,7 @@ class ModelBridge(ABC):
 
         observations = (
             observations_from_data(
-                experiment=experiment, data=data, include_abandoned=self._fit_abandoned,
+                experiment=experiment, data=data, include_abandoned=self._fit_abandoned
             )
             if experiment is not None and data is not None
             else []
