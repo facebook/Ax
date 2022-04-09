@@ -859,7 +859,7 @@ class ModelBridge(ABC):
         """
         obs_feats = deepcopy(observation_features)
         if not isinstance(obs_feats_tmp[0], list):
-            obs_feats = [obs_feats]
+            obs_feats = [[obs] for obs in obs_feats]
 
         for t in self.transforms.values():
             for i, batch in enumerate(obs_feats):
