@@ -830,7 +830,7 @@ class ModelBridge(ABC):
         features.
 
         Args:
-            observation_features: Either a list or a list of lists of observation 
+            observation_features: Either a list or a list of lists of observation
                 features, representing parameterizations, for which to evaluate the
                 acquisition function. If a single list is passed, the acquisition
                 function is evaluated for each observation feature. If a list of lists
