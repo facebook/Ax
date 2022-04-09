@@ -381,6 +381,7 @@ def get_batch_model(
     )
     m_b.train()
     # Set mean constant
+    # pyre-fixme[16]: `Optional` has no attribute `constant`.
     m_b.mean_module.constant.requires_grad_(False)
     m_b.mean_module.constant.copy_(mean_constant_batch)
     m_b.mean_module.constant.requires_grad_(True)
