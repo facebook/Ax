@@ -11,9 +11,7 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import extract_arm_predictions
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import (
-    OptimizationConfig,
-)
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TModelPredictArm, TCandidateMetadata, TGenMetadata
@@ -482,7 +480,7 @@ class ArrayModelBridge(ModelBridge):
 
     def _evaluate_acquisition_function(
         self,
-        observation_features: List[ObservationFeatures],
+        observation_features: List[List[ObservationFeatures]],
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
         objective_thresholds: Optional[np.ndarray] = None,
@@ -499,7 +497,12 @@ class ArrayModelBridge(ModelBridge):
             objective=optimization_config.objective, outcomes=self.outcomes
         )
         return self._model_evaluate_acquisition_function(
-            X=observation_features_to_array(self.parameters, observation_features),
+            X=np.array(
+                [
+                    observation_features_to_array(self.parameters, obsf)
+                    for obsf in observation_features
+                ]
+            ),
             search_space_digest=search_space_digest,
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,

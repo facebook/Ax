@@ -9,7 +9,7 @@ from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -23,9 +23,7 @@ from ax.core.observation import (
     observations_from_data,
     separate_observations,
 )
-from ax.core.optimization_config import (
-    OptimizationConfig,
-)
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
@@ -215,10 +213,7 @@ class ModelBridge(ABC):
                 )
                 search_space = t_instance.transform_search_space(search_space)
                 obs_feats = t_instance.transform_observation_features(obs_feats)
-                obs_data = t_instance.transform_observation_data(
-                    obs_data,
-                    obs_feats,
-                )
+                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
                 self.transforms[t.__name__] = t_instance
 
         return obs_feats, obs_data, search_space
@@ -788,10 +783,7 @@ class ModelBridge(ABC):
         search_space = self._model_space.clone()
         for t in self.transforms.values():
             obs_feats = t.transform_observation_features(obs_feats)
-            obs_data = t.transform_observation_data(
-                obs_data,
-                obs_feats,
-            )
+            obs_data = t.transform_observation_data(obs_data, obs_feats)
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
@@ -824,7 +816,9 @@ class ModelBridge(ABC):
 
     def evaluate_acquisition_function(
         self,
-        observation_features: List[ObservationFeatures],
+        observation_features: Union[
+            List[ObservationFeatures], List[List[ObservationFeatures]]
+        ],
         search_space: Optional[SearchSpace] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         objective_thresholds: Optional[np.ndarray] = None,
@@ -838,8 +832,13 @@ class ModelBridge(ABC):
         features.
 
         Args:
-            observation_features: A list of observation features, representing
-                parameterizations, for which to evaluate the acquisition function.
+            observation_features: Either a list or a list of lists of observation
+                features, representing parameterizations, for which to evaluate the
+                acquisition function. If a single list is passed, the acquisition
+                function is evaluated for each observation feature. If a list of lists
+                is passed each element (itself a list of observation features)
+                represents a batch of points for which to evaluate the joint acquisition
+                value.
             search_space: Search space for fitting the model.
             optimization_config: Optimization config defining how to optimize
                 the model.
@@ -869,9 +868,15 @@ class ModelBridge(ABC):
                 "The `optimization_config` must be specified either while initializing "
                 "the ModelBridge or to the `evaluate_acquisition_function` call."
             )
-        obs_feats = deepcopy(observation_features)
+        # pyre-ignore Incompatible parameter type [9]
+        obs_feats: List[List[ObservationFeatures]] = deepcopy(observation_features)
+        if not isinstance(obs_feats[0], list):
+            obs_feats = [[obs] for obs in obs_feats]
+
         for t in self.transforms.values():
-            obs_feats = t.transform_observation_features(obs_feats)
+            for i, batch in enumerate(obs_feats):
+                obs_feats[i] = t.transform_observation_features(batch)
+
         return self._evaluate_acquisition_function(
             observation_features=obs_feats,
             search_space=search_space,
@@ -886,7 +891,7 @@ class ModelBridge(ABC):
 
     def _evaluate_acquisition_function(
         self,
-        observation_features: List[ObservationFeatures],
+        observation_features: List[List[ObservationFeatures]],
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
         objective_thresholds: Optional[np.ndarray] = None,
@@ -946,10 +951,7 @@ class ModelBridge(ABC):
         """
         obsd = deepcopy(observation_data)
         for t in self.transforms.values():
-            obsd = t.transform_observation_data(
-                obsd,
-                [],
-            )
+            obsd = t.transform_observation_data(obsd, [])
         # Apply terminal transform and return
         return self._transform_observation_data(obsd)
 

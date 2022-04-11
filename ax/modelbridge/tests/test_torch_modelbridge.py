@@ -245,10 +245,7 @@ class TorchModelBridgeTest(TestCase):
         # These attributes would've been set by `ArrayModelBridge` __init__, but it's
         # mocked.
         ma.model = mock_torch_model()
-        t = mock.MagicMock(Transform, autospec=True)
-        t.transform_observation_features.return_value = [
-            ObservationFeatures(parameters={"x": 3.0, "y": 4.0})
-        ]
+        t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
         ma.transforms = {"ExampleTransform": t}
         ma.parameters = ["x", "y"]
         model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
@@ -273,15 +270,9 @@ class TorchModelBridgeTest(TestCase):
                 observation_features=[
                     ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
                 ],
-                search_space=None,
                 optimization_config=OptimizationConfig(
                     objective=Objective(metric=Metric(name="test_metric"))
                 ),
-                objective_thresholds=None,
-                outcome_constraints=None,
-                linear_constraints=None,
-                fixed_features=None,
-                pending_observations=None,
             )
 
         self.assertEqual(acqf_vals, [5.0])
@@ -292,6 +283,59 @@ class TorchModelBridgeTest(TestCase):
         self.assertTrue(
             torch.equal(  # `call_args` is an (args, kwargs) tuple
                 model_eval_acqf.call_args[1]["X"],
-                torch.tensor([[3.0, 4.0]], dtype=torch.float64),
+                torch.tensor([[[1.0, 2.0]]], dtype=torch.float64),
+            )
+        )
+
+        # Test evaluating at multiple points.
+        # Case 1: List[ObsFeat, ObsFeat], should be 2 x 1 x d.
+        with mock.patch(
+            "ax.modelbridge.array.extract_search_space_digest",
+            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
+        ):
+            acqf_vals = ma.evaluate_acquisition_function(
+                observation_features=[
+                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+                ],
+                optimization_config=OptimizationConfig(
+                    objective=Objective(metric=Metric(name="test_metric"))
+                ),
+            )
+        t.transform_observation_features.assert_called_with(
+            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        )
+        self.assertTrue(
+            torch.equal(  # `call_args` is an (args, kwargs) tuple
+                model_eval_acqf.call_args[-1]["X"],
+                torch.tensor([[[1.0, 2.0]], [[1.0, 2.0]]], dtype=torch.float64),
+            )
+        )
+        # Case 2: List[List[ObsFeat, ObsFeat]], should be 1 x 2 x d.
+        with mock.patch(
+            "ax.modelbridge.array.extract_search_space_digest",
+            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
+        ):
+            acqf_vals = ma.evaluate_acquisition_function(
+                observation_features=[
+                    [
+                        ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+                        ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+                    ]
+                ],
+                optimization_config=OptimizationConfig(
+                    objective=Objective(metric=Metric(name="test_metric"))
+                ),
+            )
+        t.transform_observation_features.assert_called_with(
+            [
+                ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+                ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
+            ]
+        )
+        self.assertTrue(
+            torch.equal(  # `call_args` is an (args, kwargs) tuple
+                model_eval_acqf.call_args[-1]["X"],
+                torch.tensor([[[1.0, 2.0], [1.0, 2.0]]], dtype=torch.float64),
             )
         )
