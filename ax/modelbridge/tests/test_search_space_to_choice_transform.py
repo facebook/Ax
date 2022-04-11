@@ -15,8 +15,10 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class SearchSpaceToChoiceTest(TestCase):
@@ -128,3 +130,13 @@ class SearchSpaceToChoiceTest(TestCase):
         self.assertEqual(obs_ft2, self.transformed_features)
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.observation_features)
+
+    def test_w_robust_search_space(self):
+        rss = get_robust_search_space()
+        # Raises an error in __init__.
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            SearchSpaceToChoice(
+                search_space=rss,
+                observation_features=None,
+                observation_data=None,
+            )

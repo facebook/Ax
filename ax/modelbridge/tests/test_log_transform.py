@@ -10,8 +10,10 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.log import Log
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class LogTransformTest(TestCase):
@@ -81,3 +83,24 @@ class LogTransformTest(TestCase):
         self.assertEqual(
             self.search_space_with_target.parameters["x"].target_value, math.log10(3)
         )
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space(lb=1.0, use_discrete=True)
+        rss.parameters["y"].set_log_scale(True)
+        # Transform a non-distributional parameter.
+        t = Log(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        t.transform_search_space(rss)
+        self.assertFalse(rss.parameters.get("y").log_scale)
+        # Error with distributional parameter.
+        rss.parameters["x"].set_log_scale(True)
+        t = Log(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            t.transform_search_space(rss)

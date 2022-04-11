@@ -703,6 +703,12 @@ class TestRobustSearchSpace(TestCase):
             distribution_class="norm",
             distribution_parameters={"loc": 0.0, "scale": 1.0},
         )
+        env1_dist_mul = ParameterDistribution(
+            parameters=["env1"],
+            distribution_class="norm",
+            distribution_parameters={"loc": 0.0, "scale": 1.0},
+            multiplicative=True,
+        )
         env2_dist = ParameterDistribution(
             parameters=["env2"],
             distribution_class="binom",
@@ -714,6 +720,8 @@ class TestRobustSearchSpace(TestCase):
             distribution_parameters={"n": 2, "p": 0.3},
         )
         # Error handling.
+        with self.assertRaisesRegex(UserInputError, "Use SearchSpace instead."):
+            RobustSearchSpace(parameters=self.parameters, parameter_distributions=[])
         with self.assertRaisesRegex(UserInputError, "must be unique"):
             RobustSearchSpace(
                 parameters=self.parameters,
@@ -733,6 +741,14 @@ class TestRobustSearchSpace(TestCase):
                 parameters=self.parameters,
                 parameter_distributions=[env1_dist, env_choice_dist],
                 environmental_variables=[env1, env_choice],
+            )
+        with self.assertRaisesRegex(
+            UserInputError, "Distributions of environmental variables"
+        ):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[env1_dist_mul],
+                environmental_variables=[env1],
             )
         with self.assertRaisesRegex(UserInputError, "multiple parameter distributions"):
             RobustSearchSpace(
@@ -842,7 +858,8 @@ class TestRobustSearchSpace(TestCase):
             "values=['foo', 'bar', 'baz'], is_ordered=False, sort_values=False)], "
             "parameter_distributions=["
             "ParameterDistribution(parameters=['a', 'b'], "
-            "distribution_class=multivariate_normal, distribution_parameters={})], "
+            "distribution_class=multivariate_normal, distribution_parameters={}, "
+            "multiplicative=False)], "
             "environmental_variables=[], "
             "parameter_constraints=[OrderConstraint(a <= b)])"
         )

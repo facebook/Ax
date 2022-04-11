@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, RobustSearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 
@@ -54,6 +55,10 @@ class TrialAsTask(Transform):
     ) -> None:
         # Identify values of trial.
         trials = {obsf.trial_index for obsf in observation_features}
+        if isinstance(search_space, RobustSearchSpace):
+            raise UnsupportedError(
+                "TrialAsTask transform is not supported for RobustSearchSpace."
+            )
         if None in trials:
             raise ValueError(
                 "Unable to use trial as task since not all observations have "
@@ -100,7 +105,7 @@ class TrialAsTask(Transform):
                 obsf.trial_index = None
         return observation_features
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, level_dict in self.trial_level_map.items():
             level_values = sorted(set(level_dict.values()))
             if len(level_values) < 2:

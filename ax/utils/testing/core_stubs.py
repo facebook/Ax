@@ -45,7 +45,8 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
+from ax.core.parameter_distribution import ParameterDistribution
+from ax.core.search_space import SearchSpace, HierarchicalSearchSpace, RobustSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -64,6 +65,7 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
     AndEarlyStoppingStrategy,
 )
+from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import (
@@ -635,6 +637,63 @@ def get_hierarchical_search_space() -> HierarchicalSearchSpace:
             get_l2_reg_weight_parameter(),
             get_num_boost_rounds_parameter(),
         ]
+    )
+
+
+def get_robust_search_space(
+    lb: float = 0.0,
+    ub: float = 5.0,
+    multivariate: bool = False,
+    use_discrete: bool = False,
+) -> RobustSearchSpace:
+
+    parameters = [
+        RangeParameter("x", ParameterType.FLOAT, lb, ub),
+        RangeParameter("y", ParameterType.FLOAT, lb, ub),
+        RangeParameter("z", ParameterType.INT, lb, ub),
+        ChoiceParameter("c", ParameterType.STRING, ["red", "panda"]),
+    ]
+    if multivariate:
+        if use_discrete:  # pragma: no cover
+            raise UserInputError(
+                "`multivariate` and `use_discrete` are not supported together."
+            )
+        distributions = [
+            ParameterDistribution(
+                parameters=["x", "y"],
+                distribution_class="multivariate_normal",
+                distribution_parameters={"loc": 1.0, "scale": ub - lb},
+            )
+        ]
+    else:
+        distributions = []
+        distributions.append(
+            ParameterDistribution(
+                parameters=["x"],
+                distribution_class="norm",
+                distribution_parameters={"loc": 1.0, "scale": ub - lb},
+            )
+        )
+        if use_discrete:
+            distributions.append(
+                ParameterDistribution(
+                    parameters=["z"],
+                    distribution_class="binom",
+                    distribution_parameters={"n": 20, "p": 0.5},
+                )
+            )
+        else:
+            distributions.append(
+                ParameterDistribution(
+                    parameters=["y"],
+                    distribution_class="expon",
+                    distribution_parameters={},
+                )
+            )
+    return RobustSearchSpace(
+        # pyre-ignore Incompatible parameter type [6]
+        parameters=parameters,
+        parameter_distributions=distributions,
     )
 
 

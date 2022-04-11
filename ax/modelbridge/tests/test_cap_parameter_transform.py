@@ -6,8 +6,10 @@
 
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.cap_parameter import CapParameter
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class CapParameterTest(TestCase):
@@ -40,3 +42,24 @@ class CapParameterTest(TestCase):
         )
         with self.assertRaises(NotImplementedError):
             t2.transform_search_space(self.search_space)
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space()
+        # Transform a non-distributional parameter.
+        t = CapParameter(
+            search_space=rss,
+            observation_features=[],
+            observation_data=[],
+            config={"z": "2"},
+        )
+        t.transform_search_space(rss)
+        self.assertEqual(rss.parameters.get("z").upper, 2)
+        # Error with distributional parameter.
+        t = CapParameter(
+            search_space=rss,
+            observation_features=[],
+            observation_data=[],
+            config={"x": "2"},
+        )
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            t.transform_search_space(rss)

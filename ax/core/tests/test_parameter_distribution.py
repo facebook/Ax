@@ -17,7 +17,9 @@ class ParameterDistributionTest(TestCase):
             parameters=["x1"],
             distribution_class="norm",
             distribution_parameters={"loc": 0.0, "scale": 1.0},
+            multiplicative=True,
         )
+        self.assertTrue(dist.multiplicative)
         dist_obj = dist.distribution
         self.assertEqual(dist.parameters, ["x1"])
         self.assertIsInstance(dist_obj, rv_frozen)
@@ -31,7 +33,8 @@ class ParameterDistributionTest(TestCase):
             "ParameterDistribution("
             "parameters=['x1'], "
             "distribution_class=norm, "
-            "distribution_parameters={'loc': 0.0, 'scale': 1.0})"
+            "distribution_parameters={'loc': 0.0, 'scale': 1.0}, "
+            "multiplicative=True)"
         )
         self.assertEqual(str(dist), expected_repr)
 
@@ -41,5 +44,6 @@ class ParameterDistributionTest(TestCase):
             distribution_class="dummy_dist",
             distribution_parameters={},
         )
+        self.assertFalse(dist.multiplicative)
         with self.assertRaises(UserInputError):
             dist.distribution

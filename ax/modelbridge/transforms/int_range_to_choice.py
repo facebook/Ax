@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 
@@ -38,7 +38,7 @@ class IntRangeToChoice(Transform):
             if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
         }
 
-    def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
+    def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
@@ -64,12 +64,20 @@ class IntRangeToChoice(Transform):
                 )
             else:
                 transformed_parameters[p.name] = p
-        return SearchSpace(
-            parameters=list(transformed_parameters.values()),
-            parameter_constraints=[
+        new_kwargs = {
+            "parameters": list(transformed_parameters.values()),
+            "parameter_constraints": [
                 pc.clone_with_transformed_parameters(
                     transformed_parameters=transformed_parameters
                 )
                 for pc in search_space.parameter_constraints
             ],
-        )
+        }
+        if isinstance(search_space, RobustSearchSpace):
+            new_kwargs["environmental_variables"] = list(
+                search_space._environmental_variables.values()
+            )
+            # pyre-ignore Incompatible parameter type [6]
+            new_kwargs["parameter_distributions"] = search_space.parameter_distributions
+        # pyre-ignore Incompatible parameter type [6]
+        return search_space.__class__(**new_kwargs)

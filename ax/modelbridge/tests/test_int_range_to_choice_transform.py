@@ -8,9 +8,11 @@ from copy import deepcopy
 
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class IntRangeToChoiceTransformTest(TestCase):
@@ -46,3 +48,27 @@ class IntRangeToChoiceTransformTest(TestCase):
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(isinstance(ss2.parameters["a"], ChoiceParameter))
         self.assertTrue(ss2.parameters["a"].values, [1, 2, 3, 4, 5])
+
+    def test_w_robust_search_space(self):
+        rss = get_robust_search_space()
+        # Transform a non-distributional parameter.
+        t = IntRangeToChoice(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        # Make sure that the return value is still a RobustSearchSpace.
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertIsInstance(rss_new.parameters.get("z"), ChoiceParameter)
+        # Error with distributional parameter.
+        rss = get_robust_search_space(use_discrete=True)
+        t = IntRangeToChoice(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
+            t.transform_search_space(rss)
