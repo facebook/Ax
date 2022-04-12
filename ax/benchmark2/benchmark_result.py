@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import List, Tuple, Iterable
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -55,7 +55,7 @@ class AggregatedBenchmarkResult(Base):
     """
 
     name: str
-    experiments: Iterable[Experiment]
+    experiments: List[Experiment]
 
     # mean, sem columns
     optimization_trace: pd.DataFrame
