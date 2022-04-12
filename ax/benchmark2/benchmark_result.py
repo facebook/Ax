@@ -148,6 +148,17 @@ class ScoredBenchmarkResult(AggregatedBenchmarkResult):
     baseline_result: AggregatedBenchmarkResult
     score: np.ndarray
 
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if not isinstance(other, ScoredBenchmarkResult):
+            return False
+
+        return (
+            super().__eq__(other)
+            and self.baseline_result == other.baseline_result
+            and (self.score == other.score).all()
+        )
+
     @classmethod
     def from_result_and_baseline(
         cls,

@@ -17,6 +17,7 @@ from ax.benchmark2.benchmark_problem import (
     BenchmarkProblem as Benchmark2Problem,
 )
 from ax.benchmark2.benchmark_result import (
+    ScoredBenchmarkResult,
     AggregatedBenchmarkResult,
     BenchmarkResult,
 )
@@ -142,7 +143,7 @@ def get_benchmark_result() -> BenchmarkResult:
             runner=problem.runner,
             is_test=True,
         ),
-        optimization_trace=np.array([3, 2, 1, 0]),
+        optimization_trace=np.array([3, 2, 1, 0.1]),
         fit_time=0.1,
         gen_time=0.2,
     )
@@ -151,3 +152,10 @@ def get_benchmark_result() -> BenchmarkResult:
 def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
     result = get_benchmark_result()
     return AggregatedBenchmarkResult.from_benchmark_results([result, result])
+
+
+def get_scored_benchmark_result() -> ScoredBenchmarkResult:
+    result = get_aggregated_benchmark_result()
+    return ScoredBenchmarkResult.from_result_and_baseline(
+        aggregated_result=result, baseline_result=result, optimum=0
+    )

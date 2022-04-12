@@ -40,6 +40,7 @@ from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
+    get_scored_benchmark_result,
     get_branin_simple_benchmark_problem,
     get_mult_simple_benchmark_problem,
     get_sum_simple_benchmark_problem,
@@ -171,6 +172,7 @@ TEST_CASES = [
     ("ScalarizedObjective", get_scalarized_objective),
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
+    ("ScoredBenchmarkResult", get_scored_benchmark_result),
     ("SearchSpace", get_search_space),
     ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
     ("SimpleBenchmarkProblem", get_branin_simple_benchmark_problem),

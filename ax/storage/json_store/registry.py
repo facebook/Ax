@@ -14,6 +14,7 @@ from ax.benchmark2.benchmark_problem import (
     BenchmarkProblem,
 )
 from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark2.benchmark_result import ScoredBenchmarkResult
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -255,6 +256,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
+    "ScoredBenchmarkResult": ScoredBenchmarkResult,
     "SearchSpace": SearchSpace,
     "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
