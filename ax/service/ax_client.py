@@ -425,6 +425,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @retry_on_exception(
         logger=logger,
         exception_types=(RuntimeError,),
+        check_message_contains=["Cholesky", "cholesky"],
         suppress_all_errors=False,
         wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
     )
