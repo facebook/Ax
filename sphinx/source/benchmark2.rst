@@ -42,3 +42,19 @@ Benchmark
     :members:
     :undoc-members:
     :show-inheritance:
+
+Benchmark Methods Modular BoTorch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark2.methods.modular_botorch
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems Synthetic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark2.problems.synthetic
+    :members:
+    :undoc-members:
+    :show-inheritance:
