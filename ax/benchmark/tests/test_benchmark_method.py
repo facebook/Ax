@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.benchmark2.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStrategy, GenerationStep
 from ax.modelbridge.registry import Models

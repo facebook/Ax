@@ -6,14 +6,14 @@
 
 from typing import Any, Callable, Dict, Type
 
-from ax.benchmark2.benchmark_method import BenchmarkMethod
-from ax.benchmark2.benchmark_problem import (
+from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
     BenchmarkProblem,
 )
-from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark2.benchmark_result import ScoredBenchmarkResult
+from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_result import ScoredBenchmarkResult
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus

@@ -7,11 +7,11 @@ import json
 import os
 from typing import Tuple
 
-from ax.benchmark2.benchmark_problem import (
+from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
-from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult
+from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 from ax.storage.json_store.decoder import object_from_json
 from botorch.test_functions.synthetic import Branin, Ackley
 
