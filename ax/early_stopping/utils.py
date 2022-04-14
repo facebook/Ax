@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import defaultdict
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 from ax.utils.common.logger import get_logger

@@ -9,13 +9,13 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import partial
 from typing import (
-    TYPE_CHECKING,
     Callable,
     Dict,
     List,
     MutableMapping,
     Optional,
     Tuple,
+    TYPE_CHECKING,
     Union,
 )
 
@@ -28,8 +28,8 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
-    TRefPoint,
     OptimizationConfig,
+    TRefPoint,
 )
 from ax.core.outcome_constraint import (
     ComparisonOp,
@@ -44,14 +44,14 @@ from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.frontier_utils import (
-    get_weighted_mc_objective_and_objective_thresholds,
     get_default_frontier_evaluator,
+    get_weighted_mc_objective_and_objective_thresholds,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast_optional,
-    not_none,
     checked_cast_to_tuple,
+    not_none,
 )
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,

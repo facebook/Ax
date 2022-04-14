@@ -17,9 +17,9 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.power_transform_y import (
-    PowerTransformY,
-    _compute_power_transforms,
     _compute_inverse_bounds,
+    _compute_power_transforms,
+    PowerTransformY,
 )
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase

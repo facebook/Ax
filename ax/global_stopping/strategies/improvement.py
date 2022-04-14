@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from logging import Logger
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 from ax.core.base_trial import TrialStatus

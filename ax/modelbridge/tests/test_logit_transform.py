@@ -9,12 +9,11 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UnsupportedError
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.logit import Logit
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_search_space
-from scipy.special import logit, expit
+from scipy.special import expit, logit
 
 
 class LogitTransformTest(TestCase):

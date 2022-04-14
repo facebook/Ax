@@ -9,29 +9,26 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
-from ax.core.observation import ObservationFeatures, ObservationData
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
     get_pareto_frontier_and_configs,
+    observed_hypervolume,
+    observed_pareto_frontier,
     pareto_frontier,
     predicted_hypervolume,
     predicted_pareto_frontier,
-    observed_hypervolume,
-    observed_pareto_frontier,
 )
-from ax.modelbridge.registry import Cont_X_trans, Y_trans, ST_MTGP_trans
+from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
+    pareto_frontier_evaluator,
 )
-from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (

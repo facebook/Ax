@@ -14,7 +14,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TModelPredictArm, TCandidateMetadata, TGenMetadata
+from ax.core.types import TCandidateMetadata, TGenMetadata, TModelPredictArm
 from ax.modelbridge.base import gen_arms, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
@@ -27,8 +27,8 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array,
-    transform_callback,
     SearchSpaceDigest,
+    transform_callback,
 )
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none

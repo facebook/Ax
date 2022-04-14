@@ -15,7 +15,7 @@ import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun, extract_arm_predictions
+from ax.core.generator_run import extract_arm_predictions, GeneratorRun
 from ax.core.observation import (
     Observation,
     ObservationData,

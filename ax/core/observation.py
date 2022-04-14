@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from typing import Iterable, List, Optional, Tuple, Dict
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd

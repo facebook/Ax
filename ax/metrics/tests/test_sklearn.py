@@ -12,11 +12,7 @@ from unittest import mock
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
-from ax.metrics.sklearn import (
-    SklearnMetric,
-    SklearnDataset,
-    SklearnModelType,
-)
+from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
 from sklearn.ensemble import RandomForestClassifier

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional, List, Iterable, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp

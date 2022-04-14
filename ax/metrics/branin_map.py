@@ -9,12 +9,12 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from random import random
-from typing import Mapping, Iterable, Any, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapKeyInfo, MapData
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin

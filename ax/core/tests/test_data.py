@@ -8,9 +8,9 @@ import random
 
 import pandas as pd
 from ax.core.data import (
-    Data,
     clone_without_metrics,
     custom_data_class,
+    Data,
     set_single_trial,
 )
 from ax.utils.common.testutils import TestCase

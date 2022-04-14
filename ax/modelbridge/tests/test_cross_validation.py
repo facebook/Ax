@@ -12,20 +12,20 @@ from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
-    OptimizationConfig,
     MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.modelbridge.cross_validation import (
-    CVResult,
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
     cross_validate_by_trial,
+    CVDiagnostics,
+    CVResult,
     has_good_opt_config_model_fit,
     SingleDiagnosticBestModelSelector,
-    CVDiagnostics,
 )
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase

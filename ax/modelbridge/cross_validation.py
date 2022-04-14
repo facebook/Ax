@@ -8,14 +8,14 @@ from collections import defaultdict
 from enum import Enum
 from functools import partial
 from numbers import Number
-from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Any
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
-from scipy.stats import fisher_exact, pearsonr, spearmanr, norm
+from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
 
 logger = get_logger(__name__)
 

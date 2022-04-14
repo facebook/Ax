@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from types import FunctionType
-from typing import List, Optional, Tuple, Union, cast
+from typing import cast, List, Optional, Tuple, Union
 
 from ax.core.optimization_config import (
-    OptimizationConfig,
     MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
 )
 from ax.core.search_space import SearchSpace
 from ax.service.utils.instantiation import TParameterRepresentation

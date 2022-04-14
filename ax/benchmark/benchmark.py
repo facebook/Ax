@@ -47,10 +47,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.measurement.synthetic_functions import SyntheticFunction
 from ax.utils.testing.backend_scheduler import AsyncSimulatedBackendScheduler
-from ax.utils.testing.backend_simulator import (
-    BackendSimulator,
-    BackendSimulatorOptions,
-)
+from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 
 logger = get_logger(__name__)
 

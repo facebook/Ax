@@ -6,18 +6,18 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import (
-    TYPE_CHECKING,
     DefaultDict,
     Dict,
     List,
     MutableMapping,
     Optional,
     Set,
+    TYPE_CHECKING,
     Union,
 )
 

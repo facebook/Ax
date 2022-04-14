@@ -4,14 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, cast
+from typing import cast, List
 from unittest.mock import patch
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.parameter import FixedParameter, Parameter, ParameterType, ChoiceParameter
+from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import (
@@ -29,7 +29,7 @@ from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Cont_X_trans, Models
+from ax.modelbridge.registry import Cont_X_trans, MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase

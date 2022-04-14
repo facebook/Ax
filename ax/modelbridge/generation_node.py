@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from ax.core.data import Data  # Perhaps need to use `AbstractDataFrameData`?
 from ax.core.experiment import Experiment
@@ -17,11 +17,9 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.cross_validation import CVResult, CVDiagnostics, BestModelSelector
-from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
-from ax.modelbridge.registry import (
-    ModelRegistryBase,
-)
+from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
+from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
+from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 

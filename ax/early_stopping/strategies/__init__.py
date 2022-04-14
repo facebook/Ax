@@ -11,8 +11,8 @@ from ax.early_stopping.strategies.base import (
 )
 from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
-    OrEarlyStoppingStrategy,
     LogicalEarlyStoppingStrategy,
+    OrEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy

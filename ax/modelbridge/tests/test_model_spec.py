@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
+from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

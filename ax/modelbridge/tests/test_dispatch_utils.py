@@ -8,8 +8,8 @@ import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.dispatch_utils import (
-    DEFAULT_BAYESIAN_PARALLELISM,
     choose_generation_strategy,
+    DEFAULT_BAYESIAN_PARALLELISM,
 )
 from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.utils.common.testutils import TestCase

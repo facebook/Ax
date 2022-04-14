@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Callable
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 import pandas as pd

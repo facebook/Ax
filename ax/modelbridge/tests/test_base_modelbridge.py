@@ -22,10 +22,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import (
-    ModelBridge,
-    gen_arms,
-    unwrap_observation_data,
     clamp_observation_features,
+    gen_arms,
+    ModelBridge,
+    unwrap_observation_data,
 )
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.log import Log
@@ -35,10 +35,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
     get_experiment,
-    get_non_monolithic_branin_moo_data,
-)
-from ax.utils.testing.core_stubs import (
     get_experiment_with_repeated_arms,
+    get_non_monolithic_branin_moo_data,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
     get_search_space_for_range_values,

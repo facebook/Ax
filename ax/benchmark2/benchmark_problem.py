@@ -9,8 +9,8 @@ from typing import List
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
-    ObjectiveThreshold,
     MultiObjectiveOptimizationConfig,
+    ObjectiveThreshold,
     OptimizationConfig,
 )
 from ax.core.parameter import ParameterType, RangeParameter

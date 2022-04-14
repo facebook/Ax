@@ -6,7 +6,7 @@
 
 import math
 from time import sleep
-from unittest.mock import PropertyMock, patch
+from unittest.mock import patch, PropertyMock
 
 import numpy as np
 from ax.core.arm import Arm

@@ -20,10 +20,7 @@ from ax.core.trial import Trial
 from ax.core.utils import best_feasible_objective, feasible_hypervolume, get_model_times
 from ax.plot.base import AxPlotConfig
 from ax.plot.pareto_frontier import plot_multiple_pareto_frontiers
-from ax.plot.pareto_utils import (
-    get_observed_pareto_frontiers,
-    ParetoFrontierResults,
-)
+from ax.plot.pareto_utils import get_observed_pareto_frontiers, ParetoFrontierResults
 from ax.plot.render import plot_config_to_html
 from ax.plot.trace import (
     optimization_times,

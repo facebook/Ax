@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, Optional, Tuple, Type, TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase

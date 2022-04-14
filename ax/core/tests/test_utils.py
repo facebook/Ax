@@ -8,19 +8,19 @@ import numpy as np
 import pandas as pd
 from ax.core.data import Data
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint, ObjectiveThreshold
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
-    MissingMetrics,
     best_feasible_objective,
+    feasible_hypervolume,
     get_missing_metrics,
     get_missing_metrics_by_name,
-    feasible_hypervolume,
+    MissingMetrics,
 )
 from ax.utils.common.testutils import TestCase
 

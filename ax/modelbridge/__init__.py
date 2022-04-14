@@ -8,12 +8,12 @@
 from ax.modelbridge import transforms
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.factory import (
-    Models,
     get_factorial,
     get_GPEI,
     get_sobol,
     get_thompson,
     get_uniform,
+    Models,
 )
 from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.torch import TorchModelBridge

@@ -14,7 +14,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase

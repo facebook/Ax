@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Tuple, List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,17 +12,19 @@ from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ObjectiveThreshold
-from ax.core.parameter import RangeParameter, ParameterType
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.improvement import (
-    ImprovementGlobalStoppingStrategy,
     constraint_satisfaction,
+    ImprovementGlobalStoppingStrategy,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data

@@ -23,12 +23,12 @@ from ax.core.outcome_constraint import (
 )
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.winsorize import (
-    AUTO_WINS_QUANTILE,
-    WinsorizationConfig,
-    Winsorize,
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,
     _get_tukey_cutoffs,
+    AUTO_WINS_QUANTILE,
+    WinsorizationConfig,
+    Winsorize,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_optimization_config

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Set, Dict, Tuple
+from typing import Dict, Set, Tuple
 
 import numpy as np
 from ax.core.observation import ObservationFeatures

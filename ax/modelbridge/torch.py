@@ -12,18 +12,18 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
-    TRefPoint,
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
+    TRefPoint,
 )
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.modelbridge.array import FIT_MODEL_ERROR, ArrayModelBridge
+from ax.modelbridge.array import ArrayModelBridge, FIT_MODEL_ERROR
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
-    validate_and_apply_final_transform,
     SearchSpaceDigest,
+    validate_and_apply_final_transform,
 )
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.model import BoTorchModel
