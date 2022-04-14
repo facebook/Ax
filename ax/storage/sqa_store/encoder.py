@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type, cast
+from typing import Any, cast, Dict, List, Optional, Tuple, Type
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial

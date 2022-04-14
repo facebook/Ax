@@ -12,14 +12,14 @@ import numpy as np
 from ax.benchmark.benchmark_problem import BenchmarkProblem, SimpleBenchmarkProblem
 from ax.benchmark2.benchmark_method import BenchmarkMethod
 from ax.benchmark2.benchmark_problem import (
+    BenchmarkProblem as Benchmark2Problem,
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
-    BenchmarkProblem as Benchmark2Problem,
 )
 from ax.benchmark2.benchmark_result import (
-    ScoredBenchmarkResult,
     AggregatedBenchmarkResult,
     BenchmarkResult,
+    ScoredBenchmarkResult,
 )
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy

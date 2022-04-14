@@ -6,15 +6,14 @@
 
 
 from collections import OrderedDict
-from datetime import timedelta, datetime
-from typing import Set, Any, Dict, Iterable, List, MutableMapping, Optional, Type, cast
+from datetime import datetime, timedelta
+from typing import Any, cast, Dict, Iterable, List, MutableMapping, Optional, Set, Type
 
 import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -46,7 +45,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.search_space import SearchSpace, HierarchicalSearchSpace, RobustSearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -62,15 +61,13 @@ from ax.early_stopping.strategies import (
     ThresholdEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.logical import (
-    OrEarlyStoppingStrategy,
     AndEarlyStoppingStrategy,
+    OrEarlyStoppingStrategy,
 )
 from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
-from ax.metrics.branin_map import (
-    BraninTimestampMapMetric,
-)
+from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol

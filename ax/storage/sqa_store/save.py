@@ -13,14 +13,14 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.db import SQABase, session_scope
+from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_classes import (
-    SQATrial,
     SQAData,
     SQAGeneratorRun,
     SQARunner,
+    SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids

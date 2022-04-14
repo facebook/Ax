@@ -13,10 +13,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.runners.simulated_backend import SimulatedBackendRunner
-from ax.service.scheduler import (
-    Scheduler,
-    SchedulerOptions,
-)
+from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.backend_simulator import BackendSimulator

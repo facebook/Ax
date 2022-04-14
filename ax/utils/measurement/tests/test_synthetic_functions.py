@@ -7,10 +7,10 @@
 import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import (
-    FromBotorch,
     aug_branin,
     aug_hartmann6,
     branin,
+    FromBotorch,
     hartmann6,
 )
 from botorch.test_functions import synthetic as botorch_synthetic

@@ -18,10 +18,10 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.storage.sqa_store.db import (
+    Base,
     LONG_STRING_FIELD_LENGTH,
     LONGTEXT_BYTES,
     NAME_OR_TYPE_FIELD_LENGTH,
-    Base,
 )
 from ax.storage.sqa_store.json import (
     JSONEncodedDict,

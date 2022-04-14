@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from math import ceil
-from typing import Any, List, Optional, Type, cast
+from typing import Any, cast, List, Optional, Type
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun

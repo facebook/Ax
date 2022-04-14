@@ -9,7 +9,7 @@
 import logging
 import os
 from functools import wraps
-from typing import Any, Callable, TypeVar, Iterable
+from typing import Any, Callable, Iterable, TypeVar
 
 AX_ROOT_LOGGER_NAME = "ax"
 DEFAULT_LOG_LEVEL: int = logging.INFO

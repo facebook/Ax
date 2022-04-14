@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, List, Callable, TypeVar
+from typing import Any, Callable, List, TypeVar
 
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS

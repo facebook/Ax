@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Type
 
@@ -20,10 +20,10 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.registry import (
-    CORE_ENCODER_REGISTRY,
+    CORE_CLASS_DECODER_REGISTRY,
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_DECODER_REGISTRY,
-    CORE_CLASS_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
 )
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
