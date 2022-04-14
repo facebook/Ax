@@ -371,9 +371,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self._set_generation_strategy(
             choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
         )
-        self._save_generation_strategy_to_db_if_possible(
-            generation_strategy=self.generation_strategy,
-        )
+        self._save_generation_strategy_to_db_if_possible()
 
     @property
     def status_quo(self) -> TParameterization:
@@ -1022,9 +1020,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
-            self._save_generation_strategy_to_db_if_possible(
-                generation_strategy=self.generation_strategy,
-            )
+            self._save_generation_strategy_to_db_if_possible()
         else:
             self._generation_strategy = generation_strategy
             logger.info(
@@ -1526,6 +1522,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 experiment=self.experiment,
                 **choose_generation_strategy_kwargs,
             )
+
+    def _save_generation_strategy_to_db_if_possible(
+        self,
+        generation_strategy: Optional[GenerationStrategy] = None,
+        suppress_all_errors: bool = False,
+    ) -> bool:
+        return super()._save_generation_strategy_to_db_if_possible(
+            generation_strategy=generation_strategy or self.generation_strategy,
+            suppress_all_errors=suppress_all_errors,
+        )
 
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
         """Generate new generator run for this experiment.
