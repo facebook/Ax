@@ -20,13 +20,13 @@ from time import time
 from typing import Tuple, List, Iterable
 
 import numpy as np
-from ax.benchmark2.benchmark_method import BenchmarkMethod
-from ax.benchmark2.benchmark_problem import (
+from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
     BenchmarkProblem,
 )
-from ax.benchmark2.benchmark_result import (
+from ax.benchmark.benchmark_result import (
     ScoredBenchmarkResult,
     BenchmarkResult,
     AggregatedBenchmarkResult,

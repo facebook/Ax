@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.benchmark2.benchmark import (
+from ax.benchmark.benchmark import (
     benchmark_scored_full_run,
     get_sobol_baseline,
     benchmark_replication,

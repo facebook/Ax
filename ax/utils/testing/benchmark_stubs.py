@@ -5,13 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
-from ax.benchmark2.benchmark_method import BenchmarkMethod
-from ax.benchmark2.benchmark_problem import (
+from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
-    BenchmarkProblem as Benchmark2Problem,
+    BenchmarkProblem,
 )
-from ax.benchmark2.benchmark_result import (
+from ax.benchmark.benchmark_result import (
     ScoredBenchmarkResult,
     AggregatedBenchmarkResult,
     BenchmarkResult,
@@ -29,8 +29,8 @@ from botorch.test_functions.synthetic import Branin
 
 
 # Benchmark2
-def get_benchmark_problem() -> Benchmark2Problem:
-    return Benchmark2Problem.from_botorch(test_problem=Branin())
+def get_benchmark_problem() -> BenchmarkProblem:
+    return BenchmarkProblem.from_botorch(test_problem=Branin())
 
 
 def get_single_objective_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
