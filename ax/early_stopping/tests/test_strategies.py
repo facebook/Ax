@@ -16,6 +16,7 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.early_stopping.utils import align_partial_results
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
@@ -185,6 +186,118 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
+
+    def test_percentile_early_stopping_strategy_non_objective_metric(self):
+        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        map_metric = exp.optimization_config.objective.metric
+        exp._optimization_config = None
+        exp.add_tracking_metric(map_metric)
+
+        for i in range(5):
+            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        for _ in range(3):
+            # each time we call fetch, we grab another timestamp
+            exp.fetch_data()
+
+        for i in range(5):
+            # only mark the first 4 complete
+            trial = exp.trials[i]
+            if i < 4:
+                trial.mark_as(status=TrialStatus.COMPLETED)
+
+        exp.attach_data(data=exp.fetch_data())
+
+        """
+        Data looks like this:
+        arm_name metric_name        mean  sem  trial_index  timestamp
+        0       0_0      branin  146.138620  0.0            0          0
+        1       0_0      branin  117.388086  0.0            0          1
+        2       0_0      branin   99.950007  0.0            0          2
+        3       1_0      branin  113.057480  0.0            1          0
+        4       1_0      branin   90.815154  0.0            1          1
+        5       1_0      branin   77.324501  0.0            1          2
+        6       2_0      branin   44.627226  0.0            2          0
+        7       2_0      branin   35.847504  0.0            2          1
+        8       2_0      branin   30.522333  0.0            2          2
+        9       3_0      branin  143.375669  0.0            3          0
+        10      3_0      branin  115.168704  0.0            3          1
+        11      3_0      branin   98.060315  0.0            3          2
+        12      4_0      branin   65.033535  0.0            4          0
+        13      4_0      branin   52.239184  0.0            4          1
+        14      4_0      branin   44.479018  0.0            4          2
+
+        Looking at the most recent fidelity only (timestamp==2), we have
+        the following metric values for each trial:
+        0: 99.950007 <-- worst
+        3: 98.060315
+        1: 77.324501
+        4: 44.479018
+        2: 30.522333 <-- best
+        """
+        idcs = set(exp.trials.keys())
+
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"], percentile_threshold=25, min_curves=4
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0})
+
+        # test ignore trial indices
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"],
+            percentile_threshold=25,
+            min_curves=4,
+            trial_indices_to_ignore={0},
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"], percentile_threshold=50, min_curves=4
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 3})
+
+        # respect trial_indices argument
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices={0}, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0})
+
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"], percentile_threshold=75, min_curves=4
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 3, 1})
+
+        # not enough completed trials
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_names=["branin_map"], percentile_threshold=75, min_curves=5
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "PercentileEarlyStoppingStrategy only supports a single metric.",
+        ):
+            early_stopping_strategy = PercentileEarlyStoppingStrategy(
+                metric_names=["branin_map", "foo"],
+                percentile_threshold=75,
+                min_curves=5,
+            )
 
     def test_early_stopping_with_unaligned_results(self):
         # test case 1

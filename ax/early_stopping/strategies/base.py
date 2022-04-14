@@ -7,13 +7,12 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Any, Dict, Optional, Set, Tuple
+from typing import Iterable, List, Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.observation import observations_from_map_data
-from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.modelbridge_utils import (
     observation_data_to_array,
     observation_features_to_array,
@@ -43,12 +42,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def __init__(
         self,
+        metric_names: Optional[Iterable[str]] = None,
         seconds_between_polls: int = 60,
         true_objective_metric_name: Optional[str] = None,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
         Args:
+            metric_names: The names of the metrics the strategy will interact with.
+                If no metric names are provided the objective metric is assumed.
             seconds_between_polls: How often to poll the early stopping metric to
                 evaluate whether or not the trial should be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
@@ -57,6 +59,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         if seconds_between_polls < 0:
             raise ValueError("`seconds_between_polls may not be less than 0.")
+        self.metric_names = metric_names
         self.seconds_between_polls = seconds_between_polls
         self.true_objective_metric_name = true_objective_metric_name
 
@@ -84,14 +87,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def _check_validity_and_get_data(self, experiment: Experiment) -> Optional[MapData]:
         """Validity checks and returns the `MapData` used for early stopping."""
-        if experiment.optimization_config is None:
-            raise UnsupportedError(  # pragma: no cover
-                "Experiment must have an optimization config in order to use an "
-                "early stopping strategy."
-            )
-
-        optimization_config = not_none(experiment.optimization_config)
-        objective_name = optimization_config.objective.metric.name
+        if self.metric_names is None:
+            optimization_config = not_none(experiment.optimization_config)
+            metric_names = [optimization_config.objective.metric.name]
+        else:
+            metric_names = self.metric_names
 
         data = experiment.lookup_data()
         if data.df.empty:
@@ -100,12 +100,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 "Not stopping any trials."
             )
             return None
-        if objective_name not in set(data.df["metric_name"]):
-            logger.info(
-                f"{self.__class__.__name__} did not receive data "
-                "from the objective metric. Not stopping any trials."
-            )
-            return None
+        for metric_name in metric_names:
+            if metric_name not in set(data.df["metric_name"]):
+                logger.info(
+                    f"{self.__class__.__name__} did not receive data "
+                    "from the objective metric. Not stopping any trials."
+                )
+                return None
 
         if not isinstance(data, MapData):
             logger.info(

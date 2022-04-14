@@ -188,7 +188,10 @@ def get_branin_experiment_with_timestamp_map_metric(
         optimization_config=OptimizationConfig(
             objective=Objective(
                 metric=BraninTimestampMapMetric(
-                    name="branin_map", param_names=["x1", "x2"], rate=rate
+                    name="branin_map",
+                    param_names=["x1", "x2"],
+                    rate=rate,
+                    lower_is_better=True,
                 ),
                 minimize=True,
             )
@@ -1467,6 +1470,16 @@ def get_percentile_early_stopping_strategy_with_true_objective_metric_name() -> 
     strategy = get_percentile_early_stopping_strategy()
     strategy.true_objective_metric_name = "true_objective"
     return strategy
+
+
+def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
+    return PercentileEarlyStoppingStrategy(
+        metric_names=["foo"],
+        percentile_threshold=0.25,
+        min_progression=0.2,
+        min_curves=10,
+        trial_indices_to_ignore=[0, 1, 2],
+    )
 
 
 def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
