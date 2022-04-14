@@ -5,16 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 import datetime
-import pickle
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
-from typing import Callable, Any, Dict, List, Tuple, Type, cast, Optional
+from typing import Callable, Any, Dict, List, Type, Optional
 
 import numpy as np
 import pandas as pd
 import torch
-from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -45,9 +43,6 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
 )
 from ax.utils.common.typeutils import not_none, torch_type_from_str
-from ax.utils.measurement import synthetic_functions
-from ax.utils.measurement.synthetic_functions import from_botorch
-from botorch.test_functions import synthetic as botorch_synthetic
 from torch.nn import Module
 
 
@@ -197,12 +192,6 @@ def object_from_json(
         elif _class == SearchSpace:
             return search_space_from_json(
                 search_space_json=object_json,
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-        elif _class == SimpleBenchmarkProblem:
-            return simple_benchmark_problem_from_json(
-                object_json=object_json,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
@@ -658,42 +647,6 @@ def generation_strategy_from_json(
 
         gs._restore_model_from_generator_run()
     return gs
-
-
-def simple_benchmark_problem_from_json(
-    object_json: Dict[str, Any],
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
-) -> SimpleBenchmarkProblem:
-    """Load a benchmark problem from JSON."""
-    uses_synthetic_function = object_json.pop("uses_synthetic_function")
-    if uses_synthetic_function:
-        function_name = object_json.pop("function_name")
-        from_botorch_prefix = synthetic_functions.FromBotorch.__name__
-        if function_name.startswith(from_botorch_prefix):
-            botorch_function_name = function_name.replace(f"{from_botorch_prefix}_", "")
-            botorch_function = getattr(botorch_synthetic, botorch_function_name)()
-            f = from_botorch(botorch_function)
-        else:
-            f = getattr(synthetic_functions, function_name)()
-    else:
-        f = pickle.loads(object_json.pop("f").encode())
-    domain = object_from_json(
-        object_json.pop("domain"),
-        decoder_registry=decoder_registry,
-        class_decoder_registry=class_decoder_registry,
-    )
-    assert isinstance(domain, list) and all(
-        isinstance(x, (tuple, list)) for x in domain
-    )
-    return SimpleBenchmarkProblem(
-        f=f,
-        name=object_json.pop("name"),
-        domain=cast(List[Tuple[float, float]], domain),
-        minimize=object_json.pop("minimize"),
-    )
 
 
 def runner_from_json(
