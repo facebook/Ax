@@ -6,7 +6,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Iterable, Tuple, Union, Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -24,8 +24,8 @@ from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
 from ax.plot.pareto_frontier import (
-    scatter_plot_with_pareto_frontier_plotly,
     _pareto_frontier_plot_input_processing,
+    scatter_plot_with_pareto_frontier_plotly,
 )
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics

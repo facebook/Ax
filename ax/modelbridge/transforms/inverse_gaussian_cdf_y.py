@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace

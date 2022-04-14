@@ -21,9 +21,9 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import (
+    _register_acqf_input_constructor,
     ACQF_INPUT_CONSTRUCTOR_REGISTRY,
     get_acqf_input_constructor,
-    _register_acqf_input_constructor,
 )
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (

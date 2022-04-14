@@ -9,7 +9,7 @@ import datetime
 import enum
 from collections import OrderedDict
 from inspect import isclass
-from typing import Callable, Type, Dict, Any
+from typing import Any, Callable, Dict, Type
 
 import numpy as np
 import pandas as pd

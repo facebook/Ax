@@ -11,8 +11,7 @@ from typing import List, Optional, Tuple, Type
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.exceptions.core import ObjectNotFoundError
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -32,9 +31,9 @@ try:  # We don't require SQLAlchemy by default.
         _load_generation_strategy_by_experiment_name,
     )
     from ax.storage.sqa_store.save import (
-        _save_or_update_trials,
         _save_experiment,
         _save_generation_strategy,
+        _save_or_update_trials,
         _update_generation_strategy,
         update_properties_on_experiment,
     )

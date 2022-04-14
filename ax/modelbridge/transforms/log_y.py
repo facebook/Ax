@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import torch
@@ -20,8 +20,9 @@ from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
-from botorch.acquisition.objective import ConstrainedMCObjective, MCAcquisitionObjective
 from botorch.acquisition.objective import (
+    ConstrainedMCObjective,
+    MCAcquisitionObjective,
     PosteriorTransform,
     ScalarizedPosteriorTransform,
 )

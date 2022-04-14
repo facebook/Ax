@@ -4,10 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import importlib
-from typing import Set, Iterable, Any, Dict
+from typing import Any, Dict, Iterable, Set
 
 import torch
-from ax.core.base_trial import TrialStatus, BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker

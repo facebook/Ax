@@ -6,8 +6,8 @@
 from ax.service.utils import early_stopping as early_stopping_utils
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment,
     DummyEarlyStoppingStrategy,
+    get_branin_experiment,
 )
 
 

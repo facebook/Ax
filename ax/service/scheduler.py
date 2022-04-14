@@ -14,6 +14,7 @@ from logging import LoggerAdapter
 from time import sleep
 from typing import (
     Any,
+    cast,
     Dict,
     Generator,
     Iterable,
@@ -23,7 +24,6 @@ from typing import (
     Set,
     Tuple,
     Type,
-    cast,
 )
 
 import ax.service.utils.early_stopping as early_stopping_utils
@@ -40,11 +40,11 @@ from ax.core.optimization_config import (
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import (
-    UserInputError,
     AxError,
     DataRequiredError,
     OptimizationComplete,
     UnsupportedError,
+    UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -60,8 +60,8 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
     build_file_handler,
     get_logger,
-    set_stderr_log_level,
     make_indices_str,
+    set_stderr_log_level,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none

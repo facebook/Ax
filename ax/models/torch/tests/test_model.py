@@ -20,15 +20,15 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.input_constructors import (
-    get_acqf_input_constructor,
     _register_acqf_input_constructor,
+    get_acqf_input_constructor,
 )
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
-from botorch.models.gp_regression import SingleTaskGP, FixedNoiseGP
+from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.sampling.samplers import SobolQMCNormalSampler

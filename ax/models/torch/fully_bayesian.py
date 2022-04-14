@@ -36,30 +36,29 @@ import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
+    TAcqfConstructor,
+    TBestPointRecommender,
     TModelConstructor,
     TModelPredictor,
-    TAcqfConstructor,
     TOptimizer,
-    TBestPointRecommender,
 )
 from ax.models.torch.botorch_defaults import (
     get_NEI,
+    MIN_OBSERVED_NOISE_LEVEL,
     recommend_best_observed_point,
     scipy_optimizer,
-    MIN_OBSERVED_NOISE_LEVEL,
 )
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
-from ax.models.torch.botorch_moo_defaults import get_NEHVI
-from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
+from ax.models.torch.botorch_moo_defaults import get_NEHVI, pareto_frontier_evaluator
 from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.fully_bayesian_model_utils import (
-    pyro_sample_outputscale,
     _get_single_task_gpytorch_model,
+    load_mcmc_samples_to_model,
+    pyro_sample_input_warping,
     pyro_sample_mean,
     pyro_sample_noise,
+    pyro_sample_outputscale,
     pyro_sample_saas_lengthscales,
-    pyro_sample_input_warping,
-    load_mcmc_samples_to_model,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -387,7 +386,7 @@ def run_inference(
 ) -> Dict[str, Tensor]:
     start = time.time()
     try:
-        from pyro.infer.mcmc import NUTS, MCMC
+        from pyro.infer.mcmc import MCMC, NUTS
         from pyro.infer.mcmc.util import print_summary
     except ImportError:  # pragma: no cover
         raise RuntimeError("Cannot call run_inference without pyro installed!")

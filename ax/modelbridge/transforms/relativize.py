@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import warnings
 from math import sqrt
-from typing import Dict, List, TYPE_CHECKING, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures

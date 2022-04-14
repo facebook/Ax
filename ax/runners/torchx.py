@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import inspect
-from typing import Any, Callable, Dict, Mapping, Optional, Set, Iterable
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set
 
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 
 try:
-    from torchx.runner import Runner as torchx_Runner, get_runner
+    from torchx.runner import get_runner, Runner as torchx_Runner
     from torchx.specs import AppDef, AppState, AppStatus, CfgVal
 
     TORCHX_APP_HANDLE: str = "torchx_app_handle"

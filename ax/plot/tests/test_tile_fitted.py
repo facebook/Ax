@@ -17,8 +17,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
-    get_search_space,
     get_experiment_with_data,
+    get_search_space,
 )
 from ax.utils.testing.modeling_stubs import get_observation
 

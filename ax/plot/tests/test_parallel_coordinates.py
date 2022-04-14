@@ -4,8 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from ax.plot.base import AxPlotConfig
-from ax.plot.base import AxPlotTypes
+from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.parallel_coordinates import plot_parallel_coordinates
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

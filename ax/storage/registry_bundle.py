@@ -3,16 +3,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import abstractproperty, ABC
-from typing import Any, Callable, Optional, Type, Dict
+from abc import ABC, abstractproperty
+from typing import Any, Callable, Dict, Optional, Type
 
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.storage.json_store.registry import (
-    CORE_ENCODER_REGISTRY,
     CORE_CLASS_DECODER_REGISTRY,
-    CORE_DECODER_REGISTRY,
     CORE_CLASS_ENCODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
 )
 from ax.storage.metric_registry import register_metrics
 from ax.storage.runner_registry import register_runners

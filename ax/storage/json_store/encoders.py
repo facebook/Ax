@@ -33,9 +33,9 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
+    LogicalEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
-    LogicalEarlyStoppingStrategy,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references

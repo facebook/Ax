@@ -9,17 +9,17 @@ import logging
 import warnings
 from functools import partial
 from typing import (
-    Iterable,
-    Callable,
-    Set,
     Any,
+    Callable,
     Dict,
+    Iterable,
     List,
     Optional,
+    Set,
     Tuple,
-    Union,
-    TypeVar,
     Type,
+    TypeVar,
+    Union,
 )
 
 import ax.service.utils.early_stopping as early_stopping_utils
@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus, BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
@@ -40,15 +40,19 @@ from ax.core.optimization_config import (
 )
 from ax.core.trial import Trial
 from ax.core.types import (
-    TModelPredictArm,
     TEvaluationOutcome,
+    TModelPredictArm,
     TParameterization,
     TParamValue,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
-from ax.exceptions.core import OptimizationComplete, OptimizationShouldStop
-from ax.exceptions.core import UnsupportedPlotError, UnsupportedError
+from ax.exceptions.core import (
+    OptimizationComplete,
+    OptimizationShouldStop,
+    UnsupportedError,
+    UnsupportedPlotError,
+)
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
@@ -63,7 +67,7 @@ from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.instantiation import ObjectiveProperties, InstantiationBase
+from ax.service.utils.instantiation import InstantiationBase, ObjectiveProperties
 from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -72,10 +76,10 @@ from ax.storage.json_store.decoder import (
 )
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.json_store.registry import (
-    CORE_ENCODER_REGISTRY,
+    CORE_CLASS_DECODER_REGISTRY,
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_DECODER_REGISTRY,
-    CORE_CLASS_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception

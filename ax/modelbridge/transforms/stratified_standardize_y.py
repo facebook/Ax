@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, DefaultDict, List, Optional, Tuple
+from typing import DefaultDict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures

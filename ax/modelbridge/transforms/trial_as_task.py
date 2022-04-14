@@ -4,12 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
-from ax.core.search_space import SearchSpace, RobustSearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig

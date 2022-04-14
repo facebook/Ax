@@ -11,9 +11,9 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.alebo import (
     ALEBO,
+    alebo_acqf_optimizer,
     ALEBOGP,
     ALEBOKernel,
-    alebo_acqf_optimizer,
     ei_or_nei,
     extract_map_statedict,
     get_batch_model,

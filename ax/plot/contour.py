@@ -15,7 +15,6 @@ from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.color import BLUE_SCALE, GREEN_PINK_SCALE, GREEN_SCALE
 from ax.plot.helper import (
-    TNullableGeneratorRunsDict,
     axis_range,
     contour_config_to_trace,
     get_fixed_values,
@@ -25,6 +24,7 @@ from ax.plot.helper import (
     get_range_parameters,
     relativize_data,
     rgb,
+    TNullableGeneratorRunsDict,
 )
 
 

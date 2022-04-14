@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial

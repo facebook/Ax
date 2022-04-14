@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import torch
 from ax.models.torch.botorch import BotorchModel
 from botorch.fit import fit_gpytorch_model
-from botorch.models.contextual_multioutput import LCEMGP, FixedNoiseLCEMGP
+from botorch.models.contextual_multioutput import FixedNoiseLCEMGP, LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor

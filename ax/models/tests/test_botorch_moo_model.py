@@ -16,8 +16,8 @@ from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
-    get_NEHVI,
     get_EHVI,
+    get_NEHVI,
     infer_objective_thresholds,
 )
 from ax.models.torch.utils import HYPERSPHERE

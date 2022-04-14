@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Dict, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest

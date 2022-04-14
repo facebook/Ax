@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
-from ax.core.search_space import SearchSpace, RobustSearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.models.types import TConfig
 

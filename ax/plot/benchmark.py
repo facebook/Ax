@@ -6,7 +6,7 @@
 from typing import Iterable, Optional
 
 from ax.benchmark2.benchmark_result import AggregatedBenchmarkResult
-from ax.plot.base import AxPlotTypes, AxPlotConfig
+from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import rgb
 from plotly import graph_objs as go

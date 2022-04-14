@@ -4,12 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Tuple, Any, Callable, Optional, Dict, Type
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import runner_to_dict
-from ax.storage.json_store.registry import CORE_ENCODER_REGISTRY, CORE_DECODER_REGISTRY
+from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
 # TODO[T113829027] Remove in a few months

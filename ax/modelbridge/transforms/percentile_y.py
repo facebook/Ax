@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace

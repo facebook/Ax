@@ -9,7 +9,7 @@ import pickle
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
-from typing import Callable, Any, Dict, List, Tuple, Type, cast, Optional
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -31,14 +31,14 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import (
-    Models,
-    ModelRegistryBase,
     _decode_callables_from_references,
+    ModelRegistryBase,
+    Models,
 )
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
-    trial_from_json,
     botorch_component_from_json,
+    trial_from_json,
 )
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,

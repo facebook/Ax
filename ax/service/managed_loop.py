@@ -22,7 +22,7 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
-from ax.exceptions.core import UserInputError, SearchSpaceExhausted
+from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -32,7 +32,7 @@ from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions,
     get_best_raw_objective_point,
 )
-from ax.service.utils.instantiation import TParameterRepresentation, InstantiationBase
+from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none

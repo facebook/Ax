@@ -6,33 +6,33 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Tuple, Dict, List, Optional, Union, cast
+from typing import cast, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment, DEFAULT_OBJECTIVE_NAME
+from ax.core.experiment import DataType, DEFAULT_OBJECTIVE_NAME, Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
     OptimizationConfig,
-    MultiObjectiveOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
-    PARAMETER_PYTHON_TYPE_MAP,
     ChoiceParameter,
     FixedParameter,
     Parameter,
+    PARAMETER_PYTHON_TYPE_MAP,
     ParameterType,
     RangeParameter,
     TParameterType,
 )
 from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
-from ax.core.search_space import SearchSpace, HierarchicalSearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,
@@ -46,8 +46,8 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     checked_cast,
-    checked_cast_to_tuple,
     checked_cast_optional,
+    checked_cast_to_tuple,
     not_none,
     numpy_type_to_python_type,
 )

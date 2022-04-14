@@ -12,12 +12,12 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
-    get_NEHVI,
     get_EHVI,
-    pareto_frontier_evaluator,
-    get_weighted_mc_objective_and_objective_thresholds,
+    get_NEHVI,
     get_outcome_constraint_transforms,
+    get_weighted_mc_objective_and_objective_thresholds,
     infer_objective_thresholds,
+    pareto_frontier_evaluator,
 )
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.utils.common.testutils import TestCase

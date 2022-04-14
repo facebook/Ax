@@ -11,8 +11,8 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import (
-    NOT_YET_FIT_MSG,
     ListSurrogate,
+    NOT_YET_FIT_MSG,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class

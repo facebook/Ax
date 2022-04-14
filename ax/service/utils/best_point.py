@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from functools import reduce
-from typing import Iterable, Type, Dict, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -15,14 +15,13 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.optimization_config import (
-    OptimizationConfig,
     MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
-from ax.core.types import ComparisonOp
-from ax.core.types import TModelPredictArm, TParameterization
-from ax.exceptions.core import UserInputError, UnsupportedError
+from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
@@ -31,17 +30,17 @@ from ax.modelbridge.cross_validation import (
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
-    predicted_pareto_frontier as predicted_pareto,
     observed_pareto_frontier as observed_pareto,
+    predicted_pareto_frontier as predicted_pareto,
 )
 from ax.modelbridge.registry import (
-    ModelRegistryBase,
     get_model_from_generator_run,
+    ModelRegistryBase,
     Models,
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none, checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.stats.statstools import relativize_data
 from numpy import NaN
 

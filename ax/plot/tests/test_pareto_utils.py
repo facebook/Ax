@@ -8,7 +8,7 @@ import copy
 
 import numpy as np
 from ax.core.data import Data
-from ax.core.objective import Objective, MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp

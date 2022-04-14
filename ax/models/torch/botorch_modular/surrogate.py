@@ -26,7 +26,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
-from botorch.fit import fit_gpytorch_model, fit_fully_bayesian_model_nuts
+from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.transforms.input import InputTransform

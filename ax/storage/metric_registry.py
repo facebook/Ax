@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Tuple, Optional, Any, Callable, Dict, Type
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -16,7 +16,7 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
-from ax.storage.json_store.registry import CORE_ENCODER_REGISTRY, CORE_DECODER_REGISTRY
+from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
 # TODO[T113829027] Remove in a few months

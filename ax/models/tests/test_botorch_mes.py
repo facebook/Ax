@@ -8,7 +8,7 @@ from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.botorch_mes import MaxValueEntropySearch, _instantiate_MES
+from ax.models.torch.botorch_mes import _instantiate_MES, MaxValueEntropySearch
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.max_value_entropy_search import (
