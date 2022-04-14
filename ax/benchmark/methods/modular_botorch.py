@@ -13,7 +13,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
 
 
-def get_sobol_gpei() -> BenchmarkMethod:
+def get_sobol_botorch_modular_fixed_noise_gp_qnei() -> BenchmarkMethod:
     model_gen_kwargs = {
         "model_gen_options": {
             Keys.OPTIMIZER_KWARGS: {
@@ -29,7 +29,7 @@ def get_sobol_gpei() -> BenchmarkMethod:
     }
 
     generation_strategy = GenerationStrategy(
-        name="Modular::Sobol+GPEI",
+        name="SOBOL+BOTORCH_MODULAR::FixedNoiseGP_qNoisyExpectedImprovement",
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
             GenerationStep(
@@ -47,7 +47,28 @@ def get_sobol_gpei() -> BenchmarkMethod:
     scheduler_options = SchedulerOptions(total_trials=30)
 
     return BenchmarkMethod(
-        name="Modular::Sobol+GPEI",
+        name="SOBOL+BOTORCH_MODULAR::FixedNoiseGP_qNoisyExpectedImprovement",
+        generation_strategy=generation_strategy,
+        scheduler_options=scheduler_options,
+    )
+
+
+def get_sobol_botorch_modular_default():
+    generation_strategy = GenerationStrategy(
+        name="SOBOL+BOTORCH_MODULAR::default",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
+            GenerationStep(
+                model=Models.BOTORCH_MODULAR,
+                num_trials=-1,
+            ),
+        ],
+    )
+
+    scheduler_options = SchedulerOptions(total_trials=30)
+
+    return BenchmarkMethod(
+        name="SOBOL+BOTORCH_MODULAR::default",
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options,
     )

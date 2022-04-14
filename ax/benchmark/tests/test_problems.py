@@ -4,7 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
-from ax.benchmark.problems.synthetic import get_problem_and_baseline_from_botorch
+from ax.benchmark.problems.synthetic import (
+    get_problem_and_baseline_from_botorch,
+    _REGISTRY,
+)
 from ax.utils.common.testutils import TestCase
 
 
@@ -12,8 +15,9 @@ class TestProblems(TestCase):
     def test_load_baselines(self):
 
         # Make sure the json parsing suceeded
-        for _, baseline in [
-            get_problem_and_baseline_from_botorch("ackley"),
-            get_problem_and_baseline_from_botorch("branin"),
-        ]:
+        for name in _REGISTRY.keys():
+            _problem, baseline = get_problem_and_baseline_from_botorch(
+                problem_name=name
+            )
+
             self.assertTrue(isinstance(baseline, AggregatedBenchmarkResult))

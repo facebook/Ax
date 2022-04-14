@@ -8,16 +8,18 @@ import os
 from typing import Tuple
 
 from ax.benchmark.benchmark_problem import (
+    MultiObjectiveBenchmarkProblem,
     BenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 from ax.storage.json_store.decoder import object_from_json
+from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin, Ackley
 
 
 # Mapping from problem name to (BoTorch class, Ax factory method, path to baseline)
-REGISTRY = {
+_REGISTRY = {
     "ackley": (
         Ackley,
         SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
@@ -28,13 +30,18 @@ REGISTRY = {
         SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
         "baseline_results/synthetic/branin.json",
     ),
+    "branin_currin": (
+        BraninCurrin,
+        MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
+        "baseline_results/synthetic/branin_currin.json",
+    ),
 }
 
 
 def get_problem_and_baseline_from_botorch(
     problem_name: str,
 ) -> Tuple[BenchmarkProblem, AggregatedBenchmarkResult]:
-    botorch_cls, factory, baseline_path = REGISTRY[problem_name]
+    botorch_cls, factory, baseline_path = _REGISTRY[problem_name]
 
     problem = factory(test_problem=botorch_cls())
 
