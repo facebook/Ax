@@ -10,7 +10,6 @@ from functools import partial
 
 import numpy as np
 import torch
-from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -38,12 +37,8 @@ from ax.storage.json_store.registry import (
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
-from ax.utils.measurement.synthetic_functions import ackley, branin, from_botorch
 from ax.utils.testing.benchmark_stubs import (
     get_scored_benchmark_result,
-    get_branin_simple_benchmark_problem,
-    get_mult_simple_benchmark_problem,
-    get_sum_simple_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_multi_objective_benchmark_problem,
     get_benchmark_problem,
@@ -115,7 +110,6 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_transform_type,
 )
-from botorch.test_functions.synthetic import Ackley
 from torch.nn import Module
 
 
@@ -179,9 +173,6 @@ TEST_CASES = [
     ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("ScoredBenchmarkResult", get_scored_benchmark_result),
     ("SearchSpace", get_search_space),
-    ("SimpleBenchmarkProblem", get_mult_simple_benchmark_problem),
-    ("SimpleBenchmarkProblem", get_branin_simple_benchmark_problem),
-    ("SimpleBenchmarkProblem", get_sum_simple_benchmark_problem),
     ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
@@ -409,48 +400,6 @@ class JSONStoreTest(TestCase):
                     class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
                 ),
             )
-        )
-
-    def testEncodeDecodeSimpleBenchmarkProblem(self):
-        branin_problem = get_branin_simple_benchmark_problem()
-        sum_problem = get_sum_simple_benchmark_problem()
-        new_branin_problem = object_from_json(
-            object_to_json(
-                branin_problem,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            ),
-            decoder_registry=CORE_DECODER_REGISTRY,
-            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-        )
-        new_sum_problem = object_from_json(
-            object_to_json(
-                sum_problem,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            ),
-            decoder_registry=CORE_DECODER_REGISTRY,
-            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-        )
-        self.assertEqual(
-            branin_problem.f(1, 2), new_branin_problem.f(1, 2), branin(1, 2)
-        )
-        self.assertEqual(sum_problem.f([1, 2]), new_sum_problem.f([1, 2]), 3)
-        # Test using `from_botorch`.
-        ackley_problem = SimpleBenchmarkProblem(
-            f=from_botorch(Ackley()), noise_sd=0.0, minimize=True
-        )
-        new_ackley_problem = object_from_json(
-            object_to_json(
-                ackley_problem,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            ),
-            decoder_registry=CORE_DECODER_REGISTRY,
-            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-        )
-        self.assertEqual(
-            ackley_problem.f(1, 2), new_ackley_problem.f(1, 2), ackley(1, 2)
         )
 
     def testRegistryAdditions(self):

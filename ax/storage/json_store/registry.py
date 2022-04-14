@@ -6,7 +6,6 @@
 
 from typing import Any, Callable, Dict, Type
 
-from ax.benchmark.benchmark_problem import SimpleBenchmarkProblem
 from ax.benchmark2.benchmark_method import BenchmarkMethod
 from ax.benchmark2.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
@@ -79,7 +78,6 @@ from ax.storage.json_store.decoders import (
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
-    benchmark_problem_to_dict,
     botorch_component_to_dict,
     botorch_model_to_dict,
     botorch_modular_to_dict,
@@ -172,7 +170,6 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
-    SimpleBenchmarkProblem: benchmark_problem_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
     SyntheticRunner: runner_to_dict,
@@ -258,7 +255,6 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "SchedulerOptions": SchedulerOptions,
     "ScoredBenchmarkResult": ScoredBenchmarkResult,
     "SearchSpace": SearchSpace,
-    "SimpleBenchmarkProblem": SimpleBenchmarkProblem,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
