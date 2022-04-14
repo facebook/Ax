@@ -112,3 +112,11 @@ class RandomModelBridge(ModelBridge):
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         raise NotImplementedError
+
+    def _set_status_quo(
+        self,
+        experiment: Optional[Experiment],
+        status_quo_name: Optional[str],
+        status_quo_features: Optional[ObservationFeatures],
+    ) -> None:
+        pass
