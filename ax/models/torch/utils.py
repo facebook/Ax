@@ -27,13 +27,15 @@ from botorch.acquisition.objective import (
 )
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
-from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
+from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
+from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
+
 
 logger = get_logger(__name__)
 
@@ -502,6 +504,10 @@ def pick_best_out_of_sample_point_acqf_class(
 def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     r"""Predicts outcomes given a model and input tensor.
 
+    For a `FullyBayesianPosterior` we currently use a Gaussian approximation where we
+    compute the mean and variance of the Gaussian mixture. This should ideally be
+    changed to compute quantiles instead when Ax supports non-Gaussian distributions.
+
     Args:
         model: A botorch Model.
         X: A `n x d` tensor of input parameters.
@@ -511,15 +517,15 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
         Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.
     """
     with torch.no_grad():
-        if isinstance(model, SaasFullyBayesianSingleTaskGP):
-            posterior = model.posterior(X, marginalize_over_mcmc_samples=True)
+        # TODO: Allow Posterior to (optionally) return the full covariance matrix
+        posterior = model.posterior(X)
+        if isinstance(posterior, FullyBayesianPosterior):
+            mean = posterior.mixture_mean.cpu().detach()
+            var = posterior.mixture_variance.cpu().detach().clamp_min(0)  # pyre-ignore
         else:
-            posterior = model.posterior(X)
-
-    mean = posterior.mean.cpu().detach()
-    # TODO: Allow Posterior to (optionally) return the full covariance matrix
-    variance = posterior.variance.cpu().detach().clamp_min(0)  # pyre-ignore
-    cov = torch.diag_embed(variance)
+            mean = posterior.mean.cpu().detach()
+            var = posterior.variance.cpu().detach().clamp_min(0)
+    cov = torch.diag_embed(var)
     return mean, cov
 
 
