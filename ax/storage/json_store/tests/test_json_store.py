@@ -52,6 +52,7 @@ from ax.utils.testing.benchmark_stubs import (
     get_benchmark_result,
 )
 from ax.utils.testing.core_stubs import (
+    get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     get_or_early_stopping_strategy,
     get_and_early_stopping_strategy,
     get_abandoned_arm,
@@ -166,6 +167,10 @@ TEST_CASES = [
     (
         "PercentileEarlyStoppingStrategy",
         get_percentile_early_stopping_strategy_with_true_objective_metric_name,
+    ),
+    (
+        "PercentileEarlyStoppingStrategy",
+        get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     ),
     ("ParameterConstraint", get_parameter_constraint),
     ("RangeParameter", get_range_parameter),

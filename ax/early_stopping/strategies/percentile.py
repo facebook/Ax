@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Any, Dict, Optional, Set, Tuple
+from typing import Iterable, List, Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import align_partial_results
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -24,6 +25,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
+        metric_names: Optional[Iterable[str]] = None,
         seconds_between_polls: int = 60,
         true_objective_metric_name: Optional[str] = None,
         percentile_threshold: float = 50.0,
@@ -34,6 +36,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """Construct a PercentileEarlyStoppingStrategy instance.
 
         Args:
+            metric_names: A (length-one) list of name of the metric to observe. If
+                None will default to the objective metric on the Experiment's
+                OptimizationConfig.
             seconds_between_polls: How often to poll the early stopping metric to
                 evaluate whether or not the trial should be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
@@ -57,6 +62,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             trial_indices_to_ignore: Trial indices that should not be early stopped.
         """
         super().__init__(
+            metric_names=metric_names,
             seconds_between_polls=seconds_between_polls,
             true_objective_metric_name=true_objective_metric_name,
         )
@@ -65,6 +71,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self.min_progression = min_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
+
+        if metric_names is not None and len(list(metric_names)) > 1:
+            raise UnsupportedError(
+                "PercentileEarlyStoppingStrategy only supports a single metric. Use "
+                "LogicalEarlyStoppingStrategy to compose early stopping strategies "
+                "with multiple metrics."
+            )
 
     def should_stop_trials_early(
         self,
@@ -89,17 +102,21 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             # don't stop any trials if we don't get data back
             return {}
 
-        optimization_config = not_none(experiment.optimization_config)
-        objective_name = optimization_config.objective.metric.name
+        if self.metric_names is None:
+            optimization_config = not_none(experiment.optimization_config)
+            metric_name = optimization_config.objective.metric.name
+            minimize = optimization_config.objective.minimize
+        else:
+            metric_name = list(self.metric_names)[0]
+            minimize = experiment.metrics[metric_name].lower_is_better or False
 
         map_key = next(iter(data.map_keys))
-        minimize = optimization_config.objective.minimize
         df = data.map_df
         try:
             metric_to_aligned_means, _ = align_partial_results(
                 df=df,
                 progr_key=map_key,
-                metrics=[objective_name],
+                metrics=[metric_name],
             )
         except Exception as e:
             logger.warning(
@@ -108,7 +125,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
             return {}
 
-        aligned_means = metric_to_aligned_means[objective_name]
+        aligned_means = metric_to_aligned_means[metric_name]
         decisions = {
             trial_index: self.should_stop_trial_early(
                 trial_index=trial_index,
