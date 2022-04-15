@@ -10,10 +10,10 @@ from ax.core.metric import Metric
 from ax.core.outcome_constraint import (
     CONSTRAINT_WARNING_MESSAGE,
     LOWER_BOUND_MISMATCH,
-    UPPER_BOUND_MISMATCH,
     ObjectiveThreshold,
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
+    UPPER_BOUND_MISMATCH,
 )
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase

@@ -17,26 +17,26 @@ Key terms used:
 
 """
 from time import time
-from typing import Tuple, List, Iterable
+from typing import Iterable, List, Tuple
 
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
-    BenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import (
-    ScoredBenchmarkResult,
-    BenchmarkResult,
     AggregatedBenchmarkResult,
+    BenchmarkResult,
+    ScoredBenchmarkResult,
 )
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.service.scheduler import SchedulerOptions, Scheduler
+from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.typeutils import not_none
 
 

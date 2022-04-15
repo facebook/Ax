@@ -7,16 +7,16 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Iterable, List, Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.observation import observations_from_map_data
 from ax.modelbridge.modelbridge_utils import (
+    _unpack_observations,
     observation_data_to_array,
     observation_features_to_array,
-    _unpack_observations,
 )
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger

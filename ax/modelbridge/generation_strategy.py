@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Set, Type, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -25,10 +25,7 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.registry import (
-    ModelRegistryBase,
-    _extract_model_state_after_gen,
-)
+from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none

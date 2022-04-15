@@ -22,24 +22,24 @@ from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
-from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
+from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_multi_objective,
     get_arm,
     get_branin_arms,
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_timestamp_map_metric,
     get_branin_optimization_config,
     get_branin_search_space,
-    get_branin_experiment,
-    get_branin_experiment_with_timestamp_map_metric,
     get_data,
     get_experiment,
     get_experiment_with_map_data_type,
     get_optimization_config,
+    get_scalarized_outcome_constraint,
     get_search_space,
     get_sobol,
     get_status_quo,
-    get_scalarized_outcome_constraint,
 )
 
 DUMMY_RUN_METADATA = {"test_run_metadata_key": "test_run_metadata_value"}

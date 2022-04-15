@@ -12,7 +12,7 @@ import warnings
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
-from typing import Dict, List, Optional, Tuple, Union, Set
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ax import core
 from ax.core.arm import Arm

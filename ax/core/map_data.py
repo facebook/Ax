@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Type, TypeVar, Generic, Iterable, Optional
+from typing import Any, Dict, Generic, Iterable, Optional, Type, TypeVar
 
 import pandas as pd
 from ax.core.data import Data

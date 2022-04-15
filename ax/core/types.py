@@ -6,8 +6,8 @@
 
 import enum
 from typing import (
-    Callable,
     Any,
+    Callable,
     DefaultDict,
     Dict,
     Hashable,

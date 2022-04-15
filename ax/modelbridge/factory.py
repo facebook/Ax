@@ -41,9 +41,7 @@ from ax.models.torch.botorch_defaults import (
     predict_from_model,
     scipy_optimizer,
 )
-from ax.models.torch.botorch_moo_defaults import (
-    get_EHVI,
-)
+from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast

@@ -12,21 +12,21 @@ from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective, MultiObjective
-from ax.core.observation import ObservationFeatures, ObservationData
+from ax.core.objective import MultiObjective, Objective
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
-    ObjectiveThreshold,
 )
 from ax.core.types import ComparisonOp
 from ax.modelbridge.modelbridge_utils import (
+    extract_objective_thresholds,
+    extract_outcome_constraints,
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
-    pending_observations_as_array,
-    extract_outcome_constraints,
-    extract_objective_thresholds,
     observation_data_to_array,
+    pending_observations_as_array,
 )
 from ax.modelbridge.registry import Models
 from ax.utils.common.constants import Keys

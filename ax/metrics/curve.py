@@ -11,7 +11,7 @@ Typically used to retrieve partial learning curves of ML training jobs.
 
 from __future__ import annotations
 
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional, Union
 
 import numpy as np
@@ -19,7 +19,7 @@ import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.map_data import MapKeyInfo, MapData
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.trial import Trial

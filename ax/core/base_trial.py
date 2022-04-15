@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod, abstractproperty
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.data import Data

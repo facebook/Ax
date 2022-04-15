@@ -18,8 +18,8 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.log_y import (
-    LogY,
     lognorm_to_norm,
+    LogY,
     match_ci_width,
     norm_to_lognorm,
 )

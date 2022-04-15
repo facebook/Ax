@@ -16,11 +16,11 @@ from ax.core.types import ComparisonOp
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
-    MODEL_KEY_TO_MODEL_SETUP,
     Cont_X_trans,
+    get_model_from_generator_run,
+    MODEL_KEY_TO_MODEL_SETUP,
     Models,
     Y_trans,
-    get_model_from_generator_run,
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
@@ -35,9 +35,9 @@ from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_multi_objective,
     get_branin_data,
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_branin_optimization_config,
     get_factorial_experiment,
 )

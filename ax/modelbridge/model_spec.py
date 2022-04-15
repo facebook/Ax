@@ -10,7 +10,7 @@ import json
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Tuple, List, Any, Dict, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -30,8 +30,8 @@ from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
-    get_function_argument_names,
     filter_kwargs,
+    get_function_argument_names,
 )
 from ax.utils.common.typeutils import not_none
 

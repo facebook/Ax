@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Iterable
+from typing import Any, Dict, Iterable, Optional, Set, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args

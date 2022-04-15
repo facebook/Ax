@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 from copy import deepcopy
 from importlib import import_module
-from typing import List, Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base

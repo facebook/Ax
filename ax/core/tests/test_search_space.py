@@ -21,22 +21,22 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.search_space import (
+    HierarchicalSearchSpace,
     RobustSearchSpace,
     SearchSpace,
     SearchSpaceDigest,
-    HierarchicalSearchSpace,
 )
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_model_parameter,
-    get_lr_parameter,
-    get_l2_reg_weight_parameter,
-    get_num_boost_rounds_parameter,
     get_hierarchical_search_space,
+    get_l2_reg_weight_parameter,
+    get_lr_parameter,
+    get_model_parameter,
+    get_num_boost_rounds_parameter,
+    get_parameter_constraint,
 )
-from ax.utils.testing.core_stubs import get_parameter_constraint
 
 TOTAL_PARAMS = 6
 TUNABLE_PARAMS = 4

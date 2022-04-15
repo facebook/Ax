@@ -7,10 +7,10 @@ from unittest.mock import Mock
 
 import numpy as np
 from ax.core.observation import (
-    observations_from_data,
     Observation,
-    ObservationFeatures,
     ObservationData,
+    ObservationFeatures,
+    observations_from_data,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
@@ -20,12 +20,12 @@ from ax.modelbridge.transforms.relativize import Relativize
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
-    get_branin_with_multi_task,
     get_branin_multi_objective_optimization_config,
     get_branin_optimization_config,
+    get_branin_with_multi_task,
     get_search_space,
 )
-from hypothesis import assume, settings, strategies as st, given
+from hypothesis import assume, given, settings, strategies as st
 
 
 class RelativizeDataTest(TestCase):

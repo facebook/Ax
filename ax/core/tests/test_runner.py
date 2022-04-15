@@ -9,7 +9,7 @@ from unittest import mock
 from ax.core.base_trial import BaseTrial
 from ax.core.runner import Runner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_trial, get_batch_trial
+from ax.utils.testing.core_stubs import get_batch_trial, get_trial
 
 
 class DummyRunner(Runner):

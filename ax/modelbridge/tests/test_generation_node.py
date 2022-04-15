@@ -8,16 +8,13 @@ from unittest.mock import patch
 
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.cross_validation import (
-    SingleDiagnosticBestModelSelector,
-    MetricAggregation,
     DiagnosticCriterion,
+    MetricAggregation,
+    SingleDiagnosticBestModelSelector,
 )
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import (
-    GenerationNode,
-    GenerationStep,
-)
-from ax.modelbridge.model_spec import ModelSpec, FactoryFunctionModelSpec
+from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

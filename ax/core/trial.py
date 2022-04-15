@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run

@@ -7,7 +7,7 @@
 import logging
 import warnings
 from math import ceil
-from typing import Any, Dict, cast, Optional, Type, Union
+from typing import Any, cast, Dict, Optional, Type, Union
 
 import torch
 from ax.core.experiment import Experiment

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from collections import OrderedDict, defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 from enum import Enum
 from functools import reduce
@@ -29,7 +29,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base
-from ax.utils.common.constants import Keys, EXPERIMENT_IS_TEST_WARNING
+from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import current_timestamp_in_millis

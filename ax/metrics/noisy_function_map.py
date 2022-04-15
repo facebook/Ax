@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Iterable, Any, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapKeyInfo, MapData
+from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
 from ax.utils.common.logger import get_logger
 

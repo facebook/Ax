@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Dict, List, NamedTuple, Union
+from typing import Dict, Iterable, List, NamedTuple, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo

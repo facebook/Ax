@@ -10,9 +10,7 @@ from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-)
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
@@ -25,11 +23,11 @@ from ax.modelbridge.factory import (
     get_GPMES,
     get_MOO_EHVI,
     get_MOO_NEHVI,
-    get_MTGP_NEHVI,
     get_MOO_PAREGO,
-    get_MTGP_PAREGO,
     get_MOO_RS,
     get_MTGP,
+    get_MTGP_NEHVI,
+    get_MTGP_PAREGO,
     get_sobol,
     get_thompson,
     get_uniform,
@@ -43,10 +41,10 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
-    get_multi_type_experiment_with_multi_objective,
     get_branin_optimization_config,
     get_factorial_experiment,
     get_multi_type_experiment,
+    get_multi_type_experiment_with_multi_objective,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.multitask import MultiTaskGP

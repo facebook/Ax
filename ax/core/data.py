@@ -15,7 +15,7 @@ import pandas as pd
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import extract_init_args, serialize_init_args
-from ax.utils.common.typeutils import not_none, checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 class Data(Base):

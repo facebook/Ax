@@ -8,8 +8,8 @@ from copy import copy
 
 from ax.core.observation import observations_from_data
 from ax.modelbridge.transforms.convert_metric_names import (
-    ConvertMetricNames,
     convert_mt_observations,
+    ConvertMetricNames,
     tconfig_from_mt_experiment,
 )
 from ax.utils.common.testutils import TestCase

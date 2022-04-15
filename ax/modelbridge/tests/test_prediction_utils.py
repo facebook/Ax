@@ -8,7 +8,7 @@ from unittest import mock
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.prediction_utils import predict_by_features, predict_at_point
+from ax.modelbridge.prediction_utils import predict_at_point, predict_by_features
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
 

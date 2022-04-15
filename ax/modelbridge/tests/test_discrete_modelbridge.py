@@ -19,7 +19,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.discrete import DiscreteModelBridge, _get_parameter_values
+from ax.modelbridge.discrete import _get_parameter_values, DiscreteModelBridge
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.testutils import TestCase
 

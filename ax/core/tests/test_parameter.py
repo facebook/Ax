@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.parameter import (
+    _get_parameter_type,
     ChoiceParameter,
     FixedParameter,
     ParameterType,
     RangeParameter,
-    _get_parameter_type,
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
