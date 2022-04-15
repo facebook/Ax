@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
-from collections import OrderedDict, defaultdict
+from collections import defaultdict, OrderedDict
 from enum import Enum
 from typing import cast, List, Optional, Tuple, Type, Union
 
@@ -39,7 +39,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models, ModelRegistryBase
+from ax.modelbridge.registry import ModelRegistryBase, Models
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (

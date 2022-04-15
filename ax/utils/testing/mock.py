@@ -3,14 +3,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager, ExitStack
 from functools import wraps
 from typing import Callable, Generator
 from unittest import mock
 
 from botorch.optim.initializers import (
-    gen_one_shot_kg_initial_conditions,
     gen_batch_initial_conditions,
+    gen_one_shot_kg_initial_conditions,
 )
 from scipy.optimize import minimize
 

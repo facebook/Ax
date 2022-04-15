@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, MEDIUMTEXT_BYTES
 from sqlalchemy.ext.mutable import MutableDict, MutableList
-from sqlalchemy.types import VARCHAR, Text, TypeDecorator
+from sqlalchemy.types import Text, TypeDecorator, VARCHAR
 
 
 class JSONEncodedObject(TypeDecorator):

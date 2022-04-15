@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.testutils import TestCase

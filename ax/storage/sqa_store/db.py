@@ -13,7 +13,7 @@ from typing import Any, Callable, ContextManager, Generator, Optional, TypeVar
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, Session, sessionmaker
 
 
 # some constants for database fields
