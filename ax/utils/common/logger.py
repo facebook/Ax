@@ -135,28 +135,47 @@ def set_stderr_log_level(level: int) -> None:
     ROOT_STREAM_HANDLER.setLevel(level)
 
 
-# pyre-ignore[3] Supports generic callables
-def disable_logger(
-    name: str, level: int = logging.ERROR
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Disables a specific logger by name (e.g. module path) by setting the
-    log level at the given one for the duration of the decorated function's call
-    """
+class disable_logger:
+    def __init__(self, name: str, level: int = logging.ERROR) -> None:
+        """Disables a specific logger by name (e.g. module path) by setting the
+        log level at the given one for the duration of the decorated function's call
+        """
+        self.name = name
+        self.level = level
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorate_class(self, klass: T) -> T:
+        for attr in dir(klass):
+            attr_value = getattr(klass, attr)
+            if (
+                not callable(attr_value)
+                or isinstance(attr_value, type)
+                or attr in ("__class__", "__repr__", "__str__")
+            ):
+                continue
+
+            setattr(klass, attr, self.decorate_callable(attr_value))
+        return klass
+
+    def decorate_callable(self, func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> T:
-            logger = get_logger(name)
+            logger = get_logger(self.name)
             prev_level = logger.getEffectiveLevel()
-            logger.setLevel(level)
+            logger.setLevel(self.level)
             try:
                 return func(*args, **kwargs)
+            except TypeError:
+                # static functions
+                return func(*args[1:], **kwargs)
             finally:
                 logger.setLevel(prev_level)
 
         return inner
 
-    return decorator
+    def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
+        if isinstance(func, type):
+            return self.decorate_class(func)
+        return self.decorate_callable(func)
 
 
 """Sets up Ax's root logger to not propogate to Python's root logger and
