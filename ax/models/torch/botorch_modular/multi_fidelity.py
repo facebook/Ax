@@ -82,6 +82,9 @@ class MultiFidelityAcquisition(Acquisition):
             )
 
         dependencies.update(
+            # pyre-fixme[6]: For 1st param expected `SupportsKeysAndGetItem[str,
+            #  typing.Any]` but got `Dict[Keys, typing.Callable[[Named(X, Tensor)],
+            #  typing.Any]]`.
             {
                 Keys.COST_AWARE_UTILITY: cost_aware_utility,
                 Keys.PROJECT: project,

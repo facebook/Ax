@@ -135,7 +135,6 @@ class TrialStatus(int, Enum):
         """True if this trial is an early stopped one."""
         return self == TrialStatus.EARLY_STOPPED
 
-    # pyre-fixme[14]: `__format__` overrides method defined in `object` inconsistently.
     def __format__(self, fmt: str) -> str:
         """Define `__format__` to avoid pulling the `__format__` from the `int`
         mixin (since its better for statuses to show up as `RUNNING` than as
