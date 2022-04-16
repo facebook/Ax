@@ -355,6 +355,9 @@ class SearchSpaceDigestTest(TestCase):
             "task_features": [3],
             "fidelity_features": [0],
             "target_fidelities": {0: 1.0},
+            "environmental_variables": [],
+            "distribution_sampler": None,
+            "multiplicative": False,
         }
 
     def testSearchSpaceDigest(self):
@@ -722,6 +725,12 @@ class TestRobustSearchSpace(TestCase):
         # Error handling.
         with self.assertRaisesRegex(UserInputError, "Use SearchSpace instead."):
             RobustSearchSpace(parameters=self.parameters, parameter_distributions=[])
+        with self.assertRaisesRegex(UnsupportedError, "all multiplicative"):
+            mul_a_dist = a_dist.clone()
+            mul_a_dist.multiplicative = True
+            RobustSearchSpace(
+                parameters=self.parameters, parameter_distributions=[mul_a_dist, b_dist]
+            )
         with self.assertRaisesRegex(UserInputError, "must be unique"):
             RobustSearchSpace(
                 parameters=self.parameters,

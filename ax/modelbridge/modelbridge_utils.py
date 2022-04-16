@@ -38,7 +38,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace, SearchSpaceDigest
+from ax.core.search_space import RobustSearchSpace, SearchSpace, SearchSpaceDigest
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
@@ -94,6 +94,10 @@ def extract_search_space_digest(
     task_features: List[int] = []
     fidelity_features: List[int] = []
     target_fidelities: Dict[int, Union[int, float]] = {}
+    environmental_variables: List[str] = []
+    distribution_sampler, multiplicative = extract_parameter_distribution_samplers(
+        search_space=search_space, param_names=param_names
+    )
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
@@ -122,6 +126,10 @@ def extract_search_space_digest(
                 raise NotImplementedError("Only numerical target values are supported.")
             target_fidelities[i] = checked_cast_to_tuple((int, float), p.target_value)
             fidelity_features.append(i)
+        if search_space.is_robust and p_name in getattr(
+            search_space, "_environmental_variables", {}
+        ):
+            environmental_variables.append(p_name)
 
     return SearchSpaceDigest(
         feature_names=param_names,
@@ -132,7 +140,92 @@ def extract_search_space_digest(
         task_features=task_features,
         fidelity_features=fidelity_features,
         target_fidelities=target_fidelities,
+        environmental_variables=environmental_variables,
+        distribution_sampler=distribution_sampler,
+        multiplicative=multiplicative,
     )
+
+
+def extract_parameter_distribution_samplers(
+    search_space: SearchSpace, param_names: List[str]
+) -> Tuple[Optional[Callable[[int], np.ndarray]], bool]:
+    """Construct a callable for sampling from the parameter distributions.
+
+    Args:
+        search_space: A `SearchSpace` to extract the distributions from.
+        param_names: A list of names of the parameters that are used in optimization.
+            If environmental variables are present, these should be the last entries
+            in `param_names`.
+
+    Returns:
+        If the `search_space` is not a `RobustSearchSpace`, this returns
+        `(None, False)`, which signals that the search space does not have any
+        distributions associated. If it is a `RobustSearchSpace`, then this returns
+        a callable that takes in an integer `num_samples` and returns a
+        `num_samples x d`-dim array of samples from the parameter distributions,
+        where `d` is either the number of environmental variables, if any, or the
+        number of parameters in `param_names`; and a boolean that denotes whether
+        the distribution is multiplicative.
+    """
+    if not isinstance(search_space, RobustSearchSpace):
+        return None, False
+    dist_params = search_space._distributional_parameters
+    # Make sure all distributional parameters are in param_names.
+    dist_idcs: Dict[str, int] = {}
+    for p_name in dist_params:
+        if p_name not in param_names:
+            raise RuntimeError(
+                "All distributional parameters must be included in `param_names`."
+            )
+        dist_idcs[p_name] = param_names.index(p_name)
+    distributions = search_space.parameter_distributions
+    multiplicative = distributions[0].multiplicative
+    if search_space.is_environmental:
+        num_non_dist_params = len(param_names) - len(dist_params)
+        if set(dist_idcs.values()) != set(range(num_non_dist_params, len(param_names))):
+            raise RuntimeError(
+                "Environmental variables must be last entries in `param_names`. "
+                "Otherwise, `AppendFeatures` will not work."
+            )
+
+        def get_samples(num_samples: int) -> np.ndarray:
+            """Get samples from the environmental distributions.
+
+            Samples have the same dimension as the number of environmental variables.
+            The samples of an environmental variable appears in the same order it is
+            in `param_names`.
+            """
+            samples = np.zeros((num_samples, len(dist_params)))
+            for dist in distributions:
+                dist_samples = dist.distribution.rvs(num_samples).reshape(
+                    num_samples, -1
+                )
+                for i, p_name in enumerate(dist.parameters):
+                    target_idx = dist_idcs[p_name] - num_non_dist_params
+                    samples[:, target_idx] = dist_samples[:, i]
+            return samples
+
+    else:
+
+        def get_samples(num_samples: int) -> np.ndarray:
+            """Get samples of the input perturbations.
+
+            Samples have the same dimension as the length of `param_names`.
+            The samples of a parameter appears in the same order it is
+            in `param_names`. For non-distributional parameters, their values are
+            filled as 0 if the perturbations are additive and 1 if multiplicative.
+            """
+            constructor = np.ones if multiplicative else np.zeros
+            samples = constructor((num_samples, len(param_names)))
+            for dist in distributions:
+                dist_samples = dist.distribution.rvs(num_samples).reshape(
+                    num_samples, -1
+                )
+                for i, p_name in enumerate(dist.parameters):
+                    samples[:, dist_idcs[p_name]] = dist_samples[:, i]
+            return samples
+
+    return get_samples, multiplicative
 
 
 def extract_objective_thresholds(

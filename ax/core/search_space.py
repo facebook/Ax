@@ -12,8 +12,9 @@ import warnings
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
+import numpy as np
 from ax import core
 from ax.core.arm import Arm
 from ax.core.parameter import FixedParameter, Parameter, RangeParameter
@@ -692,6 +693,13 @@ class RobustSearchSpace(SearchSpace):
                 "RobustSearchSpace requires at least one distributional parameter. "
                 "Use SearchSpace instead."
             )
+        # Make sure that the distributions are all multiplicative or additive.
+        mul_flags = [d.multiplicative for d in parameter_distributions]
+        if not (all(mul_flags) or not any(mul_flags)):
+            raise UnsupportedError(
+                "Parameter distributions must be either all multiplicative "
+                "or all additive (not multiplicative)."
+            )
         self.parameter_distributions = parameter_distributions
         # Make sure that there is at most one distribution per parameter.
         distributional_parameters_list = []
@@ -817,6 +825,14 @@ class SearchSpaceDigest:
         target_fidelities: A dictionary mapping parameter indices (of fidelity
             parameters) to their respective target fidelity value. Only used
             when generating candidates.
+        environmental_variables: A list of environmental variable names.
+        distribution_sampler: An optional callable for sampling from the
+            parameter distributions. This should accept an integer `num_samples`
+            and return a `num_samples x d`-dim array of samples from the
+            parameter distributions, where `d` is either the number of environmental
+            variables, if any, or the number of parameters.
+        multiplicative: Denotes whether the distribution is multiplicative.
+            Only relevant if paired with a `distribution_sampler`.
     """
 
     feature_names: List[str]
@@ -827,6 +843,9 @@ class SearchSpaceDigest:
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
     target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)
+    environmental_variables: List[str] = field(default_factory=list)
+    distribution_sampler: Optional[Callable[[int], np.ndarray]] = None
+    multiplicative: bool = False
 
 
 def _disjoint_union(set1: Set[str], set2: Set[str]) -> Set[str]:
