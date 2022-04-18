@@ -197,7 +197,7 @@ def object_from_json(
                 class_decoder_registry=class_decoder_registry,
             )
         elif _class == PyTorchCNNTorchvisionBenchmarkProblem:
-            return PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(
+            return PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(  # noqa (unit tests in benchmark suite)
                 object_json["name"]
             )
         elif issubclass(_class, Runner):

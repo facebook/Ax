@@ -12,9 +12,15 @@ from ax.benchmark.problems.hpo.pytorch_cnn import (
 from ax.core.runner import Runner
 from ax.exceptions.core import UserInputError
 from ax.utils.common.typeutils import checked_cast
-from torchvision import transforms, datasets
 
-_REGISTRY = {"MNIST": datasets.MNIST, "FashionMNIST": datasets.FashionMNIST}
+try:  # We don't require TorchVision by default.
+    from torchvision import transforms, datasets
+
+    _REGISTRY = {"MNIST": datasets.MNIST, "FashionMNIST": datasets.FashionMNIST}
+except ModuleNotFoundError:
+    transforms = None
+    datasets = None
+    _REGISTRY = {}
 
 
 class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):

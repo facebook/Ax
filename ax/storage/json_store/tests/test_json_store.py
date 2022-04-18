@@ -38,7 +38,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
-    get_torchvision_problem,
     get_scored_benchmark_result,
     get_single_objective_benchmark_problem,
     get_multi_objective_benchmark_problem,
@@ -168,7 +167,6 @@ TEST_CASES = [
         get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     ),
     ("ParameterConstraint", get_parameter_constraint),
-    ("PyTorchCNNTorchvisionBenchmarkProblem", get_torchvision_problem),
     ("RangeParameter", get_range_parameter),
     ("ScalarizedObjective", get_scalarized_objective),
     ("SchedulerOptions", get_default_scheduler_options),

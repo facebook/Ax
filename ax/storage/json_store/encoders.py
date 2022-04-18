@@ -537,4 +537,7 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> Dict[str, Any]:
 def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     problem: PyTorchCNNTorchvisionBenchmarkProblem,
 ) -> Dict[str, Any]:
-    return {"__type": problem.__class__.__name__, "name": problem.name}
+    return {
+        "__type": problem.__class__.__name__,
+        "name": problem.name,
+    }  # noqa (unit tests in benchmark suite)
