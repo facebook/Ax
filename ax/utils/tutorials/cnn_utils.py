@@ -209,7 +209,7 @@ def train(
         nn.Module: trained CNN.
     """
     # Initialize network
-    net.to(dtype=dtype, device=device)  # pyre-ignore [28]
+    net.to(dtype=dtype, device=device)
     net.train()
     # Define loss and optimizer
     criterion = nn.NLLLoss(reduction="sum")

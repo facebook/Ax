@@ -13,6 +13,7 @@ from typing import Callable, Any, Dict, List, Type, Optional
 import numpy as np
 import pandas as pd
 import torch
+from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -194,6 +195,10 @@ def object_from_json(
                 search_space_json=object_json,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
+            )
+        elif _class == PyTorchCNNTorchvisionBenchmarkProblem:
+            return PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(
+                object_json["name"]
             )
         elif issubclass(_class, Runner):
             return runner_from_json(_class=_class, runner_json=object_json)

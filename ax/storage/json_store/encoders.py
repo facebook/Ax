@@ -6,6 +6,9 @@
 
 from typing import Any, Dict, Type
 
+from ax.benchmark.problems.hpo.torchvision import (
+    PyTorchCNNTorchvisionBenchmarkProblem,
+)
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -529,3 +532,9 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> Dict[str, Any]:
         "lower_boundary": config.lower_boundary,
         "upper_boundary": config.upper_boundary,
     }
+
+
+def pytorch_cnn_torchvision_benchmark_problem_to_dict(
+    problem: PyTorchCNNTorchvisionBenchmarkProblem,
+) -> Dict[str, Any]:
+    return {"__type": problem.__class__.__name__, "name": problem.name}
