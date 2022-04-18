@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.metric import Metric
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -249,6 +250,7 @@ class TorchModelBridge(ArrayModelBridge):
         rounding_func: Callable[[np.ndarray], np.ndarray],
         target_fidelities: Optional[Dict[int, float]],
         objective_thresholds: Optional[np.ndarray] = None,
+        opt_config_metrics: Optional[Dict[str, Metric]] = None,
     ) -> Tuple[np.ndarray, np.ndarray, TGenMetadata, List[TCandidateMetadata]]:
         if not self.model:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_gen"))
@@ -290,12 +292,16 @@ class TorchModelBridge(ArrayModelBridge):
             # If objective_thresholds are supplied by the user, then the transformed
             # user-specified objective thresholds are in gen_metadata. Otherwise,
             # inferred objective thresholds are in gen_metadata.
+            opt_config_metrics = (
+                opt_config_metrics or not_none(self._optimization_config).metrics
+            )
             gen_metadata[
                 "objective_thresholds"
             ] = self._untransform_objective_thresholds(
                 objective_thresholds=gen_metadata["objective_thresholds"],
                 objective_weights=obj_w,
                 bounds=bounds,
+                opt_config_metrics=opt_config_metrics,
                 fixed_features=fixed_features,
             )
 
@@ -319,6 +325,7 @@ class TorchModelBridge(ArrayModelBridge):
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
             )
+            extra_kwargs_dict["opt_config_metrics"] = optimization_config.metrics
         return extra_kwargs_dict
 
     def _model_best_point(
@@ -474,6 +481,7 @@ class TorchModelBridge(ArrayModelBridge):
             objective_thresholds=obj_thresholds_arr,
             objective_weights=obj_w,
             bounds=array_model_gen_args.search_space_digest.bounds,
+            opt_config_metrics=base_gen_args.optimization_config.metrics,
             fixed_features=array_model_gen_args.fixed_features,
         )
 
@@ -482,11 +490,11 @@ class TorchModelBridge(ArrayModelBridge):
         objective_thresholds: Tensor,
         objective_weights: Tensor,
         bounds: List[Tuple[Union[int, float], Union[int, float]]],
+        opt_config_metrics: Dict[str, Metric],
         fixed_features: Optional[Dict[int, float]],
     ) -> List[ObjectiveThreshold]:
         thresholds_np = objective_thresholds.cpu().numpy()
         idxs = objective_weights.nonzero().view(-1).tolist()
-        optimization_config = not_none(self._optimization_config)
 
         # Create transformed ObjectiveThresholds from numpy thresholds.
         thresholds = []
@@ -494,7 +502,7 @@ class TorchModelBridge(ArrayModelBridge):
             sign = torch.sign(objective_weights[idx])
             thresholds.append(
                 ObjectiveThreshold(
-                    metric=optimization_config.metrics[self.outcomes[idx]],
+                    metric=opt_config_metrics[self.outcomes[idx]],
                     bound=thresholds_np[idx],
                     relative=False,
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
