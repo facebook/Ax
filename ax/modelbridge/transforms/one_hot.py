@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, TYPE_CHECKING, TypeVar
 
 import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures

@@ -13,10 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.model_utils import (
-    mk_discrete_choices,
-    enumerate_discrete_combinations,
-)
+from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds

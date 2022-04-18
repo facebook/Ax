@@ -6,7 +6,7 @@
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.objective import ScalarizedObjective

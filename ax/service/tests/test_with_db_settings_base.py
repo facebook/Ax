@@ -26,10 +26,7 @@ from ax.storage.sqa_store.save import (
 )
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_experiment,
-    get_generator_run,
-)
+from ax.utils.testing.core_stubs import get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 
 

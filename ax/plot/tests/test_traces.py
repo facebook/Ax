@@ -9,8 +9,8 @@ import plotly.graph_objects as go
 from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.trace import (
-    optimization_trace_single_method_plotly,
     optimization_trace_single_method,
+    optimization_trace_single_method_plotly,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

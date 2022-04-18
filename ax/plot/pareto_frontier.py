@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from typing import Union, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
@@ -17,9 +17,9 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.exceptions.core import UserInputError
-from ax.plot.base import CI_OPACITY, DECIMALS, AxPlotConfig, AxPlotTypes
-from ax.plot.color import COLORS, rgba, DISCRETE_COLOR_SCALE
-from ax.plot.helper import extend_range, _format_CI, _format_dict
+from ax.plot.base import AxPlotConfig, AxPlotTypes, CI_OPACITY, DECIMALS
+from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
+from ax.plot.helper import _format_CI, _format_dict, extend_range
 from ax.plot.pareto_utils import ParetoFrontierResults
 from ax.utils.common.typeutils import checked_cast, not_none
 from scipy.stats import norm

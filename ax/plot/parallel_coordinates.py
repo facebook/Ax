@@ -4,15 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List
-from typing import Optional
+from typing import List, Optional
 
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.plot.base import AxPlotConfig
-from ax.plot.base import AxPlotTypes
-from ax.service.utils.report_utils import _get_shortest_unique_suffix_dict
-from ax.service.utils.report_utils import exp_to_df
+from ax.plot.base import AxPlotConfig, AxPlotTypes
+from ax.service.utils.report_utils import _get_shortest_unique_suffix_dict, exp_to_df
 from plotly import express as px, graph_objs as go
 
 

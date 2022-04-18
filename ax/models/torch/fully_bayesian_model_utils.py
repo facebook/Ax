@@ -4,14 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from functools import wraps
-from typing import Callable, Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.models.torch.botorch_defaults import _get_model
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
-from gpytorch.kernels import ScaleKernel, RBFKernel
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from torch import Tensor
 
 

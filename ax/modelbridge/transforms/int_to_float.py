@@ -4,12 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
-from ax.core.search_space import RobustSearchSpace
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import (
     contains_constrained_integer,

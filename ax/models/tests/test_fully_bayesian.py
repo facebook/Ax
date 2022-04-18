@@ -18,9 +18,9 @@ from ax.exceptions.core import AxError
 from ax.models.torch.fully_bayesian import (
     FullyBayesianBotorchModel,
     FullyBayesianMOOBotorchModel,
-    single_task_pyro_model,
     matern_kernel,
     rbf_kernel,
+    single_task_pyro_model,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -75,7 +75,7 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 try:
-    from pyro.infer.mcmc import NUTS, MCMC
+    from pyro.infer.mcmc import MCMC, NUTS
 
     class BaseFullyBayesianBotorchModelTest(ABC):
         model_cls: Type[FullyBayesianBotorchModel]

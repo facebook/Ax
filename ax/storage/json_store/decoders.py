@@ -9,7 +9,7 @@ from __future__ import annotations
 import inspect
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus

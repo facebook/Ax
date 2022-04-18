@@ -8,10 +8,10 @@ import plotly.graph_objects as go
 from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.slice import (
-    plot_slice_plotly,
+    interact_slice,
     interact_slice_plotly,
     plot_slice,
-    interact_slice,
+    plot_slice_plotly,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

@@ -23,15 +23,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.exceptions.core import AxError
-from ax.models.torch.utils import (
-    _get_X_pending_and_observed,
-    _to_inequality_constraints,
-    subset_model,
-)
 from ax.models.torch.utils import (  # noqa F40
+    _get_X_pending_and_observed,
     _to_inequality_constraints,
     get_outcome_constraint_transforms,
     predict_from_model,
+    subset_model,
 )
 from ax.models.torch_base import TorchModel
 from ax.utils.common.constants import Keys
@@ -39,9 +36,7 @@ from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.multi_objective.utils import get_default_partitioning_alpha
-from botorch.acquisition.utils import (
-    get_acquisition_function,
-)
+from botorch.acquisition.utils import get_acquisition_function
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf_list
 from botorch.utils.multi_objective.hypervolume import infer_reference_point

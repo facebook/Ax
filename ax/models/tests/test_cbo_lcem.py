@@ -9,7 +9,7 @@ import torch
 from ax.models.torch.cbo_lcem import LCEMBO
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.models.contextual_multioutput import LCEMGP, FixedNoiseLCEMGP
+from botorch.models.contextual_multioutput import FixedNoiseLCEMGP, LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 
 

@@ -22,7 +22,7 @@ from ax.core import (
 from ax.metrics.torchx import TorchXMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.runners.torchx import TorchXRunner
-from ax.service.scheduler import SchedulerOptions, Scheduler, FailureRateExceededError
+from ax.service.scheduler import FailureRateExceededError, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from torchx.components import utils

@@ -8,7 +8,7 @@ from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.botorch_kg import KnowledgeGradient, _instantiate_KG
+from ax.models.torch.botorch_kg import _instantiate_KG, KnowledgeGradient
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import PosteriorMean

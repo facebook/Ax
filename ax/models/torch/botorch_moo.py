@@ -11,12 +11,12 @@ from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
+    get_rounding_func,
     TAcqfConstructor,
     TBestPointRecommender,
     TModelConstructor,
     TModelPredictor,
     TOptimizer,
-    get_rounding_func,
 )
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
@@ -26,9 +26,9 @@ from ax.models.torch.botorch_defaults import (
 )
 from ax.models.torch.botorch_moo_defaults import (
     get_NEHVI,
+    infer_objective_thresholds,
     pareto_frontier_evaluator,
     scipy_optimizer_list,
-    infer_objective_thresholds,
 )
 from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.utils import (

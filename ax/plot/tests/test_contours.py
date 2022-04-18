@@ -8,10 +8,10 @@ import plotly.graph_objects as go
 from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import (
-    plot_contour_plotly,
+    interact_contour,
     interact_contour_plotly,
     plot_contour,
-    interact_contour,
+    plot_contour_plotly,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

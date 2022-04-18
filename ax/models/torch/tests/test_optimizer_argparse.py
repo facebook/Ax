@@ -12,8 +12,8 @@ from unittest.mock import patch
 from ax.models.torch.botorch_modular import optimizer_argparse as Argparse
 from ax.models.torch.botorch_modular.optimizer_argparse import (
     _argparse_base,
-    optimizer_argparse,
     MaybeType,
+    optimizer_argparse,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase

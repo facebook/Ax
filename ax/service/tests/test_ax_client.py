@@ -8,7 +8,7 @@ import math
 import sys
 import time
 from math import ceil
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 from unittest.mock import patch
 
 import numpy as np
@@ -25,8 +25,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError, UnsupportedPlotError
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UnsupportedPlotError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
@@ -36,8 +35,8 @@ from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
     get_pareto_optimal_parameters,
-    predicted_pareto,
     observed_pareto,
+    predicted_pareto,
 )
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder

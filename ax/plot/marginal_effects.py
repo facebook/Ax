@@ -9,7 +9,7 @@ from typing import Any, List
 import pandas as pd
 import plotly.graph_objs as go
 from ax.modelbridge.base import ModelBridge
-from ax.plot.base import DECIMALS, AxPlotConfig, AxPlotTypes
+from ax.plot.base import AxPlotConfig, AxPlotTypes, DECIMALS
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
 from plotly import subplots

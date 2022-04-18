@@ -9,7 +9,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, Optional, Set, Tuple, List
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from unittest.mock import patch
 
 from ax.core.arm import Arm
@@ -19,7 +19,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import UserInputError, OptimizationComplete, UnsupportedError
+from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -29,21 +29,16 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
+    ExperimentStatusProperties,
     FailureRateExceededError,
+    OptimizationResult,
     Scheduler,
     SchedulerInternalError,
     SchedulerOptions,
-    ExperimentStatusProperties,
-    OptimizationResult,
 )
-from ax.service.utils.with_db_settings_base import (
-    WithDBSettingsBase,
-)
+from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
-from ax.storage.json_store.registry import (
-    CORE_DECODER_REGISTRY,
-    CORE_ENCODER_REGISTRY,
-)
+from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
@@ -54,12 +49,12 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_multi_objective,
+    DummyEarlyStoppingStrategy,
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
     get_branin_search_space,
     get_generator_run,
-    DummyEarlyStoppingStrategy,
 )
 from sqlalchemy.orm.exc import StaleDataError
 

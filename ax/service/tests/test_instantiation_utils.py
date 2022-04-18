@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
-from ax.core.parameter import ParameterType, RangeParameter, FixedParameter
+from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.service.utils.instantiation import InstantiationBase

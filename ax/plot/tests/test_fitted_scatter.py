@@ -7,10 +7,7 @@
 import plotly.graph_objects as go
 from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
-from ax.plot.scatter import (
-    interact_fitted_plotly,
-    interact_fitted,
-)
+from ax.plot.scatter import interact_fitted, interact_fitted_plotly
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import fast_botorch_optimize

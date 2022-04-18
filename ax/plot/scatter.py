@@ -17,23 +17,17 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
 from ax.plot.base import (
-    CI_OPACITY,
-    DECIMALS,
     AxPlotConfig,
     AxPlotTypes,
+    CI_OPACITY,
+    DECIMALS,
     PlotInSampleArm,
     PlotMetric,
     PlotOutOfSampleArm,
     Z,
 )
-from ax.plot.color import (
-    COLORS,
-    DISCRETE_COLOR_SCALE,
-    BLUE_SCALE,
-    rgba,
-)
+from ax.plot.color import BLUE_SCALE, COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import (
-    TNullableGeneratorRunsDict,
     _format_CI,
     _format_dict,
     _wrap_metric,
@@ -42,6 +36,7 @@ from ax.plot.helper import (
     get_plot_data,
     infer_is_relative,
     resize_subtitles,
+    TNullableGeneratorRunsDict,
 )
 from ax.utils.common.typeutils import checked_cast_optional
 from ax.utils.stats.statstools import relativize

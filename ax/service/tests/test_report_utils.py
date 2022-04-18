@@ -15,14 +15,14 @@ from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
-    get_standard_plots,
     Experiment,
+    get_standard_plots,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_timestamp_map_metric,
-    get_branin_experiment_with_multi_objective,
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_timestamp_map_metric,
     get_multi_type_experiment,
 )
 from ax.utils.testing.mock import fast_botorch_optimize

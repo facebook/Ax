@@ -12,8 +12,8 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.models.model_utils import (
     best_observed_point,
     check_duplicate,
-    mk_discrete_choices,
     enumerate_discrete_combinations,
+    mk_discrete_choices,
 )
 from ax.utils.common.testutils import TestCase
 

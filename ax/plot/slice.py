@@ -12,14 +12,14 @@ from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.helper import (
-    get_range_parameters,
-    TNullableGeneratorRunsDict,
     axis_range,
     get_fixed_values,
     get_grid_for_parameter,
     get_plot_data,
     get_range_parameter,
+    get_range_parameters,
     slice_config_to_trace,
+    TNullableGeneratorRunsDict,
 )
 from ax.utils.common.typeutils import not_none
 from plotly import graph_objs as go

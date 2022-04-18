@@ -6,7 +6,7 @@
 
 from copy import deepcopy
 from itertools import combinations
-from typing import Union, Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import torch

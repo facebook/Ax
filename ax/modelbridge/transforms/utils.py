@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from math import isnan
 from numbers import Number
-from typing import Callable, Dict, List, Tuple, Union, Any
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 from ax.core.observation import ObservationData

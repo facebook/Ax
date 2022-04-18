@@ -4,8 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import abstractmethod, ABCMeta
-from typing import Iterable, Dict, Tuple, Optional
+from abc import ABCMeta, abstractmethod
+from typing import Dict, Iterable, Optional, Tuple
 
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import (
