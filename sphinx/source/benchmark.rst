@@ -51,10 +51,34 @@ Benchmark Methods Modular BoTorch
     :undoc-members:
     :show-inheritance:
 
+Benchmark Methods Choose Generation Strategy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.methods.choose_generation_strategy
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems Synthetic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.synthetic
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems PyTorchCNN
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.hpo.pytorch_cnn
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Problems PyTorchCNN TorchVision
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.hpo.torchvision
     :members:
     :undoc-members:
     :show-inheritance:
