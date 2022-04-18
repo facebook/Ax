@@ -14,6 +14,11 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_result import ScoredBenchmarkResult
+from ax.benchmark.problems.hpo.pytorch_cnn import PyTorchCNNMetric
+from ax.benchmark.problems.hpo.torchvision import (
+    PyTorchCNNTorchvisionRunner,
+    PyTorchCNNTorchvisionBenchmarkProblem,
+)
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -111,6 +116,7 @@ from ax.storage.json_store.encoders import (
     trial_to_dict,
     threshold_early_stopping_strategy_to_dict,
     winsorization_config_to_dict,
+    pytorch_cnn_torchvision_benchmark_problem_to_dict,
 )
 from ax.storage.json_store.encoders import logical_early_stopping_strategy_to_dict
 from ax.storage.utils import DomainType, ParameterConstraintType
@@ -166,6 +172,9 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
+    PyTorchCNNTorchvisionBenchmarkProblem: pytorch_cnn_torchvision_benchmark_problem_to_dict,  # noqa
+    PyTorchCNNMetric: metric_to_dict,
+    PyTorchCNNTorchvisionRunner: runner_to_dict,
     RangeParameter: range_parameter_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
@@ -250,6 +259,9 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterType": ParameterType,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
+    "PyTorchCNNTorchvisionBenchmarkProblem": PyTorchCNNTorchvisionBenchmarkProblem,
+    "PyTorchCNNMetric": PyTorchCNNMetric,
+    "PyTorchCNNTorchvisionRunner": PyTorchCNNTorchvisionRunner,
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,

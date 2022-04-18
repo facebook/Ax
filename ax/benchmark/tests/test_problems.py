@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
+from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.benchmark.problems.synthetic import (
     get_problem_and_baseline_from_botorch,
     _REGISTRY,
@@ -21,3 +22,7 @@ class TestProblems(TestCase):
             )
 
             self.assertTrue(isinstance(baseline, AggregatedBenchmarkResult))
+
+    def test_pytorch_cnn(self):
+        # Just check data loading and construction succeeds
+        PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(name="MNIST")

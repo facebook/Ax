@@ -16,6 +16,9 @@ from ax.benchmark.benchmark_result import (
     BenchmarkResult,
     ScoredBenchmarkResult,
 )
+from ax.benchmark.problems.hpo.torchvision import (
+    PyTorchCNNTorchvisionBenchmarkProblem,
+)
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -54,6 +57,10 @@ def get_sobol_benchmark_method() -> BenchmarkMethod:
             total_trials=4, init_seconds_between_polls=0
         ),
     )
+
+
+def get_torchvision_problem() -> PyTorchCNNTorchvisionBenchmarkProblem:
+    return PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(name="MNIST")
 
 
 def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
