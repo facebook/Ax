@@ -355,7 +355,9 @@ class WithDBSettingsBase:
         return False
 
     def _save_generation_strategy_to_db_if_possible(
-        self, generation_strategy: GenerationStrategy, suppress_all_errors: bool = False
+        self,
+        generation_strategy: Optional[GenerationStrategy] = None,
+        suppress_all_errors: bool = False,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance.
@@ -366,7 +368,7 @@ class WithDBSettingsBase:
         Returns:
             bool: Whether the generation strategy was saved.
         """
-        if self.db_settings_set:
+        if self.db_settings_set and generation_strategy is not None:
             _save_generation_strategy_to_db_if_possible(
                 generation_strategy=generation_strategy,
                 encoder=self.db_settings.encoder,
