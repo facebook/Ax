@@ -144,13 +144,14 @@ if [[ $VERSION == false ]]; then
   cp versions.html Ax-gh-pages/versions/latest/versions.html
   cp versions.html Ax-gh-pages/versions/latest/en/versions.html
 
-  # erase git history then force push to overwrite
+  # Move contents of newsite to Ax-gh-pages, preserving commit history
+  rm -rfv ./Ax-gh-pages/*
+  rsync -avh ./new-site/ ./Ax-gh-pages/
   cd Ax-gh-pages || exit
-  rm -rf .git
-  git init -b main
   git add --all
-  git commit -m 'Update latest version of site'
-  git push --force "https://github.com/facebook/Ax" main:gh-pages
+  echo "Pushing new site to gh-pages branch."
+  git commit -m "Publish version ${VERSION} of site"
+  git push
 
 else
   echo "-----------------------------------------"
