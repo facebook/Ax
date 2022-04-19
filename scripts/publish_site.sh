@@ -130,7 +130,9 @@ if [[ $VERSION == false ]]; then
 
   # Build site
   cd .. || exit
-  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  # TODO: add back -t before committing! (removed for faster testing)
+#   ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  ./scripts/make_docs.sh -b -k "${KERNEL_NAME}"
   rm -rf ../website/build/Ax/docs/next  # don't need this
 
   # Move built site to gh-pages (but keep old versions.js)
@@ -225,6 +227,7 @@ else
   rsync -avh ./new-site/ ./Ax-gh-pages/
   cd Ax-gh-pages || exit
   git add --all
+  echo "Pushing new site to gh-pages branch."
   git commit -m "Publish version ${VERSION} of site"
   git push
 fi
