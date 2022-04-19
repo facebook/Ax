@@ -17,7 +17,7 @@ Key terms used:
 
 """
 from time import time
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -38,17 +38,21 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import Models
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.typeutils import not_none
+from botorch.utils.sampling import manual_seed
 
 
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
+    replication_seed: Optional[int] = None,
 ) -> BenchmarkResult:
     """Runs one benchmarking replication (equivalent to one optimization loop).
 
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
+        replication_seed: The seed to use for this replication, set using `manual_seed`
+            from `botorch.utils.sampling`.
     """
 
     experiment = Experiment(
@@ -63,20 +67,27 @@ def benchmark_replication(
         generation_strategy=method.generation_strategy.clone_reset(),
         options=method.scheduler_options,
     )
-
-    scheduler.run_all_trials()
+    with manual_seed(seed=replication_seed):
+        scheduler.run_all_trials()
 
     return _result_from_scheduler(scheduler=scheduler)
 
 
 def benchmark_test(
-    problem: BenchmarkProblem, method: BenchmarkMethod, num_replications: int = 10
+    problem: BenchmarkProblem,
+    method: BenchmarkMethod,
+    num_replications: int = 10,
+    seed: Optional[int] = None,
 ) -> AggregatedBenchmarkResult:
 
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
-            benchmark_replication(problem=problem, method=method)
-            for _ in range(num_replications)
+            benchmark_replication(
+                problem=problem,
+                method=method,
+                replication_seed=seed + i if seed is not None else None,
+            )
+            for i in range(num_replications)
         ]
     )
 
@@ -85,11 +96,12 @@ def benchmark_full_run(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     num_replications: int = 10,
+    seed: Optional[int] = None,
 ) -> List[AggregatedBenchmarkResult]:
 
     return [
         benchmark_test(
-            problem=problem, method=method, num_replications=num_replications
+            problem=problem, method=method, num_replications=num_replications, seed=seed
         )
         for problem in problems
         for method in methods
@@ -101,6 +113,7 @@ def benchmark_scored_test(
     method: BenchmarkMethod,
     baseline_result: AggregatedBenchmarkResult,
     num_replications: int = 10,
+    seed: Optional[int] = None,
 ) -> ScoredBenchmarkResult:
     if isinstance(problem, SingleObjectiveBenchmarkProblem):
         optimum = problem.optimal_value
@@ -113,7 +126,7 @@ def benchmark_scored_test(
         )
 
     aggregated_result = benchmark_test(
-        problem=problem, method=method, num_replications=num_replications
+        problem=problem, method=method, num_replications=num_replications, seed=seed
     )
 
     return ScoredBenchmarkResult.from_result_and_baseline(
@@ -129,6 +142,7 @@ def benchmark_scored_full_run(
     ],
     methods: Iterable[BenchmarkMethod],
     num_replications: int = 10,
+    seed: Optional[int] = None,
 ) -> List[ScoredBenchmarkResult]:
 
     return [
@@ -137,6 +151,7 @@ def benchmark_scored_full_run(
             method=method,
             baseline_result=baseline_result,
             num_replications=num_replications,
+            seed=seed,
         )
         for problem, baseline_result in problems_baseline_results
         for method in methods
@@ -144,7 +159,10 @@ def benchmark_scored_full_run(
 
 
 def get_sobol_baseline(
-    problem: BenchmarkProblem, num_replications: int = 100, total_trials: int = 100
+    problem: BenchmarkProblem,
+    num_replications: int = 100,
+    total_trials: int = 100,
+    seed: Optional[int] = None,
 ) -> AggregatedBenchmarkResult:
     return benchmark_test(
         problem=problem,
@@ -159,6 +177,7 @@ def get_sobol_baseline(
             ),
         ),
         num_replications=num_replications,
+        seed=seed,
     )
 
 
