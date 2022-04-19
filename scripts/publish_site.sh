@@ -144,13 +144,11 @@ if [[ $VERSION == false ]]; then
   cp versions.html Ax-gh-pages/versions/latest/versions.html
   cp versions.html Ax-gh-pages/versions/latest/en/versions.html
 
-  # Move contents of newsite to Ax-gh-pages, preserving commit history
-  rm -rfv ./Ax-gh-pages/*
-  rsync -avh ./new-site/ ./Ax-gh-pages/
+  # Push changes to gh-pages
   cd Ax-gh-pages || exit
-  git add --all
-  echo "Pushing new site to gh-pages branch."
-  git commit -m "Publish version ${VERSION} of site"
+  git add .
+  echo "Pushing latest site to gh-pages branch."
+  git commit -m 'Update latest version of site'
   git push
 
 else
