@@ -80,7 +80,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         runner = PyTorchCNNRunner(name=name, train_set=train_set, test_set=test_set)
 
         return cls(
-            name=name,
+            name=f"HPO_PyTorchCNN_{name}",
             optimal_value=optimal_value,
             search_space=search_space,
             optimization_config=optimization_config,

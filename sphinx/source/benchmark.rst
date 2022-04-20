@@ -59,10 +59,10 @@ Benchmark Methods Choose Generation Strategy
     :undoc-members:
     :show-inheritance:
 
-Benchmark Problems Synthetic
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Benchmark Problems Registry
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.problems.synthetic
+.. automodule:: ax.benchmark.problems.registry
     :members:
     :undoc-members:
     :show-inheritance:
