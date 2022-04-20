@@ -4,10 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
-from ax.benchmark.problems.synthetic import (
-    get_problem_and_baseline_from_botorch,
-    _REGISTRY,
+from ax.benchmark.problems.registry import (
+    get_problem_and_baseline,
+    BENCHMARK_PROBLEM_REGISTRY,
 )
 from ax.utils.common.testutils import TestCase
 
@@ -16,13 +15,11 @@ class TestProblems(TestCase):
     def test_load_baselines(self):
 
         # Make sure the json parsing suceeded
-        for name in _REGISTRY.keys():
-            _problem, baseline = get_problem_and_baseline_from_botorch(
-                problem_name=name
-            )
+        for name in BENCHMARK_PROBLEM_REGISTRY.keys():
+            if "MNIST" in name:
+                continue  # Skip these as they cause the test to take a long time
+
+            problem, baseline = get_problem_and_baseline(problem_name=name)
 
             self.assertTrue(isinstance(baseline, AggregatedBenchmarkResult))
-
-    def test_pytorch_cnn(self):
-        # Just check data loading and construction succeeds
-        PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(name="MNIST")
+            self.assertIn(problem.name, baseline.name)
