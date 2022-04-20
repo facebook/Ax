@@ -359,10 +359,6 @@ class BotorchModel(TorchModel):
 
         botorch_rounding_func = get_rounding_func(rounding_func)
 
-        # The following logic is to work around the limitation of PyTorch's Sobol
-        # sampler to <1111 dimensions.
-        # TODO: Remove once https://github.com/pytorch/pytorch/issues/41489 is resolved.
-
         from botorch.exceptions.errors import UnsupportedError
 
         def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
@@ -396,7 +392,7 @@ class BotorchModel(TorchModel):
         try:
             candidates, expected_acquisition_value = make_and_optimize_acqf()
         except UnsupportedError as e:
-            if "SobolQMCSampler only supports dimensions q * o <= 1111" in str(e):
+            if "SobolQMCSampler only supports dimensions" in str(e):
                 # dimension too large for Sobol, let's use IID
                 candidates, expected_acquisition_value = make_and_optimize_acqf(
                     override_qmc=True
