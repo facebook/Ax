@@ -128,8 +128,8 @@ def plot_optimization_trace(
 
     layout = go.Layout(
         title="Optimization Traces",
-        yaxis={"title": "Iteration"},
-        xaxis={"title": "Best Found"},
+        yaxis={"title": "Best Found"},
+        xaxis={"title": "Iteration"},
         hovermode="x unified",
     )
 
