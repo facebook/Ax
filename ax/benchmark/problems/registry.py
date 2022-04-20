@@ -14,10 +14,11 @@ from ax.benchmark.benchmark_problem import (
     SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
+from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.storage.json_store.decoder import object_from_json
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Branin, Ackley
+from botorch.test_functions.synthetic import Hartmann, Branin, Ackley
 
 
 @dataclass
@@ -42,6 +43,26 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_fn=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
         factory_kwargs={"test_problem": BraninCurrin()},
         baseline_results_path="baseline_results/synthetic/branin_currin.json",
+    ),
+    "branin_currin30": BenchmarkProblemRegistryEntry(
+        factory_fn=lambda n: embed_higher_dimension(
+            problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+                test_problem=BraninCurrin()
+            ),
+            total_dimensionality=n,
+        ),
+        factory_kwargs={"n": 30},
+        baseline_results_path="baseline_results/synthetic/hd/branin_currin_30d.json",
+    ),
+    "hartmann50": BenchmarkProblemRegistryEntry(
+        factory_fn=lambda n: embed_higher_dimension(
+            problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+                test_problem=Hartmann(dim=6)
+            ),
+            total_dimensionality=n,
+        ),
+        factory_kwargs={"n": 50},
+        baseline_results_path="baseline_results/synthetic/hd/hartmann_50d.json",
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,

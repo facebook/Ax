@@ -67,6 +67,14 @@ Benchmark Problems Registry
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems High Dimensional Embedding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.hd_embedding
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems PyTorchCNN
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

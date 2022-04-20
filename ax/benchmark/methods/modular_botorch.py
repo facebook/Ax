@@ -10,6 +10,10 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qNoisyExpectedHypervolumeImprovement,
+)
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 
 
@@ -69,6 +73,56 @@ def get_sobol_botorch_modular_default():
 
     return BenchmarkMethod(
         name="SOBOL+BOTORCH_MODULAR::default",
+        generation_strategy=generation_strategy,
+        scheduler_options=scheduler_options,
+    )
+
+
+def get_sobol_botorch_modular_saas_fully_bayesian_gp_qnei():
+    generation_strategy = GenerationStrategy(
+        name="SOBOL+BOTORCH_MODULAR::default",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
+            GenerationStep(
+                model=Models.BOTORCH_MODULAR,
+                num_trials=-1,
+                model_kwargs={
+                    "surrogate": Surrogate(SaasFullyBayesianSingleTaskGP),
+                    "botorch_acqf_class": qNoisyExpectedImprovement,
+                },
+            ),
+        ],
+    )
+
+    scheduler_options = SchedulerOptions(total_trials=30)
+
+    return BenchmarkMethod(
+        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedImprovement",  # noqa
+        generation_strategy=generation_strategy,
+        scheduler_options=scheduler_options,
+    )
+
+
+def get_sobol_botorch_modular_saas_fully_bayesian_gp_qnehvi():
+    generation_strategy = GenerationStrategy(
+        name="SOBOL+BOTORCH_MODULAR::default",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
+            GenerationStep(
+                model=Models.BOTORCH_MODULAR,
+                num_trials=-1,
+                model_kwargs={
+                    "surrogate": Surrogate(SaasFullyBayesianSingleTaskGP),
+                    "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
+                },
+            ),
+        ],
+    )
+
+    scheduler_options = SchedulerOptions(total_trials=30)
+
+    return BenchmarkMethod(
+        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedHypervolumeImprovement",  # noqa
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options,
     )
