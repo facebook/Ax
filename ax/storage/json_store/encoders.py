@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import re
 from typing import Any, Dict, Type
 
 from ax.benchmark.problems.hpo.torchvision import (
@@ -47,6 +48,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
+from ax.utils.common.typeutils import not_none
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
@@ -540,5 +542,5 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     # unit tests for this in benchmark suite
     return {  # pragma: no cover
         "__type": problem.__class__.__name__,
-        "name": problem.name,
+        "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
     }
