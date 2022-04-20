@@ -42,7 +42,14 @@ class BotorchTestProblemRunner(Runner):
         return {
             "Ys": {
                 arm.name: self.test_problem.forward(
-                    torch.tensor([value for _key, value in arm.parameters.items()])
+                    torch.tensor(
+                        [
+                            value
+                            for _key, value in [*arm.parameters.items()][
+                                : self.test_problem.dim
+                            ]
+                        ]
+                    )
                 ).tolist()
                 for arm in trial.arms
             },
