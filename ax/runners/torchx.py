@@ -145,6 +145,9 @@ try:
             if "trial_idx" in component_args:
                 parameters["trial_idx"] = trial.index
 
+            if "experiment_name" in component_args:
+                parameters["experiment_name"] = trial.experiment.name
+
             if "tracker_base" in component_args:
                 parameters["tracker_base"] = self._tracker_base
 
