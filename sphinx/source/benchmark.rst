@@ -51,6 +51,14 @@ Benchmark Methods Modular BoTorch
     :undoc-members:
     :show-inheritance:
 
+Benchmark Methods SAASBO
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.methods.saasbo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Methods Choose Generation Strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
