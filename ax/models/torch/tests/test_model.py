@@ -18,6 +18,7 @@ from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.utils import _filter_X_observed
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
@@ -409,11 +410,23 @@ class BoTorchModelTest(TestCase):
             optimizer_options=self.optimizer_options,
         )
 
+    @fast_botorch_optimize
     def test_best_point(self):
-        with self.assertRaises(NotImplementedError):
+        self.model._surrogate = None
+        self.model.fit(
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
+            search_space_digest=self.mf_search_space_digest,
+            metric_names=self.metric_names,
+            candidate_metadata=self.candidate_metadata,
+        )
+
+        self.assertIsNotNone(
             self.model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
             )
+        )
 
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",

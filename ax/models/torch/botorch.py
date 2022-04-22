@@ -418,7 +418,6 @@ class BotorchModel(TorchModel):
         model_gen_options: Optional[TConfig] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
-
         return self.best_point_recommender(  # pyre-ignore [28]
             model=self,
             bounds=bounds,

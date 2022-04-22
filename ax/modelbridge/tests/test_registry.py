@@ -70,6 +70,9 @@ class ModelRegistryTest(TestCase):
         # FixedNoiseGP should be picked since experiment data has fixed noise.
         self.assertIsInstance(gpei.model.surrogate.model, FixedNoiseGP)
 
+        gr = gpei.gen(n=1)
+        self.assertIsNotNone(gr.best_arm_predictions)
+
     @fast_botorch_optimize
     def test_enum_sobol_GPEI(self):
         """Tests Sobol and GPEI instantiation through the Models enum."""
