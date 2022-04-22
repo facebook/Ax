@@ -447,6 +447,29 @@ class TestAxClient(TestCase):
         self.assertEqual(len(empty_trials_dict), 0)
         self.assertTrue(is_complete)
 
+    def test_save_and_load_generation_strategy(self):
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        generation_strategy = GenerationStrategy(
+            [GenerationStep(Models.SOBOL, num_trials=3)]
+        )
+        ax_client = AxClient(
+            db_settings=db_settings, generation_strategy=generation_strategy
+        )
+        ax_client.create_experiment(
+            name="unique_test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+        )
+        second_client = AxClient(db_settings=db_settings)
+        second_client.load_experiment_from_database("unique_test_experiment")
+        self.assertEqual(second_client.generation_strategy, generation_strategy)
+
     @patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
