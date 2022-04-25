@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.models.model_utils import best_observed_point
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
@@ -315,7 +316,19 @@ class BoTorchModel(TorchModel, Base):
         model_gen_options: Optional[TConfig] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
     ) -> Optional[Tensor]:
-        raise NotImplementedError("Coming soon.")
+        x_best = best_observed_point(
+            model=self,
+            bounds=bounds,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+        )
+
+        if x_best is None:
+            return None
+
+        return x_best.to(dtype=self.surrogate.dtype, device=torch.device("cpu"))
 
     @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
