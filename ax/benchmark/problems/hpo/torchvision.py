@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import re
 from typing import Any, Dict
 
 from ax.benchmark.problems.hpo.pytorch_cnn import (
@@ -12,7 +11,7 @@ from ax.benchmark.problems.hpo.pytorch_cnn import (
 )
 from ax.core.runner import Runner
 from ax.exceptions.core import UserInputError
-from ax.utils.common.typeutils import not_none, checked_cast
+from ax.utils.common.typeutils import checked_cast
 
 try:  # We don't require TorchVision by default.
     from torchvision import transforms, datasets
@@ -72,10 +71,7 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
     def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
         pytorch_cnn_runner = checked_cast(PyTorchCNNRunner, runner)
 
-        pattern = re.compile("(?<=::).*")  # Extract the dataset name
-        dataset_name = not_none(pattern.search(pytorch_cnn_runner.name)).group()
-
-        return {"name": dataset_name}
+        return {"name": pytorch_cnn_runner.name}
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
