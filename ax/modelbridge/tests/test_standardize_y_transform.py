@@ -14,6 +14,7 @@ from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.utils.common.testutils import TestCase
 
@@ -46,7 +47,7 @@ class StandardizeYTransformTest(TestCase):
     def testInit(self):
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             StandardizeY(
                 search_space=None, observation_features=None, observation_data=[]
             )

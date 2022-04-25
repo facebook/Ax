@@ -12,6 +12,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig
@@ -41,8 +42,8 @@ class StandardizeY(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         if len(observation_data) == 0:
-            raise ValueError(
-                "StandardizeY transform requires non-empty observation data."
+            raise DataRequiredError(
+                "`StandardizeY` transform requires non-empty observation data."
             )
         Ys = get_data(observation_data=observation_data)
         # Compute means and SDs

@@ -8,6 +8,7 @@ from copy import deepcopy
 
 import numpy as np
 from ax.core.observation import ObservationData
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.percentile_y import PercentileY
 from ax.utils.common.testutils import TestCase
 
@@ -67,7 +68,7 @@ class PercentileYTransformTest(TestCase):
         )
 
     def testInit(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             PercentileY(search_space=None, observation_features=[], observation_data=[])
 
     def testTransformObservations(self):

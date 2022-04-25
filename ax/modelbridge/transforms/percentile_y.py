@@ -9,12 +9,14 @@ from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from scipy import stats
+
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -37,7 +39,7 @@ class PercentileY(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         if len(observation_data) == 0:
-            raise ValueError(
+            raise DataRequiredError(
                 "Percentile transform requires non-empty observation data."
             )
         metric_values = get_data(observation_data=observation_data)

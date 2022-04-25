@@ -22,6 +22,7 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import DataRequiredError
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
@@ -114,7 +115,9 @@ class Winsorize(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         if len(observation_data) == 0:
-            raise ValueError("Winsorize transform requires non-empty observation data.")
+            raise DataRequiredError(
+                "`Winsorize` transform requires non-empty observation data."
+            )
         if config is None:
             raise ValueError(
                 "Transform config for `Winsorize` transform must be specified and "

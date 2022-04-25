@@ -9,6 +9,7 @@ from copy import deepcopy
 
 import numpy as np
 from ax.core.observation import ObservationData
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.utils.common.testutils import TestCase
 
@@ -131,7 +132,7 @@ class WinsorizeTransformTestLegacy(TestCase):
         self.assertEqual(self.t1.cutoffs["m2"], (-float("inf"), 1.0))
         self.assertEqual(self.t2.cutoffs["m1"], (0.0, float("inf")))
         self.assertEqual(self.t2.cutoffs["m2"], (0.0, float("inf")))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             Winsorize(search_space=None, observation_features=[], observation_data=[])
 
     def testTransformObservations(self):

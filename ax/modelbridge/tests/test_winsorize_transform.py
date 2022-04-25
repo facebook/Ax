@@ -21,6 +21,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
+from ax.exceptions.core import DataRequiredError
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
@@ -146,7 +147,8 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(self.t2.cutoffs["m1"], (0.0, float("inf")))
         self.assertEqual(self.t2.cutoffs["m2"], (0.0, float("inf")))
         with self.assertRaisesRegex(
-            ValueError, "Winsorize transform requires non-empty observation data."
+            DataRequiredError,
+            "`Winsorize` transform requires non-empty observation data.",
         ):
             Winsorize(search_space=None, observation_features=[], observation_data=[])
         obsd = [deepcopy(self.obsd1)]
