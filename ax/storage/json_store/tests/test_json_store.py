@@ -13,6 +13,7 @@ import torch
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
+from ax.metrics.jenatton import JenattonMetric
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (
@@ -142,6 +143,7 @@ TEST_CASES = [
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
     ("GeneratorRun", get_generator_run),
     ("Interval", get_interval),
+    ("JenattonMetric", JenattonMetric),
     ("ListSurrogate", get_list_surrogate),
     ("MapData", get_map_data),
     ("MapData", get_map_data),
