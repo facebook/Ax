@@ -100,5 +100,5 @@ jobs:
     - name: Deploy to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
-        user: lilidworkin
+        user: drfreund
         password: ${{ secrets.pypi_password }}
