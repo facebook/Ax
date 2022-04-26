@@ -18,7 +18,7 @@ from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.storage.json_store.decoder import object_from_json
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Hartmann, Branin, Ackley
+from botorch.test_functions.synthetic import Powell, Hartmann, Branin, Ackley
 
 
 @dataclass
@@ -54,6 +54,11 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"n": 30},
         baseline_results_path="baseline_results/synthetic/hd/branin_currin_30d.json",
     ),
+    "hartmann6": BenchmarkProblemRegistryEntry(
+        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_kwargs={"test_problem": Hartmann(dim=6)},
+        baseline_results_path="baseline_results/synthetic/hartmann6.json",
+    ),
     "hartmann50": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
@@ -73,6 +78,11 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
         factory_kwargs={"name": "FashionMNIST"},
         baseline_results_path="baseline_results/hpo/torchvision/fashion_mnist.json",
+    ),
+    "powell": BenchmarkProblemRegistryEntry(
+        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_kwargs={"test_problem": Powell()},
+        baseline_results_path="baseline_results/synthetic/powell.json",
     ),
 }
 
