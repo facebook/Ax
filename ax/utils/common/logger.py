@@ -149,7 +149,8 @@ class disable_logger:
             if (
                 not callable(attr_value)
                 or isinstance(attr_value, type)
-                or attr in ("__class__", "__repr__", "__str__")
+                or attr
+                in ("__class__", "__repr__", "__str__", "__getattribute__", "__new__")
             ):
                 continue
 
@@ -164,9 +165,13 @@ class disable_logger:
             logger.setLevel(self.level)
             try:
                 return func(*args, **kwargs)
-            except TypeError:
+            except TypeError as e:
                 # static functions
-                return func(*args[1:], **kwargs)
+                try:
+                    return func(*args[1:], **kwargs)
+                except TypeError:
+                    # it wasn't that it was a static function
+                    raise e
             finally:
                 logger.setLevel(prev_level)
 
