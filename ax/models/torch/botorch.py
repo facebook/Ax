@@ -403,7 +403,11 @@ class BotorchModel(TorchModel):
         return (
             candidates.detach().cpu(),
             torch.ones(n, dtype=self.dtype),
-            {"expected_acquisition_value": expected_acquisition_value.tolist()},
+            {
+                "expected_acquisition_value": expected_acquisition_value.tolist()
+                if expected_acquisition_value.numel() > 0
+                else []
+            },
             None,
         )
 
