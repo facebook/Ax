@@ -16,6 +16,7 @@ from ax.modelbridge.transforms.rounding import (
     randomized_onehot_round,
     strict_onehot_round,
 )
+from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 
@@ -141,7 +142,8 @@ class OneHot(Transform):
                     )
             else:
                 transformed_parameters[p_name] = p
-        return SearchSpace(
+        return construct_new_search_space(
+            search_space=search_space,
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[
                 pc.clone_with_transformed_parameters(

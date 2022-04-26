@@ -8,8 +8,9 @@ from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:
@@ -64,20 +65,13 @@ class IntRangeToChoice(Transform):
                 )
             else:
                 transformed_parameters[p.name] = p
-        new_kwargs = {
-            "parameters": list(transformed_parameters.values()),
-            "parameter_constraints": [
+        return construct_new_search_space(
+            search_space=search_space,
+            parameters=list(transformed_parameters.values()),
+            parameter_constraints=[
                 pc.clone_with_transformed_parameters(
                     transformed_parameters=transformed_parameters
                 )
                 for pc in search_space.parameter_constraints
             ],
-        }
-        if isinstance(search_space, RobustSearchSpace):
-            new_kwargs["environmental_variables"] = list(
-                search_space._environmental_variables.values()
-            )
-            # pyre-ignore Incompatible parameter type [6]
-            new_kwargs["parameter_distributions"] = search_space.parameter_distributions
-        # pyre-ignore Incompatible parameter type [6]
-        return search_space.__class__(**new_kwargs)
+        )

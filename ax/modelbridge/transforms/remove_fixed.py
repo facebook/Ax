@@ -10,6 +10,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ class RemoveFixed(Transform):
     Fixed parameters should not be included in the SearchSpace.
     This transform removes these parameters, leaving only tunable parameters.
 
-    Transform is done in-place.
+    Transform is done in-place for observation features.
     """
 
     def __init__(
@@ -65,11 +66,9 @@ class RemoveFixed(Transform):
                 # pyre-fixme[9]: parameter.Parameter`.
                 p_: Union[ChoiceParameter, RangeParameter] = p
                 tunable_parameters.append(p_)
-        return SearchSpace(
-            # Expected `List[ax.core.parameter.Parameter]` for 2nd parameter
-            # `parameters` to call `ax.core.search_space.SearchSpace.__init__`
-            # but got `List[Union[ChoiceParameter, RangeParameter]]`.
-            # pyre-fixme[6]:
+        return construct_new_search_space(
+            search_space=search_space,
+            # pyre-ignore Incompatible parameter type [6]
             parameters=tunable_parameters,
             parameter_constraints=[
                 pc.clone() for pc in search_space.parameter_constraints

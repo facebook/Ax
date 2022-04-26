@@ -11,6 +11,7 @@ from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:
@@ -78,7 +79,8 @@ class TaskEncode(OrderedChoiceEncode):
                 )
             else:
                 transformed_parameters[p.name] = p
-        return SearchSpace(
+        return construct_new_search_space(
+            search_space=search_space,
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[
                 pc.clone_with_transformed_parameters(

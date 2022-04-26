@@ -12,7 +12,10 @@ from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangePa
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.utils import ClosestLookupDict
+from ax.modelbridge.transforms.utils import (
+    construct_new_search_space,
+    ClosestLookupDict,
+)
 from ax.models.types import TConfig
 
 if TYPE_CHECKING:
@@ -92,7 +95,8 @@ class ChoiceEncode(Transform):
                 )
             else:
                 transformed_parameters[p.name] = p
-        return SearchSpace(
+        return construct_new_search_space(
+            search_space=search_space,
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[
                 pc.clone_with_transformed_parameters(
@@ -170,7 +174,8 @@ class OrderedChoiceEncode(ChoiceEncode):
                 )
             else:
                 transformed_parameters[p.name] = p
-        return SearchSpace(
+        return construct_new_search_space(
+            search_space=search_space,
             parameters=list(transformed_parameters.values()),
             parameter_constraints=[
                 pc.clone_with_transformed_parameters(

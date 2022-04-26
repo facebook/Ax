@@ -9,9 +9,10 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.one_hot import OH_PARAM_INFIX, OneHot
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class OneHotTransformTest(TestCase):
@@ -150,3 +151,36 @@ class OneHotTransformTest(TestCase):
         t = OneHot(search_space=ss3, observation_features=None, observation_data=None)
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space()
+        # Transform a non-distributional parameter.
+        t = OneHot(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        # Make sure that the return value is still a RobustSearchSpace.
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(len(rss_new.parameters.keys()), 4)
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertNotIn("c", rss_new.parameters)
+        # Test with environmental variables.
+        all_params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=all_params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            environmental_variables=all_params[:2],
+        )
+        t = OneHot(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(len(rss_new.parameters.keys()), 4)
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
+        self.assertNotIn("c", rss_new.parameters)

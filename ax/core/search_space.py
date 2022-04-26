@@ -725,6 +725,14 @@ class RobustSearchSpace(SearchSpace):
         self._environmental_variables: Dict[str, Parameter] = {
             p.name: p for p in environmental_variables
         }
+        # Make sure that the environmental variables and parameters are distinct.
+        param_names = {p.name for p in parameters}
+        for p_name in self._environmental_variables:
+            if p_name in param_names:
+                raise UserInputError(
+                    f"Environmental variable {p_name} should not be repeated "
+                    "in parameters."
+                )
         # NOTE: We need `_environmental_variables` set before calling `__init__`.
         super().__init__(
             parameters=parameters, parameter_constraints=parameter_constraints
