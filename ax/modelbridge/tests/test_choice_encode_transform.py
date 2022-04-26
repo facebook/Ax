@@ -10,12 +10,15 @@ import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class ChoiceEncodeTransformTest(TestCase):
+    t_class = ChoiceEncode
+
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -43,7 +46,7 @@ class ChoiceEncodeTransformTest(TestCase):
                 ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5)
             ],
         )
-        self.t = ChoiceEncode(
+        self.t = self.t_class(
             search_space=self.search_space,
             observation_features=None,
             observation_data=None,
@@ -130,15 +133,46 @@ class ChoiceEncodeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
-
-class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
-    def setUp(self):
-        super().setUp()
-        self.t = OrderedChoiceEncode(
-            search_space=self.search_space,
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space()
+        rss.parameters["c"]._is_ordered = True
+        # Transform a non-distributional parameter.
+        t = self.t_class(
+            search_space=rss,
             observation_features=None,
             observation_data=None,
         )
+        rss_new = t.transform_search_space(rss)
+        # Make sure that the return value is still a RobustSearchSpace.
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
+        # Test with environmental variables.
+        all_params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=all_params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            environmental_variables=all_params[:2],
+        )
+        t = self.t_class(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
+        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
+
+
+class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
+    t_class = OrderedChoiceEncode
+
+    def setUp(self):
+        super().setUp()
         # expected parameters after transform
         self.expected_transformed_params = {
             "x": 2.2,

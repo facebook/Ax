@@ -13,9 +13,10 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class RemoveFixedTransformTest(TestCase):
@@ -66,3 +67,42 @@ class RemoveFixedTransformTest(TestCase):
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters.get("c"), None)
+
+    def test_w_parameter_distributions(self):
+        rss = get_robust_search_space()
+        rss.add_parameter(
+            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+        )
+        # Transform a non-distributional parameter.
+        t = RemoveFixed(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss = t.transform_search_space(rss)
+        # Make sure that the return value is still a RobustSearchSpace.
+        self.assertIsInstance(rss, RobustSearchSpace)
+        self.assertEqual(len(rss.parameters.keys()), 4)
+        self.assertEqual(len(rss.parameter_distributions), 2)
+        self.assertNotIn("d", rss.parameters)
+        # Test with environmental variables.
+        all_params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=all_params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            environmental_variables=all_params[:2],
+        )
+        rss.add_parameter(
+            FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),
+        )
+        t = RemoveFixed(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss = t.transform_search_space(rss)
+        self.assertIsInstance(rss, RobustSearchSpace)
+        self.assertEqual(len(rss.parameters.keys()), 4)
+        self.assertEqual(len(rss.parameter_distributions), 2)
+        self.assertEqual(len(rss._environmental_variables), 2)
+        self.assertNotIn("d", rss.parameters)

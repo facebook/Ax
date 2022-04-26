@@ -180,6 +180,26 @@ class IntToFloatTransformTest(TestCase):
         self.assertEqual(
             rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
         )
+        # Test with environmental variables.
+        all_params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=all_params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            environmental_variables=all_params[:2],
+        )
+        t = IntToFloat(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
+        self.assertEqual(
+            rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
+        )
         # Error with distributional parameter.
         rss = get_robust_search_space(use_discrete=True)
         t = IntToFloat(

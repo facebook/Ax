@@ -63,6 +63,24 @@ class IntRangeToChoiceTransformTest(TestCase):
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertIsInstance(rss_new.parameters.get("z"), ChoiceParameter)
+        # Test with environmental variables.
+        all_params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=all_params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            environmental_variables=all_params[:2],
+        )
+        t = IntRangeToChoice(
+            search_space=rss,
+            observation_features=None,
+            observation_data=None,
+        )
+        rss_new = t.transform_search_space(rss)
+        self.assertIsInstance(rss_new, RobustSearchSpace)
+        self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
+        self.assertIsInstance(rss_new.parameters.get("z"), ChoiceParameter)
         # Error with distributional parameter.
         rss = get_robust_search_space(use_discrete=True)
         t = IntRangeToChoice(

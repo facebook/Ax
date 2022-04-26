@@ -743,6 +743,12 @@ class TestRobustSearchSpace(TestCase):
                 parameter_distributions=[env1_dist],
                 environmental_variables=[env1, env2],
             )
+        with self.assertRaisesRegex(UserInputError, "should not be repeated"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[a_dist],
+                environmental_variables=[self.a],
+            )
         with self.assertRaisesRegex(
             UserInputError, "environmental variables must be range parameters"
         ):

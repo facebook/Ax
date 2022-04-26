@@ -9,10 +9,13 @@ from __future__ import annotations
 from collections import defaultdict
 from math import isnan
 from numbers import Number
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ax.core.observation import ObservationData
+from ax.core.parameter import Parameter
+from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from scipy.stats import norm
 
 
@@ -84,3 +87,35 @@ def match_ci_width_truncated(
     new_mean = transform(mean)
     new_variance = float("nan") if isnan(variance) else (width_asym / 2 / fac) ** 2
     return new_mean, new_variance
+
+
+def construct_new_search_space(
+    search_space: SearchSpace,
+    parameters: List[Parameter],
+    parameter_constraints: Optional[List[ParameterConstraint]] = None,
+) -> SearchSpace:
+    """Construct a search space with the transformed arguments.
+
+    If the `search_space` is a `RobustSearchSpace`, this will use its
+    environmental variables and distributions, and remove the environmental
+    variables from `parameters` before constructing.
+
+    Args:
+        parameters: List of transformed parameter objects.
+        parameter_constraints: List of parameter constraints.
+
+    Returns:
+        The new search space instance.
+    """
+    new_kwargs: Dict[str, Any] = {
+        "parameters": parameters,
+        "parameter_constraints": parameter_constraints,
+    }
+    if isinstance(search_space, RobustSearchSpace):
+        env_vars = list(search_space._environmental_variables.values())
+        if env_vars:
+            # Add environmental variables and remove them from parameters.
+            new_kwargs["environmental_variables"] = env_vars
+            new_kwargs["parameters"] = [p for p in parameters if p not in env_vars]
+        new_kwargs["parameter_distributions"] = search_space.parameter_distributions
+    return search_space.__class__(**new_kwargs)
