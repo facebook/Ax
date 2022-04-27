@@ -82,9 +82,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
 
 
 class MetricObjective(enum.Enum):
-    # pyre-fixme[20]: Argument `value` expected.
     MINIMIZE = enum.auto()
-    # pyre-fixme[20]: Argument `value` expected.
     MAXIMIZE = enum.auto()
 
 
