@@ -153,7 +153,7 @@ def gen_tutorials(
                 total_time = None
 
         # convert notebook to HTML
-        exporter = HTMLExporter()
+        exporter = HTMLExporter(template_name="classic")
         html, meta = exporter.from_notebook_node(nb)
 
         # pull out html div for notebook
