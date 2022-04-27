@@ -25,7 +25,12 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UnsupportedPlotError
+from ax.exceptions.core import (
+    DataRequiredError,
+    UnsupportedError,
+    UnsupportedPlotError,
+    OptimizationComplete,
+)
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
@@ -431,6 +436,25 @@ class TestAxClient(TestCase):
         self.assertEqual(len(trials_dict), 3)
         self.assertFalse(is_complete)
 
+    @patch(
+        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
+        side_effect=OptimizationComplete("test error"),
+    )
+    def test_optimization_complete(self, _mock_gen) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[  # pyre-fixme[6]: expected union that should include
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objective_name="branin",
+            minimize=True,
+        )
+        trials, completed = ax_client.get_next_trials(max_trials=3)
+        self.assertEqual(trials, {})
+        self.assertTrue(completed)
+
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
@@ -446,6 +470,29 @@ class TestAxClient(TestCase):
         empty_trials_dict, is_complete = ax_client.get_next_trials(max_trials=10)
         self.assertEqual(len(empty_trials_dict), 0)
         self.assertTrue(is_complete)
+
+    def test_save_and_load_generation_strategy(self):
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        generation_strategy = GenerationStrategy(
+            [GenerationStep(Models.SOBOL, num_trials=3)]
+        )
+        ax_client = AxClient(
+            db_settings=db_settings, generation_strategy=generation_strategy
+        )
+        ax_client.create_experiment(
+            name="unique_test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+        )
+        second_client = AxClient(db_settings=db_settings)
+        second_client.load_experiment_from_database("unique_test_experiment")
+        self.assertEqual(second_client.generation_strategy, generation_strategy)
 
     @patch(
         "ax.modelbridge.base.observations_from_data",

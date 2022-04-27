@@ -1522,6 +1522,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 experiment=self.experiment,
                 **choose_generation_strategy_kwargs,
             )
+        elif self._experiment:
+            self._generation_strategy.experiment = self.experiment
 
     def _save_generation_strategy_to_db_if_possible(
         self,
