@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import Any, Callable, Dict, Optional
+from collections import defaultdict
+from typing import Any, Dict, Optional, Callable, Set, Iterable
 
 import numpy as np
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.testing.backend_simulator import BackendSimulator
 
@@ -32,7 +33,25 @@ class SimulatedBackendRunner(Runner):
             sample_runtime_func = sample_runtime_unif
         self.sample_runtime_func: Callable[[BaseTrial], float] = sample_runtime_func
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:  # pragma: no cover
+        """Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``
+        currently marks trials as running when they are created, but some of these
+        trials may actually be in queued on the ``BackendSimulator``.
+
+        Returns:
+            A Dict mapping statuses to sets of trial indices.
+        """
+        self.simulator.update()
+        trial_status = defaultdict(set)
+        for trial in trials:
+            t_index = trial.index
+            status = self.simulator.lookup_trial_index_status(t_index)
+            trial_status[status].add(t_index)
+        return dict(trial_status)
+
+    def run(self, trial: BaseTrial) -> Dict[str, Any]:  # pragma: no cover
         """Start a trial on the BackendSimulator.
 
         Args:
@@ -71,4 +90,4 @@ def sample_runtime_unif(trial: BaseTrial, low: float = 1.0, high: float = 5.0) -
     Returns:
         A float representing the simulated trial runtime.
     """
-    return np.random.uniform(low, high)
+    return np.random.uniform(low, high)  # pragma: no cover

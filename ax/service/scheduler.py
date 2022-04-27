@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
@@ -362,35 +361,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
     # ----------------- User-defined, optional. -----------------
-
-    def has_capacity(self, n: int = 1) -> bool:
-        """[DEPRECATED] Optional method to checks if there is available capacity
-        to schedule `n` trials.
-
-        Args:
-            n: Number of trials, the capacity to run which is being checked.
-                Defaults to 1.
-
-        Returns:
-            A boolean, representing whether `n` trials can be ran.
-        """
-        warnings.warn(
-            "`Scheduler.has_capacity` is deprecated and will be removed "
-            "soon. Please implement `Scheduler.poll_available_capacity` "
-            "instead.",
-            DeprecationWarning,
-        )
-        return True
-
-    def poll_available_capacity(self) -> int:
-        """Optional method to checks how much available capacity there is
-        to schedule trial evaluations.
-
-        Returns:
-            An integer, representing how many trials there is available capacity
-            for. By default, returns -1, indicating unlimited capacity.
-        """
-        return self.runner.poll_available_capacity()
 
     def completion_criterion(self) -> bool:
         """Optional stopping criterion for optimization, defaults to a check
@@ -1151,7 +1121,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
               this function (empty if no new trials were generated).
         """
         # 1. Determine available capacity for running trials.
-        capacity = self.poll_available_capacity()
+        capacity = self.runner.poll_available_capacity()
         if capacity != -1 and capacity < 1:  # -1 indicates unlimited capacity.
             self.logger.debug("There is no capacity to run any trials.")
             return [], []
