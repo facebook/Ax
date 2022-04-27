@@ -35,13 +35,13 @@ DEV_REQUIRES = [
     "black",
     "flake8",
     "hypothesis",
-    "Jinja2<3.1.0",
+    "Jinja2",
     "pytest>=4.6",
     "pytest-cov",
-    "sphinx<4.0",
+    "sphinx",
     "sphinx-autodoc-typehints",
     "torchvision>=0.5.0",
-    "nbconvert<=5.6.1",
+    "nbconvert",
     "jupyter-client==6.1.12",
 ]
 
