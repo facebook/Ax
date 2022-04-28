@@ -35,6 +35,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.parameter_distribution import ParameterDistribution
+from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -63,6 +64,7 @@ __all__ = [
     "ParameterDistribution",
     "ParameterType",
     "RangeParameter",
+    "RiskMeasure",
     "Runner",
     "SearchSpace",
     "SimpleExperiment",
