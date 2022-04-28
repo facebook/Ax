@@ -645,6 +645,7 @@ def get_robust_search_space(
     ub: float = 5.0,
     multivariate: bool = False,
     use_discrete: bool = False,
+    num_samples: int = 4,  # dummy
 ) -> RobustSearchSpace:
 
     parameters = [
@@ -694,6 +695,7 @@ def get_robust_search_space(
         # pyre-ignore Incompatible parameter type [6]
         parameters=parameters,
         parameter_distributions=distributions,
+        num_samples=num_samples,
     )
 
 

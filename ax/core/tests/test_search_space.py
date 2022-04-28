@@ -21,6 +21,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.search_space import (
+    RobustSearchSpaceDigest,
     HierarchicalSearchSpace,
     RobustSearchSpace,
     SearchSpace,
@@ -355,9 +356,7 @@ class SearchSpaceDigestTest(TestCase):
             "task_features": [3],
             "fidelity_features": [0],
             "target_fidelities": {0: 1.0},
-            "environmental_variables": [],
-            "distribution_sampler": None,
-            "multiplicative": False,
+            "robust_digest": None,
         }
 
     def testSearchSpaceDigest(self):
@@ -374,6 +373,30 @@ class SearchSpaceDigestTest(TestCase):
             if arg in {"feature_names", "bounds"}:
                 continue
             ssd = SearchSpaceDigest(
+                **{k: v for k, v in self.kwargs.items() if k != arg}
+            )
+
+
+class RobustSearchSpaceDigestTest(TestCase):
+    def setUp(self):
+        self.kwargs = {
+            "distribution_sampler": lambda X: X,
+            "environmental_variables": ["a"],
+            "multiplicative": False,
+        }
+
+    def test_robust_search_space_digest(self):
+        # test required fields
+        with self.assertRaises(TypeError):
+            RobustSearchSpaceDigest()
+        # test instantiation
+        rssd = RobustSearchSpaceDigest(**self.kwargs)
+        self.assertEqual(dataclasses.asdict(rssd), self.kwargs)
+        # test default instatiation
+        for arg in self.kwargs:
+            if arg == "distribution_sampler":
+                continue
+            rssd = RobustSearchSpaceDigest(
                 **{k: v for k, v in self.kwargs.items() if k != arg}
             )
 
@@ -671,6 +694,7 @@ class TestRobustSearchSpace(TestCase):
             parameters=self.parameters,
             parameter_distributions=[self.ab_dist],
             parameter_constraints=self.constraints,
+            num_samples=4,
         )
 
     def test_init_and_properties(self):
@@ -724,17 +748,30 @@ class TestRobustSearchSpace(TestCase):
         )
         # Error handling.
         with self.assertRaisesRegex(UserInputError, "Use SearchSpace instead."):
-            RobustSearchSpace(parameters=self.parameters, parameter_distributions=[])
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[],
+                num_samples=4,
+            )
+        with self.assertRaisesRegex(UserInputError, "positive integer"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[self.ab_dist],
+                num_samples=-1,
+            )
         with self.assertRaisesRegex(UnsupportedError, "all multiplicative"):
             mul_a_dist = a_dist.clone()
             mul_a_dist.multiplicative = True
             RobustSearchSpace(
-                parameters=self.parameters, parameter_distributions=[mul_a_dist, b_dist]
+                parameters=self.parameters,
+                parameter_distributions=[mul_a_dist, b_dist],
+                num_samples=4,
             )
         with self.assertRaisesRegex(UserInputError, "must be unique"):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[env1_dist],
+                num_samples=4,
                 environmental_variables=[env1, env1],
             )
         with self.assertRaisesRegex(UserInputError, "must have a distribution"):
@@ -742,11 +779,13 @@ class TestRobustSearchSpace(TestCase):
                 parameters=self.parameters,
                 parameter_distributions=[env1_dist],
                 environmental_variables=[env1, env2],
+                num_samples=4,
             )
         with self.assertRaisesRegex(UserInputError, "should not be repeated"):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[a_dist],
+                num_samples=4,
                 environmental_variables=[self.a],
             )
         with self.assertRaisesRegex(
@@ -755,6 +794,7 @@ class TestRobustSearchSpace(TestCase):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[env1_dist, env_choice_dist],
+                num_samples=4,
                 environmental_variables=[env1, env_choice],
             )
         with self.assertRaisesRegex(
@@ -763,17 +803,20 @@ class TestRobustSearchSpace(TestCase):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[env1_dist_mul],
+                num_samples=4,
                 environmental_variables=[env1],
             )
         with self.assertRaisesRegex(UserInputError, "multiple parameter distributions"):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[a_dist, a_dist],
+                num_samples=4,
             )
         with self.assertRaisesRegex(UnsupportedError, "supported together"):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[a_dist, env1_dist],
+                num_samples=4,
                 environmental_variables=[env1],
                 parameter_constraints=self.constraints,
             )
@@ -781,15 +824,18 @@ class TestRobustSearchSpace(TestCase):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[a_dist, choice_dist],
+                num_samples=4,
                 parameter_constraints=self.constraints,
             )
         # Test with environmental variables.
         rss = RobustSearchSpace(
             parameters=self.parameters,
             parameter_distributions=[env1_dist, env2_dist],
+            num_samples=4,
             environmental_variables=[env1, env2],
             parameter_constraints=self.constraints,
         )
+        self.assertEqual(rss.num_samples, 4)
         self.assertTrue(rss.is_robust)
         self.assertEqual(rss.parameter_constraints, self.constraints)
         self.assertEqual(
@@ -810,6 +856,7 @@ class TestRobustSearchSpace(TestCase):
         rss = RobustSearchSpace(
             parameters=self.parameters,
             parameter_distributions=[a_dist, b_dist],
+            num_samples=4,
             parameter_constraints=self.constraints,
         )
         self.assertTrue(rss.is_robust)
@@ -853,6 +900,7 @@ class TestRobustSearchSpace(TestCase):
             rss_clone._environmental_variables, self.rss1._environmental_variables
         )
         self.assertEqual(rss_clone.parameters, self.rss1.parameters)
+        self.assertEqual(rss_clone.num_samples, self.rss1.num_samples)
         self.assertEqual(
             rss_clone.parameter_constraints, self.rss1.parameter_constraints
         )
@@ -875,6 +923,7 @@ class TestRobustSearchSpace(TestCase):
             "ParameterDistribution(parameters=['a', 'b'], "
             "distribution_class=multivariate_normal, distribution_parameters={}, "
             "multiplicative=False)], "
+            "num_samples=4, "
             "environmental_variables=[], "
             "parameter_constraints=[OrderConstraint(a <= b)])"
         )

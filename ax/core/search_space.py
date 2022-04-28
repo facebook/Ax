@@ -672,6 +672,7 @@ class RobustSearchSpace(SearchSpace):
         self,
         parameters: List[Parameter],
         parameter_distributions: List[ParameterDistribution],
+        num_samples: int,
         environmental_variables: Optional[List[Parameter]] = None,
         parameter_constraints: Optional[List[ParameterConstraint]] = None,
     ) -> None:
@@ -683,6 +684,9 @@ class RobustSearchSpace(SearchSpace):
                 the distribution of one or more parameters. These can be used to
                 specify the distribution of the environmental variables or the input
                 noise distribution on the parameters.
+            num_samples: Number of samples to draw from the `parameter_distributions`
+                for the MC approximation of the posterior risk measure. Must agree with
+                the `n_w` of the risk measure in `OptimizationConfig`.
             environmental_variables: List of parameter objects, each denoting an
                 environmental variable. These must have associated parameter
                 distributions.
@@ -693,6 +697,9 @@ class RobustSearchSpace(SearchSpace):
                 "RobustSearchSpace requires at least one distributional parameter. "
                 "Use SearchSpace instead."
             )
+        if num_samples < 1:
+            raise UserInputError("`num_samples` must be a positive integer!")
+        self.num_samples = num_samples
         # Make sure that the distributions are all multiplicative or additive.
         mul_flags = [d.multiplicative for d in parameter_distributions]
         if not (all(mul_flags) or not any(mul_flags)):
@@ -786,6 +793,7 @@ class RobustSearchSpace(SearchSpace):
         return self.__class__(
             parameters=[p.clone() for p in self._parameters.values()],
             parameter_distributions=[d.clone() for d in self.parameter_distributions],
+            num_samples=self.num_samples,
             environmental_variables=[
                 p.clone() for p in self._environmental_variables.values()
             ],
@@ -797,6 +805,7 @@ class RobustSearchSpace(SearchSpace):
             f"{self.__class__.__name__}("
             "parameters=" + repr(list(self._parameters.values())) + ", "
             "parameter_distributions=" + repr(self.parameter_distributions) + ", "
+            "num_samples=" + repr(self.num_samples) + ", "
             "environmental_variables="
             + repr(list(self._environmental_variables.values()))
             + ", "
@@ -833,14 +842,8 @@ class SearchSpaceDigest:
         target_fidelities: A dictionary mapping parameter indices (of fidelity
             parameters) to their respective target fidelity value. Only used
             when generating candidates.
-        environmental_variables: A list of environmental variable names.
-        distribution_sampler: An optional callable for sampling from the
-            parameter distributions. This should accept an integer `num_samples`
-            and return a `num_samples x d`-dim array of samples from the
-            parameter distributions, where `d` is either the number of environmental
-            variables, if any, or the number of parameters.
-        multiplicative: Denotes whether the distribution is multiplicative.
-            Only relevant if paired with a `distribution_sampler`.
+        robust_digest: An optional `RobustSearchSpaceDigest` that carries the
+            additional attributes if using a `RobustSearchSpace`.
     """
 
     feature_names: List[str]
@@ -851,8 +854,27 @@ class SearchSpaceDigest:
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
     target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)
+    robust_digest: Optional[RobustSearchSpaceDigest] = None
+
+
+@dataclass
+class RobustSearchSpaceDigest:
+    """Container for lightweight representation of properties that are unique
+    to the `RobustSearchSpace`. This is used to append the `SearchSpaceDigest`.
+
+    Attributes:
+        distribution_sampler: An optional callable for sampling from the
+            parameter distributions. This should require no arguments
+            and return a `num_samples x d`-dim array of samples from the
+            parameter distributions, where `d` is either the number of environmental
+            variables, if any, or the number of parameters.
+        environmental_variables: A list of environmental variable names.
+        multiplicative: Denotes whether the distribution is multiplicative.
+            Only relevant if paired with a `distribution_sampler`.
+    """
+
+    distribution_sampler: Callable[[], np.ndarray]
     environmental_variables: List[str] = field(default_factory=list)
-    distribution_sampler: Optional[Callable[[int], np.ndarray]] = None
     multiplicative: bool = False
 
 

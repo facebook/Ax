@@ -90,6 +90,7 @@ class RemoveFixedTransformTest(TestCase):
         rss = RobustSearchSpace(
             parameters=all_params[2:],
             parameter_distributions=rss.parameter_distributions,
+            num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
         rss.add_parameter(
