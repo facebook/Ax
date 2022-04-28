@@ -61,6 +61,7 @@ from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.cbo_sac import SACBO
 from ax.models.torch.fully_bayesian import (
     FullyBayesianBotorchModel,
     FullyBayesianMOOBotorchModel,
@@ -276,6 +277,12 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "Contextual_SACBO": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=SACBO,
+        transforms=Cont_X_trans + Y_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
 }
 
 
@@ -451,6 +458,7 @@ class Models(ModelRegistryBase):
     BO_MIXED = "BO_MIXED"
     ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     ALEBO_INITIALIZER = "ALEBO_Initializer"
+    CONTEXT_SACBO = "Contextual_SACBO"
 
 
 def get_model_from_generator_run(
