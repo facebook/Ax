@@ -104,7 +104,7 @@ Core Classes
     :undoc-members:
     :show-inheritance:
 
-Objective
+`Objective`
 ~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.core.objective
@@ -158,6 +158,14 @@ Objective
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.core.parameter_distribution
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`RiskMeasure`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.core.risk_measures
     :members:
     :undoc-members:
     :show-inheritance:
