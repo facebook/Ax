@@ -28,7 +28,18 @@ logger = get_logger(__name__)
 @dataclass
 class EarlyStoppingTrainingData:
     """Dataclass for keeping data arrays related to model training and
-    arm names together."""
+    arm names together.
+
+    Args:
+        X: An `n x d'` array of training features. `d' = d + m`, where `d`
+            is the dimension of the design space and `m` are the number of map
+            keys. For the case of learning curves, `m = 1` since we have only
+            the number of steps as the map key.
+        Y: An `n x 1` array of training observations.
+        Yvar: An `n x 1` observed measurement noise.
+        arm_names: A list of length `n` of arm names. Useful for understanding
+            which data come from the same arm.
+    """
 
     X: np.ndarray
     Y: np.ndarray
@@ -178,7 +189,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         logger.info(
             f"The number of completed trials ({num_completed}) is less than "
             "the minimum number of curves needed for early stopping "
-            f"({min_curves}). Not early stopping this trial."
+            f"({min_curves}). Not early stopping."
         )
         reason = (
             f"Need {min_curves} completed trials, but only {num_completed} "
@@ -200,7 +211,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             f"The number of trials with data ({num_trials_with_data}) "
             f"at trial {trial_index}'s last progression ({trial_last_progression}) "
             "is less than the specified minimum number for early stopping "
-            f"({min_curves}). Not early stopping this trial."
+            f"({min_curves}). Not early stopping."
         )
         reason = (
             f"Number of trials with data ({num_trials_with_data}) at "
@@ -221,7 +232,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         keep_every_k_per_arm: Optional[int] = None,
     ) -> EarlyStoppingTrainingData:
         """Processes the raw (untransformed) training data into arrays for
-        use in modeling.
+        use in modeling. The trailing dimensions of `X` are the map keys, in
+        their originally specified order from `map_data`.
 
         Args:
             experiment: Experiment that contains the data.
