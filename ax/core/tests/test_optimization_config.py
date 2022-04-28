@@ -15,6 +15,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -70,6 +71,14 @@ class OptimizationConfigTest(TestCase):
             self.additional_outcome_constraint,
             self.scalarized_outcome_constraint,
         ]
+        self.single_output_risk_measure = RiskMeasure(
+            risk_measure="Expectation",
+            options={"n_w": 2},
+        )
+        self.multi_output_risk_measure = RiskMeasure(
+            risk_measure="MultiOutputExpectation",
+            options={"n_w": 2},
+        )
 
     def testInit(self):
         config1 = OptimizationConfig(
@@ -93,12 +102,37 @@ class OptimizationConfigTest(TestCase):
         config2.outcome_constraints = self.outcome_constraints
         self.assertEqual(config2.outcome_constraints, self.outcome_constraints)
 
+        # Risk measure is correctly registered.
+        self.assertIsNone(config2.risk_measure)
+        config3 = OptimizationConfig(
+            objective=self.objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.single_output_risk_measure,
+        )
+        expected_str = (
+            OC_STR[:-1] + ", risk_measure=RiskMeasure(risk_measure=Expectation, "
+            "options={'n_w': 2}))"
+        )
+        self.assertEqual(str(config3), expected_str)
+        self.assertIs(config3.risk_measure, self.single_output_risk_measure)
+        # Error with multi-output risk measure.
+        with self.assertRaisesRegex(UserInputError, "multi-output risk"):
+            OptimizationConfig(
+                objective=self.objective,
+                outcome_constraints=self.outcome_constraints,
+                risk_measure=self.multi_output_risk_measure,
+            )
+
     def testEq(self):
         config1 = OptimizationConfig(
-            objective=self.objective, outcome_constraints=self.outcome_constraints
+            objective=self.objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.single_output_risk_measure,
         )
         config2 = OptimizationConfig(
-            objective=self.objective, outcome_constraints=self.outcome_constraints
+            objective=self.objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.single_output_risk_measure,
         )
         self.assertEqual(config1, config2)
 
@@ -188,7 +222,9 @@ class OptimizationConfigTest(TestCase):
 
     def testClone(self):
         config1 = OptimizationConfig(
-            objective=self.objective, outcome_constraints=self.outcome_constraints
+            objective=self.objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.single_output_risk_measure,
         )
         self.assertEqual(config1, config1.clone())
 
@@ -211,6 +247,9 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.multi_objective_just_m2 = MultiObjective(
             objectives=[self.objectives["o2"]]
+        )
+        self.scalarized_objective = ScalarizedObjective(
+            metrics=list(self.metrics.values()), weights=[1.0, 1.0, 1.0]
         )
         self.outcome_constraint = OutcomeConstraint(
             metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=-0.25
@@ -240,6 +279,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.m3_constraint = OutcomeConstraint(
             metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=0.1, relative=True
+        )
+        self.single_output_risk_measure = RiskMeasure(
+            risk_measure="Expectation",
+            options={"n_w": 2},
+        )
+        self.multi_output_risk_measure = RiskMeasure(
+            risk_measure="MultiOutputExpectation",
+            options={"n_w": 2},
         )
 
     def testInit(self):
@@ -296,6 +343,36 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             MultiObjectiveOptimizationConfig(
                 objective=self.multi_objective,
                 objective_thresholds=[self.additional_outcome_constraint],
+            )
+
+        # Test with risk measures.
+        self.assertIsNone(config5.risk_measure)
+        config6 = MultiObjectiveOptimizationConfig(
+            objective=self.multi_objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.multi_output_risk_measure,
+        )
+        self.assertIs(config6.risk_measure, self.multi_output_risk_measure)
+        expected_str = (
+            MOOC_STR[:-1] + ", risk_measure=RiskMeasure(risk_measure="
+            "MultiOutputExpectation, options={'n_w': 2}))"
+        )
+        self.assertEqual(str(config6), expected_str)
+        with self.assertRaisesRegex(UserInputError, "multi-output risk"):
+            MultiObjectiveOptimizationConfig(
+                objective=self.multi_objective,
+                risk_measure=self.single_output_risk_measure,
+            )
+        # With scalarized objective.
+        config7 = MultiObjectiveOptimizationConfig(
+            objective=self.scalarized_objective,
+            risk_measure=self.single_output_risk_measure,
+        )
+        self.assertIs(config7.risk_measure, self.single_output_risk_measure)
+        with self.assertRaisesRegex(UserInputError, "single-output risk"):
+            MultiObjectiveOptimizationConfig(
+                objective=self.scalarized_objective,
+                risk_measure=self.multi_output_risk_measure,
             )
 
     def testEq(self):

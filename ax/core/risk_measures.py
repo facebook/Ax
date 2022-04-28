@@ -17,6 +17,7 @@ from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentVaR,
     IndependentCVaR,
     MultiOutputExpectation,
+    MultiOutputRiskMeasureMCObjective,
 )
 from botorch.acquisition.risk_measures import (
     CVaR,
@@ -73,6 +74,10 @@ class RiskMeasure(Base):
         self.options = options
         # Check that the risk measure is valid.
         self.module
+
+    @property
+    def is_multi_output(self) -> bool:
+        return isinstance(self.module, MultiOutputRiskMeasureMCObjective)
 
     @property
     @functools.lru_cache()

@@ -21,6 +21,7 @@ class TestRiskMeasure(TestCase):
         self.assertIsInstance(rm_module, VaR)
         self.assertEqual(rm_module.alpha, 0.8)
         self.assertEqual(rm_module.n_w, 5)
+        self.assertFalse(rm.is_multi_output)
 
         # Test repr.
         expected_repr = (
