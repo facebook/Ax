@@ -118,4 +118,5 @@ def construct_new_search_space(
             new_kwargs["environmental_variables"] = env_vars
             new_kwargs["parameters"] = [p for p in parameters if p not in env_vars]
         new_kwargs["parameter_distributions"] = search_space.parameter_distributions
+        new_kwargs["num_samples"] = search_space.num_samples
     return search_space.__class__(**new_kwargs)

@@ -38,7 +38,12 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace, SearchSpace, SearchSpaceDigest
+from ax.core.search_space import (
+    RobustSearchSpaceDigest,
+    RobustSearchSpace,
+    SearchSpace,
+    SearchSpaceDigest,
+)
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.modelbridge.transforms.base import Transform
@@ -94,10 +99,6 @@ def extract_search_space_digest(
     task_features: List[int] = []
     fidelity_features: List[int] = []
     target_fidelities: Dict[int, Union[int, float]] = {}
-    environmental_variables: List[str] = []
-    distribution_sampler, multiplicative = extract_parameter_distribution_samplers(
-        search_space=search_space, param_names=param_names
-    )
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
@@ -126,10 +127,6 @@ def extract_search_space_digest(
                 raise NotImplementedError("Only numerical target values are supported.")
             target_fidelities[i] = checked_cast_to_tuple((int, float), p.target_value)
             fidelity_features.append(i)
-        if search_space.is_robust and p_name in getattr(
-            search_space, "_environmental_variables", {}
-        ):
-            environmental_variables.append(p_name)
 
     return SearchSpaceDigest(
         feature_names=param_names,
@@ -140,35 +137,34 @@ def extract_search_space_digest(
         task_features=task_features,
         fidelity_features=fidelity_features,
         target_fidelities=target_fidelities,
-        environmental_variables=environmental_variables,
-        distribution_sampler=distribution_sampler,
-        multiplicative=multiplicative,
+        robust_digest=extract_robust_digest(
+            search_space=search_space, param_names=param_names
+        ),
     )
 
 
-def extract_parameter_distribution_samplers(
+def extract_robust_digest(
     search_space: SearchSpace, param_names: List[str]
-) -> Tuple[Optional[Callable[[int], np.ndarray]], bool]:
-    """Construct a callable for sampling from the parameter distributions.
+) -> Optional[RobustSearchSpaceDigest]:
+    """Extracts the `RobustSearchSpaceDigest`.
 
     Args:
-        search_space: A `SearchSpace` to extract the distributions from.
+        search_space: A `SearchSpace` to digest.
         param_names: A list of names of the parameters that are used in optimization.
             If environmental variables are present, these should be the last entries
             in `param_names`.
 
     Returns:
-        If the `search_space` is not a `RobustSearchSpace`, this returns
-        `(None, False)`, which signals that the search space does not have any
-        distributions associated. If it is a `RobustSearchSpace`, then this returns
-        a callable that takes in an integer `num_samples` and returns a
+        If the `search_space` is not a `RobustSearchSpace`, this returns None.
+        Otherwise, it returns a `RobustSearchSpaceDigest` with entries populated
+        from the properties of the `search_space`. In particular, this constructs
+        a callable `distribution_sampler` that requires no inputs and returns a
         `num_samples x d`-dim array of samples from the parameter distributions,
         where `d` is either the number of environmental variables, if any, or the
-        number of parameters in `param_names`; and a boolean that denotes whether
-        the distribution is multiplicative.
+        number of parameters in `param_names`.
     """
     if not isinstance(search_space, RobustSearchSpace):
-        return None, False
+        return None
     dist_params = search_space._distributional_parameters
     # Make sure all distributional parameters are in param_names.
     dist_idcs: Dict[str, int] = {}
@@ -179,6 +175,7 @@ def extract_parameter_distribution_samplers(
             )
         dist_idcs[p_name] = param_names.index(p_name)
     distributions = search_space.parameter_distributions
+    num_samples = search_space.num_samples
     multiplicative = distributions[0].multiplicative
     if search_space.is_environmental:
         num_non_dist_params = len(param_names) - len(dist_params)
@@ -187,8 +184,10 @@ def extract_parameter_distribution_samplers(
                 "Environmental variables must be last entries in `param_names`. "
                 "Otherwise, `AppendFeatures` will not work."
             )
+        # NOTE: Extracting it from `param_names` in case the ordering is different.
+        environmental_variables = param_names[num_non_dist_params:]
 
-        def get_samples(num_samples: int) -> np.ndarray:
+        def get_samples() -> np.ndarray:
             """Get samples from the environmental distributions.
 
             Samples have the same dimension as the number of environmental variables.
@@ -206,8 +205,9 @@ def extract_parameter_distribution_samplers(
             return samples
 
     else:
+        environmental_variables = []
 
-        def get_samples(num_samples: int) -> np.ndarray:
+        def get_samples() -> np.ndarray:
             """Get samples of the input perturbations.
 
             Samples have the same dimension as the length of `param_names`.
@@ -225,7 +225,11 @@ def extract_parameter_distribution_samplers(
                     samples[:, dist_idcs[p_name]] = dist_samples[:, i]
             return samples
 
-    return get_samples, multiplicative
+    return RobustSearchSpaceDigest(
+        distribution_sampler=get_samples,
+        environmental_variables=environmental_variables,
+        multiplicative=multiplicative,
+    )
 
 
 def extract_objective_thresholds(

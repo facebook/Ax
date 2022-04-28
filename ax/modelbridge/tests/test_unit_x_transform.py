@@ -199,6 +199,7 @@ class UnitXTransformTest(TestCase):
         rss = RobustSearchSpace(
             parameters=all_parameters[1:],
             parameter_distributions=rss.parameter_distributions[:1],
+            num_samples=rss.num_samples,
             environmental_variables=all_parameters[:1],
         )
         t.transform_search_space(rss)
