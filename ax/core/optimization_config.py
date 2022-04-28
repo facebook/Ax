@@ -15,6 +15,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
@@ -24,18 +25,10 @@ logger = get_logger(__name__)
 
 TRefPoint = List[ObjectiveThreshold]
 
-OC_TEMPLATE: str = (
-    "{cls_name}(objective={objective}, outcome_constraints=[{constraints}])"
-)
-MOOC_TEMPLATE: str = (
-    "{cls_name}(objective={objective}, outcome_constraints=[{constraints}], "
-    "objective_thresholds=[{thresholds}])"
-)
-
 
 class OptimizationConfig(Base):
-    """An optimization configuration, which comprises an objective
-    and outcome constraints.
+    """An optimization configuration, which comprises an objective,
+    outcome constraints and an optional risk measure.
 
     There is no minimum or maximum number of outcome constraints, but an
     individual metric can have at most two constraints--which is how we
@@ -46,21 +39,27 @@ class OptimizationConfig(Base):
         self,
         objective: Objective,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> None:
         """Inits OptimizationConfig.
 
         Args:
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints on metrics.
+            risk_measure: An optional risk measure, used for robust optimization.
+                Must be used with a `RobustSearchSpace`.
         """
         constraints: List[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
         )
         self._validate_optimization_config(
-            objective=objective, outcome_constraints=constraints
+            objective=objective,
+            outcome_constraints=constraints,
+            risk_measure=risk_measure,
         )
         self._objective: Objective = objective
         self._outcome_constraints: List[OutcomeConstraint] = constraints
+        self.risk_measure: Optional[RiskMeasure] = risk_measure
 
     def clone(self) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
@@ -70,14 +69,18 @@ class OptimizationConfig(Base):
         self,
         objective: Optional[Objective] = None,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
         objective = objective or self.objective.clone()
         outcome_constraints = outcome_constraints or [
             constraint.clone() for constraint in self.outcome_constraints
         ]
+        risk_measure = risk_measure or self.risk_measure
         return OptimizationConfig(
-            objective=objective, outcome_constraints=outcome_constraints
+            objective=objective,
+            outcome_constraints=outcome_constraints,
+            risk_measure=risk_measure,
         )
 
     @property
@@ -88,7 +91,9 @@ class OptimizationConfig(Base):
     @objective.setter
     def objective(self, objective: Objective) -> None:
         """Set objective if not present in outcome constraints."""
-        self._validate_optimization_config(objective, self.outcome_constraints)
+        self._validate_optimization_config(
+            objective, self.outcome_constraints, self.risk_measure
+        )
         self._objective = objective
 
     @property
@@ -129,7 +134,9 @@ class OptimizationConfig(Base):
     def outcome_constraints(self, outcome_constraints: List[OutcomeConstraint]) -> None:
         """Set outcome constraints if valid, else raise."""
         self._validate_optimization_config(
-            objective=self.objective, outcome_constraints=outcome_constraints
+            objective=self.objective,
+            outcome_constraints=outcome_constraints,
+            risk_measure=self.risk_measure,
         )
         self._outcome_constraints = outcome_constraints
 
@@ -137,8 +144,10 @@ class OptimizationConfig(Base):
     def _validate_optimization_config(
         objective: Objective,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> None:
-        """Ensure outcome constraints are valid.
+        """Ensure outcome constraints are valid and the risk measure is
+        compatible with the objective.
 
         Either one or two outcome constraints can reference one metric.
         If there are two constraints, they must have different 'ops': one
@@ -147,7 +156,9 @@ class OptimizationConfig(Base):
             than the bound of the LEQ op.
 
         Args:
+            objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
+            risk_measure: An optional risk measure to validate.
         """
         if type(objective) == MultiObjective:
             # Raise error on exact equality; `ScalarizedObjective` is OK
@@ -169,6 +180,11 @@ class OptimizationConfig(Base):
             unconstrainable_metrics=unconstrainable_metrics,
             outcome_constraints=outcome_constraints,
         )
+        # Ensure that the risk measure is single-output.
+        if risk_measure is not None and risk_measure.is_multi_output:
+            raise UserInputError(
+                "Received a multi-output risk measure for a single objective problem."
+            )
 
     @staticmethod
     def _validate_outcome_constraints(
@@ -207,19 +223,22 @@ class OptimizationConfig(Base):
                 raise ValueError(f"Duplicate outcome constraints {metric_name}")
 
     def __repr__(self) -> str:
-        return OC_TEMPLATE.format(
-            cls_name=self.__class__.__name__,
-            objective=repr(self.objective),
-            constraints=", ".join(
-                constraint.__repr__() for constraint in self.outcome_constraints
-            ),
+        base_repr = (
+            f"{self.__class__.__name__}("
+            "objective=" + repr(self.objective) + ", "
+            "outcome_constraints=" + repr(self.outcome_constraints)
         )
+        if self.risk_measure is None:
+            end_repr = ")"
+        else:
+            end_repr = ", risk_measure=" + repr(self.risk_measure) + ")"
+        return base_repr + end_repr
 
 
 class MultiObjectiveOptimizationConfig(OptimizationConfig):
     """An optimization configuration for multi-objective optimization,
-    which comprises multiple objective, outcome constraints, and objective
-    thresholds.
+    which comprises multiple objective, outcome constraints, objective
+    thresholds, and an optional risk measure.
 
     There is no minimum or maximum number of outcome constraints, but an
     individual metric can have at most two constraints--which is how we
@@ -235,6 +254,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective: Objective,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> None:
         """Inits OptimizationConfig.
 
@@ -244,6 +264,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective_thesholds: Thresholds objectives must exceed. Used for
                 multi-objective optimization and for calculating frontiers
                 and hypervolumes.
+            risk_measure: An optional risk measure, used for robust optimization.
+                Must be used with a `RobustSearchSpace`.
         """
         constraints: List[OutcomeConstraint] = (
             [] if outcome_constraints is None else outcome_constraints
@@ -253,16 +275,19 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective=objective,
             outcome_constraints=constraints,
             objective_thresholds=objective_thresholds,
+            risk_measure=risk_measure,
         )
         self._objective: Objective = objective
         self._outcome_constraints: List[OutcomeConstraint] = constraints
         self._objective_thresholds: List[ObjectiveThreshold] = objective_thresholds
+        self.risk_measure: Optional[RiskMeasure] = risk_measure
 
     def clone_with_args(
         self,
         objective: Optional[Objective] = None,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
         objective = objective or self.objective.clone()
@@ -272,10 +297,12 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective_thresholds = objective_thresholds or [
             ot.clone() for ot in self.objective_thresholds
         ]
+        risk_measure = risk_measure or self.risk_measure
         return MultiObjectiveOptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
+            risk_measure=risk_measure,
         )
 
     @property
@@ -290,6 +317,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective=objective,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
+            risk_measure=self.risk_measure,
         )
         self._objective = objective
 
@@ -330,7 +358,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     ) -> None:
         """Set outcome constraints if valid, else raise."""
         self._validate_optimization_config(
-            objective=self.objective, objective_thresholds=objective_thresholds
+            objective=self.objective,
+            objective_thresholds=objective_thresholds,
+            risk_measure=self.risk_measure,
         )
         self._objective_thresholds = objective_thresholds
 
@@ -346,8 +376,10 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective: Objective,
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
+        risk_measure: Optional[RiskMeasure] = None,
     ) -> None:
-        """Ensure outcome constraints are valid.
+        """Ensure outcome constraints are valid and the risk measure is
+        compatible with the objective.
 
         Either one or two outcome constraints can reference one metric.
         If there are two constraints, they must have different 'ops': one
@@ -356,7 +388,10 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             than the bound of the LEQ op.
 
         Args:
+            objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
+            objective_thesholds: Thresholds objectives must exceed.
+            risk_measure: An optional risk measure to validate.
         """
         if not isinstance(objective, (MultiObjective, ScalarizedObjective)):
             raise TypeError(
@@ -381,18 +416,31 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             unconstrainable_metrics=unconstrainable_metrics,
             outcome_constraints=outcome_constraints,
         )
+        if risk_measure is not None:
+            if isinstance(objective, MultiObjective):
+                if not risk_measure.is_multi_output:
+                    raise UserInputError(
+                        "A multi-output risk measure must be used with a "
+                        "`MultiObjective`."
+                    )
+            elif risk_measure.is_multi_output:
+                raise UserInputError(
+                    "A single-output risk measure must be used with a "
+                    "`ScalarizedObjective`"
+                )
 
     def __repr__(self) -> str:
-        return MOOC_TEMPLATE.format(
-            cls_name=self.__class__.__name__,
-            objective=repr(self.objective),
-            constraints=", ".join(
-                constraint.__repr__() for constraint in self.outcome_constraints
-            ),
-            thresholds=", ".join(
-                threshold.__repr__() for threshold in self.objective_thresholds
-            ),
+        base_repr = (
+            f"{self.__class__.__name__}("
+            "objective=" + repr(self.objective) + ", "
+            "outcome_constraints=" + repr(self.outcome_constraints) + ", "
+            "objective_thresholds=" + repr(self.objective_thresholds)
         )
+        if self.risk_measure is None:
+            end_repr = ")"
+        else:
+            end_repr = ", risk_measure=" + repr(self.risk_measure) + ")"
+        return base_repr + end_repr
 
 
 def check_objective_thresholds_match_objectives(
