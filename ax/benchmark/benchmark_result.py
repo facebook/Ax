@@ -64,6 +64,9 @@ class AggregatedBenchmarkResult(Base):
     fit_time: Tuple[float, float]
     gen_time: Tuple[float, float]
 
+    def __str__(self) -> str:
+        return f"AggregatedBenchmarkResult(name={self.name})"
+
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
         if not isinstance(other, AggregatedBenchmarkResult):
@@ -147,6 +150,11 @@ class ScoredBenchmarkResult(AggregatedBenchmarkResult):
 
     baseline_result: AggregatedBenchmarkResult
     score: np.ndarray
+
+    def __str__(self) -> str:
+        return "ScoredBenchmarkResult("
+        f"name={self.name}, baseline_result{self.baseline_result}"
+        ")"
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
