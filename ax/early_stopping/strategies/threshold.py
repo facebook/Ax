@@ -88,11 +88,12 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if self.metric_names is None:
             optimization_config = not_none(experiment.optimization_config)
             metric_name = optimization_config.objective.metric.name
+            minimize = optimization_config.objective.minimize
         else:
             metric_name = list(self.metric_names)[0]
+            minimize = experiment.metrics[metric_name].lower_is_better or False
 
         map_key = next(iter(data.map_keys))
-        minimize = optimization_config.objective.minimize
         df = data.map_df
         df_objective = df[df["metric_name"] == metric_name]
         decisions = {
