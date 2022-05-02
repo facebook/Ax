@@ -36,6 +36,7 @@ from ax.service.scheduler import (
     SchedulerInternalError,
     SchedulerOptions,
 )
+from ax.service.utils.scheduler_options import TrialType
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
@@ -276,7 +277,7 @@ class TestAxScheduler(TestCase):
                 "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
                 "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
                 "options=SchedulerOptions(max_pending_trials=10, "
-                "trial_type=<TrialType.TRIAL: 0>, "
+                "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
                 "total_trials=0, tolerated_trial_failure_rate=0.2, "
                 "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
                 "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
@@ -960,3 +961,18 @@ class TestAxScheduler(TestCase):
             scheduler.get_best_parameters()
 
         self.assertIsNotNone(scheduler.get_pareto_optimal_parameters())
+
+    def test_batch_trial(self):
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+                trial_type=TrialType.BATCH_TRIAL,
+                batch_size=2,
+            ),
+        )
+
+        scheduler.run_n_trials(max_trials=1)
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertEqual(len(scheduler.experiment.trials[0].arms), 2)
