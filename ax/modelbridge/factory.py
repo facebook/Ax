@@ -342,6 +342,8 @@ def get_MTGP(
     data: Data,
     search_space: Optional[SearchSpace] = None,
     trial_index: Optional[int] = None,
+    device: torch.device = DEFAULT_TORCH_DEVICE,
+    dtype: torch.dtype = torch.double,
 ) -> TorchModelBridge:
     """Instantiates a Multi-task Gaussian Process (MTGP) model that generates
     points with EI.
@@ -398,8 +400,8 @@ def get_MTGP(
         #  typing.Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
         #  int, str]]]]]`.
         transform_configs=transform_configs,
-        torch_dtype=torch.double,
-        torch_device=DEFAULT_TORCH_DEVICE,
+        torch_dtype=dtype,
+        torch_device=device,
         status_quo_features=status_quo_features,
     )
 
