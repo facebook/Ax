@@ -136,7 +136,7 @@ def get_observed_pareto_frontiers(
             data from experiment.
         rel: Relativize, if status quo on experiment.
         arm_names: If provided, computes Pareto frontier only from among the provided
-            list of arm names.
+            list of arm names, plus status quo if set on experiment.
 
     Returns: ParetoFrontierResults that can be used with interact_pareto_frontier.
     """
@@ -145,6 +145,12 @@ def get_observed_pareto_frontiers(
     if experiment.optimization_config is None:
         raise ValueError("Experiment must have an optimization config")
     if arm_names is not None:
+        if (
+            experiment.status_quo is not None
+            and experiment.status_quo.name not in arm_names
+        ):
+            # Make sure status quo is always included, for derelativization
+            arm_names.append(experiment.status_quo.name)
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
     mb = get_tensor_converter_model(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(modelbridge=mb)

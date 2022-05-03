@@ -150,6 +150,12 @@ class ParetoUtilsTest(TestCase):
                     pfr.param_dicts[idx], experiment.arms_by_name[name].parameters
                 )
 
+        pfrs = get_observed_pareto_frontiers(
+            experiment=experiment, data=data, arm_names=["0_1"]
+        )
+        for pfr in pfrs:
+            self.assertTrue("status_quo" in pfr.arm_names)
+
     def testPlotMultipleParetoFrontiers(self):
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
