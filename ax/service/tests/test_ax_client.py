@@ -1262,7 +1262,9 @@ class TestAxClient(TestCase):
                 ]
             )
         )
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaisesRegex(
+            ValueError, "Value was not of type <class 'ax.core.trial.Trial'>"
+        ):
             ax_client.complete_trial(batch_trial.index, 0)
 
     def test_log_failure(self):
@@ -1298,7 +1300,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             ax_client.get_trial_parameters(
                 trial_index=10
             )  # No trial #10 in experiment.
@@ -2019,7 +2021,7 @@ class TestAxClient(TestCase):
         )
         _, idx = ax_client.get_next_trial()
         ax_client.stop_trial_early(idx)
-        trial = ax_client._get_trial(idx)
+        trial = ax_client.trials[idx]
         self.assertTrue(trial.status.is_early_stopped)
 
     def test_max_parallelism_exception_when_early_stopping(self):

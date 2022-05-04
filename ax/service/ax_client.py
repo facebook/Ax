@@ -568,7 +568,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         Args:
             trial_index: Index of trial within the experiment.
         """
-        trial = self._get_trial(trial_index=trial_index)
+        trial = self.trials[trial_index]
         trial.mark_abandoned(reason=reason)
 
     def update_running_trial_with_intermediate_data(
@@ -678,7 +678,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 optional.
         """
         # Validate that trial can be completed.
-        trial = self._get_trial(trial_index=trial_index)
+        trial = self.trials[trial_index]
         self._validate_can_complete_trial(trial=trial)
         if not isinstance(trial_index, int):  # pragma: no cover
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
@@ -717,7 +717,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """
         if not isinstance(trial_index, int):  # pragma: no cover
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
-        trial = self._get_trial(trial_index=trial_index)
+        trial = self.trials[trial_index]
         if not trial.status.is_completed:
             raise ValueError(
                 f"Trial {trial.index} has not yet been completed with data."
@@ -789,7 +789,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
-        return not_none(self._get_trial(trial_index).arm).parameters
+        return not_none(self.trials[trial_index].arm).parameters
 
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
@@ -1186,10 +1186,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Whether the given parameterization matches that of the arm in the trial
         specified in the trial index.
         """
-        return (
-            not_none(self._get_trial(trial_index=trial_index).arm).parameters
-            == parameterization
-        )
+        return not_none(self.trials[trial_index].arm).parameters == parameterization
 
     def should_stop_trials_early(
         self, trial_indices: Set[int]
@@ -1215,7 +1212,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
     def stop_trial_early(self, trial_index: int) -> None:
-        trial = self._get_trial(trial_index)
+        trial = self.trials[trial_index]
         trial.mark_early_stopped()
         logger.info(f"Early stopped trial {trial_index}.")
 
@@ -1328,6 +1325,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
     @property
+    def trials(self) -> Dict[int, Trial]:
+        """Return trials on experiment cast as Trial"""
+        return {
+            i: checked_cast(Trial, t)
+            for i, t in not_none(
+                self.experiment, "Must set an experiment to access trials"
+            ).trials.items()
+        }
+
+    @property
     def generation_strategy(self) -> GenerationStrategy:
         """Returns the generation strategy, set on this experiment."""
         return not_none(
@@ -1409,7 +1416,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     ) -> str:
         """Helper method attaches data to a trial, returns a str of update."""
         # Format the data to save.
-        trial = self._get_trial(trial_index=trial_index)
+        trial = self.trials[trial_index]
         sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
         evaluations, data = self._make_evaluations_and_data(
             trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
@@ -1558,17 +1565,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 ),
             )
 
-    def _get_trial(self, trial_index: int) -> Trial:
-        """Gets trial by given index or raises an error if it does not exist."""
-        if trial_index in self.experiment.trials:
-            trial = self.experiment.trials.get(trial_index)
-            if not isinstance(trial, Trial):
-                raise NotImplementedError(
-                    "`AxClient` only supports `Trial`, not `BatchTrial`."
-                )
-            return trial
-        raise ValueError(f"Trial {trial_index} does not yet exist.")
-
     def _find_last_trial_with_parameterization(
         self, parameterization: TParameterization
     ) -> int:
@@ -1576,7 +1572,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         contains an arm with that parameterization.
         """
         for trial_idx in sorted(self.experiment.trials.keys(), reverse=True):
-            if not_none(self._get_trial(trial_idx).arm).parameters == parameterization:
+            if not_none(self.trials[trial_idx].arm).parameters == parameterization:
                 return trial_idx
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."
