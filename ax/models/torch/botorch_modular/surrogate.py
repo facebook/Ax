@@ -278,8 +278,6 @@ class Surrogate(Base):
                 **dataclasses.asdict(search_space_digest),
             )
         if state_dict:
-            # pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st
-            #  param but got `Dict[str, Tensor]`.
             self.model.load_state_dict(not_none(state_dict))
 
         if state_dict is None or refit:
