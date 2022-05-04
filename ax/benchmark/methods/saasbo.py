@@ -17,6 +17,7 @@ def get_saasbo_default() -> BenchmarkMethod:
             GenerationStep(
                 model=Models.FULLYBAYESIAN,
                 num_trials=-1,
+                max_parallelism=1,
             ),
         ],
     )
@@ -38,6 +39,7 @@ def get_saasbo_moo_default() -> BenchmarkMethod:
             GenerationStep(
                 model=Models.FULLYBAYESIANMOO,
                 num_trials=-1,
+                max_parallelism=1,
             ),
         ],
     )

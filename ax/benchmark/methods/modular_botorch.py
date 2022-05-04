@@ -38,6 +38,7 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnei() -> BenchmarkMethod:
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
+                max_parallelism=1,
                 model_kwargs={
                     "surrogate": Surrogate(FixedNoiseGP),
                     "botorch_acqf_class": qNoisyExpectedImprovement,
@@ -78,6 +79,7 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnehvi() -> BenchmarkMethod:
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
+                max_parallelism=1,
                 model_kwargs={
                     "surrogate": Surrogate(FixedNoiseGP),
                     "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
@@ -96,7 +98,7 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnehvi() -> BenchmarkMethod:
     )
 
 
-def get_sobol_botorch_modular_default():
+def get_sobol_botorch_modular_default() -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::default",
         steps=[
@@ -104,6 +106,7 @@ def get_sobol_botorch_modular_default():
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
+                max_parallelism=1,
             ),
         ],
     )
