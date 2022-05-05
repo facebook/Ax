@@ -27,7 +27,6 @@ from typing import (
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -1072,11 +1071,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Validates `SchedulerOptions` for compatibility with given
         `Scheduler` class.
         """
-        if (
-            options.trial_type == TrialType.BATCH_TRIAL
-        ):  # TODO[T61776778]: support batches
-            raise NotImplementedError("Support for batched trials coming soon.")
-
         if not (0.0 <= options.tolerated_trial_failure_rate < 1.0):
             raise ValueError("`tolerated_trial_failure_rate` must be in [0, 1).")
 
@@ -1148,10 +1142,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         existing_candidate_trials = self.candidate_trials[:n]
         n_new = min(n - len(existing_candidate_trials), max_new_trials)
-        new_trials = self._get_next_trials(num_trials=n_new) if n_new > 0 else []
+        new_trials = (
+            self._get_next_trials(num_trials=n_new, n=(self.options.batch_size or 1))
+            if n_new > 0
+            else []
+        )
         return existing_candidate_trials, new_trials
 
-    def _get_next_trials(self, num_trials: int = 1) -> List[BaseTrial]:
+    def _get_next_trials(self, num_trials: int = 1, n: int = 1) -> List[BaseTrial]:
         """Produce up to `num_trials` new generator runs from the underlying
         generation strategy and create new trials with them. Logs errors
         encountered during generation.
@@ -1167,7 +1165,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         try:
             generator_runs = self._gen_new_trials_from_generation_strategy(
-                num_trials=num_trials, pending=pending
+                num_trials=num_trials, n=n, pending=pending
             )
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
@@ -1209,7 +1207,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 generator_run=generator_run,
                 ttl_seconds=self.options.ttl_seconds_for_trials,
             )
-            if self.options.trial_type is BatchTrial
+            if self.options.trial_type == TrialType.BATCH_TRIAL
             else self.experiment.new_trial(
                 generator_run=generator_run,
                 ttl_seconds=self.options.ttl_seconds_for_trials,
@@ -1218,7 +1216,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         ]
 
     def _gen_new_trials_from_generation_strategy(
-        self, num_trials: int, pending: Optional[Dict[str, List[ObservationFeatures]]]
+        self,
+        num_trials: int,
+        n: int,
+        pending: Optional[Dict[str, List[ObservationFeatures]]],
     ) -> List[GeneratorRun]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
@@ -1227,6 +1228,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return self.generation_strategy._gen_multiple(
             experiment=self.experiment,
             num_generator_runs=num_trials,
+            n=n,
             pending_observations=pending,
         )
 

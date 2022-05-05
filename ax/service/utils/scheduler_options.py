@@ -36,6 +36,8 @@ class SchedulerOptions:
             are evaluated *independently*, implement ``run_trials`` method
             in scheduler subclass, to deploy multiple 1-arm trials at
             the same time.
+        batch_size: If using BatchTrial the number of arms to be generated and
+            deployed per trial.
         total_trials: Limit on number of trials a given ``Scheduler``
             should run. If no stopping criteria are implemented on
             a given scheduler, exhaustion of this number of trials
@@ -98,6 +100,7 @@ class SchedulerOptions:
 
     max_pending_trials: int = 10
     trial_type: TrialType = TrialType.TRIAL
+    batch_size: Optional[int] = None
     total_trials: Optional[int] = None
     tolerated_trial_failure_rate: float = 0.5
     min_failed_trials_for_failure_rate_check: int = 5
