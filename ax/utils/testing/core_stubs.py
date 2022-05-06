@@ -446,6 +446,77 @@ def get_hierarchical_search_space_experiment() -> Experiment:
     )
 
 
+def get_experiment_with_observations(
+    observations: List[List[float]],
+    minimize: bool = False,
+    scalarized: bool = False,
+    constrained: bool = False,
+) -> Experiment:
+    multi_objective = len(observations[0]) > 1
+    if multi_objective:
+        metrics = [
+            Metric(name="m1", lower_is_better=minimize),
+            Metric(name="m2", lower_is_better=False),
+        ]
+        if scalarized:
+            optimization_config = OptimizationConfig(
+                objective=ScalarizedObjective(metrics)
+            )
+            if constrained:  # pragma: no cover
+                raise NotImplementedError
+        else:
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(metrics=metrics),
+                objective_thresholds=[
+                    ObjectiveThreshold(metric=metrics[i], bound=0.0, relative=False)
+                    for i in [0, 1]
+                ],
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        metric=Metric(name="m3"),
+                        op=ComparisonOp.GEQ,
+                        bound=0.0,
+                        relative=False,
+                    )
+                ]
+                if constrained
+                else None,
+            )
+    else:
+        if scalarized or constrained:  # pragma: no cover
+            raise NotImplementedError
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="m1"), minimize=minimize)
+        )
+    exp = Experiment(
+        search_space=get_search_space_for_range_values(min=0.0, max=1.0),
+        optimization_config=optimization_config,
+        runner=SyntheticRunner(),
+        is_test=True,
+    )
+    for i, obs in enumerate(observations):
+        # Create a dummy trial to add the observation.
+        trial = exp.new_trial()
+        trial.add_arm(Arm({"x": i / 100.0, "y": i / 100.0}))
+        data = Data(
+            df=pd.DataFrame.from_records(
+                [
+                    {
+                        "arm_name": f"{i}_0",
+                        "metric_name": f"m{j + 1}",
+                        "mean": o,
+                        "sem": None,
+                        "trial_index": i,
+                    }
+                    for j, o in enumerate(obs)
+                ]
+            )
+        )
+        exp.attach_data(data)
+        trial.run().complete()
+    return exp
+
+
 ##############################
 # Search Spaces
 ##############################

@@ -5,9 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABCMeta, abstractmethod
-from typing import Dict, Iterable, Optional, Tuple
+from functools import partial
+from typing import List, Dict, Iterable, Optional, Tuple
 
+import numpy as np
+import torch
 from ax.core.experiment import Experiment
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -15,11 +19,26 @@ from ax.core.optimization_config import (
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.modelbridge_utils import _get_modelbridge_training_data
 from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
+from ax.modelbridge.modelbridge_utils import (
+    validate_and_apply_final_transform,
+    _array_to_tensor,
+    observation_data_to_array,
+    extract_objective_thresholds,
+    extract_objective_weights,
+    extract_outcome_constraints,
+)
 from ax.modelbridge.registry import get_model_from_generator_run, ModelRegistryBase
+from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.models.torch.botorch_moo_defaults import (
+    get_outcome_constraint_transforms,
+    get_weighted_mc_objective_and_objective_thresholds,
+)
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 
 
 class BestPointMixin(metaclass=ABCMeta):
@@ -277,3 +296,123 @@ class BestPointMixin(metaclass=ABCMeta):
         return observed_hypervolume(
             modelbridge=minimal_model, optimization_config=moo_optimization_config
         )
+
+    @staticmethod
+    def get_trace(
+        experiment: Experiment,
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[float]:
+        """Get the optimization trace of the given experiment.
+
+        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
+        repeatedly, with an increasing sequence of `trial_indices` and with
+        `use_model_predictions = False`, though this does it more efficiently.
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+
+        Returns:
+            A list of observed hypervolume or the best value.
+        """
+        # Use a minimal model to help parse the data.
+        modelbridge = get_tensor_converter_model(
+            experiment=experiment,
+            data=experiment.fetch_data(),
+        )
+        obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
+        array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
+        Y, _ = observation_data_to_array(
+            outcomes=modelbridge.outcomes, observation_data=obs_data
+        )
+        Y = array_to_tensor(Y)
+
+        tf = Derelativize(
+            search_space=modelbridge.model_space.clone(),
+            observation_data=obs_data,
+            observation_features=obs_feats,
+            config={"use_raw_status_quo": True},
+        )
+        optimization_config = optimization_config or not_none(
+            experiment.optimization_config
+        )
+        optimization_config = tf.transform_optimization_config(
+            optimization_config=optimization_config.clone(),
+            modelbridge=modelbridge,
+            fixed_features=ObservationFeatures({}),
+        )
+
+        # Extract weights, constraints, and objective_thresholds.
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=modelbridge.outcomes
+        )
+        outcome_constraints = extract_outcome_constraints(
+            outcome_constraints=optimization_config.outcome_constraints,
+            outcomes=modelbridge.outcomes,
+        )
+        if optimization_config.is_moo_problem:
+            objective_thresholds = extract_objective_thresholds(
+                objective_thresholds=checked_cast(
+                    MultiObjectiveOptimizationConfig, optimization_config
+                ).objective_thresholds,
+                objective=optimization_config.objective,
+                outcomes=modelbridge.outcomes,
+            )
+            objective_thresholds = array_to_tensor(objective_thresholds)
+        else:
+            objective_thresholds = None
+        (
+            objective_weights,
+            outcome_constraints,
+            _,
+            _,
+            _,
+        ) = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            linear_constraints=None,
+            pending_observations=None,
+            final_transform=array_to_tensor,
+        )
+        # Get weighted tensor objectives.
+        if optimization_config.is_moo_problem:
+            (
+                obj,
+                weighted_objective_thresholds,
+            ) = get_weighted_mc_objective_and_objective_thresholds(
+                objective_weights=objective_weights,
+                objective_thresholds=not_none(objective_thresholds),
+            )
+            Y_obj = obj(Y)
+            infeas_value = weighted_objective_thresholds
+        else:
+            Y_obj = Y @ objective_weights
+            infeas_value = Y_obj.min()
+        # Account for feasibility.
+        if outcome_constraints is not None:
+            cons_tfs = not_none(get_outcome_constraint_transforms(outcome_constraints))
+            feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
+            # Set the infeasible points to reference point or the worst observed value.
+            Y_obj[~feas] = infeas_value
+        if optimization_config.is_moo_problem:
+            # Compute the hypervolume trace.
+            partitioning = DominatedPartitioning(
+                ref_point=weighted_objective_thresholds.double()
+            )
+            # compute hv at each iteration
+            hvs = []
+            for Yi in Y_obj.split(1):
+                # update with new point
+                partitioning.update(Y=Yi)
+                hv = partitioning.compute_hypervolume().item()
+                hvs.append(hv)
+            return hvs
+        else:
+            # Find the best observed value.
+            raw_maximum = np.maximum.accumulate(Y_obj.cpu().numpy())
+            if optimization_config.objective.minimize:
+                # Negate the result if it is a minimization problem.
+                raw_maximum = -raw_maximum
+            return raw_maximum.tolist()

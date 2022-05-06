@@ -84,16 +84,18 @@ def get_best_raw_objective_point_with_trial_index(
     if dat.df.empty:
         raise ValueError("Cannot identify best point if experiment contains no data.")
     objective = optimization_config.objective
-    if isinstance(objective, ScalarizedObjective):
-        best_row = _get_best_row_for_scalarized_objective(
-            df=dat.df, objective=objective
-        )
-    else:
-        best_row = _get_best_feasible_row_for_single_objective(
-            df=dat.df,
-            optimization_config=optimization_config,
-            status_quo=experiment.status_quo,
-        )
+    feasible_df = _filter_feasible_rows(
+        df=dat.df,
+        optimization_config=optimization_config,
+        status_quo=experiment.status_quo,
+    )
+    best_row_helper = (
+        _get_best_row_for_scalarized_objective
+        if isinstance(objective, ScalarizedObjective)
+        else _get_best_row_for_single_objective
+    )
+    # pyre-ignore Incompatible parameter type [6]
+    best_row = best_row_helper(df=feasible_df, objective=objective)
     best_arm = experiment.arms_by_name[best_row["arm_name"]]
     best_trial_index = int(best_row["trial_index"])
     objective_rows = dat.df.loc[
@@ -580,7 +582,7 @@ def get_pareto_optimal_parameters(
 def _get_best_row_for_scalarized_objective(
     df: pd.DataFrame,
     objective: ScalarizedObjective,
-) -> pd.DataFrame:
+) -> pd.Series:
     df = df.copy()
     # First, add a weight column, setting 0.0 if the metric is not part
     # of the objective
@@ -715,19 +717,6 @@ def _filter_feasible_rows(
         )
 
     return feasible
-
-
-def _get_best_feasible_row_for_single_objective(
-    df: pd.DataFrame,
-    optimization_config: OptimizationConfig,
-    status_quo: Optional[Arm],
-) -> pd.Series:
-    return _get_best_row_for_single_objective(
-        df=_filter_feasible_rows(
-            df=df, optimization_config=optimization_config, status_quo=status_quo
-        ),
-        objective=optimization_config.objective,
-    )
 
 
 def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:

@@ -37,7 +37,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.scheduler import Scheduler, SchedulerOptions
-from ax.utils.common.typeutils import not_none
+from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
 
 
@@ -194,32 +194,4 @@ def _result_from_scheduler(scheduler: Scheduler) -> BenchmarkResult:
 
 
 def _get_trace(scheduler: Scheduler) -> np.ndarray:
-    if scheduler.experiment.is_moo_problem:
-        return np.array(
-            [
-                scheduler.get_hypervolume(
-                    trial_indices=[*range(i + 1)], use_model_predictions=False
-                )
-                if i != 0
-                else 0
-                # TODO[mpolson64] on i=0 we get an error with SearchspaceToChoice
-                for i in range(len(scheduler.experiment.trials))
-            ],
-        )
-
-    best_trials = [
-        scheduler.get_best_trial(
-            trial_indices=[*range(i + 1)], use_model_predictions=False
-        )
-        for i in range(len(scheduler.experiment.trials))
-    ]
-
-    return np.array(
-        [
-            not_none(not_none(trial)[2])[0][
-                not_none(scheduler.experiment.optimization_config).objective.metric.name
-            ]
-            for trial in best_trials
-            if trial is not None and not_none(trial)[2] is not None
-        ]
-    )
+    return np.array(BestPointMixin.get_trace(experiment=scheduler.experiment))
