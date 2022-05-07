@@ -512,6 +512,8 @@ def alebo_acqf_optimizer(
 
         Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
         Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
+        bounds = torch.tensor([[-1.0], [1.0]]).to(Yrnd).expand(2, Yrnd.shape[-1])
+
         with gpytorch.settings.max_cholesky_size(2000):
             with torch.no_grad():
                 alpha = acq_function(Yrnd)
@@ -521,7 +523,7 @@ def alebo_acqf_optimizer(
             # Optimize the acquisition function, separately for each random restart.
             candidate, acq_value = optimize_acqf(
                 acq_function=acq_function,
-                bounds=torch.tensor([[-1.0], [1.0]]).to(Yinit).expand(2, Yinit.shape[-1]),
+                bounds=bounds,
                 q=1,
                 num_restarts=num_restarts,
                 raw_samples=0,
