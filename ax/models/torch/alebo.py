@@ -521,7 +521,7 @@ def alebo_acqf_optimizer(
             # Optimize the acquisition function, separately for each random restart.
             candidate, acq_value = optimize_acqf(
                 acq_function=acq_function,
-                bounds=[None, None],  # pyre-ignore
+                bounds=torch.tensor([[-1.0], [1.0]]).to(Yinit).expand(2, Yinit.shape[-1]),
                 q=1,
                 num_restarts=num_restarts,
                 raw_samples=0,
