@@ -16,6 +16,7 @@ from ax.benchmark.benchmark_problem import (
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
+from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.storage.json_store.decoder import object_from_json
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Powell, Hartmann, Branin, Ackley
@@ -78,6 +79,11 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
         factory_kwargs={"name": "FashionMNIST"},
         baseline_results_path="baseline_results/hpo/torchvision/fashion_mnist.json",
+    ),
+    "jenatton": BenchmarkProblemRegistryEntry(
+        factory_fn=get_jenatton_benchmark_problem,
+        factory_kwargs={},
+        baseline_results_path="baseline_results/synthetic/hss/jenatton.json",
     ),
     "powell": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,

@@ -62,6 +62,7 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryProblemType, ChemistryMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
+from ax.metrics.jenatton import JenattonMetric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnMetric, SklearnDataset, SklearnModelType
@@ -151,6 +152,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
     Interval: botorch_component_to_dict,
+    JenattonMetric: metric_to_dict,
     ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
     MapData: map_data_to_dict,
@@ -236,6 +238,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "Interval": Interval,
+    "JenattonMetric": JenattonMetric,
     "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
