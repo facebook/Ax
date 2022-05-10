@@ -144,7 +144,7 @@ class DiscreteModelBridgeTest(TestCase):
         ma.model = model
         ma.parameters = ["x", "y", "z"]
         ma.outcomes = ["a", "b"]
-        observation_features, weights, best_observation, _ = ma._gen(
+        gen_results = ma._gen(
             n=3,
             search_space=self.search_space,
             optimization_config=optimization_config,
@@ -170,12 +170,14 @@ class DiscreteModelBridgeTest(TestCase):
         self.assertEqual(gen_args["pending_observations"][1], [[0, "foo", True]])
         self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
         self.assertEqual(
-            observation_features[0].parameters, {"x": 0.0, "y": 2.0, "z": 3.0}
+            gen_results.observation_features[0].parameters,
+            {"x": 0.0, "y": 2.0, "z": 3.0},
         )
         self.assertEqual(
-            observation_features[1].parameters, {"x": 1.0, "y": 1.0, "z": 3.0}
+            gen_results.observation_features[1].parameters,
+            {"x": 1.0, "y": 1.0, "z": 3.0},
         )
-        self.assertEqual(weights, [1.0, 2.0])
+        self.assertEqual(gen_results.weights, [1.0, 2.0])
 
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
@@ -228,8 +230,8 @@ class DiscreteModelBridgeTest(TestCase):
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
             search_space=self.search_space,
-            obs_feats=self.observation_features,
-            obs_data=self.observation_data,
+            observation_features=self.observation_features,
+            observation_data=self.observation_data,
             cv_test_points=self.observation_features,
         )
         Xs = [

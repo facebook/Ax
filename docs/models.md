@@ -147,8 +147,7 @@ Model objects are only used in Ax via a [`ModelBridge`](../api/modelbridge.html#
 
 | ModelBridge         | Model         | Example implementation        |
 | ------------------- | ------------- | ----------------------------- |
-| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)    | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)   | [`BotorchModel`](../api/models.html#ax.models.torch.botorch.BotorchModel)                  |
-| [`NumpyModelBridge`](../api/modelbridge.html#module-ax.modelbridge.numpy)    | [`NumpyModel`](../api/models.html#ax.models.numpy_base.NumpyModel)    | [`RandomForest`](../api/models.html#ax.models.numpy.randomforest.RandomForest)                  |
+| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)    | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)   | [`BotorchModel`](../api/models.html#ax.models.torch.botorch.BotorchModel)                  |           |
 | [`DiscreteModelBridge`](../api/modelbridge.html#module-ax.modelbridge.discrete) | [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel) | [`ThompsonSampler`](../api/models.html#ax.models.discrete.thompson.ThompsonSampler)               |
 | [`RandomModelBridge`](../api/modelbridge.html#module-ax.modelbridge.random)   | [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)  | [`SobolGenerator`](../api/models.html#ax.models.random.sobol.SobolGenerator)                |
 
@@ -184,12 +183,12 @@ The structure of the modeling stack makes it easy to implement new models and us
 
 ### Using an existing Model interface
 
-The easiest way to implement a new model is if it can be adapted to the one of the existing Model interfaces: ([`TorchModel`](api/models.html#ax.models.torch_base.TorchModel), [`NumpyModel`](../api/models.html#ax.models.numpy_base.NumpyModel), [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel), or [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)). The class definition provides the interface for each of the methods that should be implemented in order for Ax to be able to fully use the new model. Note however that not all methods must need be implemented to use some Ax functionality. For instance, an implementation of [`NumpyModel`](../api/models.html#ax.models.numpy_base.NumpyModel) that implements only [`fit`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.fit) and [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) can be used to fit data and make plots in Ax; however, it will not be able to generate new candidates (requires implementing [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen)) or be used with Ax's cross validation utility (requires implementing [`cross_validate`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.cross_validate)).
+The easiest way to implement a new model is if it can be adapted to the one of the existing Model interfaces: ([`TorchModel`](api/models.html#ax.models.torch_base.TorchModel), [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel), or [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)). The class definition provides the interface for each of the methods that should be implemented in order for Ax to be able to fully use the new model. Note however that not all methods must need be implemented to use some Ax functionality. For instance, an implementation of [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel) that implements only [`fit`](../api/models.html#ax.models.torch_base.TorchModel.fit) and [`predict`](../api/models.html#ax.models.torch_base.TorchModel.predict) can be used to fit data and make plots in Ax; however, it will not be able to generate new candidates (requires implementing [`gen`](../api/models.html#ax.models.torch_base.TorchModel.gen)) or be used with Ax's cross validation utility (requires implementing [`cross_validate`](../api/models.html#ax.models.torch_base.TorchModel.cross_validate)).
 
-Once the new model has been implemented, it can be used in Ax with the corresponding [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) from the table above. For instance, suppose a new numpy-based model was implemented as a subclass of [`NumpyModel`](../api/models.html#ax.models.numpy_base.NumpyModel). We can use that model in Ax like:
+Once the new model has been implemented, it can be used in Ax with the corresponding [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) from the table above. For instance, suppose a new torch-based model was implemented as a subclass of [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel). We can use that model in Ax like:
 ```Python
 new_model_obj = NewModel(init_args)  # An instance of the new model class
-m = NumpyModelBridge(
+m = TorchModelBridge(
     experiment=experiment,
     search_space=search_space,
     data=data,

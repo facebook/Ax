@@ -10,21 +10,18 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.list_surrogate import (
-    ListSurrogate,
-    NOT_YET_FIT_MSG,
-)
+from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.tests.test_surrogate import SingleTaskGPWithDifferentConstructor
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.models import SingleTaskGP
-from botorch.models.model import TrainingData
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
@@ -51,10 +48,18 @@ class ListSurrogateTest(TestCase):
         )
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
-                Yvars=Yvars1, search_space_digest=self.search_space_digest
+                datasets=[
+                    FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                    for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
+                ],
+                search_space_digest=self.search_space_digest,
             ),
             self.outcomes[1]: choose_model_class(
-                Yvars=Yvars2, search_space_digest=self.search_space_digest
+                datasets=[
+                    FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                    for X, Y, Yvar in zip(Xs2, Ys2, Yvars2)
+                ],
+                search_space_digest=self.search_space_digest,
             ),
         }
         self.expected_submodel_type = FixedNoiseMultiTaskGP
@@ -63,7 +68,13 @@ class ListSurrogateTest(TestCase):
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
-        self.training_data = TrainingData(Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars)
+        self.fixed_noise_training_data = [
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
+        ]
+        self.supervised_training_data = [
+            SupervisedDataset(X=X, Y=Y) for X, Y in zip(self.Xs, self.Ys)
+        ]
         self.submodel_options_per_outcome = {
             self.outcomes[0]: {RANK: 1},
             self.outcomes[1]: {RANK: 2},
@@ -92,8 +103,6 @@ class ListSurrogateTest(TestCase):
             self.botorch_submodel_class_per_outcome,
         )
         self.assertEqual(self.surrogate.mll_class, self.mll_class)
-        with self.assertRaisesRegex(ValueError, NOT_YET_FIT_MSG):
-            self.surrogate.training_data_per_outcome
         with self.assertRaisesRegex(
             ValueError, "BoTorch `Model` has not yet been constructed"
         ):
@@ -105,16 +114,14 @@ class ListSurrogateTest(TestCase):
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
     def test_construct_per_outcome_options(self, mock_MTGP_construct_inputs):
-        with self.assertRaisesRegex(ValueError, ".* are required"):
-            self.surrogate.construct(training_data=self.training_data)
         with self.assertRaisesRegex(ValueError, "No model class specified for"):
             self.surrogate.construct(
-                training_data=self.training_data, metric_names=["new_metric"]
+                datasets=self.fixed_noise_training_data, metric_names=["new_metric"]
             )
         self.surrogate.construct(
-            training_data=self.training_data,
-            task_features=self.task_features,
+            datasets=self.fixed_noise_training_data,
             metric_names=self.outcomes,
+            task_features=self.task_features,
         )
         self.check_ranks(self.surrogate)
         # Should construct inputs for MTGP twice.
@@ -127,7 +134,11 @@ class ListSurrogateTest(TestCase):
                 {
                     "fidelity_features": [],
                     "task_features": self.task_features,
-                    "training_data": self.training_data.from_block_design(
+                    # TODO: Figure out how to handle Multitask GPs and construct-inputs.
+                    # I believe this functionality with modlular botorch model is
+                    # currently broken as MultiTaskGP.construct_inputs expects a dict
+                    # mapping string keys (outcomes) to input datasets
+                    "training_data": FixedNoiseDataset(
                         X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
                     ),
                     "rank": self.submodel_options_per_outcome[self.outcomes[idx]][
@@ -147,20 +158,16 @@ class ListSurrogateTest(TestCase):
             mll_class=self.mll_class,
             submodel_options_per_outcome=self.submodel_options_per_outcome,
         )
-
         # Test that splitting the training data works correctly when Yvar is None.
-        training_data_no_Yvar = TrainingData(Xs=self.Xs, Ys=self.Ys)
         surrogate.construct(
-            training_data=training_data_no_Yvar,
+            datasets=self.supervised_training_data,
             task_features=self.task_features,
             metric_names=self.outcomes,
         )
-        self.assertTrue(
-            all(
-                trd.Yvar is None for trd in surrogate.training_data_per_outcome.values()
-            )
-        )
-        self.assertEqual(len(surrogate.training_data_per_outcome), 2)
+        for ds in surrogate._training_data:
+            self.assertTrue(isinstance(ds, SupervisedDataset))
+            self.assertFalse(isinstance(ds, FixedNoiseDataset))
+        self.assertEqual(len(surrogate._training_data), 2)
 
     @patch.object(
         FixedNoiseMultiTaskGP,
@@ -179,9 +186,9 @@ class ListSurrogateTest(TestCase):
             },
         )
         surrogate.construct(
-            training_data=self.training_data,
-            task_features=self.task_features,
+            datasets=self.fixed_noise_training_data,
             metric_names=self.outcomes,
+            task_features=self.task_features,
         )
         # 2 submodels should've been constructed, both of type `botorch_submodel_class`.
         self.assertEqual(len(mock_construct_inputs.call_args_list), 2)
@@ -194,7 +201,7 @@ class ListSurrogateTest(TestCase):
                     "individual_option": f"val_{idx}",
                     "shared_option": True,
                     "task_features": [0],
-                    "training_data": self.training_data.from_block_design(
+                    "training_data": FixedNoiseDataset(
                         X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
                     ),
                 },
@@ -213,13 +220,13 @@ class ListSurrogateTest(TestCase):
         # Should instantiate mll and `fit_gpytorch_model` when `state_dict`
         # is `None`.
         surrogate.fit(
-            training_data=self.training_data,
+            datasets=self.fixed_noise_training_data,
+            metric_names=self.outcomes,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 task_features=self.task_features,
             ),
-            metric_names=self.outcomes,
         )
         mock_state_dict.assert_not_called()
         mock_MLL.assert_called_once()
@@ -231,13 +238,13 @@ class ListSurrogateTest(TestCase):
         # and `refit` is `False`.
         state_dict = {"state_attribute": "value"}
         surrogate.fit(
-            training_data=self.training_data,
+            datasets=self.fixed_noise_training_data,
+            metric_names=self.outcomes,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 task_features=self.task_features,
             ),
-            metric_names=self.outcomes,
             refit=False,
             state_dict=state_dict,
         )
@@ -259,7 +266,7 @@ class ListSurrogateTest(TestCase):
         )
         with self.assertRaisesRegex(UserInputError, "The model class"):
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
             )
         surrogate = ListSurrogate(
@@ -269,7 +276,7 @@ class ListSurrogateTest(TestCase):
             submodel_input_transforms=input_transforms,
         )
         surrogate.construct(
-            training_data=self.training_data,
+            datasets=self.supervised_training_data,
             metric_names=self.outcomes,
         )
         models = surrogate.model.models

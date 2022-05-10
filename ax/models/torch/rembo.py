@@ -4,15 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
+from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
 
@@ -55,11 +57,9 @@ class REMBO(BotorchModel):
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         assert len(search_space_digest.task_features) == 0
@@ -67,22 +67,18 @@ class REMBO(BotorchModel):
         for b in search_space_digest.bounds:
             # REMBO assumes the input space is [-1, 1]^D
             assert b == (-1, 1)
-        self.num_outputs = len(Xs)
+        self.num_outputs = len(datasets)
         # For convenience for now, assume X for all outcomes the same
-        X_D = _get_single_X(Xs)
-        X_d = self.project_down(X_D)
-        # Fit model in low-d space (adjusted to [0, 1]^d)
+        low_d_datasets = self._convert_and_normalize_datasets(datasets=datasets)
         super().fit(
-            Xs=[self.to_01(X_d)] * self.num_outputs,
-            Ys=Ys,
-            Yvars=Yvars,
+            datasets=low_d_datasets,
+            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[f"x{i}" for i in range(self.A.shape[1])],
                 bounds=[(0.0, 1.0)] * len(self.bounds_d),
                 task_features=search_space_digest.task_features,
                 fidelity_features=search_space_digest.fidelity_features,
             ),
-            metric_names=metric_names,
             candidate_metadata=candidate_metadata,
         )
 
@@ -181,7 +177,7 @@ class REMBO(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+    ) -> TorchGenResults:
         for b in bounds:
             assert b == (-1, 1)
         # The following can be easily handled in the future when needed
@@ -189,17 +185,20 @@ class REMBO(BotorchModel):
         assert fixed_features is None
         assert pending_observations is None
         # Do gen in the low-dimensional space and project up
-        Xopt_01, w, _gen_metadata, _candidate_metadata = super().gen(
+        gen_results = super().gen(
             n=n,
             bounds=[(0.0, 1.0)] * len(self.bounds_d),
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             model_gen_options=model_gen_options,
         )
-        Xopt = self.from_01(Xopt_01)
+        Xopt = self.from_01(gen_results.points)
         self.X_d.extend([x.clone() for x in Xopt])
         self.X_d_gen.extend([x.clone() for x in Xopt])
-        return self.project_up(Xopt), w, {}, None
+        return TorchGenResults(
+            points=self.project_up(Xopt),
+            weights=gen_results.weights,
+        )
 
     @copy_doc(TorchModel.best_point)
     def best_point(
@@ -229,39 +228,37 @@ class REMBO(BotorchModel):
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
-        Xs_train: List[Tensor],
-        Ys_train: List[Tensor],
-        Yvars_train: List[Tensor],
+        datasets: List[SupervisedDataset],
         X_test: Tensor,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
-        X_D = _get_single_X(Xs_train)
-        X_train_d = self.project_down(X_D)
+        low_d_datasets = self._convert_and_normalize_datasets(datasets=datasets)
         X_test_d = self.project_down(X_test)
         return super().cross_validate(
-            Xs_train=[self.to_01(X_train_d)] * self.num_outputs,
-            Ys_train=Ys_train,
-            Yvars_train=Yvars_train,
+            datasets=low_d_datasets,
             X_test=self.to_01(X_test_d),
         )
 
     @copy_doc(TorchModel.update)
     def update(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
+        datasets: List[SupervisedDataset],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         **kwargs: Any,
     ) -> None:
-        X_D = _get_single_X(Xs)
-        X_d = self.project_down(X_D)
+        low_d_datasets = self._convert_and_normalize_datasets(datasets=datasets)
         super().update(
-            Xs=[self.to_01(X_d)] * self.num_outputs,
-            Ys=Ys,
-            Yvars=Yvars,
+            datasets=low_d_datasets,
             candidate_metadata=candidate_metadata,
         )
+
+    def _convert_and_normalize_datasets(
+        self, datasets: List[SupervisedDataset]
+    ) -> List[SupervisedDataset]:
+        X_D = _get_single_X([dataset.X() for dataset in datasets])
+        X_d_01 = self.to_01(self.project_down(X_D))
+        # Fit model in low-d space (adjusted to [0, 1]^d)
+        return [dataclasses.replace(dataset, X=X_d_01) for dataset in datasets]
 
 
 def _get_single_X(Xs: List[Tensor]) -> Tensor:

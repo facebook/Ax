@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
@@ -20,21 +20,23 @@ from ax.models.torch.botorch_defaults import (
     scipy_optimizer,
 )
 from ax.models.torch.utils import (
+    _datasets_to_legacy_inputs,
     _get_X_pending_and_observed,
     _to_inequality_constraints,
     normalize_indices,
     predict_from_model,
     subset_model,
 )
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import not_none, checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
 logger = get_logger(__name__)
@@ -274,29 +276,26 @@ class BotorchModel(TorchModel):
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        self.dtype = Xs[0].dtype
-        self.device = Xs[0].device
-        self.Xs = Xs
-        self.Ys = Ys
-        self.Yvars = Yvars
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
+        self.metric_names = metric_names
+        self.Xs, self.Ys, self.Yvars = Xs, Ys, Yvars
+        self.dtype = self.Xs[0].dtype
+        self.device = self.Xs[0].device
         self.task_features = normalize_indices(
-            search_space_digest.task_features, d=Xs[0].size(-1)
+            search_space_digest.task_features, d=self.Xs[0].size(-1)
         )
         self.fidelity_features = normalize_indices(
-            search_space_digest.fidelity_features, d=Xs[0].size(-1)
+            search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
         )
-        self.metric_names = metric_names
         self.model = self.model_constructor(  # pyre-ignore [28]
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
+            Xs=self.Xs,
+            Ys=self.Ys,
+            Yvars=self.Yvars,
             task_features=self.task_features,
             fidelity_features=self.fidelity_features,
             metric_names=self.metric_names,
@@ -322,7 +321,7 @@ class BotorchModel(TorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+    ) -> TorchGenResults:
         options = model_gen_options or {}
         acf_options = options.get(Keys.ACQF_KWARGS, {})
         optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
@@ -400,11 +399,16 @@ class BotorchModel(TorchModel):
             else:
                 raise e
 
-        return (
-            candidates.detach().cpu(),
-            torch.ones(n, dtype=self.dtype),
-            {"expected_acquisition_value": expected_acquisition_value.tolist()},
-            None,
+        gen_metadata = {}
+        if expected_acquisition_value.numel() > 0:
+            gen_metadata[
+                "expected_acquisition_value"
+            ] = expected_acquisition_value.tolist()
+
+        return TorchGenResults(
+            points=candidates.detach().cpu(),
+            weights=torch.ones(n, dtype=self.dtype),
+            gen_metadata=gen_metadata,
         )
 
     @copy_doc(TorchModel.best_point)
@@ -430,11 +434,9 @@ class BotorchModel(TorchModel):
         )
 
     @copy_doc(TorchModel.cross_validate)
-    def cross_validate(  # pyre-ignore[14]: Some `TorchModel.cross_validate` kwargs
-        self,  # are not needed here and therefore we just use `**kwargs` catchall.
-        Xs_train: List[Tensor],
-        Ys_train: List[Tensor],
-        Yvars_train: List[Tensor],
+    def cross_validate(  # pyre-ignore [14]: `search_space_digest` arg not needed here
+        self,
+        datasets: List[SupervisedDataset],
         X_test: Tensor,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
@@ -444,10 +446,11 @@ class BotorchModel(TorchModel):
             state_dict = None
         else:
             state_dict = deepcopy(self.model.state_dict())
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         model = self.model_constructor(  # pyre-ignore: [28]
-            Xs=Xs_train,
-            Ys=Ys_train,
-            Yvars=Yvars_train,
+            Xs=Xs,
+            Ys=Ys,
+            Yvars=Yvars,
             task_features=self.task_features,
             state_dict=state_dict,
             fidelity_features=self.fidelity_features,
@@ -460,23 +463,22 @@ class BotorchModel(TorchModel):
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 
     @copy_doc(TorchModel.update)
-    def update(  # pyre-ignore[14]: Some `TorchModel.update` kwargs are not
-        self,  # needed here and therefore we just use `**kwargs` catchall.
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
+    def update(  # pyre-ignore [14]: `search_space_digest` arg not needed here
+        self,
+        datasets: List[SupervisedDataset],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         **kwargs: Any,
     ) -> None:
         if self.model is None:
             raise RuntimeError("Cannot update model that has not been fitted")
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.Xs = Xs
         self.Ys = Ys
         self.Yvars = Yvars
         if self.refit_on_update and not self.warm_start_refitting:
             state_dict = None  # pragma: no cover
         else:
-            state_dict = deepcopy(self.model.state_dict())
+            state_dict = deepcopy(not_none(self.model).state_dict())
         self.model = self.model_constructor(  # pyre-ignore: [28]
             Xs=self.Xs,
             Ys=self.Ys,

@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import warnings
 from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UserInputError, AxWarning
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
     _to_inequality_constraints,
@@ -31,7 +32,7 @@ from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -90,7 +91,8 @@ class Surrogate(Base):
     covar_module_options: Dict[str, Any]
     likelihood_class: Optional[Type[Likelihood]] = None
     likelihood_options: Dict[str, Any]
-    _training_data: Optional[TrainingData] = None
+    _training_data: Optional[List[SupervisedDataset]] = None
+    _outcomes: Optional[List[str]] = None
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
@@ -133,24 +135,29 @@ class Surrogate(Base):
         return not_none(self._model)
 
     @property
-    def training_data(self) -> TrainingData:
+    def training_data(self) -> List[SupervisedDataset]:
         if self._training_data is None:
             raise ValueError(NOT_YET_FIT_MSG)
         return not_none(self._training_data)
 
     @property
-    def training_data_per_outcome(self) -> Dict[str, TrainingData]:
-        raise NotImplementedError(  # pragma: no cover
-            "`training_data_per_outcome` is only used in `ListSurrogate`."
-        )
+    def Xs(self) -> List[Tensor]:
+        # Handles multi-output models. TODO: Improve this!
+        training_data = self.training_data
+        Xs = []
+        for dataset in training_data:
+            Xi = dataset.X()
+            for _ in range(dataset.Y.shape[-1]):
+                Xs.append(Xi)
+        return Xs
 
     @property
     def dtype(self) -> torch.dtype:
-        return self.training_data.X.dtype
+        return self.training_data[0].X.dtype
 
     @property
     def device(self) -> torch.device:
-        return self.training_data.X.device
+        return self.training_data[0].X.device
 
     @classmethod
     def from_botorch(
@@ -171,7 +178,7 @@ class Surrogate(Base):
     def clone_reset(self) -> Surrogate:
         return self.__class__(**self._serialize_attributes_as_kwargs())
 
-    def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
+    def construct(self, datasets: List[SupervisedDataset], **kwargs: Any) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
@@ -185,22 +192,34 @@ class Surrogate(Base):
         """
         if self._constructed_manually:
             logger.warning("Reconstructing a manually constructed `Model`.")
-        if not isinstance(training_data, TrainingData):
+        if not len(datasets) == 1:
             raise ValueError(  # pragma: no cover
                 "Base `Surrogate` expects training data for single outcome."
             )
         input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
-        self._training_data = training_data
+        dataset = datasets[0]
+        botorch_model_class_args = inspect.getfullargspec(self.botorch_model_class).args
+
+        # Temporary workaround to allow models to consume data from
+        # `FixedNoiseDataset`s even if they don't accept variance observations
+        if "train_Yvar" not in botorch_model_class_args and isinstance(
+            dataset, FixedNoiseDataset
+        ):
+            warnings.warn(
+                "Provided model class {self.botorch_model_class} does not accept "
+                "`train_Yvar` argument, but received `FixedNoiseDataset`. Ignoring "
+                "variance observations and converting to `SupervisedDataset`.",
+                AxWarning,
+            )
+            dataset = SupervisedDataset(X=dataset.X(), Y=dataset.Y())
+
+        self._training_data = [dataset]
 
         # TODO: Can we warn if the elements of `input_constructor_kwargs`
         # are not used?
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
-            training_data=self.training_data, **input_constructor_kwargs
+            training_data=dataset, **input_constructor_kwargs
         )
-        # TODO: We currently only pass in `covar_module` and `likelihood` if they are
-        # inputs to the BoTorch model. This interface will need to be expanded to a
-        # ModelFactory, see D22457664, to accommodate different models in the future.
-        botorch_model_class_args = inspect.getfullargspec(self.botorch_model_class).args
 
         for input_name, input_class, input_options, input_object in (
             ("covar_module", self.covar_module_class, self.covar_module_options, None),
@@ -211,6 +230,10 @@ class Surrogate(Base):
             if input_class is None and input_object is None:
                 continue
             if input_name not in botorch_model_class_args:
+                # TODO: We currently only pass in `covar_module` and `likelihood`
+                # if they are inputs to the BoTorch model. This interface will need
+                # to be expanded to a ModelFactory, see D22457664, to accommodate
+                # different models in the future.
                 raise UserInputError(
                     f"The BoTorch model class {self.botorch_model_class} does not "
                     f"support the input {input_name}."
@@ -229,9 +252,9 @@ class Surrogate(Base):
 
     def fit(
         self,
-        training_data: TrainingData,
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -244,7 +267,7 @@ class Surrogate(Base):
 
         There are three possibilities:
 
-        * ``fit(state_dict=None)``: fit model from stratch (optimize model
+        * ``fit(state_dict=None)``: fit model from scratch (optimize model
           parameters and set its training data used for inference),
         * ``fit(state_dict=some_state_dict, refit=True)``: warm-start refit
           with a state dict of parameters (still re-optimize model parameters
@@ -254,12 +277,13 @@ class Surrogate(Base):
           for example).
 
         Args:
-            training data: BoTorch ``TrainingData`` container with Xs, Ys, and
-                possibly Yvars, to be passed to ``Model.construct_inputs`` in
-                BoTorch.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata on the features in the trainig data.
-            metric_names: Names of each outcome Y in Ys.
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome), to be passed
+                to ``Model.construct_inputs`` in BoTorch.
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
@@ -273,10 +297,11 @@ class Surrogate(Base):
             )
         else:
             self.construct(
-                training_data=training_data,
+                datasets=datasets,
                 metric_names=metric_names,
                 **dataclasses.asdict(search_space_digest),
             )
+            self._outcomes = metric_names
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
 
@@ -316,10 +341,10 @@ class Surrogate(Base):
         values.
         """
         best_point_and_observed_value = best_in_sample_point(
-            Xs=[self.training_data.X],
+            Xs=[self.training_data[0].X()],  # NOTE: This assumes a "block design"
             # pyre-ignore[6]: `best_in_sample_point` currently expects a `TorchModel`
-            # or a `NumpyModel` as `model` kwarg, but only uses them for `predict`
-            # function, the signature for which is the same on this `Surrogate`.
+            # as `model` kwarg, but only uses them for `predict` function, the
+            # signature for which is the same on this `Surrogate`.
             # TODO: When we move `botorch_modular` directory to OSS, we will extend
             # the annotation for `model` kwarg to accept `Surrogate` too.
             model=self,
@@ -386,9 +411,9 @@ class Surrogate(Base):
 
     def update(
         self,
-        training_data: TrainingData,
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -423,9 +448,9 @@ class Surrogate(Base):
                 "via `Surrogate.from_botorch`."
             )
         self.fit(
-            training_data=training_data,
-            search_space_digest=search_space_digest,
+            datasets=datasets,
             metric_names=metric_names,
+            search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,

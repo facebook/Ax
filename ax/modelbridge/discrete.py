@@ -10,14 +10,14 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TGenMetadata, TParamValueList
-from ax.modelbridge.array import (
+from ax.core.types import TParamValueList
+from ax.modelbridge.base import GenResults, ModelBridge
+from ax.modelbridge.modelbridge_utils import array_to_observation_data
+from ax.modelbridge.torch import (
     extract_objective_weights,
     extract_outcome_constraints,
     validate_optimization_config,
 )
-from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.modelbridge_utils import array_to_observation_data
 from ax.models.discrete_base import DiscreteModel
 from ax.models.types import TConfig
 
@@ -55,7 +55,7 @@ class DiscreteModelBridge(ModelBridge):
             all_metric_names.update(od.metric_names)
         self.outcomes = list(all_metric_names)
         # Convert observations to arrays
-        Xs_array, Ys_array, Yvars_array = _convert_observations(
+        Xs_array, Ys_array, Yvars_array = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
@@ -91,12 +91,7 @@ class DiscreteModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> Tuple[
-        List[ObservationFeatures],
-        List[float],
-        Optional[ObservationFeatures],
-        TGenMetadata,
-    ]:
+    ) -> GenResults:
         """Generate new candidates according to search_space and
         optimization_config.
 
@@ -159,21 +154,25 @@ class DiscreteModelBridge(ModelBridge):
             )
         # TODO[drfreund, bletham]: implement best_point identification and
         # return best_point instead of None
-        return observation_features, w, None, gen_metadata
+        return GenResults(
+            observation_features=observation_features,
+            weights=w,
+            gen_metadata=gen_metadata,
+        )
 
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        obs_feats: List[ObservationFeatures],
-        obs_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        Xs_train, Ys_train, Yvars_train = _convert_observations(
-            observation_data=obs_data,
-            observation_features=obs_feats,
+        Xs_train, Ys_train, Yvars_train = self._convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=self.parameters,
         )
@@ -188,28 +187,29 @@ class DiscreteModelBridge(ModelBridge):
         # Convert array back to ObservationData
         return array_to_observation_data(f=f_test, cov=cov_test, outcomes=self.outcomes)
 
-
-def _convert_observations(
-    observation_data: List[ObservationData],
-    observation_features: List[ObservationFeatures],
-    outcomes: List[str],
-    parameters: List[str],
-) -> Tuple[List[List[TParamValueList]], List[List[float]], List[List[float]]]:
-    Xs: List[List[TParamValueList]] = [[] for _ in outcomes]
-    Ys: List[List[float]] = [[] for _ in outcomes]
-    Yvars: List[List[float]] = [[] for _ in outcomes]
-    for i, obsf in enumerate(observation_features):
-        try:
-            x = [obsf.parameters[param] for param in parameters]
-        except (KeyError, TypeError):
-            # Out of design point
-            raise ValueError("Out of design points cannot be converted.")
-        for j, m in enumerate(observation_data[i].metric_names):
-            k = outcomes.index(m)
-            Xs[k].append(x)
-            Ys[k].append(observation_data[i].means[j])
-            Yvars[k].append(observation_data[i].covariance[j, j])
-    return Xs, Ys, Yvars
+    @classmethod
+    def _convert_observations(
+        cls,
+        observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        outcomes: List[str],
+        parameters: List[str],
+    ) -> Tuple[List[List[TParamValueList]], List[List[float]], List[List[float]]]:
+        Xs: List[List[TParamValueList]] = [[] for _ in outcomes]
+        Ys: List[List[float]] = [[] for _ in outcomes]
+        Yvars: List[List[float]] = [[] for _ in outcomes]
+        for i, obsf in enumerate(observation_features):
+            try:
+                x = [obsf.parameters[param] for param in parameters]
+            except (KeyError, TypeError):
+                # Out of design point
+                raise ValueError("Out of design points cannot be converted.")
+            for j, m in enumerate(observation_data[i].metric_names):
+                k = outcomes.index(m)
+                Xs[k].append(x)
+                Ys[k].append(observation_data[i].means[j])
+                Yvars[k].append(observation_data[i].covariance[j, j])
+        return Xs, Ys, Yvars
 
 
 def _get_parameter_values(

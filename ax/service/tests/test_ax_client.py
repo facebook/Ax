@@ -1941,7 +1941,7 @@ class TestAxClient(TestCase):
         )
 
         # Cannot get predicted hypervolume with sobol model
-        with self.assertRaisesRegex(ValueError, "is not of type ArrayModelBridge"):
+        with self.assertRaisesRegex(ValueError, "is not of type TorchModelBridge"):
             ax_client.get_hypervolume(use_model_predictions=True)
 
         # Run one more trial and check predicted hypervolume gets returned
