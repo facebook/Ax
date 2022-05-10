@@ -73,19 +73,17 @@ if TYPE_CHECKING:
 
 def extract_parameter_constraints(
     parameter_constraints: List[ParameterConstraint], param_names: List[str]
-) -> Optional[TBounds]:
+) -> TBounds:
     """Extract parameter constraints."""
-    if len(parameter_constraints) > 0:
-        A = np.zeros((len(parameter_constraints), len(param_names)))
-        b = np.zeros((len(parameter_constraints), 1))
-        for i, c in enumerate(parameter_constraints):
-            b[i, 0] = c.bound
-            for name, val in c.constraint_dict.items():
-                A[i, param_names.index(name)] = val
-        linear_constraints: TBounds = (A, b)
-    else:
-        linear_constraints = None
-    return linear_constraints
+    if len(parameter_constraints) == 0:
+        return None
+    A = np.zeros((len(parameter_constraints), len(param_names)))
+    b = np.zeros((len(parameter_constraints), 1))
+    for i, c in enumerate(parameter_constraints):
+        b[i, 0] = c.bound
+        for name, val in c.constraint_dict.items():
+            A[i, param_names.index(name)] = val
+    return (A, b)
 
 
 def extract_search_space_digest(
@@ -306,7 +304,7 @@ def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.n
         outcomes: n-length list of names of metrics.
 
     Returns:
-        n-length list of weights.
+        n-length array of weights.
 
     """
     objective_weights = np.zeros(len(outcomes))
@@ -327,24 +325,22 @@ def extract_objective_weights(objective: Objective, outcomes: List[str]) -> np.n
 def extract_outcome_constraints(
     outcome_constraints: List[OutcomeConstraint], outcomes: List[str]
 ) -> TBounds:
+    if len(outcome_constraints) == 0:
+        return None
     # Extract outcome constraints
-    if len(outcome_constraints) > 0:
-        A = np.zeros((len(outcome_constraints), len(outcomes)))
-        b = np.zeros((len(outcome_constraints), 1))
-        for i, c in enumerate(outcome_constraints):
-            s = 1 if c.op == ComparisonOp.LEQ else -1
-            if isinstance(c, ScalarizedOutcomeConstraint):
-                for c_metric, c_weight in c.metric_weights:
-                    j = outcomes.index(c_metric.name)
-                    A[i, j] = s * c_weight
-            else:
-                j = outcomes.index(c.metric.name)
-                A[i, j] = s
-            b[i, 0] = s * c.bound
-        outcome_constraint_bounds: TBounds = (A, b)
-    else:
-        outcome_constraint_bounds = None
-    return outcome_constraint_bounds
+    A = np.zeros((len(outcome_constraints), len(outcomes)))
+    b = np.zeros((len(outcome_constraints), 1))
+    for i, c in enumerate(outcome_constraints):
+        s = 1 if c.op == ComparisonOp.LEQ else -1
+        if isinstance(c, ScalarizedOutcomeConstraint):
+            for c_metric, c_weight in c.metric_weights:
+                j = outcomes.index(c_metric.name)
+                A[i, j] = s * c_weight
+        else:
+            j = outcomes.index(c.metric.name)
+            A[i, j] = s
+        b[i, 0] = s * c.bound
+    return (A, b)
 
 
 def validate_and_apply_final_transform(
@@ -424,23 +420,23 @@ def pending_observations_as_array(
         Filtered pending observations data, by outcome and param names.
     """
     if len(pending_observations) == 0:
-        pending_array: Optional[List[np.ndarray]] = None
-    else:
-        pending_array = [np.array([]) for _ in outcome_names]
-        for metric_name, po_list in pending_observations.items():
-            # It is possible that some metrics attached to the experiment should
-            # not be included in pending features for a given model. For example,
-            # if a model is fit to the initial data that is missing some of the
-            # metrics on the experiment or if a model just should not be fit for
-            # some of the metrics attached to the experiment, so metrics that
-            # appear in pending_observations (drawn from an experiment) but not
-            # in outcome_names (metrics, expected for the model) are filtered out.
-            if metric_name not in outcome_names:
-                continue
-            pending_array[outcome_names.index(metric_name)] = np.array(
-                [[po.parameters[p] for p in param_names] for po in po_list]
-            )
-    return pending_array
+        return None
+
+    pending = [np.array([]) for _ in outcome_names]
+    for metric_name, po_list in pending_observations.items():
+        # It is possible that some metrics attached to the experiment should
+        # not be included in pending features for a given model. For example,
+        # if a model is fit to the initial data that is missing some of the
+        # metrics on the experiment or if a model just should not be fit for
+        # some of the metrics attached to the experiment, so metrics that
+        # appear in pending_observations (drawn from an experiment) but not
+        # in outcome_names (metrics, expected for the model) are filtered out.
+        if metric_name not in outcome_names:
+            continue
+        pending[outcome_names.index(metric_name)] = np.array(
+            [[po.parameters[p] for p in param_names] for po in po_list]
+        )
+    return pending
 
 
 def parse_observation_features(
@@ -660,7 +656,7 @@ def get_pending_observation_features_based_on_trial_status(
 
 
 def get_pareto_frontier_and_configs(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     observation_features: List[ObservationFeatures],
     observation_data: Optional[List[ObservationData]] = None,
     objective_thresholds: Optional[TRefPoint] = None,
@@ -816,7 +812,7 @@ def get_pareto_frontier_and_configs(
 
 
 def pareto_frontier(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     observation_features: List[ObservationFeatures],
     observation_data: Optional[List[ObservationData]] = None,
     objective_thresholds: Optional[TRefPoint] = None,
@@ -858,7 +854,7 @@ def pareto_frontier(
 
 
 def predicted_pareto_frontier(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     observation_features: Optional[List[ObservationFeatures]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
@@ -903,7 +899,7 @@ def predicted_pareto_frontier(
 
 
 def observed_pareto_frontier(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
 ) -> List[Observation]:
@@ -939,7 +935,7 @@ def observed_pareto_frontier(
 
 
 def hypervolume(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     observation_features: List[ObservationFeatures],
     objective_thresholds: Optional[TRefPoint] = None,
     observation_data: Optional[List[ObservationData]] = None,
@@ -1015,7 +1011,7 @@ def hypervolume(
 
 
 def _get_multiobjective_optimization_config(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     optimization_config: Optional[OptimizationConfig] = None,
     objective_thresholds: Optional[TRefPoint] = None,
 ) -> MultiObjectiveOptimizationConfig:
@@ -1042,7 +1038,7 @@ def _get_multiobjective_optimization_config(
 
 
 def predicted_hypervolume(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     observation_features: Optional[List[ObservationFeatures]] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
@@ -1087,7 +1083,7 @@ def predicted_hypervolume(
 
 
 def observed_hypervolume(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
     objective_thresholds: Optional[TRefPoint] = None,
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     selected_metrics: Optional[List[str]] = None,
@@ -1190,7 +1186,7 @@ def _array_to_tensor(
 
 
 def _get_modelbridge_training_data(
-    modelbridge: modelbridge_module.array.ArrayModelBridge,
+    modelbridge: modelbridge_module.torch.TorchModelBridge,
 ) -> Tuple[List[ObservationFeatures], List[ObservationData], List[Optional[str]]]:
     obs = modelbridge.get_training_data()
     return _unpack_observations(obs=obs)

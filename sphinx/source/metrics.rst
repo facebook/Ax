@@ -65,6 +65,15 @@ Hartmann6
     :undoc-members:
     :show-inheritance:
 
+Jenatton
+~~~~~~~~~
+
+.. automodule:: ax.metrics.jenatton
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 L2 Norm
 ~~~~~~~
 

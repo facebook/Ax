@@ -33,7 +33,7 @@ from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.sampling.samplers import SobolQMCNormalSampler
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
 
 CURRENT_PATH = __name__
@@ -70,14 +70,13 @@ class BoTorchModelTest(TestCase):
         self.Ys = Ys1
         self.Yvars = Yvars1
         self.X_test = Xs2[0]
-        self.block_design_training_data = TrainingData(
-            Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars
-        )
-        self.non_block_design_training_data = TrainingData(
-            Xs=Xs1 + Xs2,
-            Ys=Ys1 + Ys2,
-            Yvars=Yvars1 + Yvars2,
-        )
+        self.block_design_training_data = [
+            SupervisedDataset(X=X, Y=Y) for X, Y in zip(Xs1, Ys1)
+        ]
+        self.non_block_design_training_data = [
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+        ]
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2", "x3"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
@@ -104,11 +103,10 @@ class BoTorchModelTest(TestCase):
         self.fixed_features = None
         self.pending_observations = None
         self.rounding_func = "func"
-        self.moo_training_data = TrainingData(
-            Xs=self.Xs * 3,
-            Ys=self.non_block_design_training_data.Ys + self.Ys,
-            Yvars=self.Yvars * 3,
-        )
+        self.moo_training_data = [  # block design
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            for X, Y, Yvar in zip(Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3)
+        ]
         self.moo_metric_names = ["y1", "y2", "y3"]
 
     def test_init(self):
@@ -158,24 +156,22 @@ class BoTorchModelTest(TestCase):
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogate = None
         self.model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.block_design_training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
-            Yvars=self.Yvars,
+            datasets=self.block_design_training_data,
             search_space_digest=self.mf_search_space_digest,
         )
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
         mock_fit.assert_called_with(
-            training_data=self.block_design_training_data,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.block_design_training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
             state_dict=None,
             refit=True,
@@ -184,11 +180,9 @@ class BoTorchModelTest(TestCase):
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update):
         self.model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.block_design_training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         for refit_on_update, warm_start_refit in [
@@ -199,11 +193,9 @@ class BoTorchModelTest(TestCase):
             self.model.refit_on_update = refit_on_update
             self.model.warm_start_refit = warm_start_refit
             self.model.update(
-                Xs=self.Xs,
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                search_space_digest=self.mf_search_space_digest,
+                datasets=self.block_design_training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
             expected_state_dict = (
@@ -214,13 +206,11 @@ class BoTorchModelTest(TestCase):
 
             # Check for correct call args
             call_args = mock_update.call_args_list[-1][1]
-            self.assertEqual(
-                call_args.get("training_data"), self.block_design_training_data
-            )
+            self.assertEqual(call_args.get("datasets"), self.block_design_training_data)
+            self.assertEqual(call_args.get("metric_names"), self.metric_names)
             self.assertEqual(
                 call_args.get("search_space_digest"), self.mf_search_space_digest
             )
-            self.assertEqual(call_args.get("metric_names"), self.metric_names)
             self.assertEqual(
                 call_args.get("candidate_metadata"), self.candidate_metadata
             )
@@ -248,12 +238,10 @@ class BoTorchModelTest(TestCase):
     @mock.patch(f"{MODEL_PATH}.BoTorchModel.fit")
     def test_cross_validate(self, mock_fit):
         self.model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=self.block_design_training_data,
+            metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
-            metric_names=self.metric_names,
         )
 
         old_surrogate = self.model.surrogate
@@ -272,12 +260,10 @@ class BoTorchModelTest(TestCase):
                 return_value=mock.MagicMock(spec=Surrogate),
             ) as mock_clone_reset:
                 self.model.cross_validate(
-                    Xs_train=self.Xs,
-                    Ys_train=self.Ys,
-                    Yvars_train=self.Yvars,
+                    datasets=self.block_design_training_data,
+                    metric_names=self.metric_names,
                     X_test=self.X_test,
                     search_space_digest=self.mf_search_space_digest,
-                    metric_names=self.metric_names,
                 )
                 # Check that `predict` is called on the cloned surrogate, not
                 # on the original one.
@@ -346,7 +332,7 @@ class BoTorchModelTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
-            training_data=self.block_design_training_data,
+            datasets=self.block_design_training_data,
             fidelity_features=self.mf_search_space_digest.fidelity_features,
         )
         model._botorch_acqf_class = None
@@ -414,14 +400,11 @@ class BoTorchModelTest(TestCase):
     def test_best_point(self):
         self.model._surrogate = None
         self.model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.block_design_training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
-
         self.assertIsNotNone(
             self.model.best_point(
                 bounds=self.bounds, objective_weights=self.objective_weights
@@ -440,7 +423,7 @@ class BoTorchModelTest(TestCase):
             acquisition_options=self.acquisition_options,
         )
         model.surrogate.construct(
-            training_data=self.block_design_training_data,
+            datasets=self.block_design_training_data,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
@@ -466,11 +449,9 @@ class BoTorchModelTest(TestCase):
     def test_surrogate_options_propagation(self, _, mock_init):
         model = BoTorchModel(surrogate_options={"some_option": "some_value"})
         model.fit(
-            Xs=self.non_block_design_training_data.Xs,
-            Ys=self.non_block_design_training_data.Ys,
-            Yvars=self.non_block_design_training_data.Yvars,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.non_block_design_training_data,
             metric_names=self.metric_names_for_list_surrogate,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
@@ -489,11 +470,9 @@ class BoTorchModelTest(TestCase):
     def test_list_surrogate_choice(self, _):  # , mock_extract_training_data):
         model = BoTorchModel()
         model.fit(
-            Xs=self.non_block_design_training_data.Xs,
-            Ys=self.non_block_design_training_data.Ys,
-            Yvars=self.non_block_design_training_data.Yvars,
-            search_space_digest=self.mf_search_space_digest,
+            datasets=self.non_block_design_training_data,
             metric_names=self.metric_names_for_list_surrogate,
+            search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         # A list surrogate should be chosen, since Xs are not all the same.
@@ -524,15 +503,13 @@ class BoTorchModelTest(TestCase):
 
         model = BoTorchModel()
         model.fit(
-            Xs=self.moo_training_data.Xs,
-            Ys=self.moo_training_data.Ys,
-            Yvars=self.moo_training_data.Yvars,
-            search_space_digest=self.search_space_digest,
+            datasets=self.moo_training_data,
             metric_names=self.moo_metric_names,
+            search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         self.assertIsInstance(model.surrogate.model, FixedNoiseGP)
-        _, _, gen_metadata, _ = model.gen(
+        gen_results = model.gen(
             n=1,
             bounds=self.search_space_digest.bounds,
             objective_weights=self.moo_objective_weights,
@@ -552,16 +529,20 @@ class BoTorchModelTest(TestCase):
         self.assertIsInstance(m, FixedNoiseGP)
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
-        for attr in ("Xs", "Ys", "Yvars"):
-            self.assertTrue(
-                all(
-                    torch.equal(x1, x2)
-                    for x1, x2 in zip(
-                        getattr(training_data, attr),
-                        getattr(self.moo_training_data, attr),
-                    )
-                )
+        self.assertIsInstance(training_data, FixedNoiseDataset)
+        self.assertTrue(torch.equal(training_data.X(), self.Xs[0]))
+        self.assertTrue(
+            torch.equal(
+                training_data.Y(),
+                torch.cat([ds.Y() for ds in self.moo_training_data], dim=-1),
             )
+        )
+        self.assertTrue(
+            torch.equal(
+                training_data.Yvar(),
+                torch.cat([ds.Yvar() for ds in self.moo_training_data], dim=-1),
+            )
+        )
         self.assertTrue(
             torch.equal(
                 ckwargs["objective_thresholds"], self.moo_objective_thresholds[:2]
@@ -573,7 +554,7 @@ class BoTorchModelTest(TestCase):
         self.assertIsNone(
             ckwargs["X_pending"],
         )
-        obj_t = gen_metadata["objective_thresholds"]
+        obj_t = gen_results.gen_metadata["objective_thresholds"]
         self.assertTrue(torch.equal(obj_t[:2], self.moo_objective_thresholds[:2]))
         self.assertTrue(np.isnan(obj_t[2].item()))
 
@@ -588,7 +569,7 @@ class BoTorchModelTest(TestCase):
             )
         )
         expected_X_baseline = _filter_X_observed(
-            Xs=self.moo_training_data.Xs,
+            Xs=[dataset.X() for dataset in self.moo_training_data],
             objective_weights=self.moo_objective_weights,
             outcome_constraints=self.outcome_constraints,
             bounds=self.search_space_digest.bounds,
@@ -620,7 +601,7 @@ class BoTorchModelTest(TestCase):
                 torch.tensor([[1.0, 0.0, 0.0]]),
                 torch.tensor([[2.0]]),
             )
-            _, _, gen_metadata, _ = model.gen(
+            gen_results = model.gen(
                 n=1,
                 bounds=self.search_space_digest.bounds,
                 objective_weights=objective_weights,
@@ -633,7 +614,7 @@ class BoTorchModelTest(TestCase):
                 target_fidelities=self.mf_search_space_digest.target_fidelities,
             )
             expected_X_baseline = _filter_X_observed(
-                Xs=self.moo_training_data.Xs,
+                Xs=[dataset.X() for dataset in self.moo_training_data],
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 bounds=self.search_space_digest.bounds,
@@ -653,8 +634,8 @@ class BoTorchModelTest(TestCase):
             m = ckwargs["model"]
             self.assertIsInstance(m, FixedNoiseGP)
             self.assertEqual(m.num_outputs, 2)
-            self.assertIn("objective_thresholds", gen_metadata)
-            obj_t = gen_metadata["objective_thresholds"]
+            self.assertIn("objective_thresholds", gen_results.gen_metadata)
+            obj_t = gen_results.gen_metadata["objective_thresholds"]
             self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3])))
             self.assertTrue(np.isnan(obj_t[2].item()))
 

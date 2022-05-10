@@ -22,19 +22,18 @@ def get_torch_test_data(
     task_features=None,
     offset: float = 0.0,
 ):
-    device = torch.device("cuda") if cuda else torch.device("cpu")
+    tkwargs = {"device": torch.device("cuda" if cuda else "cpu"), "dtype": dtype}
     Xs = [
         torch.tensor(
             [
                 [1.0 + offset, 2.0 + offset, 3.0 + offset],
                 [2.0 + offset, 3.0 + offset, 4.0 + offset],
             ],
-            dtype=dtype,
-            device=device,
+            **tkwargs
         )
     ]
-    Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], dtype=dtype, device=device)]
-    Yvars = [torch.tensor([[0.0 + offset], [2.0 + offset]], dtype=dtype, device=device)]
+    Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)]
+    Yvars = [torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)]
     if constant_noise:
         Yvars[0].fill_(1.0)
     bounds = [

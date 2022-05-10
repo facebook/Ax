@@ -8,7 +8,7 @@ import time
 from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type, Union
 
 import numpy as np
@@ -28,7 +28,6 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
-    TGenMetadata,
     TModelCov,
     TModelMean,
     TModelPredict,
@@ -43,12 +42,20 @@ from ax.utils.common.typeutils import checked_cast, not_none
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class BaseGenArgs:
     search_space: SearchSpace
-    optimization_config: OptimizationConfig
+    optimization_config: Optional[OptimizationConfig]
     pending_observations: Dict[str, List[ObservationFeatures]]
     fixed_features: ObservationFeatures
+
+
+@dataclass(frozen=True)
+class GenResults:
+    observation_features: List[ObservationFeatures]
+    weights: List[float]
+    best_observation_features: Optional[ObservationFeatures] = None
+    gen_metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class ModelBridge(ABC):
@@ -595,7 +602,6 @@ class ModelBridge(ABC):
             pending_observations = {}
         if fixed_features is None:
             fixed_features = ObservationFeatures({})
-
         if optimization_config is None:
             optimization_config = (
                 self._optimization_config.clone()
@@ -623,8 +629,6 @@ class ModelBridge(ABC):
             fixed_features = t.transform_observation_features([fixed_features])[0]
         return BaseGenArgs(
             search_space=search_space,
-            # pyre-fixme[6]: Expected `OptimizationConfig` for 2nd param but got
-            #  `Optional[OptimizationConfig]`.
             optimization_config=optimization_config,
             pending_observations=pending_observations,
             fixed_features=fixed_features,
@@ -666,7 +670,7 @@ class ModelBridge(ABC):
         )
 
         # Apply terminal transform and gen
-        observation_features, weights, best_obsf, gen_metadata = self._gen(
+        gen_results = self._gen(
             n=n,
             search_space=base_gen_args.search_space,
             optimization_config=base_gen_args.optimization_config,
@@ -674,6 +678,9 @@ class ModelBridge(ABC):
             fixed_features=base_gen_args.fixed_features,
             model_gen_options=model_gen_options,
         )
+
+        observation_features = gen_results.observation_features
+        best_obsf = gen_results.best_observation_features
         # Apply reverse transforms
         for t in reversed(self.transforms.values()):  # noqa T484
             observation_features = t.untransform_observation_features(
@@ -723,7 +730,7 @@ class ModelBridge(ABC):
         optimization_config = None if immutable else base_gen_args.optimization_config
         gr = GeneratorRun(
             arms=arms,
-            weights=weights,
+            weights=gen_results.weights,
             optimization_config=optimization_config,
             search_space=None if immutable else base_gen_args.search_space,
             model_predictions=model_predictions,
@@ -735,7 +742,7 @@ class ModelBridge(ABC):
             model_key=self._model_key,
             model_kwargs=self._model_kwargs,
             bridge_kwargs=self._bridge_kwargs,
-            gen_metadata=gen_metadata,
+            gen_metadata=gen_results.gen_metadata,
             model_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
@@ -750,12 +757,7 @@ class ModelBridge(ABC):
         pending_observations: Dict[str, List[ObservationFeatures]],
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig],
-    ) -> Tuple[
-        List[ObservationFeatures],
-        List[float],
-        Optional[ObservationFeatures],
-        TGenMetadata,
-    ]:
+    ) -> GenResults:
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
@@ -790,8 +792,8 @@ class ModelBridge(ABC):
         # Apply terminal transform, and get predictions.
         cv_predictions = self._cross_validate(
             search_space=search_space,
-            obs_feats=obs_feats,
-            obs_data=obs_data,
+            observation_features=obs_feats,
+            observation_data=obs_data,
             cv_test_points=cv_test_points,
         )
         # Apply reverse transforms, in reverse order
@@ -805,8 +807,8 @@ class ModelBridge(ABC):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        obs_feats: List[ObservationFeatures],
-        obs_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Apply the terminal transform, make predictions on the test points,

@@ -4,38 +4,38 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import numpy as np
+import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.numpy.randomforest import RandomForest
+from ax.models.torch.randomforest import RandomForest
 from ax.utils.common.testutils import TestCase
+from botorch.utils.datasets import FixedNoiseDataset
 
 
 class RandomForestTest(TestCase):
     def testRFModel(self):
-        Xs = [np.random.rand(10, 2) for i in range(2)]
-        Ys = [np.random.rand(10, 1) for i in range(2)]
-        Yvars = [np.random.rand(10, 1) for i in range(2)]
+        datasets = [
+            FixedNoiseDataset(
+                X=torch.rand(10, 2), Y=torch.rand(10, 1), Yvar=torch.rand(10, 1)
+            )
+            for _ in range(2)
+        ]
 
         m = RandomForest(num_trees=5)
         m.fit(
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
+            datasets=datasets,
+            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2"],
                 bounds=[(0, 1)] * 2,
             ),
-            metric_names=["y"],
         )
         self.assertEqual(len(m.models), 2)
         self.assertEqual(len(m.models[0].estimators_), 5)
 
-        f, cov = m.predict(np.random.rand(5, 2))
-        self.assertEqual(f.shape, (5, 2))
-        self.assertEqual(cov.shape, (5, 2, 2))
+        f, cov = m.predict(torch.rand(5, 2))
+        self.assertEqual(f.shape, torch.Size((5, 2)))
+        self.assertEqual(cov.shape, torch.Size((5, 2, 2)))
 
-        f, cov = m.cross_validate(
-            Xs_train=Xs, Ys_train=Ys, Yvars_train=Yvars, X_test=np.random.rand(3, 2)
-        )
-        self.assertEqual(f.shape, (3, 2))
-        self.assertEqual(cov.shape, (3, 2, 2))
+        f, cov = m.cross_validate(datasets=datasets, X_test=torch.rand(3, 2))
+        self.assertEqual(f.shape, torch.Size((3, 2)))
+        self.assertEqual(cov.shape, torch.Size((3, 2, 2)))

@@ -26,9 +26,11 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
+from botorch.utils.datasets import FixedNoiseDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from botorch.utils.testing import MockModel, MockPosterior
+
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
@@ -68,7 +70,7 @@ def _get_torch_test_data(
     bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
     feature_names = ["x1", "x2", "x3"]
     task_features = [] if task_features is None else task_features
-    metric_names = ["y", "r"]
+    metric_names = ["y"]
     return Xs, Ys, Yvars, bounds, task_features, feature_names, metric_names
 
 
@@ -118,6 +120,11 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
+
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
@@ -125,15 +132,13 @@ class BotorchMOOModelTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data,
+                metric_names=["y1", "y2"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 
@@ -182,15 +187,13 @@ class BotorchMOOModelTest(TestCase):
             acqf_constructor=get_NEI, use_input_warping=True
         )
         model.fit(
-            Xs=Xs1 + Xs2,
-            Ys=Ys1 + Ys2,
-            Yvars=Yvars1 + Yvars2,
+            datasets=training_data,
+            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=fns,
                 bounds=bounds,
                 task_features=tfs,
             ),
-            metric_names=mns,
         )
         self.assertTrue(model.use_input_warping)
         self.assertIsInstance(model.model, ModelListGP)
@@ -205,15 +208,13 @@ class BotorchMOOModelTest(TestCase):
             acqf_constructor=get_NEI, use_loocv_pseudo_likelihood=True
         )
         model.fit(
-            Xs=Xs1 + Xs2,
-            Ys=Ys1 + Ys2,
-            Yvars=Yvars1 + Yvars2,
+            datasets=training_data,
+            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=fns,
                 bounds=bounds,
                 task_features=tfs,
             ),
-            metric_names=mns,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -231,6 +232,11 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
+
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
@@ -238,15 +244,13 @@ class BotorchMOOModelTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data,
+                metric_names=["y1", "y2"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 
@@ -285,6 +289,11 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
+
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
@@ -295,15 +304,13 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data,
+                metric_names=["y1", "y2"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
         with ExitStack() as es:
@@ -339,7 +346,7 @@ class BotorchMOOModelTest(TestCase):
                     wraps=moo_monte_carlo.FastNondominatedPartitioning,
                 )
             )
-            _, _, gen_metadata, _ = model.gen(
+            gen_results = model.gen(
                 n,
                 bounds,
                 objective_weights,
@@ -353,20 +360,22 @@ class BotorchMOOModelTest(TestCase):
             # since a batched partitioning is used for 2 objectives
             _mock_partitioning.assert_called_once()
             self.assertTrue(
-                torch.equal(gen_metadata["objective_thresholds"], obj_t.cpu())
+                torch.equal(
+                    gen_results.gen_metadata["objective_thresholds"], obj_t.cpu()
+                )
             )
             _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
             # 3 objective
+            training_data_m3 = training_data + [training_data[-1]]
+
             model.fit(
-                Xs=Xs1 + Xs2 + Xs2,
-                Ys=Ys1 + Ys2 + Ys2,
-                Yvars=Yvars1 + Yvars2 + Yvars2,
+                datasets=training_data_m3,
+                metric_names=["y1", "y2", "y3"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             model.gen(
                 n,
@@ -392,16 +401,18 @@ class BotorchMOOModelTest(TestCase):
             Ys2 = [torch.cat([Ys2[0], Ys2[0] + 0.5], dim=0)]
             Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
             Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
+            training_data_multiple = [
+                FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                FixedNoiseDataset(X=Xs1[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            ]
             model.fit(
-                Xs=Xs1 + Xs1,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data_multiple,
+                metric_names=["y1", "y2", "dummy_metric"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns + ["dummy_metric"],
             )
             _mock_model_infer_objective_thresholds = es.enter_context(
                 mock.patch(
@@ -453,7 +464,7 @@ class BotorchMOOModelTest(TestCase):
                 torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
                 torch.tensor([[10.0]], **tkwargs),
             )
-            _, _, gen_metadata, _ = model.gen(
+            gen_results = model.gen(
                 n,
                 bounds,
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
@@ -507,15 +518,15 @@ class BotorchMOOModelTest(TestCase):
                     ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]], **tkwargs)
                 )
             )
-            self.assertIn("objective_thresholds", gen_metadata)
-            obj_t = gen_metadata["objective_thresholds"]
+            self.assertIn("objective_thresholds", gen_results.gen_metadata)
+            obj_t = gen_results.gen_metadata["objective_thresholds"]
             self.assertTrue(
                 torch.equal(obj_t[:2], torch.tensor([9.9, 3.3], dtype=tkwargs["dtype"]))
             )
             self.assertTrue(np.isnan(obj_t[2]))
             # test providing model with extra tracking metrics and objective thresholds
             provided_obj_t = torch.tensor([10.0, 4.0, float("nan")], **tkwargs)
-            _, _, gen_metadata, _ = model.gen(
+            gen_results = model.gen(
                 n,
                 bounds,
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
@@ -531,8 +542,8 @@ class BotorchMOOModelTest(TestCase):
                 },
                 objective_thresholds=provided_obj_t,
             )
-            self.assertIn("objective_thresholds", gen_metadata)
-            obj_t = gen_metadata["objective_thresholds"]
+            self.assertIn("objective_thresholds", gen_results.gen_metadata)
+            obj_t = gen_results.gen_metadata["objective_thresholds"]
             self.assertTrue(torch.equal(obj_t[:2], provided_obj_t[:2].cpu()))
             self.assertTrue(np.isnan(obj_t[2]))
 
@@ -550,6 +561,11 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
+
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
@@ -557,15 +573,13 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data,
+                metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 
@@ -604,6 +618,11 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
+
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
@@ -611,15 +630,13 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=training_data,
+                metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 
@@ -661,6 +678,12 @@ class BotorchMOOModelTest(TestCase):
         Xs3, Ys3, Yvars3, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        training_data = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            FixedNoiseDataset(X=Xs3[0], Y=Ys3[0], Yvar=Yvars3[0]),
+        ]
+
         n = 3
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
@@ -668,15 +691,13 @@ class BotorchMOOModelTest(TestCase):
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2 + Xs3,
-                Ys=Ys1 + Ys2 + Ys3,
-                Yvars=Yvars1 + Yvars2 + Yvars3,
+                datasets=training_data,
+                metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 

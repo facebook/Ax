@@ -16,7 +16,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.numpy_base import NumpyModel
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
 
@@ -232,7 +231,7 @@ def validate_bounds(
 
 
 def best_observed_point(
-    model: Union[NumpyModel, TorchModel],
+    model: TorchModel,
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
@@ -305,7 +304,7 @@ def best_observed_point(
 
 def best_in_sample_point(
     Xs: Union[List[torch.Tensor], List[np.ndarray]],
-    model: Union[NumpyModel, TorchModel],
+    model: TorchModel,
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,

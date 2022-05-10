@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.exceptions.core import UnsupportedError
 from ax.models.model_utils import best_observed_point
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -21,17 +22,16 @@ from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     use_model_list,
-    validate_data_format,
 )
 from ax.models.torch.utils import _to_inequality_constraints
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from torch import Tensor
 
 
@@ -116,6 +116,16 @@ class BoTorchModel(TorchModel, Base):
         self.warm_start_refit = warm_start_refit
 
     @property
+    def Xs(self) -> List[Tensor]:
+        """A list of tensors, each of shape ``batch_shape x n_i x d``,
+        where `n_i` is the number of training inputs for the i-th model.
+
+        NOTE: This is an accessor for ``self.surrogate.Xs``
+        and returns it unchanged.
+        """
+        return self.surrogate.Xs
+
+    @property
     def surrogate(self) -> Surrogate:
         """Ax ``Surrogate`` object (wrapper for BoTorch ``Model``), associated with
         this model. Raises an error if one is not yet set.
@@ -133,54 +143,23 @@ class BoTorchModel(TorchModel, Base):
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
         return not_none(self._botorch_acqf_class)
 
-    @property
-    def Xs(self) -> List[Tensor]:
-        """A list of tensors, each of shape ``batch_shape x n_i x d``,
-        where `n_i` is the number of training inputs for the i-th model.
-
-        NOTE: This is an accessor for ``self.surrogate.training_data.Xs``
-        and returns it unchanged.
-        """
-        return self.surrogate.training_data.Xs
-
-    @property
-    def Ys(self) -> List[Tensor]:
-        """A list of tensors, each of shape ``batch_shape x n_i x 1``,
-        where `n_i` is the number of training observations for the i-th
-        (single-output) model.
-
-        NOTE: This is an accessor for ``self.surrogate.training_data.Ys``
-        and returns it unchanged.
-        """
-        return self.surrogate.training_data.Ys
-
-    @property
-    def Yvars(self) -> Optional[List[Tensor]]:
-        """An optional list of tensors, each of shape
-        ``batch_shape x n_i x 1``, where ``n_i`` is the number of training
-        observations of the  observation noise for the i-th  (single-output)
-        model. If `None`, the observation noise level is unobserved.
-
-        NOTE: This is an accessor for ``self.surrogate.training_data.Yvars``
-        and returns it unchanged.
-        """
-        return self.surrogate.training_data.Yvars
-
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
-        # Ensure that parts of data all have equal lengths.
-        validate_data_format(Xs=Xs, Ys=Ys, Yvars=Yvars, metric_names=metric_names)
+        if not len(datasets) == len(metric_names):
+            raise ValueError(
+                "Length of datasets and metric_names must match, but your inputs "
+                f"are of lengths {len(datasets)} and {len(metric_names)}, "
+                "respectively."
+            )
 
         # store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
@@ -188,17 +167,36 @@ class BoTorchModel(TorchModel, Base):
         # Choose `Surrogate` and undelying `Model` based on properties of data.
         if not self._surrogate:
             self._autoset_surrogate(
-                Xs=Xs,
-                Ys=Ys,
-                Yvars=Yvars,
-                search_space_digest=search_space_digest,
+                datasets=datasets,
                 metric_names=metric_names,
+                search_space_digest=search_space_digest,
             )
 
+        if len(datasets) > 1 and not isinstance(self.surrogate, ListSurrogate):
+            # Convert data to "block design". TODO: Figure out a better
+            # solution for this using the data containers (pass outcome
+            # names as properties of the data containers)
+            X = datasets[0].X()
+            Y = torch.cat([ds.Y() for ds in datasets], dim=-1)
+            is_fixed = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
+            if all(is_fixed):
+                Yvar = torch.cat(
+                    [ds.Yvar() for ds in datasets], dim=-1  # pyre-ignore [16]
+                )
+                datasets = [FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)]
+            elif not any(is_fixed):
+                datasets = [SupervisedDataset(X=X, Y=Y)]
+            else:
+                raise UnsupportedError(
+                    "Cannot convert mixed data with and without variance "
+                    "observaitons to `block design`."
+                )
+            metric_names = ["_".join(metric_names)]
+
         self.surrogate.fit(
-            training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
-            search_space_digest=search_space_digest,
+            datasets=datasets,
             metric_names=metric_names,
+            search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
@@ -207,11 +205,9 @@ class BoTorchModel(TorchModel, Base):
     @copy_doc(TorchModel.update)
     def update(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[Optional[SupervisedDataset]],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self._surrogate:
@@ -229,11 +225,14 @@ class BoTorchModel(TorchModel, Base):
             if self.refit_on_update and not self.warm_start_refit
             else self.surrogate.model.state_dict()
         )
-
+        if any(dataset is None for dataset in datasets):
+            raise UnsupportedError(
+                f"{self.__class__.__name__}.update requires data for all outcomes."
+            )
         self.surrogate.update(
-            training_data=TrainingData(Xs=Xs, Ys=Ys, Yvars=Yvars),
-            search_space_digest=search_space_digest,
+            datasets=[not_none(dataset) for dataset in datasets],
             metric_names=metric_names,
+            search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=self.refit_on_update,
@@ -257,7 +256,7 @@ class BoTorchModel(TorchModel, Base):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+    ) -> TorchGenResults:
         if self._search_space_digest is None:
             raise RuntimeError("Must `fit` the model before calling `gen`.")
         acq_options, opt_options = construct_acquisition_and_optimizer_options(
@@ -298,11 +297,10 @@ class BoTorchModel(TorchModel, Base):
         if objective_weights.nonzero().numel() > 1:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
             gen_metadata["objective_weights"] = acqf.objective_weights
-        return (
-            candidates.detach().cpu(),
-            torch.ones(n, dtype=self.surrogate.dtype),
-            gen_metadata,
-            None,
+        return TorchGenResults(
+            points=candidates.detach().cpu(),
+            weights=torch.ones(n, dtype=self.surrogate.dtype),
+            gen_metadata=gen_metadata,
         )
 
     @copy_doc(TorchModel.best_point)
@@ -357,12 +355,10 @@ class BoTorchModel(TorchModel, Base):
 
     def cross_validate(
         self,
-        Xs_train: List[Tensor],
-        Ys_train: List[Tensor],
-        Yvars_train: List[Tensor],
+        datasets: List[SupervisedDataset],
+        metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
-        metric_names: List[str],
     ) -> Tuple[Tensor, Tensor]:
         current_surrogate = self.surrogate
         # If we should be refitting but not warm-starting the refit, set
@@ -381,11 +377,9 @@ class BoTorchModel(TorchModel, Base):
 
         try:
             self.fit(
-                Xs=Xs_train,
-                Ys=Ys_train,
-                Yvars=Yvars_train,
-                search_space_digest=search_space_digest,
+                datasets=datasets,
                 metric_names=metric_names,
+                search_space_digest=search_space_digest,
                 state_dict=state_dict,
                 refit=self.refit_on_cv,
             )
@@ -399,11 +393,9 @@ class BoTorchModel(TorchModel, Base):
 
     def _autoset_surrogate(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
     ) -> None:
         """Sets a default surrogate on this model if one was not explicitly
         provided.
@@ -412,18 +404,18 @@ class BoTorchModel(TorchModel, Base):
         # the batched multi-output case, so we first see which model would
         # be chosen given the Yvars and the properties of data.
         botorch_model_class = choose_model_class(
-            Yvars=Yvars,
+            datasets=datasets,
             search_space_digest=search_space_digest,
         )
-        if use_model_list(Xs=Xs, botorch_model_class=botorch_model_class):
+        if use_model_list(datasets=datasets, botorch_model_class=botorch_model_class):
             # If using `ListSurrogate` / `ModelListGP`, pick submodels for each
             # outcome.
             botorch_submodel_class_per_outcome = {
                 metric_name: choose_model_class(
-                    Yvars=[Yvar],
+                    datasets=[dataset],
                     search_space_digest=search_space_digest,
                 )
-                for Yvar, metric_name in zip(Yvars, metric_names)
+                for dataset, metric_name in zip(datasets, metric_names)
             }
             self._surrogate = ListSurrogate(
                 botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome,

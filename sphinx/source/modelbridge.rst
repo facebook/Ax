@@ -57,26 +57,10 @@ Base Model Bridge
     :undoc-members:
     :show-inheritance:
 
-Array Model Bridge
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.array
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Discrete Model Bridge
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.discrete
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-NumPy Model Bridge
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.numpy
     :members:
     :undoc-members:
     :show-inheritance:

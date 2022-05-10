@@ -16,7 +16,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import SupervisedDataset
 
 
 ACQUISITION_PATH = Acquisition.__module__
@@ -33,12 +33,10 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         self.Y = torch.tensor([[3.0], [4.0]])
         self.Yvar = torch.tensor([[0.0], [2.0]])
-        self.training_data = TrainingData.from_block_design(
-            X=self.X, Y=self.Y, Yvar=self.Yvar
-        )
+        self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            datasets=self.training_data, fidelity_features=self.fidelity_features
         )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
         self.search_space_digest = SearchSpaceDigest(

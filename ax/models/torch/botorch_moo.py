@@ -7,7 +7,6 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
@@ -20,7 +19,6 @@ from ax.models.torch.botorch import (
 )
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
-    predict_from_model,
     recommend_best_observed_point,
     scipy_optimizer,
 )
@@ -34,10 +32,11 @@ from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,
+    predict_from_model,
     randomize_objective_weights,
     subset_model,
 )
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -245,7 +244,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+    ) -> TorchGenResults:
         options = model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
@@ -377,9 +376,8 @@ class MultiObjectiveBotorchModel(BotorchModel):
             "objective_thresholds": not_none(full_objective_thresholds).cpu(),
             "objective_weights": full_objective_weights.cpu(),
         }
-        return (
-            candidates.detach().cpu(),
-            torch.ones(n, dtype=self.dtype),
-            gen_metadata,
-            None,
+        return TorchGenResults(
+            points=candidates.detach().cpu(),
+            weights=torch.ones(n, dtype=self.dtype),
+            gen_metadata=gen_metadata,
         )

@@ -33,6 +33,7 @@ from botorch.models.model import Model
 from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
+from botorch.utils.datasets import SupervisedDataset, FixedNoiseDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
@@ -128,12 +129,12 @@ def _get_X_pending_and_observed(
 
     Args:
         Xs: The input tensors of a model.
-        pending_observations:  A list of m (k_i x d) feature tensors X
-            for m outcomes and k_i pending observations for outcome i.
-            (Only used if n > 1).
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         bounds: A list of (lower, upper) tuples for each column of X.
+        pending_observations:  A list of m (k_i x d) feature tensors X
+            for m outcomes and k_i pending observations for outcome i.
+            (Only used if n > 1).
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
@@ -563,3 +564,20 @@ def randomize_objective_weights(
     # pyre-fixme[61]: `random_weights` may not be initialized here.
     objective_weights = torch.mul(objective_weights, random_weights)
     return objective_weights
+
+
+def _datasets_to_legacy_inputs(
+    datasets: List[SupervisedDataset],
+) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
+    """Convert a dictionary of dataset containers to legacy X, Y, Yvar inputs"""
+    Xs, Ys, Yvars = [], [], []
+    for dataset in datasets:
+        if not isinstance(dataset, SupervisedDataset):
+            raise UnsupportedError("Legacy setup only supports `SupervisedDataset`s")
+        Xs.append(dataset.X())
+        Ys.append(dataset.Y())
+        if isinstance(dataset, FixedNoiseDataset):
+            Yvars.append(dataset.Yvar())
+        else:
+            Yvars.append(torch.full_like(Ys[-1], float("nan")))
+    return Xs, Ys, Yvars

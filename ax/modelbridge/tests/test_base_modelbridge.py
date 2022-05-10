@@ -22,6 +22,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import (
+    GenResults,
     clamp_observation_features,
     gen_arms,
     ModelBridge,
@@ -139,7 +140,9 @@ class BaseModelBridgeTest(TestCase):
         modelbridge._gen = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._gen",
             autospec=True,
-            return_value=([get_observation1trans().features], [2], None, {}),
+            return_value=GenResults(
+                observation_features=[get_observation1trans().features], weights=[2]
+            ),
         )
         oc = OptimizationConfig(objective=Objective(metric=Metric(name="test_metric")))
         modelbridge._set_kwargs_to_save(
@@ -209,8 +212,8 @@ class BaseModelBridgeTest(TestCase):
         )
         modelbridge._cross_validate.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
-            obs_feats=[get_observation2trans().features],
-            obs_data=[get_observation2trans().data],
+            observation_features=[get_observation2trans().features],
+            observation_data=[get_observation2trans().data],
             cv_test_points=[get_observation1().features],  # untransformed after
         )
         self.assertTrue(cv_predictions == [get_observation1().data])
@@ -262,7 +265,7 @@ class BaseModelBridgeTest(TestCase):
         modelbridge._gen = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._gen",
             autospec=True,
-            return_value=([obs], [2], None, {}),
+            return_value=GenResults(observation_features=[obs], weights=[2]),
         )
         gr = modelbridge.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, obs.parameters)
@@ -280,7 +283,7 @@ class BaseModelBridgeTest(TestCase):
         modelbridge._gen = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._gen",
             autospec=True,
-            return_value=([obs], [2], None, {}),
+            return_value=GenResults(observation_features=[obs], weights=[2]),
         )
         gr = modelbridge.gen(n=1)
         self.assertEqual(gr.arms[0].parameters, {"x": 1.0})
@@ -355,16 +358,14 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
     )
     def test_status_quo_for_non_monolithic_data(self, mock_gen):
-        mock_gen.return_value = (
-            [
+        mock_gen.return_value = GenResults(
+            observation_features=[
                 ObservationFeatures(
                     parameters={"x1": float(i), "x2": float(i)}, trial_index=np.int64(1)
                 )
                 for i in range(5)
             ],
-            [1] * 5,
-            None,
-            {},
+            weights=[1] * 5,
         )
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -486,7 +487,9 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
-        return_value=([get_observation1trans().features], [2], None, {}),
+        return_value=GenResults(
+            observation_features=[get_observation1trans().features], weights=[2]
+        ),
     )
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
@@ -515,7 +518,9 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
-        return_value=([get_observation1trans().features], [2], None, {}),
+        return_value=GenResults(
+            observation_features=[get_observation1trans().features], weights=[2]
+        ),
     )
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
@@ -539,9 +544,9 @@ class BaseModelBridgeTest(TestCase):
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
         side_effect=[
-            ([get_observation1trans().features], [2], None, {}),
-            ([get_observation2trans().features], [2], None, {}),
-            ([get_observation2().features], [2], None, {}),
+            GenResults([get_observation1trans().features], [2]),
+            GenResults([get_observation2trans().features], [2]),
+            GenResults([get_observation2().features], weights=[2]),
         ],
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._update", autospec=True)

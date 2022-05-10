@@ -25,6 +25,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.datasets import FixedNoiseDataset
 
 
 class ALEBOTest(TestCase):
@@ -258,6 +259,14 @@ class ALEBOTest(TestCase):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
+        m = ALEBO(B=B, laplace_nsamp=5, fit_restarts=1)
+        self.assertTrue(torch.equal(B, m.B))
+        self.assertEqual(m.laplace_nsamp, 5)
+        self.assertEqual(m.fit_restarts, 1)
+        self.assertEqual(m.refit_on_update, True)
+        self.assertEqual(m.refit_on_cv, False)
+        self.assertEqual(m.warm_start_refitting, False)
+
         train_X = torch.tensor(
             [
                 [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -268,25 +277,16 @@ class ALEBOTest(TestCase):
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]], dtype=torch.double)
         train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
-
-        m = ALEBO(B=B, laplace_nsamp=5, fit_restarts=1)
-        self.assertTrue(torch.equal(B, m.B))
-        self.assertEqual(m.laplace_nsamp, 5)
-        self.assertEqual(m.fit_restarts, 1)
-        self.assertEqual(m.refit_on_update, True)
-        self.assertEqual(m.refit_on_cv, False)
-        self.assertEqual(m.warm_start_refitting, False)
+        dataset = FixedNoiseDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
 
         # Test fit
         m.fit(
-            Xs=[train_X, train_X],
-            Ys=[train_Y, train_Y],
-            Yvars=[train_Yvar, train_Yvar],
+            datasets=[dataset, dataset],
+            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[(-1, 1)] * 5,
             ),
-            metric_names=[],
         )
         self.assertIsInstance(m.model, ModelListGP)
         self.assertTrue(torch.allclose(m.Xs[0], (B @ train_X.t()).t()))
@@ -308,22 +308,22 @@ class ALEBOTest(TestCase):
             autospec=True,
             return_value=(m.Xs[0], torch.tensor([])),
         ):
-            Xopt, _, _, _ = m.gen(
+            gen_results = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
             )
 
-        self.assertFalse(torch.allclose(Xopt, train_X))
-        self.assertTrue(Xopt.min() >= -1)
-        self.assertTrue(Xopt.max() <= 1)
+        self.assertFalse(torch.allclose(gen_results.points, train_X))
+        self.assertTrue(gen_results.points.min() >= -1)
+        self.assertTrue(gen_results.points.max() <= 1)
         # Without
         with mock.patch(
             "ax.models.torch.alebo.optimize_acqf",
             autospec=True,
             return_value=(torch.ones(1, 2, dtype=torch.double), torch.tensor([])),
         ):
-            Xopt, _, _, _ = m.gen(
+            gen_results = m.gen(
                 n=1,
                 bounds=[(-1, 1)] * 5,
                 objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
@@ -331,7 +331,8 @@ class ALEBOTest(TestCase):
 
         self.assertTrue(
             torch.allclose(
-                Xopt, torch.tensor([[-0.2, -0.1, 0.0, 0.1, 0.2]], dtype=torch.double)
+                gen_results.points,
+                torch.tensor([[-0.2, -0.1, 0.0, 0.1, 0.2]], dtype=torch.double),
             )
         )
 
@@ -344,21 +345,14 @@ class ALEBOTest(TestCase):
             ],
             dtype=torch.double,
         )
-        m.update(
-            Xs=[train_X, train_X2],
-            Ys=[train_Y, train_Y],
-            Yvars=[train_Yvar, train_Yvar],
-        )
+        dataset2 = FixedNoiseDataset(X=train_X2, Y=train_Y, Yvar=train_Yvar)
+        m.update(datasets=[dataset, dataset2])
         self.assertTrue(torch.allclose(m.Xs[0], (B @ train_X.t()).t()))
         self.assertTrue(torch.allclose(m.Xs[1], (B @ train_X2.t()).t()))
         m.refit_on_update = False
-        m.update(
-            Xs=[train_X, train_X2],
-            Ys=[train_Y, train_Y],
-            Yvars=[train_Yvar, train_Yvar],
-        )
+        m.update(datasets=[dataset, dataset2])
 
-        # Test get_and_fit with single meric
+        # Test get_and_fit with single metric
         gp = m.get_and_fit_model(
             Xs=[(B @ train_X.t()).t()], Ys=[train_Y], Yvars=[train_Yvar]
         )
@@ -366,18 +360,14 @@ class ALEBOTest(TestCase):
 
         # Test cross_validate
         f, cov = m.cross_validate(
-            Xs_train=[train_X],
-            Ys_train=[train_Y],
-            Yvars_train=[train_Yvar],
+            datasets=[dataset],
             X_test=train_X2,
         )
         self.assertEqual(f.shape, torch.Size([3, 1]))
         self.assertEqual(cov.shape, torch.Size([3, 1, 1]))
         m.refit_on_cv = True
         f, cov = m.cross_validate(
-            Xs_train=[train_X],
-            Ys_train=[train_Y],
-            Yvars_train=[train_Yvar],
+            datasets=[dataset],
             X_test=train_X2,
         )
         self.assertEqual(f.shape, torch.Size([3, 1]))

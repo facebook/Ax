@@ -47,6 +47,8 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
     ParameterType.BOOL: bool,
 }
 
+SUPPORTED_PARAMETER_TYPES = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
+
 
 def _get_parameter_type(python_type: Type) -> ParameterType:
     """Given a Python type, retrieve corresponding Ax ``ParameterType``."""

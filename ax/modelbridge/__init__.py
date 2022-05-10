@@ -15,14 +15,12 @@ from ax.modelbridge.factory import (
     get_uniform,
     Models,
 )
-from ax.modelbridge.numpy import NumpyModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 
 
 __all__ = [
     "ModelBridge",
     "Models",
-    "NumpyModelBridge",
     "TorchModelBridge",
     "get_factorial",
     "get_GPEI",

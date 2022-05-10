@@ -100,7 +100,7 @@ class Acquisition(Base):
         self.surrogate = surrogate
         self.options = options or {}
         X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=self.surrogate.training_data.Xs,
+            Xs=self.surrogate.Xs,
             objective_weights=objective_weights,
             bounds=search_space_digest.bounds,
             pending_observations=pending_observations,
@@ -177,9 +177,16 @@ class Acquisition(Base):
             **self.options,
         }
         input_constructor = get_acqf_input_constructor(botorch_acqf_class)
+        # Handle multi-dataset surrogates - TODO: Improve this
+        if len(self.surrogate.training_data) == 1:
+            training_data = self.surrogate.training_data[0]
+        else:
+            training_data = dict(
+                zip(not_none(self.surrogate._outcomes), self.surrogate.training_data)
+            )
         acqf_inputs = input_constructor(
             model=model,
-            training_data=self.surrogate.training_data,
+            training_data=training_data,
             objective=objective,
             posterior_transform=posterior_transform,
             **input_constructor_kwargs,
@@ -194,14 +201,14 @@ class Acquisition(Base):
         return self.acqf.__class__
 
     @property
-    def dtype(self) -> torch.dtype:
+    def dtype(self) -> Optional[torch.dtype]:
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
         return self.surrogate.dtype
 
     @property
-    def device(self) -> torch.device:
+    def device(self) -> Optional[torch.device]:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
