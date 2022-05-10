@@ -260,7 +260,7 @@ class TorchModelBridge(ModelBridge):
             parameters={p: float(xbest[i]) for i, p in enumerate(self.parameters)}
         )
 
-        for t in reversed(self.transforms.values()):  # noqa T484
+        for t in reversed(list(self.transforms.values())):
             best_obsf = t.untransform_observation_features([best_obsf])[0]
 
         best_point_predictions = extract_arm_predictions(
@@ -760,7 +760,7 @@ class TorchModelBridge(ModelBridge):
         ]
 
         # Untransform ObjectiveThresholds along with the dummy ObservationFeatures.
-        for t in reversed(self.transforms.values()):
+        for t in reversed(list(self.transforms.values())):
             thresholds = t.untransform_objective_thresholds(
                 objective_thresholds=thresholds,
                 observation_features=observation_features,

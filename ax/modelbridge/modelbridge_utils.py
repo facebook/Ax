@@ -506,7 +506,7 @@ def transform_callback(
             )
         ]
         # reverse loop through the transforms and do untransform
-        for t in reversed(transforms.values()):
+        for t in reversed(list(transforms.values())):
             observation_features = t.untransform_observation_features(
                 observation_features
             )
@@ -789,7 +789,7 @@ def get_pareto_frontier_and_configs(
 
     if use_model_predictions:
         # Untransform observations
-        for t in reversed(modelbridge.transforms.values()):  # noqa T484
+        for t in reversed(list(modelbridge.transforms.values())):
             frontier_observation_data = t.untransform_observation_data(
                 frontier_observation_data, []
             )
