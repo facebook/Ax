@@ -4,6 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
+import dataclasses
 import re
 from collections import OrderedDict
 from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
@@ -12,11 +15,12 @@ import gpytorch
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.core.types import TCandidateMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_NEI
-from ax.models.torch_base import TorchModel
+from ax.models.torch.utils import _datasets_to_legacy_inputs
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -32,6 +36,7 @@ from botorch.optim.numpy_converter import module_to_array
 from botorch.optim.optimize import optimize_acqf
 from botorch.optim.utils import _scipy_objective_and_grad
 from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import postprocess_rbf
@@ -75,7 +80,7 @@ class ALEBOKernel(Kernel):
         # U is the upper Cholesky decomposition of Gamma, the Mahalanobis
         # matrix. Uvec is the upper triangular portion of U squeezed out into
         # a vector.
-        U = torch.cholesky(torch.mm(ABinv.t(), ABinv), upper=True)
+        U = torch.linalg.cholesky(torch.mm(ABinv.t(), ABinv)).t()
         self.triu_indx = torch.triu_indices(self.d, self.d, device=B.device)
         Uvec = U[self.triu_indx.tolist()].repeat(*batch_shape, 1)
         self.register_parameter(name="Uvec", parameter=torch.nn.Parameter(Uvec))
@@ -586,13 +591,12 @@ class ALEBO(BotorchModel):
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         assert len(search_space_digest.task_features) == 0
         assert len(search_space_digest.fidelity_features) == 0
         for b in search_space_digest.bounds:
@@ -636,7 +640,7 @@ class ALEBO(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, List[TCandidateMetadata]]:
+    ) -> TorchGenResults:
         """Generate candidates.
 
         Candidates are generated in the linear embedding with the polytope
@@ -667,7 +671,7 @@ class ALEBO(BotorchModel):
                 "B": self.B,
             },
         }
-        Xd_opt, w, gen_metadata, candidate_metadata = super().gen(
+        gen_results = super().gen(
             n=n,
             bounds=[(-1e8, 1e8)] * self.B.shape[0],
             objective_weights=objective_weights,
@@ -676,23 +680,19 @@ class ALEBO(BotorchModel):
             model_gen_options=model_gen_options,
         )
         # Project up
-        Xopt = (self.Binv @ Xd_opt.t()).t()
+        Xopt = (self.Binv @ gen_results.points.t()).t()
         # Sometimes numerical tolerance can have Xopt epsilon outside [-1, 1],
         # so clip it back.
         if Xopt.min() < -1 or Xopt.max() > 1:
             logger.debug(f"Clipping from [{Xopt.min()}, {Xopt.max()}]")
             Xopt = torch.clamp(Xopt, min=-1.0, max=1.0)
-        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
-        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[typing.Any, Tensor,
-        #  Dict[str, typing.Any], None]`.
-        return Xopt, w, gen_metadata, candidate_metadata
+
+        return dataclasses.replace(gen_results, points=Xopt)
 
     @copy_doc(TorchModel.update)
     def update(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
+        datasets: List[SupervisedDataset],
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         **kwargs: Any,
     ) -> None:
@@ -700,6 +700,7 @@ class ALEBO(BotorchModel):
             raise RuntimeError(
                 "Cannot update model that has not been fit"
             )  # pragma: no cover
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.Xs = [(self.B @ X.t()).t() for X in Xs]  # Project down.
         self.Ys = Ys
         self.Yvars = Yvars
@@ -716,9 +717,7 @@ class ALEBO(BotorchModel):
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
-        Xs_train: List[Tensor],
-        Ys_train: List[Tensor],
-        Yvars_train: List[Tensor],
+        datasets: List[SupervisedDataset],
         X_test: Tensor,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
@@ -732,10 +731,11 @@ class ALEBO(BotorchModel):
             state_dicts = extract_map_statedict(
                 m_b=self.model, num_outputs=len(self.Xs)  # pyre-ignore
             )
-        Xs_train = [X @ self.B.t() for X in Xs_train]  # Project down.
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
+        Xs = [X @ self.B.t() for X in Xs]  # Project down.
         X_test = X_test @ self.B.t()
         model = self.get_and_fit_model(
-            Xs=Xs_train, Ys=Ys_train, Yvars=Yvars_train, state_dicts=state_dicts
+            Xs=Xs, Ys=Ys, Yvars=Yvars, state_dicts=state_dicts
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
 

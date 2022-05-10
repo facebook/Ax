@@ -32,7 +32,9 @@ from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils import get_objective_weights_transform
+from botorch.utils.datasets import FixedNoiseDataset
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+
 
 RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
@@ -144,15 +146,16 @@ try:
                     side_effect=dummy_samples_list,
                 ) as _mock_fit_model:
                     model.fit(
-                        Xs=Xs,
-                        Ys=Ys,
-                        Yvars=Yvars,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs, Ys, Yvars)
+                        ],
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns,
                             bounds=bounds,
                             task_features=tfs,
                         ),
-                        metric_names=mns,
+                        metric_names=["y1", "y2"],
                     )
                     self.assertEqual(_mock_fit_model.call_count, 2)
                     for i, call in enumerate(_mock_fit_model.call_args_list):
@@ -282,30 +285,32 @@ try:
                     side_effect=dummy_samples_list,
                 ) as _mock_fit_model, self.assertRaises(NotImplementedError):
                     model.fit(
-                        Xs=Xs_mt,
-                        Ys=Ys_mt,
-                        Yvars=Yvars_mt,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs_mt, Ys_mt, Yvars_mt)
+                        ],
+                        metric_names=mns_mt,
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns_mt,
                             bounds=bounds_mt,
                             task_features=tfs_mt,
                         ),
-                        metric_names=mns_mt,
                     )
                 with mock.patch(
                     RUN_INFERENCE_PATH,
                     side_effect=dummy_samples_list,
                 ) as _mock_fit_model, self.assertRaises(NotImplementedError):
                     model.fit(
-                        Xs=Xs1 + Xs2,
-                        Ys=Ys1 + Ys2,
-                        Yvars=Yvars1 + Yvars2,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ],
+                        metric_names=mns,
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns,
                             bounds=bounds,
                             fidelity_features=[0],
                         ),
-                        metric_names=mns,
                     )
                 # fit model with same inputs (otherwise X_observed will be None)
                 model = self.model_cls(
@@ -325,15 +330,16 @@ try:
                     side_effect=dummy_samples_list,
                 ) as _mock_fit_model:
                     model.fit(
-                        Xs=Xs1 + Xs2,
-                        Ys=Ys1 + Ys2,
-                        Yvars=Yvars,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars)
+                        ],
+                        metric_names=mns,
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns,
                             bounds=bounds,
                             task_features=tfs,
                         ),
-                        metric_names=mns,
                     )
 
                 # Check the hyperparameters and shapes
@@ -428,7 +434,8 @@ try:
                     "ax.models.torch.botorch_defaults.optimize_acqf",
                     return_value=(X_dummy, acqfv_dummy),
                 ) as _:
-                    Xgen, wgen, gen_metadata, cand_metadata = model.gen(
+                    # Xgen, wgen, gen_metadata, cand_metadata = model.gen(
+                    gen_results = model.gen(
                         n=n,
                         bounds=bounds,
                         objective_weights=objective_weights,
@@ -441,8 +448,10 @@ try:
                         **gen_kwargs,
                     )
                     # note: gen() always returns CPU tensors
-                    self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-                    self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
+                    self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+                    self.assertTrue(
+                        torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
+                    )
 
                 # actually test optimization for 1 step without constraints
                 with mock.patch(
@@ -450,7 +459,7 @@ try:
                     wraps=optimize_acqf,
                     return_value=(X_dummy, acqfv_dummy),
                 ) as _:
-                    Xgen, wgen, gen_metadata, cand_metadata = model.gen(
+                    gen_results = model.gen(
                         n=n,
                         bounds=bounds,
                         objective_weights=objective_weights,
@@ -461,8 +470,10 @@ try:
                         **gen_kwargs,
                     )
                     # note: gen() always returns CPU tensors
-                    self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-                    self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
+                    self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+                    self.assertTrue(
+                        torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
+                    )
 
                 # Check best point selection
                 xbest = model.best_point(
@@ -477,9 +488,10 @@ try:
 
                 # Test cross-validation
                 mean, variance = model.cross_validate(
-                    Xs_train=Xs1 + Xs2,
-                    Ys_train=Ys,
-                    Yvars_train=Yvars,
+                    datasets=[
+                        FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys, Yvars)
+                    ],
                     X_test=torch.tensor(
                         [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], dtype=dtype, device=device
                     ),
@@ -494,9 +506,10 @@ try:
                     side_effect=dummy_samples_list,
                 ) as _mock_fit_model:
                     mean, variance = model.cross_validate(
-                        Xs_train=Xs1 + Xs2,
-                        Ys_train=Ys,
-                        Yvars_train=Yvars,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys, Yvars)
+                        ],
                         X_test=torch.tensor(
                             [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]],
                             dtype=dtype,
@@ -508,7 +521,12 @@ try:
 
                 # Test update
                 model.refit_on_update = False
-                model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+                model.update(
+                    datasets=[
+                        FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                        for X, Y, Yvar in zip(Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2)
+                    ]
+                )
 
                 # Test feature_importances
                 importances = model.feature_importances()
@@ -524,20 +542,29 @@ try:
                 with mock.patch(
                     RUN_INFERENCE_PATH, side_effect=dummy_samples_list
                 ) as _mock_fit_model:
-                    model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+                    model.update(
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2)
+                        ]
+                    )
 
                 # test unfit model CV, update, and feature_importances
                 unfit_model = self.model_cls()
                 with self.assertRaises(RuntimeError):
                     unfit_model.cross_validate(
-                        Xs_train=Xs1 + Xs2,
-                        Ys_train=Ys1 + Ys2,
-                        Yvars_train=Yvars1 + Yvars2,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ],
                         X_test=Xs1[0],
                     )
                 with self.assertRaises(RuntimeError):
                     unfit_model.update(
-                        Xs=Xs1 + Xs2, Ys=Ys1 + Ys2, Yvars=Yvars1 + Yvars2
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ]
                     )
                 with self.assertRaises(RuntimeError):
                     unfit_model.feature_importances()
@@ -623,15 +650,16 @@ try:
                 RUN_INFERENCE_PATH, side_effect=dummy_samples
             ) as _mock_fit_model:
                 model.fit(
-                    Xs=Xs1 + Xs2,
-                    Ys=Ys1 + Ys2,
-                    Yvars=Yvars1 + Yvars2,
+                    datasets=[
+                        FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                    ],
+                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
                         task_features=tfs,
                     ),
-                    metric_names=mns,
                 )
                 self.assertEqual(_mock_fit_model.call_count, 2)
 
@@ -677,15 +705,18 @@ try:
                             mock.patch(RUN_INFERENCE_PATH, side_effect=dummy_samples)
                         )
                         model.fit(
-                            Xs=Xs1 + Xs2,
-                            Ys=Ys1 + Ys2,
-                            Yvars=Yvars1 + Yvars2,
+                            datasets=[
+                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                                for X, Y, Yvar in zip(
+                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
+                                )
+                            ],
+                            metric_names=mns,
                             search_space_digest=SearchSpaceDigest(
                                 feature_names=fns,
                                 bounds=bounds,
                                 task_features=tfs,
                             ),
-                            metric_names=mns,
                         )
                         # check run_inference arguments
                         self.assertEqual(_mock_fit_model.call_count, 2)
@@ -713,15 +744,18 @@ try:
                         _mock_mcmc.return_value.get_samples.side_effect = dummy_samples
                         _mock_nuts = es.enter_context(mock.patch(NUTS_PATH))
                         model.fit(
-                            Xs=Xs1 + Xs2,
-                            Ys=Ys1 + Ys2,
-                            Yvars=Yvars1 + Yvars2,
+                            datasets=[
+                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                                for X, Y, Yvar in zip(
+                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
+                                )
+                            ],
+                            metric_names=mns,
                             search_space_digest=SearchSpaceDigest(
                                 feature_names=fns,
                                 bounds=bounds,
                                 task_features=tfs,
                             ),
-                            metric_names=mns,
                         )
                         # check MCMC.__init__ arguments
                         self.assertEqual(_mock_mcmc.call_count, 2)
@@ -742,15 +776,18 @@ try:
                         # input warping is quite slow, so we omit it for
                         # testing purposes
                         model.fit(
-                            Xs=Xs1 + Xs2,
-                            Ys=Ys1 + Ys2,
-                            Yvars=Yvars1 + Yvars2,
+                            datasets=[
+                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                                for X, Y, Yvar in zip(
+                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
+                                )
+                            ],
+                            metric_names=mns,
                             search_space_digest=SearchSpaceDigest(
                                 feature_names=fns,
                                 bounds=bounds,
                                 task_features=tfs,
                             ),
-                            metric_names=mns,
                         )
 
                         for m, X, Y, Yvar in zip(
@@ -840,15 +877,16 @@ try:
                     RUN_INFERENCE_PATH, side_effect=dummy_samples
                 ) as _mock_fit_model:
                     model.fit(
-                        Xs=Xs1,
-                        Ys=Ys1,
-                        Yvars=Yvars1,
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
+                        ],
+                        metric_names=mns[0],
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns,
                             bounds=bounds,
                             task_features=tfs,
                         ),
-                        metric_names=mns[0],
                     )
                     _mock_fit_model.assert_called_once()
                 X = torch.rand(2, 3, dtype=torch.float)

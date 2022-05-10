@@ -4,15 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.core.types import TGenMetadata
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     extract_parameter_constraints,
     extract_search_space_digest,
@@ -68,12 +67,7 @@ class RandomModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         optimization_config: Optional[OptimizationConfig],
         model_gen_options: Optional[TConfig],
-    ) -> Tuple[
-        List[ObservationFeatures],
-        List[float],
-        Optional[ObservationFeatures],
-        TGenMetadata,
-    ]:
+    ) -> GenResults:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
         search_space_digest = extract_search_space_digest(search_space, self.parameters)
@@ -92,9 +86,11 @@ class RandomModelBridge(ModelBridge):
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
         )
-
         observation_features = parse_observation_features(X, self.parameters)
-        return observation_features, w.tolist(), None, {}
+        return GenResults(
+            observation_features=observation_features,
+            weights=w.tolist(),
+        )
 
     def _predict(
         self, observation_features: List[ObservationFeatures]
@@ -107,8 +103,8 @@ class RandomModelBridge(ModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        obs_feats: List[ObservationFeatures],
-        obs_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         raise NotImplementedError

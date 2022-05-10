@@ -4,18 +4,24 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
+import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.numpy_base import NumpyModel
+from ax.models.torch.utils import _datasets_to_legacy_inputs
+from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
+from botorch.utils.datasets import SupervisedDataset
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
+from torch import Tensor
 
 
-class RandomForest(NumpyModel):
+class RandomForest(TorchModel):
     """A Random Forest model.
 
     Uses a parametric bootstrap to handle uncertainty in Y.
@@ -37,46 +43,45 @@ class RandomForest(NumpyModel):
         self.num_trees = num_trees
         self.models: List[RandomForestRegressor] = []
 
-    @copy_doc(NumpyModel.fit)
+    @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[np.ndarray],
-        Ys: List[np.ndarray],
-        Yvars: List[np.ndarray],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        for i, X in enumerate(Xs):
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
+        for X, Y, Yvar in zip(Xs, Ys, Yvars):
             self.models.append(
                 _get_rf(
-                    X=X,
-                    Y=Ys[i],
-                    Yvar=Yvars[i],
+                    X=X.numpy(),
+                    Y=Y.numpy(),
+                    Yvar=Yvar.numpy(),
                     num_trees=self.num_trees,
                     max_features=self.max_features,
                 )
             )
 
-    @copy_doc(NumpyModel.predict)
-    def predict(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    @copy_doc(TorchModel.predict)
+    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         return _rf_predict(self.models, X)
 
-    @copy_doc(NumpyModel.cross_validate)
-    def cross_validate(
+    @copy_doc(TorchModel.cross_validate)
+    def cross_validate(  # pyre-ignore [14]: not using metric_names or ssd
         self,
-        Xs_train: List[np.ndarray],
-        Ys_train: List[np.ndarray],
-        Yvars_train: List[np.ndarray],
-        X_test: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        datasets: List[SupervisedDataset],
+        X_test: Tensor,
+        **kwargs: Any,
+    ) -> Tuple[Tensor, Tensor]:
+        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         cv_models: List[RandomForestRegressor] = []
-        for i, X in enumerate(Xs_train):
+        for X, Y, Yvar in zip(Xs, Ys, Yvars):
             cv_models.append(
                 _get_rf(
-                    X=X,
-                    Y=Ys_train[i],
-                    Yvar=Yvars_train[i],
+                    X=X.numpy(),
+                    Y=Y.numpy(),
+                    Yvar=Yvar.numpy(),
                     num_trees=self.num_trees,
                     max_features=self.max_features,
                 )
@@ -115,21 +120,22 @@ def _get_rf(
 
 
 def _rf_predict(
-    models: List[RandomForestRegressor], X: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+    models: List[RandomForestRegressor], X: Tensor
+) -> Tuple[Tensor, Tensor]:
     """Make predictions with Random Forest models.
 
     Args:
         models: List of models for each outcome
         X: X to predict
 
-    Returns: mean and covariance estimates
+    Returns:
+        mean and covariance estimates
     """
     f = np.zeros((X.shape[0], len(models)))
     cov = np.zeros((X.shape[0], len(models), len(models)))
     for i, m in enumerate(models):
         # pyre-fixme[16]: `RandomForestRegressor` has no attribute `estimators_`.
-        preds = np.vstack([tree.predict(X) for tree in m.estimators_])
+        preds = np.vstack([tree.predict(X.numpy()) for tree in m.estimators_])
         f[:, i] = preds.mean(0)
         cov[:, i, i] = preds.var(0)
-    return f, cov
+    return torch.from_numpy(f), torch.from_numpy(cov)

@@ -22,7 +22,6 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
@@ -210,9 +209,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             except ValueError:
                 return _gr_to_prediction_with_trial_index(idx, gr)
 
-            # If model is not ArrayModelBridge, just use the best arm frmo the
+            # If model is not TorchModelBridge, just use the best arm frmo the
             # last good generator run
-            if not isinstance(model, ArrayModelBridge):
+            if not isinstance(model, TorchModelBridge):
                 return _gr_to_prediction_with_trial_index(idx, gr)
 
             # Check to see if the model is worth using

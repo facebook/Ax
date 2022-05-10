@@ -65,7 +65,7 @@ def extract_arm_predictions(
         }
         for metric in covariances.keys()
     }
-    return (means_per_arm, covar_per_arm)
+    return means_per_arm, covar_per_arm
 
 
 class GeneratorRun(SortableBase):

@@ -4,18 +4,35 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata, TGenMetadata
+from ax.core.types import TCandidateMetadata
 from ax.models.base import Model as BaseModel
 from ax.models.types import TConfig
+from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
 
-# pyre-fixme[13]: Attribute `device` is never initialized.
-# pyre-fixme[13]: Attribute `dtype` is never initialized.
+@dataclass(frozen=True)
+class TorchGenResults:
+    """
+    points: (n x d) Tensor of generated points.
+    weights: n-tensor of weights for each point.
+    gen_metadata: Generation metadata
+    Dictionary of model-specific metadata for the given
+                generation candidates
+
+    """
+
+    points: Tensor  # (n x d)-dim
+    weights: Tensor  # n-dim
+    gen_metadata: Dict[str, Any] = field(default_factory=dict)
+    candidate_metadata: Optional[List[TCandidateMetadata]] = None
+
+
 class TorchModel(BaseModel):
     """This class specifies the interface for a torch-based model.
 
@@ -23,29 +40,25 @@ class TorchModel(BaseModel):
     of Ax.
     """
 
-    dtype: Optional[torch.dtype]
-    device: Optional[torch.device]
+    dtype: Optional[torch.dtype] = None
+    device: Optional[torch.device] = None
 
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Fit model to m outcomes.
 
         Args:
-            Xs: A list of m (k_i x d) feature tensors X. Number of rows k_i can
-                vary from i=1,...,m.
-            Ys: The corresponding list of m (k_i x 1) outcome tensors Y, for
-                each outcome.
-            Yvars: The variances of each entry in Ys, same shape.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata on the features in X.
-            metric_names: Names of each outcome Y in Ys.
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome).
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """
@@ -78,7 +91,7 @@ class TorchModel(BaseModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, Optional[List[TCandidateMetadata]]]:
+    ) -> TorchGenResults:
         """
         Generate new candidates.
 
@@ -106,13 +119,7 @@ class TorchModel(BaseModel):
                 multi-fidelity optimization.
 
         Returns:
-            4-element tuple containing
-
-            - (n x d) tensor of generated points.
-            - n-tensor of weights for each point.
-            - Generation metadata
-            - Dictionary of model-specific metadata for the given
-                generation candidates
+            A TorchGenResult container.
         """
         raise NotImplementedError
 
@@ -157,12 +164,10 @@ class TorchModel(BaseModel):
 
     def cross_validate(
         self,
-        Xs_train: List[Tensor],
-        Ys_train: List[Tensor],
-        Yvars_train: List[Tensor],
+        datasets: List[SupervisedDataset],
+        metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
-        metric_names: List[str],
     ) -> Tuple[Tensor, Tensor]:
         """Do cross validation with the given training and test sets.
 
@@ -170,15 +175,13 @@ class TorchModel(BaseModel):
         in the same format as to predict.
 
         Args:
-            Xs_train: A list of m (k_i x d) feature tensors X. Number of rows
-                k_i can vary from i=1,...,m.
-            Ys_train: The corresponding list of m (k_i x 1) outcome tensors Y,
-                for each outcome.
-            Yvars_train: The variances of each entry in Ys, same shape.
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome).
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
             X_test: (j x d) tensor of the j points at which to make predictions.
             search_space_digest: A SearchSpaceDigest object containing
                 metadata on the features in X.
-            metric_names: Names of each outcome Y in Ys.
 
         Returns:
             2-element tuple containing
@@ -191,11 +194,9 @@ class TorchModel(BaseModel):
 
     def update(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[Optional[SupervisedDataset]],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         """Update the model.
@@ -204,15 +205,14 @@ class TorchModel(BaseModel):
         The data passed into this method will become the new training data.
 
         Args:
-            Xs: Existing + additional data for the model,
-                in the same format as for `fit`.
-            Ys: Existing + additional data for the model,
-                in the same format as for `fit`.
-            Yvars: Existing + additional data for the model,
-                in the same format as for `fit`.
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome). `None`
+                means that there is no additional data for the corresponding
+                outcome.
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
             search_space_digest: A SearchSpaceDigest object containing
                 metadata on the features in X.
-            metric_names: Names of each outcome Y in Ys.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """

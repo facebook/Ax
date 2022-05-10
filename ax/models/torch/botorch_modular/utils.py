@@ -26,6 +26,7 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
 from botorch.models.model import Model
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from torch import Tensor
 
 
@@ -33,15 +34,17 @@ MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger = get_logger(__name__)
 
 
-def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
+def use_model_list(
+    datasets: List[SupervisedDataset], botorch_model_class: Type[Model]
+) -> bool:
     if issubclass(botorch_model_class, MultiTaskGP):
         # We currently always wrap multi-task models into `ModelListGP`.
         return True
-    if len(Xs) == 1:
+    if len(datasets) == 1:
         # Just one outcome, can use single model.
         return False
     if issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
-        torch.equal(Xs[0], X) for X in Xs[1:]
+        torch.equal(datasets[0].X(), ds.X()) for ds in datasets[1:]
     ):
         # Single model, batched multi-output case.
         return False
@@ -51,7 +54,7 @@ def use_model_list(Xs: List[Tensor], botorch_model_class: Type[Model]) -> bool:
 
 
 def choose_model_class(
-    Yvars: List[Tensor],
+    datasets: List[SupervisedDataset],
     search_space_digest: SearchSpaceDigest,
 ) -> Type[Model]:
     """Chooses a BoTorch `Model` using the given data (currently just Yvars)
@@ -81,23 +84,22 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    Yvars_cat = torch.cat(Yvars).clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
-    is_nan = torch.isnan(Yvars_cat)
-    all_nan_Yvar = torch.all(is_nan)
-    if torch.any(is_nan) and not all_nan_Yvar:
+    is_fixed_noise = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
+    all_inferred = not any(is_fixed_noise)
+    if not all_inferred and not all(is_fixed_noise):
         raise ValueError(
             "Mix of known and unknown variances indicates valuation function "
             "errors. Variances should all be specified, or none should be."
         )
 
     # Multi-task cases (when `task_features` specified).
-    if search_space_digest.task_features and all_nan_Yvar:
+    if search_space_digest.task_features and all_inferred:
         model_class = MultiTaskGP  # Unknown observation noise.
     elif search_space_digest.task_features:
         model_class = FixedNoiseMultiTaskGP  # Known observation noise.
 
     # Single-task multi-fidelity cases.
-    elif search_space_digest.fidelity_features and all_nan_Yvar:
+    elif search_space_digest.fidelity_features and all_inferred:
         model_class = SingleTaskMultiFidelityGP  # Unknown observation noise.
     elif search_space_digest.fidelity_features:
         model_class = FixedNoiseMultiFidelityGP  # Known observation noise.
@@ -107,7 +109,7 @@ def choose_model_class(
     # stack we chose not to perform continuous relaxation on those
     # features.
     elif search_space_digest.categorical_features:
-        if not all_nan_Yvar:
+        if not all_inferred:
             logger.warning(
                 "Using `MixedSingleTaskGP` despire the known `Yvar` values. This "
                 "is a temporary measure while fixed-noise mixed BO is in the works."
@@ -115,7 +117,7 @@ def choose_model_class(
         model_class = MixedSingleTaskGP
 
     # Single-task single-fidelity cases.
-    elif all_nan_Yvar:  # Unknown observation noise.
+    elif all_inferred:  # Unknown observation noise.
         model_class = SingleTaskGP
     else:
         model_class = FixedNoiseGP  # Known observation noise.
@@ -146,18 +148,6 @@ def choose_botorch_acqf_class(
 
     logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
     return acqf_class
-
-
-def validate_data_format(
-    Xs: List[Tensor], Ys: List[Tensor], Yvars: List[Tensor], metric_names: List[str]
-) -> None:
-    """Validates that Xs, Ys, Yvars, and metric names all have equal lengths."""
-    if len({len(Xs), len(Ys), len(Yvars), len(metric_names)}) > 1:
-        raise ValueError(  # pragma: no cover
-            "Lengths of Xs, Ys, Yvars, and metric_names must match. Your "
-            f"inputs have lengths {len(Xs)}, {len(Ys)}, {len(Yvars)}, and "
-            f"{len(metric_names)}, respectively."
-        )
 
 
 def construct_acquisition_and_optimizer_options(

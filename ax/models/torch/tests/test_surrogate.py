@@ -20,7 +20,7 @@ from botorch.models.model import Model
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.samplers import SobolQMCNormalSampler
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import Interval
 from gpytorch.kernels import Kernel, RBFKernel, ScaleKernel  # noqa: F401
 from gpytorch.likelihoods import (  # noqa: F401
@@ -30,6 +30,7 @@ from gpytorch.likelihoods import (  # noqa: F401
 )
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from torch import Tensor
+
 
 ACQUISITION_PATH = f"{Acquisition.__module__}"
 CURRENT_PATH = f"{__name__}"
@@ -48,9 +49,7 @@ class SurrogateTest(TestCase):
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype
         )
-        self.training_data = TrainingData.from_block_design(
-            X=self.Xs[0], Y=self.Ys[0], Yvar=self.Yvars[0]
-        )
+        self.training_data = [SupervisedDataset(X=self.Xs[0], Y=self.Ys[0])]
         self.mll_class = ExactMarginalLogLikelihood
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2"],
@@ -74,7 +73,7 @@ class SurrogateTest(TestCase):
         surrogate = Surrogate(
             botorch_model_class=botorch_model_class, mll_class=self.mll_class
         )
-        surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data)
+        surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data[0])
         return surrogate, surrogate_kwargs
 
     @patch(f"{CURRENT_PATH}.Kernel")
@@ -94,9 +93,9 @@ class SurrogateTest(TestCase):
             mll_options={"some_option": "some_value"},
         )
         surrogate.fit(
-            training_data=self.training_data,
-            search_space_digest=self.search_space_digest,
+            datasets=self.training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.search_space_digest,
             refit=self.refit,
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
@@ -111,9 +110,9 @@ class SurrogateTest(TestCase):
             input_transform=input_transform,
         )
         surrogate.fit(
-            training_data=self.training_data,
-            search_space_digest=self.search_space_digest,
+            datasets=self.training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.search_space_digest,
             refit=self.refit,
         )
         botorch_model = surrogate.model
@@ -128,9 +127,9 @@ class SurrogateTest(TestCase):
         )
         with self.assertRaisesRegex(UserInputError, "BoTorch model"):
             surrogate.fit(
-                training_data=self.training_data,
-                search_space_digest=self.search_space_digest,
+                datasets=self.training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
                 refit=self.refit,
             )
 
@@ -155,7 +154,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             self.assertEqual(self.dtype, surrogate.dtype)
@@ -164,14 +163,16 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             self.assertEqual(self.device, surrogate.device)
 
     def test_from_botorch(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
-            surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data)
+            surrogate_kwargs = botorch_model_class.construct_inputs(
+                self.training_data[0]
+            )
             surrogate = Surrogate.from_botorch(botorch_model_class(**surrogate_kwargs))
             self.assertIsInstance(surrogate.model, botorch_model_class)
             self.assertTrue(surrogate._constructed_manually)
@@ -184,14 +185,15 @@ class SurrogateTest(TestCase):
             [SaasFullyBayesianSingleTaskGP, SingleTaskGP]
         ):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
-            with self.assertRaises(NotImplementedError):
-                # Base `Model` does not implement `construct_inputs`.
+            with self.assertRaises(TypeError):
+                # Base `Model` does not implement `posterior`, so instantiating it here
+                # will fail.
                 Surrogate(botorch_model_class=Model).construct(
-                    training_data=self.training_data,
+                    datasets=self.training_data,
                     fidelity_features=self.search_space_digest.fidelity_features,
                 )
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             mock_GPs[i].assert_called_once()
@@ -214,7 +216,7 @@ class SurrogateTest(TestCase):
                 )
                 surrogate.construct(self.training_data)
                 mock_construct_inputs.assert_called_with(
-                    training_data=self.training_data, some_option="some_value"
+                    training_data=self.training_data[0], some_option="some_value"
                 )
 
     def test_construct_custom_model(self):
@@ -264,9 +266,9 @@ class SurrogateTest(TestCase):
             # Should instantiate mll and `fit_gpytorch_model` when `state_dict`
             # is `None`.
             surrogate.fit(
-                training_data=self.training_data,
-                search_space_digest=self.search_space_digest,
+                datasets=self.training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
                 refit=self.refit,
             )
             # Check that training data is correctly passed through to the
@@ -292,9 +294,9 @@ class SurrogateTest(TestCase):
             # and `refit` is `False`.
             state_dict = {"state_attribute": "value"}
             surrogate.fit(
-                training_data=self.training_data,
-                search_space_digest=self.search_space_digest,
+                datasets=self.training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
                 refit=False,
                 state_dict=state_dict,
             )
@@ -309,7 +311,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             surrogate.predict(X=self.Xs[0])
@@ -319,7 +321,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # `best_in_sample_point` requires `objective_weights`
@@ -342,16 +344,20 @@ class SurrogateTest(TestCase):
                     fixed_features=self.fixed_features,
                     options=self.options,
                 )
-                mock_best_in_sample.assert_called_with(
-                    Xs=[self.training_data.X],
-                    model=surrogate,
-                    bounds=self.search_space_digest.bounds,
-                    objective_weights=self.objective_weights,
-                    outcome_constraints=self.outcome_constraints,
-                    linear_constraints=self.linear_constraints,
-                    fixed_features=self.fixed_features,
-                    options=self.options,
-                )
+                mock_best_in_sample.assert_called_once()
+                _, ckwargs = mock_best_in_sample.call_args
+                for X, dataset in zip(ckwargs["Xs"], self.training_data):
+                    self.assertTrue(torch.equal(X, dataset.X()))
+                self.assertIs(ckwargs["model"], surrogate)
+                self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
+                for attr in (
+                    "objective_weights",
+                    "outcome_constraints",
+                    "linear_constraints",
+                    "fixed_features",
+                    "options",
+                ):
+                    self.assertIs(ckwargs[attr], getattr(self, attr))
 
     @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
     @patch(
@@ -368,7 +374,7 @@ class SurrogateTest(TestCase):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # currently cannot use function with fixed features
@@ -408,23 +414,23 @@ class SurrogateTest(TestCase):
                 botorch_model_class=botorch_model_class
             )
             surrogate.construct(
-                training_data=self.training_data,
+                datasets=self.training_data,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # Check that correct arguments are passed to `fit`.
             with patch(f"{SURROGATE_PATH}.Surrogate.fit") as mock_fit:
                 # Call `fit` by default
                 surrogate.update(
-                    training_data=self.training_data,
-                    search_space_digest=self.search_space_digest,
+                    datasets=self.training_data,
                     metric_names=self.metric_names,
+                    search_space_digest=self.search_space_digest,
                     refit=self.refit,
                     state_dict={"key": "val"},
                 )
                 mock_fit.assert_called_with(
-                    training_data=self.training_data,
-                    search_space_digest=self.search_space_digest,
+                    datasets=self.training_data,
                     metric_names=self.metric_names,
+                    search_space_digest=self.search_space_digest,
                     candidate_metadata=None,
                     refit=self.refit,
                     state_dict={"key": "val"},
@@ -435,14 +441,13 @@ class SurrogateTest(TestCase):
             Xs, Ys, Yvars, bounds, _, _, _ = get_torch_test_data(
                 dtype=self.dtype, offset=1.0
             )
-            training_data = TrainingData.from_block_design(
-                X=Xs[0], Y=Ys[0], Yvar=Yvars[0]
+            surrogate_kwargs = botorch_model_class.construct_inputs(
+                self.training_data[0]
             )
-            surrogate_kwargs = botorch_model_class.construct_inputs(training_data)
             surrogate.update(
-                training_data=training_data,
-                search_space_digest=self.search_space_digest,
+                datasets=self.training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
                 refit=self.refit,
                 state_dict={"key": "val"},
             )
@@ -463,9 +468,9 @@ class SurrogateTest(TestCase):
             surrogate._constructed_manually = True
             with self.assertRaisesRegex(NotImplementedError, ".* constructed manually"):
                 surrogate.update(
-                    training_data=self.training_data,
-                    search_space_digest=self.search_space_digest,
+                    datasets=self.training_data,
                     metric_names=self.metric_names,
+                    search_space_digest=self.search_space_digest,
                     refit=self.refit,
                 )
 

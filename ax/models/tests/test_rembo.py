@@ -11,6 +11,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.utils.datasets import FixedNoiseDataset
 
 
 class REMBOTest(TestCase):
@@ -31,31 +32,35 @@ class REMBOTest(TestCase):
         # Test fit
         # Create high-D data
         X_D = torch.t(torch.mm(A, torch.t(initial_X_d)))
+        datasets = [
+            FixedNoiseDataset(X=X_D, Y=torch.randn(3, 1), Yvar=0.1 * torch.ones(3, 1)),
+        ] * 2
+
         Xs = [X_D, X_D.clone()]
         Ys = [torch.randn(3, 1)] * 2
         Yvars = [0.1 * torch.ones(3, 1)] * 2
+        datasets = [
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)
+        ]
+
         bounds = [(-1, 1)] * 4
         with self.assertRaises(AssertionError):
             m.fit(
-                Xs=Xs,
-                Ys=Ys,
-                Yvars=Yvars,
+                datasets=datasets,
+                metric_names=my_metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[(0, 1)] * 4,
                 ),
-                metric_names=my_metric_names,
             )
 
         m.fit(
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
+            datasets=datasets,
+            metric_names=my_metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=bounds,
             ),
-            metric_names=my_metric_names,
         )
 
         # Check was fit with the low-d data.
@@ -89,9 +94,14 @@ class REMBOTest(TestCase):
 
         # Test cross_validate
         f, var = m.cross_validate(
-            Xs_train=[X_D[:-1, :], X_D[:-1, :]],
-            Ys_train=[Ys[0][:-1, :], Ys[1][:-1, :]],
-            Yvars_train=[Yvars[0][:-1, :], Yvars[1][:-1, :]],
+            datasets=[
+                FixedNoiseDataset(
+                    X=X_D[:-1, :], Y=Ys[0][:-1, :], Yvar=Yvars[0][:-1, :]
+                ),
+                FixedNoiseDataset(
+                    X=X_D[:-1, :], Y=Ys[1][:-1, :], Yvar=Yvars[1][:-1, :]
+                ),
+            ],
             X_test=X_D[-1:, :],
         )
         self.assertEqual(f.shape, torch.Size([1, 2]))
@@ -104,22 +114,27 @@ class REMBOTest(TestCase):
             autospec=True,
             return_value=(Xgen_d, acqfv_dummy),
         ):
-            Xgen, w, _, __ = m.gen(
+            gen_results = m.gen(
                 n=2, bounds=[(-1, 1)] * 4, objective_weights=torch.tensor([1.0, 0.0])
             )
-        self.assertEqual(Xgen.shape[1], 4)
+
+        self.assertEqual(gen_results.points.shape[1], 4)
         self.assertEqual(len(m.X_d), 5)
 
         # Test update
         with self.assertRaises(ValueError):
-            m.update(
-                Xs=[torch.tensor([[0.1, 0.2, 0.3, 0.4]])] * 2,
-                Ys=[torch.randn(1, 1)] * 2,
-                Yvars=[torch.ones(1, 1)] * 2,
+            new_dataset = FixedNoiseDataset(
+                X=torch.tensor([[0.1, 0.2, 0.3, 0.4]]),
+                Y=torch.randn(1, 1),
+                Yvar=torch.ones(1, 1),
             )
+            m.update(datasets=[new_dataset, new_dataset])
 
-        m.update(
-            Xs=[Xgen] * 2, Ys=[torch.randn(2, 1)] * 2, Yvars=[torch.ones(2, 1)] * 2
+        new_dataset = FixedNoiseDataset(
+            X=gen_results.points,
+            Y=torch.randn(2, 1),
+            Yvar=torch.ones(2, 1),
         )
+        m.update(datasets=[new_dataset, new_dataset])
         for x in m.Xs:
             self.assertTrue(torch.allclose(x, Xgen_d))

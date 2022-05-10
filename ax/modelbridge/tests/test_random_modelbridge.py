@@ -75,7 +75,7 @@ class RandomModelBridgeTest(TestCase):
         modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
         modelbridge.model = RandomModel()
-        observation_features, weights, best_obsf, _ = modelbridge._gen(
+        gen_results = modelbridge._gen(
             n=3,
             search_space=self.search_space,
             pending_observations={},
@@ -97,13 +97,10 @@ class RandomModelBridgeTest(TestCase):
         )
         self.assertEqual(gen_args["fixed_features"], {2: 3.0})
         self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
-        self.assertEqual(
-            observation_features[0].parameters, {"x": 1.0, "y": 2.0, "z": 3.0}
-        )
-        self.assertEqual(
-            observation_features[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0}
-        )
-        self.assertTrue(np.array_equal(weights, np.array([1.0, 2.0])))
+        obsf = gen_results.observation_features
+        self.assertEqual(obsf[0].parameters, {"x": 1.0, "y": 2.0, "z": 3.0})
+        self.assertEqual(obsf[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0})
+        self.assertTrue(np.array_equal(gen_results.weights, np.array([1.0, 2.0])))
 
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])

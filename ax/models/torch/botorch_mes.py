@@ -7,14 +7,13 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
-from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     get_out_of_sample_best_point_acqf,
 )
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
@@ -79,7 +78,7 @@ class MaxValueEntropySearch(BotorchModel):
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         target_fidelities: Optional[Dict[int, float]] = None,
-    ) -> Tuple[Tensor, Tensor, TGenMetadata, List[TCandidateMetadata]]:
+    ) -> TorchGenResults:
         if linear_constraints is not None or outcome_constraints is not None:
             raise UnsupportedError(
                 "Constraints are not yet supported by max-value entropy search!"
@@ -165,11 +164,9 @@ class MaxValueEntropySearch(BotorchModel):
             },
             sequential=True,
         )
-        new_x = candidates.detach().cpu()
-        # pyre-fixme[7]: Expected `Tuple[Tensor, Tensor, Dict[str, typing.Any],
-        #  List[Optional[Dict[str, typing.Any]]]]` but got `Tuple[Tensor, typing.Any,
-        #  Dict[str, typing.Any], None]`.
-        return new_x, torch.ones(n, dtype=self.dtype), {}, None
+        return TorchGenResults(
+            points=candidates.detach().cpu(), weights=torch.ones(n, dtype=self.dtype)
+        )
 
     def _get_best_point_acqf(
         self,

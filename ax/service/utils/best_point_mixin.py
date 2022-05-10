@@ -17,7 +17,6 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.types import TModelPredictArm, TParameterization
-from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import _get_modelbridge_training_data
 from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
@@ -30,6 +29,7 @@ from ax.modelbridge.modelbridge_utils import (
     extract_outcome_constraints,
 )
 from ax.modelbridge.registry import get_model_from_generator_run, ModelRegistryBase
+from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
@@ -278,9 +278,9 @@ class BestPointMixin(metaclass=ABCMeta):
                 data=experiment.fetch_data(trial_indices=trial_indices),
                 models_enum=models_enum,
             )
-            if not isinstance(model, ArrayModelBridge):
+            if not isinstance(model, TorchModelBridge):
                 raise ValueError(
-                    f"Model {current_model} is not of type ArrayModelBridge, cannot "
+                    f"Model {current_model} is not of type TorchModelBridge, cannot "
                     "calculate predicted hypervolume."
                 )
 

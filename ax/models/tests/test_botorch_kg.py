@@ -22,6 +22,7 @@ from botorch.acquisition.objective import (
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
+from botorch.utils.datasets import FixedNoiseDataset
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -30,25 +31,17 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 class KnowledgeGradientTest(TestCase):
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.dtype = torch.double
-
-        self.Xs = [
-            torch.tensor(
-                [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=self.dtype, device=self.device
-            )
-        ]
-        self.Ys = [torch.tensor([[3.0], [4.0]], dtype=self.dtype, device=self.device)]
-        self.Yvars = [
-            torch.tensor([[0.0], [2.0]], dtype=self.dtype, device=self.device)
-        ]
+        self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
+        self.dataset = FixedNoiseDataset(
+            X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
+            Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
+            Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),
+        )
         self.bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
         self.feature_names = ["x1", "x2", "x3"]
         self.metric_names = ["y"]
         self.acq_options = {"num_fantasies": 30, "mc_samples": 30}
-        self.objective_weights = torch.tensor(
-            [1.0], dtype=self.dtype, device=self.device
-        )
+        self.objective_weights = torch.tensor([1.0], **self.tkwargs)
         self.optimizer_options = {
             "num_restarts": 12,
             "raw_samples": 12,
@@ -56,34 +49,32 @@ class KnowledgeGradientTest(TestCase):
             "batch_limit": 1,
         }
         self.optimize_acqf = "ax.models.torch.botorch_kg.optimize_acqf"
-        self.X_dummy = torch.ones(1, 3, dtype=self.dtype, device=self.device)
+        self.X_dummy = torch.ones(1, 3, **self.tkwargs)
         self.outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
-        self.objective_weights = torch.ones(1, dtype=self.dtype, device=self.device)
-        self.moo_objective_weights = torch.ones(2, dtype=self.dtype, device=self.device)
+        self.objective_weights = torch.ones(1, **self.tkwargs)
+        self.moo_objective_weights = torch.ones(2, **self.tkwargs)
         self.objective_thresholds = torch.tensor([0.5, 1.5])
 
     @fast_botorch_optimize
     def test_KnowledgeGradient(self):
         model = KnowledgeGradient()
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
             ),
-            metric_names=self.metric_names,
         )
 
         n = 2
 
-        X_dummy = torch.rand(1, n, 4, dtype=self.dtype, device=self.device)
-        acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
+        X_dummy = torch.rand(1, n, 4, **self.tkwargs)
+        acq_dummy = torch.tensor(0.0, **self.tkwargs)
 
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(X_dummy, acq_dummy)]
-            Xgen, wgen, _, __ = model.gen(
+            gen_results = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -94,13 +85,17 @@ class KnowledgeGradientTest(TestCase):
                     "optimizer_kwargs": self.optimizer_options,
                 },
             )
-            self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-            self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
+            self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+            self.assertTrue(
+                torch.equal(
+                    gen_results.weights, torch.ones(n, dtype=self.tkwargs["dtype"])
+                )
+            )
 
             # called once, the best point call is not caught by mock
             mock_optimize_acqf.assert_called_once()
 
-        ini_dummy = torch.rand(10, 32, 3, dtype=self.dtype, device=self.device)
+        ini_dummy = torch.rand(10, 32, 3, **self.tkwargs)
         optimizer_options2 = {
             "num_restarts": 1,
             "raw_samples": 1,
@@ -112,7 +107,7 @@ class KnowledgeGradientTest(TestCase):
             "ax.models.torch.botorch_kg.gen_one_shot_kg_initial_conditions",
             return_value=ini_dummy,
         ) as mock_warmstart_initialization:
-            Xgen, wgen, _, __ = model.gen(
+            gen_results = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -130,7 +125,7 @@ class KnowledgeGradientTest(TestCase):
         with mock.patch(
             "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
         ) as mock_posterior_mean:
-            Xgen, wgen, _, __ = model.gen(
+            gen_results = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -158,7 +153,7 @@ class KnowledgeGradientTest(TestCase):
             torch.tensor([[0.5], [1.0]]),
         )
         with self.assertRaises(UnsupportedError):
-            Xgen, wgen = model.gen(
+            gen_results = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -170,9 +165,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = KnowledgeGradient(use_input_warping=True)
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -187,9 +180,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -202,15 +193,13 @@ class KnowledgeGradientTest(TestCase):
     def test_KnowledgeGradient_multifidelity(self):
         model = KnowledgeGradient()
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 fidelity_features=[2],
             ),
-            metric_names=["L2NormMetric"],
         )
 
         # Check best point selection within bounds (some numerical tolerance)
@@ -232,11 +221,11 @@ class KnowledgeGradientTest(TestCase):
 
         # check generation
         n = 2
-        X_dummy = torch.zeros(1, n, 3, dtype=self.dtype, device=self.device)
-        acq_dummy = torch.tensor(0.0, dtype=self.dtype, device=self.device)
+        X_dummy = torch.zeros(1, n, 3, **self.tkwargs)
+        acq_dummy = torch.tensor(0.0, **self.tkwargs)
         dummy = (X_dummy, acq_dummy)
         with mock.patch(self.optimize_acqf, side_effect=[dummy]) as mock_optimize_acqf:
-            Xgen, wgen, _, __ = model.gen(
+            gen_results = model.gen(
                 n=n,
                 bounds=self.bounds,
                 objective_weights=self.objective_weights,
@@ -248,8 +237,12 @@ class KnowledgeGradientTest(TestCase):
                 },
                 target_fidelities={2: 5.0},
             )
-            self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-            self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=self.dtype)))
+            self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+            self.assertTrue(
+                torch.equal(
+                    gen_results.weights, torch.ones(n, dtype=self.tkwargs["dtype"])
+                )
+            )
             mock_optimize_acqf.assert_called()  # called twice, once for best_point
 
         # test error message
@@ -269,15 +262,13 @@ class KnowledgeGradientTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = KnowledgeGradient(use_input_warping=True)
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 fidelity_features=[2],
             ),
-            metric_names=["L2NormMetric"],
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -287,15 +278,13 @@ class KnowledgeGradientTest(TestCase):
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 fidelity_features=[2],
             ),
-            metric_names=["L2NormMetric"],
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -303,14 +292,12 @@ class KnowledgeGradientTest(TestCase):
     def test_KnowledgeGradient_helpers(self):
         model = KnowledgeGradient()
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
             ),
-            metric_names=self.metric_names,
         )
 
         # test _instantiate_KG
@@ -382,15 +369,13 @@ class KnowledgeGradientTest(TestCase):
 
         model = KnowledgeGradient()
         model.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
+            datasets=[self.dataset],
+            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
                 fidelity_features=[-1],
             ),
-            metric_names=self.metric_names,
         )
 
         acq_function = _instantiate_KG(

@@ -31,7 +31,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.utils.containers import TrainingData
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
 from torch import Tensor
 
@@ -76,12 +76,10 @@ class AcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
-        self.training_data = TrainingData.from_block_design(
-            X=self.X, Y=self.Y, Yvar=self.Yvar
-        )
+        self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
         self.surrogate.construct(
-            training_data=self.training_data, fidelity_features=self.fidelity_features
+            datasets=self.training_data, fidelity_features=self.fidelity_features
         )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
@@ -170,15 +168,20 @@ class AcquisitionTest(TestCase):
         )
 
         # Check `_get_X_pending_and_observed` kwargs
-        mock_get_X.assert_called_with(
-            Xs=[self.training_data.X],
-            pending_observations=self.pending_observations,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            bounds=self.search_space_digest.bounds,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-        )
+        mock_get_X.assert_called_once()
+        _, ckwargs = mock_get_X.call_args
+        for X, dataset in zip(ckwargs["Xs"], self.training_data):
+            self.assertTrue(torch.equal(X, dataset.X()))
+        for attr in (
+            "pending_observations",
+            "objective_weights",
+            "outcome_constraints",
+            "linear_constraints",
+            "fixed_features",
+        ):
+            self.assertIs(ckwargs[attr], getattr(self, attr))
+        self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
+
         # Call `subset_model` only when needed
         mock_subset_model.assert_called_with(
             model=acquisition.surrogate.model,
@@ -441,18 +444,12 @@ class AcquisitionTest(TestCase):
         self,
         mock_get_X,
     ):
-        moo_training_data = TrainingData(
-            Xs=[self.X] * 3,
-            Ys=[self.Y] * 3,
-            Yvars=[self.Yvar] * 3,
-        )
+        moo_training_data = [SupervisedDataset(X=self.X, Y=self.Y.repeat(1, 3))]
         moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
-        self.surrogate.construct(
-            training_data=moo_training_data,
-        )
+        self.surrogate.construct(datasets=moo_training_data)
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),

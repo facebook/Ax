@@ -11,6 +11,7 @@ from ax.models.torch.cbo_sac import SACBO, SACGP
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.datasets import FixedNoiseDataset
 
 
 class SACBOTest(TestCase):
@@ -21,6 +22,7 @@ class SACBOTest(TestCase):
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]])
         train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
+        dataset = FixedNoiseDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
 
         # test setting attributes
         decomposition = {"1": ["0", "1"], "2": ["2", "3"]}
@@ -29,14 +31,12 @@ class SACBOTest(TestCase):
 
         # test fit
         m1.fit(
-            Xs=[train_X],
-            Ys=[train_Y],
-            Yvars=[train_Yvar],
+            datasets=[dataset],
+            metric_names=["y"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["0", "1", "2", "3"],
                 bounds=[(0.0, 1.0) for _ in range(4)],
             ),
-            metric_names=["y"],
         )
         self.assertIsInstance(m1.model, SACGP)
 
@@ -58,7 +58,7 @@ class SACBOTest(TestCase):
             Yvars=[train_Yvar, train_Yvar],
             task_features=[],
             fidelity_features=[],
-            metric_names=["y"],
+            metric_names=["y1", "y2"],
         )
         self.assertIsInstance(gp_list, ModelListGP)
 
@@ -69,14 +69,12 @@ class SACBOTest(TestCase):
         # test input decomposition indicates parameter name
         m2 = SACBO(decomposition={"1": ["x1", "x3"], "2": ["x2", "x4"]})
         m2.fit(
-            Xs=[train_X],
-            Ys=[train_Y],
-            Yvars=[train_Yvar],
+            datasets=[dataset],
+            metric_names=["y"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2", "x3", "x4"],
                 bounds=[(0.0, 1.0) for _ in range(4)],
             ),
-            metric_names=["y"],
         )
         self.assertDictEqual(m2.model.decomposition, {"1": [0, 2], "2": [1, 3]})
 
@@ -84,25 +82,21 @@ class SACBOTest(TestCase):
         # the feature_names is not passed
         with self.assertRaises(ValueError):
             m2.fit(
-                Xs=[train_X],
-                Ys=[train_Y],
-                Yvars=[train_Yvar],
+                datasets=[dataset],
+                metric_names=["y"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[(0.0, 1.0) for _ in range(4)],
                 ),
-                metric_names=[],
             )
 
         # pass wrong feature_names
         with self.assertRaises(AssertionError):
             m2.fit(
-                Xs=[train_X],
-                Ys=[train_Y],
-                Yvars=[train_Yvar],
+                datasets=[dataset],
+                metric_names=["y"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x0", "x1", "x2", "x3"],
                     bounds=[(0.0, 1.0) for _ in range(4)],
                 ),
-                metric_names=["y"],
             )

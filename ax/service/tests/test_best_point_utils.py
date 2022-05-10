@@ -12,9 +12,9 @@ from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.modelbridge.array import ArrayModelBridge
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
+from ax.modelbridge.torch import TorchModelBridge
 from ax.service.utils.best_point import (
     get_best_parameters,
     get_best_raw_objective_point,
@@ -47,7 +47,7 @@ class TestBestPointUtils(TestCase):
         trial.mark_completed()
 
         with patch.object(
-            ArrayModelBridge,
+            TorchModelBridge,
             "model_best_point",
             return_value=(
                 (

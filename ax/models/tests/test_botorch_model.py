@@ -22,7 +22,8 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP
 from botorch.models.transforms.input import Warp
-from botorch.utils import get_objective_weights_transform
+from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.objective import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
@@ -50,18 +51,20 @@ class BotorchModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
+        datasets = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=datasets,
+                metric_names=["y", "w"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=[0],
                 ),
-                metric_names=["y", "w"],
             )
             _mock_fit_model.assert_called_once()
 
@@ -85,18 +88,20 @@ class BotorchModelTest(TestCase):
             }
         }
         model = BotorchModel(**kwargs)
+        datasets = [
+            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+        ]
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=datasets,
+                metric_names=["y", "w"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=[0],
                 ),
-                metric_names=["y", "w"],
             )
             _mock_fit_model.assert_called_once()
 
@@ -132,20 +137,24 @@ class BotorchModelTest(TestCase):
                     use_input_warping=use_input_warping,
                     use_loocv_pseudo_likelihood=use_loocv_pseudo_likelihood,
                 )
+
                 # Test ModelListGP
+
                 # make training data different for each output
                 Xs2_diff = [Xs2[0] + 0.1]
+                datasets = [
+                    FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                    FixedNoiseDataset(X=Xs2_diff[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                ]
                 with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                     model.fit(
-                        Xs=Xs1 + Xs2_diff,
-                        Ys=Ys1 + Ys2,
-                        Yvars=Yvars1 + Yvars2,
+                        datasets=datasets,
+                        metric_names=mns,
                         search_space_digest=SearchSpaceDigest(
                             feature_names=fns,
                             bounds=bounds,
                             task_features=tfs,
                         ),
-                        metric_names=mns,
                     )
                     _mock_fit_model.assert_called_once()
                     if use_loocv_pseudo_likelihood:
@@ -185,17 +194,19 @@ class BotorchModelTest(TestCase):
                         self.assertFalse(hasattr(m, "input_transform"))
 
             # Test batched multi-output FixedNoiseGP
+            datasets_block = [
+                FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            ]
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
-                    Xs=Xs1 + Xs2,
-                    Ys=Ys1 + Ys2,
-                    Yvars=Yvars1 + Yvars2,
+                    datasets=datasets_block,
+                    metric_names=["y1", "y2"],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
                         task_features=tfs,
                     ),
-                    metric_names=mns,
                 )
                 _mock_fit_model.assert_called_once()
 
@@ -239,8 +250,11 @@ class BotorchModelTest(TestCase):
                 self.assertIsInstance(m.likelihood, _GaussianLikelihoodBase)
 
             # Check infeasible cost can be computed on the model
-            device = torch.device("cuda") if cuda else torch.device("cpu")
-            objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
+            tkwargs = {
+                "device": torch.device("cuda" if cuda else "cpu"),
+                "dtype": dtype,
+            }
+            objective_weights = torch.tensor([1.0, 0.0], **tkwargs)
             objective_transform = get_objective_weights_transform(objective_weights)
             infeasible_cost = torch.tensor(
                 get_infeasible_cost(
@@ -252,23 +266,23 @@ class BotorchModelTest(TestCase):
                     model.model.posterior(Xs1[0]).mean
                     - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
                 ).min(),
-                torch.tensor(0.0, dtype=dtype, device=device),
+                torch.tensor(0.0, **tkwargs),
             )
             self.assertTrue(
                 torch.abs(infeasible_cost - expected_infeasible_cost) < 1e-5
             )
 
             # Check prediction
-            X = torch.tensor([[6.0, 7.0, 8.0]], dtype=dtype, device=device)
+            X = torch.tensor([[6.0, 7.0, 8.0]], **tkwargs)
             f_mean, f_cov = model.predict(X)
             self.assertTrue(f_mean.shape == torch.Size([1, 2]))
             self.assertTrue(f_cov.shape == torch.Size([1, 2, 2]))
 
             # Check generation
-            objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
+            objective_weights = torch.tensor([1.0, 0.0], **tkwargs)
             outcome_constraints = (
-                torch.tensor([[0.0, 1.0]], dtype=dtype, device=device),
-                torch.tensor([[5.0]], dtype=dtype, device=device),
+                torch.tensor([[0.0, 1.0]], **tkwargs),
+                torch.tensor([[5.0]], **tkwargs),
             )
             linear_constraints = (
                 torch.tensor([[0.0, 1.0, 1.0]]),
@@ -276,20 +290,20 @@ class BotorchModelTest(TestCase):
             )
             fixed_features = None
             pending_observations = [
-                torch.tensor([[1.0, 3.0, 4.0]], dtype=dtype, device=device),
-                torch.tensor([[2.0, 6.0, 8.0]], dtype=dtype, device=device),
+                torch.tensor([[1.0, 3.0, 4.0]], **tkwargs),
+                torch.tensor([[2.0, 6.0, 8.0]], **tkwargs),
             ]
             n = 3
 
-            X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
-            acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], dtype=dtype, device=device)
+            X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
+            acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
             model_gen_options = {}
             # test sequential optimize
             with mock.patch(
                 "ax.models.torch.botorch_defaults.optimize_acqf",
                 return_value=(X_dummy, acqfv_dummy),
             ) as mock_optimize_acqf:
-                Xgen, wgen, gen_metadata, cand_metadata = model.gen(
+                gen_results = model.gen(
                     n=n,
                     bounds=bounds,
                     objective_weights=objective_weights,
@@ -301,15 +315,17 @@ class BotorchModelTest(TestCase):
                     rounding_func=dummy_func,
                 )
                 # note: gen() always returns CPU tensors
-                self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-                self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
+                self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+                self.assertTrue(
+                    torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
+                )
 
             # test joint optimize
             with mock.patch(
                 "ax.models.torch.botorch_defaults.optimize_acqf",
                 return_value=(X_dummy, acqfv_dummy),
             ) as mock_optimize_acqf:
-                Xgen, wgen, gen_metadata, cand_metadata = model.gen(
+                gen_results = model.gen(
                     n=n,
                     bounds=bounds,
                     objective_weights=objective_weights,
@@ -322,13 +338,15 @@ class BotorchModelTest(TestCase):
                     },
                 )
                 # note: gen() always returns CPU tensors
-                self.assertTrue(torch.equal(Xgen, X_dummy.cpu()))
-                self.assertTrue(torch.equal(wgen, torch.ones(n, dtype=dtype)))
+                self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
+                self.assertTrue(
+                    torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
+                )
                 mock_optimize_acqf.assert_called_once()
 
             # test that fidelity features are unsupported
             with self.assertRaises(NotImplementedError):
-                Xgen, wgen = model.gen(
+                gen_results = model.gen(
                     n=n,
                     bounds=bounds,
                     objective_weights=objective_weights,
@@ -366,13 +384,14 @@ class BotorchModelTest(TestCase):
                 )
 
             # Test cross-validation
+            combined_datasets = [
+                FixedNoiseDataset(Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            ]
             mean, variance = model.cross_validate(
-                Xs_train=Xs1 + Xs2,
-                Ys_train=Ys1 + Ys2,
-                Yvars_train=Yvars1 + Yvars2,
-                X_test=torch.tensor(
-                    [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], dtype=dtype, device=device
-                ),
+                datasets=combined_datasets,
+                metric_names=["y1", "y2"],
+                X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertTrue(mean.shape == torch.Size([2, 2]))
             self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
@@ -380,19 +399,19 @@ class BotorchModelTest(TestCase):
             # Test cross-validation with refit_on_cv
             model.refit_on_cv = True
             mean, variance = model.cross_validate(
-                Xs_train=Xs1 + Xs2,
-                Ys_train=Ys1 + Ys2,
-                Yvars_train=Yvars1 + Yvars2,
-                X_test=torch.tensor(
-                    [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], dtype=dtype, device=device
-                ),
+                datasets=combined_datasets,
+                metric_names=["y1", "y2"],
+                X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertTrue(mean.shape == torch.Size([2, 2]))
             self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
 
             # Test update
             model.refit_on_update = False
-            model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+            model.update(
+                datasets=[FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                metric_names=["y1", "y2"],
+            )
 
             # Test feature_importances
             importances = model.feature_importances()
@@ -406,24 +425,27 @@ class BotorchModelTest(TestCase):
 
             model.refit_on_update = True
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-                model.update(Xs=Xs2 + Xs2, Ys=Ys2 + Ys2, Yvars=Yvars2 + Yvars2)
+                model.update(
+                    datasets=[FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                    metric_names=["y1", "y2"],
+                )
 
             # test unfit model CV, update, and feature_importances
             unfit_model = BotorchModel()
             with self.assertRaises(RuntimeError):
                 unfit_model.cross_validate(
-                    Xs_train=Xs1 + Xs2,
-                    Ys_train=Ys1 + Ys2,
-                    Yvars_train=Yvars1 + Yvars2,
+                    datasets=combined_datasets,
+                    metric_names=["y1", "y2"],
                     X_test=Xs1[0],
                 )
             with self.assertRaises(RuntimeError):
-                unfit_model.update(Xs=Xs1 + Xs2, Ys=Ys1 + Ys2, Yvars=Yvars1 + Yvars2)
+                unfit_model.update(
+                    datasets=combined_datasets, metric_names=["y1", "y2"]
+                )
             with self.assertRaises(RuntimeError):
                 unfit_model.feature_importances()
 
             # Test loading state dict
-            tkwargs = {"device": device, "dtype": dtype}
             true_state_dict = {
                 "mean_module.constant": [3.5004],
                 "covar_module.raw_outputscale": 2.2438,
@@ -481,15 +503,13 @@ class BotorchModelTest(TestCase):
         model = BotorchModel(best_point_recommender=recommend_best_out_of_sample_point)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2_diff,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=datasets,
+                metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
         with self.assertRaises(RuntimeError):
             xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
@@ -518,15 +538,13 @@ class BotorchModelTest(TestCase):
             )
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
-                    Xs=Xs1,
-                    Ys=Ys1,
-                    Yvars=Yvars1,
+                    datasets=[FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0])],
+                    metric_names=mns[:1],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
                         task_features=tfs,
                     ),
-                    metric_names=mns[0],
                 )
                 _mock_fit_model.assert_called_once()
                 if use_loocv_pseudo_likelihood:
@@ -563,15 +581,16 @@ class BotorchModelTest(TestCase):
         model = BotorchModel()
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
-                Xs=Xs1 + Xs2,
-                Ys=Ys1 + Ys2,
-                Yvars=Yvars1 + Yvars2,
+                datasets=[
+                    FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                    FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                ],
+                metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=fns,
                     bounds=bounds,
                     task_features=tfs,
                 ),
-                metric_names=mns,
             )
             _mock_fit_model.assert_called_once()
 

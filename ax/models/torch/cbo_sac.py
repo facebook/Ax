@@ -16,6 +16,7 @@ from botorch.fit import fit_gpytorch_model
 from botorch.models.contextual import SACGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from torch import Tensor
 
@@ -47,22 +48,18 @@ class SACBO(BotorchModel):
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        search_space_digest: SearchSpaceDigest,
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
+        search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for SACBO")
         self.feature_names = search_space_digest.feature_names
         super().fit(
-            Xs=Xs,
-            Ys=Ys,
-            Yvars=Yvars,
-            search_space_digest=search_space_digest,
+            datasets=datasets,
             metric_names=metric_names,
+            search_space_digest=search_space_digest,
         )
 
     def get_and_fit_model(

@@ -238,12 +238,16 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             self.assertTrue(
                 torch.equal(
                     wrapped_frontier_evaluator.call_args[1]["X"],
-                    torch.tensor([[1.0, 4.0], [4.0, 1.0]]),
+                    torch.tensor([[1.0, 4.0], [4.0, 1.0]], dtype=torch.double),
                 )
             )
             self.assertEqual(f.shape, (1, 2))
-            self.assertTrue(torch.equal(obj_w, torch.tensor([1.0, 1.0])))
-            self.assertTrue(torch.equal(obj_t, torch.tensor([0.0, 0.0])))
+            self.assertTrue(
+                torch.equal(obj_w, torch.tensor([1.0, 1.0], dtype=torch.double))
+            )
+            self.assertTrue(
+                torch.equal(obj_t, torch.tensor([0.0, 0.0], dtype=torch.double))
+            )
             observed_frontier2 = pareto_frontier(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
@@ -264,7 +268,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
             wrapped_frontier_evaluator.assert_called_once()
             self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
-            true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]])
+            true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]], dtype=torch.double)
             self.assertTrue(
                 torch.equal(
                     wrapped_frontier_evaluator.call_args[1]["Y"],
@@ -463,7 +467,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 optimization_config=oc,
                 fixed_features=fixed_features,
             )
-            expected_obj_weights = torch.tensor([-1.0, 1.0])
+            expected_obj_weights = torch.tensor([-1.0, 1.0], dtype=torch.double)
             ckwargs = mock_model_infer_obj_t.call_args[1]
             self.assertTrue(
                 torch.equal(ckwargs["objective_weights"], expected_obj_weights)
@@ -471,8 +475,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             # check that transforms have been applied (at least UnitX)
             self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
             lc = ckwargs["linear_constraints"]
-            self.assertTrue(torch.equal(lc[0], torch.tensor([[15.0, 0.0]])))
-            self.assertTrue(torch.equal(lc[1], torch.tensor([[15.0]])))
+            self.assertTrue(
+                torch.equal(lc[0], torch.tensor([[15.0, 0.0]], dtype=torch.double))
+            )
+            self.assertTrue(
+                torch.equal(lc[1], torch.tensor([[15.0]], dtype=torch.double))
+            )
             self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
             mock_get_transformed_gen_args.assert_called_once()
             mock_get_transformed_model_gen_args.assert_called_once_with(

@@ -7,18 +7,17 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
-import torch
 from ax.exceptions.core import UserInputError
-from ax.models.torch.botorch_modular.surrogate import NOT_YET_FIT_MSG, Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
-from botorch.models.model import Model, TrainingData
+from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
@@ -69,7 +68,6 @@ class ListSurrogate(Surrogate):
     submodel_input_transforms: Dict[str, InputTransform]
     # TODO: Allow passing down `covar_module_class`, `covar_module_options`,
     # `likelihood_class`, and `likelihood_options`.
-    _training_data_per_outcome: Optional[Dict[str, TrainingData]] = None
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
@@ -107,65 +105,38 @@ class ListSurrogate(Surrogate):
             mll_options=mll_options,
         )
 
-    @property
-    def training_data_per_outcome(self) -> Dict[str, TrainingData]:
-        if self._training_data_per_outcome is None:
-            raise ValueError(NOT_YET_FIT_MSG)
-        return not_none(self._training_data_per_outcome)
-
-    @property
-    def dtype(self) -> torch.dtype:
-        return next(iter(self.training_data_per_outcome.values())).X.dtype
-
-    @property
-    def device(self) -> torch.device:
-        return next(iter(self.training_data_per_outcome.values())).X.device
-
-    def construct(self, training_data: TrainingData, **kwargs: Any) -> None:
+    def construct(
+        self, datasets: List[SupervisedDataset], metric_names: List[str], **kwargs: Any
+    ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
-            training_data: List of ``TrainingData`` for the submodels of
-                ``ModelListGP``. Each training data is for one outcome,
-                and the order of outcomes should match the order of metrics
-                in ``metric_names`` argument.
+            datasets: List of ``SupervisedDataset`` for the submodels of
+                ``ModelListGP``. Each training data is for one outcome, and the order
+                of outcomes should match the order of metrics in ``metric_names``
+                argument.
+            metric_names: Names of metrics, in the same order as datasets (so if
+                datasets is ``[ds_A, ds_B]``, the metrics are ``["A" and "B"]``).
+                These are used to match training data with correct submodels of
+                ``ModelListGP``.
             **kwargs: Keyword arguments, accepts:
-                - ``metric_names`` (required): Names of metrics, in the same order
-                as training data (so if training data is ``[tr_A, tr_B]``, the
-                metrics are ``["A" and "B"]``). These are used to match training data
-                with correct submodels of ``ModelListGP``,
                 - ``fidelity_features``: Indices of columns in X that represent
-                fidelity,
-                - ``task_features``: Indices of columns in X that represent tasks.
+                    fidelity
+                - ``task_features``: Indices of columns in X that represent tasks
         """
-        metric_names = kwargs.get(Keys.METRIC_NAMES)
         fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES, [])
         task_features = kwargs.get(Keys.TASK_FEATURES, [])
-        if metric_names is None:
-            raise ValueError("Metric names are required.")
-
-        self._training_data = training_data
-        self._training_data_per_outcome = {
-            metric_name: TrainingData.from_block_design(X=X, Y=Y, Yvar=Yvar)
-            for metric_name, X, Y, Yvar in zip(
-                metric_names,
-                training_data.Xs,
-                training_data.Ys,
-                # `TrainingData.Yvars` can be none, in which case each per-outcome
-                # training data should have null `Yvar`.
-                training_data.Yvars or [None] * len(metric_names),
-            )
-        }
+        self._training_data = datasets
 
         submodels = []
-        for m in metric_names:
+        for m, dataset in zip(metric_names, datasets):
             model_cls = self.botorch_submodel_class_per_outcome.get(
                 m, self.botorch_submodel_class
             )
             if not model_cls:
                 raise ValueError(f"No model class specified for outcome {m}.")
 
-            if m not in self.training_data_per_outcome:  # pragma: no cover
+            if self._outcomes is not None and m not in self._outcomes:
                 logger.info(f"Metric {m} not in training data.")
                 continue
 
@@ -179,7 +150,7 @@ class ListSurrogate(Surrogate):
             }
 
             formatted_model_inputs = model_cls.construct_inputs(
-                training_data=self.training_data_per_outcome[m],
+                training_data=dataset,
                 fidelity_features=fidelity_features,
                 task_features=task_features,
                 **submodel_options,
