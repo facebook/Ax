@@ -128,7 +128,7 @@ class FooRunner(Runner):
 
     def run(self, trial):
         name_to_params = {
-            arm.name: arm.params for arm in trial.arms
+            arm.name: arm.parameters for arm in trial.arms
         }
         run_metadata = deploy_to_foo(self.foo_param, name_to_params)
         return run_metadata
