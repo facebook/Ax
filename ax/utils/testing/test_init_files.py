@@ -15,7 +15,8 @@ class InitTest(TestCase):
         """__init__.py files are necessary when not using buck targets"""
         for root, _dirs, files in os.walk("./ax/ax", topdown=False):
             if len(glob(f"{root}/**/*.py", recursive=True)) > 0:
-                self.assertTrue(
-                    "__init__.py" in files,
-                    "directory " + root + " does not contain a .__init__.py file",
-                )
+                with self.subTest(root):
+                    self.assertTrue(
+                        "__init__.py" in files,
+                        "directory " + root + " does not contain a .__init__.py file",
+                    )
