@@ -451,7 +451,7 @@ class ModelBridge(ABC):
         observation_data = self._predict(observation_features)
 
         # Apply reverse transforms, in reverse order
-        for t in reversed(self.transforms.values()):  # noqa T484
+        for t in reversed(list(self.transforms.values())):
             observation_features = t.untransform_observation_features(
                 observation_features
             )
@@ -682,7 +682,7 @@ class ModelBridge(ABC):
         observation_features = gen_results.observation_features
         best_obsf = gen_results.best_observation_features
         # Apply reverse transforms
-        for t in reversed(self.transforms.values()):  # noqa T484
+        for t in reversed(list(self.transforms.values())):
             observation_features = t.untransform_observation_features(
                 observation_features
             )
@@ -797,7 +797,7 @@ class ModelBridge(ABC):
             cv_test_points=cv_test_points,
         )
         # Apply reverse transforms, in reverse order
-        for t in reversed(self.transforms.values()):
+        for t in reversed(list(self.transforms.values())):
             cv_test_points = t.untransform_observation_features(cv_test_points)
             cv_predictions = t.untransform_observation_data(
                 cv_predictions, cv_test_points
