@@ -85,59 +85,23 @@ class AggregatedBenchmarkResult(Base):
         cls,
         results: List[BenchmarkResult],
     ) -> "AggregatedBenchmarkResult":
+        optimization_traces = pd.DataFrame([res.optimization_trace for res in results])
+        fit_times = pd.Series([result.fit_time for result in results])
+        gen_times = pd.Series([result.gen_time for result in results])
 
         return cls(
             name=results[0].name,
             experiments=[result.experiment for result in results],
             optimization_trace=pd.DataFrame(
                 {
-                    "median": [
-                        np.median(
-                            [
-                                results[j].optimization_trace[i]
-                                for j in range(len(results))
-                            ]
-                        )
-                        for i in range(len(results[0].optimization_trace))
-                    ],
-                    "mean": [
-                        np.mean(
-                            [
-                                results[j].optimization_trace[i]
-                                for j in range(len(results))
-                            ]
-                        )
-                        for i in range(len(results[0].optimization_trace))
-                    ],
-                    "sem": [
-                        cls._series_to_sem(
-                            series=[
-                                results[j].optimization_trace[i]
-                                for j in range(len(results))
-                            ]
-                        )
-                        for i in range(len(results[0].optimization_trace))
-                    ],
+                    "mean": optimization_traces.mean(),
+                    "median": optimization_traces.median(),
+                    "sem": optimization_traces.sem(),
                 }
             ),
-            fit_time=cls._series_to_mean_sem(
-                series=[result.fit_time for result in results]
-            ),
-            gen_time=cls._series_to_mean_sem(
-                series=[result.gen_time for result in results]
-            ),
+            fit_time=(fit_times.mean().item(), fit_times.sem().item()),
+            gen_time=(gen_times.mean().item(), gen_times.sem().item()),
         )
-
-    @staticmethod
-    def _series_to_mean_sem(series: List[float]) -> Tuple[float, float]:
-        return (
-            np.mean(series),
-            AggregatedBenchmarkResult._series_to_sem(series=series),
-        )
-
-    @staticmethod
-    def _series_to_sem(series: List[float]) -> float:
-        return np.std(series, ddof=1) / np.sqrt(len(series))
 
 
 @dataclass(frozen=True)
