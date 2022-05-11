@@ -206,7 +206,7 @@ class Surrogate(Base):
             dataset, FixedNoiseDataset
         ):
             warnings.warn(
-                "Provided model class {self.botorch_model_class} does not accept "
+                f"Provided model class {self.botorch_model_class} does not accept "
                 "`train_Yvar` argument, but received `FixedNoiseDataset`. Ignoring "
                 "variance observations and converting to `SupervisedDataset`.",
                 AxWarning,
