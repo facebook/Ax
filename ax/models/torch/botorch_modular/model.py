@@ -211,7 +211,7 @@ class BoTorchModel(TorchModel, Base):
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if not self._surrogate:
-            raise ValueError("Cannot update model that has not been fitted.")
+            raise UnsupportedError("Cannot update model that has not been fitted.")
 
         # store search space info  for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
