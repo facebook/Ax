@@ -83,6 +83,14 @@ Benchmark Problems High Dimensional Embedding
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems Jenatton
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.synthetic.hss.jenatton
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems PyTorchCNN
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
