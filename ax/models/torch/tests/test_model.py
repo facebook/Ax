@@ -10,6 +10,7 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
@@ -176,9 +177,52 @@ class BoTorchModelTest(TestCase):
             state_dict=None,
             refit=True,
         )
+        # ensure that error is raised when len(metric_names) != len(datasets)
+        with self.assertRaisesRegex(
+            ValueError, "Length of datasets and metric_names must match"
+        ):
+            self.model.fit(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names * 2,
+                search_space_digest=self.mf_search_space_digest,
+            )
+        # Ensure proper error is raised when mixing data w/ and w/o variance
+        ds1, ds2 = self.non_block_design_training_data
+        with self.assertRaisesRegex(
+            UnsupportedError, "Cannot convert mixed data with and without variance"
+        ):
+
+            self.model.fit(
+                datasets=[ds1, SupervisedDataset(X=ds2.X(), Y=ds2.Y())],
+                metric_names=self.metric_names * 2,
+                search_space_digest=self.mf_search_space_digest,
+            )
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update):
+        # test assertion that model needs to be fit first
+        empty_model = BoTorchModel()
+        with self.assertRaisesRegex(
+            UnsupportedError, "Cannot update model that has not been fitted."
+        ):
+            empty_model.update(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
+                candidate_metadata=self.candidate_metadata,
+            )
+        # test assertion that datasets cannot be None
+        empty_model._surrogate = mock.Mock()  # mock the Surrogate
+        with self.assertRaisesRegex(
+            UnsupportedError, "BoTorchModel.update requires data for all outcomes."
+        ):
+            empty_model.update(
+                datasets=[None],
+                metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
+                candidate_metadata=self.candidate_metadata,
+            )
+        # fit model and test update
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
@@ -410,6 +454,12 @@ class BoTorchModelTest(TestCase):
                 bounds=self.bounds, objective_weights=self.objective_weights
             )
         )
+        with mock.patch(f"{MODEL_PATH}.best_observed_point", return_value=None):
+            self.assertIsNone(
+                self.model.best_point(
+                    bounds=self.bounds, objective_weights=self.objective_weights
+                )
+            )
 
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
