@@ -47,6 +47,6 @@ class EmpiricalBayesThompsonSampler(ThompsonSampler):
                 str(e) + f" Raw (unshrunk) estimates used for outcome: {outcome}"
             )
         Y = npY.tolist()
-        npYvar = npYsem ** 2
+        npYvar = npYsem**2
         Yvar = npYvar.tolist()
         return Y, Yvar

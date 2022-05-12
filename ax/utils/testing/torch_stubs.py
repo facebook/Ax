@@ -29,7 +29,7 @@ def get_torch_test_data(
                 [1.0 + offset, 2.0 + offset, 3.0 + offset],
                 [2.0 + offset, 3.0 + offset, 4.0 + offset],
             ],
-            **tkwargs
+            **tkwargs,
         )
     ]
     Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)]

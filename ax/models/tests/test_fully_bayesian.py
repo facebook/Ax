@@ -904,7 +904,6 @@ try:
     class FullyBayesianMOOBotorchModelTest(TestCase, BaseFullyBayesianBotorchModelTest):
         model_cls = FullyBayesianMOOBotorchModel
 
-
 except ImportError:
     logger.info("pyro not found. Skipping fully bayesian tests.")
     pass
@@ -935,7 +934,7 @@ class TestKernels(TestCase):
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(
             sqrt(5) / lengthscale
         )
-        actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
+        actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         self.assertLess(torch.norm(res - actual), 1e-3)
 
         # test k(x,x) with no gradients
@@ -958,7 +957,7 @@ class TestKernels(TestCase):
         actual = (
             torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float)
             .pow_(2.0)
-            .mul_(-0.5 / (lengthscale ** 2))
+            .mul_(-0.5 / (lengthscale**2))
             .exp()
         )
         self.assertLess(torch.norm(res - actual), 1e-3)

@@ -50,7 +50,7 @@ def register_runner(
     """
     logger.warn(WARNING_MSG)
 
-    registered_val = val or abs(hash(runner_cls.__name__)) % (10 ** 5)
+    registered_val = val or abs(hash(runner_cls.__name__)) % (10**5)
 
     new_runner_registry = {runner_cls: registered_val, **runner_registry}
     new_encoder_registry = {runner_cls: runner_to_dict, **encoder_registry}
@@ -78,7 +78,7 @@ def register_runners(
 
     new_runner_registry = {
         **{
-            runner_cls: val if val else abs(hash(runner_cls.__name__)) % (10 ** 5)
+            runner_cls: val if val else abs(hash(runner_cls.__name__)) % (10**5)
             for runner_cls, val in runner_clss.items()
         },
         **runner_registry,

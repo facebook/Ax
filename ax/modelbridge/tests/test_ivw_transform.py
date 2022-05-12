@@ -32,7 +32,7 @@ class IVWTransformTest(TestCase):
         cov12 = 0.2 * 0.6 + 0.4 * 0.4
         # var(w1*y1 + w2*y2) =
         # w1 ** 2 * var(y1) + w2 ** 2 * var(y2) + 2 * w1 * w2 * cov(y1, y2)
-        cov22 = 0.6 ** 2 * 2.0 + 0.4 ** 2 * 3 + 2 * 0.6 * 0.4 * 0.8
+        cov22 = 0.6**2 * 2.0 + 0.4**2 * 3 + 2 * 0.6 * 0.4 * 0.8
         cov_true = np.array([[1.0, cov12], [cov12, cov22]])
         discrep = np.max(np.abs(obsd2.covariance - cov_true))
         self.assertTrue(discrep < 1e-8)

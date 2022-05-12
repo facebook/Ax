@@ -134,7 +134,7 @@ def positive_part_james_stein(
     sigma_hat_i = np.sqrt(
         (1 - phi_i) * sigma2_i
         + phi_i * sigma2_i / K
-        + 2 * phi_i ** 2 * (y_i - ybar) ** 2 / (K - 3)
+        + 2 * phi_i**2 * (y_i - ybar) ** 2 / (K - 3)
     )
     return mu_hat_i, sigma_hat_i
 
@@ -216,11 +216,11 @@ def relativize(
     c = m_t / mean_c
     r_hat = (m_t - mean_c) / np.abs(mean_c)
     if bias_correction:
-        r_hat = r_hat - m_t * sem_c ** 2 / np.abs(mean_c) ** 3
+        r_hat = r_hat - m_t * sem_c**2 / np.abs(mean_c) ** 3
     # If everything's the same, then set r_hat to zero
     same = (m_t == mean_c) & (s_t == sem_c)
     r_hat = ~same * r_hat
-    var = ((s_t ** 2) - 2 * c * cov_t + (c ** 2) * (sem_c ** 2)) / (mean_c ** 2)
+    var = ((s_t**2) - 2 * c * cov_t + (c**2) * (sem_c**2)) / (mean_c**2)
     if as_percent:
         return (r_hat * 100, np.sqrt(var) * 100)
     else:

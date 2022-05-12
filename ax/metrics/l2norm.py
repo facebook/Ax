@@ -10,4 +10,4 @@ from ax.metrics.noisy_function import NoisyFunctionMetric
 
 class L2NormMetric(NoisyFunctionMetric):
     def f(self, x: np.ndarray) -> float:
-        return np.sqrt((x ** 2).sum())
+        return np.sqrt((x**2).sum())

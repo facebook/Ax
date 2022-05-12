@@ -183,7 +183,6 @@ try:
             self._torchx_runner.stop(app_handle)
             return {"reason": reason} if reason else {}
 
-
 except ImportError:
     logger.warning(
         "torchx package not found. If you would like to use TorchXRunner, please "

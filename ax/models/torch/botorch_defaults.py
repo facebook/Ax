@@ -643,8 +643,8 @@ def get_warping_transform(
     tf = Warp(
         indices=indices,
         # prior with a median of 1
-        concentration1_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
-        concentration0_prior=LogNormalPrior(0.0, 0.75 ** 0.5),
+        concentration1_prior=LogNormalPrior(0.0, 0.75**0.5),
+        concentration0_prior=LogNormalPrior(0.0, 0.75**0.5),
         batch_shape=batch_shape,
     )
     return tf

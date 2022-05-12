@@ -83,7 +83,7 @@ class TestTransform2(Transform):
         self, optimization_config, modelbridge, fixed_features
     ):
         return (
-            optimization_config ** 2
+            optimization_config**2
             if isinstance(optimization_config, int)
             else optimization_config
         )
@@ -96,7 +96,7 @@ class TestTransform2(Transform):
 
     def transform_observation_data(self, x, y):
         for obsd in x:
-            obsd.means = obsd.means ** 2
+            obsd.means = obsd.means**2
         return x
 
     def untransform_observation_features(self, x):

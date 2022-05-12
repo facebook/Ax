@@ -252,7 +252,7 @@ class transform_2(Transform):
         return (
             # pyre-fixme[58]: `**` is not supported for operand types
             #  `OptimizationConfig` and `int`.
-            optimization_config ** 2
+            optimization_config**2
             if isinstance(optimization_config, int)
             else optimization_config
         )
@@ -271,7 +271,7 @@ class transform_2(Transform):
         observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
-            obsd.means = obsd.means ** 2
+            obsd.means = obsd.means**2
         return observation_data
 
     def untransform_observation_features(

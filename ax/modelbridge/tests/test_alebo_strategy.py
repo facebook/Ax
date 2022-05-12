@@ -56,7 +56,7 @@ class ALEBOStrategyTest(TestCase):
         self.assertEqual(random_B.shape, (d, D))
         self.assertTrue(
             torch.allclose(
-                torch.sqrt((gp_B ** 2).sum(dim=0)), torch.ones(D, dtype=torch.double)
+                torch.sqrt((gp_B**2).sum(dim=0)), torch.ones(D, dtype=torch.double)
             )
         )
 

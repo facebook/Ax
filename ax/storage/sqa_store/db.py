@@ -27,8 +27,8 @@ JSON_FIELD_LENGTH: int = 4096
 # Text(MEDIUMTEXT_BYTES) or Text(LONGTEXT_BYTES). This is preferable to
 # using MEDIUMTEXT and LONGTEXT directly because those are incompatible with
 # SQLite that is used in unit tests.
-MEDIUMTEXT_BYTES: int = 2 ** 24 - 1
-LONGTEXT_BYTES: int = 2 ** 32 - 1
+MEDIUMTEXT_BYTES: int = 2**24 - 1
+LONGTEXT_BYTES: int = 2**32 - 1
 
 # global database variables
 SESSION_FACTORY: Optional[Session] = None

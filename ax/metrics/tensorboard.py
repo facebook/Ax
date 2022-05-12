@@ -118,7 +118,6 @@ try:
         else:
             raise ValueError(f"Tensorboard dtype {tensor.dtype} not supported.")
 
-
 except ImportError:
     logger.warning(
         "tensorboard package not found. If you would like to use "

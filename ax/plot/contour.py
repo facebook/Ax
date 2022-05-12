@@ -87,7 +87,7 @@ def _get_contour_predictions(
     fixed_values = get_fixed_values(model, slice_values)
 
     param_grid_obsf = []
-    for i in range(density ** 2):
+    for i in range(density**2):
         predf = deepcopy(fixed_features)
         predf.parameters = fixed_values.copy()
         predf.parameters[x_param_name] = grid2_x[i]

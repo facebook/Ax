@@ -160,7 +160,7 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
     elif nu == 1.5:
         constant_component = (math.sqrt(3) * dist).add(1)
     elif nu == 2.5:
-        constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * (dist ** 2))
+        constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * (dist**2))
     else:
         raise AxError(f"Unsupported value of nu: {nu}")
     return constant_component * exp_component
@@ -169,7 +169,7 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
 def rbf_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
     """Scaled RBF kernel."""
     dist = compute_dists(X=X, Z=Z, lengthscale=lengthscale)
-    return torch.exp(-0.5 * (dist ** 2))
+    return torch.exp(-0.5 * (dist**2))
 
 
 def single_task_pyro_model(

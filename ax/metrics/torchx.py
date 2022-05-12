@@ -65,7 +65,6 @@ try:
             }
             return Data(df=pd.DataFrame.from_records([df_dict]))
 
-
 except ImportError:
     logger.warning(
         "torchx package not found. If you would like to use TorchXMetric, please "

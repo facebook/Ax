@@ -421,7 +421,7 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
         grid = np.linspace(
             np.log10(parameter.lower), np.log10(parameter.upper), density
         )
-        grid = 10 ** grid
+        grid = 10**grid
     else:
         grid = np.linspace(parameter.lower, parameter.upper, density)
     return grid
@@ -679,8 +679,8 @@ def axis_range(grid: List[float], is_log: bool) -> List[float]:
 
 
 def relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float]:
-    r_hat = (m_t - m_c) / abs(m_c) - sem_c ** 2 * m_t / abs(m_c) ** 3
-    variance = (sem_t ** 2 + (m_t / m_c * sem_c) ** 2) / m_c ** 2
+    r_hat = (m_t - m_c) / abs(m_c) - sem_c**2 * m_t / abs(m_c) ** 3
+    variance = (sem_t**2 + (m_t / m_c * sem_c) ** 2) / m_c**2
     return [r_hat, math.sqrt(variance)]
 
 

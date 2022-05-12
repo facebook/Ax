@@ -195,7 +195,7 @@ class Relativize(Transform):
                     as_percent=True,
                 )
             result.means[i] = means_rel
-            result.covariance[i][i] = sems_rel ** 2
+            result.covariance[i][i] = sems_rel**2
         return result
 
     @staticmethod

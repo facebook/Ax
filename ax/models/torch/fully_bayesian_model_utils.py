@@ -152,14 +152,14 @@ def pyro_sample_input_warping(
         "c0",
         pyro.distributions.LogNormal(
             torch.tensor([0.0] * dim, **tkwargs),
-            torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
+            torch.tensor([0.75**0.5] * dim, **tkwargs),
         ),
     )
     c1 = pyro.sample(
         "c1",
         pyro.distributions.LogNormal(
             torch.tensor([0.0] * dim, **tkwargs),
-            torch.tensor([0.75 ** 0.5] * dim, **tkwargs),
+            torch.tensor([0.75**0.5] * dim, **tkwargs),
         ),
     )
     return c0, c1

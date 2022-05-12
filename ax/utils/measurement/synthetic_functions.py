@@ -270,7 +270,7 @@ class Branin(SyntheticFunction):
         x_1 = X[0]
         x_2 = X[1]
         return float(
-            (x_2 - 5.1 / (4 * np.pi ** 2) * x_1 ** 2 + 5.0 / np.pi * x_1 - 6.0) ** 2
+            (x_2 - 5.1 / (4 * np.pi**2) * x_1**2 + 5.0 / np.pi * x_1 - 6.0) ** 2
             + 10 * (1 - 1.0 / (8 * np.pi)) * np.cos(x_1)
             + 10
         )
@@ -292,7 +292,7 @@ class Aug_Branin(SyntheticFunction):
         return float(
             (
                 x_2
-                - (5.1 / (4 * np.pi ** 2) - 0.1 * (1 - X[-1])) * x_1 ** 2
+                - (5.1 / (4 * np.pi**2) - 0.1 * (1 - X[-1])) * x_1**2
                 + 5.0 / np.pi * x_1
                 - 6.0
             )
