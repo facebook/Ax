@@ -40,7 +40,7 @@ For cases where its not too computationally expensive to run many trials (and th
 
 BoTorch — Ax's optimization engine — supports some of the most commonly used acquisition functions in BO like expected improvement (EI), probability of improvement, and upper confidence bound. Expected improvement is a popular acquisition function owing to its good practical performance and an analytic form that is easy to compute. As the name suggests it rewards evaluation of the objective $f$ based on the expected improvement relative to the current best. If $f^* = \max_i y_i$ is the current best observed outcome and our goal is to maximize $f$, then EI is defined as
 
-$$ \text{EI}(x) = \mathbb{E}\bigl[\max(f(x) - f^*), 0)\bigr] $$
+$$ \text{EI}(x) = \mathbb{E}\bigl[\max(f(x) - f^*, 0)\bigr] $$
 
 The parameterization with the highest EI is selected and evaluated in the next step. Using an acquisition function like EI to sample new points initially promotes quick exploration because its values, like the uncertainty estimates, are higher in unexplored regions. Once the parameter space is adequately explored, EI naturally narrows in on locations where there is a high likelihood of a good objective value.
 
