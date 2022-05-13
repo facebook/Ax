@@ -4,14 +4,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
+
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
+    convert_to_block_design,
     use_model_list,
+    _get_shared_rows,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -239,3 +244,131 @@ class BoTorchModelUtilsTest(TestCase):
                 datasets=self.supervised_datasets, botorch_model_class=MultiTaskGP
             )
         )
+
+
+class ConvertToBlockDesignTest(TestCase):
+    def test_get_shared_rows(self):
+
+        X1 = torch.rand(4, 2)
+
+        # X1 is subset of X2
+        X2 = torch.cat((X1[:2], torch.rand(1, 2), X1[2:]))
+        X_shared, shared_idcs = _get_shared_rows([X1, X2])
+        self.assertTrue(torch.equal(X1, X_shared))
+        self.assertTrue(torch.equal(shared_idcs[0], torch.arange(4)))
+        self.assertTrue(torch.equal(shared_idcs[1], torch.tensor([0, 1, 3, 4])))
+
+        # X2 is subset of X1
+        X2 = X1[:3]
+        X_shared, shared_idcs = _get_shared_rows([X1, X2])
+        self.assertTrue(torch.equal(X2, X_shared))
+        self.assertTrue(torch.equal(shared_idcs[0], torch.arange(3)))
+        self.assertTrue(torch.equal(shared_idcs[1], torch.arange(3)))
+
+        # no overlap
+        X2 = torch.rand(2, 2)
+        X_shared, shared_idcs = _get_shared_rows([X1, X2])
+        self.assertEqual(X_shared.numel(), 0)
+        self.assertEqual(shared_idcs[0].numel(), 0)
+        self.assertEqual(shared_idcs[1].numel(), 0)
+
+        # three tensors
+        X2 = torch.cat((X1[:2], torch.rand(1, 2), X1[2:]))
+        X3 = torch.cat((torch.rand(1, 2), X1[:2], torch.rand(1, 2), X1[3:4]))
+        X_shared, shared_idcs = _get_shared_rows([X1, X2, X3])
+        self.assertTrue(torch.equal(shared_idcs[0], torch.tensor([0, 1, 3])))
+        self.assertTrue(torch.equal(shared_idcs[1], torch.tensor([0, 1, 4])))
+        self.assertTrue(torch.equal(shared_idcs[2], torch.tensor([1, 2, 4])))
+        self.assertTrue(torch.equal(X_shared, X1[torch.tensor([0, 1, 3])]))
+
+    def test_convert_to_block_design(self):
+
+        # simple case: block design, supervised
+        X = torch.rand(4, 2)
+        Ys = [torch.rand(4, 1), torch.rand(4, 1)]
+        datasets = [SupervisedDataset(X=X, Y=Y) for Y in Ys]
+        metric_names = ["y1", "y2"]
+        new_datasets, new_metric_names = convert_to_block_design(
+            datasets=datasets,
+            metric_names=metric_names,
+        )
+        self.assertEqual(len(new_datasets), 1)
+        self.assertIsInstance(new_datasets[0], SupervisedDataset)
+        self.assertTrue(torch.equal(new_datasets[0].X(), X))
+        self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
+        self.assertEqual(new_metric_names, ["y1_y2"])
+
+        # simple case: block design, fixed
+        Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
+        datasets = [
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar) for Y, Yvar in zip(Ys, Yvars)
+        ]
+        new_datasets, new_metric_names = convert_to_block_design(
+            datasets=datasets,
+            metric_names=metric_names,
+        )
+        self.assertEqual(len(new_datasets), 1)
+        self.assertIsInstance(new_datasets[0], FixedNoiseDataset)
+        self.assertTrue(torch.equal(new_datasets[0].X(), X))
+        self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
+        self.assertTrue(torch.equal(new_datasets[0].Yvar(), torch.cat(Yvars, dim=-1)))
+        self.assertEqual(new_metric_names, ["y1_y2"])
+
+        # test error is raised if not block design and force=False
+        X2 = torch.cat((X[:3], torch.rand(1, 2)))
+        datasets = [SupervisedDataset(X=X, Y=Y) for X, Y in zip((X, X2), Ys)]
+        with self.assertRaisesRegex(
+            UnsupportedError, "Cannot convert data to non-block design data."
+        ):
+            convert_to_block_design(datasets=datasets, metric_names=metric_names)
+
+        # test warning is issued if not block design and force=True (supervised)
+        with warnings.catch_warnings(record=True) as ws:
+            new_datasets, new_metric_names = convert_to_block_design(
+                datasets=datasets, metric_names=metric_names, force=True
+            )
+        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
+        self.assertTrue(
+            any(
+                "Forcing converion of data not complying to a block design"
+                in str(w.message)
+                for w in ws
+            )
+        )
+        self.assertEqual(len(new_datasets), 1)
+        self.assertIsInstance(new_datasets[0], SupervisedDataset)
+        self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
+        self.assertTrue(
+            torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
+        )
+        self.assertEqual(new_metric_names, ["y1_y2"])
+
+        # test warning is issued if not block design and force=True (fixed)
+        datasets = [
+            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            for X, Y, Yvar in zip((X, X2), Ys, Yvars)
+        ]
+        with warnings.catch_warnings(record=True) as ws:
+            new_datasets, new_metric_names = convert_to_block_design(
+                datasets=datasets, metric_names=metric_names, force=True
+            )
+        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
+        self.assertTrue(
+            any(
+                "Forcing converion of data not complying to a block design"
+                in str(w.message)
+                for w in ws
+            )
+        )
+        self.assertEqual(len(new_datasets), 1)
+        self.assertIsInstance(new_datasets[0], FixedNoiseDataset)
+        self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
+        self.assertTrue(
+            torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
+        )
+        self.assertTrue(
+            torch.equal(
+                new_datasets[0].Yvar(), torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1)
+            )
+        )
+        self.assertEqual(new_metric_names, ["y1_y2"])

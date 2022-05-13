@@ -21,6 +21,7 @@ from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
+    convert_to_block_design,
     use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
@@ -31,7 +32,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
 
@@ -173,25 +174,14 @@ class BoTorchModel(TorchModel, Base):
             )
 
         if len(datasets) > 1 and not isinstance(self.surrogate, ListSurrogate):
-            # Convert data to "block design". TODO: Figure out a better
-            # solution for this using the data containers (pass outcome
-            # names as properties of the data containers)
-            X = datasets[0].X()
-            Y = torch.cat([ds.Y() for ds in datasets], dim=-1)
-            is_fixed = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
-            if all(is_fixed):
-                Yvar = torch.cat(
-                    [ds.Yvar() for ds in datasets], dim=-1  # pyre-ignore [16]
-                )
-                datasets = [FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)]
-            elif not any(is_fixed):
-                datasets = [SupervisedDataset(X=X, Y=Y)]
-            else:
-                raise UnsupportedError(
-                    "Cannot convert mixed data with and without variance "
-                    "observaitons to `block design`."
-                )
-            metric_names = ["_".join(metric_names)]
+            # Note: If the datasets do not confirm to a block design then this
+            # will filter the data and drop observations to make sure that it does.
+            # This can happen e.g. if only some metrics are observed at some points.
+            datasets, metric_names = convert_to_block_design(
+                datasets=datasets,
+                metric_names=metric_names,
+                force=True,
+            )
 
         self.surrogate.fit(
             datasets=datasets,
