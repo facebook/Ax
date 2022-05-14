@@ -4,13 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from contextlib import ExitStack
 from unittest import mock
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
@@ -191,12 +192,29 @@ class BoTorchModelTest(TestCase):
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert mixed data with and without variance"
         ):
-
             self.model.fit(
                 datasets=[ds1, SupervisedDataset(X=ds2.X(), Y=ds2.Y())],
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )
+        # Ensure non-block design data is converted with warnings
+        ds = self.block_design_training_data[0]
+        X1 = ds.X()
+        X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
+        with warnings.catch_warnings(record=True) as ws:
+            self.model.fit(
+                datasets=[ds, SupervisedDataset(X=X2, Y=ds.Y())],
+                metric_names=self.metric_names * 2,
+                search_space_digest=self.mf_search_space_digest,
+            )
+        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
+        self.assertTrue(
+            any(
+                "Forcing converion of data not complying to a block design"
+                in str(w.message)
+                for w in ws
+            )
+        )
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update):

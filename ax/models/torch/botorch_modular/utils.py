@@ -4,10 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import warnings
 from typing import Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -168,3 +170,84 @@ def construct_acquisition_and_optimizer_options(
             dict, model_gen_options.get(Keys.OPTIMIZER_KWARGS, {})
         ).copy()
     return acq_options, opt_options
+
+
+def convert_to_block_design(
+    datasets: List[SupervisedDataset],
+    metric_names: List[str],
+    force: bool = False,
+) -> Tuple[List[SupervisedDataset], List[str]]:
+    # Convert data to "block design". TODO: Figure out a better
+    # solution for this using the data containers (pass outcome
+    # names as properties of the data containers)
+    is_fixed = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
+    if any(is_fixed) and not all(is_fixed):
+        raise UnsupportedError(
+            "Cannot convert mixed data with and without variance "
+            "observaitons to `block design`."
+        )
+    is_fixed = all(is_fixed)
+    Xs = [dataset.X() for dataset in datasets]
+    metric_names = ["_".join(metric_names)]  # TODO: Improve this.
+
+    if len({X.shape for X in Xs}) != 1 or not all(
+        torch.equal(X, Xs[0]) for X in Xs[1:]
+    ):
+        if not force:
+            raise UnsupportedError(
+                "Cannot convert data to non-block design data. "
+                "To force this and drop data not shared between "
+                "outcomes use `force=True`."
+            )
+        warnings.warn(
+            "Forcing converion of data not complying to a block design "
+            "to block design by dropping observations that are not shared "
+            "between outcomes.",
+            AxWarning,
+        )
+        X_shared, idcs_shared = _get_shared_rows(Xs=Xs)
+        Y = torch.cat([ds.Y()[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
+        if is_fixed:
+            Yvar = torch.cat(
+                [ds.Yvar()[i] for ds, i in zip(datasets, idcs_shared)],
+                dim=-1,
+            )
+            datasets = [FixedNoiseDataset(X=X_shared, Y=Y, Yvar=Yvar)]
+        else:
+            datasets = [SupervisedDataset(X=X_shared, Y=Y)]
+        return datasets, metric_names
+
+    # data complies to block design, can concat with impunity
+    Y = torch.cat([ds.Y() for ds in datasets], dim=-1)
+    if is_fixed:
+        Yvar = torch.cat([ds.Yvar() for ds in datasets], dim=-1)  # pyre-ignore [16]
+        datasets = [FixedNoiseDataset(X=Xs[0], Y=Y, Yvar=Yvar)]
+    else:
+        datasets = [SupervisedDataset(X=Xs[0], Y=Y)]
+    return datasets, metric_names
+
+
+def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
+    """Extract shared rows from a list of tensors
+
+    Args:
+        Xs: A list of m two-dimensional tensors with shapes
+            `(n_1 x d), ..., (n_m x d)`. It is not required that
+            the `n_i` are the same.
+
+    Returns:
+        A two-tuple containing (i) a Tensor with the rows that are
+        shared between all the Tensors in `Xs`, and (ii) a list of
+        index tensors that indicate the location of these rows
+        in the respective elements of `Xs`.
+    """
+    idcs_shared = []
+    Xs_sorted = sorted(Xs, key=len)
+    X_shared = Xs_sorted[0].clone()
+    for X in Xs_sorted[1:]:
+        X_shared = X_shared[(X_shared == X.unsqueeze(-2)).all(dim=-1).any(dim=-2)]
+    # get indices
+    for X in Xs:
+        same = (X_shared == X.unsqueeze(-2)).all(dim=-1).any(dim=-1)
+        idcs_shared.append(torch.arange(same.shape[-1], device=X_shared.device)[same])
+    return X_shared, idcs_shared
