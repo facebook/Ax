@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.core.risk_measures import RiskMeasure, VaR, RISK_MEASURE_NAME_TO_CLASS
+from ax.core.risk_measures import RISK_MEASURE_NAME_TO_CLASS, RiskMeasure, VaR
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 

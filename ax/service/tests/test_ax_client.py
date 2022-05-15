@@ -27,9 +27,9 @@ from ax.core.parameter import (
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import (
     DataRequiredError,
+    OptimizationComplete,
     UnsupportedError,
     UnsupportedPlotError,
-    OptimizationComplete,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin

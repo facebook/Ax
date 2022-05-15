@@ -26,12 +26,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import (
-    TCandidateMetadata,
-    TModelCov,
-    TModelMean,
-    TModelPredict,
-)
+from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig

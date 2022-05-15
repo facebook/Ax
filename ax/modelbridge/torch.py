@@ -31,21 +31,21 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.base import GenResults, gen_arms, ModelBridge
+from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
+    extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
-    extract_objective_thresholds,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array,
-    transform_callback,
     SearchSpaceDigest,
+    transform_callback,
     validate_and_apply_final_transform,
 )
 from ax.modelbridge.transforms.base import Transform
@@ -55,7 +55,7 @@ from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast, not_none
-from botorch.utils.datasets import SupervisedDataset, FixedNoiseDataset
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from torch import Tensor
 
 

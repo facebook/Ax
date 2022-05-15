@@ -6,7 +6,7 @@
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ParameterType, ChoiceParameter, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.metrics.jenatton import JenattonMetric
 from ax.runners.synthetic import SyntheticRunner

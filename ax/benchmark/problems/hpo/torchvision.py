@@ -6,15 +6,15 @@
 from typing import Any, Dict
 
 from ax.benchmark.problems.hpo.pytorch_cnn import (
-    PyTorchCNNRunner,
     PyTorchCNNBenchmarkProblem,
+    PyTorchCNNRunner,
 )
 from ax.core.runner import Runner
 from ax.exceptions.core import UserInputError
 from ax.utils.common.typeutils import checked_cast
 
 try:  # We don't require TorchVision by default.
-    from torchvision import transforms, datasets
+    from torchvision import datasets, transforms
 
     _REGISTRY = {"MNIST": datasets.MNIST, "FashionMNIST": datasets.FashionMNIST}
 except ModuleNotFoundError:

@@ -33,7 +33,7 @@ from botorch.models.model import Model
 from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
 from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.datasets import SupervisedDataset, FixedNoiseDataset
+from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor

@@ -4,9 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Set, Iterable, Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional, Set
 
-from ax.core.base_trial import TrialStatus, BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 
 

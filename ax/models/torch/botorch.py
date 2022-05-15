@@ -32,7 +32,7 @@ from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none, checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP

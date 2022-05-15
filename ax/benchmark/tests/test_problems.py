@@ -5,8 +5,8 @@
 
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 from ax.benchmark.problems.registry import (
-    get_problem_and_baseline,
     BENCHMARK_PROBLEM_REGISTRY,
+    get_problem_and_baseline,
 )
 from ax.utils.common.testutils import TestCase
 

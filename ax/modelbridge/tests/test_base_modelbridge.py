@@ -22,9 +22,9 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import (
-    GenResults,
     clamp_observation_features,
     gen_arms,
+    GenResults,
     ModelBridge,
     unwrap_observation_data,
 )

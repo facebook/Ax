@@ -21,9 +21,9 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.search_space import (
-    RobustSearchSpaceDigest,
     HierarchicalSearchSpace,
     RobustSearchSpace,
+    RobustSearchSpaceDigest,
     SearchSpace,
     SearchSpaceDigest,
 )

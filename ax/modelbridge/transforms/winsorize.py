@@ -22,8 +22,7 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig

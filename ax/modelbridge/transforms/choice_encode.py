@@ -13,8 +13,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
-    construct_new_search_space,
     ClosestLookupDict,
+    construct_new_search_space,
 )
 from ax.models.types import TConfig
 

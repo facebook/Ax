@@ -4,18 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark.benchmark import (
-    benchmark_scored_full_run,
-    get_sobol_baseline,
-    benchmark_replication,
-    benchmark_test,
     benchmark_full_run,
+    benchmark_replication,
+    benchmark_scored_full_run,
+    benchmark_test,
+    get_sobol_baseline,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
-    get_sobol_gpei_benchmark_method,
-    get_single_objective_benchmark_problem,
     get_multi_objective_benchmark_problem,
+    get_single_objective_benchmark_problem,
     get_sobol_benchmark_method,
+    get_sobol_gpei_benchmark_method,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
 

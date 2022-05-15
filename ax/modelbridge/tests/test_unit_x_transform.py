@@ -9,8 +9,7 @@ from copy import deepcopy
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.search_space import RobustSearchSpace
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.utils.common.testutils import TestCase

@@ -7,9 +7,7 @@
 import re
 from typing import Any, Dict, Type
 
-from ax.benchmark.problems.hpo.torchvision import (
-    PyTorchCNNTorchvisionBenchmarkProblem,
-)
+from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -35,9 +33,9 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
+    LogicalEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
-    LogicalEarlyStoppingStrategy,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references

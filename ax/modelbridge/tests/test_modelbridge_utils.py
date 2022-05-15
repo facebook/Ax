@@ -8,8 +8,7 @@ import numpy as np
 from ax.core.search_space import RobustSearchSpace
 from ax.modelbridge.modelbridge_utils import extract_robust_digest
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_robust_search_space
-from ax.utils.testing.core_stubs import get_search_space
+from ax.utils.testing.core_stubs import get_robust_search_space, get_search_space
 
 
 class TestModelBridgeUtils(TestCase):

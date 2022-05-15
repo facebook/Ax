@@ -6,7 +6,7 @@
 from dataclasses import asdict
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.core.parameter import RangeParameter, ParameterType
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 
 

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import UserInputError, AxWarning
+from ax.exceptions.core import AxWarning, UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
     _to_inequality_constraints,

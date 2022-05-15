@@ -39,8 +39,8 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import (
-    RobustSearchSpaceDigest,
     RobustSearchSpace,
+    RobustSearchSpaceDigest,
     SearchSpace,
     SearchSpaceDigest,
 )

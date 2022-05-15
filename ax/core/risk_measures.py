@@ -13,17 +13,17 @@ from typing import Dict, List, Type, Union
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
-    MVaR,
-    IndependentVaR,
     IndependentCVaR,
+    IndependentVaR,
     MultiOutputExpectation,
     MultiOutputRiskMeasureMCObjective,
+    MVaR,
 )
 from botorch.acquisition.risk_measures import (
     CVaR,
-    VaR,
     Expectation,
     RiskMeasureMCObjective,
+    VaR,
     WorstCase,
 )
 

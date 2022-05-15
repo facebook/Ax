@@ -6,7 +6,7 @@
 
 
 from collections import defaultdict
-from typing import Any, Dict, Optional, Callable, Set, Iterable
+from typing import Any, Callable, Dict, Iterable, Optional, Set
 
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus

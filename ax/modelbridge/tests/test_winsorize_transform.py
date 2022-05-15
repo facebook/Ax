@@ -21,8 +21,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.exceptions.core import DataRequiredError
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,

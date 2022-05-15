@@ -3,24 +3,24 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Set, Iterable, Any, Dict
+from typing import Any, Dict, Iterable, Set
 
 import pandas as pd
 import torch
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
-from ax.core.base_trial import TrialStatus, BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import RangeParameter, ParameterType
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
-from torch import optim, nn
+from torch import nn, optim
 from torch.nn import functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 
 class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):

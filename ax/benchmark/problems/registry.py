@@ -6,11 +6,11 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Callable, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 from ax.benchmark.benchmark_problem import (
-    MultiObjectiveBenchmarkProblem,
     BenchmarkProblem,
+    MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
@@ -19,7 +19,7 @@ from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmark
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.storage.json_store.decoder import object_from_json
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Powell, Hartmann, Branin, Ackley
+from botorch.test_functions.synthetic import Ackley, Branin, Hartmann, Powell
 
 
 @dataclass

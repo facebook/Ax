@@ -6,7 +6,7 @@
 
 from abc import ABCMeta, abstractmethod
 from functools import partial
-from typing import List, Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -18,15 +18,16 @@ from ax.core.optimization_config import (
 )
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import _get_modelbridge_training_data
-from ax.modelbridge.modelbridge_utils import observed_hypervolume, predicted_hypervolume
 from ax.modelbridge.modelbridge_utils import (
-    validate_and_apply_final_transform,
     _array_to_tensor,
-    observation_data_to_array,
+    _get_modelbridge_training_data,
     extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
+    observation_data_to_array,
+    observed_hypervolume,
+    predicted_hypervolume,
+    validate_and_apply_final_transform,
 )
 from ax.modelbridge.registry import get_model_from_generator_run, ModelRegistryBase
 from ax.modelbridge.torch import TorchModelBridge

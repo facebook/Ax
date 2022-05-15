@@ -35,11 +35,7 @@ from ax.models.torch.botorch import (
     TModelPredictor,
     TOptimizer,
 )
-from ax.models.torch.botorch_defaults import (
-    get_and_fit_model,
-    get_NEI,
-    scipy_optimizer,
-)
+from ax.models.torch.botorch_defaults import get_and_fit_model, get_NEI, scipy_optimizer
 from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.torch.utils import predict_from_model
 from ax.models.types import TConfig

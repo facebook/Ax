@@ -11,12 +11,12 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.utils import (
+    _get_shared_rows,
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
     use_model_list,
-    _get_shared_rows,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
