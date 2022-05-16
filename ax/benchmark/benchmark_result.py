@@ -4,13 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import cast, List, Tuple
 
 import numpy as np
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
-from ax.utils.common.equality import equality_typechecker
 
 # NOTE: Do not add `from __future__ import annotatations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
@@ -18,7 +17,7 @@ from ax.utils.common.equality import equality_typechecker
 # in the UI.
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class BenchmarkResult(Base):
     """The result of a single optimization loop from one
     (BenchmarkProblem, BenchmarkMethod) pair. More information will be added to the
@@ -33,21 +32,48 @@ class BenchmarkResult(Base):
     fit_time: float
     gen_time: float
 
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, BenchmarkResult):
-            return False
 
-        return (
-            self.name == other.name
-            and self.experiment == other.experiment
-            and (self.optimization_trace == other.optimization_trace).all()
-            and self.fit_time == other.fit_time
-            and self.gen_time == other.gen_time
+@dataclass(frozen=True, eq=False)
+class ScoredBenchmarkResult(BenchmarkResult):
+    """A BenchmarkResult normalized against some baseline method (for the same
+    problem), typically Sobol. The score is calculated in such a way that 0 corresponds
+    to performance equivalent with the baseline and 100 indicates the true optimum was
+    found.
+    """
+
+    baseline_result: BenchmarkResult
+    score_trace: np.ndarray
+
+    @classmethod
+    def from_result_and_baseline(
+        cls,
+        result: BenchmarkResult,
+        baseline_result: BenchmarkResult,
+        optimum: float,
+    ) -> "ScoredBenchmarkResult":
+        """Combine a result and baseline into a ScoredBenchmarkResult. This entails
+        computing a score trace from the baseline result and the problem's known (or
+        estimated to best ability) optimum.
+        """
+
+        baseline = baseline_result.optimization_trace[: len(result.optimization_trace)]
+
+        score_trace = 100 * (
+            1 - (result.optimization_trace - optimum) / (baseline - optimum)
+        )
+
+        return cls(
+            name=result.name,
+            experiment=result.experiment,
+            optimization_trace=result.optimization_trace,
+            fit_time=result.fit_time,
+            gen_time=result.gen_time,
+            baseline_result=baseline_result,
+            score_trace=score_trace,
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class AggregatedBenchmarkResult(Base):
     """The result of a benchmark test, or series of replications. Scalar data present
     in the BenchmarkResult is here represented as (mean, sem) pairs. More information
@@ -55,9 +81,9 @@ class AggregatedBenchmarkResult(Base):
     """
 
     name: str
-    experiments: List[Experiment]
+    results: List[BenchmarkResult]
 
-    # mean, sem columns
+    # median, mean, sem columns
     optimization_trace: pd.DataFrame
 
     # (mean, sem) pairs
@@ -65,20 +91,7 @@ class AggregatedBenchmarkResult(Base):
     gen_time: Tuple[float, float]
 
     def __str__(self) -> str:
-        return f"AggregatedBenchmarkResult(name={self.name})"
-
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, AggregatedBenchmarkResult):
-            return False
-
-        return (
-            self.name == other.name
-            and self.experiments == other.experiments
-            and self.optimization_trace.eq(other.optimization_trace).all().all()
-            and self.fit_time == other.fit_time
-            and self.gen_time == other.gen_time
-        )
+        return f"{self.__class__}(name={self.name})"
 
     @classmethod
     def from_benchmark_results(
@@ -91,7 +104,7 @@ class AggregatedBenchmarkResult(Base):
 
         return cls(
             name=results[0].name,
-            experiments=[result.experiment for result in results],
+            results=results,
             optimization_trace=pd.DataFrame(
                 {
                     "mean": optimization_traces.mean(),
@@ -104,59 +117,54 @@ class AggregatedBenchmarkResult(Base):
         )
 
 
-@dataclass(frozen=True)
-class ScoredBenchmarkResult(AggregatedBenchmarkResult):
-    """An AggregatedBenchmarkResult normalized against some baseline method (for the
-    same problem), typically Sobol. The score is calculated in such a way that 0
-    corresponds to performance equivalent with the baseline and 100 indicates the true
-    optimum was found.
+@dataclass(frozen=True, eq=False)
+class AggregatedScoredBenchmarkResult(AggregatedBenchmarkResult):
+    """The result of a scored benchmark test, or series of scored replications. Scalar
+    data present in the BenchmarkResult is here represented as (mean, sem) pairs, or
+    as (median, mean, sem) traces.
     """
 
-    baseline_result: AggregatedBenchmarkResult
-    score: np.ndarray
+    # median, mean, sem columns
+    score_trace: pd.DataFrame
 
-    def __str__(self) -> str:
-        return "ScoredBenchmarkResult("
-        f"name={self.name}, baseline_result{self.baseline_result}"
-        ")"
+    @classmethod
+    def from_scored_results(
+        cls,
+        scored_results: List[ScoredBenchmarkResult],
+    ) -> "AggregatedScoredBenchmarkResult":
+        aggregated_result = AggregatedBenchmarkResult.from_benchmark_results(
+            results=[
+                cast(BenchmarkResult, result) for result in scored_results
+            ]  # downcast from ScoredResult to BenchmarkResult
+        )
 
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, ScoredBenchmarkResult):
-            return False
+        score_traces = pd.DataFrame([res.score_trace for res in scored_results])
 
-        return (
-            super().__eq__(other)
-            and self.baseline_result == other.baseline_result
-            and (self.score == other.score).all()
+        return cls(
+            score_trace=pd.DataFrame(
+                {
+                    "mean": score_traces.mean(),
+                    "median": score_traces.median(),
+                    "sem": score_traces.sem(),
+                }
+            ),
+            **aggregated_result.__dict__,
         )
 
     @classmethod
-    def from_result_and_baseline(
+    def from_aggregated_result_and_aggregated_baseline_result(
         cls,
         aggregated_result: AggregatedBenchmarkResult,
-        baseline_result: AggregatedBenchmarkResult,
+        aggregated_baseline_result: AggregatedBenchmarkResult,
         optimum: float,
-    ) -> "ScoredBenchmarkResult":
-        baseline = baseline_result.optimization_trace["mean"][
-            : len(aggregated_result.optimization_trace["mean"])
-        ]
-
-        score = (
-            100
-            * (
-                1
-                - (aggregated_result.optimization_trace["mean"] - optimum)
-                / (baseline - optimum)
-            )
-        ).to_numpy()
-
-        return cls(
-            name=aggregated_result.name,
-            experiments=aggregated_result.experiments,
-            optimization_trace=aggregated_result.optimization_trace,
-            fit_time=aggregated_result.fit_time,
-            gen_time=aggregated_result.gen_time,
-            baseline_result=baseline_result,
-            score=score,
+    ) -> "AggregatedScoredBenchmarkResult":
+        return cls.from_scored_results(
+            scored_results=[
+                ScoredBenchmarkResult.from_result_and_baseline(
+                    result=result, baseline_result=baseline_result, optimum=optimum
+                )
+                for result, baseline_result in zip(
+                    aggregated_result.results, aggregated_baseline_result.results
+                )
+            ]
         )

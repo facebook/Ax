@@ -13,6 +13,7 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import (
     AggregatedBenchmarkResult,
+    AggregatedScoredBenchmarkResult,
     BenchmarkResult,
     ScoredBenchmarkResult,
 )
@@ -28,7 +29,6 @@ from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 
 
-# Benchmark2
 def get_benchmark_problem() -> BenchmarkProblem:
     return BenchmarkProblem.from_botorch(test_problem=Branin())
 
@@ -116,7 +116,16 @@ def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
 
 
 def get_scored_benchmark_result() -> ScoredBenchmarkResult:
-    result = get_aggregated_benchmark_result()
+    result = get_benchmark_result()
+
     return ScoredBenchmarkResult.from_result_and_baseline(
-        aggregated_result=result, baseline_result=result, optimum=0
+        result=result, baseline_result=result, optimum=0
+    )
+
+
+def get_aggregated_scored_benchmark_result() -> AggregatedScoredBenchmarkResult:
+    scored_result = get_scored_benchmark_result()
+
+    return AggregatedScoredBenchmarkResult.from_scored_results(
+        scored_results=[scored_result, scored_result]
     )

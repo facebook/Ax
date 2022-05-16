@@ -14,6 +14,7 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import (
     AggregatedBenchmarkResult,
+    AggregatedScoredBenchmarkResult,
     BenchmarkResult,
     ScoredBenchmarkResult,
 )
@@ -271,6 +272,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "ScoredBenchmarkResult": ScoredBenchmarkResult,
+    "AggregatedScoredBenchmarkResult": AggregatedScoredBenchmarkResult,
     "SearchSpace": SearchSpace,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
