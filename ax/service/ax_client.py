@@ -333,18 +333,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "You may either pass an an objective object "
                 "or an objective_name and minimize param, but not both"
             )
-        elif objectives and len(objectives.keys()) == 1:
-            objective = next(iter(objectives.keys()))
-            objective_kwargs["objective_name"] = objective
-            objective_kwargs["minimize"] = objectives[objective].minimize
-        elif objectives:
+        elif objectives is not None:
             objective_kwargs["objectives"] = {
                 objective: ("minimize" if properties.minimize else "maximize")
                 for objective, properties in objectives.items()
             }
-            objective_kwargs["objective_thresholds"] = self.build_objective_thresholds(
-                objectives
-            )
+            if len(objectives.keys()) > 1:
+                objective_kwargs[
+                    "objective_thresholds"
+                ] = self.build_objective_thresholds(objectives)
         elif objective_name or minimize is not None:
             objective_kwargs["objective_name"] = objective_name
             objective_kwargs["minimize"] = minimize or False
