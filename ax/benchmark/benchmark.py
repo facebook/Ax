@@ -17,26 +17,15 @@ Key terms used:
 
 """
 from time import time
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
-)
-from ax.benchmark.benchmark_result import (
-    AggregatedBenchmarkResult,
-    BenchmarkResult,
-    ScoredBenchmarkResult,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
-from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
-from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
 
@@ -106,79 +95,6 @@ def benchmark_full_run(
         for problem in problems
         for method in methods
     ]
-
-
-def benchmark_scored_test(
-    problem: BenchmarkProblem,
-    method: BenchmarkMethod,
-    baseline_result: AggregatedBenchmarkResult,
-    num_replications: int = 10,
-    seed: Optional[int] = None,
-) -> ScoredBenchmarkResult:
-    if isinstance(problem, SingleObjectiveBenchmarkProblem):
-        optimum = problem.optimal_value
-    elif isinstance(problem, MultiObjectiveBenchmarkProblem):
-        optimum = problem.maximum_hypervolume
-    else:
-        raise UnsupportedError(
-            "Scored benchmarking is not supported for BenchmarkProblems with no known "
-            "optimum."
-        )
-
-    aggregated_result = benchmark_test(
-        problem=problem, method=method, num_replications=num_replications, seed=seed
-    )
-
-    return ScoredBenchmarkResult.from_result_and_baseline(
-        aggregated_result=aggregated_result,
-        baseline_result=baseline_result,
-        optimum=optimum,
-    )
-
-
-def benchmark_scored_full_run(
-    problems_baseline_results: Iterable[
-        Tuple[BenchmarkProblem, AggregatedBenchmarkResult]
-    ],
-    methods: Iterable[BenchmarkMethod],
-    num_replications: int = 10,
-    seed: Optional[int] = None,
-) -> List[ScoredBenchmarkResult]:
-
-    return [
-        benchmark_scored_test(
-            problem=problem,
-            method=method,
-            baseline_result=baseline_result,
-            num_replications=num_replications,
-            seed=seed,
-        )
-        for problem, baseline_result in problems_baseline_results
-        for method in methods
-    ]
-
-
-def get_sobol_baseline(
-    problem: BenchmarkProblem,
-    num_replications: int = 100,
-    total_trials: int = 100,
-    seed: Optional[int] = None,
-) -> AggregatedBenchmarkResult:
-    return benchmark_test(
-        problem=problem,
-        method=BenchmarkMethod(
-            name="SOBOL_BASELINE",
-            generation_strategy=GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)],
-                name="SOBOL",
-            ),
-            scheduler_options=SchedulerOptions(
-                total_trials=total_trials, init_seconds_between_polls=0
-            ),
-        ),
-        num_replications=num_replications,
-        seed=seed,
-    )
 
 
 def _result_from_scheduler(scheduler: Scheduler) -> BenchmarkResult:

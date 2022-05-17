@@ -93,6 +93,13 @@ BENCHMARK_PROBLEM_REGISTRY = {
 }
 
 
+def get_problem(
+    problem_name: str,
+) -> BenchmarkProblem:
+    entry = BENCHMARK_PROBLEM_REGISTRY[problem_name]
+    return entry.factory_fn(**entry.factory_kwargs)
+
+
 def get_problem_and_baseline(
     problem_name: str,
 ) -> Tuple[BenchmarkProblem, AggregatedBenchmarkResult]:

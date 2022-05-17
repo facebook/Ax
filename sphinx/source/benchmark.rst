@@ -43,6 +43,14 @@ Benchmark
     :undoc-members:
     :show-inheritance:
 
+Scored Benchmark
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.scored_benchmark
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Methods Modular BoTorch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
