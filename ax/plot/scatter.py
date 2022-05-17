@@ -38,9 +38,12 @@ from ax.plot.helper import (
     resize_subtitles,
     TNullableGeneratorRunsDict,
 )
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast_optional
 from ax.utils.stats.statstools import relativize
 from plotly import subplots
+
+logger = get_logger(__name__)
 
 # type aliases
 Traces = List[Dict[str, Any]]
@@ -537,8 +540,9 @@ def plot_objective_vs_constraints(
     data_selector: Optional[Callable[[Observation], bool]] = None,
     color_parameter: Optional[str] = None,
     color_metric: Optional[str] = None,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
-    """Plot the tradeoff between an objetive and all other metrics in a model.
+    """Plot the tradeoff between an objective and all other metrics in a model.
 
     All arms used in the model are included in the plot. Additional
     arms can be passed through via the `generator_runs_dict` argument.
@@ -565,6 +569,8 @@ def plot_objective_vs_constraints(
             cannot be used together with color_metric.
         color_metric: color points according to the specified metric,
             cannot be used together with color_parameter.
+        label_dict: A dictionary that maps the label to
+            an alias to be used in the plot.
     """
     if color_parameter or color_metric:
         layout_offset_x = 0.15
@@ -574,6 +580,8 @@ def plot_objective_vs_constraints(
         metrics = subset_metrics
     else:
         metrics = [m for m in model.metric_names if m != objective]
+    if not label_dict:
+        _check_label_lengths(metrics + [objective])
 
     metric_dropdown = []
 
@@ -627,11 +635,14 @@ def plot_objective_vs_constraints(
                     {
                         "y": [t["y"] for t in otraces],
                         "error_y.array": [t["error_y"]["array"] for t in otraces],
-                        "text": [t["text"] for t in otraces],
+                        "text": [_replace_str(t["text"], label_dict) for t in otraces],
                     },
-                    {"yaxis.title": metric + (" (%)" if rels[metric] else "")},
+                    {
+                        "yaxis.title": _replace_str(metric, label_dict)
+                        + (" (%)" if rels[metric] else ""),
+                    },
                 ],
-                "label": metric,
+                "label": _replace_str(metric, label_dict),
                 "method": "update",
             }
         )
@@ -734,12 +745,14 @@ def plot_objective_vs_constraints(
             },
         ],
         xaxis={
-            "title": objective + (" (%)" if rels[objective] else ""),
+            "title": _replace_str(objective, label_dict)
+            + (" (%)" if rels[objective] else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
         yaxis={
-            "title": metrics[0] + (" (%)" if rels[metrics[0]] else ""),
+            "title": _replace_str(metrics[0], label_dict)
+            + (" (%)" if rels[metrics[0]] else ""),
             "zeroline": True,
             "zerolinecolor": "red",
         },
@@ -751,6 +764,34 @@ def plot_objective_vs_constraints(
 
     fig = go.Figure(data=plot_data, layout=layout)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+
+
+def _replace_str(input_str: str, str_dict: Optional[Dict[str, str]] = None) -> str:
+    """Utility function to replace a string based on a mapping dictionary.
+
+    Args:
+        input_str: Input string to map.
+        str_dict: Mapping dictionary.
+    """
+    return str_dict[input_str] if (str_dict and input_str in str_dict) else input_str
+
+
+def _check_label_lengths(labels: List[str]) -> None:
+    """Utility function to check label length and provide a warning for long
+       labels pointing to a mapping that can be used to override them.
+
+    Args:
+        labels: List of labels to check.
+    """
+    max_len = 30
+    long_labels = [label for label in labels if len(label) > max_len]
+    if long_labels:
+        logger.info(
+            "This plot may be malformed due to long labels. You"
+            " can override long labels by passing a label_dict dictionary"
+            " to plotting functions that support it.\nHere's a list of labels"
+            f" longer than {max_len} characters:\n" + "\n".join(long_labels)
+        )
 
 
 def lattice_multiple_metrics(
@@ -1404,6 +1445,7 @@ def interact_fitted_plotly(
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> go.Figure:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1421,11 +1463,15 @@ def interact_fitted_plotly(
         metrics: List of metric names to restrict to when plotting.
         fixed_features: Fixed features to use when making model predictions.
         data_selector: Function for selecting observations for plotting.
+        label_dict: A dictionary that maps the label to
+            an alias to be used in the plot.
     """
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
     )
     metrics = sorted(metrics or model.metric_names)
+    if not label_dict:
+        _check_label_lengths(metrics)
 
     traces = []
     dropdown = []
@@ -1456,7 +1502,11 @@ def interact_fitted_plotly(
 
         # on dropdown change, restyle
         dropdown.append(
-            {"args": ["visible", is_visible], "label": metric, "method": "restyle"}
+            {
+                "args": ["visible", is_visible],
+                "label": _replace_str(metric, label_dict),
+                "method": "restyle",
+            }
         )
 
     layout = go.Layout(
@@ -1528,6 +1578,7 @@ def interact_fitted(
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1545,6 +1596,8 @@ def interact_fitted(
         metrics: List of metric names to restrict to when plotting.
         fixed_features: Fixed features to use when making model predictions.
         data_selector: Function for selecting observations for plotting.
+        label_dict: A dictionary that maps the label to
+            an alias to be used in the plot.
     """
 
     return AxPlotConfig(
@@ -1558,6 +1611,7 @@ def interact_fitted(
             metrics=metrics,
             fixed_features=fixed_features,
             data_selector=data_selector,
+            label_dict=label_dict,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
