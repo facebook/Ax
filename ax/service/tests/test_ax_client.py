@@ -771,6 +771,107 @@ class TestAxClient(TestCase):
         with self.subTest("objective_names"):
             self.assertEqual(ax_client.objective_names, ["test_objective"])
 
+    def test_create_experiment_with_metric_definitions(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax_client.experiment
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+            ],
+            objectives={
+                "obj_m1": ObjectiveProperties(minimize=True, threshold=2.0),
+                "obj_m2": ObjectiveProperties(minimize=True, threshold=2.0),
+            },
+            outcome_constraints=["const_m3 >= 3"],
+            tracking_metric_names=["tracking_m4"],
+            metric_definitions={
+                "obj_m1": {"properties": {"m1_opt": "m1_val"}},
+                "obj_m2": {"properties": {"m2_opt": "m2_val"}},
+                "const_m3": {"properties": {"m3_opt": "m3_val"}},
+                "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
+            },
+            is_test=True,
+        )
+        objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.name, "obj_m1")
+        self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.name, "obj_m2")
+        self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
+        thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.name, "obj_m1")
+        self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.name, "obj_m2")
+        self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
+        outcome_constraints = (
+            ax_client.experiment.optimization_config.outcome_constraints
+        )
+        self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
+        self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
+        self.assertEqual(ax_client.experiment.tracking_metrics[0].name, "tracking_m4")
+        self.assertEqual(
+            ax_client.experiment.tracking_metrics[0].properties, {"m4_opt": "m4_val"}
+        )
+
+    def test_set_optimization_config_with_metric_definitions(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+            ax_client.experiment
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+            ],
+            is_test=True,
+        )
+        ax_client.set_optimization_config(
+            objectives={
+                "obj_m1": ObjectiveProperties(minimize=True, threshold=2.0),
+                "obj_m2": ObjectiveProperties(minimize=True, threshold=2.0),
+            },
+            outcome_constraints=["const_m3 >= 3"],
+            metric_definitions={
+                "obj_m1": {"properties": {"m1_opt": "m1_val"}},
+                "obj_m2": {"properties": {"m2_opt": "m2_val"}},
+                "const_m3": {"properties": {"m3_opt": "m3_val"}},
+                "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
+            },
+        )
+        objectives = ax_client.experiment.optimization_config.objective.objectives
+        self.assertEqual(objectives[0].metric.name, "obj_m1")
+        self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(objectives[1].metric.name, "obj_m2")
+        self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
+        thresholds = ax_client.experiment.optimization_config.objective_thresholds
+        self.assertEqual(thresholds[0].metric.name, "obj_m1")
+        self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
+        self.assertEqual(thresholds[1].metric.name, "obj_m2")
+        self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
+        outcome_constraints = (
+            ax_client.experiment.optimization_config.outcome_constraints
+        )
+        self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
+        self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
+
     def test_it_does_not_accept_both_legacy_and_new_objective_params(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(

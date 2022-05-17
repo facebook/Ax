@@ -258,6 +258,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -324,6 +325,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 improve storage performance.
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
         """
         self._validate_early_stopping_strategy(support_intermediate_data)
 
@@ -359,6 +362,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             status_quo=status_quo,
             experiment_type=experiment_type,
             tracking_metric_names=tracking_metric_names,
+            metric_definitions=metric_definitions,
             support_intermediate_data=support_intermediate_data,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
             is_test=is_test,
@@ -396,6 +400,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         objectives: Optional[Dict[str, ObjectiveProperties]] = None,
         outcome_constraints: Optional[List[str]] = None,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         """Overwrite experiment's optimization config
 
@@ -405,11 +410,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 threshold: The bound in the objective's threshold constraint.
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
         """
         optimization_config = self.make_optimization_config_from_properties(
             objectives=objectives,
             outcome_constraints=outcome_constraints,
             status_quo_defined=self.experiment.status_quo is not None,
+            metric_definitions=metric_definitions,
         )
         if optimization_config:
             self.experiment.optimization_config = optimization_config

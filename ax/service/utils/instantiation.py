@@ -6,7 +6,7 @@
 
 import enum
 from dataclasses import dataclass
-from typing import cast, Dict, List, Optional, Tuple, Union
+from typing import Any, cast, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -105,11 +105,16 @@ class InstantiationBase:
         lower_is_better: Optional[bool] = None,
         metric_class_override: Optional[type] = None,
         for_opt_config: bool = False,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Metric:
         metric_class = (
             metric_class_override if metric_class_override is not None else Metric
         )
-        return metric_class(name=name, lower_is_better=lower_is_better)
+        return metric_class(
+            name=name,
+            lower_is_better=lower_is_better,
+            **(metric_definitions or {}).get(name, {}),
+        )
 
     @staticmethod
     def _get_parameter_type(python_type: TParameterType) -> ParameterType:
@@ -393,7 +398,11 @@ class InstantiationBase:
         )
 
     @classmethod
-    def outcome_constraint_from_str(cls, representation: str) -> OutcomeConstraint:
+    def outcome_constraint_from_str(
+        cls,
+        representation: str,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> OutcomeConstraint:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
         assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
@@ -411,7 +420,11 @@ class InstantiationBase:
         except ValueError:
             raise ValueError("Outcome constraint bound should be a float.")
         return OutcomeConstraint(
-            cls._make_metric(name=tokens[0], for_opt_config=True),
+            cls._make_metric(
+                name=tokens[0],
+                for_opt_config=True,
+                metric_definitions=metric_definitions,
+            ),
             op=op,
             bound=bound,
             relative=rel,
@@ -421,8 +434,11 @@ class InstantiationBase:
     def objective_threshold_constraint_from_str(
         cls,
         representation: str,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> ObjectiveThreshold:
-        oc = cls.outcome_constraint_from_str(representation)
+        oc = cls.outcome_constraint_from_str(
+            representation, metric_definitions=metric_definitions
+        )
         return ObjectiveThreshold(
             metric=oc.metric.clone(),
             bound=oc.bound,
@@ -431,7 +447,11 @@ class InstantiationBase:
         )
 
     @classmethod
-    def make_objectives(cls, objectives: Dict[str, str]) -> List[Objective]:
+    def make_objectives(
+        cls,
+        objectives: Dict[str, str],
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> List[Objective]:
         try:
             output_objectives = []
             for metric_name, min_or_max in objectives.items():
@@ -443,6 +463,7 @@ class InstantiationBase:
                         name=metric_name,
                         for_opt_config=True,
                         lower_is_better=minimize,
+                        metric_definitions=metric_definitions,
                     ),
                     minimize=minimize,
                 )
@@ -458,11 +479,15 @@ class InstantiationBase:
 
     @classmethod
     def make_outcome_constraints(
-        cls, outcome_constraints: List[str], status_quo_defined: bool
+        cls,
+        outcome_constraints: List[str],
+        status_quo_defined: bool,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[OutcomeConstraint]:
 
         typed_outcome_constraints = [
-            cls.outcome_constraint_from_str(c) for c in outcome_constraints
+            cls.outcome_constraint_from_str(c, metric_definitions=metric_definitions)
+            for c in outcome_constraints
         ]
 
         if status_quo_defined is False and any(
@@ -476,12 +501,17 @@ class InstantiationBase:
 
     @classmethod
     def make_objective_thresholds(
-        cls, objective_thresholds: List[str], status_quo_defined: bool
+        cls,
+        objective_thresholds: List[str],
+        status_quo_defined: bool,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[ObjectiveThreshold]:
 
         typed_objective_thresholds = (
             [
-                cls.objective_threshold_constraint_from_str(c)
+                cls.objective_threshold_constraint_from_str(
+                    c, metric_definitions=metric_definitions
+                )
                 for c in objective_thresholds
             ]
             if objective_thresholds is not None
@@ -542,12 +572,21 @@ class InstantiationBase:
         objective_thresholds: List[str],
         outcome_constraints: List[str],
         status_quo_defined: bool,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> OptimizationConfig:
 
         return cls.optimization_config_from_objectives(
-            cls.make_objectives(objectives),
-            cls.make_objective_thresholds(objective_thresholds, status_quo_defined),
-            cls.make_outcome_constraints(outcome_constraints, status_quo_defined),
+            cls.make_objectives(objectives, metric_definitions=metric_definitions),
+            cls.make_objective_thresholds(
+                objective_thresholds,
+                status_quo_defined,
+                metric_definitions=metric_definitions,
+            ),
+            cls.make_outcome_constraints(
+                outcome_constraints,
+                status_quo_defined,
+                metric_definitions=metric_definitions,
+            ),
         )
 
     @classmethod
@@ -555,6 +594,7 @@ class InstantiationBase:
         cls,
         objectives: Optional[Dict[str, ObjectiveProperties]] = None,
         outcome_constraints: Optional[List[str]] = None,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
         status_quo_defined: bool = False,
     ) -> Optional[OptimizationConfig]:
         """Makes optimization config based on ObjectiveProperties objects
@@ -566,6 +606,8 @@ class InstantiationBase:
             outcome_constraints: List of string representation of outcome
                 constraints of form "metric_name >= bound", like "m1 <= 3."
             status_quo_defined: bool for whether the experiment has a status quo
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
         """
         if objectives is not None:
             objective_thresholds = (
@@ -582,6 +624,7 @@ class InstantiationBase:
                 objective_thresholds=objective_thresholds,
                 outcome_constraints=outcome_constraints or [],
                 status_quo_defined=status_quo_defined,
+                metric_definitions=metric_definitions,
             )
         return None
 
@@ -684,6 +727,7 @@ class InstantiationBase:
         status_quo: Optional[TParameterization] = None,
         experiment_type: Optional[str] = None,
         tracking_metric_names: Optional[List[str]] = None,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
         # Single-objective optimization arguments:
         objective_name: Optional[str] = None,
         minimize: bool = False,
@@ -750,6 +794,8 @@ class InstantiationBase:
                 improve storage performance.
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
         """
         if objective_name is not None and (
             objectives is not None or objective_thresholds is not None
@@ -778,13 +824,16 @@ class InstantiationBase:
                 objective_thresholds or [],
                 outcome_constraints or [],
                 status_quo_arm is not None,
+                metric_definitions=metric_definitions,
             )
 
         tracking_metrics = (
             None
             if tracking_metric_names is None
             else [
-                cls._make_metric(name=metric_name)
+                cls._make_metric(
+                    name=metric_name, metric_definitions=metric_definitions
+                )
                 for metric_name in tracking_metric_names
             ]
         )
