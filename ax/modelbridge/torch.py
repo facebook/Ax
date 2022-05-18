@@ -339,7 +339,7 @@ class TorchModelBridge(ModelBridge):
             if Yvar.isnan().all():
                 dataset = SupervisedDataset(X=X, Y=Y)
             else:
-                dataset = FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                dataset = FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar.clamp_min(1e-6))
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
 
