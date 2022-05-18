@@ -816,6 +816,7 @@ class Decoder:
                 )
                 for gr in gs_sqa.generator_runs
             ]
+        gs._experiment = experiment
         if len(gs._generator_runs) > 0:
             # Generation strategy had an initialized model.
             if experiment is None:
@@ -823,7 +824,6 @@ class Decoder:
                     "Cannot decode a generation strategy with a non-zero number of "
                     "generator runs without an experiment."
                 )
-            gs._experiment = experiment
             # If model in the current step was not directly from the `Models` enum,
             # pass its type to `restore_model_from_generator_run`, which will then
             # attempt to use this type to recreate the model.
