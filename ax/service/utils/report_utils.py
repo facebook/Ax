@@ -8,6 +8,8 @@ from collections import defaultdict
 from logging import Logger
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+import gpytorch
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -138,13 +140,14 @@ def _get_objective_v_param_plots(
     if len(range_params) > 1:
         # contour plots
         try:
-            output_plots += [
-                interact_contour_plotly(
-                    model=not_none(model),
-                    metric_name=metric_name,
-                )
-                for metric_name in model.metric_names
-            ]
+            with gpytorch.settings.max_eager_kernel_size(float("inf")):
+                output_plots += [
+                    interact_contour_plotly(
+                        model=not_none(model),
+                        metric_name=metric_name,
+                    )
+                    for metric_name in model.metric_names
+                ]
         # `mean shape torch.Size` RunTimeErrors, pending resolution of
         # https://github.com/cornellius-gp/gpytorch/issues/1853
         except RuntimeError as e:
