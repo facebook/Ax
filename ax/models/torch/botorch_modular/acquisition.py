@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import operator
+import warnings
 from functools import partial, reduce
 from itertools import product
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -333,6 +335,21 @@ class Acquisition(Base):
             for (inds, weights, bound) in inequality_constraints:
                 is_feasible &= (all_choices[..., inds] * weights).sum(dim=-1) >= bound
             all_choices = all_choices[is_feasible]
+
+            num_choices = all_choices.size(dim=0)
+            if num_choices == 0:
+                raise SearchSpaceExhausted(
+                    "No more feasible choices in a fully discrete search space."
+                )
+            if num_choices < n:
+                warnings.warn(
+                    (
+                        f"Requested n={n} candidates from fully discrete search "
+                        f"space, but only {num_choices} possible choices remain."
+                    ),
+                    AxWarning,
+                )
+                n = num_choices
 
             return optimize_acqf_discrete(
                 acq_function=self.acqf,

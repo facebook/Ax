@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import itertools
 from contextlib import ExitStack
 from itertools import chain
 from typing import Any
@@ -14,6 +15,7 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import SubsetModelData
@@ -271,6 +273,32 @@ class AcquisitionTest(TestCase):
                 rounding_func=self.rounding_func,
                 optimizer_options=self.optimizer_options,
             )
+        # check that SearchSpaceExhausted is raised correctly
+        acquisition = self.get_acquisition_function()
+        all_possible_choices = list(itertools.product(*ssd1.discrete_choices.values()))
+        acquisition.X_observed = torch.tensor(all_possible_choices, **self.tkwargs)
+        with self.assertRaisesRegex(
+            SearchSpaceExhausted,
+            "No more feasible choices in a fully discrete search space.",
+        ):
+            acquisition.optimize(
+                n=1,
+                search_space_digest=ssd1,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        acquisition = self.get_acquisition_function()
+        with self.assertWarnsRegex(
+            AxWarning,
+            "only.*possible choices remain.",
+        ):
+            acquisition.optimize(
+                n=8,
+                search_space_digest=ssd1,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+
         # check this works without any fixed_feature specified
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
