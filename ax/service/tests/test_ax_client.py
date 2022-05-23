@@ -2122,7 +2122,7 @@ class TestAxClient(TestCase):
         )
         _, idx = ax_client.get_next_trial()
         ax_client.stop_trial_early(idx)
-        trial = ax_client.trial(idx)
+        trial = ax_client.get_trial(idx)
         self.assertTrue(trial.status.is_early_stopped)
 
     def test_max_parallelism_exception_when_early_stopping(self):
