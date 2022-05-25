@@ -12,12 +12,7 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
-from ax.benchmark.benchmark_result import (
-    AggregatedBenchmarkResult,
-    AggregatedScoredBenchmarkResult,
-    BenchmarkResult,
-    ScoredBenchmarkResult,
-)
+from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.problems.hpo.pytorch_cnn import PyTorchCNNMetric
 from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem,
@@ -271,8 +266,6 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "RangeParameter": RangeParameter,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
-    "ScoredBenchmarkResult": ScoredBenchmarkResult,
-    "AggregatedScoredBenchmarkResult": AggregatedScoredBenchmarkResult,
     "SearchSpace": SearchSpace,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,

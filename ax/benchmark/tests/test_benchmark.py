@@ -30,11 +30,14 @@ class TestBenchmark(TestCase):
             len(res.experiment.trials),
         )
 
-        # Assert optimization trace is monotonic
+        # Assert optimization and score traces are  monotonic
         for i in range(1, len(res.optimization_trace)):
             self.assertLessEqual(
                 res.optimization_trace[i], res.optimization_trace[i - 1]
             )
+            self.assertLessEqual(
+                res.score_trace[i], 100
+            )  # Score should never be over 100
 
     def test_replication_moo(self):
         method = get_sobol_benchmark_method()
@@ -73,9 +76,10 @@ class TestBenchmark(TestCase):
 
         # Assert optimization trace is monotonic
         for i in range(1, len(agg.optimization_trace)):
-            self.assertLessEqual(
-                agg.optimization_trace["mean"][i], agg.optimization_trace["mean"][i - 1]
-            )
+            for col in ["mean", "Q1", "Q2", "Q3"]:
+                self.assertLessEqual(
+                    agg.optimization_trace[col][i], agg.optimization_trace[col][i - 1]
+                )
 
     @fast_botorch_optimize
     def test_full_run(self):
@@ -90,7 +94,8 @@ class TestBenchmark(TestCase):
         # Assert optimization traces are monotonic
         for agg in aggs:
             for i in range(1, len(agg.optimization_trace)):
-                self.assertLessEqual(
-                    agg.optimization_trace["mean"][i],
-                    agg.optimization_trace["mean"][i - 1],
-                )
+                for col in ["mean", "Q1", "Q2", "Q3"]:
+                    self.assertLessEqual(
+                        agg.optimization_trace[col][i],
+                        agg.optimization_trace[col][i - 1],
+                    )

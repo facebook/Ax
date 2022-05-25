@@ -20,8 +20,13 @@ from time import time
 from typing import Iterable, List, Optional
 
 import numpy as np
+
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
+    MultiObjectiveBenchmarkProblem,
+    SingleObjectiveBenchmarkProblem,
+)
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
@@ -59,7 +64,36 @@ def benchmark_replication(
     with manual_seed(seed=replication_seed):
         scheduler.run_all_trials()
 
-    return _result_from_scheduler(scheduler=scheduler)
+    optimization_trace = np.array(
+        BestPointMixin.get_trace(experiment=scheduler.experiment)
+    )
+
+    num_sobol_trials = scheduler.generation_strategy._steps[0].num_trials
+    baseline = optimization_trace[num_sobol_trials - 1]
+
+    if isinstance(problem, SingleObjectiveBenchmarkProblem):
+        optimum = problem.optimal_value
+    elif isinstance(problem, MultiObjectiveBenchmarkProblem):
+        optimum = problem.maximum_hypervolume
+    else:
+        # If no known optimum exists assume the best found value is the optimum. This
+        # allows us to at least observe the shape of the curve
+        optimum = optimization_trace[-1]
+
+    score_trace = (
+        100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
+    ).clip(min=0)
+
+    fit_time, gen_time = get_model_times(experiment=scheduler.experiment)
+
+    return BenchmarkResult(
+        name=scheduler.experiment.name,
+        experiment=scheduler.experiment,
+        optimization_trace=optimization_trace,
+        score_trace=score_trace,
+        fit_time=fit_time,
+        gen_time=gen_time,
+    )
 
 
 def benchmark_test(
@@ -95,19 +129,3 @@ def benchmark_full_run(
         for problem in problems
         for method in methods
     ]
-
-
-def _result_from_scheduler(scheduler: Scheduler) -> BenchmarkResult:
-    fit_time, gen_time = get_model_times(experiment=scheduler.experiment)
-
-    return BenchmarkResult(
-        name=scheduler.experiment.name,
-        experiment=scheduler.experiment,
-        optimization_trace=_get_trace(scheduler=scheduler),
-        fit_time=fit_time,
-        gen_time=gen_time,
-    )
-
-
-def _get_trace(scheduler: Scheduler) -> np.ndarray:
-    return np.array(BestPointMixin.get_trace(experiment=scheduler.experiment))
