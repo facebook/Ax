@@ -111,7 +111,7 @@ class TorchModelBridge(ModelBridge):
         objective_thresholds: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
-        self.dtype = torch_dtype
+        self.dtype = torch.double if torch_dtype is None else torch_dtype
         self.device = torch_device
         self._default_model_gen_options = default_model_gen_options or {}
 
@@ -289,9 +289,8 @@ class TorchModelBridge(ModelBridge):
     def _array_to_tensor(self, array: Union[np.ndarray, List[float]]) -> Tensor:
         return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
-    @classmethod
     def _convert_observations(
-        cls,
+        self,
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
         outcomes: List[str],
@@ -303,8 +302,8 @@ class TorchModelBridge(ModelBridge):
         candidate metadata.
         """
         Xs: Dict[str, List[Tensor]] = defaultdict(list)
-        Ys: Dict[str, List[Tensor]] = defaultdict(list)
-        Yvars: Dict[str, List[Tensor]] = defaultdict(list)
+        Ys: Dict[str, List[np.ndarray]] = defaultdict(list)
+        Yvars: Dict[str, List[np.ndarray]] = defaultdict(list)
         datasets: List[Optional[SupervisedDataset]] = []
         candidate_metadata_dict: Dict[str, List[TCandidateMetadata]] = defaultdict(list)
         any_candidate_metadata_is_not_none = False
@@ -312,7 +311,9 @@ class TorchModelBridge(ModelBridge):
         for obsd, obsf in zip(observation_data, observation_features):
             try:
                 x = torch.tensor(
-                    [obsf.parameters[p] for p in parameters], dtype=torch.double
+                    [obsf.parameters[p] for p in parameters],
+                    dtype=self.dtype,
+                    device=self.device,
                 )
             except (KeyError, TypeError):
                 raise ValueError("Out of design points cannot be converted.")
@@ -334,8 +335,12 @@ class TorchModelBridge(ModelBridge):
                 candidate_metadata.append(None)
                 continue
             X = torch.stack(Xs[outcome], dim=0)
-            Y = torch.tensor(Ys[outcome], dtype=torch.double).unsqueeze(-1)
-            Yvar = torch.tensor(Yvars[outcome], dtype=torch.double).unsqueeze(-1)
+            Y = torch.tensor(
+                Ys[outcome], dtype=self.dtype, device=self.device
+            ).unsqueeze(-1)
+            Yvar = torch.tensor(
+                Yvars[outcome], dtype=self.dtype, device=self.device
+            ).unsqueeze(-1)
             if Yvar.isnan().all():
                 dataset = SupervisedDataset(X=X, Y=Y)
             else:
@@ -693,7 +698,7 @@ class TorchModelBridge(ModelBridge):
         if pending_arrays is None:
             pending_tensors = None
         else:
-            pending_tensors = [torch.from_numpy(pa) for pa in pending_arrays]
+            pending_tensors = [self._array_to_tensor(pa) for pa in pending_arrays]
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
         )
