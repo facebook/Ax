@@ -116,20 +116,21 @@ class TorchModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
-    def testTorchModelBridge(self, mock_init):
+    def testTorchModelBridge(self, mock_init, dtype=None, device=None):
         ma = TorchModelBridge(
             experiment=None,
             search_space=None,
             data=None,
             model=None,
             transforms=[],
-            torch_dtype=torch.double,
-            torch_device=torch.device("cpu"),
+            torch_dtype=dtype,
+            torch_device=device,
         )
-        self.assertEqual(ma.dtype, torch.double)
-        self.assertEqual(ma.device, torch.device("cpu"))
+        dtype = dtype or torch.double
+        self.assertEqual(ma.dtype, dtype)
+        self.assertEqual(ma.device, device)
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
-
+        tkwargs = {"dtype": dtype, "device": device}
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
@@ -137,17 +138,17 @@ class TorchModelBridgeTest(TestCase):
         type(search_space).parameters = mock.PropertyMock(
             return_value={fn: None for fn in feature_names}  # only need `.keys()`
         )
-        X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=torch.double)
+        X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         datasets = {
             "y1": FixedNoiseDataset(
                 X=X,
-                Y=torch.tensor([[3.0], [1.0]], dtype=torch.double),
-                Yvar=torch.tensor([[4.0], [2.0]], dtype=torch.double),
+                Y=torch.tensor([[3.0], [1.0]], **tkwargs),
+                Yvar=torch.tensor([[4.0], [2.0]], **tkwargs),
             ),
             "y2": FixedNoiseDataset(
                 X=X,
-                Y=torch.tensor([[2.0], [0.0]], dtype=torch.double),
-                Yvar=torch.tensor([[2.0], [1.0]], dtype=torch.double),
+                Y=torch.tensor([[2.0], [0.0]], **tkwargs),
+                Yvar=torch.tensor([[2.0], [1.0]], **tkwargs),
             ),
         }
         observation_features = [
@@ -203,8 +204,8 @@ class TorchModelBridgeTest(TestCase):
 
         # Test `_predict`
         model.predict.return_value = (
-            torch.tensor([[3.0, 2.0]], dtype=torch.double),
-            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], dtype=torch.double),
+            torch.tensor([[3.0, 2.0]], **tkwargs),
+            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], **tkwargs),
         )
         pr_obs_data_expected = ObservationData(
             metric_names=["y1", "y2"],
@@ -218,8 +219,6 @@ class TorchModelBridgeTest(TestCase):
             [pr_obs_data_expected],
         )
 
-        tkwargs = {"dtype": torch.double, "device": torch.device("cpu")}
-
         # Test `_gen`
 
         # Hack in some properties set in the (mocked) `Modelbridge.__init__`
@@ -232,8 +231,8 @@ class TorchModelBridgeTest(TestCase):
         ma._bridge_kwargs = None
 
         model.gen.return_value = TorchGenResults(
-            points=torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.double),
-            weights=torch.tensor([1.0], dtype=torch.double),
+            points=torch.tensor([[1.0, 2.0, 3.0]], **tkwargs),
+            weights=torch.tensor([1.0], **tkwargs),
             gen_metadata={"foo": 99},
         )
 
@@ -299,10 +298,6 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
         self.assertIs(gen_args["rounding_func"], torch.round)
         self.assertEqual(gen_args["target_fidelities"], {})
-        # # check rounding function
-        # t = torch.tensor([0.1, 0.6, 0.9], **tkwargs)
-        # breakpoint()
-        # # self.assertTrue(torch.equal(gen_args["rounding_func"](t), torch.round(t)))
 
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
@@ -312,8 +307,8 @@ class TorchModelBridgeTest(TestCase):
 
         # Test `_cross_validate`
         model.cross_validate.return_value = (
-            torch.tensor([[3.0, 2.0]], dtype=torch.double),
-            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], dtype=torch.double),
+            torch.tensor([[3.0, 2.0]], **tkwargs),
+            torch.tensor([[[4.0, 0.0], [0.0, 3.0]]], **tkwargs),
         )
         cv_obs_data_expected = ObservationData(
             metric_names=["y1", "y2"],
@@ -323,7 +318,7 @@ class TorchModelBridgeTest(TestCase):
         cv_test_points = [
             ObservationFeatures(parameters={"x1": 1.0, "x2": 3.0, "x3": 2.0})
         ]
-        X_test = torch.tensor([[1.0, 3.0, 2.0]], dtype=torch.double)
+        X_test = torch.tensor([[1.0, 3.0, 2.0]], **tkwargs)
 
         with mock.patch(
             f"{TorchModelBridge.__module__}.extract_search_space_digest",
@@ -353,11 +348,18 @@ class TorchModelBridgeTest(TestCase):
             data=None,
             model=None,
             transforms=[],
-            torch_dtype=torch.float64,
-            torch_device=torch.device("cpu"),
+            torch_dtype=dtype,
+            torch_device=device,
             fit_out_of_design=True,
         )
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
+
+    def testTorchModelBridge_float(self):
+        self.testTorchModelBridge(dtype=torch.float)
+
+    def testTorchModelBridge_cuda(self):
+        if torch.cuda.is_available():
+            self.testTorchModelBridge(device=torch.device("cuda"))
 
     @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
     @mock.patch(f"{ModelBridge.__module__}.ModelBridge.__init__")
