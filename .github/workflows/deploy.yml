@@ -31,6 +31,7 @@ jobs:
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For tensorboard unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'latest'
     - name: Install dependencies (pinned Botorch)
       run: |
@@ -38,6 +39,7 @@ jobs:
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For tensorboard unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'pinned'
     - name: Import Ax
       run: |
@@ -70,6 +72,7 @@ jobs:
         pip install pyro-ppl  # Required for to call run_inference
         pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
         pip install torchx  # For generating Sphinx docs for TorchXMetric.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}

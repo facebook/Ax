@@ -32,6 +32,7 @@ jobs:
         pip install tensorboard  # For tensorboard unit tests
         pip install torchvision # For torchvision unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, stable Botorch)
       run: |
@@ -39,6 +40,7 @@ jobs:
         pip install tensorboard  # For tensorboard unit tests
         pip install torchvision # For torchvision unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'pinned' && matrix.requirements == 'minimal'
     - name: Install dependencies (full requirements, Botorch main)
       env:
@@ -50,6 +52,7 @@ jobs:
         pip install tensorboard  # For tensorboard unit tests
         pip install torchvision # For torchvision unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'latest' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, Botorch main)
       env:
@@ -61,6 +64,7 @@ jobs:
         pip install tensorboard  # For tensorboard unit tests
         pip install torchvision # For torchvision unit tests
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
       if: matrix.botorch == 'latest' && matrix.requirements == 'minimal'
     - name: Import Ax
       run: |
@@ -92,6 +96,7 @@ jobs:
         pip install tensorboardX  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
         pip install pyro-ppl  # Required for to call run_inference
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Build tutorials
       run: |
         python scripts/make_tutorials.py -w $(pwd) -e
@@ -123,6 +128,7 @@ jobs:
         pip install pyro-ppl  # Required for to call run_inference
         pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
         pip install torchx  # For generating Sphinx docs for TorchXMetric.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}

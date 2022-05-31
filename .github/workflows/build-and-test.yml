@@ -31,6 +31,7 @@ jobs:
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For tensorboard unit tests.
         pip install torchx  # For torchx unit tests.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
@@ -86,6 +87,7 @@ jobs:
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric.
         pip install torchx  # For generating Sphinx docs for TorchXMetric.
+        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Validate Sphinx
       run: |
         python scripts/validate_sphinx.py -p "${pwd}"
