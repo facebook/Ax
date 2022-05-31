@@ -9,6 +9,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.posterior_mean import get_PosteriorMean
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from botorch.utils.datasets import FixedNoiseDataset
 
@@ -27,6 +28,10 @@ class PosteriorMeanTest(TestCase):
             torch.tensor([[1.0]], **self.tkwargs),
             torch.tensor([[5.0]], **self.tkwargs),
         )
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=self.bounds,
+        )
 
     def test_GetPosteriorMean(self):
 
@@ -35,19 +40,17 @@ class PosteriorMeanTest(TestCase):
         model.fit(
             datasets=[dataset],
             metric_names=["y"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
 
         # test model.gen() with no outcome_constraints. Analytic.
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
         gen_results = model.gen(
             n=1,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            linear_constraints=None,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=TorchOptConfig(
+                objective_weights=self.objective_weights,
+            ),
         )
         self.assertTrue(
             torch.equal(gen_results.weights, torch.ones(1, dtype=self.tkwargs["dtype"]))
@@ -57,10 +60,11 @@ class PosteriorMeanTest(TestCase):
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
         model.gen(
             n=1,
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=None,
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=TorchOptConfig(
+                objective_weights=self.objective_weights,
+                outcome_constraints=self.outcome_constraints,
+            ),
         )
 
         # test model.gen() works with chebyshev scalarization.
@@ -68,25 +72,23 @@ class PosteriorMeanTest(TestCase):
         model.fit(
             datasets=[dataset, dataset],
             metric_names=["m1", "m2"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
         model.gen(
             n=1,
-            bounds=self.bounds,
-            objective_weights=torch.ones(2, **self.tkwargs),
-            outcome_constraints=(
-                torch.tensor([[1.0, 0.0]], **self.tkwargs),
-                torch.tensor([[5.0]], **self.tkwargs),
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=TorchOptConfig(
+                objective_weights=torch.ones(2, **self.tkwargs),
+                outcome_constraints=(
+                    torch.tensor([[1.0, 0.0]], **self.tkwargs),
+                    torch.tensor([[5.0]], **self.tkwargs),
+                ),
+                objective_thresholds=torch.zeros(2, **self.tkwargs),
+                model_gen_options={
+                    "acquisition_function_kwargs": {"chebyshev_scalarization": True}
+                },
             ),
-            objective_thresholds=torch.zeros(2, **self.tkwargs),
-            linear_constraints=None,
-            model_gen_options={
-                "acquisition_function_kwargs": {"chebyshev_scalarization": True}
-            },
         )
 
         # ValueError with empty X_Observed

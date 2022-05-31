@@ -11,8 +11,7 @@ from ax.core.types import TCandidateMetadata
 from ax.models.torch.alebo import ei_or_nei
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
-from ax.models.torch_base import TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.fit import fit_gpytorch_model
@@ -119,13 +118,8 @@ class LCEABO(BotorchModel):
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         raise NotImplementedError
 

@@ -4,11 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_kg import _instantiate_KG, KnowledgeGradient
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import PosteriorMean
@@ -54,6 +56,10 @@ class KnowledgeGradientTest(TestCase):
         self.objective_weights = torch.ones(1, **self.tkwargs)
         self.moo_objective_weights = torch.ones(2, **self.tkwargs)
         self.objective_thresholds = torch.tensor([0.5, 1.5])
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=self.bounds,
+        )
 
     @fast_botorch_optimize
     def test_KnowledgeGradient(self):
@@ -61,10 +67,7 @@ class KnowledgeGradientTest(TestCase):
         model.fit(
             datasets=[self.dataset],
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
 
         n = 2
@@ -72,18 +75,20 @@ class KnowledgeGradientTest(TestCase):
         X_dummy = torch.rand(1, n, 4, **self.tkwargs)
         acq_dummy = torch.tensor(0.0, **self.tkwargs)
 
+        torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            model_gen_options={
+                "acquisition_function_kwargs": self.acq_options,
+                "optimizer_kwargs": self.optimizer_options,
+            },
+        )
+
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(X_dummy, acq_dummy)]
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": self.optimizer_options,
-                },
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
             self.assertTrue(
@@ -103,20 +108,15 @@ class KnowledgeGradientTest(TestCase):
             "batch_limit": 1,
             "partial_restarts": 2,
         }
+        torch_opt_config.model_gen_options["optimizer_kwargs"] = optimizer_options2
         with mock.patch(
             "ax.models.torch.botorch_kg.gen_one_shot_kg_initial_conditions",
             return_value=ini_dummy,
         ) as mock_warmstart_initialization:
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": optimizer_options2,
-                },
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             mock_warmstart_initialization.assert_called_once()
 
@@ -127,20 +127,15 @@ class KnowledgeGradientTest(TestCase):
         ) as mock_posterior_mean:
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": optimizer_options2,
-                },
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             self.assertEqual(mock_posterior_mean.call_count, 2)
 
         # Check best point selection within bounds (some numerical tolerance)
         xbest = model.best_point(
-            bounds=self.bounds, objective_weights=self.objective_weights
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
         lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
         ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
@@ -148,17 +143,18 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(torch.all(xbest >= lb))
 
         # test error message
-        linear_constraints = (
-            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-            torch.tensor([[0.5], [1.0]]),
+        torch_opt_config = dataclasses.replace(
+            torch_opt_config,
+            linear_constraints=(
+                torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+                torch.tensor([[0.5], [1.0]]),
+            ),
         )
         with self.assertRaises(UnsupportedError):
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=linear_constraints,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
 
         # test input warping
@@ -166,10 +162,7 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient(use_input_warping=True)
         model.fit(
             datasets=[self.dataset],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
         )
         self.assertTrue(model.use_input_warping)
@@ -181,32 +174,37 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
         model.fit(
             datasets=[self.dataset],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
             metric_names=self.metric_names,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
     def test_KnowledgeGradient_multifidelity(self):
+        search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=self.bounds,
+            fidelity_features=[2],
+            target_fidelities={2: 5.0},
+        )
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
             metric_names=["L2NormMetric"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                fidelity_features=[2],
-            ),
+            search_space_digest=search_space_digest,
         )
 
+        torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            model_gen_options={
+                "acquisition_function_kwargs": self.acq_options,
+                "optimizer_kwargs": self.optimizer_options,
+            },
+        )
         # Check best point selection within bounds (some numerical tolerance)
         xbest = model.best_point(
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            target_fidelities={2: 5.0},
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
         lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
         ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
@@ -216,7 +214,11 @@ class KnowledgeGradientTest(TestCase):
         # check error when no target fidelities are specified
         with self.assertRaises(RuntimeError):
             model.best_point(
-                bounds=self.bounds, objective_weights=self.objective_weights
+                search_space_digest=dataclasses.replace(
+                    search_space_digest,
+                    target_fidelities={},
+                ),
+                torch_opt_config=torch_opt_config,
             )
 
         # check generation
@@ -227,15 +229,8 @@ class KnowledgeGradientTest(TestCase):
         with mock.patch(self.optimize_acqf, side_effect=[dummy]) as mock_optimize_acqf:
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": self.optimizer_options,
-                },
-                target_fidelities={2: 5.0},
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
             self.assertTrue(
@@ -246,16 +241,16 @@ class KnowledgeGradientTest(TestCase):
             mock_optimize_acqf.assert_called()  # called twice, once for best_point
 
         # test error message
-        linear_constraints = (
-            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-            torch.tensor([[0.5], [1.0]]),
-        )
         with self.assertRaises(UnsupportedError):
             xbest = model.best_point(
-                bounds=self.bounds,
-                linear_constraints=linear_constraints,
-                objective_weights=self.objective_weights,
-                target_fidelities={2: 1.0},
+                search_space_digest=search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    linear_constraints=(
+                        torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+                        torch.tensor([[0.5], [1.0]]),
+                    ),
+                ),
             )
 
         # test input warping
@@ -264,11 +259,7 @@ class KnowledgeGradientTest(TestCase):
         model.fit(
             datasets=[self.dataset],
             metric_names=["L2NormMetric"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                fidelity_features=[2],
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -280,11 +271,7 @@ class KnowledgeGradientTest(TestCase):
         model.fit(
             datasets=[self.dataset],
             metric_names=["L2NormMetric"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                fidelity_features=[2],
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 

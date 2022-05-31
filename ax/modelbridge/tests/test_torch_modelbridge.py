@@ -27,6 +27,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
+    get_branin_search_space,
     get_search_space_for_range_value,
 )
 from ax.utils.testing.modeling_stubs import get_observation1
@@ -280,25 +281,25 @@ class TorchModelBridgeTest(TestCase):
             )
         gen_args = model.gen.mock_calls[0][2]
         self.assertEqual(gen_args["n"], 3)
-        self.assertEqual(gen_args["bounds"], [(0, 1)] * 3)
+        self.assertEqual(gen_args["search_space_digest"].bounds, [(0, 1)] * 3)
+        gen_opt_config = gen_args["torch_opt_config"]
         self.assertTrue(
             torch.equal(
-                gen_args["objective_weights"],
+                gen_opt_config.objective_weights,
                 torch.tensor([1.0, 0.0], **tkwargs),
             )
         )
-        self.assertIsNone(gen_args["outcome_constraints"])
-        self.assertIsNone(gen_args["linear_constraints"])
-        self.assertEqual(gen_args["fixed_features"], {1: 3.0})
-        X_pending_y1, X_pending_y2 = gen_args["pending_observations"]
+        self.assertIsNone(gen_opt_config.outcome_constraints)
+        self.assertIsNone(gen_opt_config.linear_constraints)
+        self.assertEqual(gen_opt_config.fixed_features, {1: 3.0})
+        X_pending_y1, X_pending_y2 = gen_opt_config.pending_observations
         self.assertTrue(torch.equal(X_pending_y1, torch.tensor([], **tkwargs)))
         self.assertTrue(
             torch.equal(X_pending_y2, torch.tensor([[1.0, 2.0, 3.0]], **tkwargs))
         )
-        self.assertEqual(gen_args["model_gen_options"], {"option": "yes"})
-        self.assertIs(gen_args["rounding_func"], torch.round)
-        self.assertEqual(gen_args["target_fidelities"], {})
-
+        self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
+        self.assertIs(gen_opt_config.rounding_func, torch.round)
+        self.assertEqual(gen_args["search_space_digest"].target_fidelities, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
         self.assertEqual(gen_run.weights, [1.0])
@@ -381,7 +382,7 @@ class TorchModelBridgeTest(TestCase):
         model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
         model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
 
-        ma._model_space = None
+        ma._model_space = get_branin_search_space()
         ma._optimization_config = None
         ma.outcomes = ["test_metric"]
 
@@ -406,9 +407,10 @@ class TorchModelBridgeTest(TestCase):
             )
 
         self.assertEqual(acqf_vals, [5.0])
-        t.transform_observation_features.assert_called_with(
-            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        t.transform_observation_features.assert_any_call(
+            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
         )
+        t.transform_observation_features.reset_mock()
         model_eval_acqf.assert_called_once()
         self.assertTrue(
             torch.equal(  # `call_args` is an (args, kwargs) tuple
@@ -432,9 +434,10 @@ class TorchModelBridgeTest(TestCase):
                     objective=Objective(metric=Metric(name="test_metric"))
                 ),
             )
-        t.transform_observation_features.assert_called_with(
-            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
+        t.transform_observation_features.assert_any_call(
+            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
         )
+        t.transform_observation_features.reset_mock()
         self.assertTrue(
             torch.equal(  # `call_args` is an (args, kwargs) tuple
                 model_eval_acqf.call_args[-1]["X"],
@@ -457,11 +460,11 @@ class TorchModelBridgeTest(TestCase):
                     objective=Objective(metric=Metric(name="test_metric"))
                 ),
             )
-        t.transform_observation_features.assert_called_with(
+        t.transform_observation_features.assert_any_call(
             [
                 ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
                 ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-            ]
+            ],
         )
         self.assertTrue(
             torch.equal(  # `call_args` is an (args, kwargs) tuple
@@ -492,11 +495,6 @@ class TorchModelBridgeTest(TestCase):
     )
     @mock.patch(f"{TorchModelBridge.__module__}.TorchModelBridge._fit", autospec=True)
     @mock.patch(
-        f"{TorchModel.__module__}.TorchModel.best_point",
-        return_value=torch.tensor([1.0, 2.0]),
-        autospec=True,
-    )
-    @mock.patch(
         f"{TorchModel.__module__}.TorchModel.gen",
         return_value=TorchGenResults(
             points=torch.tensor([[1, 2]]),
@@ -507,7 +505,6 @@ class TorchModelBridgeTest(TestCase):
     def test_best_point(
         self,
         _mock_gen,
-        _mock_best_point,
         _mock_fit,
         _mock_predict,
         _mock_gen_arms,
@@ -538,14 +535,17 @@ class TorchModelBridgeTest(TestCase):
         modelbridge.parameters = list(search_space.parameters.keys())
         modelbridge.outcomes = ["a"]
 
-        run = modelbridge.gen(n=1, optimization_config=oc)
-
-        arm, predictions = run.best_arm_predictions
+        with mock.patch(
+            f"{TorchModel.__module__}.TorchModel.best_point",
+            return_value=torch.tensor([1.0, 2.0]),
+            autospec=True,
+        ):
+            run = modelbridge.gen(n=1, optimization_config=oc)
+            arm, predictions = run.best_arm_predictions
+            model_arm, model_predictions = modelbridge.model_best_point()
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
-
-        model_arm, model_predictions = modelbridge.model_best_point()
         self.assertEqual(model_predictions[0], {"m": 1.0})
         self.assertEqual(model_predictions[1], {"m": {"m": 2.0}})
 
@@ -566,6 +566,14 @@ class TorchModelBridgeTest(TestCase):
                     ],
                 ),
             )
+
+        with mock.patch(
+            f"{TorchModel.__module__}.TorchModel.best_point",
+            side_effect=NotImplementedError,
+            autospec=True,
+        ):
+            res = modelbridge.model_best_point()
+        self.assertIsNone(res)
 
     @mock.patch(
         f"{ModelBridge.__module__}.observations_from_data",

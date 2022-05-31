@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 from contextlib import ExitStack
 from itertools import chain
@@ -19,8 +20,10 @@ from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import SubsetModelData
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
@@ -105,18 +108,23 @@ class AcquisitionTest(TestCase):
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.tkwargs = tkwargs
+        self.torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            objective_thresholds=self.objective_thresholds,
+            pending_observations=self.pending_observations,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+        )
 
     def get_acquisition_function(self, fixed_features=None):
         return Acquisition(
             botorch_acqf_class=self.botorch_acqf_class,
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
-            objective_thresholds=self.objective_thresholds,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=fixed_features or {},
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config, fixed_features=fixed_features or {}
+            ),
             options=self.options,
         )
 
@@ -150,7 +158,7 @@ class AcquisitionTest(TestCase):
             Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
-                objective_weights=self.objective_weights,
+                torch_opt_config=self.torch_opt_config,
             )
 
         botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
@@ -159,14 +167,9 @@ class AcquisitionTest(TestCase):
         acquisition = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
+            torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
             options=self.options,
-            objective_thresholds=self.objective_thresholds,
         )
 
         # Check `_get_X_pending_and_observed` kwargs
@@ -181,7 +184,8 @@ class AcquisitionTest(TestCase):
             "linear_constraints",
             "fixed_features",
         ):
-            self.assertIs(ckwargs[attr], getattr(self, attr))
+            self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
+            # self.assertEqual(ckwargs[attr], getattr(self, attr))
         self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
 
         # Call `subset_model` only when needed
@@ -199,12 +203,8 @@ class AcquisitionTest(TestCase):
         acquisition = Acquisition(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
+            torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
             options=self.options,
         )
         mock_subset_model.assert_not_called()
@@ -443,18 +443,12 @@ class AcquisitionTest(TestCase):
         acquisition = self.get_acquisition_function(self.fixed_features)
         acquisition.best_point(
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=self.torch_opt_config,
             options=self.options,
         )
         mock_best_point.assert_called_with(
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=self.torch_opt_config,
             options=self.options,
         )
 
@@ -484,17 +478,18 @@ class AcquisitionTest(TestCase):
             torch.tensor([[10.0]], **self.tkwargs),
         )
 
+        torch_opt_config = dataclasses.replace(
+            self.torch_opt_config,
+            objective_weights=moo_objective_weights,
+            outcome_constraints=outcome_constraints,
+            objective_thresholds=moo_objective_thresholds,
+        )
         acquisition = Acquisition(
             surrogate=self.surrogate,
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             search_space_digest=self.search_space_digest,
-            objective_weights=moo_objective_weights,
-            pending_observations=self.pending_observations,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=torch_opt_config,
             options=self.options,
-            objective_thresholds=moo_objective_thresholds,
         )
         self.assertTrue(
             torch.equal(
@@ -524,12 +519,11 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
-                objective_weights=moo_objective_weights,
                 botorch_acqf_class=self.botorch_acqf_class,
-                pending_observations=self.pending_observations,
-                outcome_constraints=outcome_constraints,
-                linear_constraints=self.linear_constraints,
-                fixed_features=self.fixed_features,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    objective_thresholds=None,
+                ),
                 options=self.options,
             )
             self.assertTrue(

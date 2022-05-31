@@ -22,6 +22,7 @@ from ax.models.torch.utils import (
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
+from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -331,10 +332,7 @@ class Surrogate(Base):
     def best_in_sample_point(
         self,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Optional[Tensor],
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        torch_opt_config: TorchOptConfig,
         options: Optional[TConfig] = None,
     ) -> Tuple[Tensor, float]:
         """Finds the best observed point and the corresponding observed outcome
@@ -349,10 +347,10 @@ class Surrogate(Base):
             # the annotation for `model` kwarg to accept `Surrogate` too.
             model=self,
             bounds=search_space_digest.bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
             options=options,
         )
         if best_point_and_observed_value is None:
@@ -363,16 +361,13 @@ class Surrogate(Base):
     def best_out_of_sample_point(
         self,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        torch_opt_config: TorchOptConfig,
         options: Optional[TConfig] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
         """
-        if fixed_features:
+        if torch_opt_config.fixed_features:
             # When have fixed features, need `FixedFeatureAcquisitionFunction`
             # which has peculiar instantiation (wraps another acquisition fn.),
             # so need to figure out how to handle.
@@ -381,7 +376,7 @@ class Surrogate(Base):
 
         options = options or {}
         acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-            outcome_constraints=outcome_constraints,
+            outcome_constraints=torch_opt_config.outcome_constraints,
             seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
             qmc=checked_cast(bool, options.get(Keys.QMC, True)),
         )
@@ -393,19 +388,16 @@ class Surrogate(Base):
             surrogate=self,
             botorch_acqf_class=acqf_class,
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            torch_opt_config=torch_opt_config,
             options=acqf_options,
         )
         candidates, acqf_values = acqf.optimize(
             n=1,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
-                linear_constraints=linear_constraints
+                linear_constraints=torch_opt_config.linear_constraints
             ),
-            fixed_features=fixed_features,
+            fixed_features=torch_opt_config.fixed_features,
         )
         return candidates[0], acqf_values[0]
 

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from contextlib import ExitStack
 from typing import Dict
 from unittest import mock
@@ -21,6 +22,7 @@ from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
 )
 from ax.models.torch.utils import HYPERSPHERE
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
@@ -129,19 +131,29 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=["y1", "y2"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
+        torch_opt_config = TorchOptConfig(
+            objective_weights=objective_weights,
+            objective_thresholds=obj_t,
+            model_gen_options={
+                "acquisition_function_kwargs": {"random_scalarization": True},
+                "optimizer_kwargs": _get_optimizer_kwargs(),
+                "subset_model": False,
+            },
+        )
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,
@@ -149,17 +161,16 @@ class BotorchMOOModelTest(TestCase):
         ) as _mock_sample_simplex:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                objective_thresholds=obj_t,
-                model_gen_options={
-                    "acquisition_function_kwargs": {"random_scalarization": True},
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                },
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # Sample_simplex should be called once for generated candidate.
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
+        torch_opt_config.model_gen_options["acquisition_function_kwargs"] = {
+            "random_scalarization": True,
+            "random_scalarization_distribution": HYPERSPHERE,
+        }
         with mock.patch(
             SAMPLE_HYPERSPHERE_UTIL_PATH,
             autospec=True,
@@ -167,16 +178,8 @@ class BotorchMOOModelTest(TestCase):
         ) as _mock_sample_hypersphere:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                objective_thresholds=obj_t,
-                model_gen_options={
-                    "acquisition_function_kwargs": {
-                        "random_scalarization": True,
-                        "random_scalarization_distribution": HYPERSPHERE,
-                    },
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                },
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # Sample_simplex should be called once per generated candidate.
             self.assertEqual(n, _mock_sample_hypersphere.call_count)
@@ -189,11 +192,7 @@ class BotorchMOOModelTest(TestCase):
         model.fit(
             datasets=training_data,
             metric_names=["y1", "y2"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=fns,
-                bounds=bounds,
-                task_features=tfs,
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
         self.assertIsInstance(model.model, ModelListGP)
@@ -210,11 +209,7 @@ class BotorchMOOModelTest(TestCase):
         model.fit(
             datasets=training_data,
             metric_names=["y1", "y2"],
-            search_space_digest=SearchSpaceDigest(
-                feature_names=fns,
-                bounds=bounds,
-                task_features=tfs,
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -241,31 +236,35 @@ class BotorchMOOModelTest(TestCase):
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=["y1", "y2"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
+        torch_opt_config = TorchOptConfig(
+            objective_weights=objective_weights,
+            objective_thresholds=obj_t,
+            model_gen_options={
+                "acquisition_function_kwargs": {"chebyshev_scalarization": True},
+                "optimizer_kwargs": _get_optimizer_kwargs(),
+            },
+        )
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
         ) as _mock_chebyshev_scalarization:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                objective_thresholds=obj_t,
-                model_gen_options={
-                    "acquisition_function_kwargs": {"chebyshev_scalarization": True},
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                },
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
@@ -302,15 +301,16 @@ class BotorchMOOModelTest(TestCase):
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=["y1", "y2"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
         with ExitStack() as es:
@@ -346,12 +346,15 @@ class BotorchMOOModelTest(TestCase):
                     wraps=moo_monte_carlo.FastNondominatedPartitioning,
                 )
             )
-            gen_results = model.gen(
-                n,
-                bounds,
-                objective_weights,
+            torch_opt_config = TorchOptConfig(
+                objective_weights=objective_weights,
                 objective_thresholds=obj_t,
                 model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+            )
+            gen_results = model.gen(
+                n,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # the NEHVI acquisition function should be created only once.
             self.assertEqual(1, _mock_acqf.call_count)
@@ -371,18 +374,17 @@ class BotorchMOOModelTest(TestCase):
             model.fit(
                 datasets=training_data_m3,
                 metric_names=["y1", "y2", "y3"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
+            )
+            torch_opt_config = TorchOptConfig(
+                objective_weights=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
+                objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
+                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
             )
             model.gen(
                 n,
-                bounds,
-                torch.tensor([1.0, 1.0, 1.0], **tkwargs),
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # check partitioning strategy
             # NEHVI should call FastNondominatedPartitioning 129 times because
@@ -408,11 +410,7 @@ class BotorchMOOModelTest(TestCase):
             model.fit(
                 datasets=training_data_multiple,
                 metric_names=["y1", "y2", "dummy_metric"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_model_infer_objective_thresholds = es.enter_context(
                 mock.patch(
@@ -464,9 +462,7 @@ class BotorchMOOModelTest(TestCase):
                 torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
                 torch.tensor([[10.0]], **tkwargs),
             )
-            gen_results = model.gen(
-                n,
-                bounds,
+            torch_opt_config = TorchOptConfig(
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 outcome_constraints=outcome_constraints,
                 model_gen_options={
@@ -478,6 +474,11 @@ class BotorchMOOModelTest(TestCase):
                         "prune_baseline": False,
                     },
                 },
+            )
+            gen_results = model.gen(
+                n,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # the NEHVI acquisition function should be created only once.
             self.assertEqual(_mock_acqf.call_count, 3)
@@ -528,19 +529,11 @@ class BotorchMOOModelTest(TestCase):
             provided_obj_t = torch.tensor([10.0, 4.0, float("nan")], **tkwargs)
             gen_results = model.gen(
                 n,
-                bounds,
-                objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
-                outcome_constraints=outcome_constraints,
-                model_gen_options={
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                    # do not used cached root decomposition since
-                    # MockPosterior does not have an mvn attribute
-                    "acquisition_function_kwargs": {
-                        "cache_root": False,
-                        "prune_baseline": False,
-                    },
-                },
-                objective_thresholds=provided_obj_t,
+                search_space_digest=search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    objective_thresholds=provided_obj_t,
+                ),
             )
             self.assertIn("objective_thresholds", gen_results.gen_metadata)
             obj_t = gen_results.gen_metadata["objective_thresholds"]
@@ -571,15 +564,16 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=mns,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
@@ -590,17 +584,19 @@ class BotorchMOOModelTest(TestCase):
         ) as _mock_sample_simplex:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                outcome_constraints=(
-                    torch.tensor([[1.0, 1.0]], **tkwargs),
-                    torch.tensor([[10.0]], **tkwargs),
+                search_space_digest=search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=objective_weights,
+                    outcome_constraints=(
+                        torch.tensor([[1.0, 1.0]], **tkwargs),
+                        torch.tensor([[10.0]], **tkwargs),
+                    ),
+                    model_gen_options={
+                        "acquisition_function_kwargs": {"random_scalarization": True},
+                        "optimizer_kwargs": _get_optimizer_kwargs(),
+                    },
+                    objective_thresholds=obj_t,
                 ),
-                model_gen_options={
-                    "acquisition_function_kwargs": {"random_scalarization": True},
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                },
-                objective_thresholds=obj_t,
             )
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
@@ -628,34 +624,38 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=mns,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
+        torch_opt_config = TorchOptConfig(
+            objective_weights=objective_weights,
+            outcome_constraints=(
+                torch.tensor([[1.0, 1.0]], **tkwargs),
+                torch.tensor([[10.0]], **tkwargs),
+            ),
+            model_gen_options={
+                "acquisition_function_kwargs": {"chebyshev_scalarization": True},
+                "optimizer_kwargs": _get_optimizer_kwargs(),
+            },
+            objective_thresholds=obj_t,
+        )
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
         ) as _mock_chebyshev_scalarization:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                outcome_constraints=(
-                    torch.tensor([[1.0, 1.0]], **tkwargs),
-                    torch.tensor([[10.0]], **tkwargs),
-                ),
-                model_gen_options={
-                    "acquisition_function_kwargs": {"chebyshev_scalarization": True},
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
-                },
-                objective_thresholds=obj_t,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
@@ -689,28 +689,37 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
                 metric_names=mns,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
         # test wrong number of objective thresholds
+        torch_opt_config = TorchOptConfig(
+            objective_weights=objective_weights,
+            objective_thresholds=torch.tensor([1.0, 1.0], **tkwargs),
+        )
         with self.assertRaises(AxError):
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                objective_thresholds=torch.tensor([1.0, 1.0], **tkwargs),
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
         # test that objective thresholds and weights are properly subsetted
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
+        torch_opt_config = dataclasses.replace(
+            torch_opt_config,
+            model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+            objective_thresholds=obj_t,
+        )
         with mock.patch.object(
             model,
             "acqf_constructor",
@@ -718,10 +727,8 @@ class BotorchMOOModelTest(TestCase):
         ) as mock_get_nehvi:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                objective_thresholds=obj_t,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             mock_get_nehvi.assert_called_once()
             _, ckwargs = mock_get_nehvi.call_args
@@ -739,6 +746,10 @@ class BotorchMOOModelTest(TestCase):
             torch.tensor([[0.0, 0.0, 1.0]], **tkwargs),
             torch.tensor([[10.0]], **tkwargs),
         )
+        torch_opt_config = dataclasses.replace(
+            torch_opt_config,
+            outcome_constraints=oc,
+        )
         with mock.patch.object(
             model,
             "acqf_constructor",
@@ -746,11 +757,8 @@ class BotorchMOOModelTest(TestCase):
         ) as mock_get_nehvi:
             model.gen(
                 n,
-                bounds,
-                objective_weights,
-                outcome_constraints=oc,
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
-                objective_thresholds=obj_t,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             mock_get_nehvi.assert_called_once()
             _, ckwargs = mock_get_nehvi.call_args

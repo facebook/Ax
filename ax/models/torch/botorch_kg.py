@@ -4,9 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
@@ -16,8 +18,7 @@ from ax.models.torch.utils import (
     get_out_of_sample_best_point_acqf,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchOptConfig
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
@@ -71,61 +72,38 @@ class KnowledgeGradient(BotorchModel):
     def gen(
         self,
         n: int,
-        bounds: List,
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
         r"""Generate new candidates.
 
         Args:
             n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
-            pending_observations:  A list of m (k_i x d) feature tensors X
-                for m outcomes and k_i pending observations for outcome i.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            rounding_func: A function that rounds an optimization result
-                appropriately (i.e., according to `round-trip` transformations).
-            target_fidelities: A map {feature_index: value} of fidelity feature
-                column indices to their respective target fidelities. Used for
-                multi-fidelity optimization.
+            search_space_digest: A SearchSpaceDigest object containing metadata
+                about the search space (e.g. bounds, parameter types).
+            torch_opt_config: A TorchOptConfig object containing optimization
+                arguments (e.g., objective weights, constraints).
 
         Returns:
-            3-element tuple containing
+            A TorchGenResults container, containing
 
             - (n x d) tensor of generated points.
             - n-tensor of weights for each point.
             - Dictionary of model-specific metadata for the given
                 generation candidates.
         """
-        options = model_gen_options or {}
+        options = torch_opt_config.model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
-            pending_observations=pending_observations,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            bounds=bounds,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
 
         # subset model only to the outcomes we need for the optimization
@@ -133,12 +111,15 @@ class KnowledgeGradient(BotorchModel):
         if options.get("subset_model", True):
             subset_model_results = subset_model(
                 model=model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+                objective_weights=torch_opt_config.objective_weights,
+                outcome_constraints=torch_opt_config.outcome_constraints,
             )
             model = subset_model_results.model
             objective_weights = subset_model_results.objective_weights
             outcome_constraints = subset_model_results.outcome_constraints
+        else:
+            objective_weights = torch_opt_config.objective_weights
+            outcome_constraints = torch_opt_config.outcome_constraints
 
         objective, posterior_transform = get_botorch_objective_and_transform(
             model=model,
@@ -147,7 +128,9 @@ class KnowledgeGradient(BotorchModel):
             X_observed=X_observed,
         )
 
-        inequality_constraints = _to_inequality_constraints(linear_constraints)
+        inequality_constraints = _to_inequality_constraints(
+            torch_opt_config.linear_constraints
+        )
         # TODO: update optimizers to handle inequality_constraints
         if inequality_constraints is not None:
             raise UnsupportedError(
@@ -164,19 +147,20 @@ class KnowledgeGradient(BotorchModel):
         # get current value
         current_value = self._get_current_value(
             model=model,
-            bounds=bounds,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                torch_opt_config,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+            ),
             X_observed=not_none(X_observed),
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
             seed_inner=seed_inner,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
             qmc=qmc,
         )
 
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = torch.tensor(
+            search_space_digest.bounds, dtype=self.dtype, device=self.device
+        )
         bounds_ = bounds_.transpose(0, 1)
 
         # get acquisition function
@@ -191,7 +175,7 @@ class KnowledgeGradient(BotorchModel):
             seed_inner=seed_inner,
             seed_outer=acf_options.get("seed_outer", None),
             X_pending=X_pending,
-            target_fidelities=target_fidelities,
+            target_fidelities=search_space_digest.target_fidelities,
             fidelity_weights=options.get("fidelity_weights"),
             current_value=current_value,
             cost_intercept=self.cost_intercept,
@@ -205,9 +189,9 @@ class KnowledgeGradient(BotorchModel):
             num_restarts=num_restarts,
             raw_samples=raw_samples,
             optimizer_options=optimizer_options,
-            rounding_func=rounding_func,
+            rounding_func=torch_opt_config.rounding_func,
             inequality_constraints=inequality_constraints,
-            fixed_features=fixed_features,
+            fixed_features=torch_opt_config.fixed_features,
         )
 
         return TorchGenResults(points=new_x, weights=torch.ones(n, dtype=self.dtype))
@@ -240,15 +224,10 @@ class KnowledgeGradient(BotorchModel):
     def _get_current_value(
         self,
         model: Model,
-        bounds: List,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
         X_observed: Tensor,
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]],
-        linear_constraints: Optional[Tuple[Tensor, Tensor]],
         seed_inner: Optional[int],
-        fixed_features: Optional[Dict[int, float]],
-        model_gen_options: Optional[TConfig],
-        target_fidelities: Optional[Dict[int, float]],
         qmc: bool,
     ) -> Tensor:
         r"""Computes the value of the current best point. This is the current_value
@@ -261,25 +240,20 @@ class KnowledgeGradient(BotorchModel):
         best_point_acqf, non_fixed_idcs = get_out_of_sample_best_point_acqf(
             model=model,
             Xs=self.Xs,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
+            objective_weights=torch_opt_config.objective_weights,
+            outcome_constraints=torch_opt_config.outcome_constraints,
             X_observed=X_observed,
             seed_inner=seed_inner,
-            fixed_features=fixed_features,
+            fixed_features=torch_opt_config.fixed_features,
             fidelity_features=self.fidelity_features,
-            target_fidelities=target_fidelities,
+            target_fidelities=search_space_digest.target_fidelities,
             qmc=qmc,
         )
 
         # solution from previous iteration
         recommended_point = self.best_point(
-            bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
         # pyre-fixme[16]: `Optional` has no attribute `detach`.
         recommended_point = recommended_point.detach().unsqueeze(0)

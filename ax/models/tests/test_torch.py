@@ -6,7 +6,7 @@
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from botorch.utils.datasets import FixedNoiseDataset
 
@@ -16,6 +16,11 @@ class TorchModelTest(TestCase):
         self.dataset = FixedNoiseDataset(
             X=torch.zeros(1), Y=torch.zeros(1), Yvar=torch.ones(1)
         )
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=[],
+            bounds=[(0, 1)],
+        )
+        self.torch_opt_config = TorchOptConfig(objective_weights=torch.ones(1))
 
     def testTorchModelFit(self):
         torch_model = TorchModel()
@@ -36,11 +41,18 @@ class TorchModelTest(TestCase):
     def testTorchModelGen(self):
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
-            torch_model.gen(n=1, bounds=[(0, 1)], objective_weights=torch.ones(1))
+            torch_model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+            )
 
     def testNumpyTorchBestPoint(self):
         torch_model = TorchModel()
-        x = torch_model.best_point(bounds=[(0, 1)], objective_weights=torch.ones(1))
+        x = torch_model.best_point(
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=self.torch_opt_config,
+        )
         self.assertIsNone(x)
 
     def testTorchModelCrossValidate(self):

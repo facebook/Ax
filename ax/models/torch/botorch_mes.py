@@ -4,17 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import recommend_best_out_of_sample_point
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     get_out_of_sample_best_point_acqf,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -69,38 +69,34 @@ class MaxValueEntropySearch(BotorchModel):
     def gen(
         self,
         n: int,
-        bounds: List,
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        if linear_constraints is not None or outcome_constraints is not None:
+        if (
+            torch_opt_config.linear_constraints is not None
+            or torch_opt_config.outcome_constraints is not None
+        ):
             raise UnsupportedError(
                 "Constraints are not yet supported by max-value entropy search!"
             )
 
-        if len(objective_weights) > 1:
+        if len(torch_opt_config.objective_weights) > 1:
             raise UnsupportedError(
                 "Models with multiple outcomes are not yet supported by MES!"
             )
 
-        options = model_gen_options or {}
+        options = torch_opt_config.model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
-            pending_observations=pending_observations,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            bounds=bounds,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
 
         model = self.model
@@ -109,12 +105,13 @@ class MaxValueEntropySearch(BotorchModel):
         if options.get("subset_model", True):
             subset_model_results = subset_model(
                 model=model,  # pyre-ignore [6]
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+                objective_weights=torch_opt_config.objective_weights,
+                outcome_constraints=torch_opt_config.outcome_constraints,
             )
             model = subset_model_results.model
             objective_weights = subset_model_results.objective_weights
-            outcome_constraints = subset_model_results.outcome_constraints
+        else:
+            objective_weights = torch_opt_config.objective_weights
 
         # get the acquisition function
         num_fantasies = acf_options.get("num_fantasies", 16)
@@ -125,7 +122,9 @@ class MaxValueEntropySearch(BotorchModel):
         raw_samples = optimizer_options.get("raw_samples", 1024)
 
         # generate the discrete points in the design space to sample max values
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = torch.tensor(
+            search_space_digest.bounds, dtype=self.dtype, device=self.device
+        )
         bounds_ = bounds_.transpose(0, 1)
 
         candidate_set = torch.rand(candidate_size, bounds_.size(1))
@@ -140,19 +139,19 @@ class MaxValueEntropySearch(BotorchModel):
             num_y_samples=num_y_samples,
             X_pending=X_pending,
             maximize=True if objective_weights[0] == 1 else False,
-            target_fidelities=target_fidelities,
+            target_fidelities=search_space_digest.target_fidelities,
             fidelity_weights=options.get("fidelity_weights"),
             cost_intercept=self.cost_intercept,
         )
 
         # optimize and get new points
-        botorch_rounding_func = get_rounding_func(rounding_func)
+        botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
         candidates, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=bounds_,
             q=n,
             inequality_constraints=None,
-            fixed_features=fixed_features,
+            fixed_features=torch_opt_config.fixed_features,
             post_processing_func=botorch_rounding_func,
             num_restarts=num_restarts,
             raw_samples=raw_samples,

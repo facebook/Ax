@@ -243,6 +243,14 @@ Unittest Conventions
     :undoc-members:
     :show-inheritance:
 
+Utils
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Test Metrics
 ---------------

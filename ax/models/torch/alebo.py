@@ -20,8 +20,7 @@ from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_defaults import get_NEI
 from ax.models.torch.utils import _datasets_to_legacy_inputs
-from ax.models.torch_base import TorchGenResults, TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -618,28 +617,16 @@ class ALEBO(BotorchModel):
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         raise NotImplementedError
 
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
         """Generate candidates.
 
@@ -650,34 +637,40 @@ class ALEBO(BotorchModel):
         initializing the acquisition function optimization) and 'num_restarts'
         (number of restarts for acquisition function optimization).
         """
-        for b in bounds:
+        for b in search_space_digest.bounds:
             assert b == (-1, 1)
         # The following can be easily handled in the future when needed
-        assert linear_constraints is None
-        assert fixed_features is None
-        assert pending_observations is None
+        assert torch_opt_config.linear_constraints is None
+        assert torch_opt_config.fixed_features is None
+        assert torch_opt_config.pending_observations is None
         # Setup constraints
         A = torch.cat((self.Binv, -self.Binv))
         b = torch.ones(2 * self.Binv.shape[0], 1, dtype=self.dtype, device=self.device)
         linear_constraints = (A, b)
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5
-        if model_gen_options is None:
-            model_gen_options = {}
         model_gen_options = {
             "acquisition_function_kwargs": {"q": n, "noiseless": noiseless},
             "optimizer_kwargs": {
-                "raw_samples": model_gen_options.get("raw_samples", 1000),
-                "num_restarts": model_gen_options.get("num_restarts", 10),
+                "raw_samples": torch_opt_config.model_gen_options.get(
+                    "raw_samples", 1000
+                ),
+                "num_restarts": torch_opt_config.model_gen_options.get(
+                    "num_restarts", 10
+                ),
                 "B": self.B,
             },
         }
         gen_results = super().gen(
             n=n,
-            bounds=[(-1e8, 1e8)] * self.B.shape[0],
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            model_gen_options=model_gen_options,
+            search_space_digest=dataclasses.replace(
+                search_space_digest,
+                bounds=[(-1e8, 1e8)] * self.B.shape[0],
+            ),
+            torch_opt_config=dataclasses.replace(
+                torch_opt_config,
+                linear_constraints=linear_constraints,
+                model_gen_options=model_gen_options,
+            ),
         )
         # Project up
         Xopt = (self.Binv @ gen_results.points.t()).t()
