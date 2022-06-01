@@ -12,7 +12,6 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError
-from ax.models.model_utils import best_observed_point
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
@@ -285,19 +284,13 @@ class BoTorchModel(TorchModel, Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
-        x_best = best_observed_point(
-            model=self,
-            bounds=search_space_digest.bounds,
-            objective_weights=torch_opt_config.objective_weights,
-            outcome_constraints=torch_opt_config.outcome_constraints,
-            linear_constraints=torch_opt_config.linear_constraints,
-            fixed_features=torch_opt_config.fixed_features,
-        )
-
-        if x_best is None:
+        try:
+            return self.surrogate.best_in_sample_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )[0]
+        except ValueError:
             return None
-
-        return x_best.to(dtype=self.surrogate.dtype, device=torch.device("cpu"))
 
     @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
