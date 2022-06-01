@@ -40,11 +40,9 @@ from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
-    get_aggregated_scored_benchmark_result,
     get_benchmark_problem,
     get_benchmark_result,
     get_multi_objective_benchmark_problem,
-    get_scored_benchmark_result,
     get_single_objective_benchmark_problem,
     get_sobol_gpei_benchmark_method,
 )
@@ -174,8 +172,6 @@ TEST_CASES = [
     ("ScalarizedObjective", get_scalarized_objective),
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
-    ("ScoredBenchmarkResult", get_scored_benchmark_result),
-    ("AggregatedScoredBenchmarkResult", get_aggregated_scored_benchmark_result),
     ("SearchSpace", get_search_space),
     ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),

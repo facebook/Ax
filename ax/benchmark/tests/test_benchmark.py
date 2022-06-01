@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import numpy as np
 from ax.benchmark.benchmark import (
     benchmark_full_run,
     benchmark_replication,
@@ -30,11 +31,11 @@ class TestBenchmark(TestCase):
             len(res.experiment.trials),
         )
 
-        # Assert optimization trace is monotonic
-        for i in range(1, len(res.optimization_trace)):
-            self.assertLessEqual(
-                res.optimization_trace[i], res.optimization_trace[i - 1]
-            )
+        # Assert optimization and score traces are  monotonic
+        self.assertTrue(
+            np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
+        )
+        self.assertTrue(np.all(res.optimization_trace <= 100))
 
     def test_replication_moo(self):
         method = get_sobol_benchmark_method()
@@ -53,10 +54,10 @@ class TestBenchmark(TestCase):
         )
 
         # Assert optimization trace is monotonic (hypervolume should always increase)
-        for i in range(1, len(res.optimization_trace)):
-            self.assertGreaterEqual(
-                res.optimization_trace[i], res.optimization_trace[i - 1]
-            )
+        self.assertTrue(
+            np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
+        )
+        self.assertTrue(np.all(res.optimization_trace <= 100))
 
     def test_test(self):
         agg = benchmark_test(
@@ -72,10 +73,14 @@ class TestBenchmark(TestCase):
         )
 
         # Assert optimization trace is monotonic
-        for i in range(1, len(agg.optimization_trace)):
-            self.assertLessEqual(
-                agg.optimization_trace["mean"][i], agg.optimization_trace["mean"][i - 1]
+        for col in ["mean", "Q1", "Q2", "Q3"]:
+            self.assertTrue(
+                (
+                    agg.optimization_trace[col][1:].array
+                    <= agg.optimization_trace[col][:-1].array
+                ).all()
             )
+            self.assertTrue((agg.score_trace[col] <= 100).all())
 
     @fast_botorch_optimize
     def test_full_run(self):
@@ -89,8 +94,11 @@ class TestBenchmark(TestCase):
 
         # Assert optimization traces are monotonic
         for agg in aggs:
-            for i in range(1, len(agg.optimization_trace)):
-                self.assertLessEqual(
-                    agg.optimization_trace["mean"][i],
-                    agg.optimization_trace["mean"][i - 1],
+            for col in ["mean", "Q1", "Q2", "Q3"]:
+                self.assertTrue(
+                    (
+                        agg.optimization_trace[col][1:].array
+                        <= agg.optimization_trace[col][:-1].array
+                    ).all()
                 )
+                self.assertTrue((agg.score_trace[col] <= 100).all())

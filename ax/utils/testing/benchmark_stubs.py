@@ -11,12 +11,7 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
-from ax.benchmark.benchmark_result import (
-    AggregatedBenchmarkResult,
-    AggregatedScoredBenchmarkResult,
-    BenchmarkResult,
-    ScoredBenchmarkResult,
-)
+from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -105,6 +100,7 @@ def get_benchmark_result() -> BenchmarkResult:
             is_test=True,
         ),
         optimization_trace=np.array([3, 2, 1, 0.1]),
+        score_trace=np.array([3, 2, 1, 0.1]),
         fit_time=0.1,
         gen_time=0.2,
     )
@@ -113,19 +109,3 @@ def get_benchmark_result() -> BenchmarkResult:
 def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
     result = get_benchmark_result()
     return AggregatedBenchmarkResult.from_benchmark_results([result, result])
-
-
-def get_scored_benchmark_result() -> ScoredBenchmarkResult:
-    result = get_benchmark_result()
-
-    return ScoredBenchmarkResult.from_result_and_baseline(
-        result=result, baseline_result=result, optimum=0
-    )
-
-
-def get_aggregated_scored_benchmark_result() -> AggregatedScoredBenchmarkResult:
-    scored_result = get_scored_benchmark_result()
-
-    return AggregatedScoredBenchmarkResult.from_scored_results(
-        scored_results=[scored_result, scored_result]
-    )
