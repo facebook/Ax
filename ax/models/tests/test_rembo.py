@@ -9,6 +9,7 @@ from unittest import mock
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.utils.datasets import FixedNoiseDataset
@@ -53,14 +54,14 @@ class REMBOTest(TestCase):
                     bounds=[(0, 1)] * 4,
                 ),
             )
-
+        search_space_digest = SearchSpaceDigest(
+            feature_names=[],
+            bounds=bounds,
+        )
         m.fit(
             datasets=datasets,
             metric_names=my_metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=[],
-                bounds=bounds,
-            ),
+            search_space_digest=search_space_digest,
         )
 
         # Check was fit with the low-d data.
@@ -87,8 +88,10 @@ class REMBOTest(TestCase):
         self.assertTrue(torch.allclose(f1, f2))
 
         # Test best_point
+        torch_opt_config = TorchOptConfig(objective_weights=torch.tensor([1.0, 0.0]))
         x_best = m.best_point(
-            bounds=[(-1, 1)] * 4, objective_weights=torch.tensor([1.0, 0.0])
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
         self.assertEqual(len(x_best), 4)
 
@@ -115,7 +118,9 @@ class REMBOTest(TestCase):
             return_value=(Xgen_d, acqfv_dummy),
         ):
             gen_results = m.gen(
-                n=2, bounds=[(-1, 1)] * 4, objective_weights=torch.tensor([1.0, 0.0])
+                n=2,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
 
         self.assertEqual(gen_results.points.shape[1], 4)

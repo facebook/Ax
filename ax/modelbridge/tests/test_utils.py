@@ -26,7 +26,7 @@ from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     observation_data_to_array,
-    pending_observations_as_array,
+    pending_observations_as_array_list,
 )
 from ax.modelbridge.registry import Models
 from ax.utils.common.constants import Keys
@@ -410,14 +410,14 @@ class TestModelbridgeUtils(TestCase):
             ),
         )
 
-    def test_pending_observations_as_array(self):
+    def test_pending_observations_as_array_list(self):
         # Mark a trial dispatched so that there are pending observations.
         self.trial.mark_running(no_runner_required=True)
         # If outcome names are respected, unlisted metrics should be filtered out.
         self.assertEqual(
             [
                 x.tolist()
-                for x in pending_observations_as_array(
+                for x in pending_observations_as_array_list(
                     pending_observations=get_pending_observation_features(
                         self.experiment
                     ),
@@ -447,7 +447,7 @@ class TestModelbridgeUtils(TestCase):
         self.assertEqual(
             [
                 x.tolist()
-                for x in pending_observations_as_array(
+                for x in pending_observations_as_array_list(
                     pending_observations=pending,
                     outcome_names=["m2", "m1"],
                     param_names=["x", "y", "z", "w"],

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 import warnings
 from abc import ABC
 from contextlib import ExitStack
@@ -22,6 +23,7 @@ from ax.models.torch.fully_bayesian import (
     rbf_kernel,
     single_task_pyro_model,
 )
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
@@ -407,11 +409,6 @@ try:
                     torch.tensor([[0.0, 1.0]], **tkwargs),
                     torch.tensor([[5.0]], **tkwargs),
                 )
-                gen_kwargs = (
-                    {"objective_thresholds": torch.zeros(2, **tkwargs)}
-                    if self.model_cls is FullyBayesianMOOBotorchModel
-                    else {}
-                )
                 linear_constraints = (
                     torch.tensor([[0.0, 1.0, 1.0]]),
                     torch.tensor([[100.0]]),
@@ -429,6 +426,22 @@ try:
                     Keys.OPTIMIZER_KWARGS: {"maxiter": 1},
                     Keys.ACQF_KWARGS: {"mc_samples": 3},
                 }
+                search_space_digest = SearchSpaceDigest(
+                    feature_names=fns,
+                    bounds=bounds,
+                )
+                torch_opt_config = TorchOptConfig(
+                    objective_weights=objective_weights,
+                    objective_thresholds=torch.zeros(2, **tkwargs)
+                    if self.model_cls is FullyBayesianMOOBotorchModel
+                    else None,
+                    outcome_constraints=outcome_constraints,
+                    linear_constraints=linear_constraints,
+                    fixed_features=fixed_features,
+                    pending_observations=pending_observations,
+                    model_gen_options=model_gen_options,
+                    rounding_func=dummy_func,
+                )
                 # test sequential optimize with constraints
                 with mock.patch(
                     "ax.models.torch.botorch_defaults.optimize_acqf",
@@ -437,15 +450,8 @@ try:
                     # Xgen, wgen, gen_metadata, cand_metadata = model.gen(
                     gen_results = model.gen(
                         n=n,
-                        bounds=bounds,
-                        objective_weights=objective_weights,
-                        outcome_constraints=outcome_constraints,
-                        linear_constraints=linear_constraints,
-                        fixed_features=fixed_features,
-                        pending_observations=pending_observations,
-                        model_gen_options=model_gen_options,
-                        rounding_func=dummy_func,
-                        **gen_kwargs,
+                        search_space_digest=search_space_digest,
+                        torch_opt_config=torch_opt_config,
                     )
                     # note: gen() always returns CPU tensors
                     self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
@@ -461,13 +467,10 @@ try:
                 ) as _:
                     gen_results = model.gen(
                         n=n,
-                        bounds=bounds,
-                        objective_weights=objective_weights,
-                        outcome_constraints=outcome_constraints,
-                        fixed_features=fixed_features,
-                        pending_observations=pending_observations,
-                        model_gen_options=model_gen_options,
-                        **gen_kwargs,
+                        search_space_digest=search_space_digest,
+                        torch_opt_config=dataclasses.replace(
+                            torch_opt_config, linear_constraints=None
+                        ),
                     )
                     # note: gen() always returns CPU tensors
                     self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
@@ -477,12 +480,14 @@ try:
 
                 # Check best point selection
                 xbest = model.best_point(
-                    bounds=bounds, objective_weights=objective_weights
+                    search_space_digest=search_space_digest,
+                    torch_opt_config=torch_opt_config,
                 )
                 xbest = model.best_point(
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    fixed_features={0: 100.0},
+                    search_space_digest=search_space_digest,
+                    torch_opt_config=dataclasses.replace(
+                        torch_opt_config, fixed_features={0: 100.0}
+                    ),
                 )
                 self.assertIsNone(xbest)
 
@@ -646,6 +651,11 @@ try:
             dummy_samples = _get_dummy_mcmc_samples(
                 num_samples=4, num_outputs=2, dtype=torch.float, device=Xs1[0].device
             )
+            search_space_digest = SearchSpaceDigest(
+                feature_names=fns,
+                bounds=bounds,
+                task_features=tfs,
+            )
             with mock.patch(
                 RUN_INFERENCE_PATH, side_effect=dummy_samples
             ) as _mock_fit_model:
@@ -655,17 +665,19 @@ try:
                         for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
                     ],
                     metric_names=mns,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=fns,
-                        bounds=bounds,
-                        task_features=tfs,
-                    ),
+                    search_space_digest=search_space_digest,
                 )
                 self.assertEqual(_mock_fit_model.call_count, 2)
 
             # because there are no feasible points:
             with self.assertRaises(ValueError):
-                model.gen(n, bounds, objective_weights)
+                model.gen(
+                    n,
+                    search_space_digest=search_space_digest,
+                    torch_opt_config=TorchOptConfig(
+                        objective_weights=objective_weights
+                    ),
+                )
 
         def test_FullyBayesianBotorchModelPyro(self, cuda=False):
             for dtype in (torch.float, torch.double):

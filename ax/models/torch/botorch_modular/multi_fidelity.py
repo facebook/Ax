@@ -4,11 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
 from botorch.acquisition.utils import (
@@ -27,11 +28,7 @@ class MultiFidelityAcquisition(Acquisition):
         self,
         surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        pending_observations: Optional[List[Tensor]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         target_fidelities = search_space_digest.target_fidelities
@@ -43,11 +40,7 @@ class MultiFidelityAcquisition(Acquisition):
         dependencies = super().compute_model_dependencies(
             surrogate=surrogate,
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            pending_observations=pending_observations,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            torch_opt_config=torch_opt_config,
             options=options,
         )
 

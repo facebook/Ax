@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 import warnings
 from contextlib import ExitStack
 from unittest import mock
@@ -18,6 +19,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.utils import _filter_X_observed
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -110,6 +112,21 @@ class BoTorchModelTest(TestCase):
             for X, Y, Yvar in zip(Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3)
         ]
         self.moo_metric_names = ["y1", "y2", "y3"]
+
+        self.torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+            pending_observations=self.pending_observations,
+            model_gen_options=self.model_gen_options,
+            rounding_func=self.rounding_func,
+        )
+        self.moo_torch_opt_config = dataclasses.replace(
+            self.torch_opt_config,
+            objective_weights=self.moo_objective_weights,
+            objective_thresholds=self.moo_objective_thresholds,
+        )
 
     def test_init(self):
         # Default model with no specifications.
@@ -402,29 +419,15 @@ class BoTorchModelTest(TestCase):
         with self.assertRaises(RuntimeError):
             model.gen(
                 n=1,
-                bounds=self.mf_search_space_digest.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=self.outcome_constraints,
-                linear_constraints=self.linear_constraints,
-                fixed_features=self.fixed_features,
-                pending_observations=self.pending_observations,
-                model_gen_options=self.model_gen_options,
-                rounding_func=self.rounding_func,
-                target_fidelities=self.mf_search_space_digest.target_fidelities,
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=self.torch_opt_config,
             )
         # Add search space digest reference to make the model think it's been fit
         model._search_space_digest = self.mf_search_space_digest
         model.gen(
             n=1,
-            bounds=self.mf_search_space_digest.bounds,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            pending_observations=self.pending_observations,
-            model_gen_options=self.model_gen_options,
-            rounding_func=self.rounding_func,
-            target_fidelities=self.mf_search_space_digest.target_fidelities,
+            search_space_digest=self.mf_search_space_digest,
+            torch_opt_config=self.torch_opt_config,
         )
 
         # Assert `construct_acquisition_and_optimizer_options` called with kwargs
@@ -440,12 +443,7 @@ class BoTorchModelTest(TestCase):
             surrogate=self.surrogate,
             botorch_acqf_class=model.botorch_acqf_class,
             search_space_digest=self.mf_search_space_digest,
-            objective_weights=self.objective_weights,
-            objective_thresholds=None,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            pending_observations=self.pending_observations,
+            torch_opt_config=self.torch_opt_config,
             options=self.acquisition_options,
         )
         # Assert `optimize` called with kwargs
@@ -469,13 +467,15 @@ class BoTorchModelTest(TestCase):
         )
         self.assertIsNotNone(
             self.model.best_point(
-                bounds=self.bounds, objective_weights=self.objective_weights
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=self.torch_opt_config,
             )
         )
         with mock.patch(f"{MODEL_PATH}.best_observed_point", return_value=None):
             self.assertIsNone(
                 self.model.best_point(
-                    bounds=self.bounds, objective_weights=self.objective_weights
+                    search_space_digest=self.mf_search_space_digest,
+                    torch_opt_config=self.torch_opt_config,
                 )
             )
 
@@ -501,11 +501,7 @@ class BoTorchModelTest(TestCase):
         model.evaluate_acquisition_function(
             X=self.X_test,
             search_space_digest=self.mf_search_space_digest,
-            objective_weights=self.objective_weights,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            pending_observations=self.pending_observations,
+            torch_opt_config=self.torch_opt_config,
             acq_options=self.acquisition_options,
         )
         # `mock_ei` is a mock of class, so to check the mock `evaluate` on
@@ -579,16 +575,8 @@ class BoTorchModelTest(TestCase):
         self.assertIsInstance(model.surrogate.model, FixedNoiseGP)
         gen_results = model.gen(
             n=1,
-            bounds=self.search_space_digest.bounds,
-            objective_weights=self.moo_objective_weights,
-            objective_thresholds=self.moo_objective_thresholds,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
-            pending_observations=self.pending_observations,
-            model_gen_options=self.model_gen_options,
-            rounding_func=self.rounding_func,
-            target_fidelities=self.mf_search_space_digest.target_fidelities,
+            search_space_digest=self.mf_search_space_digest,
+            torch_opt_config=self.moo_torch_opt_config,
         )
         ckwargs = mock_input_constructor.call_args[1]
         self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
@@ -671,15 +659,14 @@ class BoTorchModelTest(TestCase):
             )
             gen_results = model.gen(
                 n=1,
-                bounds=self.search_space_digest.bounds,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                linear_constraints=linear_constraints,
-                fixed_features=self.fixed_features,
-                pending_observations=self.pending_observations,
-                model_gen_options=self.model_gen_options,
-                rounding_func=self.rounding_func,
-                target_fidelities=self.mf_search_space_digest.target_fidelities,
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    self.moo_torch_opt_config,
+                    objective_weights=objective_weights,
+                    objective_thresholds=None,
+                    outcome_constraints=outcome_constraints,
+                    linear_constraints=linear_constraints,
+                ),
             )
             expected_X_baseline = _filter_X_observed(
                 Xs=[dataset.X() for dataset in self.moo_training_data],

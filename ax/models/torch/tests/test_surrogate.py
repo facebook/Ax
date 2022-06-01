@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from unittest.mock import MagicMock, patch
 
 import torch
@@ -11,9 +12,11 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
+from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.model import Model
@@ -68,6 +71,12 @@ class SurrogateTest(TestCase):
             torch.tensor([[0.5], [1.0]]),
         )
         self.options = {}
+        self.torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+        )
 
     def _get_surrogate(self, botorch_model_class):
         surrogate = Surrogate(
@@ -331,17 +340,17 @@ class SurrogateTest(TestCase):
                 with self.assertRaisesRegex(ValueError, "Could not obtain"):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,
-                        objective_weights=None,
+                        torch_opt_config=dataclasses.replace(
+                            self.torch_opt_config,
+                            objective_weights=None,
+                        ),
                     )
             with patch(
                 f"{SURROGATE_PATH}.best_in_sample_point", return_value=(self.Xs[0], 0.0)
             ) as mock_best_in_sample:
                 best_point, observed_value = surrogate.best_in_sample_point(
                     search_space_digest=self.search_space_digest,
-                    objective_weights=self.objective_weights,
-                    outcome_constraints=self.outcome_constraints,
-                    linear_constraints=self.linear_constraints,
-                    fixed_features=self.fixed_features,
+                    torch_opt_config=self.torch_opt_config,
                     options=self.options,
                 )
                 mock_best_in_sample.assert_called_once()
@@ -350,14 +359,14 @@ class SurrogateTest(TestCase):
                     self.assertTrue(torch.equal(X, dataset.X()))
                 self.assertIs(ckwargs["model"], surrogate)
                 self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
+                self.assertIs(ckwargs["options"], self.options)
                 for attr in (
                     "objective_weights",
                     "outcome_constraints",
                     "linear_constraints",
                     "fixed_features",
-                    "options",
                 ):
-                    self.assertIs(ckwargs[attr], getattr(self, attr))
+                    self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
 
     @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
     @patch(
@@ -381,24 +390,22 @@ class SurrogateTest(TestCase):
             with self.assertRaisesRegex(NotImplementedError, "Fixed features"):
                 surrogate.best_out_of_sample_point(
                     search_space_digest=self.search_space_digest,
-                    objective_weights=self.objective_weights,
-                    fixed_features=self.fixed_features,
+                    torch_opt_config=self.torch_opt_config,
                 )
+            torch_opt_config = dataclasses.replace(
+                self.torch_opt_config,
+                fixed_features=None,
+            )
             candidate, acqf_value = surrogate.best_out_of_sample_point(
                 search_space_digest=self.search_space_digest,
-                objective_weights=self.objective_weights,
-                outcome_constraints=self.outcome_constraints,
-                linear_constraints=self.linear_constraints,
+                torch_opt_config=torch_opt_config,
                 options=self.options,
             )
             mock_acqf_init.assert_called_with(
                 surrogate=surrogate,
                 botorch_acqf_class=qSimpleRegret,
                 search_space_digest=self.search_space_digest,
-                objective_weights=self.objective_weights,
-                outcome_constraints=self.outcome_constraints,
-                linear_constraints=self.linear_constraints,
-                fixed_features=None,
+                torch_opt_config=torch_opt_config,
                 options={Keys.SAMPLER: SobolQMCNormalSampler},
             )
             self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))

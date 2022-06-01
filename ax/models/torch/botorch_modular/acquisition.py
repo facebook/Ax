@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import operator
 import warnings
 from functools import partial, reduce
@@ -24,6 +25,7 @@ from ax.models.torch.utils import (
     get_botorch_objective_and_transform,
     subset_model,
 )
+from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
@@ -58,29 +60,16 @@ class Acquisition(Base):
     Args:
         surrogate: Surrogate model, with which this acquisition function
             will be used.
-        search_space_digest: A SearchSpaceDigest object containing
-            metadata about the search space (e.g. bounds, parameter types).
-        objective_weights: The objective is to maximize a weighted sum of
-            the columns of f(x). These are the weights.
+        search_space_digest: A SearchSpaceDigest object containing metadata
+            about the search space (e.g. bounds, parameter types).
+        torch_opt_config: A TorchOptConfig object containing optimization
+            arguments (e.g., objective weights, constraints).
         botorch_acqf_class: Type of BoTorch `AcquistitionFunction` that
             should be used. Subclasses of `Acquisition` often specify
             these via `default_botorch_acqf_class` attribute, in which
             case specifying one here is not required.
         options: Optional mapping of kwargs to the underlying `Acquisition
             Function` in BoTorch.
-        pending_observations: A list of tensors, each of which contains
-            points whose evaluation is pending (i.e. that have been
-            submitted for evaluation) for a given outcome. A list
-            of m (k_i x d) feature tensors X for m outcomes and k_i,
-            pending observations for outcome i.
-        outcome_constraints: A tuple of (A, b). For k outcome constraints
-            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-            A f(x) <= b. (Not used by single task models)
-        linear_constraints: A tuple of (A, b). For k linear constraints on
-            d-dimensional x, A is (k x d) and b is (k x 1) such that
-            A x <= b. (Not used by single task models)
-        fixed_features: A map {feature_index: value} for features that
-            should be fixed to a particular value during generation.
     """
 
     surrogate: Surrogate
@@ -90,37 +79,32 @@ class Acquisition(Base):
         self,
         surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
+        torch_opt_config: TorchOptConfig,
         botorch_acqf_class: Type[AcquisitionFunction],
         options: Optional[Dict[str, Any]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        objective_thresholds: Optional[Tensor] = None,
     ) -> None:
         self.surrogate = surrogate
         self.options = options or {}
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.surrogate.Xs,
-            objective_weights=objective_weights,
+            objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
-            pending_observations=pending_observations,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            pending_observations=torch_opt_config.pending_observations,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
         # Store objective thresholds for all outcomes (including non-objectives).
-        self._objective_thresholds = objective_thresholds
-        self._full_objective_weights = objective_weights
-        full_outcome_constraints = outcome_constraints
+        self._objective_thresholds = torch_opt_config.objective_thresholds
+        self._full_objective_weights = torch_opt_config.objective_weights
+        full_outcome_constraints = torch_opt_config.outcome_constraints
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
                 model=self.surrogate.model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                objective_thresholds=objective_thresholds,
+                objective_weights=torch_opt_config.objective_weights,
+                outcome_constraints=torch_opt_config.outcome_constraints,
+                objective_thresholds=torch_opt_config.objective_thresholds,
             )
             model = subset_model_results.model
             objective_weights = subset_model_results.objective_weights
@@ -129,6 +113,9 @@ class Acquisition(Base):
             subset_idcs = subset_model_results.indices
         else:
             model = self.surrogate.model
+            objective_weights = torch_opt_config.objective_weights
+            outcome_constraints = torch_opt_config.outcome_constraints
+            objective_thresholds = torch_opt_config.objective_thresholds
             subset_idcs = None
         # If objective weights suggest multiple objectives but objective
         # thresholds are not specified, infer them using the model that
@@ -161,11 +148,12 @@ class Acquisition(Base):
         model_deps = self.compute_model_dependencies(
             surrogate=surrogate,
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            pending_observations=pending_observations,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            torch_opt_config=dataclasses.replace(
+                torch_opt_config,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                objective_thresholds=objective_thresholds,
+            ),
             options=self.options,
         )
         input_constructor_kwargs = {
@@ -394,18 +382,12 @@ class Acquisition(Base):
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        torch_opt_config: TorchOptConfig,
         options: Optional[TConfig] = None,
     ) -> Tuple[Tensor, float]:
         return self.surrogate.best_in_sample_point(
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            torch_opt_config=torch_opt_config,
             options=options,
         )
 
@@ -413,11 +395,7 @@ class Acquisition(Base):
         self,
         surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        pending_observations: Optional[List[Tensor]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Computes inputs to acquisition function class based on the given
@@ -434,23 +412,10 @@ class Acquisition(Base):
         Args:
             surrogate: The surrogate object containing the BoTorch `Model`,
                 with which this `Acquisition` is to be used.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata about the search space (e.g. bounds, parameter types).
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            pending_observations: A list of tensors, each of which contains
-                points whose evaluation is pending (i.e. that have been
-                submitted for evaluation) for a given outcome. A list
-                of m (k_i x d) feature tensors X for m outcomes and k_i,
-                pending observations for outcome i.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b. (Not used by single task models)
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b. (Not used by single task models)
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
+            search_space_digest: A SearchSpaceDigest object containing metadata
+                about the search space (e.g. bounds, parameter types).
+            torch_opt_config: A TorchOptConfig object containing optimization
+                arguments (e.g., objective weights, constraints).
             options: The `options` kwarg dict, passed on initialization of
                 the `Acquisition` object.
 

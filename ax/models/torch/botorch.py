@@ -27,7 +27,7 @@ from ax.models.torch.utils import (
     predict_from_model,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -312,51 +312,47 @@ class BotorchModel(TorchModel):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        options = model_gen_options or {}
+        options = torch_opt_config.model_gen_options or {}
         acf_options = options.get(Keys.ACQF_KWARGS, {})
         optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
 
-        if target_fidelities:
+        if search_space_digest.target_fidelities:
             raise NotImplementedError(
                 "target_fidelities not implemented for base BotorchModel"
             )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
-            pending_observations=pending_observations,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            bounds=bounds,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
-
         model = self.model
-
         # subset model only to the outcomes we need for the optimization	357
         if options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
                 model=model,  # pyre-ignore [6]
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
+                objective_weights=torch_opt_config.objective_weights,
+                outcome_constraints=torch_opt_config.outcome_constraints,
             )
             model = subset_model_results.model
             objective_weights = subset_model_results.objective_weights
             outcome_constraints = subset_model_results.outcome_constraints
+        else:
+            objective_weights = torch_opt_config.objective_weights
+            outcome_constraints = torch_opt_config.outcome_constraints
 
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = torch.tensor(
+            search_space_digest.bounds, dtype=self.dtype, device=self.device
+        )
         bounds_ = bounds_.transpose(0, 1)
 
-        botorch_rounding_func = get_rounding_func(rounding_func)
+        botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
 
         from botorch.exceptions.errors import UnsupportedError
 
@@ -380,9 +376,9 @@ class BotorchModel(TorchModel):
                 bounds=bounds_,
                 n=n,
                 inequality_constraints=_to_inequality_constraints(
-                    linear_constraints=linear_constraints
+                    linear_constraints=torch_opt_config.linear_constraints
                 ),
-                fixed_features=fixed_features,
+                fixed_features=torch_opt_config.fixed_features,
                 rounding_func=botorch_rounding_func,
                 **optimizer_options,
             )
@@ -390,7 +386,7 @@ class BotorchModel(TorchModel):
 
         try:
             candidates, expected_acquisition_value = make_and_optimize_acqf()
-        except UnsupportedError as e:
+        except UnsupportedError as e:  # untested
             if "SobolQMCSampler only supports dimensions" in str(e):
                 # dimension too large for Sobol, let's use IID
                 candidates, expected_acquisition_value = make_and_optimize_acqf(
@@ -414,23 +410,18 @@ class BotorchModel(TorchModel):
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         return self.best_point_recommender(  # pyre-ignore [28]
             model=self,
-            bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            target_fidelities=target_fidelities,
+            bounds=search_space_digest.bounds,
+            objective_weights=torch_opt_config.objective_weights,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
+            model_gen_options=torch_opt_config.model_gen_options,
+            target_fidelities=search_space_digest.target_fidelities,
         )
 
     @copy_doc(TorchModel.cross_validate)

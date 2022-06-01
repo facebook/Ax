@@ -4,11 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_mes import _instantiate_MES, MaxValueEntropySearch
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.max_value_entropy_search import (
@@ -43,34 +45,35 @@ class MaxValueEntropySearchTest(TestCase):
             "batch_limit": 1,
         }
         self.optimize_acqf = "ax.models.torch.botorch_mes.optimize_acqf"
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=self.bounds,
+        )
 
     @fast_botorch_optimize
     def test_MaxValueEntropySearch(self):
-
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
 
         # test model.gen()
+        torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            model_gen_options={
+                "acquisition_function_kwargs": self.acq_options,
+                "optimizer_kwargs": self.optimizer_options,
+            },
+        )
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
         with mock.patch(self.optimize_acqf) as mock_optimize_acqf:
             mock_optimize_acqf.side_effect = [(new_X_dummy, None)]
             gen_results = model.gen(
                 n=1,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": self.optimizer_options,
-                },
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             self.assertTrue(torch.equal(gen_results.points, new_X_dummy.cpu()))
             self.assertTrue(
@@ -82,14 +85,8 @@ class MaxValueEntropySearchTest(TestCase):
 
         # Check best point selection within bounds (some numerical tolerance)
         xbest = model.best_point(
-            bounds=self.bounds,
-            objective_weights=self.objective_weights,
-            outcome_constraints=None,
-            linear_constraints=None,
-            model_gen_options={
-                "acquisition_function_kwargs": self.acq_options,
-                "optimizer_kwargs": self.optimizer_options,
-            },
+            search_space_digest=self.search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
         lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
         ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
@@ -104,29 +101,38 @@ class MaxValueEntropySearchTest(TestCase):
         with self.assertRaises(UnsupportedError):
             model.gen(
                 n=1,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                linear_constraints=linear_constraints,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config, linear_constraints=linear_constraints
+                ),
             )
 
         # test error message in case of >1 objective weights
         objective_weights = torch.tensor([1.0, 1.0], **self.tkwargs)
         with self.assertRaises(UnsupportedError):
-            model.gen(n=1, bounds=self.bounds, objective_weights=objective_weights)
+            model.gen(
+                n=1,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config, objective_weights=objective_weights
+                ),
+            )
 
         # test error message in best_point()
         with self.assertRaises(UnsupportedError):
             model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                linear_constraints=linear_constraints,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config, linear_constraints=linear_constraints
+                ),
             )
 
         with self.assertRaises(RuntimeError):
             model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                target_fidelities={2: 1.0},
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest, target_fidelities={2: 1.0}
+                ),
+                torch_opt_config=torch_opt_config,
             )
         # test input warping
         self.assertFalse(model.use_input_warping)
@@ -134,10 +140,7 @@ class MaxValueEntropySearchTest(TestCase):
         model.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -149,31 +152,33 @@ class MaxValueEntropySearchTest(TestCase):
         model.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-            ),
+            search_space_digest=self.search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
     def test_MaxValueEntropySearch_MultiFidelity(self):
+        search_space_digest = dataclasses.replace(
+            self.search_space_digest,
+            fidelity_features=[-1],
+        )
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                fidelity_features=[-1],
-            ),
+            search_space_digest=search_space_digest,
         )
 
         # Check best point selection within bounds (some numerical tolerance)
-        xbest = model.best_point(
-            bounds=self.bounds,
+        torch_opt_config = TorchOptConfig(
             objective_weights=self.objective_weights,
-            target_fidelities={2: 5.0},
+        )
+        xbest = model.best_point(
+            search_space_digest=dataclasses.replace(
+                search_space_digest,
+                target_fidelities={2: 5.0},
+            ),
+            torch_opt_config=torch_opt_config,
         )
         lb = torch.tensor([b[0] for b in self.bounds]) - 1e-5
         ub = torch.tensor([b[1] for b in self.bounds]) + 1e-5
@@ -183,19 +188,25 @@ class MaxValueEntropySearchTest(TestCase):
         # check error when no target fidelities are specified
         with self.assertRaises(RuntimeError):
             model.best_point(
-                bounds=self.bounds, objective_weights=self.objective_weights
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
 
         # check error when target fidelity and fixed features have the same key
         with self.assertRaises(RuntimeError):
             model.best_point(
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                target_fidelities={2: 1.0},
-                fixed_features={2: 1.0},
+                search_space_digest=dataclasses.replace(
+                    search_space_digest,
+                    target_fidelities={2: 1.0},
+                ),
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    fixed_features={2: 1.0},
+                ),
             )
 
         # check generation
+
         n = 1
         new_X_dummy = torch.rand(1, n, 3, **self.tkwargs)
         with mock.patch(
@@ -203,15 +214,17 @@ class MaxValueEntropySearchTest(TestCase):
         ) as mock_optimize_acqf:
             gen_results = model.gen(
                 n=n,
-                bounds=self.bounds,
-                objective_weights=self.objective_weights,
-                outcome_constraints=None,
-                linear_constraints=None,
-                model_gen_options={
-                    "acquisition_function_kwargs": self.acq_options,
-                    "optimizer_kwargs": self.optimizer_options,
-                },
-                target_fidelities={2: 1.0},
+                search_space_digest=dataclasses.replace(
+                    search_space_digest,
+                    target_fidelities={2: 1.0},
+                ),
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    model_gen_options={
+                        "acquisition_function_kwargs": self.acq_options,
+                        "optimizer_kwargs": self.optimizer_options,
+                    },
+                ),
             )
             self.assertTrue(torch.equal(gen_results.points, new_X_dummy.cpu()))
             self.assertTrue(
@@ -243,11 +256,7 @@ class MaxValueEntropySearchTest(TestCase):
         model.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                fidelity_features=[-1],
-            ),
+            search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 

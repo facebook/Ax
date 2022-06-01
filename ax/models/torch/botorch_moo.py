@@ -7,6 +7,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
@@ -36,8 +37,7 @@ from ax.models.torch.utils import (
     randomize_objective_weights,
     subset_model,
 )
-from ax.models.torch_base import TorchGenResults, TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -234,28 +234,21 @@ class MultiObjectiveBotorchModel(BotorchModel):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,  # objective_directions
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        objective_thresholds: Optional[Tensor] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        options = model_gen_options or {}
+        options = torch_opt_config.model_gen_options or {}
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
-        if target_fidelities:
+        if search_space_digest.target_fidelities:  # untested
             raise NotImplementedError(
                 "target_fidelities not implemented for base BotorchModel"
             )
         if (
-            objective_thresholds is not None
-            and objective_weights.shape[0] != objective_thresholds.shape[0]
+            torch_opt_config.objective_thresholds is not None
+            and torch_opt_config.objective_weights.shape[0]
+            != not_none(torch_opt_config.objective_thresholds).shape[0]
         ):
             raise AxError(
                 "Objective weights and thresholds most both contain an element for"
@@ -264,25 +257,25 @@ class MultiObjectiveBotorchModel(BotorchModel):
 
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
-            pending_observations=pending_observations,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            bounds=bounds,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
+            pending_observations=torch_opt_config.pending_observations,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
 
         model = not_none(self.model)
-        full_objective_thresholds = objective_thresholds
-        full_objective_weights = objective_weights
-        full_outcome_constraints = outcome_constraints
+        full_objective_thresholds = torch_opt_config.objective_thresholds
+        full_objective_weights = torch_opt_config.objective_weights
+        full_outcome_constraints = torch_opt_config.outcome_constraints
         # subset model only to the outcomes we need for the optimization
         if options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
                 model=model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                objective_thresholds=objective_thresholds,
+                objective_weights=torch_opt_config.objective_weights,
+                outcome_constraints=torch_opt_config.outcome_constraints,
+                objective_thresholds=torch_opt_config.objective_thresholds,
             )
             model = subset_model_results.model
             objective_weights = subset_model_results.objective_weights
@@ -290,6 +283,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
             objective_thresholds = subset_model_results.objective_thresholds
             idcs = subset_model_results.indices
         else:
+            objective_weights = torch_opt_config.objective_weights
+            outcome_constraints = torch_opt_config.outcome_constraints
+            objective_thresholds = torch_opt_config.objective_thresholds
             idcs = None
         if objective_thresholds is None:
             full_objective_thresholds = infer_objective_thresholds(
@@ -306,9 +302,11 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 else full_objective_thresholds[idcs].clone()
             )
 
-        bounds_ = torch.tensor(bounds, dtype=self.dtype, device=self.device)
+        bounds_ = torch.tensor(
+            search_space_digest.bounds, dtype=self.dtype, device=self.device
+        )
         bounds_ = bounds_.transpose(0, 1)
-        botorch_rounding_func = get_rounding_func(rounding_func)
+        botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
         if acf_options.get("random_scalarization", False) or acf_options.get(
             "chebyshev_scalarization", False
         ):
@@ -340,9 +338,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 acq_function_list=acquisition_function_list,
                 bounds=bounds_,
                 inequality_constraints=_to_inequality_constraints(
-                    linear_constraints=linear_constraints
+                    linear_constraints=torch_opt_config.linear_constraints
                 ),
-                fixed_features=fixed_features,
+                fixed_features=torch_opt_config.fixed_features,
                 rounding_func=botorch_rounding_func,
                 **optimizer_options,
             )
@@ -365,9 +363,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 bounds=bounds_,
                 n=n,
                 inequality_constraints=_to_inequality_constraints(
-                    linear_constraints=linear_constraints
+                    linear_constraints=torch_opt_config.linear_constraints
                 ),
-                fixed_features=fixed_features,
+                fixed_features=torch_opt_config.fixed_features,
                 rounding_func=botorch_rounding_func,
                 **optimizer_options,
             )

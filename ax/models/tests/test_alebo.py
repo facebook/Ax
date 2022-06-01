@@ -20,6 +20,7 @@ from ax.models.torch.alebo import (
     get_fitted_model,
     get_map_model,
 )
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import ExpectedImprovement
@@ -298,8 +299,16 @@ class ALEBOTest(TestCase):
 
         # Test best point
         objective_weights = torch.tensor([1.0, 0.0], dtype=torch.double)
+        search_space_digest = SearchSpaceDigest(
+            feature_names=[],
+            bounds=[(-1, 1)] * 5,
+        )
+        torch_opt_config = TorchOptConfig(objective_weights=objective_weights)
         with self.assertRaises(NotImplementedError):
-            m.best_point(bounds=[(-1, 1)] * 5, objective_weights=objective_weights)
+            m.best_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
 
         # Test gen
         # With clipping
@@ -310,8 +319,8 @@ class ALEBOTest(TestCase):
         ):
             gen_results = m.gen(
                 n=1,
-                bounds=[(-1, 1)] * 5,
-                objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
 
         self.assertFalse(torch.allclose(gen_results.points, train_X))
@@ -325,8 +334,8 @@ class ALEBOTest(TestCase):
         ):
             gen_results = m.gen(
                 n=1,
-                bounds=[(-1, 1)] * 5,
-                objective_weights=torch.tensor([1.0, 0.0], dtype=torch.double),
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
 
         self.assertTrue(

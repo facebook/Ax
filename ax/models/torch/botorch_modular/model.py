@@ -6,7 +6,7 @@
 
 import dataclasses
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -25,8 +25,7 @@ from ax.models.torch.botorch_modular.utils import (
     use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
-from ax.models.torch_base import TorchGenResults, TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
@@ -150,7 +149,6 @@ class BoTorchModel(TorchModel, Base):
         datasets: List[SupervisedDataset],
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
-        target_fidelities: Optional[Dict[int, float]] = None,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
@@ -236,55 +234,43 @@ class BoTorchModel(TorchModel, Base):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
         if self._search_space_digest is None:
             raise RuntimeError("Must `fit` the model before calling `gen`.")
         acq_options, opt_options = construct_acquisition_and_optimizer_options(
-            acqf_options=self.acquisition_options, model_gen_options=model_gen_options
+            acqf_options=self.acquisition_options,
+            model_gen_options=torch_opt_config.model_gen_options,
         )
         # update bounds / target fidelities
-        new_ssd_args = {
-            **dataclasses.asdict(self._search_space_digest),
-            "bounds": bounds,
-            "target_fidelities": target_fidelities or {},
-        }
-        search_space_digest = SearchSpaceDigest(**new_ssd_args)
-
+        search_space_digest = not_none(
+            dataclasses.replace(
+                self._search_space_digest,
+                bounds=search_space_digest.bounds,
+                target_fidelities=search_space_digest.target_fidelities or {},
+            )
+        )
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            objective_thresholds=objective_thresholds,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            pending_observations=pending_observations,
+            torch_opt_config=torch_opt_config,
             acq_options=acq_options,
         )
-        botorch_rounding_func = get_rounding_func(rounding_func)
+        botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
         candidates, expected_acquisition_value = acqf.optimize(
             n=n,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
-                linear_constraints=linear_constraints
+                linear_constraints=torch_opt_config.linear_constraints
             ),
-            fixed_features=fixed_features,
+            fixed_features=torch_opt_config.fixed_features,
             rounding_func=botorch_rounding_func,
             optimizer_options=checked_cast(dict, opt_options),
         )
         gen_metadata: TGenMetadata = {
             Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
         }
-        if objective_weights.nonzero().numel() > 1:
+        if torch_opt_config.objective_weights.nonzero().numel() > 1:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
             gen_metadata["objective_weights"] = acqf.objective_weights
         return TorchGenResults(
@@ -296,21 +282,16 @@ class BoTorchModel(TorchModel, Base):
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         x_best = best_observed_point(
             model=self,
-            bounds=bounds,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
+            bounds=search_space_digest.bounds,
+            objective_weights=torch_opt_config.objective_weights,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
         )
 
         if x_best is None:
@@ -323,22 +304,12 @@ class BoTorchModel(TorchModel, Base):
         self,
         X: Tensor,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
+        torch_opt_config: TorchOptConfig,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            objective_thresholds=objective_thresholds,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            pending_observations=pending_observations,
+            torch_opt_config=torch_opt_config,
             acq_options=acq_options,
         )
         return acqf.evaluate(X=X)
@@ -421,12 +392,7 @@ class BoTorchModel(TorchModel, Base):
     def _instantiate_acquisition(
         self,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
+        torch_opt_config: TorchOptConfig,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Acquisition:
         """Set a BoTorch acquisition function class for this model if needed and
@@ -437,22 +403,17 @@ class BoTorchModel(TorchModel, Base):
         """
         if not self._botorch_acqf_class:
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                objective_thresholds=objective_thresholds,
-                outcome_constraints=outcome_constraints,
-                linear_constraints=linear_constraints,
-                fixed_features=fixed_features,
-                pending_observations=pending_observations,
-                objective_weights=objective_weights,
+                pending_observations=torch_opt_config.pending_observations,
+                outcome_constraints=torch_opt_config.outcome_constraints,
+                linear_constraints=torch_opt_config.linear_constraints,
+                fixed_features=torch_opt_config.fixed_features,
+                objective_thresholds=torch_opt_config.objective_thresholds,
+                objective_weights=torch_opt_config.objective_weights,
             )
         return self.acquisition_class(
             surrogate=self.surrogate,
             botorch_acqf_class=self.botorch_acqf_class,
             search_space_digest=search_space_digest,
-            objective_weights=objective_weights,
-            objective_thresholds=objective_thresholds,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            pending_observations=pending_observations,
+            torch_opt_config=torch_opt_config,
             options=acq_options,
         )

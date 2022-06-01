@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 from itertools import chain, product
 from unittest import mock
 
@@ -16,6 +17,7 @@ from ax.models.torch.botorch_defaults import (
     recommend_best_out_of_sample_point,
 )
 from ax.models.torch.utils import sample_simplex
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
@@ -297,22 +299,28 @@ class BotorchModelTest(TestCase):
 
             X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
             acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
-            model_gen_options = {}
+            model_gen_options = {"subset_model": False}
             # test sequential optimize
+            search_space_digest = SearchSpaceDigest(
+                feature_names=[],
+                bounds=bounds,
+            )
             with mock.patch(
                 "ax.models.torch.botorch_defaults.optimize_acqf",
                 return_value=(X_dummy, acqfv_dummy),
             ) as mock_optimize_acqf:
                 gen_results = model.gen(
                     n=n,
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    outcome_constraints=outcome_constraints,
-                    linear_constraints=linear_constraints,
-                    fixed_features=fixed_features,
-                    pending_observations=pending_observations,
-                    model_gen_options=model_gen_options,
-                    rounding_func=dummy_func,
+                    search_space_digest=search_space_digest,
+                    torch_opt_config=TorchOptConfig(
+                        objective_weights=objective_weights,
+                        outcome_constraints=outcome_constraints,
+                        linear_constraints=linear_constraints,
+                        fixed_features=fixed_features,
+                        pending_observations=pending_observations,
+                        model_gen_options=model_gen_options,
+                        rounding_func=dummy_func,
+                    ),
                 )
                 # note: gen() always returns CPU tensors
                 self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
@@ -320,6 +328,12 @@ class BotorchModelTest(TestCase):
                     torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
                 )
 
+            torch_opt_config = TorchOptConfig(
+                objective_weights=objective_weights,
+                fixed_features=fixed_features,
+                pending_observations=pending_observations,
+                model_gen_options={"optimizer_kwargs": {"joint_optimization": True}},
+            )
             # test joint optimize
             with mock.patch(
                 "ax.models.torch.botorch_defaults.optimize_acqf",
@@ -327,15 +341,8 @@ class BotorchModelTest(TestCase):
             ) as mock_optimize_acqf:
                 gen_results = model.gen(
                     n=n,
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    outcome_constraints=None,
-                    linear_constraints=None,
-                    fixed_features=fixed_features,
-                    pending_observations=pending_observations,
-                    model_gen_options={
-                        "optimizer_kwargs": {"joint_optimization": True}
-                    },
+                    search_space_digest=search_space_digest,
+                    torch_opt_config=torch_opt_config,
                 )
                 # note: gen() always returns CPU tensors
                 self.assertTrue(torch.equal(gen_results.points, X_dummy.cpu()))
@@ -348,16 +355,11 @@ class BotorchModelTest(TestCase):
             with self.assertRaises(NotImplementedError):
                 gen_results = model.gen(
                     n=n,
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    outcome_constraints=None,
-                    linear_constraints=None,
-                    fixed_features=fixed_features,
-                    pending_observations=pending_observations,
-                    model_gen_options={
-                        "optimizer_kwargs": {"joint_optimization": True}
-                    },
-                    target_fidelities={0: 3.0},
+                    search_space_digest=dataclasses.replace(
+                        search_space_digest,
+                        target_fidelities={0: 3.0},
+                    ),
+                    torch_opt_config=torch_opt_config,
                 )
 
             # test get_rounding_func
@@ -366,21 +368,28 @@ class BotorchModelTest(TestCase):
             self.assertTrue(torch.equal(X_temp, dummy_rounding(X_temp)))
 
             # Check best point selection
-            xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
             xbest = model.best_point(
-                bounds=bounds,
-                objective_weights=objective_weights,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
+            torch_opt_config = dataclasses.replace(
+                torch_opt_config,
                 fixed_features={0: 100.0},
+            )
+            xbest = model.best_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
             self.assertIsNone(xbest)
 
             # test that fidelity features are unsupported
             with self.assertRaises(NotImplementedError):
                 xbest = model.best_point(
-                    bounds=bounds,
-                    objective_weights=objective_weights,
-                    fixed_features={0: 100.0},
-                    target_fidelities={0: 3.0},
+                    search_space_digest=dataclasses.replace(
+                        search_space_digest,
+                        target_fidelities={0: 3.0},
+                    ),
+                    torch_opt_config=torch_opt_config,
                 )
 
             # Test cross-validation
@@ -512,7 +521,10 @@ class BotorchModelTest(TestCase):
                 ),
             )
         with self.assertRaises(RuntimeError):
-            xbest = model.best_point(bounds=bounds, objective_weights=objective_weights)
+            xbest = model.best_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
 
     def test_BotorchModel_cuda(self):
         if torch.cuda.is_available():
@@ -579,6 +591,11 @@ class BotorchModelTest(TestCase):
         )
         n = 3
         model = BotorchModel()
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=[
@@ -586,14 +603,14 @@ class BotorchModelTest(TestCase):
                     FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
                 ],
                 metric_names=mns,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
+                search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
 
         # because there are no feasible points:
         with self.assertRaises(ValueError):
-            model.gen(n, bounds, objective_weights)
+            model.gen(
+                n,
+                search_space_digest=search_space_digest,
+                torch_opt_config=TorchOptConfig(objective_weights),
+            )

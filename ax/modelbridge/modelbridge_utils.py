@@ -404,7 +404,7 @@ def get_fixed_features(
     return fixed_features_dict
 
 
-def pending_observations_as_array(
+def pending_observations_as_array_list(
     pending_observations: Dict[str, List[ObservationFeatures]],
     outcome_names: List[str],
     param_names: List[str],

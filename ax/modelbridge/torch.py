@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
@@ -43,7 +43,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_data_to_array,
     observation_features_to_array,
     parse_observation_features,
-    pending_observations_as_array,
+    pending_observations_as_array_list,
     SearchSpaceDigest,
     transform_callback,
     validate_and_apply_final_transform,
@@ -52,7 +52,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
-from ax.models.torch_base import TorchModel
+from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
@@ -60,18 +60,6 @@ from torch import Tensor
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
-
-
-@dataclass(frozen=True)
-class TorchModelGenArgs:
-    search_space_digest: SearchSpaceDigest
-    objective_weights: Tensor
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]]
-    linear_constraints: Optional[Tuple[Tensor, Tensor]]
-    fixed_features: Optional[Dict[int, float]]
-    pending_observations: Optional[List[Tensor]]
-    rounding_func: Callable[[Tensor], Tensor]
-    extra_model_gen_kwargs: Dict[str, Any]
 
 
 # pyre-fixme [13]: Attributes are never initialized.
@@ -184,7 +172,7 @@ class TorchModelBridge(ModelBridge):
             fixed_features=fixed_features,
         )
         # Get transformed args from TorchModelbridge.
-        mgen_args = self._get_transformed_model_gen_args(
+        search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
             search_space=base_gen_args.search_space,
             fixed_features=base_gen_args.fixed_features,
             pending_observations={},
@@ -194,22 +182,22 @@ class TorchModelBridge(ModelBridge):
         model = checked_cast(MultiObjectiveBotorchModel, self.model)
         obj_thresholds = infer_objective_thresholds(
             model=not_none(model.model),
-            objective_weights=mgen_args.objective_weights,
-            bounds=mgen_args.search_space_digest.bounds,
-            outcome_constraints=mgen_args.outcome_constraints,
-            linear_constraints=mgen_args.linear_constraints,
-            fixed_features=mgen_args.fixed_features,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
+            outcome_constraints=torch_opt_config.outcome_constraints,
+            linear_constraints=torch_opt_config.linear_constraints,
+            fixed_features=torch_opt_config.fixed_features,
             Xs=model.Xs,
         )
 
         return self._untransform_objective_thresholds(
             objective_thresholds=obj_thresholds,
-            objective_weights=mgen_args.objective_weights,
-            bounds=mgen_args.search_space_digest.bounds,
+            objective_weights=torch_opt_config.objective_weights,
+            bounds=search_space_digest.bounds,
             # we should never be in a situation where we call this without there
             # being an optimization config involved.
-            opt_config_metrics=not_none(base_gen_args.optimization_config).metrics,
-            fixed_features=mgen_args.fixed_features,
+            opt_config_metrics=not_none(torch_opt_config.opt_config_metrics),
+            fixed_features=torch_opt_config.fixed_features,
         )
 
     def model_best_point(
@@ -231,24 +219,17 @@ class TorchModelBridge(ModelBridge):
             pending_observations=pending_observations,
             fixed_features=fixed_features,
         )
-        model_gen_args = self._get_transformed_model_gen_args(
+        search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
             search_space=base_gen_args.search_space,
             pending_observations=base_gen_args.pending_observations,
             fixed_features=base_gen_args.fixed_features,
             model_gen_options=None,
             optimization_config=base_gen_args.optimization_config,
         )
-        search_space_digest = model_gen_args.search_space_digest
-
         try:
             xbest = not_none(self.model).best_point(
-                bounds=search_space_digest.bounds,
-                objective_weights=model_gen_args.objective_weights,
-                outcome_constraints=model_gen_args.outcome_constraints,
-                linear_constraints=model_gen_args.linear_constraints,
-                fixed_features=model_gen_args.fixed_features,
-                model_gen_options=model_gen_options,
-                target_fidelities=search_space_digest.target_fidelities,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
         except NotImplementedError:
             xbest = None
@@ -399,27 +380,91 @@ class TorchModelBridge(ModelBridge):
             outcomes=self.outcomes,
         )
 
+    def evaluate_acquisition_function(
+        self,
+        observation_features: Union[
+            List[ObservationFeatures], List[List[ObservationFeatures]]
+        ],
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+        acq_options: Optional[Dict[str, Any]] = None,
+    ) -> List[float]:
+        """Evaluate the acquisition function for given set of observation
+        features.
+
+        Args:
+            observation_features: Either a list or a list of lists of observation
+                features, representing parameterizations, for which to evaluate the
+                acquisition function. If a single list is passed, the acquisition
+                function is evaluated for each observation feature. If a list of lists
+                is passed each element (itself a list of observation features)
+                represents a batch of points for which to evaluate the joint acquisition
+                value.
+            search_space: Search space for fitting the model.
+            optimization_config: Optimization config defining how to optimize
+                the model.
+            pending_observations: A map from metric name to pending observations for
+                that metric.
+            fixed_features: An ObservationFeatures object containing any features that
+                should be fixed at specified values during generation.
+            acq_options: Keyword arguments used to contruct the acquisition function.
+
+        Returns:
+            A list of acquisition function values, in the same order as the
+            input observation features.
+        """
+        search_space = search_space or self._model_space
+        optimization_config = optimization_config or self._optimization_config
+        if optimization_config is None:
+            raise ValueError(
+                "The `optimization_config` must be specified either while initializing "
+                "the ModelBridge or to the `evaluate_acquisition_function` call."
+            )
+        # pyre-ignore Incompatible parameter type [9]
+        obs_feats: List[List[ObservationFeatures]] = deepcopy(observation_features)
+        if not isinstance(obs_feats[0], list):
+            obs_feats = [[obs] for obs in obs_feats]
+
+        for t in self.transforms.values():
+            for i, batch in enumerate(obs_feats):
+                obs_feats[i] = t.transform_observation_features(batch)
+
+        base_gen_args = self._get_transformed_gen_args(
+            search_space=search_space,
+            optimization_config=optimization_config,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+        )
+
+        return self._evaluate_acquisition_function(
+            observation_features=obs_feats,
+            search_space=base_gen_args.search_space,
+            optimization_config=not_none(base_gen_args.optimization_config),
+            pending_observations=base_gen_args.pending_observations,
+            fixed_features=base_gen_args.fixed_features,
+            acq_options=acq_options,
+        )
+
     def _evaluate_acquisition_function(
         self,
         observation_features: List[List[ObservationFeatures]],
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
-        objective_thresholds: Optional[np.ndarray] = None,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[np.ndarray]] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
         if self.model is None:
             raise RuntimeError(
                 FIT_MODEL_ERROR.format(action="_evaluate_acquisition_function")
             )
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
-        )
-        objective_weights = extract_objective_weights(
-            objective=optimization_config.objective, outcomes=self.outcomes
+        search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
+            search_space=search_space,
+            pending_observations=pending_observations or {},
+            fixed_features=fixed_features or ObservationFeatures({}),
+            optimization_config=optimization_config,
         )
         X = np.array(
             [
@@ -427,28 +472,12 @@ class TorchModelBridge(ModelBridge):
                 for obsf in observation_features
             ]
         )
-
-        obj_w, oc_c, l_c, pend_obs, obj_thresh = validate_and_apply_final_transform(
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            pending_observations=pending_observations,
-            objective_thresholds=objective_thresholds,
-            final_transform=self._array_to_tensor,
-        )
-
         evals = not_none(self.model).evaluate_acquisition_function(
             X=self._array_to_tensor(X),
             search_space_digest=search_space_digest,
-            objective_weights=obj_w,
-            objective_thresholds=obj_thresh,
-            outcome_constraints=oc_c,
-            linear_constraints=l_c,
-            fixed_features=fixed_features,
-            pending_observations=pend_obs,
+            torch_opt_config=torch_opt_config,
             acq_options=acq_options,
         )
-
         return evals.tolist()
 
     def _fit(
@@ -502,43 +531,29 @@ class TorchModelBridge(ModelBridge):
         if self.model is None:
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
 
-        mgen_args = self._get_transformed_model_gen_args(
-            search_space=search_space,
-            pending_observations=pending_observations,
-            fixed_features=fixed_features,
-            model_gen_options=model_gen_options,
-            optimization_config=optimization_config,
-        )
-
-        # Generate the candidates
-        search_space_digest = mgen_args.search_space_digest
         augmented_model_gen_options = {
             **self._default_model_gen_options,
             **(model_gen_options or {}),
         }
+        search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
+            search_space=search_space,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+            model_gen_options=augmented_model_gen_options,
+            optimization_config=optimization_config,
+        )
+
+        # Generate the candidates
         # TODO(ehotaj): For some reason, we're getting models which do not support MOO
         # even when optimization_config has multiple objectives, so we can't use
         # self.is_moo_problem here.
         is_moo_problem = self.is_moo_problem and isinstance(
             self.model, (BoTorchModel, MultiObjectiveBotorchModel)
         )
-        extra_kwargs = {}
-        obj_t = mgen_args.extra_model_gen_kwargs.get("objective_thresholds")
-        if is_moo_problem and obj_t is not None:
-            extra_kwargs["objective_thresholds"] = self._array_to_tensor(obj_t)
-
         gen_results = not_none(self.model).gen(
             n=n,
-            bounds=search_space_digest.bounds,
-            objective_weights=mgen_args.objective_weights,
-            outcome_constraints=mgen_args.outcome_constraints,
-            linear_constraints=mgen_args.linear_constraints,
-            fixed_features=mgen_args.fixed_features,
-            pending_observations=mgen_args.pending_observations,
-            model_gen_options=augmented_model_gen_options,
-            rounding_func=mgen_args.rounding_func,
-            target_fidelities=search_space_digest.target_fidelities,
-            **extra_kwargs,
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
         )
 
         gen_metadata = gen_results.gen_metadata
@@ -546,17 +561,18 @@ class TorchModelBridge(ModelBridge):
             # If objective_thresholds are supplied by the user, then the transformed
             # user-specified objective thresholds are in gen_metadata. Otherwise,
             # inferred objective thresholds are in gen_metadata.
-            opt_config_metrics = mgen_args.extra_model_gen_kwargs.get(
-                "opt_config_metrics", not_none(self._optimization_config).metrics
+            opt_config_metrics = (
+                torch_opt_config.opt_config_metrics
+                or not_none(self._optimization_config).metrics
             )
             gen_metadata[
                 "objective_thresholds"
             ] = self._untransform_objective_thresholds(
                 objective_thresholds=gen_metadata["objective_thresholds"],
-                objective_weights=mgen_args.objective_weights,
+                objective_weights=torch_opt_config.objective_weights,
                 bounds=search_space_digest.bounds,
                 opt_config_metrics=opt_config_metrics,
-                fixed_features=mgen_args.fixed_features,
+                fixed_features=torch_opt_config.fixed_features,
             )
 
         # Transform array to observations
@@ -567,13 +583,8 @@ class TorchModelBridge(ModelBridge):
         )
         try:
             xbest = not_none(self.model).best_point(
-                bounds=search_space_digest.bounds,
-                objective_weights=mgen_args.objective_weights,
-                outcome_constraints=mgen_args.outcome_constraints,
-                linear_constraints=mgen_args.linear_constraints,
-                fixed_features=mgen_args.fixed_features,
-                model_gen_options=model_gen_options,
-                target_fidelities=search_space_digest.target_fidelities,
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
             )
         except NotImplementedError:
             xbest = None
@@ -590,22 +601,6 @@ class TorchModelBridge(ModelBridge):
             best_observation_features=best_obsf,
             gen_metadata=gen_metadata,
         )
-
-    def _get_extra_model_gen_kwargs(
-        self, optimization_config: OptimizationConfig
-    ) -> Dict[str, Any]:
-        extra_kwargs_dict = {}
-        if optimization_config.is_moo_problem:
-            optimization_config = checked_cast(
-                MultiObjectiveOptimizationConfig, optimization_config
-            )
-            extra_kwargs_dict["objective_thresholds"] = extract_objective_thresholds(
-                objective_thresholds=optimization_config.objective_thresholds,
-                objective=optimization_config.objective,
-                outcomes=self.outcomes,
-            )
-            extra_kwargs_dict["opt_config_metrics"] = optimization_config.metrics
-        return extra_kwargs_dict
 
     def _predict(
         self, observation_features: List[ObservationFeatures]
@@ -646,7 +641,7 @@ class TorchModelBridge(ModelBridge):
         fixed_features: ObservationFeatures,
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> TorchModelGenArgs:
+    ) -> Tuple[SearchSpaceDigest, TorchOptConfig]:
         # Validation
         if not self.parameters:  # pragma: no cover
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
@@ -663,55 +658,54 @@ class TorchModelBridge(ModelBridge):
             raise ValueError("No outcomes found during model fit--data are missing.")
 
         validate_optimization_config(optimization_config, self.outcomes)
-        objective_weights = self._array_to_tensor(
-            extract_objective_weights(
-                objective=optimization_config.objective, outcomes=self.outcomes
-            )
+        objective_weights = extract_objective_weights(
+            objective=optimization_config.objective, outcomes=self.outcomes
         )
-
-        # TODO: Clean up the following conversions
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
         )
-        if outcome_constraints is not None:
-            outcome_constraints = tuple(
-                self._array_to_tensor(t) for t in outcome_constraints
-            )
-
-        extra_model_gen_kwargs = self._get_extra_model_gen_kwargs(
-            optimization_config=optimization_config
-        )
-
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
-        if linear_constraints is not None:
-            linear_constraints = tuple(
-                self._array_to_tensor(t) for t in linear_constraints
-            )
-
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
-        pending_arrays = pending_observations_as_array(
+
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            objective_thresholds = extract_objective_thresholds(
+                objective_thresholds=optimization_config.objective_thresholds,
+                objective=optimization_config.objective,
+                outcomes=self.outcomes,
+            )
+            opt_config_metrics = optimization_config.metrics
+        else:
+            objective_thresholds, opt_config_metrics = None, None
+
+        pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        if pending_arrays is None:
-            pending_tensors = None
-        else:
-            pending_tensors = [self._array_to_tensor(pa) for pa in pending_arrays]
-        rounding_func = self._array_callable_to_tensor_callable(
-            transform_callback(self.parameters, self.transforms)
-        )
-        return TorchModelGenArgs(
-            search_space_digest=search_space_digest,
+        obj_w, out_c, lin_c, pend_o, obj_t = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
             linear_constraints=linear_constraints,
-            fixed_features=fixed_features_dict,
-            pending_observations=pending_tensors,
-            rounding_func=rounding_func,
-            extra_model_gen_kwargs=extra_model_gen_kwargs,
+            pending_observations=pending_array,
+            objective_thresholds=objective_thresholds,
+            final_transform=self._array_to_tensor,
         )
+        rounding_func = self._array_callable_to_tensor_callable(
+            transform_callback(self.parameters, self.transforms)
+        )
+        torch_opt_config = TorchOptConfig(
+            objective_weights=obj_w,
+            outcome_constraints=out_c,
+            objective_thresholds=obj_t,
+            linear_constraints=lin_c,
+            fixed_features=fixed_features_dict,
+            pending_observations=pend_o,
+            model_gen_options=model_gen_options or {},
+            rounding_func=rounding_func,
+            opt_config_metrics=opt_config_metrics,
+        )
+        return search_space_digest, torch_opt_config
 
     def _transform_observation_data(
         self, observation_data: List[ObservationData]

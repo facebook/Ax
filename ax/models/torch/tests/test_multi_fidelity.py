@@ -12,6 +12,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.multi_fidelity import MultiFidelityAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
@@ -57,6 +58,13 @@ class MultiFidelityAcquisitionTest(TestCase):
             Keys.COST_INTERCEPT: 1.0,
             Keys.NUM_TRACE_OBSERVATIONS: 0,
         }
+        self.torch_opt_config = TorchOptConfig(
+            objective_weights=self.objective_weights,
+            pending_observations=self.pending_observations,
+            outcome_constraints=self.outcome_constraints,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+        )
 
     @patch(
         f"{ACQUISITION_PATH}.Acquisition.compute_model_dependencies", return_value={}
@@ -83,40 +91,28 @@ class MultiFidelityAcquisitionTest(TestCase):
             mf_acquisition = MultiFidelityAcquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
-                objective_weights=self.objective_weights,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=self.objective_weights
+                ),
                 botorch_acqf_class=qMultiFidelityKnowledgeGradient,
             )
         # Raise Error if `fidelity_weights` and `target_fidelities` do not align.
         with self.assertRaisesRegex(RuntimeError, "Must provide the same indices"):
             mf_acquisition.compute_model_dependencies(
                 surrogate=self.surrogate,
-                search_space_digest=SearchSpaceDigest(
-                    **{
-                        **dataclasses.asdict(self.search_space_digest),
-                        "target_fidelities": {1: 5.0},
-                    }
+                search_space_digest=dataclasses.replace(
+                    self.search_space_digest, target_fidelities={1: 5.0}
                 ),
-                objective_weights=self.objective_weights,
-                pending_observations=self.pending_observations,
-                outcome_constraints=self.outcome_constraints,
-                linear_constraints=self.linear_constraints,
-                fixed_features=self.fixed_features,
+                torch_opt_config=self.torch_opt_config,
                 options=self.options,
             )
         # Make sure `fidelity_weights` are set when they are not passed in.
         mf_acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
-            search_space_digest=SearchSpaceDigest(
-                **{
-                    **dataclasses.asdict(self.search_space_digest),
-                    "target_fidelities": {2: 5.0, 3: 5.0},
-                }
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest, target_fidelities={2: 5.0, 3: 5.0}
             ),
-            objective_weights=self.objective_weights,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=self.torch_opt_config,
             options={Keys.COST_INTERCEPT: 1.0, Keys.NUM_TRACE_OBSERVATIONS: 0},
         )
         mock_affine_model.assert_called_with(
@@ -126,21 +122,13 @@ class MultiFidelityAcquisitionTest(TestCase):
         dependencies = mf_acquisition.compute_model_dependencies(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=self.torch_opt_config,
             options=self.options,
         )
         mock_Acquisition_compute.assert_called_with(
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
-            objective_weights=self.objective_weights,
-            pending_observations=self.pending_observations,
-            outcome_constraints=self.outcome_constraints,
-            linear_constraints=self.linear_constraints,
-            fixed_features=self.fixed_features,
+            torch_opt_config=self.torch_opt_config,
             options=self.options,
         )
         mock_affine_model.assert_called_with(

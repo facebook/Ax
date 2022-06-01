@@ -9,9 +9,8 @@ from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
-import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -809,95 +808,6 @@ class ModelBridge(ABC):
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        raise NotImplementedError  # pragma: no cover
-
-    def evaluate_acquisition_function(
-        self,
-        observation_features: Union[
-            List[ObservationFeatures], List[List[ObservationFeatures]]
-        ],
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        objective_thresholds: Optional[np.ndarray] = None,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[np.ndarray]] = None,
-        acq_options: Optional[Dict[str, Any]] = None,
-    ) -> List[float]:
-        """Evaluate the acquisition function for given set of observation
-        features.
-
-        Args:
-            observation_features: Either a list or a list of lists of observation
-                features, representing parameterizations, for which to evaluate the
-                acquisition function. If a single list is passed, the acquisition
-                function is evaluated for each observation feature. If a list of lists
-                is passed each element (itself a list of observation features)
-                represents a batch of points for which to evaluate the joint acquisition
-                value.
-            search_space: Search space for fitting the model.
-            optimization_config: Optimization config defining how to optimize
-                the model.
-            objective_thresholds:  The `m`-dim tensor of objective thresholds. There is
-                one for each modeled metric.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints and m
-                outputs at f(x), A is (k x m) and b is (k x 1) such that A f(x) <= b.
-                (Not used by single task models)
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that A x <= b.
-            fixed_features: A map {feature_index: value} for features that should be
-                held fixed during the evaluation.
-            pending_observations:  A list of m (k_i x d) feature tensors X for m
-                outcomes and k_i pending observations for outcome i.
-            acq_options: Keyword arguments used to contruct the acquisition function.
-
-        Returns:
-            A list of acquisition function values, in the same order as the
-            input observation features.
-        """
-        search_space = self._get_transformed_gen_args(
-            search_space=search_space or self._model_space,
-        ).search_space
-        optimization_config = optimization_config or self._optimization_config
-        if optimization_config is None:
-            raise ValueError(
-                "The `optimization_config` must be specified either while initializing "
-                "the ModelBridge or to the `evaluate_acquisition_function` call."
-            )
-        # pyre-ignore Incompatible parameter type [9]
-        obs_feats: List[List[ObservationFeatures]] = deepcopy(observation_features)
-        if not isinstance(obs_feats[0], list):
-            obs_feats = [[obs] for obs in obs_feats]
-
-        for t in self.transforms.values():
-            for i, batch in enumerate(obs_feats):
-                obs_feats[i] = t.transform_observation_features(batch)
-
-        return self._evaluate_acquisition_function(
-            observation_features=obs_feats,
-            search_space=search_space,
-            optimization_config=optimization_config,
-            objective_thresholds=objective_thresholds,
-            outcome_constraints=outcome_constraints,
-            linear_constraints=linear_constraints,
-            fixed_features=fixed_features,
-            pending_observations=pending_observations,
-            acq_options=acq_options,
-        )
-
-    def _evaluate_acquisition_function(
-        self,
-        observation_features: List[List[ObservationFeatures]],
-        search_space: SearchSpace,
-        optimization_config: OptimizationConfig,
-        objective_thresholds: Optional[np.ndarray] = None,
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[np.ndarray]] = None,
-        acq_options: Optional[Dict[str, Any]] = None,
-    ) -> List[float]:
         raise NotImplementedError  # pragma: no cover
 
     def _set_kwargs_to_save(

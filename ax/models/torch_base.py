@@ -4,16 +4,62 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
+from ax.core.metric import Metric
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.base import Model as BaseModel
 from ax.models.types import TConfig
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
+
+
+@dataclass
+class TorchOptConfig:
+    """Container for lightweight representation of optimization arguments.
+
+    This is used for communicating between modelbridge and models. This is
+    an ephemeral object and not meant to be stored / serialized.
+
+    Attributes:
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b.
+        objective_thresholds:  A tensor containing thresholds forming a
+            reference point from which to calculate pareto frontier hypervolume.
+            Points that do not dominate the objective_thresholds contribute
+            nothing to hypervolume.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b for feasible x.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value during generation.
+        pending_observations:  A list of m (k_i x d) feature tensors X
+            for m outcomes and k_i pending observations for outcome i.
+        model_gen_options: A config dictionary that can contain
+            model-specific options.
+        rounding_func: A function that rounds an optimization result
+            appropriately (i.e., according to `round-trip` transformations).
+        opt_config_metrics: A dictionary of metrics that are included in
+            the optimization config.
+    """
+
+    objective_weights: Tensor
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None
+    objective_thresholds: Optional[Tensor] = None
+    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None
+    fixed_features: Optional[Dict[int, float]] = None
+    pending_observations: Optional[List[Tensor]] = None
+    model_gen_options: TConfig = field(default_factory=dict)
+    rounding_func: Optional[Callable[[Tensor], Tensor]] = None
+    opt_config_metrics: Optional[Dict[str, Metric]] = None
 
 
 @dataclass(frozen=True)
@@ -82,41 +128,18 @@ class TorchModel(BaseModel):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
         """
         Generate new candidates.
 
         Args:
             n: Number of candidates to generate.
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value during generation.
-            pending_observations:  A list of m (k_i x d) feature tensors X
-                for m outcomes and k_i pending observations for outcome i.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            rounding_func: A function that rounds an optimization result
-                appropriately (i.e., according to `round-trip` transformations).
-            target_fidelities: A map {feature_index: value} of fidelity feature
-                column indices to their respective target fidelities. Used for
-                multi-fidelity optimization.
+            search_space_digest: A SearchSpaceDigest object containing metadata
+                about the search space (e.g. bounds, parameter types).
+            torch_opt_config: A TorchOptConfig object containing optimization
+                arguments (e.g., objective weights, constraints).
 
         Returns:
             A TorchGenResult container.
@@ -125,13 +148,8 @@ class TorchModel(BaseModel):
 
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         """
         Identify the current best point, satisfying the constraints in the same
@@ -140,22 +158,10 @@ class TorchModel(BaseModel):
         Return None if no such point can be identified.
 
         Args:
-            bounds: A list of (lower, upper) tuples for each column of X.
-            objective_weights: The objective is to maximize a weighted sum of
-                the columns of f(x). These are the weights.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints
-                and m outputs at f(x), A is (k x m) and b is (k x 1) such that
-                A f(x) <= b.
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that
-                A x <= b.
-            fixed_features: A map {feature_index: value} for features that
-                should be fixed to a particular value in the best point.
-            model_gen_options: A config dictionary that can contain
-                model-specific options.
-            target_fidelities: A map {feature_index: value} of fidelity feature
-                column indices to their respective target fidelities. Used for
-                multi-fidelity optimization.
+            search_space_digest: A SearchSpaceDigest object containing metadata
+                about the search space (e.g. bounds, parameter types).
+            torch_opt_config: A TorchOptConfig object containing optimization
+                arguments (e.g., objective weights, constraints).
 
         Returns:
             d-tensor of the best point.
@@ -222,12 +228,7 @@ class TorchModel(BaseModel):
         self,
         X: Tensor,
         search_space_digest: SearchSpaceDigest,
-        objective_weights: Tensor,
-        objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
+        torch_opt_config: TorchOptConfig,
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
@@ -236,19 +237,8 @@ class TorchModel(BaseModel):
             X: (j x d) tensor of the j points at which to evaluate the acquisition
                 function.
             search_space_digest: A dataclass used to compactly represent a search space.
-            objective_weights: The objective is to maximize a weighted sum of the
-                columns of f(x). These are the weights.
-            objective_thresholds:  The `m`-dim tensor of objective thresholds. There is
-                one for each modeled metric.
-            outcome_constraints: A tuple of (A, b). For k outcome constraints and m
-                outputs at f(x), A is (k x m) and b is (k x 1) such that A f(x) <= b.
-                (Not used by single task models)
-            linear_constraints: A tuple of (A, b). For k linear constraints on
-                d-dimensional x, A is (k x d) and b is (k x 1) such that A x <= b.
-            fixed_features: A map {feature_index: value} for features that should be
-                held fixed during the evaluation.
-            pending_observations:  A list of m (k_i x d) feature tensors X for m
-                outcomes and k_i pending observations for outcome i.
+            torch_opt_config: A TorchOptConfig object containing optimization
+                arguments (e.g., objective weights, constraints).
             acq_options: Keyword arguments used to contruct the acquisition function.
 
         Returns:

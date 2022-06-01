@@ -5,14 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch_base import TorchGenResults, TorchModel
-from ax.models.types import TConfig
+from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
@@ -168,29 +167,23 @@ class REMBO(BotorchModel):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        pending_observations: Optional[List[Tensor]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        for b in bounds:
+        for b in search_space_digest.bounds:
             assert b == (-1, 1)
         # The following can be easily handled in the future when needed
-        assert linear_constraints is None
-        assert fixed_features is None
-        assert pending_observations is None
+        assert torch_opt_config.linear_constraints is None
+        assert torch_opt_config.fixed_features is None
+        assert torch_opt_config.pending_observations is None
         # Do gen in the low-dimensional space and project up
         gen_results = super().gen(
             n=n,
-            bounds=[(0.0, 1.0)] * len(self.bounds_d),
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            model_gen_options=model_gen_options,
+            search_space_digest=dataclasses.replace(
+                search_space_digest,
+                bounds=[(0.0, 1.0)] * len(self.bounds_d),
+            ),
+            torch_opt_config=torch_opt_config,
         )
         Xopt = self.from_01(gen_results.points)
         self.X_d.extend([x.clone() for x in Xopt])
@@ -203,23 +196,19 @@ class REMBO(BotorchModel):
     @copy_doc(TorchModel.best_point)
     def best_point(
         self,
-        bounds: List[Tuple[float, float]],
-        objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
+        search_space_digest: SearchSpaceDigest,
+        torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
-        for b in bounds:
+        for b in search_space_digest.bounds:
             assert b == (-1, 1)
-        assert linear_constraints is None
-        assert fixed_features is None
+        assert torch_opt_config.linear_constraints is None
+        assert torch_opt_config.fixed_features is None
         x_best = super().best_point(
-            bounds=self.bounds_d,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-            model_gen_options=model_gen_options,
+            search_space_digest=dataclasses.replace(
+                search_space_digest,
+                bounds=self.bounds_d,
+            ),
+            torch_opt_config=torch_opt_config,
         )
         if x_best is not None:
             x_best = self.project_up(self.from_01(x_best.unsqueeze(0))).squeeze(0)
