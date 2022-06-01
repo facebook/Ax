@@ -356,7 +356,10 @@ class Surrogate(Base):
         if best_point_and_observed_value is None:
             raise ValueError("Could not obtain best in-sample point.")
         best_point, observed_value = best_point_and_observed_value
-        return checked_cast(Tensor, best_point), observed_value
+        return (
+            best_point.to(dtype=self.dtype, device=torch.device("cpu")),
+            observed_value,
+        )
 
     def best_out_of_sample_point(
         self,

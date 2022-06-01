@@ -26,10 +26,8 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchOptConfig
-from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
@@ -377,19 +375,6 @@ class Acquisition(Base):
         # NOTE: `AcquisitionFunction.__call__` calls `forward`,
         # so below is equivalent to `self.acqf.forward(X=X)`.
         return self.acqf(X=X)
-
-    @copy_doc(Surrogate.best_in_sample_point)
-    def best_point(
-        self,
-        search_space_digest: SearchSpaceDigest,
-        torch_opt_config: TorchOptConfig,
-        options: Optional[TConfig] = None,
-    ) -> Tuple[Tensor, float]:
-        return self.surrogate.best_in_sample_point(
-            search_space_digest=search_space_digest,
-            torch_opt_config=torch_opt_config,
-            options=options,
-        )
 
     def compute_model_dependencies(
         self,

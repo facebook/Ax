@@ -438,20 +438,6 @@ class AcquisitionTest(TestCase):
             )
         )
 
-    @mock.patch(f"{SURROGATE_PATH}.Surrogate.best_in_sample_point")
-    def test_best_point(self, mock_best_point):
-        acquisition = self.get_acquisition_function(self.fixed_features)
-        acquisition.best_point(
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            options=self.options,
-        )
-        mock_best_point.assert_called_with(
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            options=self.options,
-        )
-
     @mock.patch(
         f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__call__",
         return_value=None,

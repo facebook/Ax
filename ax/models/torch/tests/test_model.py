@@ -471,7 +471,7 @@ class BoTorchModelTest(TestCase):
                 torch_opt_config=self.torch_opt_config,
             )
         )
-        with mock.patch(f"{MODEL_PATH}.best_observed_point", return_value=None):
+        with mock.patch(f"{SURROGATE_PATH}.best_in_sample_point", return_value=None):
             self.assertIsNone(
                 self.model.best_point(
                     search_space_digest=self.mf_search_space_digest,
