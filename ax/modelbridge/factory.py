@@ -11,12 +11,11 @@ import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig, TRefPoint
-from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
+from ax.modelbridge.modelbridge_utils import check_has_multi_objective_and_data
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
     Cont_X_trans,
@@ -65,29 +64,25 @@ optimization model for subsequent trials).
 def get_MOO_NEHVI(
     experiment: Experiment,
     data: Data,
-    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
-    device: torch.device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    ),
+    device: Optional[torch.device] = None,
     status_quo_features: Optional[ObservationFeatures] = None,
     use_input_warping: bool = False,
     optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a multi-objective model using qNEHVI."""
-    opt_config = optimization_config or experiment.optimization_config
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(opt_config.objective, MultiObjective):
-        raise ValueError("Multi-objective optimization requires multiple objectives.")
-    if data.df.empty:  # pragma: no cover
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    device = device or (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
     return checked_cast(
         TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -101,7 +96,7 @@ def get_MOO_NEHVI(
                 },
             },
             use_input_warping=use_input_warping,
-            optimization_config=opt_config,
+            optimization_config=optimization_config,
         ),
     )
 
@@ -109,11 +104,11 @@ def get_MOO_NEHVI(
 def get_MTGP_NEHVI(
     experiment: Experiment,
     data: Data,
-    objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
-    device: torch.device = DEFAULT_TORCH_DEVICE,
+    device: Optional[torch.device] = None,
     trial_index: Optional[int] = None,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a Multi-task Gaussian Process (MTGP) model that generates
     points with qNEHVI.
@@ -122,11 +117,12 @@ def get_MTGP_NEHVI(
     Multi-type Multi-task GP model will be instantiated.
     Otherwise, the model will be a Single-type Multi-task GP.
     """
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-objective optimization requires multiple objectives.")
-    elif data.df.empty:  # pragma: no cover
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    device = device or (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
 
     if isinstance(experiment, MultiTypeExperiment):
         trial_index_to_type = {
@@ -167,7 +163,6 @@ def get_MTGP_NEHVI(
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             transforms=transforms,
             transform_configs=transform_configs,
@@ -182,6 +177,7 @@ def get_MTGP_NEHVI(
                     "sequential": True,
                 },
             },
+            optimization_config=optimization_config,
         ),
     )
 
@@ -496,35 +492,31 @@ def get_GPMES(
 def get_MOO_EHVI(
     experiment: Experiment,
     data: Data,
-    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: Optional[torch.device] = None,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a multi-objective model that generates points with EHVI.
 
-    Requires `objective_thresholds`,
-    a list of `ax.core.ObjectiveThresholds`, for every objective being optimized.
-    An arm only improves hypervolume if it is strictly better than all
-    objective thresholds.
+    Requires `objective_thresholds`, a list of `ax.core.ObjectiveThresholds`,
+    for every objective being optimized. An arm only improves hypervolume if
+    it is strictly better than all objective thresholds.
 
-    `objective_thresholds` can be passed in the optimization_config or
-    passed directly here.
+    `objective_thresholds` should be included in the `optimization_config` or
+    `experiment.optimization_config`.
     """
     device = device or (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-objective optimization requires multiple objectives.")
-    if data.df.empty:  # pragma: no cover
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
     return checked_cast(
         TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -537,6 +529,7 @@ def get_MOO_EHVI(
                     "batch_limit": DEFAULT_EHVI_BATCH_LIMIT
                 },
             },
+            optimization_config=optimization_config,
         ),
     )
 
@@ -544,27 +537,24 @@ def get_MOO_EHVI(
 def get_MOO_PAREGO(
     experiment: Experiment,
     data: Data,
-    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a multi-objective model that generates points with ParEGO.
 
     qParEGO optimizes random augmented chebyshev scalarizations of the multiple
     objectives. This allows it to explore non-convex pareto frontiers.
     """
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-Objective optimization requires multiple objectives")
-    if data.df.empty:
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
     return checked_cast(
         TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -575,6 +565,7 @@ def get_MOO_PAREGO(
                     "sequential": True,
                 }
             },
+            optimization_config=optimization_config,
         ),
     )
 
@@ -582,10 +573,10 @@ def get_MOO_PAREGO(
 def get_MOO_RS(
     experiment: Experiment,
     data: Data,
-    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a Random Scalarization multi-objective model.
 
@@ -593,17 +584,14 @@ def get_MOO_RS(
     for generating each new candidate arm. This will only explore the
     convex hull of the pareto frontier.
     """
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-Objective optimization requires multiple objectives")
-    if data.df.empty:
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
     return checked_cast(
         TorchModelBridge,
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -614,6 +602,7 @@ def get_MOO_RS(
                     "sequential": True,
                 }
             },
+            optimization_config=optimization_config,
         ),
     )
 
@@ -622,21 +611,19 @@ def get_MTGP_PAREGO(
     experiment: Experiment,
     data: Data,
     trial_index: Optional[int] = None,
-    objective_thresholds: Optional[TRefPoint] = None,
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
+    optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a multi-objective, multi-task model that uses qParEGO.
 
     qParEGO optimizes random augmented chebyshev scalarizations of the multiple
     objectives. This allows it to explore non-convex pareto frontiers.
     """
-    # pyre-ignore: [16] `Optional` has no attribute `objective`.
-    if not isinstance(experiment.optimization_config.objective, MultiObjective):
-        raise ValueError("Multi-objective optimization requires multiple objectives.")
-    elif data.df.empty:  # pragma: no cover
-        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
+    check_has_multi_objective_and_data(
+        experiment=experiment, data=data, optimization_config=optimization_config
+    )
 
     if isinstance(experiment, MultiTypeExperiment):
         trial_index_to_type = {
@@ -676,7 +663,6 @@ def get_MTGP_PAREGO(
         Models.MOO(
             experiment=experiment,
             data=data,
-            objective_thresholds=objective_thresholds,
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
@@ -690,5 +676,6 @@ def get_MTGP_PAREGO(
                     "sequential": True,
                 }
             },
+            optimization_config=optimization_config,
         ),
     )

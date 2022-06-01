@@ -133,7 +133,6 @@ class ModelRegistryTest(TestCase):
                 "transforms": Cont_X_trans + Y_trans,
                 "fit_out_of_design": False,
                 "default_model_gen_options": None,
-                "objective_thresholds": None,
             },
         )
         gpei = Models.GPEI(
@@ -428,11 +427,14 @@ class ModelRegistryTest(TestCase):
             parameters=multi_obj_exp.trials[0].status_quo.parameters,
             trial_index=0,
         )
+        optimization_config = multi_obj_exp.optimization_config.clone_with_args(
+            objective_thresholds=multi_objective_thresholds
+        )
         mtgp = Models.ST_MTGP_NEHVI(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
             status_quo_features=status_quo_features,
-            objective_thresholds=multi_objective_thresholds,
+            optimization_config=optimization_config,
         )
         self.assertIsInstance(mtgp, TorchModelBridge)
         self.assertIsInstance(mtgp.model, MultiObjectiveBotorchModel)

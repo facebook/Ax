@@ -50,7 +50,24 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.multitask import MultiTaskGP
 
 
-class ModelBridgeFactoryTest(TestCase):
+def get_multi_obj_exp_and_opt_config():
+    multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
+    metrics = multi_obj_exp.optimization_config.objective.metrics
+    multi_objective_thresholds = [
+        ObjectiveThreshold(
+            metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+        ),
+        ObjectiveThreshold(
+            metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+        ),
+    ]
+    optimization_config = multi_obj_exp.optimization_config.clone_with_args(
+        objective_thresholds=multi_objective_thresholds
+    )
+    return multi_obj_exp, optimization_config
+
+
+class ModelBridgeFactoryTestSingleObjective(TestCase):
     @fast_botorch_optimize
     def test_sobol_GPEI(self):
         """Tests sobol + GPEI instantiation."""
@@ -250,17 +267,28 @@ class ModelBridgeFactoryTest(TestCase):
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
-    @fast_botorch_optimize
-    def test_MOO_RS(self):
+
+class ModelBridgeFactoryTestMultiObjective(TestCase):
+    def test_single_objective_error(self, factory_fn=get_MOO_RS):
         single_obj_exp = get_branin_experiment(with_batch=True)
         with self.assertRaises(ValueError):
-            get_MOO_RS(experiment=single_obj_exp, data=single_obj_exp.fetch_data())
+            factory_fn(
+                experiment=single_obj_exp,
+                data=single_obj_exp.fetch_data(),
+            )
 
+    def test_data_error_and_get_multi_obj_exp(self, factory_fn=get_MOO_RS):
         multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
         with self.assertRaises(ValueError):
-            get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
+            factory_fn(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
 
         multi_obj_exp.trials[0].run().mark_completed()
+        return multi_obj_exp
+
+    @fast_botorch_optimize
+    def test_MOO_RS(self):
+        self.test_single_objective_error(get_MOO_RS)
+        multi_obj_exp = self.test_data_error_and_get_multi_obj_exp(get_MOO_RS)
         moo_rs = get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
         self.assertIsInstance(moo_rs, TorchModelBridge)
         self.assertEqual(
@@ -277,15 +305,8 @@ class ModelBridgeFactoryTest(TestCase):
 
     @fast_botorch_optimize
     def test_MOO_PAREGO(self):
-        single_obj_exp = get_branin_experiment(with_batch=True)
-        with self.assertRaises(ValueError):
-            get_MOO_PAREGO(experiment=single_obj_exp, data=single_obj_exp.fetch_data())
-
-        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        with self.assertRaises(ValueError):
-            get_MOO_PAREGO(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
-
-        multi_obj_exp.trials[0].run().mark_completed()
+        self.test_single_objective_error(get_MOO_PAREGO)
+        multi_obj_exp = self.test_data_error_and_get_multi_obj_exp(get_MOO_PAREGO)
         moo_parego = get_MOO_PAREGO(
             experiment=multi_obj_exp, data=multi_obj_exp.fetch_data()
         )
@@ -304,43 +325,21 @@ class ModelBridgeFactoryTest(TestCase):
 
     @fast_botorch_optimize
     def test_MOO_EHVI(self):
-        single_obj_exp = get_branin_experiment(with_batch=True)
-        metrics = single_obj_exp.optimization_config.objective.metrics
-        objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            )
-        ]
-        # ValueError: Multi-objective optimization requires multiple objectives.
-        with self.assertRaises(ValueError):
-            get_MOO_EHVI(
-                experiment=single_obj_exp,
-                data=single_obj_exp.fetch_data(),
-                objective_thresholds=objective_thresholds,
-            )
-        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        metrics = multi_obj_exp.optimization_config.objective.metrics
-        multi_objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-            ObjectiveThreshold(
-                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-        ]
+        self.test_single_objective_error(get_MOO_EHVI)
+        multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         # ValueError: MultiObjectiveOptimization requires non-empty data.
         with self.assertRaises(ValueError):
             get_MOO_EHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
+                optimization_config=optimization_config,
             )
 
         multi_obj_exp.trials[0].run().mark_completed()
         moo_ehvi = get_MOO_EHVI(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
-            objective_thresholds=multi_objective_thresholds,
+            optimization_config=optimization_config,
         )
         self.assertIsInstance(moo_ehvi, TorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
@@ -349,35 +348,13 @@ class ModelBridgeFactoryTest(TestCase):
     @fast_botorch_optimize
     def test_MTGP_PAREGO(self):
         """Tests MTGP ParEGO instantiation."""
-        # Test Multi-type MTGP
-        single_obj_exp = get_branin_experiment(with_batch=True)
-        metrics = single_obj_exp.optimization_config.objective.metrics
-        metrics[0].lower_is_better = True
-        objective_thresholds = [
-            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
-        ]
-        with self.assertRaises(ValueError):
-            get_MTGP_PAREGO(
-                experiment=single_obj_exp,
-                data=single_obj_exp.fetch_data(),
-                objective_thresholds=objective_thresholds,
-            )
-
-        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        metrics = multi_obj_exp.optimization_config.objective.metrics
-        multi_objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-            ObjectiveThreshold(
-                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-        ]
+        self.test_single_objective_error(get_MTGP_PAREGO)
+        multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         with self.assertRaises(ValueError):
             get_MTGP_PAREGO(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
+                optimization_config=optimization_config,
             )
 
         multi_obj_exp.trials[0].run()
@@ -390,8 +367,8 @@ class ModelBridgeFactoryTest(TestCase):
         mt_ehvi = get_MTGP_PAREGO(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
-            objective_thresholds=multi_objective_thresholds,
             trial_index=1,
+            optimization_config=optimization_config,
         )
         self.assertIsInstance(mt_ehvi, TorchModelBridge)
         self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
@@ -407,8 +384,8 @@ class ModelBridgeFactoryTest(TestCase):
             get_MTGP_PAREGO(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
                 trial_index=999,
+                optimization_config=optimization_config,
             )
 
         # Multi-type + multi-objective experiment
@@ -419,46 +396,25 @@ class ModelBridgeFactoryTest(TestCase):
         mt_ehvi = get_MTGP_PAREGO(
             experiment=multi_type_multi_obj_exp,
             data=data,
-            objective_thresholds=multi_objective_thresholds,
+            optimization_config=optimization_config,
         )
 
     @fast_botorch_optimize
     def test_MOO_NEHVI(self):
-        single_obj_exp = get_branin_experiment(with_batch=True)
-        metrics = single_obj_exp.optimization_config.objective.metrics
-        metrics[0].lower_is_better = True
-        objective_thresholds = [
-            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
-        ]
-        with self.assertRaises(ValueError):
-            get_MOO_NEHVI(
-                experiment=single_obj_exp,
-                data=single_obj_exp.fetch_data(),
-                objective_thresholds=objective_thresholds,
-            )
-
-        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        metrics = multi_obj_exp.optimization_config.objective.metrics
-        multi_objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-            ObjectiveThreshold(
-                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-        ]
+        self.test_single_objective_error(get_MOO_NEHVI)
+        multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         with self.assertRaises(ValueError):
             get_MOO_NEHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
+                optimization_config=optimization_config,
             )
 
         multi_obj_exp.trials[0].run()
         moo_ehvi = get_MOO_NEHVI(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
-            objective_thresholds=multi_objective_thresholds,
+            optimization_config=optimization_config,
         )
         self.assertIsInstance(moo_ehvi, TorchModelBridge)
         moo_ehvi_run = moo_ehvi.gen(n=1)
@@ -529,34 +485,13 @@ class ModelBridgeFactoryTest(TestCase):
 
     @fast_botorch_optimize
     def test_MTGP_NEHVI(self):
-        single_obj_exp = get_branin_experiment(with_batch=True)
-        metrics = single_obj_exp.optimization_config.objective.metrics
-        metrics[0].lower_is_better = True
-        objective_thresholds = [
-            ObjectiveThreshold(metric=metrics[0], bound=0.0, relative=False)
-        ]
-        with self.assertRaises(ValueError):
-            get_MTGP_NEHVI(
-                experiment=single_obj_exp,
-                data=single_obj_exp.fetch_data(),
-                objective_thresholds=objective_thresholds,
-            )
-
-        multi_obj_exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        metrics = multi_obj_exp.optimization_config.objective.metrics
-        multi_objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-            ObjectiveThreshold(
-                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-        ]
+        self.test_single_objective_error(get_MTGP_NEHVI)
+        multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         with self.assertRaises(ValueError):
             get_MTGP_NEHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
+                optimization_config=optimization_config,
             )
 
         multi_obj_exp.trials[0].run()
@@ -569,8 +504,8 @@ class ModelBridgeFactoryTest(TestCase):
         mt_ehvi = get_MTGP_NEHVI(
             experiment=multi_obj_exp,
             data=multi_obj_exp.fetch_data(),
-            objective_thresholds=multi_objective_thresholds,
             trial_index=1,
+            optimization_config=optimization_config,
         )
         self.assertIsInstance(mt_ehvi, TorchModelBridge)
         self.assertIsInstance(mt_ehvi.model.model.models[0], MultiTaskGP)
@@ -586,8 +521,8 @@ class ModelBridgeFactoryTest(TestCase):
             get_MTGP_NEHVI(
                 experiment=multi_obj_exp,
                 data=multi_obj_exp.fetch_data(),
-                objective_thresholds=multi_objective_thresholds,
                 trial_index=999,
+                optimization_config=optimization_config,
             )
 
         # Multi-type + multi-objective experiment
@@ -598,5 +533,5 @@ class ModelBridgeFactoryTest(TestCase):
         mt_ehvi = get_MTGP_NEHVI(
             experiment=multi_type_multi_obj_exp,
             data=data,
-            objective_thresholds=multi_objective_thresholds,
+            optimization_config=optimization_config,
         )
