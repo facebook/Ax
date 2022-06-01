@@ -11,6 +11,7 @@ from functools import partial
 from typing import (
     Callable,
     Dict,
+    Iterator,
     List,
     MutableMapping,
     Optional,
@@ -1172,6 +1173,31 @@ def observation_features_to_array(
 ) -> np.ndarray:
     """Convert a list of Observation features to arrays."""
     return np.array([[of.parameters[p] for p in parameters] for of in obsf])
+
+
+def detect_duplicates(
+    X: Tensor,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+) -> Iterator[Tuple[int, int]]:
+    """Returns an iterator over index pairs `(duplicate index, original index)` for all
+    duplicate entries of `X`.
+    """
+    tols = atol
+    if rtol:
+        rval = X.abs().max(dim=-1, keepdim=True).values
+        tols = tols + rtol * rval.max(rval.transpose(-1, -2))
+
+    n = X.shape[-2]
+    dist = torch.full((n, n), float("inf"), device=X.device, dtype=X.dtype)
+    dist[torch.triu_indices(n, n, offset=1).unbind()] = torch.nn.functional.pdist(
+        X, p=float("inf")
+    )
+    return (
+        (i, int(j))
+        for diff, j, i in zip(*(dist - tols).min(dim=-2), range(n))
+        if diff < 0
+    )
 
 
 def _array_to_tensor(
