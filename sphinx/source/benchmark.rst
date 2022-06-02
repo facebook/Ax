@@ -91,6 +91,14 @@ Benchmark Problems High Dimensional Embedding
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems Surrogate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.surrogate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems Jenatton
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
