@@ -338,8 +338,12 @@ class Surrogate(Base):
         """Finds the best observed point and the corresponding observed outcome
         values.
         """
+        if torch_opt_config.objective_thresholds is not None:
+            raise NotImplementedError(
+                "Best observed point is incompatible with MOO problems."
+            )
         best_point_and_observed_value = best_in_sample_point(
-            Xs=[self.training_data[0].X()],  # NOTE: This assumes a "block design"
+            Xs=self.Xs,
             # pyre-ignore[6]: `best_in_sample_point` currently expects a `TorchModel`
             # as `model` kwarg, but only uses them for `predict` function, the
             # signature for which is the same on this `Surrogate`.
