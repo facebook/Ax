@@ -268,32 +268,17 @@ class TorchModelBridge(ModelBridge):
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
         """
-        Xs: Dict[str, List[Tensor]] = defaultdict(list)
-        Ys: Dict[str, List[np.ndarray]] = defaultdict(list)
-        Yvars: Dict[str, List[np.ndarray]] = defaultdict(list)
+        (
+            Xs,
+            Ys,
+            Yvars,
+            candidate_metadata_dict,
+            any_candidate_metadata_is_not_none,
+        ) = self._extract_observation_data(
+            observation_data, observation_features, parameters
+        )
+
         datasets: List[Optional[SupervisedDataset]] = []
-        candidate_metadata_dict: Dict[str, List[TCandidateMetadata]] = defaultdict(list)
-        any_candidate_metadata_is_not_none = False
-
-        for obsd, obsf in zip(observation_data, observation_features):
-            try:
-                x = torch.tensor(
-                    [obsf.parameters[p] for p in parameters],
-                    dtype=self.dtype,
-                    device=self.device,
-                )
-            except (KeyError, TypeError):
-                raise ValueError("Out of design points cannot be converted.")
-            for metric_name, mean, var in zip(
-                obsd.metric_names, obsd.means, obsd.covariance.diagonal()
-            ):
-                Xs[metric_name].append(x)
-                Ys[metric_name].append(mean)
-                Yvars[metric_name].append(var)
-                if obsf.metadata is not None:
-                    any_candidate_metadata_is_not_none = True
-                candidate_metadata_dict[metric_name].append(obsf.metadata)
-
         candidate_metadata = []
         for outcome in outcomes:
             if outcome not in Xs:
@@ -792,6 +777,45 @@ class TorchModelBridge(ModelBridge):
                 "or data being excluded because it is out-of-design. Try setting "
                 "`fit_out_of_design`=True during construction to fix the latter."
             )
+
+    def _extract_observation_data(
+        self,
+        observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
+        parameters: List[str],
+    ) -> Tuple[Dict, Dict, Dict, Dict, bool]:
+        Xs: Dict[str, List[Tensor]] = defaultdict(list)
+        Ys: Dict[str, List[Tensor]] = defaultdict(list)
+        Yvars: Dict[str, List[Tensor]] = defaultdict(list)
+        candidate_metadata_dict: Dict[str, List[TCandidateMetadata]] = defaultdict(list)
+        any_candidate_metadata_is_not_none = False
+
+        for obsd, obsf in zip(observation_data, observation_features):
+            try:
+                x = torch.tensor(
+                    [obsf.parameters[p] for p in parameters],
+                    dtype=self.dtype,
+                    device=self.device,
+                )
+            except (KeyError, TypeError):
+                raise ValueError("Out of design points cannot be converted.")
+            for metric_name, mean, var in zip(
+                obsd.metric_names, obsd.means, obsd.covariance.diagonal()
+            ):
+                Xs[metric_name].append(x)
+                Ys[metric_name].append(mean)
+                Yvars[metric_name].append(var)
+                if obsf.metadata is not None:
+                    any_candidate_metadata_is_not_none = True
+                candidate_metadata_dict[metric_name].append(obsf.metadata)
+
+        return (
+            Xs,
+            Ys,
+            Yvars,
+            candidate_metadata_dict,
+            any_candidate_metadata_is_not_none,
+        )
 
 
 def validate_optimization_config(

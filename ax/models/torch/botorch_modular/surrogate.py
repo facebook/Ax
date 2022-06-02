@@ -31,9 +31,10 @@ from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_n
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
+from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import FixedNoiseDataset, RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -147,7 +148,12 @@ class Surrogate(Base):
         training_data = self.training_data
         Xs = []
         for dataset in training_data:
-            Xi = dataset.X()
+            if self.botorch_model_class == PairwiseGP and isinstance(
+                dataset, RankingDataset
+            ):
+                Xi = dataset.X.values
+            else:
+                Xi = dataset.X()
             for _ in range(dataset.Y.shape[-1]):
                 Xs.append(Xi)
         return Xs
