@@ -23,6 +23,7 @@ import numpy as np
 import torch
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -69,6 +70,21 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+
+
+def check_has_multi_objective_and_data(
+    experiment: Experiment,
+    data: Data,
+    optimization_config: Optional[OptimizationConfig] = None,
+) -> None:
+    """Raise an error if not using a `MultiObjective` or if the data is empty."""
+    optimization_config = not_none(
+        optimization_config or experiment.optimization_config
+    )
+    if not isinstance(optimization_config.objective, MultiObjective):
+        raise ValueError("Multi-objective optimization requires multiple objectives.")
+    if data.df.empty:
+        raise ValueError("MultiObjectiveOptimization requires non-empty data.")
 
 
 def extract_parameter_constraints(

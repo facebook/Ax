@@ -173,7 +173,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[t1, t2],
             experiment=exp,
             data=exp.fetch_data(),
-            objective_thresholds=objective_thresholds,
         )
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -332,7 +331,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 experiment=exp,
                 data=exp.fetch_data(),
                 torch_device=torch.device("cuda" if cuda else "cpu"),
-                objective_thresholds=objective_thresholds,
             )
             with patch(
                 PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator

@@ -21,7 +21,6 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
-    TRefPoint,
 )
 from ax.core.outcome_constraint import (
     ComparisonOp,
@@ -96,7 +95,6 @@ class TorchModelBridge(ModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
-        objective_thresholds: Optional[TRefPoint] = None,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         self.dtype = torch.double if torch_dtype is None else torch_dtype
@@ -110,18 +108,6 @@ class TorchModelBridge(ModelBridge):
                 optimization_config or experiment.optimization_config
             )
             self.is_moo_problem = optimization_config.is_moo_problem
-        if objective_thresholds:
-            if not self.is_moo_problem:
-                raise ValueError(
-                    "objective_thresholds are only supported for multi objective "
-                    "optimization."
-                )
-            optimization_config = checked_cast(
-                MultiObjectiveOptimizationConfig, optimization_config
-            )
-            optimization_config = optimization_config.clone_with_args(
-                objective_thresholds=objective_thresholds
-            )
 
         super().__init__(
             experiment=experiment,
