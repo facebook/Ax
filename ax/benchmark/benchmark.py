@@ -101,7 +101,7 @@ def benchmark_replication(
 def benchmark_test(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
-    num_replications: int = 10,
+    num_replications: int = 300,
     seed: Optional[int] = None,
 ) -> AggregatedBenchmarkResult:
 
@@ -120,7 +120,7 @@ def benchmark_test(
 def benchmark_full_run(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
-    num_replications: int = 10,
+    num_replications: int = 300,
     seed: Optional[int] = None,
 ) -> List[AggregatedBenchmarkResult]:
 

@@ -73,7 +73,7 @@ class TestBenchmark(TestCase):
         )
 
         # Assert optimization trace is monotonic
-        for col in ["mean", "Q1", "Q2", "Q3"]:
+        for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
             self.assertTrue(
                 (
                     agg.optimization_trace[col][1:].array
@@ -94,7 +94,7 @@ class TestBenchmark(TestCase):
 
         # Assert optimization traces are monotonic
         for agg in aggs:
-            for col in ["mean", "Q1", "Q2", "Q3"]:
+            for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
                 self.assertTrue(
                     (
                         agg.optimization_trace[col][1:].array

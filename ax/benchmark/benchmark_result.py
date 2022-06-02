@@ -73,18 +73,22 @@ class AggregatedBenchmarkResult(Base):
                 {
                     "mean": optimization_traces.mean(),
                     "sem": optimization_traces.sem(),
-                    "Q1": optimization_traces.quantile(q=0.25),
-                    "Q2": optimization_traces.quantile(q=0.5),
-                    "Q3": optimization_traces.quantile(q=0.75),
+                    "P10": optimization_traces.quantile(q=0.10),
+                    "P25": optimization_traces.quantile(q=0.25),
+                    "P50": optimization_traces.quantile(q=0.5),
+                    "P75": optimization_traces.quantile(q=0.75),
+                    "P90": optimization_traces.quantile(q=0.90),
                 }
             ),
             score_trace=pd.DataFrame(
                 {
                     "mean": score_traces.mean(),
                     "sem": score_traces.sem(),
-                    "Q1": score_traces.quantile(q=0.25),
-                    "Q2": score_traces.quantile(q=0.5),
-                    "Q3": score_traces.quantile(q=0.75),
+                    "P10": score_traces.quantile(q=0.10),
+                    "P25": score_traces.quantile(q=0.25),
+                    "P50": score_traces.quantile(q=0.5),
+                    "P75": score_traces.quantile(q=0.75),
+                    "P90": score_traces.quantile(q=0.90),
                 }
             ),
             fit_time=(fit_times.mean().item(), fit_times.sem().item()),
