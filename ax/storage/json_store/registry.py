@@ -18,6 +18,12 @@ from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem,
     PyTorchCNNTorchvisionRunner,
 )
+from ax.benchmark.problems.surrogate import (
+    SurrogateBenchmarkProblem,
+    SurrogateMetric,
+    SurrogateRunner,
+)
+
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -178,6 +184,8 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     RangeParameter: range_parameter_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
+    SurrogateMetric: metric_to_dict,
+    SurrogateRunner: runner_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
@@ -268,6 +276,9 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
+    "SurrogateMetric": SurrogateMetric,
+    "SurrogateBenchmarkProblem": SurrogateBenchmarkProblem,
+    "SurrogateRunner": SurrogateRunner,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
     "SklearnModelType": SklearnModelType,
