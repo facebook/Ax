@@ -53,6 +53,7 @@ def benchmark_replication(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
+        tracking_metrics=problem.tracking_metrics,
         runner=problem.runner,
     )
 

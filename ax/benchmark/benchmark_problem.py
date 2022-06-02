@@ -4,8 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
+
+from ax.core.metric import Metric
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -40,6 +42,7 @@ class BenchmarkProblem(Base):
     search_space: SearchSpace
     optimization_config: OptimizationConfig
     runner: Runner
+    tracking_metrics: List[Metric] = field(default_factory=list)
 
     @classmethod
     def from_botorch(cls, test_problem: BaseTestProblem) -> "BenchmarkProblem":
@@ -78,13 +81,18 @@ class BenchmarkProblem(Base):
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
     """The most basic BenchmarkProblem, with a single objective and a known optimal
     value.
     """
 
-    optimal_value: float
+    optimal_value: float = field()
+
+    def __init__(self, optimal_value: float, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        object.__setattr__(self, "optimal_value", optimal_value)
 
     @classmethod
     def from_botorch_synthetic(
@@ -107,15 +115,23 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     """A BenchmarkProblem support multiple objectives. Rather than knowing each
     objective's optimal value we track a known maximum hypervolume computed from a
     given reference point.
     """
 
-    maximum_hypervolume: float
-    reference_point: List[float]
+    maximum_hypervolume: float = field()
+    reference_point: List[float] = field()
+
+    def __init__(
+        self, maximum_hypervolume: float, reference_point: List[float], **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+
+        object.__setattr__(self, "maximum_hypervolume", maximum_hypervolume)
+        object.__setattr__(self, "reference_point", reference_point)
 
     @classmethod
     def from_botorch_multi_objective(
