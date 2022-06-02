@@ -35,7 +35,7 @@ class TestBenchmark(TestCase):
         self.assertTrue(
             np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
         )
-        self.assertTrue(np.all(res.optimization_trace <= 100))
+        self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_moo(self):
         method = get_sobol_benchmark_method()
@@ -57,7 +57,7 @@ class TestBenchmark(TestCase):
         self.assertTrue(
             np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
         )
-        self.assertTrue(np.all(res.optimization_trace <= 100))
+        self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_test(self):
         agg = benchmark_test(
