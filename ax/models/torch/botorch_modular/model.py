@@ -30,6 +30,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
@@ -266,17 +267,38 @@ class BoTorchModel(TorchModel, Base):
             rounding_func=botorch_rounding_func,
             optimizer_options=checked_cast(dict, opt_options),
         )
+        gen_metadata = self._get_gen_metadata_from_acqf(
+            acqf=acqf,
+            torch_opt_config=torch_opt_config,
+            expected_acquisition_value=expected_acquisition_value,
+        )
+        return TorchGenResults(
+            points=candidates.detach().cpu(),
+            weights=torch.ones(n, dtype=self.surrogate.dtype),
+            gen_metadata=gen_metadata,
+        )
+
+    def _get_gen_metadata_from_acqf(
+        self,
+        acqf: Acquisition,
+        torch_opt_config: TorchOptConfig,
+        expected_acquisition_value: Tensor,
+    ) -> TGenMetadata:
         gen_metadata: TGenMetadata = {
             Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
         }
         if torch_opt_config.objective_weights.nonzero().numel() > 1:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
             gen_metadata["objective_weights"] = acqf.objective_weights
-        return TorchGenResults(
-            points=candidates.detach().cpu(),
-            weights=torch.ones(n, dtype=self.surrogate.dtype),
-            gen_metadata=gen_metadata,
-        )
+
+        if hasattr(acqf.acqf, "outcome_model"):
+            outcome_model = acqf.acqf.outcome_model
+            if isinstance(
+                outcome_model,
+                FixedSingleSampleModel,
+            ):
+                gen_metadata["outcome_model_fixed_draw_weights"] = outcome_model.w
+        return gen_metadata
 
     @copy_doc(TorchModel.best_point)
     def best_point(
