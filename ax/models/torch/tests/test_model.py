@@ -478,6 +478,13 @@ class BoTorchModelTest(TestCase):
                     torch_opt_config=self.torch_opt_config,
                 )
             )
+        with self.assertRaisesRegex(NotImplementedError, "Best observed"):
+            self.model.best_point(
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=dataclasses.replace(
+                    self.torch_opt_config, is_moo=True
+                ),
+            )
 
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",

@@ -675,6 +675,7 @@ class TorchModelBridge(ModelBridge):
             model_gen_options=model_gen_options or {},
             rounding_func=rounding_func,
             opt_config_metrics=opt_config_metrics,
+            is_moo=optimization_config.is_moo_problem,
         )
         return search_space_digest, torch_opt_config
 

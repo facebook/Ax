@@ -27,7 +27,9 @@ class TorchOptConfig:
     an ephemeral object and not meant to be stored / serialized.
 
     Attributes:
-        objective_weights: The objective is to maximize a weighted sum of
+        objective_weights: If doing multi-objective optimization, these denote
+            which objectives should be maximized and which should be minimized.
+            Otherwise, the objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
@@ -49,6 +51,7 @@ class TorchOptConfig:
             appropriately (i.e., according to `round-trip` transformations).
         opt_config_metrics: A dictionary of metrics that are included in
             the optimization config.
+        is_moo: A boolean denoting whether this is for an MOO problem.
     """
 
     objective_weights: Tensor
@@ -60,6 +63,7 @@ class TorchOptConfig:
     model_gen_options: TConfig = field(default_factory=dict)
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None
     opt_config_metrics: Optional[Dict[str, Metric]] = None
+    is_moo: bool = False
 
 
 @dataclass(frozen=True)
