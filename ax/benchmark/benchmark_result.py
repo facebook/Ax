@@ -63,6 +63,14 @@ class AggregatedBenchmarkResult(Base):
     ) -> "AggregatedBenchmarkResult":
         optimization_traces = pd.DataFrame([res.optimization_trace for res in results])
         score_traces = pd.DataFrame([res.score_trace for res in results])
+
+        optimization_quantiles = optimization_traces.quantile(
+            q=np.array([0.10, 0.25, 0.50, 0.75, 0.90])
+        )
+        score_quantiles = score_traces.quantile(
+            q=np.array([0.10, 0.25, 0.50, 0.75, 0.90])
+        )
+
         fit_times = pd.Series([result.fit_time for result in results])
         gen_times = pd.Series([result.gen_time for result in results])
 
@@ -73,18 +81,22 @@ class AggregatedBenchmarkResult(Base):
                 {
                     "mean": optimization_traces.mean(),
                     "sem": optimization_traces.sem(),
-                    "Q1": optimization_traces.quantile(q=0.25),
-                    "Q2": optimization_traces.quantile(q=0.5),
-                    "Q3": optimization_traces.quantile(q=0.75),
+                    "P10": optimization_quantiles.loc[0.1],
+                    "P25": optimization_quantiles.loc[0.25],
+                    "P50": optimization_quantiles.loc[0.5],
+                    "P75": optimization_quantiles.loc[0.75],
+                    "P90": optimization_quantiles.loc[0.9],
                 }
             ),
             score_trace=pd.DataFrame(
                 {
                     "mean": score_traces.mean(),
                     "sem": score_traces.sem(),
-                    "Q1": score_traces.quantile(q=0.25),
-                    "Q2": score_traces.quantile(q=0.5),
-                    "Q3": score_traces.quantile(q=0.75),
+                    "P10": score_quantiles.loc[0.1],
+                    "P25": score_quantiles.loc[0.25],
+                    "P50": score_quantiles.loc[0.5],
+                    "P75": score_quantiles.loc[0.75],
+                    "P90": score_quantiles.loc[0.9],
                 }
             ),
             fit_time=(fit_times.mean().item(), fit_times.sem().item()),
