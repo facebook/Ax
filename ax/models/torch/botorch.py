@@ -413,6 +413,10 @@ class BotorchModel(TorchModel):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
+        if torch_opt_config.is_moo:
+            raise NotImplementedError(
+                "Best observed point is incompatible with MOO problems."
+            )
         return self.best_point_recommender(  # pyre-ignore [28]
             model=self,
             bounds=search_space_digest.bounds,

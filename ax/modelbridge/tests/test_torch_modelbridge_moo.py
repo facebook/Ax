@@ -604,3 +604,22 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             transforms=[],
         )
         self.assertEqual(bridge.status_quo.arm_name, "status_quo")
+
+    def test_best_point(self):
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True, with_batch=True
+        )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+        exp.attach_data(
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+        )
+        bridge = TorchModelBridge(
+            search_space=exp.search_space,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=[],
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        self.assertIsNone(bridge.model_best_point())

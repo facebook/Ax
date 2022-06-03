@@ -153,7 +153,13 @@ class BotorchMOOModelTest(TestCase):
                 "optimizer_kwargs": _get_optimizer_kwargs(),
                 "subset_model": False,
             },
+            is_moo=True,
         )
+        with self.assertRaisesRegex(NotImplementedError, "Best observed"):
+            model.best_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )
         with mock.patch(
             SAMPLE_SIMPLEX_UTIL_PATH,
             autospec=True,

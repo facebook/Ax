@@ -441,6 +441,7 @@ try:
                     pending_observations=pending_observations,
                     model_gen_options=model_gen_options,
                     rounding_func=dummy_func,
+                    is_moo=self.model_cls is FullyBayesianMOOBotorchModel,
                 )
                 # test sequential optimize with constraints
                 with mock.patch(
@@ -479,17 +480,27 @@ try:
                     )
 
                 # Check best point selection
-                xbest = model.best_point(
-                    search_space_digest=search_space_digest,
-                    torch_opt_config=torch_opt_config,
-                )
-                xbest = model.best_point(
-                    search_space_digest=search_space_digest,
-                    torch_opt_config=dataclasses.replace(
-                        torch_opt_config, fixed_features={0: 100.0}
-                    ),
-                )
-                self.assertIsNone(xbest)
+                if self.model_cls is FullyBayesianMOOBotorchModel:
+                    with self.assertRaisesRegex(NotImplementedError, "Best observed"):
+                        model.best_point(
+                            search_space_digest=search_space_digest,
+                            torch_opt_config=torch_opt_config,
+                        )
+                else:
+                    self.assertIsNotNone(
+                        model.best_point(
+                            search_space_digest=search_space_digest,
+                            torch_opt_config=torch_opt_config,
+                        )
+                    )
+                    self.assertIsNone(
+                        model.best_point(
+                            search_space_digest=search_space_digest,
+                            torch_opt_config=dataclasses.replace(
+                                torch_opt_config, fixed_features={0: 100.0}
+                            ),
+                        )
+                    )
 
                 # Test cross-validation
                 mean, variance = model.cross_validate(
