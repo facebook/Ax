@@ -133,7 +133,7 @@ class ListSurrogateTest(TestCase):
                 mock_MTGP_construct_inputs.call_args_list[idx][1],
                 {
                     "fidelity_features": [],
-                    "task_features": self.task_features,
+                    "task_feature": self.task_features[0],
                     # TODO: Figure out how to handle Multitask GPs and construct-inputs.
                     # I believe this functionality with modlular botorch model is
                     # currently broken as MultiTaskGP.construct_inputs expects a dict
@@ -200,11 +200,44 @@ class ListSurrogateTest(TestCase):
                     "fidelity_features": [],
                     "individual_option": f"val_{idx}",
                     "shared_option": True,
-                    "task_features": [0],
+                    "task_feature": 0,
                     "training_data": FixedNoiseDataset(
                         X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
                     ),
                 },
+            )
+
+    @patch.object(
+        FixedNoiseMultiTaskGP,
+        "construct_inputs",
+        wraps=FixedNoiseMultiTaskGP.construct_inputs,
+    )
+    def test_construct_per_outcome_error_raises(self, mock_MTGP_construct_inputs):
+        surrogate = ListSurrogate(
+            botorch_submodel_class=self.botorch_submodel_class_per_outcome,
+            mll_class=self.mll_class,
+            submodel_options_per_outcome=self.submodel_options_per_outcome,
+        )
+
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Multi-Fidelity GP models with task_features are "
+            "currently not supported.",
+        ):
+            surrogate.construct(
+                datasets=self.fixed_noise_training_data,
+                metric_names=self.outcomes,
+                task_features=self.task_features,
+                fidelity_features=[1],
+            )
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "This model only supports 1 task feature!",
+        ):
+            surrogate.construct(
+                datasets=self.fixed_noise_training_data,
+                metric_names=self.outcomes,
+                task_features=[0, 1],
             )
 
     @patch(f"{CURRENT_PATH}.ModelListGP.load_state_dict", return_value=None)
