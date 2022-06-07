@@ -126,6 +126,21 @@ class ListSurrogate(Surrogate):
         """
         fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES, [])
         task_features = kwargs.get(Keys.TASK_FEATURES, [])
+
+        if len(fidelity_features) > 0 and len(task_features) > 0:
+            raise NotImplementedError(
+                "Multi-Fidelity GP models with task_features are "
+                "currently not supported."
+            )
+        # TODO: Allow each metric having different task_features or fidelity_features
+        # TODO: Need upstream change in the modelbrdige
+        if len(task_features) > 1:
+            raise NotImplementedError("This model only supports 1 task feature!")
+        elif len(task_features) == 1:
+            task_feature = task_features[0]
+        else:
+            task_feature = None
+
         self._training_data = datasets
 
         submodels = []
@@ -152,7 +167,7 @@ class ListSurrogate(Surrogate):
             formatted_model_inputs = model_cls.construct_inputs(
                 training_data=dataset,
                 fidelity_features=fidelity_features,
-                task_features=task_features,
+                task_feature=task_feature,
                 **submodel_options,
             )
             # Add input / outcome transforms.
