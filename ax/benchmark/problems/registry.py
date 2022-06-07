@@ -50,14 +50,14 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
         factory_kwargs={"test_problem": Hartmann(dim=6)},
     ),
-    "hartmann50": BenchmarkProblemRegistryEntry(
+    "hartmann30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
                 test_problem=Hartmann(dim=6)
             ),
             total_dimensionality=n,
         ),
-        factory_kwargs={"n": 50},
+        factory_kwargs={"n": 30},
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
