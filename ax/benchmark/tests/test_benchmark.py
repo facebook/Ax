@@ -31,10 +31,6 @@ class TestBenchmark(TestCase):
             len(res.experiment.trials),
         )
 
-        # Assert optimization and score traces are  monotonic
-        self.assertTrue(
-            np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
-        )
         self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_moo(self):
@@ -53,10 +49,6 @@ class TestBenchmark(TestCase):
             len(res.experiment.fetch_data().df),
         )
 
-        # Assert optimization trace is monotonic (hypervolume should always increase)
-        self.assertTrue(
-            np.all(res.optimization_trace[1:] <= res.optimization_trace[:-1])
-        )
         self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_test(self):
@@ -72,14 +64,7 @@ class TestBenchmark(TestCase):
             "All experiments must have 4 trials",
         )
 
-        # Assert optimization trace is monotonic
         for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
-            self.assertTrue(
-                (
-                    agg.optimization_trace[col][1:].array
-                    <= agg.optimization_trace[col][:-1].array
-                ).all()
-            )
             self.assertTrue((agg.score_trace[col] <= 100).all())
 
     @fast_botorch_optimize
@@ -92,13 +77,6 @@ class TestBenchmark(TestCase):
 
         self.assertEqual(len(aggs), 2)
 
-        # Assert optimization traces are monotonic
         for agg in aggs:
             for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
-                self.assertTrue(
-                    (
-                        agg.optimization_trace[col][1:].array
-                        <= agg.optimization_trace[col][:-1].array
-                    ).all()
-                )
                 self.assertTrue((agg.score_trace[col] <= 100).all())
