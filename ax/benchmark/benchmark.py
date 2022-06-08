@@ -16,8 +16,11 @@ Key terms used:
   to assess the performance of algorithms.
 
 """
+
+from functools import partial
+from itertools import product
 from time import time
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 import numpy as np
 
@@ -33,6 +36,7 @@ from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
+from numpy.random import default_rng
 
 
 def benchmark_replication(
@@ -103,17 +107,17 @@ def benchmark_test(
     method: BenchmarkMethod,
     num_replications: int = 10,
     seed: Optional[int] = None,
+    **kwargs: Any,
 ) -> AggregatedBenchmarkResult:
+    if seed is None:
+        rep_seed_gen = range(num_replications)
+    else:
+        rng = default_rng(seed=seed)
+        rep_seed_gen = rng.choice(2**31, size=num_replications, replace=False)
 
+    base_case = partial(benchmark_replication, problem=problem, method=method, **kwargs)
     return AggregatedBenchmarkResult.from_benchmark_results(
-        results=[
-            benchmark_replication(
-                problem=problem,
-                method=method,
-                replication_seed=seed + i if seed is not None else None,
-            )
-            for i in range(num_replications)
-        ]
+        results=[base_case(replication_seed=rep_seed) for rep_seed in rep_seed_gen]
     )
 
 
@@ -121,13 +125,7 @@ def benchmark_full_run(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     num_replications: int = 10,
-    seed: Optional[int] = None,
+    **kwargs: Any,
 ) -> List[AggregatedBenchmarkResult]:
-
-    return [
-        benchmark_test(
-            problem=problem, method=method, num_replications=num_replications, seed=seed
-        )
-        for problem in problems
-        for method in methods
-    ]
+    test_env = partial(benchmark_test, num_replications=num_replications, **kwargs)
+    return [test_env(problem=p, method=m) for p, m in product(problems, methods)]

@@ -4,12 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
+from itertools import zip_longest
 from typing import List, Tuple
 
-import numpy as np
-import pandas as pd
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
+from numpy import nanmean, nanquantile, ndarray
+from pandas import DataFrame
+from scipy.stats import sem
 
 # NOTE: Do not add `from __future__ import annotatations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
@@ -28,8 +30,8 @@ class BenchmarkResult(Base):
     experiment: Experiment
 
     # Tracks best point if single-objective problem, max hypervolume if MOO
-    optimization_trace: np.ndarray
-    score_trace: np.ndarray
+    optimization_trace: ndarray
+    score_trace: ndarray
 
     fit_time: float
     gen_time: float
@@ -46,8 +48,8 @@ class AggregatedBenchmarkResult(Base):
     results: List[BenchmarkResult]
 
     # mean, sem, and quartile columns
-    optimization_trace: pd.DataFrame
-    score_trace: pd.DataFrame
+    optimization_trace: DataFrame
+    score_trace: DataFrame
 
     # (mean, sem) pairs
     fit_time: Tuple[float, float]
@@ -61,44 +63,37 @@ class AggregatedBenchmarkResult(Base):
         cls,
         results: List[BenchmarkResult],
     ) -> "AggregatedBenchmarkResult":
-        optimization_traces = pd.DataFrame([res.optimization_trace for res in results])
-        score_traces = pd.DataFrame([res.score_trace for res in results])
-
-        optimization_quantiles = optimization_traces.quantile(
-            q=np.array([0.10, 0.25, 0.50, 0.75, 0.90])
+        """Aggregrates a list of BenchmarkResults, right padding `optimization_trace`
+        and `score_trace` with NaNs as needed to ensure all series are of equivalent
+        length."""
+        # Extract average wall times and standard errors thereof
+        fit_time, gen_time = map(
+            lambda Ts: (nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="omit"))),
+            zip(*((res.fit_time, res.gen_time) for res in results)),
         )
-        score_quantiles = score_traces.quantile(
-            q=np.array([0.10, 0.25, 0.50, 0.75, 0.90])
-        )
 
-        fit_times = pd.Series([result.fit_time for result in results])
-        gen_times = pd.Series([result.gen_time for result in results])
+        # Compute some statistics for each trace
+        trace_stats = {}
+        percentiles = 0.1, 0.25, 0.5, 0.75, 0.9
+        for name in ("optimization_trace", "score_trace"):
+            stats = trace_stats[name] = {"mean": [], "sem": []}
+            quantiles = []
+            for step_vals in zip_longest(
+                *(getattr(res, name) for res in results), fillvalue=float("nan")
+            ):
+                stats["mean"].append(nanmean(step_vals))
+                stats["sem"].append(sem(step_vals, ddof=1, nan_policy="omit"))
+                quantiles.append(nanquantile(step_vals, q=percentiles))
 
+            stats.update(
+                {f"P{100 * p:.0f}": q for p, q in zip(percentiles, zip(*quantiles))}
+            )
+
+        # Return aggregated results
         return cls(
             name=results[0].name,
             results=results,
-            optimization_trace=pd.DataFrame(
-                {
-                    "mean": optimization_traces.mean(),
-                    "sem": optimization_traces.sem(),
-                    "P10": optimization_quantiles.loc[0.1],
-                    "P25": optimization_quantiles.loc[0.25],
-                    "P50": optimization_quantiles.loc[0.5],
-                    "P75": optimization_quantiles.loc[0.75],
-                    "P90": optimization_quantiles.loc[0.9],
-                }
-            ),
-            score_trace=pd.DataFrame(
-                {
-                    "mean": score_traces.mean(),
-                    "sem": score_traces.sem(),
-                    "P10": score_quantiles.loc[0.1],
-                    "P25": score_quantiles.loc[0.25],
-                    "P50": score_quantiles.loc[0.5],
-                    "P75": score_quantiles.loc[0.75],
-                    "P90": score_quantiles.loc[0.9],
-                }
-            ),
-            fit_time=(fit_times.mean().item(), fit_times.sem().item()),
-            gen_time=(gen_times.mean().item(), gen_times.sem().item()),
+            fit_time=fit_time,
+            gen_time=gen_time,
+            **{name: DataFrame(stats) for name, stats in trace_stats.items()},
         )
