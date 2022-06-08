@@ -142,7 +142,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         idcs = set(exp.trials.keys())
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=25, min_curves=4
+            percentile_threshold=25, min_curves=4, min_progression=0.1
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -151,7 +151,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # test ignore trial indices
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=25, min_curves=4, trial_indices_to_ignore={0}
+            percentile_threshold=25,
+            min_curves=4,
+            min_progression=0.1,
+            trial_indices_to_ignore={0},
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -159,7 +162,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=50, min_curves=4
+            percentile_threshold=50, min_curves=4, min_progression=0.1
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -173,7 +176,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=75, min_curves=4
+            percentile_threshold=75, min_curves=4, min_progression=0.1
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -182,7 +185,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # not enough completed trials
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            percentile_threshold=75, min_curves=5
+            percentile_threshold=75, min_curves=5, min_progression=0.1
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -241,7 +244,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         idcs = set(exp.trials.keys())
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"], percentile_threshold=25, min_curves=4
+            metric_names=["branin_map"],
+            percentile_threshold=25,
+            min_curves=4,
+            min_progression=0.1,
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -253,6 +259,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             metric_names=["branin_map"],
             percentile_threshold=25,
             min_curves=4,
+            min_progression=0.1,
             trial_indices_to_ignore={0},
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
@@ -261,7 +268,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"], percentile_threshold=50, min_curves=4
+            metric_names=["branin_map"],
+            percentile_threshold=50,
+            min_curves=4,
+            min_progression=0.1,
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -275,7 +285,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {0})
 
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"], percentile_threshold=75, min_curves=4
+            metric_names=["branin_map"],
+            percentile_threshold=75,
+            min_curves=4,
+            min_progression=0.1,
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -284,7 +297,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
         # not enough completed trials
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
-            metric_names=["branin_map"], percentile_threshold=75, min_curves=5
+            metric_names=["branin_map"],
+            percentile_threshold=75,
+            min_curves=5,
+            min_progression=0.1,
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -299,6 +315,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 metric_names=["branin_map", "foo"],
                 percentile_threshold=75,
                 min_curves=5,
+                min_progression=0.1,
             )
 
     def test_early_stopping_with_unaligned_results(self):
@@ -344,6 +361,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=50,
             min_curves=3,
+            min_progression=0.1,
         )
         should_stop = _evaluate_early_stopping_with_df(
             early_stopping_strategy=early_stopping_strategy,
@@ -399,6 +417,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             percentile_threshold=50,
             min_curves=3,
+            min_progression=0.1,
         )
         should_stop = _evaluate_early_stopping_with_df(
             early_stopping_strategy=early_stopping_strategy,
@@ -632,6 +651,8 @@ def _evaluate_early_stopping_with_df(
             trial_index=trial_index,
             experiment=experiment,
             df=aligned_means,
+            df_raw=df,
+            map_key="timestamp",
             minimize=experiment.optimization_config.objective.minimize,
         )
         for trial_index in set(experiment.trials.keys())
