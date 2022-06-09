@@ -132,13 +132,13 @@ class SurrogateRunner(Runner):
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
-    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
         """
-        runner = checked_cast(SurrogateRunner, runner)
+        runner = checked_cast(SurrogateRunner, obj)
 
-        init_args = super().serialize_init_args(runner=runner)
+        init_args = super().serialize_init_args(obj=runner)
 
         init_args["datasets"] = [
             (dataset.X().tolist(), dataset.Y().tolist()) for dataset in runner.datasets

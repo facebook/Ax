@@ -9,7 +9,6 @@ from ax.benchmark.problems.hpo.pytorch_cnn import (
     PyTorchCNNBenchmarkProblem,
     PyTorchCNNRunner,
 )
-from ax.core.runner import Runner
 from ax.exceptions.core import UserInputError
 from ax.utils.common.typeutils import checked_cast
 
@@ -68,8 +67,8 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
     """
 
     @classmethod
-    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
-        pytorch_cnn_runner = checked_cast(PyTorchCNNRunner, runner)
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+        pytorch_cnn_runner = checked_cast(PyTorchCNNRunner, obj)
 
         return {"name": pytorch_cnn_runner.name}
 

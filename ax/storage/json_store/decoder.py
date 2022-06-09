@@ -27,7 +27,6 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -45,6 +44,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none, torch_type_from_str
 from torch.nn import Module
 
@@ -202,8 +202,8 @@ def object_from_json(
             return TorchvisionBenchmarkProblem.from_dataset_name(  # pragma: no cover
                 object_json["name"]
             )
-        elif issubclass(_class, Runner):
-            return runner_from_json(_class=_class, runner_json=object_json)
+        elif issubclass(_class, SerializationMixin):
+            return _class(**_class.deserialize_init_args(args=object_json))
 
         return ax_class_from_json_dict(
             _class=_class,
@@ -654,10 +654,3 @@ def generation_strategy_from_json(
 
         gs._restore_model_from_generator_run()
     return gs
-
-
-def runner_from_json(
-    _class: Type[Runner],
-    runner_json: Dict[str, Any],
-) -> Runner:
-    return _class(**_class.deserialize_init_args(args=runner_json))  # pyre-ignore[45]

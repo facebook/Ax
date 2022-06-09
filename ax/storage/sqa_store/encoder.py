@@ -778,7 +778,7 @@ class Encoder:
                 f"{','.join(map(str, self.config.runner_registry.keys()))} "
                 f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )  # pragma: no cover
-        properties = runner_class.serialize_init_args(runner=runner)
+        properties = runner_class.serialize_init_args(obj=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]

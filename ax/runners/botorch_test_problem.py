@@ -61,11 +61,11 @@ class BotorchTestProblemRunner(Runner):
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
-    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
         """
-        runner = checked_cast(BotorchTestProblemRunner, runner)
+        runner = checked_cast(BotorchTestProblemRunner, obj)
 
         return {
             "test_problem_module": runner.test_problem.__module__,

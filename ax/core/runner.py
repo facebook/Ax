@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional, Set, TYPE_CHECKING
 
 from ax.utils.common.base import Base
-from ax.utils.common.serialization import extract_init_args, serialize_init_args
+from ax.utils.common.serialization import SerializationMixin
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -18,27 +18,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from ax import core  # noqa F401
 
 
-class Runner(Base, ABC):
+class Runner(Base, SerializationMixin, ABC):
     """Abstract base class for custom runner classes"""
 
     @property
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""
         return False
-
-    @classmethod
-    def serialize_init_args(cls, runner: Runner) -> Dict[str, Any]:
-        """Serialize the properties needed to initialize the runner.
-        Used for storage.
-        """
-        return serialize_init_args(object=runner)
-
-    @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Given a dictionary, deserialize the properties needed to initialize the runner.
-        Used for storage.
-        """
-        return extract_init_args(args=args, class_=cls)
 
     @abstractmethod
     def run(self, trial: core.base_trial.BaseTrial) -> Dict[str, Any]:
@@ -141,5 +127,12 @@ class Runner(Base, ABC):
         cls = type(self)
         # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
         return cls(
-            **serialize_init_args(self),
+            **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )
+
+    def __eq__(self, other: Runner) -> bool:
+        same_class = self.__class__ == other.__class__
+        same_init_args = self.serialize_init_args(
+            obj=self
+        ) == other.serialize_init_args(obj=other)
+        return same_class and same_init_args

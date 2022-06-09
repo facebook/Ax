@@ -329,7 +329,7 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
 def runner_to_dict(runner: Runner) -> Dict[str, Any]:
     """Convert Ax runner to a dictionary."""
     runner_cls = type(runner)
-    properties = runner_cls.serialize_init_args(runner=runner)
+    properties = runner_cls.serialize_init_args(obj=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
