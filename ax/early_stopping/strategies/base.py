@@ -255,8 +255,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Returns a boolean indicating if all checks are passed.
 
         This is useful for some situations where if no trials are eligible for stopping,
-        then we can skip costly steps, such as model fitting, that occur before individual
-        trials are considered for stopping.
+        then we can skip costly steps, such as model fitting, that occur before
+        individual trials are considered for stopping.
         """
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
