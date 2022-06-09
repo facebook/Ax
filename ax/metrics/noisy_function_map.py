@@ -107,8 +107,8 @@ class NoisyFunctionMapMetric(MapMetric):
         raise NotImplementedError
 
     @classmethod
-    def serialize_init_args(cls, metric: Any) -> Dict[str, Any]:
-        nf_map_metric = checked_cast(NoisyFunctionMapMetric, metric)
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+        nf_map_metric = checked_cast(NoisyFunctionMapMetric, obj)
         init_args = serialize_init_args(
             object=nf_map_metric, exclude_fields=["map_key_infos"]
         )

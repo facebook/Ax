@@ -232,7 +232,7 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
 
 def metric_to_dict(metric: Metric) -> Dict[str, Any]:
     """Convert Ax metric to a dictionary."""
-    properties = serialize_init_args(object=metric)
+    properties = metric.serialize_init_args(obj=metric)
     properties["__type"] = metric.__class__.__name__
     return properties
 

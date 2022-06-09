@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Type, TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
-from ax.utils.common.serialization import extract_init_args, serialize_init_args
+from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -18,7 +18,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ax import core  # noqa F401
 
 
-class Metric(SortableBase):
+class Metric(SortableBase, SerializationMixin):
     """Base class for representing metrics.
 
     The `fetch_trial_data` method is the essential method to override when
@@ -81,20 +81,6 @@ class Metric(SortableBase):
         superclass, in which case this property should return that superclass.
         """
         return self.__class__
-
-    @classmethod
-    def serialize_init_args(cls, metric: Metric) -> Dict[str, Any]:
-        """Serialize the properties needed to initialize the metric.
-        Used for storage.
-        """
-        return serialize_init_args(object=metric)
-
-    @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Given a dictionary, extract the properties needed to initialize the metric.
-        Used for storage.
-        """
-        return extract_init_args(args=args, class_=cls)
 
     def fetch_trial_data(self, trial: core.base_trial.BaseTrial, **kwargs: Any) -> Data:
         """Fetch data for one trial."""
@@ -239,11 +225,11 @@ class Metric(SortableBase):
             contains_new_data,
         )
 
-    def clone(self) -> "Metric":
+    def clone(self) -> Metric:
         """Create a copy of this Metric."""
         cls = type(self)
         return cls(
-            **serialize_init_args(self),
+            **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )
 
     def __repr__(self) -> str:

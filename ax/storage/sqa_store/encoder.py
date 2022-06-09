@@ -330,7 +330,7 @@ class Encoder:
                 f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )  # pragma: no cover
 
-        properties = metric_class.serialize_init_args(metric=metric)
+        properties = metric_class.serialize_init_args(obj=metric)
         return metric_type, object_to_json(
             properties,
             encoder_registry=self.config.json_encoder_registry,
