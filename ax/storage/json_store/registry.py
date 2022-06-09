@@ -52,6 +52,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
@@ -114,6 +115,7 @@ from ax.storage.json_store.encoders import (
     percentile_early_stopping_strategy_to_dict,
     pytorch_cnn_torchvision_benchmark_problem_to_dict,
     range_parameter_to_dict,
+    risk_measure_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
@@ -182,6 +184,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     PyTorchCNNMetric: metric_to_dict,
     PyTorchCNNTorchvisionRunner: runner_to_dict,
     RangeParameter: range_parameter_to_dict,
+    RiskMeasure: risk_measure_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     SurrogateMetric: metric_to_dict,
@@ -272,6 +275,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "PyTorchCNNMetric": PyTorchCNNMetric,
     "PyTorchCNNTorchvisionRunner": PyTorchCNNTorchvisionRunner,
     "RangeParameter": RangeParameter,
+    "RiskMeasure": RiskMeasure,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,

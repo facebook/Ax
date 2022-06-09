@@ -29,6 +29,7 @@ class MetricIntent(enum.Enum):
     SCALARIZED_OUTCOME_CONSTRAINT: str = "scalarized_outcome_constraint"
     OBJECTIVE_THRESHOLD: str = "objective_threshold"
     TRACKING: str = "tracking"
+    RISK_MEASURE: str = "risk_measure"
 
 
 class ParameterConstraintType(enum.Enum):

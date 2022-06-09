@@ -45,6 +45,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.parameter_distribution import ParameterDistribution
+from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -1734,3 +1735,12 @@ def get_default_scheduler_options() -> SchedulerOptions:
 
 def get_scheduler_options_batch_trial() -> SchedulerOptions:
     return SchedulerOptions(trial_type=TrialType.BATCH_TRIAL)
+
+
+##############################
+# Other
+##############################
+
+
+def get_risk_measure() -> RiskMeasure:
+    return RiskMeasure(risk_measure="Expectation", options={"n_w": 8})

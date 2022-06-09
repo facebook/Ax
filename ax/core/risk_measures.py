@@ -11,7 +11,7 @@ from copy import deepcopy
 from typing import Dict, List, Type, Union
 
 from ax.exceptions.core import UserInputError
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
     IndependentVaR,
@@ -47,7 +47,7 @@ RISK_MEASURE_NAME_TO_CLASS: Dict[str, Type[RiskMeasureMCObjective]] = {
 }
 
 
-class RiskMeasure(Base):
+class RiskMeasure(SortableBase):
     """A class for defining risk measures.
 
     This can be used with a `RobustSearchSpace`, to convert the predictions over
@@ -115,3 +115,7 @@ class RiskMeasure(Base):
             "risk_measure=" + self.risk_measure + ", "
             "options=" + repr(self.options) + ")"
         )
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)
