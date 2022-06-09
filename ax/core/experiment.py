@@ -590,7 +590,7 @@ class Experiment(Base):
                 "combined, or overwritten, or neither."
             )
         data_type = type(data)
-        data_init_args = data.serialize_init_args(data)
+        data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
         if data.df.empty:
             raise ValueError("Data to attach is empty.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
@@ -607,6 +607,8 @@ class Experiment(Base):
             )
         cur_time_millis = current_timestamp_in_millis()
         for trial_index, trial_df in data.true_df.groupby(data.true_df["trial_index"]):
+            # Overwrite `df` so that `data` only has current trial data.
+            data_init_args["df"] = trial_df
             current_trial_data = (
                 self._data_by_trial[trial_index]
                 if trial_index in self._data_by_trial
@@ -633,7 +635,7 @@ class Experiment(Base):
                 current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
                     [
                         last_data,
-                        last_data_type(trial_df, **data_init_args),
+                        last_data_type(**data_init_args),
                     ]
                 )
             elif overwrite_existing_data:
@@ -648,12 +650,10 @@ class Experiment(Base):
                             "previous data."
                         )
                 current_trial_data = OrderedDict(
-                    {cur_time_millis: data_type(trial_df, **data_init_args)}
+                    {cur_time_millis: data_type(**data_init_args)}
                 )
             else:
-                current_trial_data[cur_time_millis] = data_type(
-                    trial_df, **data_init_args
-                )
+                current_trial_data[cur_time_millis] = data_type(**data_init_args)
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis

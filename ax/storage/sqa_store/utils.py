@@ -14,6 +14,29 @@ from ax.utils.common.base import Base, SortableBase
 
 
 JSON_ATTRS = ["baseline_workflow_inputs"]
+# Skip over the following attrs in `copy_db_ids`:
+# * _experiment (to prevent infinite loops)
+# * most generator run and generation strategy metadata
+#   (since no Base objects are nested in there,
+#   and we don't have guarantees about the structure of some
+#   of that data, so the recursion could fail somewhere)
+COPY_DB_IDS_ATTRS_TO_SKIP = {
+    "_best_arm_predictions",
+    "_bridge_kwargs",
+    "_candidate_metadata_by_arm_signature",
+    "_curr",
+    "_experiment",
+    "_gen_metadata",
+    "_memo_df",
+    "_model_kwargs",
+    "_model_predictions",
+    "_model_state_after_gen",
+    "_model",
+    "_seen_trial_indices_by_status",
+    "_steps",
+    "analysis_scheduler",
+}
+SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
 
 
 def is_foreign_key_field(field: str) -> bool:
@@ -56,6 +79,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 raise SQADecodeError(
                     error_message_prefix + "Encountered two objects of different "
                     f"types: {type(source)} and {type(target)}."
+                    + SKIP_ATTRS_ERROR_SUFFIX
                 )
 
     if isinstance(source, Base):
@@ -65,28 +89,8 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
                 setattr(target, attr, val)
                 continue
 
-            # Skip over:
-            # * doubly private attributes
-            # * _experiment (to prevent infinite loops)
-            # * most generator run and generation strategy metadata
-            #   (since no Base objects are nested in there,
-            #   and we don't have guarantees about the structure of some
-            #   of that data, so the recursion could fail somewhere)
-            if attr.startswith("__") or attr in {
-                "_best_arm_predictions",
-                "_bridge_kwargs",
-                "_candidate_metadata_by_arm_signature",
-                "_curr",
-                "_experiment",
-                "_gen_metadata",
-                "_model_kwargs",
-                "_model_predictions",
-                "_model_state_after_gen",
-                "_model",
-                "_seen_trial_indices_by_status",
-                "_steps",
-                "analysis_scheduler",
-            }:
+            # Skip attrs that are doubly private or in COPY_DB_IDS_TO_SKIP.
+            if attr.startswith("__") or attr in COPY_DB_IDS_ATTRS_TO_SKIP:
                 continue
 
             # For Json attributes we would like to simply test for equality and not

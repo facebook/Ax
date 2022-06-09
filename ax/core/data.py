@@ -14,11 +14,15 @@ import numpy as np
 import pandas as pd
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 from ax.utils.common.base import Base
-from ax.utils.common.serialization import extract_init_args, serialize_init_args
+from ax.utils.common.serialization import (
+    extract_init_args,
+    SerializationMixin,
+    serialize_init_args,
+)
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
-class Data(Base):
+class Data(Base, SerializationMixin):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
@@ -155,18 +159,24 @@ class Data(Base):
         return columns
 
     @classmethod
-    def serialize_init_args(cls, data: Data) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
-        Used for storage and to help construct new similar Data. All kwargs
-        other than "dataframe" and "description" are considered structural.
+        Used for storage and to help construct new similar Data.
         """
-        return serialize_init_args(object=data, exclude_fields=["df", "description"])
+        data = checked_cast(Data, obj)
+        return serialize_init_args(object=data)
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """
+        # Extract `df` only if present, since certain inputs to this fn, e.g.
+        # SQAData.structure_metadata_json, don't have a `df` attribute.
+        if "df" in args and not isinstance(args["df"], pd.DataFrame):
+            # NOTE: Need dtype=False, otherwise infers arm_names like
+            # "4_1" should be int 41.
+            args["df"] = pd.read_json(args["df"]["value"], dtype=False)
         return extract_init_args(args=args, class_=cls)
 
     @property

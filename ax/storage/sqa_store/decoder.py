@@ -985,13 +985,13 @@ class Decoder:
             )
         )
 
-        dat = data_constructor(
-            description=data_sqa.description,
-            # NOTE: Need dtype=False, otherwise infers arm_names like
-            # "4_1" should be int 41.
-            df=pd.read_json(data_sqa.data_json, dtype=False),
-            **kwargs,
-        )
+        # Override df from deserialize_init_args with `data_json`.
+        # NOTE: Need dtype=False, otherwise infers arm_names like
+        # "4_1" should be int 41.
+        kwargs["df"] = pd.read_json(data_sqa.data_json, dtype=False)
+
+        dat = data_constructor(**kwargs)
+
         dat.db_id = data_sqa.id
         return dat
 

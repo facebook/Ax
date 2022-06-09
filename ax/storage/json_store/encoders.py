@@ -328,38 +328,30 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
 
 def runner_to_dict(runner: Runner) -> Dict[str, Any]:
     """Convert Ax runner to a dictionary."""
-    runner_cls = type(runner)
-    properties = runner_cls.serialize_init_args(obj=runner)
+    properties = runner.serialize_init_args(obj=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
 
 def data_to_dict(data: Data) -> Dict[str, Any]:
     """Convert Ax data to a dictionary."""
-    return {
-        "__type": data.__class__.__name__,
-        "df": data.df,
-        "description": data.description,
-    }
+    properties = data.serialize_init_args(obj=data)
+    properties["__type"] = data.__class__.__name__
+    return properties
 
 
 def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
     """Convert Ax map data to a dictionary."""
-    return {
-        "__type": map_data.__class__.__name__,
-        "df": map_data.map_df,
-        "map_key_infos": map_data.map_key_infos,
-        "description": map_data.description,
-    }
+    properties = map_data.serialize_init_args(obj=map_data)
+    properties["__type"] = map_data.__class__.__name__
+    return properties
 
 
 def map_key_info_to_dict(mki: MapKeyInfo) -> Dict[str, Any]:
     """Convert Ax map data metadata to a dictionary."""
-    return {
-        "__type": mki.__class__.__name__,
-        "key": mki.key,
-        "default_value": mki.default_value,
-    }
+    properties = serialize_init_args(object=mki)
+    properties["__type"] = mki.__class__.__name__
+    return properties
 
 
 def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:

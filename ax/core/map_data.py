@@ -14,6 +14,8 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
+from ax.utils.common.serialization import serialize_init_args
+from ax.utils.common.typeutils import checked_cast
 
 logger = get_logger(__name__)
 
@@ -255,13 +257,21 @@ class MapData(Data):
         return self._memo_df
 
     @classmethod
+    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+        map_data = checked_cast(MapData, obj)
+        properties = serialize_init_args(object=map_data)
+        properties["df"] = map_data.map_df
+        properties["map_key_infos"] = [
+            serialize_init_args(object=mki) for mki in properties["map_key_infos"]
+        ]
+        return properties
+
+    @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """
-
-        return {
-            "map_key_infos": [
-                MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
-            ]
-        }
+        args["map_key_infos"] = [
+            MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
+        ]
+        return super().deserialize_init_args(args=args)

@@ -1450,8 +1450,12 @@ def get_map_data(trial_index: int = 0) -> MapData:
     return MapData.from_map_evaluations(
         evaluations=evaluations,  # pyre-ignore [6]: Spurious param type mismatch.
         trial_index=trial_index,
-        map_key_infos=[MapKeyInfo(key="epoch", default_value=0.0)],
+        map_key_infos=[get_map_key_info()],
     )
+
+
+def get_map_key_info() -> MapKeyInfo:
+    return MapKeyInfo(key="epoch", default_value=0.0)
 
 
 def get_branin_data(

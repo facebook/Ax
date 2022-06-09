@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,8 @@ from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
 from ax.utils.common.logger import get_logger
+from ax.utils.common.serialization import serialize_init_args
+from ax.utils.common.typeutils import checked_cast
 
 logger = get_logger(__name__)
 
@@ -103,3 +105,19 @@ class NoisyFunctionMapMetric(MapMetric):
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError
+
+    @classmethod
+    def serialize_init_args(cls, metric: Any) -> Dict[str, Any]:
+        nf_map_metric = checked_cast(NoisyFunctionMapMetric, metric)
+        init_args = serialize_init_args(
+            object=nf_map_metric, exclude_fields=["map_key_infos"]
+        )
+        init_args["map_key_infos"] = [
+            serialize_init_args(object=mki) for mki in nf_map_metric.map_key_infos
+        ]
+        return init_args
+
+    @classmethod
+    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+        args["map_key_infos"] = [MapKeyInfo(**mki) for mki in args["map_key_infos"]]
+        return super().deserialize_init_args(args=args)
