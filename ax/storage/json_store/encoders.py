@@ -29,6 +29,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -284,6 +285,7 @@ def optimization_config_to_dict(
         "__type": optimization_config.__class__.__name__,
         "objective": optimization_config.objective,
         "outcome_constraints": optimization_config.outcome_constraints,
+        "risk_measure": optimization_config.risk_measure,
     }
 
 
@@ -296,6 +298,7 @@ def multi_objective_optimization_config_to_dict(
         "objective": multi_objective_optimization_config.objective,
         "outcome_constraints": multi_objective_optimization_config.outcome_constraints,
         "objective_thresholds": multi_objective_optimization_config.objective_thresholds,  # noqa E501
+        "risk_measure": multi_objective_optimization_config.risk_measure,
     }
 
 
@@ -533,4 +536,15 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     return {  # pragma: no cover
         "__type": problem.__class__.__name__,
         "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
+    }
+
+
+def risk_measure_to_dict(
+    risk_measure: RiskMeasure,
+) -> Dict[str, Any]:
+    """Convert a RiskMeasure to a dictionary."""
+    return {
+        "__type": risk_measure.__class__.__name__,
+        "risk_measure": risk_measure.risk_measure,
+        "options": risk_measure.options,
     }

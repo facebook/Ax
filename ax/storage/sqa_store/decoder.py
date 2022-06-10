@@ -34,6 +34,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -424,7 +425,7 @@ class Decoder:
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
-    ) -> Union[Metric, Objective, OutcomeConstraint]:
+    ) -> Union[Metric, Objective, OutcomeConstraint, RiskMeasure]:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
         metric = self.metric_from_sqa_util(metric_sqa)
@@ -590,6 +591,10 @@ class Decoder:
             # the db id gets lost and so we need to reset it
             ot.metric._db_id = metric.db_id
             return ot
+        elif metric_sqa.intent == MetricIntent.RISK_MEASURE:
+            rm = RiskMeasure(**object_from_json(metric_sqa.properties))
+            rm._db_id = metric.db_id
+            return rm
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
@@ -606,6 +611,7 @@ class Decoder:
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
+        risk_measure = None
         for metric_sqa in metrics_sqa:
             metric = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(metric, Objective):
@@ -614,6 +620,8 @@ class Decoder:
                 objective_thresholds.append(metric)
             elif isinstance(metric, OutcomeConstraint):
                 outcome_constraints.append(metric)
+            elif isinstance(metric, RiskMeasure):
+                risk_measure = metric
             else:
                 tracking_metrics.append(metric)
 
@@ -625,10 +633,13 @@ class Decoder:
                 objective=objective,
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
+                risk_measure=risk_measure,
             )
         else:
             optimization_config = OptimizationConfig(
-                objective=objective, outcome_constraints=outcome_constraints
+                objective=objective,
+                outcome_constraints=outcome_constraints,
+                risk_measure=risk_measure,
             )
         return (optimization_config, tracking_metrics)
 

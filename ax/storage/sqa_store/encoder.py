@@ -31,6 +31,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -55,6 +56,7 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
@@ -579,6 +581,19 @@ class Encoder:
             lower_is_better=metric.lower_is_better,
         )
 
+    def risk_measure_to_sqa(self, risk_measure: RiskMeasure) -> SQAMetric:
+        """Convert Ax RiskMeasure to SQLAlchemy."""
+        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
+        metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
+        # pyre-fixme[29]: `SQAMetric` is not a function.
+        return metric_class(
+            id=risk_measure.db_id,
+            name="risk measure",
+            metric_type=self.config.metric_registry[Metric],
+            intent=MetricIntent.RISK_MEASURE,
+            properties=serialize_init_args(risk_measure),
+        )
+
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
     ) -> List[SQAMetric]:
@@ -600,6 +615,11 @@ class Encoder:
                     objective_threshold=threshold
                 )
                 metrics_sqa.append(threshold_sqa)
+        if optimization_config.risk_measure is not None:
+            risk_measure_sqa = self.risk_measure_to_sqa(
+                risk_measure=optimization_config.risk_measure
+            )
+            metrics_sqa.append(risk_measure_sqa)
         return metrics_sqa
 
     def arm_to_sqa(self, arm: Arm, weight: Optional[float] = 1.0) -> SQAArm:
