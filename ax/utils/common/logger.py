@@ -9,7 +9,9 @@
 import logging
 import os
 from functools import wraps
-from typing import Any, Callable, Iterable, TypeVar
+from typing import Any, Callable, Iterable, List, TypeVar
+
+from ax.utils.common.decorator import ClassDecorator
 
 AX_ROOT_LOGGER_NAME = "ax"
 DEFAULT_LOG_LEVEL: int = logging.INFO
@@ -135,7 +137,7 @@ def set_stderr_log_level(level: int) -> None:
     ROOT_STREAM_HANDLER.setLevel(level)
 
 
-class disable_logger:
+class disable_logger(ClassDecorator):
     def __init__(self, name: str, level: int = logging.ERROR) -> None:
         """Disables a specific logger by name (e.g. module path) by setting the
         log level at the given one for the duration of the decorated function's call
@@ -143,44 +145,41 @@ class disable_logger:
         self.name = name
         self.level = level
 
-    def decorate_class(self, klass: T) -> T:
-        for attr in dir(klass):
-            attr_value = getattr(klass, attr)
-            if (
-                not callable(attr_value)
-                or isinstance(attr_value, type)
-                or attr
-                in ("__class__", "__repr__", "__str__", "__getattribute__", "__new__")
-            ):
-                continue
-
-            setattr(klass, attr, self.decorate_callable(attr_value))
-        return klass
-
     def decorate_callable(self, func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> T:
             logger = get_logger(self.name)
             prev_level = logger.getEffectiveLevel()
             logger.setLevel(self.level)
-            try:
-                return func(*args, **kwargs)
-            except TypeError as e:
-                # static functions
-                try:
-                    return func(*args[1:], **kwargs)
-                except TypeError:
-                    # it wasn't that it was a static function
-                    raise e
-            finally:
-                logger.setLevel(prev_level)
+            t = self._call_func(func, *args, **kwargs)
+            logger.setLevel(prev_level)
+            return t
 
         return inner
 
-    def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
-        if isinstance(func, type):
-            return self.decorate_class(func)
-        return self.decorate_callable(func)
+
+class disable_loggers(ClassDecorator):
+    def __init__(self, names: List[str], level: int = logging.ERROR) -> None:
+        """Disables a specific logger by name (e.g. module path) by setting the
+        log level at the given one for the duration of the decorated function's call
+        """
+        self.names = names
+        self.level = level
+
+    def decorate_callable(self, func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def inner(*args: Any, **kwargs: Any) -> T:
+            prev_levels = {}
+            for name in self.names:
+                logger = get_logger(name)
+                prev_levels[name] = logger.getEffectiveLevel()
+                logger.setLevel(self.level)
+            t = self._call_func(func, *args, **kwargs)
+            for name in self.names:
+                get_logger(name).setLevel(prev_levels[name])
+            return t
+
+        return inner
 
 
 """Sets up Ax's root logger to not propogate to Python's root logger and

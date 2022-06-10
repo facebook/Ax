@@ -27,6 +27,14 @@ Constants
     :undoc-members:
     :show-inheritance:
 
+Decorator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.common.decorator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Docutils
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
