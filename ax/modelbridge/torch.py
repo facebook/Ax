@@ -29,7 +29,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
@@ -839,17 +839,17 @@ def validate_optimization_config(
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_metric in c.metrics:
                 if c_metric.name not in outcomes:  # pragma: no cover
-                    raise ValueError(
+                    raise DataRequiredError(
                         f"Scalarized constraint metric component {c.metric.name} "
                         + "not found in fitted data."
                     )
         elif c.metric.name not in outcomes:  # pragma: no cover
-            raise ValueError(
+            raise DataRequiredError(
                 f"Outcome constraint metric {c.metric.name} not found in fitted data."
             )
     obj_metric_names = [m.name for m in optimization_config.objective.metrics]
     for obj_metric_name in obj_metric_names:
         if obj_metric_name not in outcomes:  # pragma: no cover
-            raise ValueError(
+            raise DataRequiredError(
                 f"Objective metric {obj_metric_name} not found in fitted data."
             )
