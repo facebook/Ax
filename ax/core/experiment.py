@@ -932,7 +932,8 @@ class Experiment(Base):
             old_experiment: The experiment from which to transfer trials and data
             copy_run_metadata: whether to copy the run_metadata from the old experiment
             trial_statuses_to_copy: All trials with a status in this list will be
-                copied. By default, copies all ``COMPLETED`` and ``ABANDONED`` trials.
+                copied. By default, copies all ``COMPLETED``, ``ABANDONED``, and
+                ``EARLY_STOPPED`` trials.
 
         Returns:
             List of trials successfully copied from old_experiment to this one
@@ -957,7 +958,11 @@ class Experiment(Base):
         trial_statuses_to_copy = (
             trial_statuses_to_copy
             if trial_statuses_to_copy is not None
-            else [TrialStatus.COMPLETED, TrialStatus.ABANDONED]
+            else [
+                TrialStatus.COMPLETED,
+                TrialStatus.ABANDONED,
+                TrialStatus.EARLY_STOPPED,
+            ]
         )
 
         warm_start_trials = [
@@ -978,7 +983,10 @@ class Experiment(Base):
             is_completed_with_data = (
                 trial.status == TrialStatus.COMPLETED and ts != -1 and not dat.df.empty
             )
-            if is_completed_with_data or trial.status == TrialStatus.ABANDONED:
+            if is_completed_with_data or trial.status in {
+                TrialStatus.ABANDONED,
+                TrialStatus.EARLY_STOPPED,
+            }:
                 # Set trial index and arm name to their values in new trial.
                 new_trial = self.new_trial()
                 new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
@@ -1016,6 +1024,8 @@ class Experiment(Base):
                     )
                     self.attach_data(data=old_data)
                     new_trial.mark_completed()
+                elif trial.status == TrialStatus.EARLY_STOPPED:
+                    new_trial.mark_early_stopped()
                 else:
                     new_trial.mark_abandoned(reason=trial.abandoned_reason)
                 copied_trials.append(new_trial)
