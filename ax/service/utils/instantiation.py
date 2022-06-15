@@ -722,6 +722,7 @@ class InstantiationBase:
         parameters: List[TParameterRepresentation],
         name: Optional[str] = None,
         description: Optional[str] = None,
+        owners: Optional[List[str]] = None,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
         status_quo: Optional[TParameterization] = None,
@@ -842,12 +843,15 @@ class InstantiationBase:
             DataType.MAP_DATA if support_intermediate_data else DataType.DATA
         )
 
-        immutable_ss_and_oc = immutable_search_space_and_opt_config
-        properties = (
-            {}
-            if not immutable_search_space_and_opt_config
-            else {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: immutable_ss_and_oc}
-        )
+        properties: Dict[str, Any] = {}
+
+        if immutable_search_space_and_opt_config:
+            properties[
+                Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
+            ] = immutable_search_space_and_opt_config
+
+        if owners is not None:
+            properties["owners"] = owners
 
         return Experiment(
             name=name,

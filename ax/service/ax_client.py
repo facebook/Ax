@@ -245,6 +245,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         ],
         name: Optional[str] = None,
         description: Optional[str] = None,
+        owners: Optional[List[str]] = None,
         objective_name: Optional[str] = None,
         minimize: Optional[bool] = None,
         objectives: Optional[Dict[str, ObjectiveProperties]] = None,
@@ -356,6 +357,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         experiment = self.make_experiment(
             name=name,
             description=description,
+            owners=owners,
             parameters=parameters,
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
