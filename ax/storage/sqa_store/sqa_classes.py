@@ -26,6 +26,7 @@ from ax.storage.sqa_store.db import (
 from ax.storage.sqa_store.json import (
     JSONEncodedDict,
     JSONEncodedList,
+    JSONEncodedLongTextDict,
     JSONEncodedObject,
     JSONEncodedTextDict,
 )
@@ -310,7 +311,7 @@ class SQARunner(Base):
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    properties: Optional[Dict[str, Any]] = Column(JSONEncodedLongTextDict, default={})
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     runner_type: int = Column(Integer, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
@@ -392,7 +393,7 @@ class SQATrial(Base):
     ttl_seconds: Optional[int] = Column(Integer)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedLongTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
     stop_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)

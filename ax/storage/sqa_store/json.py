@@ -8,7 +8,7 @@ import json
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
-from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, MEDIUMTEXT_BYTES
+from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, LONGTEXT_BYTES, MEDIUMTEXT_BYTES
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.types import Text, TypeDecorator, VARCHAR
 
@@ -73,6 +73,20 @@ class JSONEncodedMediumText(JSONEncodedObject):
     impl = Text(MEDIUMTEXT_BYTES)
 
 
+class JSONEncodedLongText(JSONEncodedObject):
+    """Class for JSON-encoding objects in SQLAlchemy, backed by MEDIUMTEXT
+    (MySQL).
+
+    See description in JSONEncodedObject.
+
+    """
+
+    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
+    #  inconsistently.
+    impl = Text(LONGTEXT_BYTES)
+
+
 JSONEncodedList = MutableList.as_mutable(JSONEncodedObject)
 JSONEncodedDict = MutableDict.as_mutable(JSONEncodedObject)
 JSONEncodedTextDict = MutableDict.as_mutable(JSONEncodedText)
+JSONEncodedLongTextDict = MutableDict.as_mutable(JSONEncodedLongText)
