@@ -10,13 +10,13 @@ from ax.core import Trial
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric
-from ax.runners.torchx import TORCHX_TRACKER_BASE
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 logger = get_logger(__name__)
 
 try:
+    from ax.runners.torchx import TORCHX_TRACKER_BASE
     from torchx.runtime.tracking import FsspecResultTracker
 
     class TorchXMetric(Metric):
