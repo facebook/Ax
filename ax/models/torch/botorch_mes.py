@@ -164,7 +164,9 @@ class MaxValueEntropySearch(BotorchModel):
             sequential=True,
         )
         return TorchGenResults(
-            points=candidates.detach().cpu(), weights=torch.ones(n, dtype=self.dtype)
+            points=candidates.detach().cpu(),
+            # pyre-fixme[6]: For 2nd param expected `dtype` but got `Optional[dtype]`.
+            weights=torch.ones(n, dtype=self.dtype),
         )
 
     def _get_best_point_acqf(

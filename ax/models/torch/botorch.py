@@ -403,6 +403,7 @@ class BotorchModel(TorchModel):
 
         return TorchGenResults(
             points=candidates.detach().cpu(),
+            # pyre-fixme[6]: For 2nd param expected `dtype` but got `Optional[dtype]`.
             weights=torch.ones(n, dtype=self.dtype),
             gen_metadata=gen_metadata,
         )
@@ -504,6 +505,8 @@ class BotorchModel(TorchModel):
                 ls = ls.unsqueeze(0)
             lengthscales.append(ls)
         lengthscales = torch.cat(lengthscales, dim=0)
+        # pyre-fixme[16]: `float` has no attribute `detach`.
+        # pyre-fixme[58]: `/` is not supported for operand types `int` and `Tensor`.
         return (1 / lengthscales).detach().cpu().numpy()
 
 

@@ -522,7 +522,7 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
         posterior = model.posterior(X)
         if isinstance(posterior, FullyBayesianPosterior):
             mean = posterior.mixture_mean.cpu().detach()
-            var = posterior.mixture_variance.cpu().detach().clamp_min(0)  # pyre-ignore
+            var = posterior.mixture_variance.cpu().detach().clamp_min(0)
         else:
             mean = posterior.mean.cpu().detach()
             var = posterior.variance.cpu().detach().clamp_min(0)

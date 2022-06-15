@@ -165,6 +165,8 @@ class ALEBOGP(FixedNoiseGP):
         x = x.unsqueeze(-3).expand(
             x.shape[:-2]
             + torch.Size([self._aug_batch_shape[0]])  # pyre-ignore
+            # pyre-fixme[58]: `+` is not supported for operand types `Tuple[int,
+            #  ...]` and `Size`.
             + x.shape[-2:]
         )
         mvn_b = super().__call__(x)
@@ -469,6 +471,7 @@ def ei_or_nei(
             best_f = model.train_targets.max()
         else:
             best_f = model.train_targets.min()
+        # pyre-fixme[6]: For 3rd param expected `bool` but got `Tensor`.
         return ExpectedImprovement(model=model, best_f=best_f, maximize=maximize)
     else:
         with gpytorch.settings.max_cholesky_size(2000):
@@ -645,6 +648,7 @@ class ALEBO(BotorchModel):
         assert torch_opt_config.pending_observations is None
         # Setup constraints
         A = torch.cat((self.Binv, -self.Binv))
+        # pyre-fixme[6]: For 3rd param expected `dtype` but got `Optional[dtype]`.
         b = torch.ones(2 * self.Binv.shape[0], 1, dtype=self.dtype, device=self.device)
         linear_constraints = (A, b)
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5

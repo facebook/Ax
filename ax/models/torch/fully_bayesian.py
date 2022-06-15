@@ -99,7 +99,6 @@ def predict_from_model_mcmc(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     # the mean and variance both have shape: n x num_samples x m (after squeezing)
     mean = posterior.mean.cpu().detach()
     # TODO: Allow Posterior to (optionally) return the full covariance matrix
-    # pyre-ignore
     variance = posterior.variance.cpu().detach().clamp_min(0)
     # marginalize over samples
     t1 = variance.sum(dim=0) / variance.shape[0]
@@ -143,7 +142,7 @@ def compute_dists(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
     res = x1_.matmul(x2_.transpose(-2, -1))
 
     if x1_eq_x2 and not x1.requires_grad and not x2.requires_grad:
-        res.diagonal(dim1=-2, dim2=-1).fill_(0)  # pyre-ignore [16]
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
     # Zero out negative values
     dist = res.clamp_min_(1e-30).sqrt()
@@ -160,6 +159,7 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
     elif nu == 1.5:
         constant_component = (math.sqrt(3) * dist).add(1)
     elif nu == 2.5:
+        # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and `int`.
         constant_component = (math.sqrt(5) * dist).add(1).add(5.0 / 3.0 * (dist**2))
     else:
         raise AxError(f"Unsupported value of nu: {nu}")
@@ -169,6 +169,8 @@ def matern_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor, nu: float = 2.5) ->
 def rbf_kernel(X: Tensor, Z: Tensor, lengthscale: Tensor) -> Tensor:
     """Scaled RBF kernel."""
     dist = compute_dists(X=X, Z=Z, lengthscale=lengthscale)
+    # pyre-fixme[6]: For 1st param expected `Tensor` but got `float`.
+    # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and `int`.
     return torch.exp(-0.5 * (dist**2))
 
 
@@ -209,7 +211,6 @@ def single_task_pyro_model(
         # infer noise level
         noise = pyro_sample_noise(**tkwargs)
     else:
-        # pyre-ignore [16]
         noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
     lengthscale = pyro_sample_saas_lengthscales(dim=dim, **tkwargs)
 
@@ -506,6 +507,7 @@ class FullyBayesianBotorchModelMixin:
         # take mean over MCMC samples
         lengthscales = torch.quantile(lengthscales, 0.5, dim=1)
         # pyre-ignore [16]
+        # pyre-fixme[58]: `/` is not supported for operand types `int` and `Tensor`.
         return (1 / lengthscales).detach().cpu().numpy()
 
 

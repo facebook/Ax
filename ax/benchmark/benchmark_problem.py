@@ -166,6 +166,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             objective_thresholds=[
                 ObjectiveThreshold(
                     metric=metrics[i],
+                    # pyre-fixme[6]: For 2nd param expected `float` but got `Tensor`.
                     bound=test_problem.ref_point[i],
                     relative=False,
                     op=ComparisonOp.LEQ,

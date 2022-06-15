@@ -1211,6 +1211,7 @@ def detect_duplicates(
     )
     return (
         (i, int(j))
+        # pyre-fixme[19]: Expected 1 positional argument.
         for diff, j, i in zip(*(dist - tols).min(dim=-2), range(n))
         if diff < 0
     )

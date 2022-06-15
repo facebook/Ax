@@ -531,7 +531,7 @@ def _get_model(
     Returns:
         A GPyTorchModel (unfitted).
     """
-    Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)  # pyre-ignore[16]
+    Yvar = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
     is_nan = torch.isnan(Yvar)
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
@@ -548,7 +548,7 @@ def _get_model(
         warp_tf = get_warping_transform(
             d=X.shape[-1],
             task_feature=task_feature,
-            batch_shape=X.shape[:-2],  # pyre-ignore [6]
+            batch_shape=X.shape[:-2],
         )
     else:
         warp_tf = None
