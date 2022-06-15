@@ -34,9 +34,10 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -369,6 +370,56 @@ class Decoder:
         constraint.db_id = parameter_constraint_sqa.id
         return constraint
 
+    def parameter_distributions_from_sqa(
+        self,
+        parameter_constraint_sqa_list: List[SQAParameterConstraint],
+    ) -> Tuple[List[ParameterDistribution], Optional[int]]:
+        """Convert SQLAlchemy ParameterConstraints to Ax ParameterDistributions."""
+        parameter_distributions: List[ParameterDistribution] = []
+        num_samples = None
+        for parameter_constraint_sqa in parameter_constraint_sqa_list:
+            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION:
+                raise SQADecodeError(  # pragma: no cover
+                    "Parameter distribution must have type `DISTRIBUTION`. "
+                    "Received type "
+                    f"{ParameterConstraintType(parameter_constraint_sqa.type).name}."
+                )
+            num_samples = int(parameter_constraint_sqa.bound)
+            distribution = object_from_json(
+                parameter_constraint_sqa.constraint_dict,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
+            distribution.db_id = parameter_constraint_sqa.id
+            parameter_distributions.append(distribution)
+        return parameter_distributions, num_samples
+
+    def environmental_variable_from_sqa(self, parameter_sqa: SQAParameter) -> Parameter:
+        """Convert SQLAlchemy Parameter to Ax environmental variable."""
+        if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
+            if parameter_sqa.lower is None or parameter_sqa.upper is None:
+                raise SQADecodeError(  # pragma: no cover
+                    "`lower` and `upper` must be set for RangeParameter."
+                )
+            parameter = RangeParameter(
+                name=parameter_sqa.name,
+                parameter_type=parameter_sqa.parameter_type,
+                lower=parameter_sqa.lower,
+                upper=parameter_sqa.upper,
+                log_scale=parameter_sqa.log_scale or False,
+                digits=parameter_sqa.digits,
+                is_fidelity=parameter_sqa.is_fidelity or False,
+                target_value=parameter_sqa.target_value,
+            )
+        else:  # pragma: no cover
+            raise SQADecodeError(
+                f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
+                "is an invalid domain type."
+            )
+
+        parameter.db_id = parameter_sqa.id
+        return parameter
+
     def search_space_from_sqa(
         self,
         parameters_sqa: List[SQAParameter],
@@ -377,23 +428,44 @@ class Decoder:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
         Ax SearchSpace.
         """
-        parameters = [
-            self.parameter_from_sqa(parameter_sqa=parameter_sqa)
-            for parameter_sqa in parameters_sqa
-        ]
+        parameters, environmental_variables = [], []
+        for parameter_sqa in parameters_sqa:
+            if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
+                environmental_variables.append(
+                    self.environmental_variable_from_sqa(parameter_sqa=parameter_sqa)
+                )
+            else:
+                parameters.append(self.parameter_from_sqa(parameter_sqa=parameter_sqa))
         parameter_constraints = [
             self.parameter_constraint_from_sqa(
                 parameter_constraint_sqa=parameter_constraint_sqa, parameters=parameters
             )
             for parameter_constraint_sqa in parameter_constraints_sqa
+            if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION
         ]
+        parameter_distributions, num_samples = self.parameter_distributions_from_sqa(
+            [
+                parameter_constraint_sqa
+                for parameter_constraint_sqa in parameter_constraints_sqa
+                if parameter_constraint_sqa.type == ParameterConstraintType.DISTRIBUTION
+            ]
+        )
 
         if len(parameters) == 0:
             return None
 
-        return SearchSpace(
-            parameters=parameters, parameter_constraints=parameter_constraints
-        )
+        if num_samples is not None:
+            return RobustSearchSpace(
+                parameters=parameters,
+                parameter_distributions=parameter_distributions,
+                num_samples=num_samples,
+                environmental_variables=environmental_variables,
+                parameter_constraints=parameter_constraints,
+            )
+        else:
+            return SearchSpace(
+                parameters=parameters, parameter_constraints=parameter_constraints
+            )
 
     def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
@@ -592,7 +664,13 @@ class Decoder:
             ot.metric._db_id = metric.db_id
             return ot
         elif metric_sqa.intent == MetricIntent.RISK_MEASURE:
-            rm = RiskMeasure(**object_from_json(metric_sqa.properties))
+            rm = RiskMeasure(
+                **object_from_json(
+                    metric_sqa.properties,
+                    decoder_registry=self.config.json_decoder_registry,
+                    class_decoder_registry=self.config.json_class_decoder_registry,
+                )
+            )
             rm._db_id = metric.db_id
             return rm
         else:

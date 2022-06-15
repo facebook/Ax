@@ -29,9 +29,10 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.early_stopping.strategies import (
     LogicalEarlyStoppingStrategy,
@@ -228,6 +229,29 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
         "__type": search_space.__class__.__name__,
         "parameters": list(search_space.parameters.values()),
         "parameter_constraints": search_space.parameter_constraints,
+    }
+
+
+def robust_search_space_to_dict(rss: RobustSearchSpace) -> Dict[str, Any]:
+    """Convert robust search space to a dictionary."""
+    return {
+        "__type": rss.__class__.__name__,
+        "parameters": list(rss._parameters.values()),
+        "parameter_distributions": rss.parameter_distributions,
+        "num_samples": rss.num_samples,
+        "environmental_variables": list(rss._environmental_variables.values()),
+        "parameter_constraints": rss.parameter_constraints,
+    }
+
+
+def parameter_distribution_to_dict(dist: ParameterDistribution) -> Dict[str, Any]:
+    """Convert a parameter distribution to a dictionary."""
+    return {
+        "__type": dist.__class__.__name__,
+        "parameters": dist.parameters,
+        "distribution_class": dist.distribution_class,
+        "distribution_parameters": dist.distribution_parameters,
+        "multiplicative": dist.multiplicative,
     }
 
 

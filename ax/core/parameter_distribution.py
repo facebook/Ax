@@ -11,14 +11,14 @@ from importlib import import_module
 from typing import Any, Dict, List, Optional
 
 from ax.exceptions.core import UserInputError
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from scipy.stats._distn_infrastructure import rv_generic
 
 TDistribution = str
 TParamName = str
 
 
-class ParameterDistribution(Base):
+class ParameterDistribution(SortableBase):
     """A class for defining parameter distributions.
 
     Intended for robust optimization use cases. This could be used to specify the
@@ -94,3 +94,7 @@ class ParameterDistribution(Base):
             "distribution_parameters=" + repr(self.distribution_parameters) + ", "
             "multiplicative=" + repr(self.multiplicative) + ")"
         )
+
+    @property
+    def _unique_id(self) -> str:
+        return str(self)

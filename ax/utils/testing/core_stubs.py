@@ -771,6 +771,34 @@ def get_robust_search_space(
     )
 
 
+def get_robust_search_space_environmental(
+    lb: float = 0.0,
+    ub: float = 5.0,
+) -> RobustSearchSpace:
+    parameters = [
+        RangeParameter("x", ParameterType.FLOAT, lb, ub),
+        RangeParameter("y", ParameterType.FLOAT, lb, ub),
+    ]
+    environmental_variables = [
+        RangeParameter("z", ParameterType.INT, lb, ub),
+    ]
+    distributions = [
+        ParameterDistribution(
+            parameters=["z"],
+            distribution_class="binom",
+            distribution_parameters={"n": 5, "p": 0.5},
+        )
+    ]
+    return RobustSearchSpace(
+        # pyre-ignore Incompatible parameter type [6]
+        parameters=parameters,
+        parameter_distributions=distributions,
+        num_samples=4,
+        # pyre-ignore Incompatible parameter type [6]
+        environmental_variables=environmental_variables,
+    )
+
+
 ##############################
 # Trials
 ##############################
@@ -1744,3 +1772,11 @@ def get_scheduler_options_batch_trial() -> SchedulerOptions:
 
 def get_risk_measure() -> RiskMeasure:
     return RiskMeasure(risk_measure="Expectation", options={"n_w": 8})
+
+
+def get_parameter_distribution() -> ParameterDistribution:
+    return ParameterDistribution(
+        parameters=["x"],
+        distribution_class="norm",
+        distribution_parameters={"loc": 1.0, "scale": 0.5},
+    )

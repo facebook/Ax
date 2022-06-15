@@ -415,6 +415,8 @@ class SQAStoreTest(TestCase):
             elif class_ == "GeneratorRun" or class_ == "GeneratorRunReducedState":
                 # Need to pass in reduced_state and immutable_oc_and_ss
                 converted_object = decode_func(sqa_object, False, False)
+            elif isinstance(sqa_object, tuple):
+                converted_object = decode_func(*sqa_object)
             else:
                 converted_object = decode_func(sqa_object)
 

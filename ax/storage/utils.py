@@ -15,6 +15,7 @@ class DomainType(enum.Enum):
     FIXED: int = 0
     RANGE: int = 1
     CHOICE: int = 2
+    ENVIRONMENTAL_RANGE: int = 3
 
 
 class MetricIntent(enum.Enum):
@@ -42,3 +43,4 @@ class ParameterConstraintType(enum.Enum):
     LINEAR: int = 0
     ORDER: int = 1
     SUM: int = 2
+    DISTRIBUTION: int = 3
