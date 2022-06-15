@@ -52,8 +52,9 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.early_stopping.strategies import (
@@ -112,10 +113,12 @@ from ax.storage.json_store.encoders import (
     order_parameter_constraint_to_dict,
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
+    parameter_distribution_to_dict,
     percentile_early_stopping_strategy_to_dict,
     pytorch_cnn_torchvision_benchmark_problem_to_dict,
     range_parameter_to_dict,
     risk_measure_to_dict,
+    robust_search_space_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
@@ -180,11 +183,13 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
+    ParameterDistribution: parameter_distribution_to_dict,
     PyTorchCNNTorchvisionBenchmarkProblem: pytorch_cnn_torchvision_benchmark_problem_to_dict,  # noqa
     PyTorchCNNMetric: metric_to_dict,
     PyTorchCNNTorchvisionRunner: runner_to_dict,
     RangeParameter: range_parameter_to_dict,
     RiskMeasure: risk_measure_to_dict,
+    RobustSearchSpace: robust_search_space_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     SurrogateMetric: metric_to_dict,
@@ -269,6 +274,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "OutcomeConstraint": OutcomeConstraint,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
+    "ParameterDistribution": ParameterDistribution,
     "ParameterType": ParameterType,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
     "PyTorchCNNTorchvisionBenchmarkProblem": PyTorchCNNTorchvisionBenchmarkProblem,
@@ -276,6 +282,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "PyTorchCNNTorchvisionRunner": PyTorchCNNTorchvisionRunner,
     "RangeParameter": RangeParameter,
     "RiskMeasure": RiskMeasure,
+    "RobustSearchSpace": RobustSearchSpace,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,

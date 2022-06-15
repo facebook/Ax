@@ -31,9 +31,10 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     SumConstraint,
 )
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -300,6 +301,8 @@ class Encoder:
         """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
         ParameterConstraints.
         """
+        if isinstance(search_space, RobustSearchSpace):
+            return self.robust_search_space_to_sqa(rss=search_space)
         parameters, parameter_constraints = [], []
         if search_space is not None:
             for parameter in search_space.parameters.values():
@@ -312,6 +315,84 @@ class Encoder:
                     )
                 )
 
+        return parameters, parameter_constraints
+
+    def parameter_distribution_to_sqa(
+        self, distribution: ParameterDistribution, num_samples: int
+    ) -> SQAParameterConstraint:
+        """Convert Ax ParameterDistribution to SQLAlchemy.
+
+        NOTE: This saves the distributions as json blobs in `constraint_dict`
+        to avoid creating a new table in the short term. If robust optimization
+        sees more usage in the long term, the proper solution would be to
+        make a new table for these.
+        """
+        # pyre-fixme[9]: parameter_constraint_cl... used as type `SQABase`.
+        param_constraint_cls: SQAParameterConstraint = self.config.class_to_sqa_class[
+            ParameterConstraint
+        ]
+        # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
+        return param_constraint_cls(
+            id=distribution.db_id,
+            type=ParameterConstraintType.DISTRIBUTION,
+            constraint_dict=object_to_json(
+                distribution,
+                encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
+            ),
+            bound=num_samples,
+        )
+
+    def environmental_variable_to_sqa(self, parameter: Parameter) -> SQAParameter:
+        """Convert Ax environmental variables to SQLAlchemy.
+
+        Since these are effectively just range parameters with an associated
+        distribution, which is stored separately, we will store these as new
+        parameter types.
+        """
+        # pyre-fixme: Expected `Base` for 1st...typing.Type[Parameter]`.
+        parameter_class: SQAParameter = self.config.class_to_sqa_class[Parameter]
+        if isinstance(parameter, RangeParameter):
+            # pyre-fixme[29]: `SQAParameter` is not a function.
+            return parameter_class(
+                id=parameter.db_id,
+                name=parameter.name,
+                domain_type=DomainType.ENVIRONMENTAL_RANGE,
+                parameter_type=parameter.parameter_type,
+                lower=float(parameter.lower),
+                upper=float(parameter.upper),
+                log_scale=parameter.log_scale,
+                digits=parameter.digits,
+                is_fidelity=parameter.is_fidelity,
+                target_value=parameter.target_value,
+            )
+        else:  # pragma: no cover
+            raise SQAEncodeError(
+                "Cannot encode environmental variable to SQLAlchemy because "
+                f"the corresponding parameter type ({type(parameter)}) is invalid."
+            )
+
+    def robust_search_space_to_sqa(
+        self, rss: RobustSearchSpace
+    ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
+        parameters, parameter_constraints = [], []
+        for parameter in rss._parameters.values():
+            parameters.append(self.parameter_to_sqa(parameter=parameter))
+        for parameter in rss._environmental_variables.values():
+            parameters.append(self.environmental_variable_to_sqa(parameter=parameter))
+        for parameter_constraint in rss.parameter_constraints:
+            parameter_constraints.append(
+                self.parameter_constraint_to_sqa(
+                    parameter_constraint=parameter_constraint
+                )
+            )
+        for distribution in rss.parameter_distributions:
+            parameter_constraints.append(
+                self.parameter_distribution_to_sqa(
+                    distribution=distribution,
+                    num_samples=rss.num_samples,
+                )
+            )
         return parameters, parameter_constraints
 
     def get_metric_type_and_properties(
