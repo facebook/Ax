@@ -10,7 +10,7 @@ import dataclasses
 import inspect
 import warnings
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -29,8 +29,9 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
-from botorch.models import SaasFullyBayesianSingleTaskGP
-from botorch.models.model import Model
+from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP
+from botorch.models.gpytorch import GPyTorchModel
+from botorch.models.model import Model, ModelList
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
@@ -49,6 +50,27 @@ NOT_YET_FIT_MSG = (
 
 
 logger: Logger = get_logger(__name__)
+
+
+def fit_botorch_model(
+    model: Union[Model, ModelList, ModelListGP],
+    mll_class: Optional[Type[MarginalLogLikelihood]] = None,
+    mll_options: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Fit a BoTorch model."""
+    models = model.models if isinstance(model, (ModelListGP, ModelList)) else [model]
+    for m in models:
+        # TODO: Support deterministic models when we support `ModelList`
+        if isinstance(m, SaasFullyBayesianSingleTaskGP):
+            fit_fully_bayesian_model_nuts(m, disable_progbar=True)
+        elif isinstance(m, GPyTorchModel):
+            mll_options = mll_options or {}
+            mll = not_none(mll_class)(likelihood=m.likelihood, model=m, **mll_options)
+            fit_gpytorch_model(mll)
+        else:
+            raise ValueError(
+                f"Model of type {m.__class__.__name__} is currently not supported."
+            )
 
 
 class Surrogate(Base):
@@ -313,14 +335,9 @@ class Surrogate(Base):
             self.model.load_state_dict(not_none(state_dict))
 
         if state_dict is None or refit:
-            # TODO: Create a `fit_botorch_model` method that handles the fitting.
-            if isinstance(self.model, SaasFullyBayesianSingleTaskGP):
-                fit_fully_bayesian_model_nuts(self.model, disable_progbar=True)
-            else:
-                mll = self.mll_class(
-                    self.model.likelihood, self.model, **self.mll_options
-                )
-                fit_gpytorch_model(mll)
+            fit_botorch_model(
+                model=self.model, mll_class=self.mll_class, mll_options=self.mll_options
+            )
 
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         """Predicts outcomes given a model and input tensor.
