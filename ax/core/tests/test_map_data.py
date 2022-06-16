@@ -216,3 +216,59 @@ class MapDataTest(TestCase):
         )
 
         self.assertIsNotNone(fresh._memo_df)  # Assert df is cached after first call
+
+    def test_subsample(self):
+        arm_names = ["0_0", "1_0", "2_0", "3_0"]
+        max_epochs = [25, 50, 75, 100]
+        metric_names = ["a", "b"]
+        large_map_df = pd.DataFrame(
+            [
+                {
+                    "arm_name": arm_name,
+                    "epoch": epoch,
+                    "mean": epoch * 0.1,
+                    "sem": 0.1,
+                    "trial_index": trial_index,
+                    "metric_name": metric_name,
+                }
+                for metric_name in metric_names
+                for trial_index, (arm_name, max_epoch) in enumerate(
+                    zip(arm_names, max_epochs)
+                )
+                for epoch in range(max_epoch)
+            ]
+        )
+        large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
+
+        # test keep_every
+        subsample = large_map_data.subsample(keep_every=10)
+        self.assertEqual(len(subsample.map_df), 52)
+        subsample = large_map_data.subsample(keep_every=25)
+        self.assertEqual(len(subsample.map_df), 20)
+        subsample = large_map_data.subsample(limit_rows_per_group=7)
+        self.assertEqual(len(subsample.map_df), 36)
+        # test passing specific map_key
+        subsample = large_map_data.subsample(map_key="epoch", keep_every=10)
+        self.assertEqual(len(subsample.map_df), 52)
+
+        # test limit_rows_per_group
+        subsample = large_map_data.subsample(limit_rows_per_group=1)
+        self.assertEqual(len(subsample.map_df), 8)
+        subsample = large_map_data.subsample(limit_rows_per_group=7)
+        self.assertEqual(len(subsample.map_df), 36)
+        subsample = large_map_data.subsample(limit_rows_per_group=10)
+        self.assertEqual(len(subsample.map_df), 52)
+        subsample = large_map_data.subsample(limit_rows_per_group=1000)
+        self.assertEqual(len(subsample.map_df), 500)
+
+        # test limit_total_rows
+        with self.assertRaises(ValueError):
+            large_map_data.subsample(limit_total_rows=5)
+        subsample = large_map_data.subsample(limit_total_rows=10)
+        self.assertEqual(len(subsample.map_df), 10)
+        subsample = large_map_data.subsample(limit_total_rows=50)
+        self.assertEqual(len(subsample.map_df), 50)
+        subsample = large_map_data.subsample(limit_total_rows=65)
+        self.assertEqual(len(subsample.map_df), 60)
+        subsample = large_map_data.subsample(limit_total_rows=1000)
+        self.assertEqual(len(subsample.map_df), 500)
