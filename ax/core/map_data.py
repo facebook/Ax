@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Generic, Iterable, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar
+
+import numpy as np
 
 import pandas as pd
 from ax.core.data import Data
@@ -136,7 +138,7 @@ class MapData(Data):
         return self._map_key_infos
 
     @property
-    def map_keys(self) -> Iterable[str]:
+    def map_keys(self) -> List[str]:
         return [mki.key for mki in self.map_key_infos]
 
     @property
@@ -275,3 +277,79 @@ class MapData(Data):
             MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
         ]
         return super().deserialize_init_args(args=args)
+
+    def subsample(
+        self,
+        map_key: Optional[str] = None,
+        keep_every: Optional[int] = None,
+        limit_rows_per_group: Optional[int] = None,
+        limit_total_rows: Optional[int] = None,
+    ) -> MapData:
+        """Subsample the `map_key` column in an equally-spaced manner (if there is
+        a `self.map_keys` is length one, then `map_key` can be set to None). The
+        values of the `map_key` column are not taken into account, so this function
+        is most reasonable when those values are equally-spaced. There are three
+        ways that this can be done:
+            1. If `keep_every = k` is set, then every kth row of the DataFrame in the
+                `map_key` column is kept after grouping by `DEDUPLICATE_BY_COLUMNS`.
+                In other words, every kth step of each (arm, metric) will be kept.
+            2. If `limit_rows_per_group = n`, the method will find the (arm, metric)
+                pair with the largest number of rows in the `map_key` column and select
+                an approprioate `keep_every` such that each (arm, metric) has at most
+                `n` rows in the `map_key` column.
+            3. If `limit_total_rows = n`, the method will select an appropriate
+                `keep_every` such that the total number of rows is less than `n`.
+        If multiple of `keep_every`, `limit_rows_per_group`, `limit_total_rows`, then
+        the priority is in the order above: 1. `keep_every`, 2. `limit_rows_per_group`,
+        and 3. `limit_total_rows`.
+        """
+        if map_key is None:
+            if len(self.map_keys) > 1:
+                raise ValueError(
+                    "More than one `map_key` found, cannot decide target to subsample."
+                )
+            map_key = self.map_keys[0]
+
+        derived_keep_every = None
+        map_df = self.map_df
+        if keep_every is not None:
+            derived_keep_every = keep_every
+        elif limit_rows_per_group is not None:
+            max_rows = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().max()
+            derived_keep_every = np.ceil(max_rows / limit_rows_per_group)
+        elif limit_total_rows is not None:
+            group_sizes = (
+                self.map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().to_numpy()
+            )
+            if limit_total_rows < len(group_sizes):
+                raise ValueError(
+                    f"The value of `limit_total_rows` ({limit_total_rows}) is too "
+                    f"small compared to the number of groups ({len(group_sizes)})."
+                )
+            # search for the `keep_every` such that when you apply it to each group,
+            # the total number of rows is smaller than `limit_total_rows`.
+            derived_keep_every = next(
+                (
+                    k
+                    for k in range(1, group_sizes.max())
+                    if (np.ceil(group_sizes / k)).sum() <= limit_total_rows
+                )
+            )
+        else:
+            raise ValueError(
+                "At least one of `keep_every`, `limit_rows_per_group`, or "
+                "`limit_total_rows` must be specified."
+            )
+        if derived_keep_every <= 1:
+            filtered_map_df = map_df
+        else:
+            filtered_dfs = []
+            for _, df_g in map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS):
+                df_g = df_g.sort_values(map_key)
+                filtered_dfs.append(df_g.iloc[:: int(derived_keep_every)])
+            filtered_map_df: pd.DataFrame = pd.concat(filtered_dfs)
+        return MapData(
+            df=filtered_map_df,
+            map_key_infos=self.map_key_infos,
+            description=self.description,
+        )
