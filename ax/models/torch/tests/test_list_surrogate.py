@@ -11,18 +11,19 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import fit_botorch_model, Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.tests.test_surrogate import SingleTaskGPWithDifferentConstructor
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.models import SingleTaskGP
+from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
+from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
-from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
+from gpytorch.mlls import ExactMarginalLogLikelihood
 
 
 SURROGATE_PATH = f"{Surrogate.__module__}"
@@ -34,7 +35,7 @@ RANK = "rank"
 class ListSurrogateTest(TestCase):
     def setUp(self):
         self.outcomes = ["outcome_1", "outcome_2"]
-        self.mll_class = SumMarginalLogLikelihood
+        self.mll_class = ExactMarginalLogLikelihood
         self.dtype = torch.float
         self.search_space_digest = SearchSpaceDigest(
             feature_names=[], bounds=[], task_features=[0]
@@ -241,49 +242,73 @@ class ListSurrogateTest(TestCase):
             )
 
     @patch(f"{CURRENT_PATH}.ModelListGP.load_state_dict", return_value=None)
-    @patch(f"{CURRENT_PATH}.SumMarginalLogLikelihood")
+    @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
-    def test_fit(self, mock_fit_gpytorch, mock_MLL, mock_state_dict):
-        surrogate = ListSurrogate(
-            botorch_submodel_class_per_outcome=self.botorch_submodel_class_per_outcome,
-            mll_class=SumMarginalLogLikelihood,
-        )
-        # Checking that model is None before `fit` (and `construct`) calls.
-        self.assertIsNone(surrogate._model)
-        # Should instantiate mll and `fit_gpytorch_model` when `state_dict`
-        # is `None`.
-        surrogate.fit(
-            datasets=self.fixed_noise_training_data,
-            metric_names=self.outcomes,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                task_features=self.task_features,
+    @patch(f"{SURROGATE_PATH}.fit_fully_bayesian_model_nuts")
+    def test_fit(self, mock_fit_nuts, mock_fit_gpytorch, mock_MLL, mock_state_dict):
+        default_class = self.botorch_submodel_class_per_outcome
+        surrogates = [
+            ListSurrogate(
+                botorch_submodel_class_per_outcome=default_class,
+                mll_class=ExactMarginalLogLikelihood,
             ),
-        )
-        mock_state_dict.assert_not_called()
-        mock_MLL.assert_called_once()
-        mock_fit_gpytorch.assert_called_once()
-        mock_state_dict.reset_mock()
-        mock_MLL.reset_mock()
-        mock_fit_gpytorch.reset_mock()
-        # Should `load_state_dict` when `state_dict` is not `None`
-        # and `refit` is `False`.
-        state_dict = {"state_attribute": "value"}
-        surrogate.fit(
-            datasets=self.fixed_noise_training_data,
-            metric_names=self.outcomes,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.feature_names,
-                bounds=self.bounds,
-                task_features=self.task_features,
-            ),
-            refit=False,
-            state_dict=state_dict,
-        )
-        mock_state_dict.assert_called_once()
-        mock_MLL.assert_not_called()
-        mock_fit_gpytorch.assert_not_called()
+            ListSurrogate(botorch_submodel_class=SaasFullyBayesianSingleTaskGP),
+        ]
+
+        for i, surrogate in enumerate(surrogates):
+            # Checking that model is None before `fit` (and `construct`) calls.
+            self.assertIsNone(surrogate._model)
+            # Should instantiate mll and `fit_gpytorch_model` when `state_dict`
+            # is `None`.
+            surrogate.fit(
+                datasets=self.fixed_noise_training_data,
+                metric_names=self.outcomes,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                ),
+            )
+            mock_state_dict.assert_not_called()
+            if i == 0:
+                self.assertEqual(mock_MLL.call_count, 2)
+                self.assertEqual(mock_fit_gpytorch.call_count, 2)
+                mock_state_dict.reset_mock()
+                mock_MLL.reset_mock()
+                mock_fit_gpytorch.reset_mock()
+            else:
+                self.assertEqual(mock_MLL.call_count, 0)
+                self.assertEqual(mock_fit_nuts.call_count, 2)
+                mock_fit_nuts.reset_mock()
+            # Should `load_state_dict` when `state_dict` is not `None`
+            # and `refit` is `False`.
+            state_dict = {"state_attribute": "value"}
+            surrogate.fit(
+                datasets=self.fixed_noise_training_data,
+                metric_names=self.outcomes,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                ),
+                refit=False,
+                state_dict=state_dict,
+            )
+            mock_state_dict.assert_called_once()
+            mock_MLL.assert_not_called()
+            mock_fit_gpytorch.assert_not_called()
+            mock_fit_nuts.assert_not_called()
+            mock_state_dict.reset_mock()
+
+        # Fitting with unknown model should raise
+        with self.assertRaisesRegex(
+            ValueError,
+            "Model of type GenericDeterministicModel is currently not supported.",
+        ):
+            fit_botorch_model(
+                model=GenericDeterministicModel(f=lambda x: x),
+                mll_class=self.mll_class,
+            )
 
     def test_with_botorch_transforms(self):
         input_transforms = {"outcome_1": Normalize(d=3), "outcome_2": Normalize(d=3)}
@@ -293,7 +318,7 @@ class ListSurrogateTest(TestCase):
         }
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGPWithDifferentConstructor,
-            mll_class=SumMarginalLogLikelihood,
+            mll_class=ExactMarginalLogLikelihood,
             submodel_outcome_transforms=outcome_transforms,
             submodel_input_transforms=input_transforms,
         )
@@ -304,7 +329,7 @@ class ListSurrogateTest(TestCase):
             )
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGP,
-            mll_class=SumMarginalLogLikelihood,
+            mll_class=ExactMarginalLogLikelihood,
             submodel_outcome_transforms=outcome_transforms,
             submodel_input_transforms=input_transforms,
         )

@@ -18,8 +18,8 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
+from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 
 
 logger = get_logger(__name__)
@@ -80,7 +80,7 @@ class ListSurrogate(Surrogate):
         botorch_submodel_class: Optional[Type[Model]] = None,
         submodel_options_per_outcome: Optional[Dict[str, Dict[str, Any]]] = None,
         submodel_options: Optional[Dict[str, Any]] = None,
-        mll_class: Type[MarginalLogLikelihood] = SumMarginalLogLikelihood,
+        mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
         submodel_outcome_transforms: Optional[Dict[str, OutcomeTransform]] = None,
         submodel_input_transforms: Optional[Dict[str, InputTransform]] = None,
