@@ -270,8 +270,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         # check that at least one trial has reached `self.min_progression`
         df_trials = df[df["trial_index"].isin(trial_indices)].dropna(subset=["mean"])
-        any_last_prog = df_trials[map_key].max()
-        logger.info(f"Last progression of any trial is {any_last_prog}.")
+        any_last_prog = 0
+        if not df_trials[map_key].empty:
+            any_last_prog = df_trials[map_key].max()
+        logger.info(
+            f"Last progression of any candidate for trial stopping is {any_last_prog}."
+        )
         if self.min_progression is not None and any_last_prog < self.min_progression:
             self._log_and_return_min_progression(
                 logger=logger,
@@ -332,7 +336,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         experiment: Experiment,
         map_data: MapData,
-        keep_every_k_per_arm: Optional[int] = None,
+        max_training_size: Optional[int] = None,
     ) -> EarlyStoppingTrainingData:
         """Processes the raw (untransformed) training data into arrays for
         use in modeling. The trailing dimensions of `X` are the map keys, in
@@ -342,16 +346,18 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             experiment: Experiment that contains the data.
             map_data: The MapData from the experiment, as can be obtained by
                 via `_check_validity_and_get_data`.
-            keep_every_k_per_arm Subsample the learning curve by keeping every
-                kth entry. Useful for limiting training data for modeling.
+            max_training_size: Subsample the learning curve to keep the total
+                number of data points less than this threshold. Passed to
+                MapData's `subsample` method as `limit_total_rows`.
 
         Returns:
             An `EarlyStoppingTrainingData` that contains training data arrays X, Y,
                 and Yvar + a list of arm names.
         """
-        if keep_every_k_per_arm is not None:
-            map_data = _subsample_map_data(
-                map_data=map_data, keep_every_k_per_arm=keep_every_k_per_arm
+        if max_training_size is not None:
+            map_data = map_data.subsample(
+                map_key=map_data.map_keys[0],
+                limit_total_rows=max_training_size,
             )
         observations = observations_from_map_data(
             experiment=experiment, map_data=map_data, map_keys_as_parameters=True
@@ -366,17 +372,3 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             outcomes=[outcome], observation_data=obs_data
         )
         return EarlyStoppingTrainingData(X=X, Y=Y, Yvar=Yvar, arm_names=arm_names)
-
-
-def _subsample_map_data(map_data: MapData, keep_every_k_per_arm: int) -> MapData:
-    """Helper function for keeping every kth row for each arm."""
-    map_df = map_data.map_df
-    # count the rows for each arm name and keep every n
-    keep = map_df.groupby(["arm_name"]).cumcount()
-    keep = (keep % keep_every_k_per_arm) == 0
-    map_df_filtered = map_df[keep]
-    return MapData(
-        df=map_df_filtered,  # pyre-ignore[6]
-        map_key_infos=map_data.map_key_infos,
-        description=map_data.description,
-    )
