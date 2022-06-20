@@ -91,7 +91,8 @@ def get_benchmark_result() -> BenchmarkResult:
     problem = get_single_objective_benchmark_problem()
 
     return BenchmarkResult(
-        name="test_benchmrking_result",
+        name="test_benchmarking_result",
+        seed=0,
         experiment=Experiment(
             name="test_benchmarking_experiment",
             search_space=problem.search_space,

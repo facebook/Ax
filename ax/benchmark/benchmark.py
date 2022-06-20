@@ -20,7 +20,7 @@ Key terms used:
 from functools import partial
 from itertools import product
 from time import time
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List
 
 import numpy as np
 
@@ -36,20 +36,19 @@ from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
-from numpy.random import default_rng
 
 
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
-    replication_seed: Optional[int] = None,
+    seed: int,
 ) -> BenchmarkResult:
     """Runs one benchmarking replication (equivalent to one optimization loop).
 
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
-        replication_seed: The seed to use for this replication, set using `manual_seed`
+        seed: The seed to use for this replication, set using `manual_seed`
             from `botorch.utils.sampling`.
     """
 
@@ -66,7 +65,7 @@ def benchmark_replication(
         generation_strategy=method.generation_strategy.clone_reset(),
         options=method.scheduler_options,
     )
-    with manual_seed(seed=replication_seed):
+    with manual_seed(seed=seed):
         scheduler.run_all_trials()
 
     optimization_trace = np.array(
@@ -94,6 +93,7 @@ def benchmark_replication(
 
     return BenchmarkResult(
         name=scheduler.experiment.name,
+        seed=seed,
         experiment=scheduler.experiment,
         optimization_trace=optimization_trace,
         score_trace=score_trace,
@@ -105,27 +105,20 @@ def benchmark_replication(
 def benchmark_test(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
-    num_replications: int = 10,
-    seed: Optional[int] = None,
+    seeds: Iterable[int],
     **kwargs: Any,
 ) -> AggregatedBenchmarkResult:
-    if seed is None:
-        rep_seed_gen = range(num_replications)
-    else:
-        rng = default_rng(seed=seed)
-        rep_seed_gen = rng.choice(2**31, size=num_replications, replace=False)
-
     base_case = partial(benchmark_replication, problem=problem, method=method, **kwargs)
     return AggregatedBenchmarkResult.from_benchmark_results(
-        results=[base_case(replication_seed=rep_seed) for rep_seed in rep_seed_gen]
+        results=[base_case(seed=seed) for seed in seeds]
     )
 
 
 def benchmark_full_run(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
-    num_replications: int = 10,
+    seeds: Iterable[int],
     **kwargs: Any,
 ) -> List[AggregatedBenchmarkResult]:
-    test_env = partial(benchmark_test, num_replications=num_replications, **kwargs)
+    test_env = partial(benchmark_test, seeds=seeds, **kwargs)
     return [test_env(problem=p, method=m) for p, m in product(problems, methods)]

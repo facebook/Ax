@@ -27,6 +27,7 @@ class BenchmarkResult(Base):
     """
 
     name: str
+    seed: int
     experiment: Experiment
 
     # Tracks best point if single-objective problem, max hypervolume if MOO

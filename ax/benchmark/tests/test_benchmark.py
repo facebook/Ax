@@ -23,7 +23,7 @@ class TestBenchmark(TestCase):
     def test_replication_synthetic(self):
         method = get_sobol_benchmark_method()
         res = benchmark_replication(
-            problem=get_single_objective_benchmark_problem(), method=method
+            problem=get_single_objective_benchmark_problem(), method=method, seed=0
         )
 
         self.assertEqual(
@@ -37,7 +37,7 @@ class TestBenchmark(TestCase):
         method = get_sobol_benchmark_method()
 
         res = benchmark_replication(
-            problem=get_multi_objective_benchmark_problem(), method=method
+            problem=get_multi_objective_benchmark_problem(), method=method, seed=0
         )
 
         self.assertEqual(
@@ -55,7 +55,7 @@ class TestBenchmark(TestCase):
         agg = benchmark_test(
             problem=get_single_objective_benchmark_problem(),
             method=get_sobol_benchmark_method(),
-            num_replications=2,
+            seeds=(0, 1),
         )
 
         self.assertEqual(len(agg.results), 2)
@@ -72,7 +72,7 @@ class TestBenchmark(TestCase):
         aggs = benchmark_full_run(
             problems=[get_single_objective_benchmark_problem()],
             methods=[get_sobol_benchmark_method(), get_sobol_gpei_benchmark_method()],
-            num_replications=2,
+            seeds=(0, 1),
         )
 
         self.assertEqual(len(aggs), 2)
