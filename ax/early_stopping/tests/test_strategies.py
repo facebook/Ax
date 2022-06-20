@@ -613,6 +613,11 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
         or_early_stopping_strategy = OrEarlyStoppingStrategy(
             left=left_early_stopping_strategy, right=right_early_stopping_strategy
         )
+        or_early_stopping_strategy_from_collection = (
+            OrEarlyStoppingStrategy.from_early_stopping_strategies(
+                strategies=[left_early_stopping_strategy, right_early_stopping_strategy]
+            )
+        )
 
         left_should_stop = left_early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -623,14 +628,21 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
         or_should_stop = or_early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
         )
+        or_from_collection_should_stop = (
+            or_early_stopping_strategy_from_collection.should_stop_trials_early(
+                trial_indices=idcs, experiment=exp
+            )
+        )
 
         union = set(left_should_stop.keys()).union(set(right_should_stop.keys()))
 
         for idc in idcs:
             if idc in union:
                 self.assertIn(idc, or_should_stop.keys())
+                self.assertIn(idc, or_from_collection_should_stop.keys())
             else:
                 self.assertNotIn(idc, or_should_stop.keys())
+                self.assertNotIn(idc, or_from_collection_should_stop.keys())
 
 
 def _evaluate_early_stopping_with_df(

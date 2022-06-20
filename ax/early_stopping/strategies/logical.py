@@ -3,10 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Optional, Set
+from functools import reduce
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
+from ax.exceptions.core import UserInputError
 
 
 class LogicalEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
@@ -46,6 +48,20 @@ class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
 
 
 class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
+    @classmethod
+    def from_early_stopping_strategies(
+        cls,
+        strategies: Sequence[BaseEarlyStoppingStrategy],
+    ) -> BaseEarlyStoppingStrategy:
+        if len(strategies) < 1:
+            raise UserInputError("strategies must not be empty")
+
+        return reduce(
+            lambda left, right: OrEarlyStoppingStrategy(left=left, right=right),
+            strategies[1:],
+            strategies[0],
+        )
+
     def should_stop_trials_early(
         self,
         trial_indices: Set[int],
