@@ -51,6 +51,14 @@ Scored Benchmark
     :undoc-members:
     :show-inheritance:
 
+Benchmark Methods GPEI and MOO
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.methods.gpei_and_moo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Methods Modular BoTorch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
