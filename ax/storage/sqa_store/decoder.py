@@ -7,7 +7,7 @@
 import json
 from collections import defaultdict, OrderedDict
 from enum import Enum
-from typing import cast, List, Optional, Tuple, Type, Union
+from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -100,7 +100,11 @@ class Decoder:
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
-    def _init_experiment_from_sqa(self, experiment_sqa: SQAExperiment) -> Experiment:
+    def _init_experiment_from_sqa(
+        self,
+        experiment_sqa: SQAExperiment,
+        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
             metrics_sqa=experiment_sqa.metrics
@@ -124,7 +128,14 @@ class Decoder:
         if len(experiment_sqa.runners) == 0:
             runner = None
         elif len(experiment_sqa.runners) == 1:
-            runner = self.runner_from_sqa(experiment_sqa.runners[0])
+            runner_kwargs = (
+                ax_object_field_overrides.get("runner")
+                if ax_object_field_overrides is not None
+                else None
+            )
+            runner = self.runner_from_sqa(
+                runner_sqa=experiment_sqa.runners[0], runner_kwargs=runner_kwargs
+            )
         else:
             raise ValueError(  # pragma: no cover
                 "Multiple runners on experiment "
@@ -205,7 +216,10 @@ class Decoder:
         return experiment
 
     def experiment_from_sqa(
-        self, experiment_sqa: SQAExperiment, reduced_state: bool = False
+        self,
+        experiment_sqa: SQAExperiment,
+        reduced_state: bool = False,
+        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
 
@@ -214,12 +228,18 @@ class Decoder:
             reduced_state: Whether to load experiment with a slightly reduced state
                 (without abandoned arms on experiment and without model state,
                 search space, and optimization config on generator runs).
+            ax_object_field_overrides: Mapping of object types to mapping of fields
+                to override values loaded objects will all be instantiated with fields
+                set to override value
+                current valid object types are: "runner"
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
             experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
         else:
-            experiment = self._init_experiment_from_sqa(experiment_sqa)
+            experiment = self._init_experiment_from_sqa(
+                experiment_sqa, ax_object_field_overrides=ax_object_field_overrides
+            )
         trials = [
             self.trial_from_sqa(
                 trial_sqa=trial, experiment=experiment, reduced_state=reduced_state
@@ -926,7 +946,9 @@ class Decoder:
         gs.db_id = gs_sqa.id
         return gs
 
-    def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
+    def runner_from_sqa(
+        self, runner_sqa: SQARunner, runner_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
             raise SQADecodeError(
@@ -940,6 +962,7 @@ class Decoder:
             args = runner_class.deserialize_init_args(
                 args=dict(runner_sqa.properties or {})
             )
+            args.update(runner_kwargs or {})
             # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
             runner = runner_class(**args)
             runner.db_id = runner_sqa.id

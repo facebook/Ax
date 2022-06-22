@@ -6,7 +6,7 @@
 
 import time
 from logging import INFO
-from typing import List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -63,6 +63,12 @@ class WithDBSettingsBase:
     """
 
     _db_settings: Optional[DBSettings] = None
+
+    # Mapping of object types to mapping of fields to override values
+    # loaded objects will all be instantiated with fields set to
+    # override value
+    # current valid object types are: "runner"
+    AX_OBJECT_FIELD_OVERRIDES: Dict[str, Any] = {}
 
     def __init__(
         self,
@@ -218,6 +224,7 @@ class WithDBSettingsBase:
             decoder=self.db_settings.decoder,
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
+            ax_object_field_overrides=self.AX_OBJECT_FIELD_OVERRIDES,
         )
         if not isinstance(experiment, Experiment):
             raise ValueError("Service API only supports `Experiment`.")

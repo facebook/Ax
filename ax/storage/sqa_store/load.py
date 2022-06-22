@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from math import ceil
-from typing import Any, cast, List, Optional, Type
+from typing import Any, cast, Dict, List, Optional, Type
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -64,11 +64,24 @@ def _load_experiment(
     decoder: Decoder,
     reduced_state: bool = False,
     load_trials_in_batches_of_size: Optional[int] = None,
+    ax_object_field_overrides: Optional[Dict[str, Any]] = None,
 ) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
     1) Get SQLAlchemy object from DB.
     2) Convert to corresponding Ax object.
+
+    Args:
+        experiment_name: Name of the experiment
+        decoder: Decoder used to convert SQAlchemy objects into Ax objects
+        reduced_state: Whether to load experiment and generation strategy
+        load_trials_in_batches_of_size: Number of trials to be fetched from database
+            per batch
+        ax_object_field_overrides: Mapping of object types to mapping of fields
+            to override values loaded objects will all be instantiated with fields
+            set to override value
+            current valid object types are: "runner"
+
     """
     # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
     # `Type[SQAExperiment]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
@@ -101,6 +114,7 @@ def _load_experiment(
     return decoder.experiment_from_sqa(
         experiment_sqa=experiment_sqa,
         reduced_state=reduced_state,
+        ax_object_field_overrides=ax_object_field_overrides,
     )
 
 
