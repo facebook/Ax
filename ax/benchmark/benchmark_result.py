@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass
 from itertools import zip_longest
-from typing import List, Tuple
+from typing import List
 
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
@@ -53,8 +53,8 @@ class AggregatedBenchmarkResult(Base):
     score_trace: DataFrame
 
     # (mean, sem) pairs
-    fit_time: Tuple[float, float]
-    gen_time: Tuple[float, float]
+    fit_time: List[float]
+    gen_time: List[float]
 
     def __str__(self) -> str:
         return f"{self.__class__}(name={self.name})"
@@ -69,7 +69,7 @@ class AggregatedBenchmarkResult(Base):
         length."""
         # Extract average wall times and standard errors thereof
         fit_time, gen_time = map(
-            lambda Ts: (nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="omit"))),
+            lambda Ts: [nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="omit"))],
             zip(*((res.fit_time, res.gen_time) for res in results)),
         )
 
