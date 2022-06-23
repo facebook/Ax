@@ -30,6 +30,8 @@ from typing import (
     Union,
 )
 
+import yappi
+
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 
@@ -219,9 +221,29 @@ class TestCase(unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
     MAX_TEST_SECONDS = 540
+    MIN_TTOT = 1.0
+    PROFILER_COLUMNS = {
+        0: ("name", 100),  # default 36 is often not enough
+        1: ("ncall", 5),
+        2: ("tsub", 8),
+        3: ("ttot", 8),
+        4: ("tavg", 8),
+    }
+    # some test cases have a conflict with the profiler(P511247687)
+    # it appears to be pytorch related https://fburl.com/wiki/r8u9f3rs
+    # set to `False` on the specific testcase class if this occurs
+    CAN_PROFILE = True
+    # TODO: this problem is usually on a per test basis.  make a decorator
+    # to disable it for specific tests
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
+            if self.CAN_PROFILE:
+                yappi.get_func_stats(
+                    filter_callback=lambda s: s.ttot > self.MIN_TTOT
+                ).sort(sort_type="ttot", sort_order="asc").print_all(
+                    columns=self.PROFILER_COLUMNS
+                )
             raise Exception(f"Test timed out at {self.MAX_TEST_SECONDS} seconds")
 
         super().__init__(methodName=methodName)
@@ -234,8 +256,15 @@ class TestCase(unittest.TestCase):
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
         try:
+            if self.CAN_PROFILE:
+                yappi.set_clock_type("wall")
+                yappi.start()
+
             result = super().run(result)
         finally:
+            if self.CAN_PROFILE:
+                yappi.stop()
+
             signal.alarm(0)
         return result
 

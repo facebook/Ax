@@ -43,6 +43,7 @@ DEV_REQUIRES = [
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
+    "yappi",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
