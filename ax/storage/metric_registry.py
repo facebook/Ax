@@ -19,13 +19,7 @@ from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
-# TODO[T113829027] Remove in a few months
 logger = get_logger(__name__)
-WARNING_MSG = (
-    "There have been some recent changes to `register_metric`. Please see "
-    "https://ax.dev/tutorials/gpei_hartmann_developer.html#9.-Save-to-JSON-or-SQL "
-    "for the most up-to-date information on saving custom metrics."
-)
 
 """
 Mapping of Metric classes to ints.
@@ -63,8 +57,6 @@ def register_metric(
     """Add a custom metric class to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    logger.warn(WARNING_MSG)
-
     metric_registry = metric_registry or {Metric: 0}
 
     registered_val = val or abs(hash(metric_cls.__name__)) % (10**5)
@@ -91,8 +83,6 @@ def register_metrics(
     """Add custom metric classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    logger.warn(WARNING_MSG)
-
     metric_registry = metric_registry or {Metric: 1}
 
     new_metric_registry = {

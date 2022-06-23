@@ -12,13 +12,7 @@ from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
-# TODO[T113829027] Remove in a few months
 logger = get_logger(__name__)
-WARNING_MSG = (
-    "There have been some recent changes to `register_metric`. Please see "
-    "https://ax.dev/tutorials/gpei_hartmann_developer.html#9.-Save-to-JSON-or-SQL "
-    "for the most up-to-date information on saving custom runners."
-)
 
 # """
 # Mapping of Runner classes to ints.
@@ -48,8 +42,6 @@ def register_runner(
     """Add a custom runner class to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    logger.warn(WARNING_MSG)
-
     registered_val = val or abs(hash(runner_cls.__name__)) % (10**5)
 
     new_runner_registry = {runner_cls: registered_val, **runner_registry}
@@ -74,8 +66,6 @@ def register_runners(
     """Add custom runner classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    logger.warn(WARNING_MSG)
-
     new_runner_registry = {
         **{
             runner_cls: val if val else abs(hash(runner_cls.__name__)) % (10**5)
