@@ -20,6 +20,7 @@ from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
@@ -300,6 +301,13 @@ class ListSurrogateTest(TestCase):
             mock_fit_nuts.assert_not_called()
             mock_state_dict.reset_mock()
 
+        # Fitting with PairwiseGP should be ok
+        fit_botorch_model(
+            model=PairwiseGP(
+                datapoints=torch.rand(2, 2), comparisons=torch.tensor([[0, 1]])
+            ),
+            mll_class=PairwiseLaplaceMarginalLogLikelihood,
+        )
         # Fitting with unknown model should raise
         with self.assertRaisesRegex(
             ValueError,
