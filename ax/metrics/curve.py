@@ -128,7 +128,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         dfs = []
         for trial_idx, id_ in trial_idx_to_id.items():
             if id_ not in all_curve_series:
-                logger.debug(f"Could not get curve data for id {id_}. Ignoring.")
+                logger.info(f"Could not get curve data for id {id_}. Ignoring.")
                 continue
             curve_series = all_curve_series[id_]
             for m in metrics:
@@ -142,7 +142,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                     )
                     dfs.append(dfi)
                 else:
-                    logger.debug(
+                    logger.info(
                         f"{m.curve_name} not yet present in curves from {id_}. "
                         "Returning without this metric."
                     )
@@ -255,7 +255,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
         }
         for trial_idx, id_ in trial_idx_to_id.items():
             if id_ not in all_curve_series:
-                logger.debug(f"Could not get curve data for id {id_}. Ignoring.")
+                logger.info(f"Could not get curve data for id {id_}. Ignoring.")
                 continue
             curve_series = all_curve_series[id_]
             for m in metrics:
@@ -270,7 +270,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                         )
                         curve_dfs.append(curve_df)
                     else:
-                        logger.debug(
+                        logger.info(
                             f"{curve_name} not present in curves from {id_}, so the "
                             f"scalarization for {m.name} cannot be computed. Returning "
                             "without this metric."
