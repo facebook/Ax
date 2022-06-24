@@ -16,6 +16,7 @@ import signal
 import sys
 import types
 import unittest
+from functools import wraps
 from types import FrameType
 from typing import (
     Any,
@@ -27,6 +28,7 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
@@ -37,6 +39,7 @@ from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
+T = TypeVar("T")
 
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
@@ -353,3 +356,16 @@ class TestCase(unittest.TestCase):
     assertRegexpMatches = _deprecate(unittest.TestCase.assertRegex)
     # pyre-fixme[4]: Attribute must be annotated.
     assertNotRegexpMatches = _deprecate(unittest.TestCase.assertNotRegex)
+
+
+def disable_profiler(f: Callable[..., T]) -> Callable[..., T]:
+    """Not all tests are compatible with yappi.  This wrapper can be used
+    on a test to stop profiling instead of disabling it for the entire
+    test case"""
+
+    @wraps(f)
+    def inner(self: TestCase, *args: Any, **kwargs: Any) -> T:
+        yappi.stop()
+        return f(self, *args, **kwargs)
+
+    return inner
