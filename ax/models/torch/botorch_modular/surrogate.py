@@ -63,7 +63,7 @@ def fit_botorch_model(
         # TODO: Support deterministic models when we support `ModelList`
         if isinstance(m, SaasFullyBayesianSingleTaskGP):
             fit_fully_bayesian_model_nuts(m, disable_progbar=True)
-        elif isinstance(m, GPyTorchModel):
+        elif isinstance(m, GPyTorchModel) or isinstance(m, PairwiseGP):
             mll_options = mll_options or {}
             mll = not_none(mll_class)(likelihood=m.likelihood, model=m, **mll_options)
             fit_gpytorch_model(mll)
