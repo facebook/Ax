@@ -204,7 +204,7 @@ class TestManagedLoop(TestCase):
             evaluation_function=batch_branin,
             parameter_constraints=["x1 + x2 <= 20"],
             outcome_constraints=["constrained_metric <= 10"],
-            total_trials=5,
+            total_trials=2,
             arms_per_trial=3,
         )
         bp, vals = loop.full_run().get_best_point()
@@ -225,7 +225,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("branin", vals[1]["branin"])
         # Check that all total_trials * arms_per_trial * 2 metrics evaluations
         # are present in the dataframe.
-        self.assertEqual(len(loop.experiment.fetch_data().df.index), 30)
+        self.assertEqual(len(loop.experiment.fetch_data().df.index), 12)
 
     def test_optimize(self) -> None:
         """Tests optimization as a single call."""
