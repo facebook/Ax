@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
@@ -486,3 +486,10 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             expected = surrogate.__dict__
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)
+
+        with self.assertRaisesRegex(
+            UnsupportedError, "Surrogates constructed manually"
+        ):
+            surrogate, _ = self._get_surrogate(botorch_model_class=SingleTaskGP)
+            surrogate._constructed_manually = True
+            surrogate._serialize_attributes_as_kwargs()

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import AxWarning, UserInputError
+from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.utils import (
     _to_inequality_constraints,
@@ -498,6 +498,13 @@ class Surrogate(Base):
         """Serialize attributes of this surrogate, to be passed back to it
         as kwargs on reinstantiation.
         """
+        if self._constructed_manually:
+            raise UnsupportedError(
+                "Surrogates constructed manually (ie Surrogate.from_botorch) may not "
+                "be serialized. If serialization is necessary please initialize from "
+                "the constructor."
+            )
+
         return {
             "botorch_model_class": self.botorch_model_class,
             "model_options": self.model_options,
