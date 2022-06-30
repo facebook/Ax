@@ -22,10 +22,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
-from ax.utils.common.serialization import extract_init_args
-from ax.utils.common.typeutils import checked_cast
 from botorch.utils.datasets import SupervisedDataset
-from torch import Tensor
 
 
 class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
@@ -135,29 +132,13 @@ class SurrogateRunner(Runner):
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
+
+        WARNING: Because of issues with consistently saving and loading BoTorch and
+        GPyTorch modules the SurrogateRunner cannot be serialized at this time. At load
+        time the runner will be replaced with a SyntheticRunner.
         """
-        runner = checked_cast(SurrogateRunner, obj)
-
-        init_args = super().serialize_init_args(obj=runner)
-
-        init_args["datasets"] = [
-            (dataset.X().tolist(), dataset.Y().tolist()) for dataset in runner.datasets
-        ]
-
-        return init_args
+        return {}
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        init_args = extract_init_args(args=args, class_=cls)
-
-        init_args["datasets"] = [
-            SupervisedDataset(X=Tensor(X), Y=Tensor(Y))
-            for X, Y in init_args["datasets"]
-        ]
-
-        from ax.storage.json_store.decoder import object_from_json
-
-        init_args["surrogate"] = object_from_json(init_args["surrogate"])
-        init_args["search_space"] = object_from_json(init_args["search_space"])
-
-        return init_args
+        return {}
