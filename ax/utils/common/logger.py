@@ -30,7 +30,7 @@ class AxOutputNameFilter(logging.Filter):
         return True
 
 
-def get_logger(name: str) -> logging.Logger:
+def get_logger(name: str, level: int = DEFAULT_LOG_LEVEL) -> logging.Logger:
     """Get an Axlogger.
 
     To set a human-readable "output_name" that appears in logger outputs,
@@ -48,6 +48,7 @@ def get_logger(name: str) -> logging.Logger:
         The logging.Logger object.
     """
     logger = logging.getLogger(name)
+    logger.setLevel(level)
     logger.addFilter(AxOutputNameFilter())
     return logger
 
