@@ -93,9 +93,9 @@ class LogYTransformTest(TestCase):
         )
         obsd1 = deepcopy(self.obsd1)
         obsd1_ = tf.transform_observation_data([obsd1], [])
-        self.assertTrue(obsd1_[0] == obsd1_t)
+        self.assertEqual(obsd1_[0], obsd1_t)
         obsd1 = tf.untransform_observation_data(obsd1_, [])
-        self.assertTrue(obsd1[0] == self.obsd1)
+        self.assertEqual(obsd1[0], self.obsd1)
         # test raise on non-independent noise
         obsd1_ = deepcopy(self.obsd1)
         obsd1_.covariance[0, 2] = 0.1
