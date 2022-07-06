@@ -242,7 +242,10 @@ class Decoder:
             )
         trials = [
             self.trial_from_sqa(
-                trial_sqa=trial, experiment=experiment, reduced_state=reduced_state
+                trial_sqa=trial,
+                experiment=experiment,
+                reduced_state=reduced_state,
+                ax_object_field_overrides=ax_object_field_overrides,
             )
             for trial in experiment_sqa.trials
         ]
@@ -971,7 +974,11 @@ class Decoder:
             raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
 
     def trial_from_sqa(
-        self, trial_sqa: SQATrial, experiment: Experiment, reduced_state: bool = False
+        self,
+        trial_sqa: SQATrial,
+        experiment: Experiment,
+        reduced_state: bool = False,
+        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
     ) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial.
 
@@ -1075,7 +1082,16 @@ class Decoder:
         )
         trial._num_arms_created = trial_sqa.num_arms_created
         trial._runner = (
-            self.runner_from_sqa(trial_sqa.runner) if trial_sqa.runner else None
+            self.runner_from_sqa(
+                trial_sqa.runner,
+                runner_kwargs=(
+                    ax_object_field_overrides.get("runner")
+                    if ax_object_field_overrides is not None
+                    else None
+                ),
+            )
+            if trial_sqa.runner
+            else None
         )
         trial._generation_step_index = trial_sqa.generation_step_index
         trial._properties = dict(trial_sqa.properties or {})
