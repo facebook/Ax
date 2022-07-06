@@ -7,7 +7,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -337,6 +337,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         experiment: Experiment,
         map_data: MapData,
         max_training_size: Optional[int] = None,
+        outcomes: Optional[Sequence[str]] = None,
+        parameters: Optional[List[str]] = None,
     ) -> EarlyStoppingTrainingData:
         """Processes the raw (untransformed) training data into arrays for
         use in modeling. The trailing dimensions of `X` are the map keys, in
@@ -359,16 +361,22 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 map_key=map_data.map_keys[0],
                 limit_total_rows=max_training_size,
             )
+
+        if outcomes is None:
+            optim_config = not_none(experiment.optimization_config)
+            outcomes = optim_config.objective.metric_names
+
+        if parameters is None:
+            parameters = list(experiment.search_space.parameters.keys())
+            parameters = parameters + list(map_data.map_keys)
+
         observations = observations_from_map_data(
             experiment=experiment, map_data=map_data, map_keys_as_parameters=True
         )
         obs_features, obs_data, arm_names = _unpack_observations(observations)
-        parameters = list(experiment.search_space.parameters.keys())
-        outcome = not_none(experiment.optimization_config).objective.metric_names[0]
-        X = observation_features_to_array(
-            parameters=parameters + list(map_data.map_keys), obsf=obs_features
-        )
+
+        X = observation_features_to_array(parameters=parameters, obsf=obs_features)
         Y, Yvar = observation_data_to_array(
-            outcomes=[outcome], observation_data=obs_data
+            outcomes=list(outcomes), observation_data=obs_data
         )
         return EarlyStoppingTrainingData(X=X, Y=Y, Yvar=Yvar, arm_names=arm_names)
