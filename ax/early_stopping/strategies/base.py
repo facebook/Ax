@@ -62,6 +62,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
         true_objective_metric_name: Optional[str] = None,
+        normalize_progressions: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
 
@@ -82,6 +83,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             true_objective_metric_name: The actual objective to be optimized; used in
                 situations where early stopping uses a proxy objective (such as training
                 loss instead of eval loss) for stopping decisions.
+            normalize_progressions: Normalizes the progression column of the MapData df
+                by dividing by the max. If the values were originally in [0, `prog_max`]
+                (as we would expect), the transformed values will be in [0, 1]. Useful
+                for inferring the max progression and allows `min_progression` to be
+                specified in the transformed space. IMPORTANT: Typically, `min_curves`
+                should be > 0 to ensure that at least one trial has completed and that
+                we have a reliable approximation for `prog_max`.
         """
         if seconds_between_polls < 0:
             raise ValueError("`seconds_between_polls may not be less than 0.")
@@ -91,6 +99,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
         self.true_objective_metric_name = true_objective_metric_name
+        self.normalize_progressions = normalize_progressions
 
     @abstractmethod
     def should_stop_trials_early(
@@ -154,6 +163,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 f"{data.map_keys}. Not stopping any trials."
             )
             return None
+        if self.normalize_progressions:
+            map_df = data.map_df
+            for map_key in map_keys:
+                values = map_df[map_key].astype(float)
+                map_df[map_key] = values / values.abs().max()
+
+            data = MapData(
+                df=map_df,
+                map_key_infos=data.map_key_infos,
+                description=data.description,
+            )
         return data
 
     @staticmethod

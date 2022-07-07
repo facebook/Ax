@@ -27,7 +27,7 @@ try:
     class TensorboardCurveMetric(AbstractCurveMetric):
         """A `CurveMetric` for getting Tensorboard curves."""
 
-        MAP_KEY = MapKeyInfo(key="steps", default_value=0)
+        MAP_KEY = MapKeyInfo(key="steps", default_value=0.0)
 
         @classmethod
         def get_curves_from_ids(
