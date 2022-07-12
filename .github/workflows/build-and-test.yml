@@ -64,8 +64,7 @@ jobs:
       # run even if previous step (ufmt) failed
       if: ${{ always() }}
       run: |
-        # don't use .flake8 config for now, since don't need custom plugin
-        flake8 --isolated --ignore=T484,T499,W503,E704,E231,E203 --max-line-length=88
+        flake8
 
   docs:
 
