@@ -519,16 +519,21 @@ def alebo_acqf_optimizer(
 
         Xrnd = torch.tensor(Xrnd_npy, dtype=B.dtype, device=B.device).unsqueeze(1)
         Yrnd = torch.matmul(Xrnd, B.t())  # Project down to the embedding
+
         with gpytorch.settings.max_cholesky_size(2000):
             with torch.no_grad():
                 alpha = acq_function(Yrnd)
 
             Yinit = initialize_q_batch_nonneg(X=Yrnd, Y=alpha, n=num_restarts)
-
+            inf_bounds = (  # all constraints are encoded via inequality_constraints
+                torch.tensor([[-float("inf")], [float("inf")]])
+                .expand(2, Yrnd.shape[-1])
+                .to(Yrnd)
+            )
             # Optimize the acquisition function, separately for each random restart.
             candidate, acq_value = optimize_acqf(
                 acq_function=acq_function,
-                bounds=[None, None],  # pyre-ignore
+                bounds=inf_bounds,
                 q=1,
                 num_restarts=num_restarts,
                 raw_samples=0,
