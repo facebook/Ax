@@ -79,7 +79,7 @@ try:
             series = pd.Series(index=steps, data=vals).dropna()
             if any(series.index.duplicated()):  # pyre-ignore[16]
                 # take average of repeated observations of the same "step"
-                series = series.groupby(steps).mean()  # pyre-ignore[16]
+                series.groupby(series.index).mean()  # pyre-ignore[16]
                 logger.debug(
                     f"Found duplicate steps for tag {key}. "
                     "Removing duplicates by averaging."
