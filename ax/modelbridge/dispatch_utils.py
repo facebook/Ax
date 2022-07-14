@@ -142,28 +142,25 @@ def _suggest_gp_model(
     all_range_parameters_are_discrete = True
     all_parameters_are_enumerated = True
     for parameter in search_space.tunable_parameters.values():
-        should_enumerate_param = None
+        should_enumerate_param = False
         num_param_discrete_values = None
         if isinstance(parameter, ChoiceParameter):
+            should_enumerate_param = True
             num_param_discrete_values = len(parameter.values)
             num_possible_points *= num_param_discrete_values
             if parameter.is_ordered is False:
                 num_unordered_choices += num_param_discrete_values
-                should_enumerate_param = True
             else:
                 num_ordered_parameters += 1
-                should_enumerate_param = True
         elif isinstance(parameter, RangeParameter):
             num_ordered_parameters += 1
             if parameter.parameter_type == ParameterType.FLOAT:
                 all_range_parameters_are_discrete = False
-                should_enumerate_param = False
             else:
                 num_param_discrete_values = int(parameter.upper - parameter.lower) + 1
                 num_possible_points *= num_param_discrete_values
-                should_enumerate_param = False
 
-        if not_none(should_enumerate_param):
+        if should_enumerate_param:
             num_enumerated_combinations *= not_none(num_param_discrete_values)
         else:
             all_parameters_are_enumerated = False
