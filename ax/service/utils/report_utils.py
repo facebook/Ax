@@ -279,16 +279,21 @@ def get_standard_plots(
         return []
 
     output_plot_list = []
-    output_plot_list.extend(
-        _get_objective_trace_plot(
-            experiment=experiment,
-            data=data,
-            model_transitions=model_transitions
-            if model_transitions is not None
-            else [],
-            true_objective_metric_name=true_objective_metric_name,
+    try:
+        output_plot_list.extend(
+            _get_objective_trace_plot(
+                experiment=experiment,
+                data=data,
+                model_transitions=model_transitions
+                if model_transitions is not None
+                else [],
+                true_objective_metric_name=true_objective_metric_name,
+            )
         )
-    )
+    except Exception as e:
+        # Allow model-based plotting to proceed if objective_trace plotting fails.
+        logger.exception(f"Plotting `objective_trace` failed with error {e}")
+        pass
 
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
