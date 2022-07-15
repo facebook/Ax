@@ -12,7 +12,9 @@
 import contextlib
 import io
 import linecache
+import re
 import signal
+import subprocess
 import sys
 import types
 import unittest
@@ -270,6 +272,21 @@ class TestCase(unittest.TestCase):
 
             signal.alarm(0)
         return result
+
+    def tearDown(self) -> None:
+        new_file_pattern = re.compile(r"^\? \S+$")
+        new_files = [
+            line
+            for line in subprocess.run(
+                ["hg", "status"],
+                capture_output=True,
+            )
+            .stdout.decode("utf-8")
+            .split("\n")
+            if new_file_pattern.search(line)
+        ]
+        if len(new_files) > 0:
+            self.fail(f"The following new files were created:\n{new_files}")
 
     def assertEqual(
         self,
