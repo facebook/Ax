@@ -1233,6 +1233,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
         to a .json file by the given path.
         """
+        raise Exception("WHO IS CALLING ME???")
         with open(filepath, "w+") as file:  # pragma: no cover
             file.write(json.dumps(self.to_json_snapshot()))
             logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")

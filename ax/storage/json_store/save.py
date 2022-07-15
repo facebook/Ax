@@ -30,6 +30,7 @@ def save_experiment(
     1) Convert Ax experiment to JSON-serializable dictionary.
     2) Write to file.
     """
+    raise Exception("WHO IS CALLING JSON SAVE?")
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
 
