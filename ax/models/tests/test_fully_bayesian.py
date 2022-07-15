@@ -690,185 +690,183 @@ try:
                     ),
                 )
 
-        def test_FullyBayesianBotorchModelPyro(self, cuda=False):
-            for dtype in (torch.float, torch.double):
-                Xs1, Ys1, raw_Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
-                    dtype=dtype, cuda=cuda, constant_noise=True
+        def test_FullyBayesianBotorchModelPyro(self, dtype=torch.double, cuda=False):
+            Xs1, Ys1, raw_Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
+                dtype=dtype, cuda=cuda, constant_noise=True
+            )
+            Xs2, Ys2, raw_Yvars2, _, _, _, _ = get_torch_test_data(
+                dtype=dtype, cuda=cuda, constant_noise=True
+            )
+            options = [(False, True, "rbf"), (True, False, "matern")]
+            for inferred_noise, use_input_warping, gp_kernel in options:
+                model = self.model_cls(
+                    num_samples=4,
+                    warmup_steps=0,
+                    thinning=1,
+                    use_input_warping=use_input_warping,
+                    disable_progbar=True,
+                    max_tree_depth=1,
+                    gp_kernel=gp_kernel,
+                    verbose=True,
                 )
-                Xs2, Ys2, raw_Yvars2, _, _, _, _ = get_torch_test_data(
-                    dtype=dtype, cuda=cuda, constant_noise=True
+                if inferred_noise:
+                    Yvars1 = [torch.full_like(raw_Yvars1[0], float("nan"))]
+                    Yvars2 = [torch.full_like(raw_Yvars2[0], float("nan"))]
+                else:
+                    Yvars1 = raw_Yvars1
+                    Yvars2 = raw_Yvars2
+
+                dummy_samples = _get_dummy_mcmc_samples(
+                    num_samples=4,
+                    num_outputs=2,
+                    dtype=dtype,
+                    device=Xs1[0].device,
                 )
-                options = product([False, True], [False, True], ["rbf", "matern"])
-                for inferred_noise, use_input_warping, gp_kernel in options:
-                    model = self.model_cls(
-                        num_samples=4,
-                        warmup_steps=0,
-                        thinning=1,
-                        use_input_warping=use_input_warping,
-                        disable_progbar=True,
-                        max_tree_depth=1,
-                        gp_kernel=gp_kernel,
-                        verbose=True,
+                with ExitStack() as es:
+                    _mock_fit_model = es.enter_context(
+                        mock.patch(RUN_INFERENCE_PATH, side_effect=dummy_samples)
                     )
+                    model.fit(
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ],
+                        metric_names=mns,
+                        search_space_digest=SearchSpaceDigest(
+                            feature_names=fns,
+                            bounds=bounds,
+                            task_features=tfs,
+                        ),
+                    )
+                    # check run_inference arguments
+                    self.assertEqual(_mock_fit_model.call_count, 2)
+                    _, ckwargs = _mock_fit_model.call_args
+                    self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
+
+                    self.assertTrue(torch.equal(ckwargs["X"], Xs1[0]))
+                    self.assertTrue(torch.equal(ckwargs["Y"], Ys1[0]))
                     if inferred_noise:
-                        Yvars1 = [torch.full_like(raw_Yvars1[0], float("nan"))]
-                        Yvars2 = [torch.full_like(raw_Yvars2[0], float("nan"))]
+                        self.assertTrue(torch.isnan(ckwargs["Yvar"]).all())
                     else:
-                        Yvars1 = raw_Yvars1
-                        Yvars2 = raw_Yvars2
+                        self.assertTrue(torch.equal(ckwargs["Yvar"], Yvars1[0]))
+                    self.assertEqual(ckwargs["num_samples"], 4)
+                    self.assertEqual(ckwargs["warmup_steps"], 0)
+                    self.assertEqual(ckwargs["max_tree_depth"], 1)
+                    self.assertTrue(ckwargs["disable_progbar"])
+                    self.assertEqual(ckwargs["use_input_warping"], use_input_warping)
+                    self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
+                    self.assertTrue(ckwargs["verbose"])
 
-                    dummy_samples = _get_dummy_mcmc_samples(
-                        num_samples=4,
-                        num_outputs=2,
-                        dtype=dtype,
-                        device=Xs1[0].device,
+                with ExitStack() as es:
+                    _mock_mcmc = es.enter_context(mock.patch(MCMC_PATH))
+                    _mock_mcmc.return_value.get_samples.side_effect = dummy_samples
+                    _mock_nuts = es.enter_context(mock.patch(NUTS_PATH))
+                    model.fit(
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ],
+                        metric_names=mns,
+                        search_space_digest=SearchSpaceDigest(
+                            feature_names=fns,
+                            bounds=bounds,
+                            task_features=tfs,
+                        ),
                     )
-                    with ExitStack() as es:
-                        _mock_fit_model = es.enter_context(
-                            mock.patch(RUN_INFERENCE_PATH, side_effect=dummy_samples)
-                        )
-                        model.fit(
-                            datasets=[
-                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
-                                for X, Y, Yvar in zip(
-                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
-                                )
-                            ],
-                            metric_names=mns,
-                            search_space_digest=SearchSpaceDigest(
-                                feature_names=fns,
-                                bounds=bounds,
-                                task_features=tfs,
-                            ),
-                        )
-                        # check run_inference arguments
-                        self.assertEqual(_mock_fit_model.call_count, 2)
-                        _, ckwargs = _mock_fit_model.call_args
-                        self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
+                    # check MCMC.__init__ arguments
+                    self.assertEqual(_mock_mcmc.call_count, 2)
+                    _, ckwargs = _mock_mcmc.call_args
+                    self.assertEqual(ckwargs["num_samples"], 4)
+                    self.assertEqual(ckwargs["warmup_steps"], 0)
+                    self.assertTrue(ckwargs["disable_progbar"])
+                    # check NUTS.__init__ arguments
+                    _mock_nuts.assert_called_with(
+                        single_task_pyro_model,
+                        jit_compile=True,
+                        full_mass=True,
+                        ignore_jit_warnings=True,
+                        max_tree_depth=1,
+                    )
+                # now actually run pyro
+                if not use_input_warping:
+                    # input warping is quite slow, so we omit it for
+                    # testing purposes
+                    model.fit(
+                        datasets=[
+                            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        ],
+                        metric_names=mns,
+                        search_space_digest=SearchSpaceDigest(
+                            feature_names=fns,
+                            bounds=bounds,
+                            task_features=tfs,
+                        ),
+                    )
 
-                        self.assertTrue(torch.equal(ckwargs["X"], Xs1[0]))
-                        self.assertTrue(torch.equal(ckwargs["Y"], Ys1[0]))
-                        if inferred_noise:
-                            self.assertTrue(torch.isnan(ckwargs["Yvar"]).all())
+                    for m, X, Y, Yvar in zip(
+                        model.model.models, Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
+                    ):
+                        self.assertTrue(
+                            torch.equal(
+                                m.train_inputs[0],
+                                X.expand(4, *X.shape),
+                            )
+                        )
+                        self.assertTrue(
+                            torch.equal(
+                                m.train_targets,
+                                Y.view(1, -1).expand(4, Y.numel()),
+                            )
+                        )
+                        # check shapes of sampled parameters
+                        if not inferred_noise:
+                            self.assertTrue(
+                                torch.allclose(
+                                    m.likelihood.noise.detach(),
+                                    Yvar.view(1, -1).expand(4, Yvar.numel()),
+                                )
+                            )
                         else:
-                            self.assertTrue(torch.equal(ckwargs["Yvar"], Yvars1[0]))
-                        self.assertEqual(ckwargs["num_samples"], 4)
-                        self.assertEqual(ckwargs["warmup_steps"], 0)
-                        self.assertEqual(ckwargs["max_tree_depth"], 1)
-                        self.assertTrue(ckwargs["disable_progbar"])
+                            self.assertEqual(
+                                m.likelihood.noise.shape, torch.Size([4, 1])
+                            )
+
                         self.assertEqual(
-                            ckwargs["use_input_warping"], use_input_warping
+                            m.covar_module.base_kernel.lengthscale.shape,
+                            torch.Size([4, 1, X.shape[-1]]),
                         )
-                        self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
-                        self.assertTrue(ckwargs["verbose"])
-
-                    with ExitStack() as es:
-                        _mock_mcmc = es.enter_context(mock.patch(MCMC_PATH))
-                        _mock_mcmc.return_value.get_samples.side_effect = dummy_samples
-                        _mock_nuts = es.enter_context(mock.patch(NUTS_PATH))
-                        model.fit(
-                            datasets=[
-                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
-                                for X, Y, Yvar in zip(
-                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
-                                )
-                            ],
-                            metric_names=mns,
-                            search_space_digest=SearchSpaceDigest(
-                                feature_names=fns,
-                                bounds=bounds,
-                                task_features=tfs,
-                            ),
+                        self.assertEqual(
+                            m.covar_module.outputscale.shape, torch.Size([4])
                         )
-                        # check MCMC.__init__ arguments
-                        self.assertEqual(_mock_mcmc.call_count, 2)
-                        _, ckwargs = _mock_mcmc.call_args
-                        self.assertEqual(ckwargs["num_samples"], 4)
-                        self.assertEqual(ckwargs["warmup_steps"], 0)
-                        self.assertTrue(ckwargs["disable_progbar"])
-                        # check NUTS.__init__ arguments
-                        _mock_nuts.assert_called_with(
-                            single_task_pyro_model,
-                            jit_compile=True,
-                            full_mass=True,
-                            ignore_jit_warnings=True,
-                            max_tree_depth=1,
+                        self.assertEqual(
+                            m.mean_module.constant.shape,
+                            torch.Size([4, 1]),
                         )
-                    # now actually run pyro
-                    if not use_input_warping:
-                        # input warping is quite slow, so we omit it for
-                        # testing purposes
-                        model.fit(
-                            datasets=[
-                                FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
-                                for X, Y, Yvar in zip(
-                                    Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
-                                )
-                            ],
-                            metric_names=mns,
-                            search_space_digest=SearchSpaceDigest(
-                                feature_names=fns,
-                                bounds=bounds,
-                                task_features=tfs,
-                            ),
-                        )
-
-                        for m, X, Y, Yvar in zip(
-                            model.model.models, Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
-                        ):
-                            self.assertTrue(
-                                torch.equal(
-                                    m.train_inputs[0],
-                                    X.expand(4, *X.shape),
-                                )
-                            )
-                            self.assertTrue(
-                                torch.equal(
-                                    m.train_targets,
-                                    Y.view(1, -1).expand(4, Y.numel()),
-                                )
-                            )
-                            # check shapes of sampled parameters
-                            if not inferred_noise:
-                                self.assertTrue(
-                                    torch.allclose(
-                                        m.likelihood.noise.detach(),
-                                        Yvar.view(1, -1).expand(4, Yvar.numel()),
-                                    )
-                                )
-                            else:
-                                self.assertEqual(
-                                    m.likelihood.noise.shape, torch.Size([4, 1])
-                                )
-
+                        if use_input_warping:
+                            self.assertTrue(hasattr(m, "input_transform"))
+                            self.assertIsInstance(m.input_transform, Warp)
                             self.assertEqual(
-                                m.covar_module.base_kernel.lengthscale.shape,
-                                torch.Size([4, 1, X.shape[-1]]),
+                                m.input_transform.concentration0.shape,
+                                torch.Size([4, 1, 3]),
                             )
                             self.assertEqual(
-                                m.covar_module.outputscale.shape, torch.Size([4])
+                                m.input_transform.concentration1.shape,
+                                torch.Size([4, 1, 3]),
                             )
-                            self.assertEqual(
-                                m.mean_module.constant.shape,
-                                torch.Size([4, 1]),
-                            )
-                            if use_input_warping:
-                                self.assertTrue(hasattr(m, "input_transform"))
-                                self.assertIsInstance(m.input_transform, Warp)
-                                self.assertEqual(
-                                    m.input_transform.concentration0.shape,
-                                    torch.Size([4, 1, 3]),
-                                )
-                                self.assertEqual(
-                                    m.input_transform.concentration1.shape,
-                                    torch.Size([4, 1, 3]),
-                                )
-                            else:
-                                self.assertFalse(hasattr(m, "input_transform"))
+                        else:
+                            self.assertFalse(hasattr(m, "input_transform"))
 
-        def test_FullyBayesianBotorchModelPyro_cuda(self):
+        def test_FullyBayesianBotorchModelPyro_float(self):
+            self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=False)
+
+        def test_FullyBayesianBotorchModelPyro_cuda_double(self):
             if torch.cuda.is_available():
-                self.test_FullyBayesianBotorchModelPyro(cuda=True)
+                self.test_FullyBayesianBotorchModelPyro(dtype=torch.double, cuda=True)
+
+        def test_FullyBayesianBotorchModelPyro_cuda_float(self):
+            if torch.cuda.is_available():
+                self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=True)
 
     class SingleObjectiveFullyBayesianBotorchModelTest(
         TestCase, BaseFullyBayesianBotorchModelTest
