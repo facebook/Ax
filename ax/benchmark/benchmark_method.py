@@ -5,7 +5,6 @@
 
 from dataclasses import dataclass
 
-from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.base import Base
@@ -21,9 +20,3 @@ class BenchmarkMethod(Base):
     name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
-
-    def __post_init__(self) -> None:
-        if self.scheduler_options.total_trials is None:
-            raise UserInputError(
-                "SchedulerOptions.total_trials may not be None in BenchmarkMethod."
-            )

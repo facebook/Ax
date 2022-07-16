@@ -27,20 +27,20 @@ class BenchmarkProblemRegistryEntry:
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Ackley()},
+        factory_kwargs={"test_problem": Ackley(), "num_trials": 50},
     ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Branin()},
+        factory_kwargs={"test_problem": Branin(), "num_trials": 30},
     ),
     "branin_currin": BenchmarkProblemRegistryEntry(
         factory_fn=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
-        factory_kwargs={"test_problem": BraninCurrin()},
+        factory_kwargs={"test_problem": BraninCurrin(), "num_trials": 30},
     ),
     "branin_currin30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem=BraninCurrin()
+                test_problem=BraninCurrin(), num_trials=100
             ),
             total_dimensionality=n,
         ),
@@ -48,12 +48,12 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hartmann6": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Hartmann(dim=6)},
+        factory_kwargs={"test_problem": Hartmann(dim=6), "num_trials": 50},
     ),
     "hartmann30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-                test_problem=Hartmann(dim=6)
+                test_problem=Hartmann(dim=6), num_trials=100
             ),
             total_dimensionality=n,
         ),
@@ -61,19 +61,19 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
-        factory_kwargs={"name": "MNIST"},
+        factory_kwargs={"name": "MNIST", "num_trials": 50},
     ),
     "hpo_pytorch_cnn_FashionMNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
-        factory_kwargs={"name": "FashionMNIST"},
+        factory_kwargs={"name": "FashionMNIST", "num_trials": 50},
     ),
     "jenatton": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
-        factory_kwargs={},
+        factory_kwargs={"num_trials": 50},
     ),
     "powell": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Powell()},
+        factory_kwargs={"test_problem": Powell(), "num_trials": 50},
     ),
 }
 

@@ -12,7 +12,9 @@ from ax.metrics.jenatton import JenattonMetric
 from ax.runners.synthetic import SyntheticRunner
 
 
-def get_jenatton_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
+def get_jenatton_benchmark_problem(
+    num_trials: int = 50,
+) -> SingleObjectiveBenchmarkProblem:
     search_space = HierarchicalSearchSpace(
         parameters=[
             ChoiceParameter(
@@ -60,5 +62,6 @@ def get_jenatton_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
+        num_trials=num_trials,
         optimal_value=0.1,
     )

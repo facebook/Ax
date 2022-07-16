@@ -25,16 +25,18 @@ from botorch.test_functions.synthetic import Branin
 
 
 def get_benchmark_problem() -> BenchmarkProblem:
-    return BenchmarkProblem.from_botorch(test_problem=Branin())
+    return BenchmarkProblem.from_botorch(test_problem=Branin(), num_trials=4)
 
 
 def get_single_objective_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
-    return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(test_problem=Branin())
+    return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        test_problem=Branin(), num_trials=4
+    )
 
 
 def get_multi_objective_benchmark_problem() -> MultiObjectiveBenchmarkProblem:
     return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-        test_problem=BraninCurrin()
+        test_problem=BraninCurrin(), num_trials=4
     )
 
 

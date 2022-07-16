@@ -21,46 +21,51 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class TestBenchmark(TestCase):
     def test_replication_synthetic(self):
-        method = get_sobol_benchmark_method()
+        problem = get_single_objective_benchmark_problem()
+
         res = benchmark_replication(
-            problem=get_single_objective_benchmark_problem(), method=method, seed=0
+            problem=problem, method=get_sobol_benchmark_method(), seed=0
         )
 
         self.assertEqual(
-            method.scheduler_options.total_trials,
+            problem.num_trials,
             len(res.experiment.trials),
         )
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_moo(self):
-        method = get_sobol_benchmark_method()
+        problem = get_multi_objective_benchmark_problem()
 
         res = benchmark_replication(
-            problem=get_multi_objective_benchmark_problem(), method=method, seed=0
+            problem=problem, method=get_sobol_benchmark_method(), seed=0
         )
 
         self.assertEqual(
-            method.scheduler_options.total_trials,
+            problem.num_trials,
             len(res.experiment.trials),
         )
         self.assertEqual(
-            method.scheduler_options.total_trials * 2,
+            problem.num_trials * 2,
             len(res.experiment.fetch_data().df),
         )
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_test(self):
+        problem = get_single_objective_benchmark_problem()
         agg = benchmark_test(
-            problem=get_single_objective_benchmark_problem(),
+            problem=problem,
             method=get_sobol_benchmark_method(),
             seeds=(0, 1),
         )
 
         self.assertEqual(len(agg.results), 2)
         self.assertTrue(
-            all(len(result.experiment.trials) == 4 for result in agg.results),
+            all(
+                len(result.experiment.trials) == problem.num_trials
+                for result in agg.results
+            ),
             "All experiments must have 4 trials",
         )
 

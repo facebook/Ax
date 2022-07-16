@@ -16,7 +16,7 @@ class TestBenchmarkProblem(TestCase):
     def test_single_objective_from_botorch(self):
         test_problem = Ackley()
         ackley_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-            test_problem=test_problem
+            test_problem=test_problem, num_trials=1
         )
 
         # Test search space
@@ -49,7 +49,7 @@ class TestBenchmarkProblem(TestCase):
         test_problem = BraninCurrin()
         branin_currin_problem = (
             MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem=test_problem
+                test_problem=test_problem, num_trials=1
             )
         )
 

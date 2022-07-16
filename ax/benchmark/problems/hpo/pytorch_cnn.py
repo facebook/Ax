@@ -35,7 +35,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
 
     @classmethod
     def from_datasets(
-        cls, name: str, train_set: Dataset, test_set: Dataset
+        cls, name: str, num_trials: int, train_set: Dataset, test_set: Dataset
     ) -> "PyTorchCNNBenchmarkProblem":
         optimal_value = 1
 
@@ -85,6 +85,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             search_space=search_space,
             optimization_config=optimization_config,
             runner=runner,
+            num_trials=num_trials,
         )
 
 

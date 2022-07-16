@@ -12,7 +12,7 @@ from ax.utils.common.testutils import TestCase
 class TestProblems(TestCase):
     def test_torchvision_encode_decode(self):
         original_object = PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(
-            name="MNIST"
+            name="MNIST", num_trials=50
         )
 
         json_object = object_to_json(

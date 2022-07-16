@@ -42,10 +42,13 @@ class BenchmarkProblem(Base):
     search_space: SearchSpace
     optimization_config: OptimizationConfig
     runner: Runner
+    num_trials: int
     tracking_metrics: List[Metric] = field(default_factory=list)
 
     @classmethod
-    def from_botorch(cls, test_problem: BaseTestProblem) -> "BenchmarkProblem":
+    def from_botorch(
+        cls, test_problem: BaseTestProblem, num_trials: int
+    ) -> "BenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
@@ -78,6 +81,7 @@ class BenchmarkProblem(Base):
             search_space=search_space,
             optimization_config=optimization_config,
             runner=BotorchTestProblemRunner(test_problem=test_problem),
+            num_trials=num_trials,
         )
 
 
@@ -96,21 +100,23 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
 
     @classmethod
     def from_botorch_synthetic(
-        cls,
-        test_problem: SyntheticTestFunction,
+        cls, test_problem: SyntheticTestFunction, num_trials: int
     ) -> "SingleObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
         """
 
-        problem = BenchmarkProblem.from_botorch(test_problem=test_problem)
+        problem = BenchmarkProblem.from_botorch(
+            test_problem=test_problem, num_trials=num_trials
+        )
 
         return cls(
             name=f"{test_problem.__class__.__name__}",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             runner=problem.runner,
+            num_trials=num_trials,
             optimal_value=test_problem.optimal_value,
         )
 
@@ -137,13 +143,16 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     def from_botorch_multi_objective(
         cls,
         test_problem: MultiObjectiveTestProblem,
+        num_trials: int,
     ) -> "MultiObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         once per trial and each Metric will retrieve its own result by index.
         """
 
-        problem = BenchmarkProblem.from_botorch(test_problem=test_problem)
+        problem = BenchmarkProblem.from_botorch(
+            test_problem=test_problem, num_trials=num_trials
+        )
 
         metrics = [
             BotorchTestProblemMetric(
@@ -180,6 +189,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             search_space=problem.search_space,
             optimization_config=optimization_config,
             runner=problem.runner,
+            num_trials=num_trials,
             maximum_hypervolume=test_problem.max_hv,
             reference_point=test_problem._ref_point,
         )

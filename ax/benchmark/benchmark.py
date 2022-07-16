@@ -66,7 +66,7 @@ def benchmark_replication(
         options=method.scheduler_options,
     )
     with manual_seed(seed=seed):
-        scheduler.run_all_trials()
+        scheduler.run_n_trials(max_trials=problem.num_trials)
 
     optimization_trace = np.array(
         BestPointMixin.get_trace(experiment=scheduler.experiment)

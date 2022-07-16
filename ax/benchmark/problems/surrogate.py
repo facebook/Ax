@@ -44,6 +44,7 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         datasets: List[SupervisedDataset],
         minimize: bool,
         optimal_value: float,
+        num_trials: int,
     ) -> "SurrogateBenchmarkProblem":
         return SurrogateBenchmarkProblem(
             name=name,
@@ -61,6 +62,7 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
                 search_space=search_space,
             ),
             optimal_value=optimal_value,
+            num_trials=num_trials,
         )
 
 

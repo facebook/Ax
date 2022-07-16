@@ -24,7 +24,9 @@ except ModuleNotFoundError:
 
 class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
     @classmethod
-    def from_dataset_name(cls, name: str) -> "PyTorchCNNTorchvisionBenchmarkProblem":
+    def from_dataset_name(
+        cls, name: str, num_trials: int
+    ) -> "PyTorchCNNTorchvisionBenchmarkProblem":
         if name not in _REGISTRY:
             raise UserInputError(
                 f"Unrecognized torchvision dataset {name}. Please ensure it is listed"
@@ -46,7 +48,9 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
             transform=transforms.ToTensor(),
         )
 
-        problem = cls.from_datasets(name=name, train_set=train_set, test_set=test_set)
+        problem = cls.from_datasets(
+            name=name, num_trials=num_trials, train_set=train_set, test_set=test_set
+        )
         runner = PyTorchCNNTorchvisionRunner(
             name=name, train_set=train_set, test_set=test_set
         )
@@ -56,6 +60,7 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             runner=runner,
+            num_trials=num_trials,
             optimal_value=problem.optimal_value,
         )
 
