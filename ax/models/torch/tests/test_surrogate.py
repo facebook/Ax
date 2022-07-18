@@ -12,6 +12,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.utils import fit_botorch_model
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -29,7 +30,7 @@ from gpytorch.kernels import Kernel, RBFKernel, ScaleKernel  # noqa: F401
 from gpytorch.likelihoods import (  # noqa: F401
     FixedNoiseGaussianLikelihood,
     GaussianLikelihood,
-    Likelihood,
+    Likelihood,  # noqa: F401
 )
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from torch import Tensor
@@ -38,6 +39,7 @@ from torch import Tensor
 ACQUISITION_PATH = f"{Acquisition.__module__}"
 CURRENT_PATH = f"{__name__}"
 SURROGATE_PATH = f"{Surrogate.__module__}"
+UTILS_PATH = f"{fit_botorch_model.__module__}"
 
 
 class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
@@ -93,7 +95,7 @@ class SurrogateTest(TestCase):
             self.assertEqual(surrogate.botorch_model_class, botorch_model_class)
             self.assertEqual(surrogate.mll_class, self.mll_class)
 
-    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
+    @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     def test_mll_options(self, _):
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
@@ -259,8 +261,8 @@ class SurrogateTest(TestCase):
         self.assertEqual(surrogate._model.covar_module.ard_num_dims, 1)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
-    @patch(f"{SURROGATE_PATH}.fit_fully_bayesian_model_nuts")
-    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
+    @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
+    @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     def test_fit(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
         for mock_fit, botorch_model_class in zip(
@@ -412,8 +414,8 @@ class SurrogateTest(TestCase):
             self.assertTrue(torch.equal(acqf_value, torch.tensor([1.0])))
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
-    @patch(f"{SURROGATE_PATH}.fit_fully_bayesian_model_nuts")
-    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
+    @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
+    @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     def test_update(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:

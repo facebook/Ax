@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -19,16 +19,20 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
+from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
+from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
     SingleTaskMultiFidelityGP,
 )
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
-from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
-from botorch.models.model import Model
+from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
+from botorch.models.model import Model, ModelList
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.pairwise_gp import PairwiseGP
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
 
 
@@ -251,3 +255,24 @@ def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
         same = (X_shared == X.unsqueeze(-2)).all(dim=-1).any(dim=-1)
         idcs_shared.append(torch.arange(same.shape[-1], device=X_shared.device)[same])
     return X_shared, idcs_shared
+
+
+def fit_botorch_model(
+    model: Union[Model, ModelList, ModelListGP],
+    mll_class: Type[MarginalLogLikelihood],
+    mll_options: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Fit a BoTorch model."""
+    models = model.models if isinstance(model, (ModelListGP, ModelList)) else [model]
+    for m in models:
+        # TODO: Support deterministic models when we support `ModelList`
+        if isinstance(m, SaasFullyBayesianSingleTaskGP):
+            fit_fully_bayesian_model_nuts(m, disable_progbar=True)
+        elif isinstance(m, (GPyTorchModel, PairwiseGP)):
+            mll_options = mll_options or {}
+            mll = mll_class(likelihood=m.likelihood, model=m, **mll_options)
+            fit_gpytorch_model(mll)
+        else:
+            raise NotImplementedError(
+                f"Model of type {m.__class__.__name__} is currently not supported."
+            )

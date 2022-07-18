@@ -10,13 +10,14 @@ import dataclasses
 import inspect
 import warnings
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
+from ax.models.torch.botorch_modular.utils import fit_botorch_model
 from ax.models.torch.utils import (
     _to_inequality_constraints,
     pick_best_out_of_sample_point_acqf_class,
@@ -28,10 +29,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
-from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
-from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP
-from botorch.models.gpytorch import GPyTorchModel
-from botorch.models.model import Model, ModelList
+from botorch.models.model import Model
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
@@ -42,7 +40,6 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
 
-
 NOT_YET_FIT_MSG = (
     "Underlying BoTorch `Model` has not yet received its training_data. "
     "Please fit the model first."
@@ -50,27 +47,6 @@ NOT_YET_FIT_MSG = (
 
 
 logger: Logger = get_logger(__name__)
-
-
-def fit_botorch_model(
-    model: Union[Model, ModelList, ModelListGP],
-    mll_class: Optional[Type[MarginalLogLikelihood]] = None,
-    mll_options: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Fit a BoTorch model."""
-    models = model.models if isinstance(model, (ModelListGP, ModelList)) else [model]
-    for m in models:
-        # TODO: Support deterministic models when we support `ModelList`
-        if isinstance(m, SaasFullyBayesianSingleTaskGP):
-            fit_fully_bayesian_model_nuts(m, disable_progbar=True)
-        elif isinstance(m, GPyTorchModel) or isinstance(m, PairwiseGP):
-            mll_options = mll_options or {}
-            mll = not_none(mll_class)(likelihood=m.likelihood, model=m, **mll_options)
-            fit_gpytorch_model(mll)
-        else:
-            raise ValueError(
-                f"Model of type {m.__class__.__name__} is currently not supported."
-            )
 
 
 class Surrogate(Base):
@@ -244,18 +220,36 @@ class Surrogate(Base):
 
         self._training_data = [dataset]
 
-        # TODO: Can we warn if the elements of `input_constructor_kwargs`
-        # are not used?
         formatted_model_inputs = self.botorch_model_class.construct_inputs(
             training_data=dataset, **input_constructor_kwargs
         )
+        self._set_formatted_inputs(
+            formatted_model_inputs=formatted_model_inputs,
+            inputs=[
+                [
+                    "covar_module",
+                    self.covar_module_class,
+                    self.covar_module_options,
+                    None,
+                ],
+                ["likelihood", self.likelihood_class, self.likelihood_options, None],
+                ["outcome_transform", None, None, self.outcome_transform],
+                ["input_transform", None, None, self.input_transform],
+            ],
+            dataset=dataset,
+            botorch_model_class_args=botorch_model_class_args,
+        )
+        # pyre-ignore [45]
+        self._model = self.botorch_model_class(**formatted_model_inputs)
 
-        for input_name, input_class, input_options, input_object in (
-            ("covar_module", self.covar_module_class, self.covar_module_options, None),
-            ("likelihood", self.likelihood_class, self.likelihood_options, None),
-            ("outcome_transform", None, None, self.outcome_transform),
-            ("input_transform", None, None, self.input_transform),
-        ):
+    def _set_formatted_inputs(
+        self,
+        formatted_model_inputs: Dict[str, Any],
+        inputs: List[List[Any]],
+        dataset: SupervisedDataset,
+        botorch_model_class_args: Any,
+    ) -> None:
+        for input_name, input_class, input_options, input_object in inputs:
             if input_class is None and input_object is None:
                 continue
             if input_name not in botorch_model_class_args:
@@ -271,13 +265,9 @@ class Surrogate(Base):
                 raise RuntimeError(f"Got both a class and an object for {input_name}.")
             if input_class is not None:
                 input_options = input_options or {}
-                # pyre-ignore [45]
                 formatted_model_inputs[input_name] = input_class(**input_options)
             else:
                 formatted_model_inputs[input_name] = input_object
-
-        # pyre-ignore [45]
-        self._model = self.botorch_model_class(**formatted_model_inputs)
 
     def fit(
         self,

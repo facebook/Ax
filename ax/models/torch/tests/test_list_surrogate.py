@@ -24,10 +24,16 @@ from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLik
 from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
-from gpytorch.mlls import ExactMarginalLogLikelihood
-
+from gpytorch.constraints import GreaterThan, Interval
+from gpytorch.kernels import Kernel, MaternKernel, RBFKernel, ScaleKernel  # noqa: F401
+from gpytorch.likelihoods import (  # noqa: F401
+    GaussianLikelihood,
+    Likelihood,  # noqa: F401
+)
+from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 
 SURROGATE_PATH = f"{Surrogate.__module__}"
+UTILS_PATH = f"{choose_model_class.__module__}"
 CURRENT_PATH = f"{__name__}"
 ACQUISITION_PATH = f"{Acquisition.__module__}"
 RANK = "rank"
@@ -244,8 +250,8 @@ class ListSurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.ModelListGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
-    @patch(f"{SURROGATE_PATH}.fit_gpytorch_model")
-    @patch(f"{SURROGATE_PATH}.fit_fully_bayesian_model_nuts")
+    @patch(f"{UTILS_PATH}.fit_gpytorch_model")
+    @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     def test_fit(self, mock_fit_nuts, mock_fit_gpytorch, mock_MLL, mock_state_dict):
         default_class = self.botorch_submodel_class_per_outcome
         surrogates = [
@@ -310,7 +316,7 @@ class ListSurrogateTest(TestCase):
         )
         # Fitting with unknown model should raise
         with self.assertRaisesRegex(
-            ValueError,
+            NotImplementedError,
             "Model of type GenericDeterministicModel is currently not supported.",
         ):
             fit_botorch_model(
@@ -330,7 +336,7 @@ class ListSurrogateTest(TestCase):
             submodel_outcome_transforms=outcome_transforms,
             submodel_input_transforms=input_transforms,
         )
-        with self.assertRaisesRegex(UserInputError, "The model class"):
+        with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
             surrogate.construct(
                 datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
@@ -366,3 +372,46 @@ class ListSurrogateTest(TestCase):
         ):
             expected.pop(attr_name)
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)
+
+    def test_construct_custom_model(self):
+        noise_con1, noise_con2 = Interval(1e-6, 1e-1), GreaterThan(1e-4)
+        surrogate = ListSurrogate(
+            botorch_submodel_class=SingleTaskGP,
+            mll_class=LeaveOneOutPseudoLikelihood,
+            submodel_covar_module_class={
+                "outcome_1": RBFKernel,
+                "outcome_2": MaternKernel,
+            },
+            submodel_covar_module_options={
+                "outcome_1": {"ard_num_dims": 1},
+                "outcome_2": {"ard_num_dims": 3},
+            },
+            submodel_likelihood_class={
+                "outcome_1": GaussianLikelihood,
+                "outcome_2": GaussianLikelihood,
+            },
+            submodel_likelihood_options={
+                "outcome_1": {"noise_constraint": noise_con1},
+                "outcome_2": {"noise_constraint": noise_con2},
+            },
+        )
+        surrogate.construct(
+            datasets=self.supervised_training_data,
+            metric_names=self.outcomes,
+        )
+        self.assertEqual(len(surrogate._model.models), 2)
+        self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
+        for i, m in enumerate(surrogate._model.models):
+            self.assertEqual(type(m.likelihood), GaussianLikelihood)
+            if i == 0:
+                self.assertEqual(type(m.covar_module), RBFKernel)
+                self.assertEqual(m.covar_module.ard_num_dims, 1)
+                self.assertEqual(
+                    m.likelihood.noise_covar.raw_noise_constraint, noise_con1
+                )
+            else:
+                self.assertEqual(type(m.covar_module), MaternKernel)
+                self.assertEqual(m.covar_module.ard_num_dims, 3)
+                self.assertEqual(
+                    m.likelihood.noise_covar.raw_noise_constraint, noise_con2
+                )

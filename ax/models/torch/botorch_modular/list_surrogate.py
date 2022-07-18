@@ -9,7 +9,6 @@ from __future__ import annotations
 import inspect
 from typing import Any, Dict, List, Optional, Type
 
-from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -18,6 +17,8 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
+from gpytorch.kernels import Kernel
+from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 
@@ -66,8 +67,10 @@ class ListSurrogate(Surrogate):
     mll_options: Dict[str, Any]
     submodel_outcome_transforms: Dict[str, OutcomeTransform]
     submodel_input_transforms: Dict[str, InputTransform]
-    # TODO: Allow passing down `covar_module_class`, `covar_module_options`,
-    # `likelihood_class`, and `likelihood_options`.
+    submodel_covar_module_class: Dict[str, Type[Kernel]]
+    submodel_covar_module_options: Dict[str, Dict[str, Any]]
+    submodel_likelihood_class: Dict[str, Type[Likelihood]]
+    submodel_likelihood_options: Dict[str, Dict[str, Any]]
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
@@ -84,6 +87,10 @@ class ListSurrogate(Surrogate):
         mll_options: Optional[Dict[str, Any]] = None,
         submodel_outcome_transforms: Optional[Dict[str, OutcomeTransform]] = None,
         submodel_input_transforms: Optional[Dict[str, InputTransform]] = None,
+        submodel_covar_module_class: Optional[Dict[str, Type[Kernel]]] = None,
+        submodel_covar_module_options: Optional[Dict[str, Dict[str, Any]]] = None,
+        submodel_likelihood_class: Optional[Dict[str, Type[Likelihood]]] = None,
+        submodel_likelihood_options: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         if not bool(botorch_submodel_class_per_outcome) ^ bool(botorch_submodel_class):
             raise ValueError(  # pragma: no cover
@@ -99,6 +106,10 @@ class ListSurrogate(Surrogate):
         self.submodel_options = submodel_options or {}
         self.submodel_outcome_transforms = submodel_outcome_transforms or {}
         self.submodel_input_transforms = submodel_input_transforms or {}
+        self.submodel_covar_module_class = submodel_covar_module_class or {}
+        self.submodel_covar_module_options = submodel_covar_module_options or {}
+        self.submodel_likelihood_class = submodel_likelihood_class or {}
+        self.submodel_likelihood_options = submodel_likelihood_options or {}
         super().__init__(
             botorch_model_class=ModelListGP,
             mll_class=mll_class,
@@ -175,21 +186,27 @@ class ListSurrogate(Surrogate):
             # way to filter the arguments. See the comment in `Surrogate.construct`
             # regarding potential use of a `ModelFactory` in the future.
             model_cls_args = inspect.getfullargspec(model_cls).args
+            covar_module_class = self.submodel_covar_module_class.get(m)
+            covar_module_options = self.submodel_covar_module_options.get(m)
+            likelihood_class = self.submodel_likelihood_class.get(m)
+            likelihood_options = self.submodel_likelihood_options.get(m)
             outcome_transform = self.submodel_outcome_transforms.get(m)
             input_transform = self.submodel_input_transforms.get(m)
-            for input_name, input_obj in (
-                ("outcome_transform", outcome_transform),
-                ("input_transform", input_transform),
-            ):
-                if input_obj is not None:
-                    if input_name not in model_cls_args:
-                        raise UserInputError(
-                            f"The model class {model_cls} does not support an "
-                            f"{input_name} argument."
-                        )
-                    formatted_model_inputs[input_name] = input_obj
+
+            self._set_formatted_inputs(
+                formatted_model_inputs=formatted_model_inputs,
+                inputs=[
+                    ["covar_module", covar_module_class, covar_module_options, None],
+                    ["likelihood", likelihood_class, likelihood_options, None],
+                    ["outcome_transform", None, None, outcome_transform],
+                    ["input_transform", None, None, input_transform],
+                ],
+                dataset=dataset,
+                botorch_model_class_args=model_cls_args,
+            )
             # pyre-ignore[45]: Py raises informative error if model is abstract.
             submodels.append(model_cls(**formatted_model_inputs))
+
         self._model = ModelListGP(*submodels)
 
     def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
@@ -206,4 +223,8 @@ class ListSurrogate(Surrogate):
             "mll_options": self.mll_options,
             "submodel_outcome_transforms": self.submodel_outcome_transforms,
             "submodel_input_transforms": self.submodel_input_transforms,
+            "submodel_covar_module_class": self.submodel_covar_module_class,
+            "submodel_covar_module_options": self.submodel_covar_module_options,
+            "submodel_likelihood_class": self.submodel_likelihood_class,
+            "submodel_likelihood_options": self.submodel_likelihood_options,
         }
