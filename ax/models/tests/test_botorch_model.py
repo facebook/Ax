@@ -10,6 +10,7 @@ from unittest import mock
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import DataRequiredError
 from ax.models.torch.botorch import BotorchModel, get_rounding_func
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
@@ -613,4 +614,21 @@ class BotorchModelTest(TestCase):
                 n,
                 search_space_digest=search_space_digest,
                 torch_opt_config=TorchOptConfig(objective_weights),
+            )
+
+    def test_botorchmodel_raises_when_no_data(self):
+        _, _, _, bounds, tfs, fns, mns = get_torch_test_data(
+            dtype=torch.float, cuda=False, constant_noise=True
+        )
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=tfs,
+        )
+        model = BotorchModel()
+        with self.assertRaisesRegex(
+            DataRequiredError, "BotorchModel.fit requires non-empty data sets."
+        ):
+            model.fit(
+                datasets=[], metric_names=mns, search_space_digest=search_space_digest
             )

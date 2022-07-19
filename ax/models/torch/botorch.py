@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
+from ax.exceptions.core import DataRequiredError
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_NEI,
@@ -281,6 +282,8 @@ class BotorchModel(TorchModel):
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
+        if len(datasets) == 0:
+            raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.metric_names = metric_names
         self.Xs, self.Ys, self.Yvars = Xs, Ys, Yvars

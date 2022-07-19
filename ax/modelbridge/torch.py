@@ -458,7 +458,6 @@ class TorchModelBridge(ModelBridge):
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
     ) -> None:  # pragma: no cover
-        self._validate_observation_data(observation_data)
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
         for od in observation_data:
@@ -625,8 +624,6 @@ class TorchModelBridge(ModelBridge):
                 f"{self.__class__.__name__} requires an OptimizationConfig "
                 "to be specified"
             )
-        if self.outcomes is None or len(self.outcomes) == 0:  # pragma: no cover
-            raise ValueError("No outcomes found during model fit--data are missing.")
 
         validate_optimization_config(optimization_config, self.outcomes)
         objective_weights = extract_objective_weights(
