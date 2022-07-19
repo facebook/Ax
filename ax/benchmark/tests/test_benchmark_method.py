@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.scheduler import SchedulerOptions
