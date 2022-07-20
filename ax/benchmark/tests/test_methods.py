@@ -14,13 +14,10 @@ class TestMethods(TestCase):
         method = get_sobol_botorch_modular_acquisition(
             acquisition_cls=qKnowledgeGradient,
             acquisition_options={"num_fantasies": 16},
-            total_trials=50,
         )
-        self.assertEqual(method.scheduler_options.total_trials, 50)
         self.assertEqual(method.name, "SOBOL+BOTORCH_MODULAR::qKnowledgeGradient")
         gs = method.generation_strategy
         sobol, kg = gs._steps
-        self.assertEqual(sobol.num_trials, 5)
         self.assertEqual(kg.model, Models.BOTORCH_MODULAR)
         model_kwargs = kg.model_kwargs
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)

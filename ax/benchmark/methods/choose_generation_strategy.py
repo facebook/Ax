@@ -19,5 +19,7 @@ def get_choose_generation_strategy_method(problem: BenchmarkProblem) -> Benchmar
     return BenchmarkMethod(
         name=f"ChooseGenerationStrategy::{problem.name}",
         generation_strategy=generation_strategy,
-        scheduler_options=SchedulerOptions(),
+        scheduler_options=SchedulerOptions(
+            init_seconds_between_polls=0, max_pending_trials=1
+        ),
     )

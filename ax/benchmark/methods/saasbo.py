@@ -13,7 +13,7 @@ def get_saasbo_default() -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+FULLYBAYESIAN::default",
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
+            GenerationStep(model=Models.SOBOL, num_trials=5),
             GenerationStep(
                 model=Models.FULLYBAYESIAN,
                 num_trials=-1,
@@ -22,7 +22,9 @@ def get_saasbo_default() -> BenchmarkMethod:
         ],
     )
 
-    scheduler_options = SchedulerOptions(total_trials=30)
+    scheduler_options = SchedulerOptions(
+        init_seconds_between_polls=0, max_pending_trials=1
+    )
 
     return BenchmarkMethod(
         name=generation_strategy.name,
@@ -35,7 +37,7 @@ def get_saasbo_moo_default() -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+FULLYBAYESIANMOO::default",
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=3),
+            GenerationStep(model=Models.SOBOL, num_trials=5),
             GenerationStep(
                 model=Models.FULLYBAYESIANMOO,
                 num_trials=-1,
@@ -44,7 +46,9 @@ def get_saasbo_moo_default() -> BenchmarkMethod:
         ],
     )
 
-    scheduler_options = SchedulerOptions(total_trials=30)
+    scheduler_options = SchedulerOptions(
+        init_seconds_between_polls=0, max_pending_trials=1
+    )
 
     return BenchmarkMethod(
         name=generation_strategy.name,
