@@ -24,6 +24,7 @@ OUTCOME_CONSTRAINT_PATH = "ax.core.outcome_constraint"
 
 class OutcomeConstraintTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.minimize_metric = Metric(name="bar", lower_is_better=True)
         self.maximize_metric = Metric(name="baz", lower_is_better=False)
         self.bound = 0
@@ -81,6 +82,7 @@ class OutcomeConstraintTest(TestCase):
 
 class ObjectiveThresholdTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.minimize_metric = Metric(name="bar", lower_is_better=True)
         self.maximize_metric = Metric(name="baz", lower_is_better=False)
         self.ambiguous_metric = Metric(name="buz")
@@ -153,6 +155,7 @@ class ObjectiveThresholdTest(TestCase):
 
 class ScalarizedOutcomeConstraintTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.metrics = [
             Metric(name="m1", lower_is_better=True),
             Metric(name="m2", lower_is_better=True),

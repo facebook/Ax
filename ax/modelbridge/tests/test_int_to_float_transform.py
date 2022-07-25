@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 class IntToFloatTransformTest(TestCase):
     def setUp(self):
+        super().setUp()
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
             RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),

@@ -25,6 +25,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class MaxValueEntropySearchTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.training_data = [
             FixedNoiseDataset(

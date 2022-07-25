@@ -19,6 +19,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 
 class DataTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.df_hash = "3dd7ab8c67942d43c78ea4af05bbb1c4"
         self.df = pd.DataFrame(
             [

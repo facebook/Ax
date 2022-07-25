@@ -199,6 +199,7 @@ TEST_CASES = [
 
 class JSONStoreTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.experiment = get_experiment_with_batch_and_single_trial()
 
     def testJSONEncodeFailure(self):

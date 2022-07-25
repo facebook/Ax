@@ -40,6 +40,7 @@ from ax.utils.testing.core_stubs import (
 
 class TestModelbridgeUtils(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_experiment()
         self.arm = Arm({"x": 1, "y": "foo", "z": True, "w": 4})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))

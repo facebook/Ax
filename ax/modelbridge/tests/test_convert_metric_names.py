@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import get_multi_type_experiment
 
 class ConvertMetricNamesTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.experiment = get_multi_type_experiment(add_trials=True)
         self.data = self.experiment.fetch_data()
         self.observations = observations_from_data(self.experiment, self.data)

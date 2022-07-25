@@ -12,6 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 class RandomModelTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.random_model = RandomModel()
 
     def testRandomModelGenSamples(self):

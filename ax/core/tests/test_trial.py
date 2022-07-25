@@ -33,6 +33,7 @@ TEST_DATA = Data(
 
 class TrialTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.experiment = get_experiment()
         self.trial = self.experiment.new_trial()
         self.arm = get_arms()[0]

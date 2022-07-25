@@ -25,6 +25,7 @@ from ax.utils.common.testutils import TestCase
 
 class DerelativizeTransformTest(TestCase):
     def setUp(self):
+        super().setUp()
         m = mock.patch.object(ModelBridge, "__abstractmethods__", frozenset())
         self.addCleanup(m.stop)
         m.start()

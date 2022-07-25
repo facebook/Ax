@@ -12,9 +12,6 @@ METRIC_STRING = "MapMetric('m1')"
 
 
 class MapMetricTest(TestCase):
-    def setUp(self):
-        pass
-
     def testInit(self):
         metric = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)

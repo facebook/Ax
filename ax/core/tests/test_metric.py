@@ -13,9 +13,6 @@ METRIC_STRING = "Metric('m1')"
 
 
 class MetricTest(TestCase):
-    def setUp(self):
-        pass
-
     def testInit(self):
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)

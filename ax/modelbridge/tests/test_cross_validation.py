@@ -34,6 +34,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 class CrossValidationTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.training_data = [
             Observation(
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=0),

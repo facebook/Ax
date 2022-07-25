@@ -19,9 +19,6 @@ from ax.utils.common.testutils import TestCase
 
 
 class ModelUtilsTest(TestCase):
-    def setUp(self):
-        pass
-
     def testBestObservedPoint(self):
         model = MagicMock()
 

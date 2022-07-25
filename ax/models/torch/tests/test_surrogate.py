@@ -49,6 +49,7 @@ class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
 
 class SurrogateTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.device = torch.device("cpu")
         self.dtype = torch.float
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(

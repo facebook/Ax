@@ -17,6 +17,7 @@ from ax.utils.common.testutils import TestCase
 
 class RangeParameterTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.param1 = RangeParameter(
             name="x",
             parameter_type=ParameterType.FLOAT,
@@ -163,6 +164,7 @@ class RangeParameterTest(TestCase):
 
 class ChoiceParameterTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.param1 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
@@ -331,6 +333,7 @@ class ChoiceParameterTest(TestCase):
 
 class FixedParameterTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.param1 = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
         )
@@ -415,6 +418,7 @@ class FixedParameterTest(TestCase):
 
 class ParameterEqualityTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.fixed_parameter = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
         )

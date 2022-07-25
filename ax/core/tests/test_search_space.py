@@ -46,6 +46,7 @@ RANGE_PARAMS = 3
 
 class SearchSpaceTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.a = RangeParameter(
             name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
         )
@@ -347,6 +348,7 @@ class SearchSpaceTest(TestCase):
 
 class SearchSpaceDigestTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.kwargs = {
             "feature_names": ["a", "b", "c"],
             "bounds": [(0.0, 1.0), (0, 2), (0, 4)],
@@ -379,6 +381,7 @@ class SearchSpaceDigestTest(TestCase):
 
 class RobustSearchSpaceDigestTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.kwargs = {
             "distribution_sampler": lambda X: X,
             "environmental_variables": ["a"],
@@ -403,6 +406,7 @@ class RobustSearchSpaceDigestTest(TestCase):
 
 class HierarchicalSearchSpaceTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.model_parameter = get_model_parameter()
         self.lr_parameter = get_lr_parameter()
         self.l2_reg_weight_parameter = get_l2_reg_weight_parameter()
@@ -672,6 +676,7 @@ class HierarchicalSearchSpaceTest(TestCase):
 
 class TestRobustSearchSpace(TestCase):
     def setUp(self):
+        super().setUp()
         self.a = RangeParameter(
             name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
         )

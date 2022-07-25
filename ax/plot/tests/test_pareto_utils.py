@@ -30,6 +30,7 @@ from ax.utils.testing.core_stubs import (
 
 class ParetoUtilsTest(TestCase):
     def setUp(self):
+        super().setUp()
         experiment = get_branin_experiment()
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])

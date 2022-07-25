@@ -24,6 +24,7 @@ from .test_standardize_y_transform import osd_allclose
 
 class StratifiedStandardizeYTransformTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 8.0]),

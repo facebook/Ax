@@ -32,6 +32,7 @@ from ax.utils.testing.core_stubs import (
 
 class BatchTrialTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.experiment = get_experiment()
         self.experiment.status_quo = None
         self.batch = self.experiment.new_batch_trial()

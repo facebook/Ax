@@ -23,6 +23,7 @@ from ax.utils.testing.core_stubs import get_small_discrete_search_space
 
 class RandomModelBridgeTest(TestCase):
     def setUp(self):
+        super().setUp()
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
         y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)

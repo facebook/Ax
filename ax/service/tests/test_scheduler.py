@@ -181,6 +181,7 @@ class TestAxScheduler(TestCase):
     """Tests base `Scheduler` functionality."""
 
     def setUp(self):
+        super().setUp()
         self.branin_experiment = get_branin_experiment()
         self.branin_timestamp_map_metric_experiment = (
             get_branin_experiment_with_timestamp_map_metric()

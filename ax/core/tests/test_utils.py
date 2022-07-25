@@ -27,6 +27,7 @@ from ax.utils.common.testutils import TestCase
 
 class UtilsTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.df = pd.DataFrame(
             [
                 {

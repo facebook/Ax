@@ -41,6 +41,7 @@ RANK = "rank"
 
 class ListSurrogateTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = ExactMarginalLogLikelihood
         self.dtype = torch.float

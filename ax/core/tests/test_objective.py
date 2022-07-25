@@ -20,6 +20,7 @@ Objective(metric_name="m3", minimize=False)])
 
 class ObjectiveTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.metrics = {
             "m1": Metric(name="m1"),
             "m2": Metric(name="m2", lower_is_better=True),

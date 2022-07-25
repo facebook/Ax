@@ -44,6 +44,7 @@ from ax.utils.testing.core_stubs import (
 
 class TestGenerationStrategy(TestCase):
     def setUp(self):
+        super().setUp()
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
         # Mock out slow GPEI.
@@ -108,6 +109,7 @@ class TestGenerationStrategy(TestCase):
         )
 
     def tearDown(self):
+        super().tearDown()
         self.torch_model_bridge_patcher.stop()
         self.discrete_model_bridge_patcher.stop()
         self.registry_setup_dict_patcher.stop()

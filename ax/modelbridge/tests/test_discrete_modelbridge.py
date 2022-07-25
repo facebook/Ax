@@ -26,6 +26,7 @@ from ax.utils.common.testutils import TestCase
 
 class DiscreteModelBridgeTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.parameters = [
             ChoiceParameter("x", ParameterType.FLOAT, values=[0, 1]),
             ChoiceParameter("y", ParameterType.STRING, values=["foo", "bar"]),

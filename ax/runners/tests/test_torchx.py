@@ -30,6 +30,7 @@ from torchx.components import utils
 
 class TorchXRunnerTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.test_dir = tempfile.mkdtemp("torchx_runtime_hpo_ax_test")
 
         self.old_cwd = os.getcwd()
@@ -66,6 +67,7 @@ class TorchXRunnerTest(TestCase):
         )
 
     def tearDown(self) -> None:
+        super().tearDown()
         shutil.rmtree(self.test_dir)
         os.chdir(self.old_cwd)
 

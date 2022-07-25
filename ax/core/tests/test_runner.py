@@ -19,6 +19,7 @@ class DummyRunner(Runner):
 
 class RunnerTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.dummy_runner = DummyRunner()
         self.trials = [get_trial(), get_batch_trial()]
 

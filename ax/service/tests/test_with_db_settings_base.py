@@ -34,6 +34,7 @@ class TestWithDBSettingsBase(TestCase):
     """Tests saving/loading functionality of WithDBSettingsBase class."""
 
     def setUp(self):
+        super().setUp()
         self.generation_strategy = get_generation_strategy(with_experiment=True)
         self.experiment = self.generation_strategy.experiment
 

@@ -36,6 +36,7 @@ from ax.utils.testing.core_stubs import get_optimization_config
 
 class WinsorizeTransformTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, 0.0, 1.0]),

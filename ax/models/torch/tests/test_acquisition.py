@@ -66,6 +66,7 @@ class DummyAcquisitionFunction(AcquisitionFunction):
 
 class AcquisitionTest(TestCase):
     def setUp(self):
+        super().setUp()
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
         self.mock_input_constructor = mock.MagicMock(
             qNEI_input_constructor, side_effect=qNEI_input_constructor

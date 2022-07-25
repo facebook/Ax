@@ -37,6 +37,7 @@ from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
 class BoTorchModelUtilsTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.dtype = torch.float
         self.Xs, self.Ys, self.Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(

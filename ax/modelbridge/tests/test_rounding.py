@@ -13,9 +13,6 @@ from ax.utils.common.testutils import TestCase
 
 
 class RoundingTest(TestCase):
-    def setUp(self):
-        pass
-
     def testOneHotRound(self):
         self.assertTrue(
             np.allclose(

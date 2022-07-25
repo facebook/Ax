@@ -36,6 +36,7 @@ def get_constraint(metric, bound, relative):
 
 class PowerTransformYTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([0.5, 0.9]),

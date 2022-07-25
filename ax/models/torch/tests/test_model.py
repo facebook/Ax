@@ -53,6 +53,7 @@ ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1024)}
 
 class BoTorchModelTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.acquisition_class = Acquisition

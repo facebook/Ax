@@ -14,6 +14,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 class CapParameterTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

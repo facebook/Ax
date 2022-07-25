@@ -33,6 +33,7 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 class KnowledgeGradientTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.dataset = FixedNoiseDataset(
             X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),

@@ -13,6 +13,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class TorchModelTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.dataset = FixedNoiseDataset(
             X=torch.zeros(1), Y=torch.zeros(1), Yvar=torch.ones(1)
         )

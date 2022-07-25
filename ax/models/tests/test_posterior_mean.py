@@ -17,6 +17,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 # TODO (jej): Streamline testing for a simple acquisition function.
 class PosteriorMeanTest(TestCase):
     def setUp(self):
+        super().setUp()
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **self.tkwargs)
