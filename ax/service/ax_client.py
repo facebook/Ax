@@ -1694,7 +1694,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
         for p_name, parameter in self.experiment.search_space.parameters.items():
-            if not isinstance(parameters[p_name], parameter.python_type):
+            if p_name in parameters and not isinstance(
+                parameters[p_name], parameter.python_type
+            ):
                 typ = type(parameters[p_name])
                 raise ValueError(
                     f"Value for parameter {p_name} is of type {typ}, expected "
