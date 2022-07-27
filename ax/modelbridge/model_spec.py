@@ -292,6 +292,8 @@ class FactoryFunctionModelSpec(ModelSpec):
         kwargs to this function (local kwargs take precedent)
         """
         factory_function = not_none(self.factory_function)
+        all_kwargs = deepcopy((self.model_kwargs or {}))
+        all_kwargs.update(model_kwargs)
         self._fitted_model = factory_function(
             # Factory functions do not have a unified signature; e.g. some factory
             # functions (like `get_sobol`) require search space instead of experiment.
@@ -304,7 +306,6 @@ class FactoryFunctionModelSpec(ModelSpec):
                 search_space=search_space or experiment.search_space,
                 optimization_config=optimization_config
                 or experiment.optimization_config,
-                **(self.model_kwargs or {}),
-                **model_kwargs,
+                **all_kwargs,
             )
         )
