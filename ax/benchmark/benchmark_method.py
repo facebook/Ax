@@ -20,3 +20,14 @@ class BenchmarkMethod(Base):
     name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
+
+
+def get_sequential_optimization_scheduler_options() -> SchedulerOptions:
+    """The typical SchedulerOptions used in benchmarking."""
+    return SchedulerOptions(
+        # Enforce sequential trials by default
+        max_pending_trials=1,
+        # Do not throttle, as is often necessary when polling real endpoints
+        init_seconds_between_polls=0,
+        min_seconds_before_poll=0,
+    )
