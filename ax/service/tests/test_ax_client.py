@@ -2092,6 +2092,15 @@ class TestAxClient(TestCase):
             params, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
         self.assertEqual(len(ax_client.experiment.trials), 10)
+        ax_client.attach_trial(
+            {"model": "Linear", "learning_rate": 0.001, "l2_reg_weight": 0.0001}
+        )
+        with self.assertRaisesRegex(
+            ValueError, "1 is not a valid value for parameter RangeParameter"
+        ):
+            ax_client.attach_trial(
+                {"model": "Linear", "learning_rate": 1, "l2_reg_weight": 0.0001}
+            )
 
     def test_should_stop_trials_early(self):
         expected = {

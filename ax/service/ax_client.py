@@ -38,6 +38,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -1694,15 +1695,22 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # `check_membership` uses int and float interchangeably, which we don't
         # want here.
         for p_name, parameter in self.experiment.search_space.parameters.items():
-            if p_name in parameters and not isinstance(
-                parameters[p_name], parameter.python_type
+            if (
+                isinstance(self.experiment.search_space, HierarchicalSearchSpace)
+                and p_name not in parameters
             ):
-                typ = type(parameters[p_name])
+                # Parameterizations in HSS-s can be missing some of the dependent
+                # parameters based on the hierarchical structure and values of
+                # the parameters those depend on.
+                continue
+            param_val = parameters.get(p_name)
+            if not isinstance(param_val, parameter.python_type):
+                typ = type(param_val)
                 raise ValueError(
-                    f"Value for parameter {p_name} is of type {typ}, expected "
-                    f"{parameter.python_type}. If the intention was to have the "
-                    f"parameter on experiment be of type {typ}, set `value_type` "
-                    f"on experiment creation for {p_name}."
+                    f"Value for parameter {p_name}: {param_val} is of type {typ}, "
+                    f"expected  {parameter.python_type}. If the intention was to have"
+                    f" the parameter on experiment be of type {typ}, set `value_type`"
+                    f" on experiment creation for {p_name}."
                 )
 
     def _validate_trial_data(self, trial: Trial, data: Data) -> None:
