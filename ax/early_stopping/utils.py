@@ -51,7 +51,7 @@ def align_partial_results(
     for m in metrics:
         df_m = df[df["metric_name"] == m]
         if len(df_m) > 0:
-            logger.info(
+            logger.debug(
                 f"Metric {m} raw data has observations from "
                 f"{df_m[progr_key].min()} to {df_m[progr_key].max()}."
             )
