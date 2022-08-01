@@ -72,8 +72,15 @@ def benchmark_replication(
         BestPointMixin.get_trace(experiment=scheduler.experiment)
     )
 
-    num_sobol_trials = scheduler.generation_strategy._steps[0].num_trials
-    baseline = optimization_trace[num_sobol_trials - 1]
+    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
+    # a timeout) the first GenerationStep will not have not completed and we will not
+    # have enough trials; in this case we do not score.
+    num_baseline_trials = scheduler.generation_strategy._steps[0].num_trials
+    baseline = (
+        optimization_trace[num_baseline_trials - 1]
+        if len(optimization_trace) > num_baseline_trials
+        else None
+    )
 
     if isinstance(problem, SingleObjectiveBenchmarkProblem):
         optimum = problem.optimal_value
@@ -85,7 +92,7 @@ def benchmark_replication(
 
     score_trace = (
         (100 * (1 - (optimization_trace - optimum) / (baseline - optimum))).clip(min=0)
-        if optimum is not None
+        if optimum is not None and baseline is not None
         else np.full(len(optimization_trace), np.nan)
     )
 

@@ -76,6 +76,7 @@ class SchedulerOptions:
         min_seconds_before_poll: Minimum number of seconds between
             beginning to run a trial and the first poll to check
             trial status.
+        timeout_hours: Number of hours after which the optimization will abort.
         seconds_between_polls_backoff_factor: The rate at which the poll
             interval increases.
         run_trials_in_batches: If True and ``poll_available_capacity`` is
@@ -110,6 +111,7 @@ class SchedulerOptions:
     init_seconds_between_polls: Optional[int] = 1
     min_seconds_before_poll: float = 1.0
     seconds_between_polls_backoff_factor: float = 1.5
+    timeout_hours: Optional[float] = None
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None

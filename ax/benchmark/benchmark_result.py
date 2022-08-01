@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from itertools import zip_longest
 from typing import List
 
 from ax.core.experiment import Experiment
@@ -64,9 +63,11 @@ class AggregatedBenchmarkResult(Base):
         cls,
         results: List[BenchmarkResult],
     ) -> "AggregatedBenchmarkResult":
-        """Aggregrates a list of BenchmarkResults, right padding `optimization_trace`
-        and `score_trace` with NaNs as needed to ensure all series are of equivalent
-        length."""
+        """Aggregrates a list of BenchmarkResults. For various reasons (timeout, errors,
+        etc.) each BenchmarkResult may have a different number of trials; aggregated
+        traces and statistics are computed with and truncated to the minimum trial count
+        to ensure each replication is included.
+        """
         # Extract average wall times and standard errors thereof
         fit_time, gen_time = map(
             lambda Ts: [nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="omit"))],
@@ -79,8 +80,8 @@ class AggregatedBenchmarkResult(Base):
         for name in ("optimization_trace", "score_trace"):
             stats = trace_stats[name] = {"mean": [], "sem": []}
             quantiles = []
-            for step_vals in zip_longest(
-                *(getattr(res, name) for res in results), fillvalue=float("nan")
+            for step_vals in zip(
+                *(getattr(res, name) for res in results),
             ):
                 stats["mean"].append(nanmean(step_vals))
                 stats["sem"].append(sem(step_vals, ddof=1, nan_policy="omit"))

@@ -30,4 +30,6 @@ def get_sequential_optimization_scheduler_options() -> SchedulerOptions:
         # Do not throttle, as is often necessary when polling real endpoints
         init_seconds_between_polls=0,
         min_seconds_before_poll=0,
+        # Time the experiment out after 4 hours
+        timeout_hours=4,
     )
