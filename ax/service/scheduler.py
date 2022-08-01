@@ -163,7 +163,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # recorded in each `run_n_trials`.
     _latest_optimization_start_timestamp: Optional[int] = None
     # Timeout setting for current optimization.
-    _timeout_hours: Optional[int] = None
+    _timeout_hours: Optional[float] = None
     # Timestamp of when the last deployed trial started running.
     _latest_trial_start_timestamp: Optional[float] = None
     # Will be set to `True` if generation strategy signals that the optimization
@@ -227,6 +227,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self.markdown_messages["Generation strategy"] = GS_TYPE_MSG.format(
             gs_name=generation_strategy.name
         )
+
+        self._timeout_hours = options.timeout_hours
 
     @classmethod
     def get_default_db_settings(cls) -> DBSettings:
