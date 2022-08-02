@@ -4,8 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 from ax.exceptions.core import NoDataError
@@ -94,36 +95,70 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 
 def plot_feature_importance_by_feature_plotly(
-    model: ModelBridge, relative: bool = True, caption: str = ""
+    model: Optional[ModelBridge] = None,
+    sensitivity_values: Optional[Dict[str, Dict[str, Union[float, np.ndarray]]]] = None,
+    relative: bool = False,
+    caption: str = "",
+    importance_measure: str = "",
+    num_gp_samples: int = 0,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
 
     Args:
         model: A model with a ``feature_importances`` method.
-        relative: whether to normalize feature importances so that they add to 1.
-        caption: an HTML-formatted string to place at the bottom of the plot.
+        sensitivity_values: The sensitivity values for each metric in a dict format.
+        relative: Whether to normalize feature importances so that they add to 1.
+        caption: An HTML-formatted string to place at the bottom of the plot.
+        importance_measure: The name of the importance metric to be added to the title.
+        num_gp_samples: Number of samples to plot the SE for the sensitiviy error bars.
 
     Returns a go.Figure of feature importances.
     """
+    if sensitivity_values is None:
+        if model is None:
+            raise ValueError(
+                "A model is required when sensitivity values are not provided"
+            )
+        try:
+            sensitivity_values = {
+                metric_name: model.feature_importances(metric_name)
+                for i, metric_name in enumerate(sorted(model.metric_names))
+            }
+        except NotImplementedError:
+            raise NotImplementedError(
+                "Feature importances cannot be computed by the model."
+            )
+
     traces = []
     dropdown = []
-    for i, metric_name in enumerate(sorted(model.metric_names)):
-        try:
-            importances = model.feature_importances(metric_name)
-        except NotImplementedError:
-            logger.warning(
-                f"Model for {metric_name} does not support feature importances."
-            )
-            continue
+    for i, metric_name in enumerate(sorted(sensitivity_values.keys())):
+        importances = sensitivity_values[metric_name]
         factor_col = "Factor"
         importance_col = "Importance"
-        df = pd.DataFrame(
-            [
-                {factor_col: factor, importance_col: importance}
-                for factor, importance in importances.items()
-            ]
-        )
-
+        error_plot = np.asarray(next(iter(importances.values()))).size > 1
+        if error_plot:
+            importance_col_var = "SE"
+            df = pd.DataFrame(
+                [
+                    {
+                        factor_col: factor,
+                        importance_col: np.asarray(importance)[0],
+                        importance_col_var: np.sqrt(
+                            np.asarray(importance)[1] / num_gp_samples
+                        ),
+                    }
+                    for factor, importance in importances.items()
+                ]
+            )
+            error_x = {"type": "data", "array": df[importance_col_var], "visible": True}
+        else:
+            df = pd.DataFrame(
+                [
+                    {factor_col: factor, importance_col: importance}
+                    for factor, importance in importances.items()
+                ]
+            )
+            error_x = None
         if relative:
             df[importance_col] = df[importance_col].div(df[importance_col].sum())
 
@@ -135,10 +170,12 @@ def plot_feature_importance_by_feature_plotly(
                 visible=i == 0,
                 x=df[importance_col],
                 y=df[factor_col],
+                error_x=error_x,
+                opacity=0.8,
             )
         )
 
-        is_visible = [False] * len(sorted(model.metric_names))
+        is_visible = [False] * len(sensitivity_values)
         is_visible[i] = True
         dropdown.append(
             {"args": ["visible", is_visible], "label": metric_name, "method": "restyle"}
@@ -162,12 +199,13 @@ def plot_feature_importance_by_feature_plotly(
     title = (
         "Relative Feature Importances" if relative else "Absolute Feature Importances"
     )
+    title = title + " based on " + importance_measure
     layout = go.Layout(
         height=200 + len(features) * 20,
         hovermode="closest",
         margin=go.layout.Margin(
-            l=8 * min(max(len(idx) for idx in features), 75)  # noqa E741
-        ),
+            l=8 * min(max(len(idx) for idx in features), 75)
+        ),  # noqa E741
         showlegend=False,
         title=title,
         updatemenus=updatemenus,
@@ -181,12 +219,24 @@ def plot_feature_importance_by_feature_plotly(
 
 
 def plot_feature_importance_by_feature(
-    model: ModelBridge, relative: bool = True, caption: str = ""
+    model: Optional[ModelBridge] = None,
+    sensitivity_values: Optional[Dict[str, Dict[str, Union[float, np.ndarray]]]] = None,
+    relative: bool = False,
+    caption: str = "",
+    importance_measure: str = "",
+    num_gp_samples: int = 0,
 ) -> AxPlotConfig:
-    """Wrapper method to convert plot_feature_importance_by_feature_plotly to
+    """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
     return AxPlotConfig(
-        data=plot_feature_importance_by_feature_plotly(model, relative, caption),
+        data=plot_feature_importance_by_feature_plotly(
+            model=model,
+            sensitivity_values=sensitivity_values,
+            relative=relative,
+            caption=caption,
+            importance_measure=importance_measure,
+            num_gp_samples=num_gp_samples,
+        ),
         plot_type=AxPlotTypes.GENERIC,
     )
 
