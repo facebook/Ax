@@ -496,8 +496,8 @@ class GenerationStrategy(Base):
     # ------------------------- Model selection logic helpers. -------------------------
 
     def _fit_or_update_current_model(self, data: Optional[Data]) -> None:
-        """Fits or update the model on the current generation step (does not move between
-        generation steps).
+        """Fits or update the model on the current generation step (does not move
+        between generation steps).
 
         Args:
             data: Optional ``Data`` to fit or update with; if not specified, generation

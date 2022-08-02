@@ -582,8 +582,8 @@ def interact_multiple_pareto_frontier(
     CI_level: float = DEFAULT_CI_LEVEL,
     show_parameterization_on_hover: bool = True,
 ) -> AxPlotConfig:
-    """Plot a Pareto frontiers from a list of lists of NamedParetoFrontierResults objects
-    that we want to compare.
+    """Plot a Pareto frontiers from a list of lists of NamedParetoFrontierResults
+    objects that we want to compare.
 
     Args:
         frontier_lists (Dict[List[ParetoFrontierResults]]): A dictionary of multiple

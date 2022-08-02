@@ -231,8 +231,8 @@ class GeneratorRun(SortableBase):
 
     @property
     def index(self) -> Optional[int]:
-        """The index of this generator run within a trial's list of generator run structs.
-        This field is set when the generator run is added to a trial.
+        """The index of this generator run within a trial's list of generator run
+        structs. This field is set when the generator run is added to a trial.
         """
         return self._index
 

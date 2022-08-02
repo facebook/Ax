@@ -72,9 +72,10 @@ class Metric(SortableBase, SerializationMixin):
 
     @property
     def fetch_multi_group_by_metric(self) -> Type[Metric]:
-        """Metric class, with which to group this metric in `Experiment._metrics_by_class`,
-        which is used to combine metrics on experiment into groups and then fetch their
-        data via `Metric.fetch_trial_data_multi` for each group.
+        """Metric class, with which to group this metric in
+        `Experiment._metrics_by_class`, which is used to combine metrics on experiment
+        into groups and then fetch their data via `Metric.fetch_trial_data_multi` for
+        each group.
 
         NOTE: By default, this property will just return the class on which it is
         defined; however, in some cases it is useful to group metrics by their
