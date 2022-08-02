@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class ConvertMetricNames(Transform):
-    """Convert all metric names to canonical name as specified on a multi_type_experiment.
+    """Convert all metric names to canonical name as specified on a
+    multi_type_experiment.
 
     For example, a multi-type experiment may have an offline simulator which attempts to
     approximate observations from some online system. We want to map the offline

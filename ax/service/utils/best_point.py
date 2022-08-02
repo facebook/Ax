@@ -152,9 +152,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
 ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-    """Given an experiment, returns the best predicted parameterization and corresponding
-    prediction based on the most recent Trial with predictions. If no trials have
-    predictions returns None.
+    """Given an experiment, returns the best predicted parameterization and
+    corresponding prediction based on the most recent Trial with predictions. If no
+    trials have predictions returns None.
 
     Only some models return predictions. For instance GPEI does while Sobol does not.
 
@@ -257,9 +257,9 @@ def get_best_parameters_from_model_predictions(
     models_enum: Type[ModelRegistryBase],
     trial_indices: Optional[Iterable[int]] = None,
 ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
-    """Given an experiment, returns the best predicted parameterization and corresponding
-    prediction based on the most recent Trial with predictions. If no trials have
-    predictions returns None.
+    """Given an experiment, returns the best predicted parameterization and
+    corresponding prediction based on the most recent Trial with predictions. If no
+    trials have predictions returns None.
 
     Only some models return predictions. For instance GPEI does while Sobol does not.
 

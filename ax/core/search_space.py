@@ -595,8 +595,8 @@ class HierarchicalSearchSpace(SearchSpace):
         return {k: v for k, v in parameters.items() if k in applicable_paramers}
 
     def _find_root(self) -> Parameter:
-        """Find the root of hierarchical search space: a parameter that does not depend on
-        other parameters.
+        """Find the root of hierarchical search space: a parameter that does not depend
+        on other parameters.
         """
         dependent_parameter_names = set()
         for parameter in self.parameters.values():

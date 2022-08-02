@@ -74,8 +74,8 @@ class BotorchTestProblemRunner(Runner):
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Given a dictionary, deserialize the properties needed to initialize the runner.
-        Used for storage.
+        """Given a dictionary, deserialize the properties needed to initialize the
+        runner. Used for storage.
         """
         module = importlib.import_module(args["test_problem_module"])
 

@@ -786,9 +786,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return self.summarize_final_result()
 
     def run_all_trials(self, timeout_hours: Optional[int] = None) -> OptimizationResult:
-        """Run all trials until ``completion_criterion`` is reached (by default, completion
-        criterion is reaching the ``num_trials`` setting, passed to scheduler on
-        instantiation as part of ``SchedulerOptions``).
+        """Run all trials until ``completion_criterion`` is reached (by default,
+        completion criterion is reaching the ``num_trials`` setting, passed to
+        scheduler on instantiation as part of ``SchedulerOptions``).
 
         NOTE: This function is available only when ``SchedulerOptions.num_trials`` is
         specified.
@@ -1338,8 +1338,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
 
     def _validate_runner_and_implemented_metrics(self, experiment: Experiment) -> None:
-        """Ensure that the experiment specifies runner and metrics; check that metrics are
-        not base ``Metric``-s, which do not implement fetching logic.
+        """Ensure that the experiment specifies runner and metrics; check that metrics
+        are not base ``Metric``-s, which do not implement fetching logic.
         """
         if experiment.runner is None:
             raise UnsupportedError(

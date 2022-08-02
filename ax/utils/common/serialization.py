@@ -121,7 +121,7 @@ class SerializationMixin(ABC):
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Given a dictionary, deserialize the properties needed to initialize the object.
-        Used for storage.
+        """Given a dictionary, deserialize the properties needed to initialize the
+        object. Used for storage.
         """
         return extract_init_args(args=args, class_=cls)
