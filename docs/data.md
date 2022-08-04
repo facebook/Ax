@@ -32,7 +32,7 @@ from ax import Metric
 
 class CustomMetric(Metric):
 
-    def fetch_trial_data(self, trial, **kwargs):    
+    def fetch_trial_data(self, trial, **kwargs):
         records = []
         for arm_name, arm in trial.arms_by_name.items():
             records.append({

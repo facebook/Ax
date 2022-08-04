@@ -45,7 +45,7 @@ try:
         It is expected that the experiment parameter names and types match EXACTLY with
         component's function args. Component function args that are NOT part of the
         search space can be passed as ``component_const_params``. The following args
-        are passed automatically if declared in teh component function's signature:
+        are passed automatically if declared in the component function's signature:
             *   ``trial_idx (int)``: current trial's index
             *   ``tracker_base (str)``: torchx tracker's base (typically a URL
                 indicating the base dir of the tracker)
