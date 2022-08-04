@@ -14,7 +14,10 @@ from ax.utils.common.base import Base
 class BenchmarkMethod(Base):
     """Benchmark method, represented in terms of Ax generation strategy (which tells us
     which models to use when) and scheduler options (which tell us extra execution
-    information like maximum parallelism, early stopping configuration, etc.)
+    information like maximum parallelism, early stopping configuration, etc.). Note:
+    if BenchmarkMethod.scheduler_optionss.total_trials is lower than
+    BenchmarkProblem.num_trials only the number of trials specified in the former will
+    be run.
     """
 
     name: str
