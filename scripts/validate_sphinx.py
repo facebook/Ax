@@ -12,7 +12,7 @@ from typing import Set
 
 
 # Paths are relative to top-level Ax directory (which is passed into fxn below)
-SPHINX_RST_PATH = os.path.join("sphinx", "source")
+SPHINX_RST_PATH = os.path.join("github", "sphinx", "source")
 AX_LIBRARY_PATH = "ax"
 
 # Regex for automodule directive used in Sphinx docs
