@@ -630,7 +630,7 @@ def get_large_ordinal_search_space(
             )
             for i in range(n_continuous_range_parameters)
         ]
-        + [  # pyre-ignore[58]
+        + [
             ChoiceParameter(
                 name=f"y{i}",
                 parameter_type=ParameterType.INT,
@@ -854,7 +854,6 @@ def get_batch_trial_with_repeated_arms(num_repeated_arms: int) -> BatchTrial:
 
     # Add num_repeated_arms to the new trial.
     arms = prev_arms + next_arms
-    # pyre-fixme[6]: Expected `List[int]` for 1st param but got `List[float]`.
     weights = prev_weights + next_weights
     batch = experiment.new_batch_trial()
     batch.add_arms_and_weights(arms=arms, weights=weights, multiplier=1)

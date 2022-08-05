@@ -140,8 +140,6 @@ def table_view_plot(
 
     records = [[name.replace(":", " : ") for name in metric_names]] + transpose(records)
     colors = [["#ffffff"] * len(metric_names)] + transpose(colors)
-    # pyre-fixme[58]: `+` is not supported for operand types `List[str]` and
-    #  `List[float]`.
     # pyre-fixme[61]: `arm_names` may not be initialized here.
     header = [f"<b>{x}</b>" for x in [f"{arm_noun}s"] + arm_names]
     # pyre-fixme[61]: `arm_names` may not be initialized here.
