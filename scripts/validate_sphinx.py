@@ -13,7 +13,12 @@ from typing import Set
 
 # Paths are relative to top-level Ax directory (which is passed into fxn below)
 SPHINX_RST_PATH = os.path.join("github", "sphinx", "source")
+
 AX_LIBRARY_PATH = "ax"
+
+# Different because of ShipIt config
+OSS_SPHINX_RST_PATH = os.path.join("sphinx", "source")
+
 
 # Regex for automodule directive used in Sphinx docs
 AUTOMODULE_REGEX = re.compile(r"\.\. automodule:: ([\.\w]*)")
@@ -66,8 +71,16 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
     }
 
     # Load all rst files (these contain the documentation for Sphinx)
-    rstpath = os.path.join(path_to_ax, SPHINX_RST_PATH)
-    rsts = {f.replace(".rst", "") for f in os.listdir(rstpath) if f.endswith(".rst")}
+    try:
+        rstpath = os.path.join(path_to_ax, SPHINX_RST_PATH)
+        rsts = {
+            f.replace(".rst", "") for f in os.listdir(rstpath) if f.endswith(".rst")
+        }
+    except FileNotFoundError:
+        rstpath = os.path.join(path_to_ax, OSS_SPHINX_RST_PATH)
+        rsts = {
+            f.replace(".rst", "") for f in os.listdir(rstpath) if f.endswith(".rst")
+        }
 
     # Verify that all top-level modules have a corresponding rst
     assert len(modules.difference(rsts)) == 0, "Not all modules have corresponding rst."
