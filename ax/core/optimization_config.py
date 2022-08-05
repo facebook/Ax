@@ -324,7 +324,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     @property
     def all_constraints(self) -> List[OutcomeConstraint]:
         """Get all constraints and thresholds."""
-        # pyre-ignore[58]: `+` not supported for Lists of different types.
         return self.outcome_constraints + self.objective_thresholds
 
     @property
