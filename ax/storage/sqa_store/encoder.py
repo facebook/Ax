@@ -216,7 +216,11 @@ class Encoder:
 
     def parameter_to_sqa(self, parameter: Parameter) -> SQAParameter:
         """Convert Ax Parameter to SQLAlchemy."""
-        # pyre-fixme: Expected `Base` for 1st...typing.Type[Parameter]`.
+        if parameter.is_hierarchical:  # pragma: no cover
+            raise NotImplementedError(
+                "SQL storage is not yet implemented for hierarchical search spaces."
+            )
+        # pyre-fixme[9]: Expected `Base` for 1st...typing.Type[Parameter]`.
         parameter_class: SQAParameter = self.config.class_to_sqa_class[Parameter]
         if isinstance(parameter, RangeParameter):
             # pyre-fixme[29]: `SQAParameter` is not a function.
