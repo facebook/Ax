@@ -284,6 +284,7 @@ class MapData(Data):
         keep_every: Optional[int] = None,
         limit_rows_per_group: Optional[int] = None,
         limit_total_rows: Optional[int] = None,
+        include_first_last: bool = True,
     ) -> MapData:
         """Subsample the `map_key` column in an equally-spaced manner (if there is
         a `self.map_keys` is length one, then `map_key` can be set to None). The
@@ -298,10 +299,19 @@ class MapData(Data):
                 an approprioate `keep_every` such that each (arm, metric) has at most
                 `n` rows in the `map_key` column.
             3. If `limit_total_rows = n`, the method will select an appropriate
-                `keep_every` such that the total number of rows is less than `n`.
+                `keep_every` such that the total number of rows per metric is less
+                than `n`.
         If multiple of `keep_every`, `limit_rows_per_group`, `limit_total_rows`, then
         the priority is in the order above: 1. `keep_every`, 2. `limit_rows_per_group`,
         and 3. `limit_total_rows`.
+
+        Note that we want all curves to be subsampled with nearly the same spacing.
+        Internally, the method converts `limit_rows_per_group` and `limit_total_rows`
+        to a `keep_every` quantity that will satisfy the original request.
+
+        When `include_first_last` is True, then the method will use the `keep_every`
+        as a guideline and for each group, produce (nearly) evenly spaced points that
+        include the first and last points.
         """
         if map_key is None:
             if len(self.map_keys) > 1:
@@ -318,6 +328,8 @@ class MapData(Data):
             max_rows = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().max()
             derived_keep_every = np.ceil(max_rows / limit_rows_per_group)
         elif limit_total_rows is not None:
+            num_metrics = len(self.map_df["metric_name"].unique())
+            limit_total_rows = limit_total_rows * num_metrics
             group_sizes = (
                 self.map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().to_numpy()
             )
@@ -346,7 +358,15 @@ class MapData(Data):
             filtered_dfs = []
             for _, df_g in map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS):
                 df_g = df_g.sort_values(map_key)
-                filtered_dfs.append(df_g.iloc[:: int(derived_keep_every)])
+                if include_first_last:
+                    rows_per_group = int(np.ceil(len(df_g) / derived_keep_every))
+                    idcs = np.round(
+                        np.linspace(0, len(df_g) - 1, rows_per_group)
+                    ).astype(int)
+                    filtered_df = df_g.iloc[idcs]
+                else:
+                    filtered_df = df_g.iloc[:: int(derived_keep_every)]
+                filtered_dfs.append(filtered_df)
             filtered_map_df: pd.DataFrame = pd.concat(filtered_dfs)
         return MapData(
             df=filtered_map_df,

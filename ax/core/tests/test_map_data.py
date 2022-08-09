@@ -225,7 +225,7 @@ class MapDataTest(TestCase):
             [
                 {
                     "arm_name": arm_name,
-                    "epoch": epoch,
+                    "epoch": epoch + 1,
                     "mean": epoch * 0.1,
                     "sem": 0.1,
                     "trial_index": trial_index,
@@ -263,12 +263,22 @@ class MapDataTest(TestCase):
 
         # test limit_total_rows
         with self.assertRaises(ValueError):
-            large_map_data.subsample(limit_total_rows=5)
-        subsample = large_map_data.subsample(limit_total_rows=10)
-        self.assertEqual(len(subsample.map_df), 10)
+            large_map_data.subsample(limit_total_rows=1)
         subsample = large_map_data.subsample(limit_total_rows=50)
-        self.assertEqual(len(subsample.map_df), 50)
+        self.assertEqual(len(subsample.map_df), 100)
         subsample = large_map_data.subsample(limit_total_rows=65)
-        self.assertEqual(len(subsample.map_df), 60)
+        self.assertEqual(len(subsample.map_df), 128)
         subsample = large_map_data.subsample(limit_total_rows=1000)
         self.assertEqual(len(subsample.map_df), 500)
+
+        # test include_first_last
+        subsample = large_map_data.subsample(
+            limit_total_rows=20, include_first_last=True
+        )
+        self.assertEqual(len(subsample.map_df), 40)
+        self.assertEqual(subsample.map_df["epoch"].max(), 100)
+        subsample = large_map_data.subsample(
+            limit_total_rows=20, include_first_last=False
+        )
+        self.assertEqual(len(subsample.map_df), 40)
+        self.assertEqual(subsample.map_df["epoch"].max(), 92)
