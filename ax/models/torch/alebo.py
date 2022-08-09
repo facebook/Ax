@@ -653,7 +653,6 @@ class ALEBO(BotorchModel):
         assert torch_opt_config.pending_observations is None
         # Setup constraints
         A = torch.cat((self.Binv, -self.Binv))
-        # pyre-fixme[6]: For 3rd param expected `dtype` but got `Optional[dtype]`.
         b = torch.ones(2 * self.Binv.shape[0], 1, dtype=self.dtype, device=self.device)
         linear_constraints = (A, b)
         noiseless = max(Yvar.min().item() for Yvar in self.Yvars) < 1e-5

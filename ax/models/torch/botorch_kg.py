@@ -194,7 +194,6 @@ class KnowledgeGradient(BotorchModel):
             fixed_features=torch_opt_config.fixed_features,
         )
 
-        # pyre-fixme[6]: For 2nd param expected `dtype` but got `Optional[dtype]`.
         return TorchGenResults(points=new_x, weights=torch.ones(n, dtype=self.dtype))
 
     def _get_best_point_acqf(
