@@ -331,7 +331,7 @@ def laplace_sample_U(
 
     # Sample only Uvec; leave mean and output scale fixed.
     assert list(property_dict.keys()) == [
-        "model.mean_module.constant",
+        "model.mean_module.raw_constant",
         "model.covar_module.raw_outputscale",
         "model.covar_module.base_kernel.Uvec",
     ]
@@ -347,7 +347,7 @@ def laplace_sample_U(
         nsamp, *attrs.shape
     )
     # Get the other properties into batch mode
-    mean_constant_batch = mll.model.mean_module.constant.repeat(nsamp, 1)
+    mean_constant_batch = mll.model.mean_module.constant.repeat(nsamp)
     output_scale_batch = mll.model.covar_module.raw_outputscale.repeat(nsamp)
     return Uvec_batch, mean_constant_batch, output_scale_batch
 
@@ -383,10 +383,10 @@ def get_batch_model(
     )
     m_b.train()
     # Set mean constant
-    # pyre-fixme[16]: `Optional` has no attribute `constant`.
-    m_b.mean_module.constant.requires_grad_(False)
-    m_b.mean_module.constant.copy_(mean_constant_batch)
-    m_b.mean_module.constant.requires_grad_(True)
+    # pyre-fixme[16]: `Optional` has no attribute `raw_constant`.
+    m_b.mean_module.raw_constant.requires_grad_(False)
+    m_b.mean_module.raw_constant.copy_(mean_constant_batch)
+    m_b.mean_module.raw_constant.requires_grad_(True)
     # Set output scale
     m_b.covar_module.raw_outputscale.requires_grad_(False)
     m_b.covar_module.raw_outputscale.copy_(output_scale_batch)
