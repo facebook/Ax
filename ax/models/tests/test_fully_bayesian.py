@@ -348,7 +348,7 @@ try:
                 self.assertEqual(len(model.model.models), 2)
                 m1, m2 = model.model.models[0], model.model.models[1]
                 # Mean
-                self.assertEqual(m1.mean_module.constant.shape, (4, 1))
+                self.assertEqual(m1.mean_module.constant.shape, (4,))
                 self.assertFalse(
                     torch.isclose(
                         m1.mean_module.constant, m2.mean_module.constant
@@ -376,11 +376,9 @@ try:
                 device = torch.device("cuda") if cuda else torch.device("cpu")
                 objective_weights = torch.tensor([1.0, 0.0], dtype=dtype, device=device)
                 objective_transform = get_objective_weights_transform(objective_weights)
-                infeasible_cost = torch.tensor(
-                    get_infeasible_cost(
+                infeasible_cost = get_infeasible_cost(
                         X=Xs1[0], model=model.model, objective=objective_transform
-                    )
-                )
+                    ).detach().clone()
                 expected_infeasible_cost = -1 * torch.min(
                     objective_transform(
                         model.model.posterior(Xs1[0]).mean
@@ -841,7 +839,7 @@ try:
                         )
                         self.assertEqual(
                             m.mean_module.constant.shape,
-                            torch.Size([4, 1]),
+                            torch.Size([4]),
                         )
                         if use_input_warping:
                             self.assertTrue(hasattr(m, "input_transform"))

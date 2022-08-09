@@ -89,7 +89,7 @@ class ALEBOTest(TestCase):
 
         # Batch
         Uvec_b = m.covar_module.base_kernel.Uvec.repeat(5, 1)
-        mean_b = m.mean_module.constant.repeat(5, 1)
+        mean_b = m.mean_module.constant.repeat(5)
         output_scale_b = m.covar_module.raw_outputscale.repeat(5)
         m_b = get_batch_model(
             B=B,
@@ -132,7 +132,7 @@ class ALEBOTest(TestCase):
             {
                 "covar_module.base_kernel.Uvec",
                 "covar_module.raw_outputscale",
-                "mean_module.constant",
+                "mean_module.raw_constant",
                 "covar_module.raw_outputscale_constraint.lower_bound",
                 "covar_module.raw_outputscale_constraint.upper_bound",
             },
@@ -151,7 +151,7 @@ class ALEBOTest(TestCase):
                 {
                     "covar_module.base_kernel.Uvec",
                     "covar_module.raw_outputscale",
-                    "mean_module.constant",
+                    "mean_module.raw_constant",
                     "covar_module.raw_outputscale_constraint.lower_bound",
                     "covar_module.raw_outputscale_constraint.upper_bound",
                 },

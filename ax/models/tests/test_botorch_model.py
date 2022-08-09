@@ -457,7 +457,7 @@ class BotorchModelTest(TestCase):
 
             # Test loading state dict
             true_state_dict = {
-                "mean_module.constant": [3.5004],
+                "mean_module.raw_constant": 3.5004,
                 "covar_module.raw_outputscale": 2.2438,
                 "covar_module.base_kernel.raw_lengthscale": [
                     [-0.9274, -0.9274, -0.9274]
@@ -489,7 +489,7 @@ class BotorchModelTest(TestCase):
                 self.assertTrue(torch.equal(true_state_dict[k], v))
 
             # Test for some change in model parameters & buffer for refit_model=True
-            true_state_dict["mean_module.constant"] += 0.1
+            true_state_dict["mean_module.raw_constant"] += 0.1
             true_state_dict["covar_module.raw_outputscale"] += 0.1
             true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
             model = get_and_fit_model(
