@@ -123,14 +123,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         pass  # pragma: nocover
 
-    def _check_validity_and_get_data(self, experiment: Experiment) -> Optional[MapData]:
-        """Validity checks and returns the `MapData` used for early stopping."""
-        if self.metric_names is None:
-            optimization_config = not_none(experiment.optimization_config)
-            metric_names = [optimization_config.objective.metric.name]
-        else:
-            metric_names = self.metric_names
-
+    def _check_validity_and_get_data(
+        self, experiment: Experiment, metric_names: List[str]
+    ) -> Optional[MapData]:
+        """Validity checks and returns the `MapData` used for early stopping that
+        is associated with `metric_names`. This function also handles normalizing
+        progressions.
+        """
         data = experiment.lookup_data()
         if data.df.empty:
             logger.info(
@@ -163,8 +162,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 f"{data.map_keys}. Not stopping any trials."
             )
             return None
+        map_df = data.map_df
+        # keep only relevant metrics
+        map_df = map_df[map_df["metric_name"].isin(metric_names)].copy()
         if self.normalize_progressions:
-            map_df = data.map_df
             for map_key in map_keys:
                 values = map_df[map_key].astype(float)
                 map_df[map_key] = values / values.abs().max()
@@ -347,6 +348,18 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
         return True, None
 
+    def _default_objective_and_direction(
+        self, experiment: Experiment
+    ) -> Tuple[str, bool]:
+        if self.metric_names is None:
+            optimization_config = not_none(experiment.optimization_config)
+            metric_name = optimization_config.objective.metric.name
+            minimize = optimization_config.objective.minimize
+        else:
+            metric_name = list(self.metric_names)[0]
+            minimize = experiment.metrics[metric_name].lower_is_better or False
+        return metric_name, minimize
+
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
@@ -383,8 +396,11 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             )
 
         if outcomes is None:
-            optim_config = not_none(experiment.optimization_config)
-            outcomes = optim_config.objective.metric_names
+            # default to the default objective
+            metric_name, _ = self._default_objective_and_direction(
+                experiment=experiment
+            )
+            outcomes = [metric_name]
 
         if parameters is None:
             parameters = list(experiment.search_space.parameters.keys())
