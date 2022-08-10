@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 from ax.plot.base import AxPlotConfig, AxPlotTypes
@@ -58,34 +58,50 @@ def plot_modeling_times(
 
 
 def plot_optimization_trace(
-    aggregated_results: Iterable[AggregatedBenchmarkResult],
+    aggregated_results: List[AggregatedBenchmarkResult],
     optimum: Optional[float] = None,
+    by_progression: bool = False,
+    final_progression_only: bool = False,
 ) -> AxPlotConfig:
-    """Plots optimization trace for each aggregated result with mean and SEM.
+    """Plots optimization trace for each aggregated result with mean and SEM. When
+    `by_progression` is True, the results are plotted with progressions on the
+    x-axis. In that case, if `final_progression_only` is True, then the value of
+    a trial is taken to be the value of its final progression.
 
     If an optimum is provided (can represent either an optimal value or maximum
     hypervolume in the case of multi-objective problems) it will be plotted as an
     orange dashed line as well.
     """
 
-    x = [*range(max(len(result.optimization_trace) for result in aggregated_results))]
+    x_axes = []
+    dfs = []
+    for agg_res in aggregated_results:
+        if not by_progression:
+            x_axes.append([*range(len(agg_res.optimization_trace))])
+            dfs.append(agg_res.optimization_trace)
+        else:
+            optim_trace_by_prog_res = agg_res.optimization_trace_by_progression(
+                final_progression_only=final_progression_only
+            )
+            x_axes.append(optim_trace_by_prog_res["progression"])
+            dfs.append(optim_trace_by_prog_res)
 
     mean_sem_scatters = [
         [
             go.Scatter(
-                x=x,
-                y=result.optimization_trace["mean"],
+                x=x_axis,
+                y=df["mean"],
                 line={
                     "color": rgba(DISCRETE_COLOR_SCALE[i % len(DISCRETE_COLOR_SCALE)])
                 },
                 mode="lines",
-                name=result.name,
-                customdata=result.optimization_trace["sem"],
+                name=r.name,
+                customdata=df["sem"],
                 hovertemplate="<br><b>Mean:</b> %{y}<br><b>SEM</b>: %{customdata}",
             ),
             go.Scatter(
-                x=x,
-                y=result.optimization_trace["mean"] + result.optimization_trace["sem"],
+                x=x_axis,
+                y=df["mean"] + df["sem"],
                 line={"width": 0},
                 mode="lines",
                 fillcolor=rgba(
@@ -96,8 +112,8 @@ def plot_optimization_trace(
                 hoverinfo="skip",
             ),
             go.Scatter(
-                x=x,
-                y=result.optimization_trace["mean"] - result.optimization_trace["sem"],
+                x=x_axis,
+                y=df["mean"] - df["sem"],
                 line={"width": 0},
                 mode="lines",
                 fillcolor=rgba(
@@ -108,14 +124,14 @@ def plot_optimization_trace(
                 hoverinfo="skip",
             ),
         ]
-        for i, result in enumerate(aggregated_results)
+        for i, (x_axis, df, r) in enumerate(zip(x_axes, dfs, aggregated_results))
     ]
 
     optimum_scatter = (
         [
             go.Scatter(
-                x=x,
-                y=[optimum] * len(x),
+                x=x_axes[0],
+                y=[optimum] * len(x_axes[0]),
                 mode="lines",
                 line={"dash": "dash", "color": rgb(COLORS.ORANGE.value)},
                 name="Optimum",

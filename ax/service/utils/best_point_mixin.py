@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import torch
 from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -40,6 +41,9 @@ from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
+
+
+NUM_BINS_PER_TRIAL = 3
 
 
 class BestPointMixin(metaclass=ABCMeta):
@@ -316,12 +320,12 @@ class BestPointMixin(metaclass=ABCMeta):
                 or constraints without having to modify the experiment.
 
         Returns:
-            A list of observed hypervolume or the best value.
+            A list of observed hypervolumes or best values.
         """
         # Use a minimal model to help parse the data.
         modelbridge = get_tensor_converter_model(
             experiment=experiment,
-            data=experiment.fetch_data(),
+            data=experiment.lookup_data(),
         )
         obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
         array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
@@ -417,3 +421,93 @@ class BestPointMixin(metaclass=ABCMeta):
                 # Negate the result if it is a minimization problem.
                 raw_maximum = -raw_maximum
             return raw_maximum.tolist()
+
+    @staticmethod
+    def get_trace_by_progression(
+        experiment: Experiment,
+        optimization_config: Optional[OptimizationConfig] = None,
+        bins: Optional[List[float]] = None,
+        final_progression_only: bool = False,
+    ) -> Tuple[List[float], List[float]]:
+        """Get the optimization trace with respect to trial progressions instead of
+        `trial_indices` (which is the behavior used in `get_trace`). Note that this
+        method does not take into account the parallelism of trials and essentially
+        assumes that trials are run one after another, in the sense that it considers
+        the total number of progressions "used" at the end of trial k to be the
+        cumulative progressions "used" in trials 0,...,k. This method assumes that the
+        final value of a particular trial is used and does not take the best value
+        of a trial over its progressions.
+
+        The best observed value is computed at each value in `bins` (see below for
+        details). If `bins` is not supplied, the method defaults to a heuristic of
+        approximately `NUM_BINS_PER_TRIAL` per trial, where each trial is assumed to
+        run until maximum progression (inferred from the data).
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+            bins: A list progression values at which to calculate the best observed
+                value. The best observed value at bins[i] is defined as the value
+                observed in trials 0,...,j where j = largest trial such that the total
+                progression in trials 0,...,j is less than bins[i].
+            final_progression_only: If True, considers the value of the last step to be
+                the value of the trial. If False, considers the best along the curve to
+                be the value of the trial.
+
+        Returns:
+            A tuple containing (1) the list of observed hypervolumes or best values and
+            (2) a list of associated x-values (i.e., progressions) useful for plotting.
+        """
+        optimization_config = optimization_config or not_none(
+            experiment.optimization_config
+        )
+        objective = optimization_config.objective.metric.name
+        minimize = optimization_config.objective.minimize
+        map_data = experiment.lookup_data()
+        if not isinstance(map_data, MapData):
+            raise ValueError("`get_trace_by_progression` requires MapData.")
+        map_df = map_data.map_df
+
+        # assume the first map_key is progression
+        map_key = map_data.map_keys[0]
+
+        # `df` is similar to `map_data.df` but retains the map_key columns
+        map_df = map_df[map_df["metric_name"] == objective]
+        if final_progression_only:
+            map_df = map_df.sort_values(by=["trial_index", map_key])
+        else:
+            map_df = map_df.sort_values(
+                by=["trial_index", "mean"], ascending=not minimize
+            )
+        df = map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+
+        # progressions[i] is the cumulative progressions in Trials 0,1,...,i
+        progressions = df[map_key].cumsum().to_numpy()
+
+        if bins is None:
+            # this assumes that there is at least one completed trial that
+            # reached the maximum progression
+            prog_per_trial = df[map_key].max()
+            num_trials = len(experiment.trials)
+            bins = np.linspace(
+                0, prog_per_trial * num_trials, NUM_BINS_PER_TRIAL * num_trials
+            )
+        else:
+            bins = np.array(bins)  # pyre-ignore[9]
+
+        bins = np.expand_dims(bins, axis=0)
+
+        # compute for each bin value the largest trial index finished by then
+        # (interpreting the bin value as a cumulative progression)
+        best_observed_idcs = np.maximum.accumulate(
+            np.argmax(np.expand_dims(progressions, axis=1) >= bins, axis=0)
+        )
+
+        # obj_vals[i] is the best objective value after Trials 0,1,...,i
+        obj_vals = BestPointMixin.get_trace(
+            experiment=experiment, optimization_config=optimization_config
+        )
+        best_observed = np.array(obj_vals)[best_observed_idcs]
+        return best_observed.tolist(), bins.squeeze(axis=0).tolist()
