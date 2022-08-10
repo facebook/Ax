@@ -780,6 +780,13 @@ class TestAxClient(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
             ax_client.experiment
+
+        metric_definitions = {
+            "obj_m1": {"properties": {"m1_opt": "m1_val"}},
+            "obj_m2": {"properties": {"m2_opt": "m2_val"}},
+            "const_m3": {"properties": {"m3_opt": "m3_val"}},
+            "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
+        }
         ax_client.create_experiment(
             name="test_experiment",
             parameters=[
@@ -795,12 +802,7 @@ class TestAxClient(TestCase):
             },
             outcome_constraints=["const_m3 >= 3"],
             tracking_metric_names=["tracking_m4"],
-            metric_definitions={
-                "obj_m1": {"properties": {"m1_opt": "m1_val"}},
-                "obj_m2": {"properties": {"m2_opt": "m2_val"}},
-                "const_m3": {"properties": {"m3_opt": "m3_val"}},
-                "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
-            },
+            metric_definitions=metric_definitions,
             is_test=True,
         )
         objectives = ax_client.experiment.optimization_config.objective.objectives
@@ -822,6 +824,11 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.experiment.tracking_metrics[0].properties, {"m4_opt": "m4_val"}
         )
+        for k in metric_definitions:
+            self.assertEqual(
+                ax_client.metric_definitions[k]["properties"],
+                metric_definitions[k]["properties"],
+            )
 
     def test_set_optimization_config_with_metric_definitions(self) -> None:
         """Test basic experiment creation."""
@@ -832,6 +839,13 @@ class TestAxClient(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
             ax_client.experiment
+
+        metric_definitions = {
+            "obj_m1": {"properties": {"m1_opt": "m1_val"}},
+            "obj_m2": {"properties": {"m2_opt": "m2_val"}},
+            "const_m3": {"properties": {"m3_opt": "m3_val"}},
+            "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
+        }
         ax_client.create_experiment(
             name="test_experiment",
             parameters=[
@@ -849,12 +863,7 @@ class TestAxClient(TestCase):
                 "obj_m2": ObjectiveProperties(minimize=True, threshold=2.0),
             },
             outcome_constraints=["const_m3 >= 3"],
-            metric_definitions={
-                "obj_m1": {"properties": {"m1_opt": "m1_val"}},
-                "obj_m2": {"properties": {"m2_opt": "m2_val"}},
-                "const_m3": {"properties": {"m3_opt": "m3_val"}},
-                "tracking_m4": {"properties": {"m4_opt": "m4_val"}},
-            },
+            metric_definitions=metric_definitions,
         )
         objectives = ax_client.experiment.optimization_config.objective.objectives
         self.assertEqual(objectives[0].metric.name, "obj_m1")
@@ -871,6 +880,14 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
         self.assertEqual(outcome_constraints[0].metric.properties, {"m3_opt": "m3_val"})
+        self.assertEqual(
+            ax_client.metric_definitions["obj_m1"]["properties"],
+            metric_definitions["obj_m1"]["properties"],
+        )
+        self.assertEqual(
+            ax_client.metric_definitions["obj_m2"]["properties"],
+            metric_definitions["obj_m2"]["properties"],
+        )
 
     def test_it_does_not_accept_both_legacy_and_new_objective_params(self) -> None:
         """Test basic experiment creation."""

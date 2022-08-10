@@ -1368,6 +1368,18 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         objective = self.objective
         return [m.name for m in objective.metrics]
 
+    @property
+    def metric_definitions(self) -> Dict[str, Dict[str, Any]]:
+        """Returns metric definitions for all experiment metrics that can
+        be passed into functions requiring metric_definitions
+        """
+        return {
+            m.serialize_init_args(m)["name"]: {
+                k: v for k, v in m.serialize_init_args(m).items() if k != "name"
+            }
+            for m in self.experiment.metrics.values()
+        }
+
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
         self,
