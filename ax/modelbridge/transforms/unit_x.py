@@ -6,11 +6,12 @@
 
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 
@@ -133,11 +134,48 @@ class UnitX(Transform):
                     and not search_space.is_environmental
                 ):
                     continue
-                # TODO: Support transforming multivariate distributions.
+                if dist.distribution_class == "multivariate_normal":
+                    # If S is cov and A is the diagonal scale matrix,
+                    # the new cov will be ASA.
+                    n_dist_params = len(dist.parameters)
+                    scale_vec = np.zeros(len(dist.parameters))
+                    for i, p in enumerate(dist.parameters):
+                        bounds = self.bounds[p]
+                        p_range = bounds[1] - bounds[0]
+                        scale_vec[i] = self.target_range / p_range
+                    cov = np.asarray(dist.distribution_parameters.get("cov"))
+                    if cov.shape != (n_dist_params, n_dist_params):
+                        raise UserInputError(
+                            "Expected `cov` to be a square matrix of size equal to "
+                            "number of parameters. Received `cov` with shape "
+                            f"{cov.shape} for the distribution of {n_dist_params} "
+                            "parameters."
+                        )
+                    dist.distribution_parameters["cov"] = (
+                        scale_vec[..., None] * cov * scale_vec[..., None, :]
+                    )
+                    mean = np.asarray(dist.distribution_parameters.get("mean", 0.0))
+                    if not np.all(mean == 0):
+                        if mean.shape != (n_dist_params,):
+                            raise UserInputError(
+                                "Expected `mean` to be an array of shape "
+                                f"{(n_dist_params,)}, but received {mean}."
+                            )
+                        # Mean would simply be AM as long as it is not environmental.
+                        # If environmental, we need to first subtract the lower bounds
+                        # then add the target lb.
+                        if search_space.is_environmental:
+                            lbs = np.array([self.bounds[p][0] for p in dist.parameters])
+                            new_mean = scale_vec * (mean - lbs) + self.target_lb
+                            dist.distribution_parameters["mean"] = new_mean
+                        else:
+                            dist.distribution_parameters["mean"] = scale_vec * mean
+                    continue
                 raise UnsupportedError(
                     f"{self.__class__.__name__} transform of multivariate "
-                    "distributions is not supported. Consider manually normalizing "
-                    "the parameter and the corresponding distribution."
+                    "distributions, other than `multivariate_normal`, is not "
+                    "supported. Consider manually normalizing the parameter "
+                    "and the corresponding distribution."
                 )
             bounds = self.bounds[dist.parameters[0]]
             p_range = bounds[1] - bounds[0]
