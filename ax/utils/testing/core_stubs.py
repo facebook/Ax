@@ -735,7 +735,10 @@ def get_robust_search_space(
             ParameterDistribution(
                 parameters=["x", "y"],
                 distribution_class="multivariate_normal",
-                distribution_parameters={"loc": 1.0, "scale": ub - lb},
+                distribution_parameters={
+                    "mean": [0.1, 0.2],
+                    "cov": [[0.5, 0.1], [0.1, 0.3]],
+                },
             )
         ]
     else:
