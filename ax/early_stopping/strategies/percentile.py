@@ -104,18 +104,15 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             (optional) messages with the associated reason. An empty dictionary
             means no suggested updates to any trial's status.
         """
-        data = self._check_validity_and_get_data(experiment=experiment)
+        metric_name, minimize = self._default_objective_and_direction(
+            experiment=experiment
+        )
+        data = self._check_validity_and_get_data(
+            experiment=experiment, metric_names=[metric_name]
+        )
         if data is None:
             # don't stop any trials if we don't get data back
             return {}
-
-        if self.metric_names is None:
-            optimization_config = not_none(experiment.optimization_config)
-            metric_name = optimization_config.objective.metric.name
-            minimize = optimization_config.objective.minimize
-        else:
-            metric_name = list(self.metric_names)[0]
-            minimize = experiment.metrics[metric_name].lower_is_better or False
 
         map_key = next(iter(data.map_keys))
         df = data.map_df
