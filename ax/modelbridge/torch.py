@@ -311,17 +311,20 @@ class TorchModelBridge(ModelBridge):
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
+        parameters: Optional[List[str]] = None,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
         if self.model is None:
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
+        if parameters is None:
+            parameters = self.parameters
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            parameters=self.parameters,
+            parameters=parameters,
         )
         for outcome, dataset in zip(self.outcomes, datasets):
             if dataset is None:
@@ -333,7 +336,7 @@ class TorchModelBridge(ModelBridge):
             search_space=search_space, param_names=self.parameters
         )
         X_test = torch.tensor(
-            [[obsf.parameters[p] for p in self.parameters] for obsf in cv_test_points],
+            [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
             dtype=self.dtype,
             device=self.device,
         )
@@ -457,8 +460,11 @@ class TorchModelBridge(ModelBridge):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        parameters: Optional[List[str]] = None,
     ) -> None:  # pragma: no cover
         self.parameters = list(search_space.parameters.keys())
+        if parameters is None:
+            parameters = self.parameters
         all_metric_names: Set[str] = set()
         for od in observation_data:
             all_metric_names.update(od.metric_names)
@@ -468,7 +474,7 @@ class TorchModelBridge(ModelBridge):
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            parameters=self.parameters,
+            parameters=parameters,
         )
         # Get all relevant information on the parameters
         search_space_digest = extract_search_space_digest(
@@ -546,9 +552,8 @@ class TorchModelBridge(ModelBridge):
             )
 
         # Transform array to observations
-        observation_features = parse_observation_features(
+        observation_features = self._array_to_observation_features(
             X=gen_results.points.detach().cpu().clone().numpy(),
-            param_names=self.parameters,
             candidate_metadata=gen_results.candidate_metadata,
         )
         try:
@@ -584,6 +589,13 @@ class TorchModelBridge(ModelBridge):
         cov = cov.detach().cpu().clone().numpy()
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
+
+    def _array_to_observation_features(
+        self, X: np.ndarray, candidate_metadata: Optional[List[TCandidateMetadata]]
+    ) -> List[ObservationFeatures]:
+        return parse_observation_features(
+            X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
+        )
 
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -744,13 +756,16 @@ class TorchModelBridge(ModelBridge):
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        parameters: Optional[List[str]] = None,
     ) -> None:
         """Apply terminal transform for update data, and pass along to model."""
+        if parameters is None:
+            parameters = self.parameters
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
-            parameters=self.parameters,
+            parameters=parameters,
         )
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
