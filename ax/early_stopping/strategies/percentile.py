@@ -25,7 +25,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(
         self,
         metric_names: Optional[Iterable[str]] = None,
-        seconds_between_polls: int = 60,
+        seconds_between_polls: int = 300,
         percentile_threshold: float = 50.0,
         min_progression: Optional[float] = 10,
         min_curves: Optional[int] = 5,
