@@ -184,6 +184,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
         "Raw data must be data for a single arm for non batched trials."
     )
+    _experiment: Optional[Experiment] = None
 
     def __init__(
         self,
@@ -220,7 +221,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 RuntimeWarning,
             )
         self._generation_strategy = generation_strategy
-        self._experiment: Optional[Experiment] = None
         self._enforce_sequential_optimization = enforce_sequential_optimization
         self._random_seed = random_seed
         self._torch_device = torch_device
@@ -1747,6 +1747,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 " reporting intermediate trial data by setting passing "
                 "`support_intermediate_data=True`."
             )
+
+    def __repr__(self) -> str:
+        """String representation of this client."""
+        return f"{self.__class__.__name__}(experiment={self._experiment})"
 
     # -------- Backward-compatibility with old save / load method names. -------
 
