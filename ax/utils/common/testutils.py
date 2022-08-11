@@ -13,6 +13,7 @@ import contextlib
 import io
 import linecache
 import signal
+import subprocess
 import sys
 import types
 import unittest
@@ -236,8 +237,7 @@ class TestCase(unittest.TestCase):
     # it appears to be pytorch related https://fburl.com/wiki/r8u9f3rs
     # set to `False` on the specific testcase class if this occurs
     CAN_PROFILE = True
-    # TODO: this problem is usually on a per test basis.  make a decorator
-    # to disable it for specific tests
+    _prior_status: Optional[str] = None
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
@@ -258,6 +258,7 @@ class TestCase(unittest.TestCase):
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
+        self._prior_status = self._get_repository_status()
         try:
             if self.CAN_PROFILE:
                 yappi.set_clock_type("wall")
@@ -269,7 +270,22 @@ class TestCase(unittest.TestCase):
                 yappi.stop()
 
             signal.alarm(0)
+        self._assert_status_is_unchanged()
         return result
+
+    def _get_repository_status(self) -> str:
+        return subprocess.run(
+            ["hg", "status"],
+            capture_output=True,
+        ).stdout.decode("utf-8")
+
+    def _assert_status_is_unchanged(self) -> None:
+        post_status = self._get_repository_status()
+        self.assertEqual(
+            self._prior_status,
+            post_status,
+            "Files in the repository were modified while this test was running",
+        )
 
     def assertEqual(
         self,
