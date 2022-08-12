@@ -173,14 +173,17 @@ def extract_robust_digest(
         If the `search_space` is not a `RobustSearchSpace`, this returns None.
         Otherwise, it returns a `RobustSearchSpaceDigest` with entries populated
         from the properties of the `search_space`. In particular, this constructs
-        a callable `distribution_sampler` that requires no inputs and returns a
-        `num_samples x d`-dim array of samples from the parameter distributions,
-        where `d` is either the number of environmental variables, if any, or the
-        number of parameters in `param_names`.
+        two optional callables, `sample_param_perturbations` and `sample_environmental`,
+        that require no inputs and return a `num_samples x d`-dim array of samples
+        from the corresponding parameter distributions, where `d` is the number of
+        environmental variables for `environmental_sampler and the number of
+        non-environmental parameters in `param_names` for `distribution_sampler`.
     """
     if not isinstance(search_space, RobustSearchSpace):
         return None
     dist_params = search_space._distributional_parameters
+    env_vars = search_space._environmental_variables
+    pert_params = [p for p in dist_params if p not in env_vars]
     # Make sure all distributional parameters are in param_names.
     dist_idcs: Dict[str, int] = {}
     for p_name in dist_params:
@@ -189,50 +192,55 @@ def extract_robust_digest(
                 "All distributional parameters must be included in `param_names`."
             )
         dist_idcs[p_name] = param_names.index(p_name)
-    distributions = search_space.parameter_distributions
     num_samples = search_space.num_samples
-    multiplicative = distributions[0].multiplicative
-    if search_space.is_environmental:
-        num_non_dist_params = len(param_names) - len(dist_params)
-        if set(dist_idcs.values()) != set(range(num_non_dist_params, len(param_names))):
+    if len(env_vars) > 0:
+        num_non_env_vars = len(param_names) - len(env_vars)
+        env_idcs = {idx for p, idx in dist_idcs.items() if p in env_vars}
+        if env_idcs != set(range(num_non_env_vars, len(param_names))):
             raise RuntimeError(
                 "Environmental variables must be last entries in `param_names`. "
                 "Otherwise, `AppendFeatures` will not work."
             )
         # NOTE: Extracting it from `param_names` in case the ordering is different.
-        environmental_variables = param_names[num_non_dist_params:]
+        environmental_variables = param_names[num_non_env_vars:]
 
-        def get_samples() -> np.ndarray:
+        def sample_environmental() -> np.ndarray:
             """Get samples from the environmental distributions.
 
             Samples have the same dimension as the number of environmental variables.
             The samples of an environmental variable appears in the same order it is
             in `param_names`.
             """
-            samples = np.zeros((num_samples, len(dist_params)))
-            for dist in distributions:
+            samples = np.zeros((num_samples, len(env_vars)))
+            # pyre-ignore [16]
+            for dist in search_space._environmental_distributions:
                 dist_samples = dist.distribution.rvs(num_samples).reshape(
                     num_samples, -1
                 )
                 for i, p_name in enumerate(dist.parameters):
-                    target_idx = dist_idcs[p_name] - num_non_dist_params
+                    target_idx = dist_idcs[p_name] - num_non_env_vars
                     samples[:, target_idx] = dist_samples[:, i]
             return samples
 
     else:
+        sample_environmental = None
         environmental_variables = []
 
-        def get_samples() -> np.ndarray:
+    if len(pert_params) > 0:
+        constructor = np.ones if search_space.multiplicative else np.zeros
+
+        def sample_param_perturbations() -> np.ndarray:
             """Get samples of the input perturbations.
 
-            Samples have the same dimension as the length of `param_names`.
-            The samples of a parameter appears in the same order it is
-            in `param_names`. For non-distributional parameters, their values are
-            filled as 0 if the perturbations are additive and 1 if multiplicative.
+            Samples have the same dimension as the length of `param_names`
+            minus the number of environmental variables. The samples of a
+            parameter appears in the same order it is in `param_names`. For
+            non-distributional parameters, their values are filled as 0 if
+            the perturbations are additive and 1 if multiplicative.
             """
-            constructor = np.ones if multiplicative else np.zeros
-            samples = constructor((num_samples, len(param_names)))
-            for dist in distributions:
+            samples = constructor((num_samples, len(param_names) - len(env_vars)))
+            # pyre-ignore [16]
+            for dist in search_space._perturbation_distributions:
                 dist_samples = dist.distribution.rvs(num_samples).reshape(
                     num_samples, -1
                 )
@@ -240,10 +248,14 @@ def extract_robust_digest(
                     samples[:, dist_idcs[p_name]] = dist_samples[:, i]
             return samples
 
+    else:
+        sample_param_perturbations = None
+
     return RobustSearchSpaceDigest(
-        distribution_sampler=get_samples,
+        sample_param_perturbations=sample_param_perturbations,
+        sample_environmental=sample_environmental,
         environmental_variables=environmental_variables,
-        multiplicative=multiplicative,
+        multiplicative=search_space.multiplicative,
     )
 
 

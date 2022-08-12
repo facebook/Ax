@@ -8,11 +8,14 @@ from __future__ import annotations
 import functools
 from copy import deepcopy
 from importlib import import_module
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from scipy.stats._distn_infrastructure import rv_generic
+
+if TYPE_CHECKING:
+    from ax.core.search_space import RobustSearchSpace
 
 TDistribution = str
 TParamName = str
@@ -67,6 +70,18 @@ class ParameterDistribution(SortableBase):
                 "`distribution_class` is importable from `scipy.stats`."
             )
         return dist_class(**self.distribution_parameters)
+
+    def is_environmental(self, search_space: RobustSearchSpace) -> bool:
+        r"""Check if the parameters are environmental variables of the given
+        search space.
+
+        Args:
+            search_space: The search space to check.
+
+        Returns:
+            A boolean denoting whether the parameters are environmental variables.
+        """
+        return any(search_space.is_environmental_variable(p) for p in self.parameters)
 
     def clone(self) -> ParameterDistribution:
         """Clone."""

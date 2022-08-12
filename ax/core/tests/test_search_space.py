@@ -380,22 +380,21 @@ class SearchSpaceDigestTest(TestCase):
 class RobustSearchSpaceDigestTest(TestCase):
     def setUp(self):
         self.kwargs = {
-            "distribution_sampler": lambda X: X,
+            "sample_param_perturbations": lambda: 1,
+            "sample_environmental": lambda: 2,
             "environmental_variables": ["a"],
             "multiplicative": False,
         }
 
     def test_robust_search_space_digest(self):
-        # test required fields
-        with self.assertRaises(TypeError):
+        # test post init
+        with self.assertRaises(UserInputError):
             RobustSearchSpaceDigest()
         # test instantiation
         rssd = RobustSearchSpaceDigest(**self.kwargs)
         self.assertEqual(dataclasses.asdict(rssd), self.kwargs)
-        # test default instatiation
+        # test default instantiation
         for arg in self.kwargs:
-            if arg == "distribution_sampler":
-                continue
             rssd = RobustSearchSpaceDigest(
                 **{k: v for k, v in self.kwargs.items() if k != arg}
             )
@@ -715,11 +714,6 @@ class TestRobustSearchSpace(TestCase):
         env2 = RangeParameter(
             name="env2", parameter_type=ParameterType.INT, lower=2.0, upper=10.0
         )
-        env_choice = ChoiceParameter(
-            name="env_choice",
-            parameter_type=ParameterType.STRING,
-            values=["foo", "bar", "baz"],
-        )
         choice_dist = ParameterDistribution(
             parameters=["c"],
             distribution_class="binom",
@@ -741,10 +735,10 @@ class TestRobustSearchSpace(TestCase):
             distribution_class="binom",
             distribution_parameters={"n": 2, "p": 0.3},
         )
-        env_choice_dist = ParameterDistribution(
-            parameters=["env_choice"],
-            distribution_class="binom",
-            distribution_parameters={"n": 2, "p": 0.3},
+        mixed_dist = ParameterDistribution(
+            parameters=["a", "env1"],
+            distribution_class="multivariate_normal",
+            distribution_parameters={"mean": [0.0, 0.0]},
         )
         # Error handling.
         with self.assertRaisesRegex(UserInputError, "Use SearchSpace instead."):
@@ -789,15 +783,6 @@ class TestRobustSearchSpace(TestCase):
                 environmental_variables=[self.a],
             )
         with self.assertRaisesRegex(
-            UserInputError, "environmental variables must be range parameters"
-        ):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[env1_dist, env_choice_dist],
-                num_samples=4,
-                environmental_variables=[env1, env_choice],
-            )
-        with self.assertRaisesRegex(
             UserInputError, "Distributions of environmental variables"
         ):
             RobustSearchSpace(
@@ -812,19 +797,19 @@ class TestRobustSearchSpace(TestCase):
                 parameter_distributions=[a_dist, a_dist],
                 num_samples=4,
             )
-        with self.assertRaisesRegex(UnsupportedError, "supported together"):
-            RobustSearchSpace(
-                parameters=self.parameters,
-                parameter_distributions=[a_dist, env1_dist],
-                num_samples=4,
-                environmental_variables=[env1],
-                parameter_constraints=self.constraints,
-            )
         with self.assertRaisesRegex(UserInputError, "distribution must be"):
             RobustSearchSpace(
                 parameters=self.parameters,
                 parameter_distributions=[a_dist, choice_dist],
                 num_samples=4,
+                parameter_constraints=self.constraints,
+            )
+        with self.assertRaisesRegex(UnsupportedError, "Mixing the distribution"):
+            RobustSearchSpace(
+                parameters=self.parameters,
+                parameter_distributions=[mixed_dist],
+                num_samples=4,
+                environmental_variables=[env1],
                 parameter_constraints=self.constraints,
             )
         # Test with environmental variables.
@@ -849,9 +834,36 @@ class TestRobustSearchSpace(TestCase):
             },
         )
         self.assertEqual(rss.parameter_distributions, [env1_dist, env2_dist])
+        self.assertEqual(rss._environmental_distributions, [env1_dist, env2_dist])
+        self.assertEqual(rss._perturbation_distributions, [])
+        self.assertFalse(rss.multiplicative)
         self.assertEqual(rss._distributional_parameters, {"env1", "env2"})
         self.assertEqual(rss._environmental_variables, {"env1": env1, "env2": env2})
-        self.assertTrue(rss.is_environmental)
+        self.assertTrue(all(rss.is_environmental_variable(p) for p in ["env1", "env2"]))
+        # Test having both types together.
+        mul_a_dist = a_dist.clone()
+        mul_a_dist.multiplicative = True
+        rss = RobustSearchSpace(
+            parameters=self.parameters,
+            parameter_distributions=[mul_a_dist, env1_dist],
+            num_samples=4,
+            environmental_variables=[env1],
+        )
+        self.assertEqual(
+            rss.parameters,
+            {
+                "a": self.a,
+                "b": self.b,
+                "c": self.c,
+                "env1": env1,
+            },
+        )
+        self.assertEqual(rss.parameter_distributions, [mul_a_dist, env1_dist])
+        self.assertEqual(rss._environmental_distributions, [env1_dist])
+        self.assertEqual(rss._perturbation_distributions, [mul_a_dist])
+        self.assertTrue(rss.multiplicative)
+        self.assertEqual(rss._distributional_parameters, {"a", "env1"})
+        self.assertEqual(rss._environmental_variables, {"env1": env1})
         # Test with input noise.
         rss = RobustSearchSpace(
             parameters=self.parameters,
@@ -870,9 +882,11 @@ class TestRobustSearchSpace(TestCase):
             },
         )
         self.assertEqual(rss.parameter_distributions, [a_dist, b_dist])
+        self.assertEqual(rss._environmental_distributions, [])
+        self.assertEqual(rss._perturbation_distributions, [a_dist, b_dist])
+        self.assertFalse(rss.multiplicative)
         self.assertEqual(rss._distributional_parameters, {"a", "b"})
         self.assertEqual(rss._environmental_variables, {})
-        self.assertFalse(rss.is_environmental)
         # Tests with a multivariate distribution.
         rss = self.rss1
         self.assertEqual(rss.parameter_constraints, self.constraints)
@@ -885,9 +899,13 @@ class TestRobustSearchSpace(TestCase):
             },
         )
         self.assertEqual(rss.parameter_distributions, [self.ab_dist])
+        self.assertEqual(rss._environmental_distributions, [])
+        self.assertEqual(rss._perturbation_distributions, [self.ab_dist])
         self.assertEqual(rss._distributional_parameters, {"a", "b"})
         self.assertEqual(rss._environmental_variables, {})
-        self.assertFalse(rss.is_environmental)
+        self.assertFalse(
+            any(rss.is_environmental_variable(p) for p in rss.parameters.keys())
+        )
 
     def test_update_parameter(self):
         rss = self.rss1

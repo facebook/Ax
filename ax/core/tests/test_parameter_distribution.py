@@ -5,8 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.parameter_distribution import ParameterDistribution
+from ax.core.search_space import RobustSearchSpace
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_search_space
 from scipy.stats._continuous_distns import norm_gen
 from scipy.stats._distn_infrastructure import rv_frozen
 
@@ -47,3 +49,15 @@ class ParameterDistributionTest(TestCase):
         self.assertFalse(dist.multiplicative)
         with self.assertRaises(UserInputError):
             dist.distribution
+
+        # Test `is_environmental`.
+        rss = get_robust_search_space()
+        self.assertFalse(rss.parameter_distributions[0].is_environmental(rss))
+        params = list(rss.parameters.values())
+        rss = RobustSearchSpace(
+            parameters=params[2:],
+            parameter_distributions=rss.parameter_distributions,
+            num_samples=4,
+            environmental_variables=params[:2],
+        )
+        self.assertTrue(rss.parameter_distributions[0].is_environmental(rss))
