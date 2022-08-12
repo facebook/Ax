@@ -10,6 +10,7 @@ import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
@@ -109,102 +110,119 @@ class UnitX(Transform):
     def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
         """Transform the parameter distributions of the given search space, in-place.
 
-        This method should be called in transform_search_space before parameters
+        This method should be called in `transform_search_space` before parameters
         are transformed.
         """
         if not isinstance(search_space, RobustSearchSpace):
             return
-        distributions = search_space.parameter_distributions
-        for dist in distributions:
-            if dist.multiplicative:
+        for distribution in search_space.parameter_distributions:
+            is_environmental = distribution.is_environmental(search_space=search_space)
+            if distribution.multiplicative:
                 # TODO: Transforming multiplicative distributions is a bit more
                 # complicated. Will investigate further and implement as needed.
                 raise NotImplementedError(
                     f"{self.__class__.__name__} transform of multiplicative "
                     "distributions is not yet implemented."
                 )
-            if len(dist.parameters) != 1:
-                # Ignore if the ranges of all parameters are same as the target range.
-                if (
-                    all(
-                        self.bounds[p_name][1] - self.bounds[p_name][0]
-                        == self.target_range
-                        for p_name in dist.parameters
-                    )
-                    and not search_space.is_environmental
-                ):
-                    continue
-                if dist.distribution_class == "multivariate_normal":
-                    # If S is cov and A is the diagonal scale matrix,
-                    # the new cov will be ASA.
-                    n_dist_params = len(dist.parameters)
-                    scale_vec = np.zeros(len(dist.parameters))
-                    for i, p in enumerate(dist.parameters):
-                        bounds = self.bounds[p]
-                        p_range = bounds[1] - bounds[0]
-                        scale_vec[i] = self.target_range / p_range
-                    cov = np.asarray(dist.distribution_parameters.get("cov"))
-                    if cov.shape != (n_dist_params, n_dist_params):
-                        raise UserInputError(
-                            "Expected `cov` to be a square matrix of size equal to "
-                            "number of parameters. Received `cov` with shape "
-                            f"{cov.shape} for the distribution of {n_dist_params} "
-                            "parameters."
-                        )
-                    dist.distribution_parameters["cov"] = (
-                        scale_vec[..., None] * cov * scale_vec[..., None, :]
-                    )
-                    mean = np.asarray(dist.distribution_parameters.get("mean", 0.0))
-                    if not np.all(mean == 0):
-                        if mean.shape != (n_dist_params,):
-                            raise UserInputError(
-                                "Expected `mean` to be an array of shape "
-                                f"{(n_dist_params,)}, but received {mean}."
-                            )
-                        # Mean would simply be AM as long as it is not environmental.
-                        # If environmental, we need to first subtract the lower bounds
-                        # then add the target lb.
-                        if search_space.is_environmental:
-                            lbs = np.array([self.bounds[p][0] for p in dist.parameters])
-                            new_mean = scale_vec * (mean - lbs) + self.target_lb
-                            dist.distribution_parameters["mean"] = new_mean
-                        else:
-                            dist.distribution_parameters["mean"] = scale_vec * mean
-                    continue
-                raise UnsupportedError(
-                    f"{self.__class__.__name__} transform of multivariate "
-                    "distributions, other than `multivariate_normal`, is not "
-                    "supported. Consider manually normalizing the parameter "
-                    "and the corresponding distribution."
+            if len(distribution.parameters) != 1:
+                self._transform_multivariate_distribution(
+                    distribution=distribution, is_environmental=is_environmental
                 )
-            bounds = self.bounds[dist.parameters[0]]
-            p_range = bounds[1] - bounds[0]
-            if p_range == self.target_range and (
-                not search_space.is_environmental or bounds[0] == self.target_lb
-            ):
-                # NOTE: This helps avoid raising the error below if using a discrete
-                # distribution in cases where we do not need to transform.
-                continue
-            loc = dist.distribution_parameters.get("loc", 0.0)
-            if search_space.is_environmental:
-                loc = self._normalize_value(loc, bounds)
             else:
-                loc = loc / p_range * self.target_range
-            dist.distribution_parameters["loc"] = loc
-            dist.distribution_parameters["scale"] = (
-                dist.distribution_parameters.get("scale", 1.0)
-                / p_range
-                * self.target_range
-            )
-            # Check that the distribution is valid after the transform.
-            try:
-                dist.distribution
-            except TypeError:
-                raise UnsupportedError(
-                    f"The distribution {str(dist)} does not support transforming via "
-                    "`loc` and `scale` arguments. Consider manually normalizing the "
-                    "parameter and the corresponding distribution."
+                self._transform_univariate_distribution(
+                    distribution=distribution, is_environmental=is_environmental
                 )
+
+    def _transform_univariate_distribution(
+        self, distribution: ParameterDistribution, is_environmental: bool
+    ) -> None:
+        r"""Transform a univariate distribution in-place."""
+        bounds = self.bounds[distribution.parameters[0]]
+        p_range = bounds[1] - bounds[0]
+        if p_range == self.target_range and (
+            not is_environmental or bounds[0] == self.target_lb
+        ):
+            # NOTE: This helps avoid raising the error below if using a discrete
+            # distribution in cases where we do not need to transform.
+            return
+        loc = distribution.distribution_parameters.get("loc", 0.0)
+        if is_environmental:
+            loc = self._normalize_value(loc, bounds)
+        else:
+            loc = loc / p_range * self.target_range
+        distribution.distribution_parameters["loc"] = loc
+        distribution.distribution_parameters["scale"] = (
+            distribution.distribution_parameters.get("scale", 1.0)
+            / p_range
+            * self.target_range
+        )
+        # Check that the distribution is valid after the transform.
+        try:
+            distribution.distribution
+        except TypeError:
+            raise UnsupportedError(
+                f"The distribution {str(distribution)} does not support transforming "
+                "via `loc` and `scale` arguments. Consider manually normalizing the "
+                "parameter and the corresponding distribution."
+            )
+
+    def _transform_multivariate_distribution(
+        self, distribution: ParameterDistribution, is_environmental: bool
+    ) -> None:
+        r"""Transform a multivariate distribution in-place."""
+        # Ignore if the ranges of all parameters are same as the target range.
+        if (
+            all(
+                self.bounds[p_name][1] - self.bounds[p_name][0] == self.target_range
+                for p_name in distribution.parameters
+            )
+            and not is_environmental
+        ):
+            return
+        if distribution.distribution_class == "multivariate_normal":
+            # If S is cov and A is the diagonal scale matrix,
+            # the new cov will be ASA.
+            n_dist_params = len(distribution.parameters)
+            scale_vec = np.zeros(len(distribution.parameters))
+            for i, p in enumerate(distribution.parameters):
+                bounds = self.bounds[p]
+                p_range = bounds[1] - bounds[0]
+                scale_vec[i] = self.target_range / p_range
+            cov = np.asarray(distribution.distribution_parameters.get("cov"))
+            if cov.shape != (n_dist_params, n_dist_params):
+                raise UserInputError(
+                    "Expected `cov` to be a square matrix of size equal to "
+                    "number of parameters. Received `cov` with shape "
+                    f"{cov.shape} for the distribution of {n_dist_params} "
+                    "parameters."
+                )
+            # Same as np.diag(scale_vec) @ cov @ np.diag(scale_vec) but faster.
+            distribution.distribution_parameters["cov"] = (
+                scale_vec[..., None] * cov * scale_vec[..., None, :]
+            )
+            mean = np.asarray(distribution.distribution_parameters.get("mean", 0.0))
+            if not np.all(mean == 0):
+                if mean.shape != (n_dist_params,):
+                    raise UserInputError(
+                        "Expected `mean` to be an array of shape "
+                        f"{(n_dist_params,)}, but received {mean}."
+                    )
+                # Mean would simply be AM as long as it is not environmental.
+                # If environmental, we need to first subtract the lower bounds
+                # then add the target lb.
+                if is_environmental:
+                    lbs = np.array([self.bounds[p][0] for p in distribution.parameters])
+                    new_mean = scale_vec * (mean - lbs) + self.target_lb
+                    distribution.distribution_parameters["mean"] = new_mean
+                else:
+                    distribution.distribution_parameters["mean"] = scale_vec * mean
+        else:
+            raise UnsupportedError(
+                f"{self.__class__.__name__} transform of multivariate "
+                "distributions, other than `multivariate_normal`, is not "
+                "supported. Consider manually normalizing the parameter "
+                "and the corresponding distribution."
+            )
 
     def _normalize_value(self, value: float, bounds: Tuple[float, float]) -> float:
         """Normalize the given value - bounds pair to
