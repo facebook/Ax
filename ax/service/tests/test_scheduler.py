@@ -9,7 +9,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 from unittest.mock import patch
 
 from ax.core.arm import Arm
@@ -388,7 +388,27 @@ class TestAxScheduler(TestCase):
             [],
         )
 
-    def test_run_n_trials(self):
+    def test_run_all_trials_callback(self):
+        n_total_trials = 8
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                total_trials=n_total_trials,
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+        trials_info = {"n_completed": 0}
+
+        def write_n_trials(scheduler: Scheduler) -> None:
+            trials_info["n_completed"] = len(scheduler.experiment.trials)
+
+        self.assertTrue(trials_info["n_completed"] == 0)
+        scheduler.run_all_trials(idle_callback=write_n_trials)
+        self.assertTrue(trials_info["n_completed"] == n_total_trials)
+
+    def base_run_n_trials(self, idle_callback: Optional[Callable[[Scheduler], Any]]):
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -397,9 +417,9 @@ class TestAxScheduler(TestCase):
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
-        scheduler.run_n_trials(max_trials=1)
+        scheduler.run_n_trials(max_trials=1, idle_callback=idle_callback)
         self.assertEqual(len(scheduler.experiment.trials), 1)
-        scheduler.run_n_trials(max_trials=10)
+        scheduler.run_n_trials(max_trials=10, idle_callback=idle_callback)
         self.assertTrue(  # Make sure all trials got to complete.
             all(t.completed_successfully for t in scheduler.experiment.trials.values())
         )
@@ -407,6 +427,22 @@ class TestAxScheduler(TestCase):
         # experiment.
         dat = scheduler.experiment.fetch_data().df
         self.assertEqual(set(dat["trial_index"].values), set(range(11)))
+
+    def test_run_n_trials(self):
+        self.base_run_n_trials(None)
+
+    def test_run_n_trials_callback(self):
+        test_obj = [0, 0]
+
+        def _callback(scheduler: Scheduler) -> None:
+            test_obj[0] = scheduler._latest_optimization_start_timestamp
+            test_obj[1] = "apple"
+            return
+
+        self.base_run_n_trials(_callback)
+
+        self.assertFalse(test_obj[0] == 0)
+        self.assertTrue(test_obj[1] == "apple")
 
     def test_run_preattached_trials_only(self):
         # assert that pre-attached trials run when max_trials = number of

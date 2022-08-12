@@ -6,7 +6,17 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 import gpytorch
 
@@ -35,6 +45,9 @@ from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.service.scheduler import Scheduler
 
 
 logger: Logger = get_logger(__name__)
@@ -618,3 +631,36 @@ def _objective_vs_true_objective_scatter(
         f"Metric {true_objective_metric_name}"
     )
     return fig
+
+
+# TODO: may want to have a way to do this with a plot_fn
+# that returns a list of plots, such as get_standard_plots
+def get_figure_and_callback(
+    plot_fn: Callable[["Scheduler"], go.Figure]
+) -> Tuple[go.Figure, Callable[["Scheduler"], None]]:
+    """
+    Produce a figure and a callback for updating the figure in place.
+
+    A likely use case is that `plot_fn` takes a Scheduler instance and
+    returns a plotly Figure. Then `get_figure_and_callback` will produce a
+    figure and callback that updates that figure according to `plot_fn`
+    when the callback is passed to `Scheduler.run_n_trials` or
+    `Scheduler.run_all_trials`.
+
+    Args:
+        plot_fn: A function for producing a Plotly figure from a scheduler.
+
+    Example:
+        >>> def _plot(scheduler: Scheduler):
+        >>>     standard_plots = get_standard_plots(scheduler.experiment)
+        >>>     return standard_plots[0]
+        >>>
+        >>> fig, callback = get_figure_and_callback(_plot)
+    """
+    fig = go.FigureWidget(layout=go.Layout())
+
+    def _update_fig_in_place(scheduler: "Scheduler") -> None:
+        new_fig = plot_fn(scheduler)
+        fig.update(data=new_fig._data, overwrite=True)
+
+    return fig, _update_fig_in_place
