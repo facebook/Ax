@@ -147,15 +147,9 @@ class ModelBridge(ABC):
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
 
-        observations = (
-            observations_from_data(
-                experiment=experiment,
-                data=data,
-                include_abandoned=self._fit_abandoned,
-            )
-            if experiment is not None and data is not None
-            else []
-        )
+        # Convert Data to Observations
+        observations = self._prepare_observations(experiment=experiment, data=data)
+
         obs_feats_raw, obs_data_raw = self._set_training_data(
             observations=observations, search_space=search_space
         )
@@ -188,6 +182,15 @@ class ModelBridge(ABC):
         except NotImplementedError:
             self.fit_time = 0.0
             self.fit_time_since_gen = 0.0
+
+    def _prepare_observations(
+        self, experiment: Optional[Experiment], data: Optional[Data]
+    ) -> List[Observation]:
+        if experiment is None or data is None:
+            return []
+        return observations_from_data(
+            experiment=experiment, data=data, include_abandoned=self._fit_abandoned
+        )
 
     def _transform_data(
         self,
@@ -302,15 +305,24 @@ class ModelBridge(ABC):
             # all observations are used in CV and plotting
             self.training_in_design = [True] * len(observation_features)
             return observation_features, observation_data
-        in_design = [
-            search_space.check_membership(obsf.parameters)
-            for obsf in observation_features
-        ]
+        in_design = self._compute_in_design(
+            search_space=search_space, observation_features=observation_features
+        )
         self.training_in_design = in_design
         in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
         in_design_features = [observation_features[i] for i in in_design_indices]
         in_design_data = [observation_data[i] for i in in_design_indices]
         return in_design_features, in_design_data
+
+    def _compute_in_design(
+        self,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+    ) -> List[bool]:
+        return [
+            search_space.check_membership(obsf.parameters)
+            for obsf in observation_features
+        ]
 
     def _set_status_quo(
         self,
@@ -541,15 +553,7 @@ class ModelBridge(ABC):
             experiment: Experiment, in which this data was obtained.
         """
         t_update_start = time.time()
-        observations = (
-            observations_from_data(
-                experiment=experiment,
-                data=new_data,
-                include_abandoned=self._fit_abandoned,
-            )
-            if experiment is not None and new_data is not None
-            else []
-        )
+        observations = self._prepare_observations(experiment=experiment, data=new_data)
         obs_feats_raw, obs_data_raw = self._extend_training_data(
             observations=observations
         )
