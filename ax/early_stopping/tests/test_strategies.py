@@ -4,12 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any, Dict, Optional, Set
+
+import numpy as np
+
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
+    ModelBasedEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
@@ -33,6 +38,41 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         # can't instantiate abstract class
         with self.assertRaises(TypeError):
             BaseEarlyStoppingStrategy()
+
+
+class TestModelBasedEarlyStoppingStrategy(TestCase):
+    def test_get_training_data(self):
+        class FakeStrategy(ModelBasedEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: Set[int],
+                experiment: Experiment,
+                **kwargs: Dict[str, Any],
+            ) -> Dict[int, Optional[str]]:
+                return {}
+
+        experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        for i in range(3):
+            trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+            trial.run()
+
+        for _ in range(2):
+            # each time we call fetch, we grab another timestamp
+            experiment.fetch_data()
+
+        for i in range(3):
+            experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
+
+        experiment.attach_data(data=experiment.fetch_data())
+        training_data = FakeStrategy().get_training_data(
+            experiment, map_data=experiment.lookup_data()
+        )
+        # check that there is a map dimension in the training data
+        X = training_data.X
+        self.assertEqual(X.shape[-1], 3)
+        # check that the default Ax transform is applied, i.e., that the
+        # parameters are normalized to [0, 1]
+        self.assertTrue(np.all((X[:, :2] >= 0.0) & (X[:, :2] <= 1.0)))
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):

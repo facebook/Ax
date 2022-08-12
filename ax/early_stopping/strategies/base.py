@@ -7,20 +7,25 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Type
 
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import TrialStatus
-
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.core.observation import observations_from_map_data
+from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.modelbridge.modelbridge_utils import (
-    _unpack_observations,
+    _get_modelbridge_training_data,
     observation_data_to_array,
     observation_features_to_array,
 )
+
+from ax.modelbridge.registry import Cont_X_trans
+from ax.modelbridge.transforms.base import Transform
+
+from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -406,13 +411,50 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             parameters = list(experiment.search_space.parameters.keys())
             parameters = parameters + list(map_data.map_keys)
 
-        observations = observations_from_map_data(
-            experiment=experiment, map_data=map_data, map_keys_as_parameters=True
+        # helper Ax model to make use of its transform functionality
+        transform_model = get_transform_helper_model(
+            experiment=experiment, data=map_data
         )
-        obs_features, obs_data, arm_names = _unpack_observations(observations)
-
+        obs_feats_raw, obs_data_raw, arm_names = _get_modelbridge_training_data(
+            transform_model
+        )
+        obs_features, obs_data, _ = transform_model._transform_data(
+            obs_feats=obs_feats_raw,
+            obs_data=obs_data_raw,
+            search_space=transform_model._model_space,
+            transforms=transform_model._raw_transforms,
+            transform_configs=None,
+        )
         X = observation_features_to_array(parameters=parameters, obsf=obs_features)
         Y, Yvar = observation_data_to_array(
             outcomes=list(outcomes), observation_data=obs_data
         )
         return EarlyStoppingTrainingData(X=X, Y=Y, Yvar=Yvar, arm_names=arm_names)
+
+
+def get_transform_helper_model(
+    experiment: Experiment,
+    data: Data,
+    transforms: Optional[List[Type[Transform]]] = None,
+) -> MapTorchModelBridge:
+    """
+    Constructs a TorchModelBridge, to be used as a helper for transforming parameters.
+    We perform the default `Cont_X_trans` for parameters but do not perform any
+    transforms on the observations.
+
+    Args:
+        experiment: Experiment.
+        data: Data for fitting the model.
+
+    Returns: A torch modelbridge.
+    """
+    if transforms is None:
+        transforms = Cont_X_trans
+    return MapTorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        data=data,
+        model=TorchModel(),
+        transforms=transforms,
+        fit_out_of_design=True,
+    )
