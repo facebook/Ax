@@ -57,7 +57,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def __init__(
         self,
         metric_names: Optional[Iterable[str]] = None,
-        seconds_between_polls: int = 60,
+        seconds_between_polls: int = 300,
         min_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
