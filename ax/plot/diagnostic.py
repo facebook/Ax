@@ -318,8 +318,10 @@ def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
     # arm_name -> Arm data
     insample_data: Dict[str, PlotInSampleArm] = {}
 
-    # Assume input is well formed and this is consistent
-    metric_names = cv_results[0].predicted.metric_names
+    # Get the union of all metric_names seen in predictions
+    metric_names = list(
+        set().union(*(cv_result.predicted.metric_names for cv_result in cv_results))
+    )
 
     for rid, cv_result in enumerate(cv_results):
         arm_name = cv_result.observed.arm_name
