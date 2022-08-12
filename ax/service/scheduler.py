@@ -13,6 +13,7 @@ from logging import LoggerAdapter
 from time import sleep
 from typing import (
     Any,
+    Callable,
     cast,
     Dict,
     Generator,
@@ -520,7 +521,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         for trial, reason in zip(trials, reasons):
             self.runner.stop(trial=trial, reason=reason)
 
-    def wait_for_completed_trials_and_report_results(self) -> Dict[str, Any]:
+    def wait_for_completed_trials_and_report_results(
+        self,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+    ) -> Dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
         backoff, and process the results. Stop once at least one successful
         trial has been found. This function can be overridden to a different
@@ -528,9 +532,21 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         to ensure that trials that completed their evaluation are appropriately
         marked as 'COMPLETED' in Ax.
 
-        Returns: Results of the optimization so far, represented as a
-        dict. The contents of the dict depend on the implementation of
-        `report_results` in the given `Scheduler` subclass.
+        Args:
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+
+        Returns:
+            Results of the optimization so far, represented as a
+            dict. The contents of the dict depend on the implementation of
+            `report_results` in the given `Scheduler` subclass.
         """
         if (
             self.options.init_seconds_between_polls is None
@@ -569,6 +585,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 break  # If maximum wait time reached, check the stopping
                 # criterion again and and re-attempt scheduling more trials.
 
+            if idle_callback is not None:
+                idle_callback(self)
+
             log_seconds = (
                 int(seconds_between_polls)
                 if seconds_between_polls > 2
@@ -584,6 +603,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             total_seconds_elapsed += seconds_between_polls
             seconds_between_polls *= backoff_factor
 
+        if idle_callback is not None:
+            idle_callback(self)
         return self.report_results()
 
     def should_consider_optimization_complete(self) -> bool:
@@ -669,7 +690,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
 
     def run_trials_and_yield_results(
-        self, max_trials: int, timeout_hours: Optional[int] = None
+        self,
+        max_trials: int,
+        timeout_hours: Optional[int] = None,
+        idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to
         ``max_trials`` trials, until completion criterion is reached. This is the 'main'
@@ -684,6 +708,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 to run the optimization. This function will abort after running
                 for `timeout_hours` even if stopping criterion has not been reached.
                 If set to `None`, no optimization timeout will be applied.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
         """
         if max_trials < 0:
             raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
@@ -745,7 +778,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
 
             # Wait for trial evaluations to complete and process results.
-            yield self.wait_for_completed_trials_and_report_results()
+            yield self.wait_for_completed_trials_and_report_results(
+                idle_callback=idle_callback
+            )
 
         # When done scheduling, wait for the remaining trials to finish running
         # (unless optimization is aborting, in which case stop right away).
@@ -760,13 +795,18 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
 
-            yield self.wait_for_completed_trials_and_report_results()
+            yield self.wait_for_completed_trials_and_report_results(idle_callback)
 
-        yield self._complete_optimization(num_preexisting_trials=n_existing)
+        yield self._complete_optimization(
+            num_preexisting_trials=n_existing, idle_callback=idle_callback
+        )
         return
 
     def run_n_trials(
-        self, max_trials: int, timeout_hours: Optional[int] = None
+        self,
+        max_trials: int,
+        timeout_hours: Optional[int] = None,
+        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -778,14 +818,41 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             max_trials: Maximum number of trials to run.
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+
+        Example:
+            >>> trials_info = {"n_completed": None}
+            >>>
+            >>> def write_n_trials(scheduler: Scheduler) -> None:
+            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>>
+            >>> scheduler.run_n_trials(  # doctest: +SKIP
+            ...     max_trials=3, idle_callback=write_n_trials
+            ... )
+            >>> print(trials_info["n_completed"])  # doctest: +SKIP
+            3
         """
         for _ in self.run_trials_and_yield_results(
-            max_trials=max_trials, timeout_hours=timeout_hours
+            max_trials=max_trials,
+            timeout_hours=timeout_hours,
+            idle_callback=idle_callback,
         ):
             pass
         return self.summarize_final_result()
 
-    def run_all_trials(self, timeout_hours: Optional[int] = None) -> OptimizationResult:
+    def run_all_trials(
+        self,
+        timeout_hours: Optional[int] = None,
+        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
+    ) -> OptimizationResult:
         """Run all trials until ``completion_criterion`` is reached (by default,
         completion criterion is reaching the ``num_trials`` setting, passed to
         scheduler on instantiation as part of ``SchedulerOptions``).
@@ -796,6 +863,26 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Args:
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+
+        Example:
+            >>> trials_info = {"n_completed": None}
+            >>>
+            >>> def write_n_trials(scheduler: Scheduler) -> None:
+            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>>
+            >>> scheduler.run_all_trials(  # doctest: +SKIP
+            ...     timeout_hours=0.1, idle_callback=write_n_trials
+            ... )
+            >>> print(trials_info["n_completed"])  # doctest: +SKIP
         """
         if self.options.total_trials is None:
             # NOTE: Capping on number of trials will likely be needed as fallback
@@ -805,7 +892,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
         for _ in self.run_trials_and_yield_results(
-            max_trials=not_none(self.options.total_trials), timeout_hours=timeout_hours
+            max_trials=not_none(self.options.total_trials),
+            timeout_hours=timeout_hours,
+            idle_callback=idle_callback,
         ):
             pass
         return self.summarize_final_result()
@@ -1055,12 +1144,18 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         return self.report_results()
 
-    def _complete_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:
+    def _complete_optimization(
+        self,
+        num_preexisting_trials: int,
+        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
+    ) -> Dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
         """
         self._record_optimization_complete_message()
-        res = self.wait_for_completed_trials_and_report_results()
+        res = self.wait_for_completed_trials_and_report_results(
+            idle_callback=idle_callback
+        )
         # raise an error if the failure rate exceeds tolerance at the end of the sweep
         self.error_if_failure_rate_exceeded(force_check=True)
         self._record_run_trials_status(
