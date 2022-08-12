@@ -428,10 +428,11 @@ def observations_from_map_data(
     map_data: MapData,
     include_abandoned: bool = False,
     map_keys_as_parameters: bool = False,
+    limit_total_rows: Optional[int] = None,
 ) -> List[Observation]:
-    """Convert Data to observations.
+    """Convert MapData to observations.
 
-    Converts a Data object to a list of Observation objects. Pulls arm parameters from
+    Converts a MapData object to a list of Observation objects. Pulls arm parameters
     from experiment. Overrides fidelity parameters in the arm with those found in the
     Data object.
 
@@ -439,15 +440,26 @@ def observations_from_map_data(
 
     Args:
         experiment: Experiment with arm parameters.
-        data: Data of observations.
+        map_data: MapData of observations.
         include_abandoned: Whether data for abandoned trials and arms should
             be included in the observations, returned from this function.
         map_keys_as_parameters: Whether map_keys should be returned as part of
             the parameters of the Observation objects.
+        limit_total_rows: If specified, uses MapData.subsample() on the first
+            map_key (map_data.map_keys[0]) to subsample the MapData. This is
+            useful in, e.g., cases where learning curves are frequently
+            updated, leading to an intractable number of Observation objects
+            created.
 
     Returns:
         List of Observation objects.
     """
+    if limit_total_rows is not None:
+        map_data = map_data.subsample(
+            map_key=map_data.map_keys[0],
+            limit_total_rows=limit_total_rows,
+            include_first_last=True,
+        )
     feature_cols = get_feature_cols_from_map_data(map_data)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name

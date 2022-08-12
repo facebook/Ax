@@ -82,11 +82,18 @@ Torch Model Bridge
     :undoc-members:
     :show-inheritance:
 
-
 Pairwise Model Bridge
 ~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.pairwise
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Map Torch Model Bridge
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.map_torch
     :members:
     :undoc-members:
     :show-inheritance:
