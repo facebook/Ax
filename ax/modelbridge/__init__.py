@@ -15,10 +15,11 @@ from ax.modelbridge.factory import (
     get_uniform,
     Models,
 )
+from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 
-
 __all__ = [
+    "MapTorchModelBridge",
     "ModelBridge",
     "Models",
     "TorchModelBridge",
