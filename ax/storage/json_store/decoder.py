@@ -45,7 +45,8 @@ from ax.storage.json_store.registry import (
     CORE_DECODER_REGISTRY,
 )
 from ax.utils.common.serialization import SerializationMixin
-from ax.utils.common.typeutils import not_none, torch_type_from_str
+from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils_torch import torch_type_from_str
 from torch.nn import Module
 
 
