@@ -100,18 +100,20 @@ def plot_feature_importance_by_feature_plotly(
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    num_gp_samples: int = 0,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
 
     Args:
         model: A model with a ``feature_importances`` method.
         sensitivity_values: The sensitivity values for each metric in a dict format.
+            It takes the following format if only the sensitivity value is plotted:
+            `{"metric1":{"parameter1":value1,"parameter2":value2 ...} ...}`
+            It takes the following format if the sensitivity value and standard error
+            are plotted: `{"metric1":{"parameter1":[value1,var,se],
+            "parameter2":[[value2,var,se]]...}...}}`.
         relative: Whether to normalize feature importances so that they add to 1.
         caption: An HTML-formatted string to place at the bottom of the plot.
         importance_measure: The name of the importance metric to be added to the title.
-        num_gp_samples: Number of samples to plot the SE for the sensitiviy error bars.
-
     Returns a go.Figure of feature importances.
     """
     if sensitivity_values is None:
@@ -137,20 +139,20 @@ def plot_feature_importance_by_feature_plotly(
         importance_col = "Importance"
         error_plot = np.asarray(next(iter(importances.values()))).size > 1
         if error_plot:
-            importance_col_var = "SE"
+            importance_col_se = "SE"
             df = pd.DataFrame(
                 [
                     {
                         factor_col: factor,
                         importance_col: np.asarray(importance)[0],
-                        importance_col_var: np.sqrt(
-                            np.asarray(importance)[1] / num_gp_samples
-                        ),
+                        importance_col_se: np.asarray(importance)[2],
                     }
                     for factor, importance in importances.items()
                 ]
             )
-            error_x = {"type": "data", "array": df[importance_col_var], "visible": True}
+            df = df.sort_values(importance_col)
+            error_x = {"type": "data", "array": df[importance_col_se], "visible": True}
+
         else:
             df = pd.DataFrame(
                 [
@@ -158,11 +160,10 @@ def plot_feature_importance_by_feature_plotly(
                     for factor, importance in importances.items()
                 ]
             )
+            df = df.sort_values(importance_col)
             error_x = None
         if relative:
             df[importance_col] = df[importance_col].div(df[importance_col].sum())
-
-        df = df.sort_values(importance_col)
         traces.append(
             go.Bar(
                 name=importance_col,
@@ -199,7 +200,8 @@ def plot_feature_importance_by_feature_plotly(
     title = (
         "Relative Feature Importances" if relative else "Absolute Feature Importances"
     )
-    title = title + " based on " + importance_measure
+    if importance_measure:
+        title = title + " based on " + importance_measure
     layout = go.Layout(
         height=200 + len(features) * 20,
         hovermode="closest",
@@ -224,7 +226,6 @@ def plot_feature_importance_by_feature(
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    num_gp_samples: int = 0,
 ) -> AxPlotConfig:
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
@@ -235,7 +236,6 @@ def plot_feature_importance_by_feature(
             relative=relative,
             caption=caption,
             importance_measure=importance_measure,
-            num_gp_samples=num_gp_samples,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
