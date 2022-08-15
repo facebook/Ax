@@ -107,6 +107,14 @@ Typeutils
     :undoc-members:
     :show-inheritance:
 
+Typeutils Torch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.common.typeutils_torch
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Flake8 Plugins
 ---------------
 

@@ -20,10 +20,11 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
 )
 from ax.utils.common.serialization import _is_named_tuple
-from ax.utils.common.typeutils import numpy_type_to_python_type, torch_type_to_str
+from ax.utils.common.typeutils import numpy_type_to_python_type
+from ax.utils.common.typeutils_torch import torch_type_to_str
 
 
-def object_to_json(
+def object_to_json(  # noqa C901
     obj: Any,
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
