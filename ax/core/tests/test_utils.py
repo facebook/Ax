@@ -17,11 +17,11 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     best_feasible_objective,
-    feasible_hypervolume,
     get_missing_metrics,
     get_missing_metrics_by_name,
     MissingMetrics,
 )
+from ax.modelbridge.modelbridge_utils import feasible_hypervolume
 from ax.utils.common.testutils import TestCase
 
 
