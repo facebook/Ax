@@ -1055,7 +1055,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 f"Fetching data for trials: {idcs} because some metrics "
                 "on experiment are available while trials are running."
             )
-            self.experiment.fetch_trials_data(
+            self._fetch_trials_data(
                 trial_indices=running_trial_indices,
                 overwrite_existing_data=True,
             )
@@ -1101,7 +1101,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 # fetch it during candidate generation.
                 idcs = make_indices_str(indices=newly_completed)
                 self.logger.info(f"Fetching data for trials: {idcs}.")
-                self.experiment.fetch_trials_data(trial_indices=newly_completed)
+                self._fetch_trials_data(trial_indices=newly_completed)
 
             updated_trials.extend(trials)
 
@@ -1523,4 +1523,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 self.experiment._properties[prop] = [val_to_append]
         self._update_experiment_properties_in_db(
             experiment_with_updated_properties=self.experiment
+        )
+
+    def _fetch_trials_data(
+        self, trial_indices: Iterable[int], overwrite_existing_data: bool = False
+    ) -> None:
+        """Fetches data from experiment."""
+        self.experiment.fetch_trials_data(
+            trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
         )
