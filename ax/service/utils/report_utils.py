@@ -92,6 +92,7 @@ def _get_objective_trace_plot(
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
+        raise RuntimeError("No optimization config")
         return []
 
     metric_names = (
@@ -278,7 +279,7 @@ def get_standard_plots(
 
     objective = not_none(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
-        logger.warning(
+        raise RuntimeError(
             "get_standard_plots does not currently support ScalarizedObjective "
             "optimization experiments. Returning an empty list."
         )
@@ -288,25 +289,20 @@ def get_standard_plots(
         data = experiment.fetch_data()
 
     if data.df.empty:
-        logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
+        raise RuntimeError(f"Experiment {experiment} does not yet have data, nothing to plot.")
         return []
 
     output_plot_list = []
-    try:
-        output_plot_list.extend(
-            _get_objective_trace_plot(
-                experiment=experiment,
-                data=data,
-                model_transitions=model_transitions
-                if model_transitions is not None
-                else [],
-                true_objective_metric_name=true_objective_metric_name,
-            )
+    output_plot_list.extend(
+        _get_objective_trace_plot(
+            experiment=experiment,
+            data=data,
+            model_transitions=model_transitions
+            if model_transitions is not None
+            else [],
+            true_objective_metric_name=true_objective_metric_name,
         )
-    except Exception as e:
-        # Allow model-based plotting to proceed if objective_trace plotting fails.
-        logger.exception(f"Plotting `objective_trace` failed with error {e}")
-        pass
+    )
 
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,

@@ -83,6 +83,8 @@ def gen_tutorials(
 
     for config in tutorial_configs:
         tid = config["id"]
+        if 'scheduler' not in tid:
+            continue
         t_dir = config.get("dir")
         exec_on_build = config.get("exec_on_build", True)
 
