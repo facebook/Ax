@@ -15,7 +15,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
@@ -443,7 +443,7 @@ class Experiment(Base):
 
         NOTE: For metrics that are not available while trial is running, the data
         may be retrieved from cache on the experiment. Data is cached on the experiment
-        via calls to `experiment.attach_data` and whetner a given metric class is
+        via calls to `experiment.attach_data` and whether a given metric class is
         available while trial is running is determined by the boolean returned from its
         `is_available_while_running` class method.
 
@@ -941,16 +941,16 @@ class Experiment(Base):
         if len(self.trials) > 0:
             raise ValueError(  # pragma: no cover
                 f"Can only warm-start experiments that don't yet have trials. "
-                f"Experiment {self.name} has {len(self.trials)} trials."
+                f"Experiment {self._name} has {len(self.trials)} trials."
             )
 
         old_parameter_names = set(old_experiment.search_space.parameters.keys())
         parameter_names = set(self.search_space.parameters.keys())
         if old_parameter_names.symmetric_difference(parameter_names):
             raise ValueError(  # pragma: no cover
-                f"Cannot warm-start experiment '{self.name}' from experiment "
-                f"'{old_experiment.name}' due to mismatch in search space parameters."
-                f"Parameters in '{self.name}' but not in '{old_experiment.name}': "
+                f"Cannot warm-start experiment '{self._name}' from experiment "
+                f"'{old_experiment._name}' due to mismatch in search space parameters."
+                f"Parameters in '{self._name}' but not in '{old_experiment._name}': "
                 f"{old_parameter_names - parameter_names}. Vice-versa: "
                 f"{parameter_names - old_parameter_names}."
             )
@@ -958,11 +958,7 @@ class Experiment(Base):
         trial_statuses_to_copy = (
             trial_statuses_to_copy
             if trial_statuses_to_copy is not None
-            else [
-                TrialStatus.COMPLETED,
-                TrialStatus.ABANDONED,
-                TrialStatus.EARLY_STOPPED,
-            ]
+            else DEFAULT_STATUSES_TO_WARM_START
         )
 
         warm_start_trials = [
@@ -980,65 +976,55 @@ class Experiment(Base):
                 not_none(trial.arm).parameters, raise_error=True
             )
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
-            is_completed_with_data = (
-                trial.status == TrialStatus.COMPLETED and ts != -1 and not dat.df.empty
+            # Set trial index and arm name to their values in new trial.
+            new_trial = self.new_trial()
+            new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
+            new_trial.mark_running(no_runner_required=True)
+            new_trial.update_run_metadata({"run_id": trial.run_metadata.get("run_id")})
+            new_trial._properties["source"] = (
+                f"Warm start from Experiment: `{old_experiment._name}`, "
+                f"trial: `{trial.index}`"
             )
-            if is_completed_with_data or trial.status in {
-                TrialStatus.ABANDONED,
-                TrialStatus.EARLY_STOPPED,
-            }:
-                # Set trial index and arm name to their values in new trial.
-                new_trial = self.new_trial()
-                new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
-                new_trial.mark_running(no_runner_required=True)
-                new_trial.update_run_metadata(
-                    {"run_id": trial.run_metadata.get("run_id")}
+            if copy_run_metadata:
+                new_trial._run_metadata = trial.run_metadata
+            # Trial has data, so we replicate it on the new experiment.
+            has_data = ts != -1 and not dat.df.empty
+            if has_data:
+                new_df = dat.true_df.copy()
+                new_df["trial_index"].replace(
+                    {trial.index: new_trial.index}, inplace=True
                 )
-                new_trial._properties["source"] = (
-                    f"Warm start from Experiment: `{old_experiment.name}`, "
-                    f"trial: `{trial.index}`"
+                new_df["arm_name"].replace(
+                    {not_none(trial.arm).name: not_none(new_trial.arm).name},
+                    inplace=True,
                 )
-                if copy_run_metadata:
-                    new_trial._run_metadata = trial.run_metadata
-                # Trial has data, so we replicate it on the new experiment.
-                if is_completed_with_data:
-                    new_df = dat.true_df.copy()
-                    new_df["trial_index"].replace(
-                        {trial.index: new_trial.index}, inplace=True
+                # Attach updated data to new trial on experiment.
+                old_data = (
+                    old_experiment.default_data_constructor(
+                        df=new_df,
+                        map_key_infos=checked_cast(
+                            MapData, old_experiment.lookup_data()
+                        ).map_key_infos,
                     )
-                    new_df["arm_name"].replace(
-                        {not_none(trial.arm).name: not_none(new_trial.arm).name},
-                        inplace=True,
-                    )
-                    # Attach updated data to new trial on experiment and mark trial
-                    # as completed.
-                    old_data = (
-                        old_experiment.default_data_constructor(
-                            df=new_df,
-                            map_key_infos=checked_cast(
-                                MapData, old_experiment.lookup_data()
-                            ).map_key_infos,
-                        )
-                        if old_experiment.default_data_type == DataType.MAP_DATA
-                        else old_experiment.default_data_constructor(df=new_df)
-                    )
-                    self.attach_data(data=old_data)
-                    new_trial.mark_completed()
-                elif trial.status == TrialStatus.EARLY_STOPPED:
-                    new_trial.mark_early_stopped()
-                else:
-                    new_trial.mark_abandoned(reason=trial.abandoned_reason)
-                copied_trials.append(new_trial)
+                    if old_experiment.default_data_type == DataType.MAP_DATA
+                    else old_experiment.default_data_constructor(df=new_df)
+                )
+                self.attach_data(data=old_data)
+            if trial.status == TrialStatus.ABANDONED:
+                new_trial.mark_abandoned(reason=trial.abandoned_reason)
+            elif trial.status is not TrialStatus.RUNNING:
+                new_trial.mark_as(trial.status)
+            copied_trials.append(new_trial)
 
         if self._name is not None:
             logger.info(
                 f"Copied {len(copied_trials)} completed trials and their data "
-                f"from {old_experiment.name} to {self.name}."
+                f"from {old_experiment._name} to {self._name}."
             )
         else:
             logger.info(
                 f"Copied {len(copied_trials)} completed trials and their data "
-                f"from {old_experiment.name}."
+                f"from {old_experiment._name}."
             )
 
         return copied_trials
