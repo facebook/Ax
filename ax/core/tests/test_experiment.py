@@ -732,9 +732,10 @@ class ExperimentTest(TestCase):
 
     def testWarmStartFromOldExperiment(self):
         # create old_experiment
-        len_old_trials = 5
+        len_old_trials = 7
         i_failed_trial = 1
         i_abandoned_trial = 3
+        i_running_trial = 5
         old_experiment = get_branin_experiment()
         for i_old_trial in range(len_old_trials):
             sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
@@ -744,6 +745,8 @@ class ExperimentTest(TestCase):
                 trial.mark_failed()
             elif i_old_trial == i_abandoned_trial:
                 trial.mark_abandoned(reason=DUMMY_ABANDONED_REASON)
+            elif i_old_trial == i_running_trial:
+                pass
             else:
                 trial.mark_completed()
         # make metric noiseless for exact reproducibility
@@ -803,7 +806,7 @@ class ExperimentTest(TestCase):
             copy_run_metadata=True,
             trial_statuses_to_copy=[TrialStatus.COMPLETED],
         )
-        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 2)
+        self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 3)
 
         # Warm start from an experiment with only a subset of metrics
         map_data_experiment = get_branin_experiment_with_timestamp_map_metric()
@@ -966,9 +969,10 @@ class ExperimentWithMapDataTest(TestCase):
 
     def testWarmStartMapData(self):
         # create old_experiment
-        len_old_trials = 5
+        len_old_trials = 7
         i_failed_trial = 1
         i_abandoned_trial = 3
+        i_running_trial = 5
         old_experiment = get_branin_experiment_with_timestamp_map_metric()
         for i_old_trial in range(len_old_trials):
             sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
@@ -978,6 +982,8 @@ class ExperimentWithMapDataTest(TestCase):
                 trial.mark_failed()
             elif i_old_trial == i_abandoned_trial:
                 trial.mark_abandoned(reason=DUMMY_ABANDONED_REASON)
+            elif i_old_trial == i_running_trial:
+                pass
             else:
                 trial.mark_completed()
         # make metric noiseless for exact reproducibility
@@ -1011,7 +1017,10 @@ class ExperimentWithMapDataTest(TestCase):
         old_df = old_experiment.fetch_data().df
         new_df = new_experiment.fetch_data().df
 
-        # Factor 2 comes from 2 MapData rows per trial in this test experiment
+        old_df = old_df.sort_values(by=["arm_name", "metric_name"], ignore_index=True)
+        new_df = new_df.sort_values(by=["arm_name", "metric_name"], ignore_index=True)
+
+        # Factor 2 comes from 2 rows per trial in this test experiment
         self.assertEqual(len(new_df), (len_old_trials - 2) * 2)
         pd.testing.assert_frame_equal(
             old_df.drop(["arm_name", "trial_index"], axis=1),
