@@ -148,6 +148,14 @@ class TrialStatus(int, Enum):
         return f"{self!s}"
 
 
+DEFAULT_STATUSES_TO_WARM_START = [
+    TrialStatus.RUNNING,
+    TrialStatus.COMPLETED,
+    TrialStatus.ABANDONED,
+    TrialStatus.EARLY_STOPPED,
+]
+
+
 def immutable_once_run(func: Callable) -> Callable:
     """Decorator for methods that should throw Error when
     trial is running or has ever run and immutable.
