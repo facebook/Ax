@@ -42,7 +42,9 @@ from ax.utils.testing.core_stubs import (
     get_status_quo,
 )
 
-DUMMY_RUN_METADATA = {"test_run_metadata_key": "test_run_metadata_value"}
+DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
+DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
+DUMMY_RUN_METADATA = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 
 
@@ -771,7 +773,8 @@ class ExperimentTest(TestCase):
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         new_experiment.warm_start_from_old_experiment(
-            old_experiment=old_experiment, copy_run_metadata=True
+            old_experiment=old_experiment,
+            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
@@ -803,7 +806,7 @@ class ExperimentTest(TestCase):
         new_experiment.optimization_config.objective.metric.noise_sd = 0
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
-            copy_run_metadata=True,
+            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
             trial_statuses_to_copy=[TrialStatus.COMPLETED],
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 3)
@@ -997,7 +1000,8 @@ class ExperimentWithMapDataTest(TestCase):
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         new_experiment.warm_start_from_old_experiment(
-            old_experiment=old_experiment, copy_run_metadata=True
+            old_experiment=old_experiment,
+            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
