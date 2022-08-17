@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
 from enum import Enum
@@ -979,7 +980,7 @@ class Experiment(Base):
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
-            new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
+            add_arm_and_maybe_clear_name(new_trial=new_trial, old_trial=trial)
             new_trial.mark_running(no_runner_required=True)
             new_trial._properties["source"] = (
                 f"Warm start from Experiment: `{old_experiment._name}`, "
@@ -1118,3 +1119,22 @@ class Experiment(Base):
         with multiple trial types, use the MultiTypeExperiment class.
         """
         return trial_type is None
+
+
+def add_arm_and_maybe_clear_name(new_trial: Trial, old_trial: Trial) -> None:
+    # Clear name only if it matches auto-generated format.
+    # `arm_index` is 0 since all trials are single-armed.
+    clear_name = bool(
+        not_none(old_trial.arm).name == old_trial._get_default_name(arm_index=0)
+    )
+    if clear_name:
+        new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=True))
+    else:
+        try:
+            new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=False))
+        except ValueError as e:
+            warnings.warn(
+                f"Attaching arm {old_trial.arm} to trial {new_trial} while preserving "
+                f"its name failed with error: {e}. Retrying with `clear_name=True`."
+            )
+            new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=True))

@@ -491,13 +491,18 @@ class BaseTrial(ABC, SortableBase):
         """Sets name for given arm; if this arm is already in the
         experiment, uses the existing arm name.
         """
-        proposed_name = f"{self.index}_{self._num_arms_created}"
+        proposed_name = self._get_default_name()
         self.experiment._name_and_store_arm_if_not_exists(
             arm=arm, proposed_name=proposed_name
         )
         # If arm was named using given name, incremement the count
         if arm.name == proposed_name:
             self._num_arms_created += 1
+
+    def _get_default_name(self, arm_index: Optional[int] = None) -> str:
+        if arm_index is None:
+            arm_index = self._num_arms_created
+        return f"{self.index}_{arm_index}"
 
     def _set_generation_step_index(self, generation_step_index: Optional[int]) -> None:
         """Sets the `generation_step_index` property of the trial, to reflect which
