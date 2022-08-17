@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from collections import defaultdict
 from logging import Logger
 from typing import (
@@ -649,6 +650,8 @@ def get_figure_and_callback(
 
     Args:
         plot_fn: A function for producing a Plotly figure from a scheduler.
+            If `plot_fn` raises a `RuntimeError`, the update wil be skipped
+            and optimization will proceed.
 
     Example:
         >>> def _plot(scheduler: Scheduler):
@@ -660,7 +663,14 @@ def get_figure_and_callback(
     fig = go.FigureWidget(layout=go.Layout())
 
     def _update_fig_in_place(scheduler: "Scheduler") -> None:
-        new_fig = plot_fn(scheduler)
+        try:
+            new_fig = plot_fn(scheduler)
+        except RuntimeError as e:
+            logging.warn(
+                f"Plotting function called via callback failed with error {e}."
+                "Skipping plot update."
+            )
+            return
         fig.update(data=new_fig._data, overwrite=True)
 
     return fig, _update_fig_in_place
