@@ -46,6 +46,7 @@ DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
 DUMMY_RUN_METADATA = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
+DUMMY_ARM_NAME = "test_arm_name"
 
 
 class ExperimentTest(TestCase):
@@ -772,6 +773,8 @@ class ExperimentTest(TestCase):
         new_experiment.optimization_config.objective.metric.noise_sd = 0
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
+        # name one arm to test name-preserving logic.
+        old_experiment.trials[0].arm._name = DUMMY_ARM_NAME
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
             copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
@@ -799,6 +802,9 @@ class ExperimentTest(TestCase):
             old_df.drop(["arm_name", "trial_index"], axis=1),
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
+
+        # Check name-preserving logic.
+        self.assertEqual(new_experiment.trials[0].arm.name, DUMMY_ARM_NAME)
 
         # check that all non-failed/abandoned trials are copied to new_experiment
         new_experiment = get_branin_experiment()
