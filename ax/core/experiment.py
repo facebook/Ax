@@ -918,7 +918,7 @@ class Experiment(Base):
     def warm_start_from_old_experiment(
         self,
         old_experiment: Experiment,
-        copy_run_metadata: bool = False,
+        copy_run_metadata_keys: Optional[List[str]] = None,
         trial_statuses_to_copy: Optional[List[TrialStatus]] = None,
     ) -> List[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
@@ -930,7 +930,8 @@ class Experiment(Base):
 
         Args:
             old_experiment: The experiment from which to transfer trials and data
-            copy_run_metadata: whether to copy the run_metadata from the old experiment
+            copy_run_metadata_keys: A list of keys denoting which items to copy over
+                from each trial's run_metadata.
             trial_statuses_to_copy: All trials with a status in this list will be
                 copied. By default, copies all ``COMPLETED``, ``ABANDONED``, and
                 ``EARLY_STOPPED`` trials.
@@ -980,13 +981,15 @@ class Experiment(Base):
             new_trial = self.new_trial()
             new_trial.add_arm(not_none(trial.arm).clone(clear_name=True))
             new_trial.mark_running(no_runner_required=True)
-            new_trial.update_run_metadata({"run_id": trial.run_metadata.get("run_id")})
             new_trial._properties["source"] = (
                 f"Warm start from Experiment: `{old_experiment._name}`, "
                 f"trial: `{trial.index}`"
             )
-            if copy_run_metadata:
-                new_trial._run_metadata = trial.run_metadata
+            if copy_run_metadata_keys is not None:
+                for run_metadata_field in copy_run_metadata_keys:
+                    new_trial.update_run_metadata(
+                        {run_metadata_field: trial.run_metadata.get(run_metadata_field)}
+                    )
             # Trial has data, so we replicate it on the new experiment.
             has_data = ts != -1 and not dat.df.empty
             if has_data:
