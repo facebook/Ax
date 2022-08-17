@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from collections import defaultdict
 from logging import Logger
 from typing import (
@@ -92,7 +93,6 @@ def _get_objective_trace_plot(
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
-        raise RuntimeError("No optimization config")
         return []
 
     metric_names = (
@@ -279,7 +279,7 @@ def get_standard_plots(
 
     objective = not_none(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
-        raise RuntimeError(
+        logger.warning(
             "get_standard_plots does not currently support ScalarizedObjective "
             "optimization experiments. Returning an empty list."
         )
@@ -289,20 +289,25 @@ def get_standard_plots(
         data = experiment.fetch_data()
 
     if data.df.empty:
-        raise RuntimeError(f"Experiment {experiment} does not yet have data, nothing to plot.")
+        logger.info(f"Experiment {experiment} does not yet have data, nothing to plot.")
         return []
 
     output_plot_list = []
-    output_plot_list.extend(
-        _get_objective_trace_plot(
-            experiment=experiment,
-            data=data,
-            model_transitions=model_transitions
-            if model_transitions is not None
-            else [],
-            true_objective_metric_name=true_objective_metric_name,
+    try:
+        output_plot_list.extend(
+            _get_objective_trace_plot(
+                experiment=experiment,
+                data=data,
+                model_transitions=model_transitions
+                if model_transitions is not None
+                else [],
+                true_objective_metric_name=true_objective_metric_name,
+            )
         )
-    )
+    except Exception as e:
+        # Allow model-based plotting to proceed if objective_trace plotting fails.
+        logger.exception(f"Plotting `objective_trace` failed with error {e}")
+        pass
 
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
@@ -645,6 +650,8 @@ def get_figure_and_callback(
 
     Args:
         plot_fn: A function for producing a Plotly figure from a scheduler.
+            If `plot_fn` raises a `RuntimeError`, the update wil be skipped
+            and optimization will proceed.
 
     Example:
         >>> def _plot(scheduler: Scheduler):
@@ -656,7 +663,14 @@ def get_figure_and_callback(
     fig = go.FigureWidget(layout=go.Layout())
 
     def _update_fig_in_place(scheduler: "Scheduler") -> None:
-        new_fig = plot_fn(scheduler)
+        try:
+            new_fig = plot_fn(scheduler)
+        except RuntimeError as e:
+            logging.warn(
+                f"Plotting function called via callback failed with error {e}."
+                "Skipping plot update."
+            )
+            return
         fig.update(data=new_fig._data, overwrite=True)
 
     return fig, _update_fig_in_place
