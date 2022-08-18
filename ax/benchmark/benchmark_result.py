@@ -102,7 +102,7 @@ class AggregatedBenchmarkResult(Base):
         """
         # Extract average wall times and standard errors thereof
         fit_time, gen_time = map(
-            lambda Ts: [nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="omit"))],
+            lambda Ts: [nanmean(Ts), float(sem(Ts, ddof=1, nan_policy="propagate"))],
             zip(*((res.fit_time, res.gen_time) for res in results)),
         )
 
@@ -159,7 +159,7 @@ def _get_stats(
         stats.update({"progression": []})
     for i, step_vals in enumerate(step_data):
         stats["mean"].append(nanmean(step_vals))
-        stats["sem"].append(sem(step_vals, ddof=1, nan_policy="omit"))
+        stats["sem"].append(sem(step_vals, ddof=1, nan_policy="propagate"))
         quantiles.append(nanquantile(step_vals, q=percentiles))
         if progressions is not None:
             stats["progression"].append(progressions[i])
