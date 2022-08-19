@@ -671,6 +671,6 @@ def get_figure_and_callback(
                 "Skipping plot update."
             )
             return
-        fig.update(data=new_fig._data, overwrite=True)
+        fig.update(data=new_fig._data, layout=new_fig._layout, overwrite=True)
 
     return fig, _update_fig_in_place
