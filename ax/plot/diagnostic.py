@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -309,11 +310,25 @@ def _get_batch_comparison_plot_data(
     )
 
 
-def _get_cv_plot_data(cv_results: List[CVResult]) -> PlotData:
+def _get_cv_plot_data(
+    cv_results: List[CVResult], label_dict: Optional[Dict[str, str]]
+) -> PlotData:
     if len(cv_results) == 0:
         return PlotData(
             metrics=[], in_sample={}, out_of_sample=None, status_quo_name=None
         )
+
+    if label_dict is None:
+        label_dict = {}
+    # Apply label_dict to cv_results
+    cv_results = deepcopy(cv_results)  # Copy and edit in-place
+    for cv_i in cv_results:
+        cv_i.observed.data.metric_names = [
+            label_dict.get(m, m) for m in cv_i.observed.data.metric_names
+        ]
+        cv_i.predicted.metric_names = [
+            label_dict.get(m, m) for m in cv_i.predicted.metric_names
+        ]
 
     # arm_name -> Arm data
     insample_data: Dict[str, PlotInSampleArm] = {}
@@ -426,7 +441,10 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
 
 
 def interact_cross_validation_plotly(
-    cv_results: List[CVResult], show_context: bool = True, caption: str = ""
+    cv_results: List[CVResult],
+    show_context: bool = True,
+    caption: str = "",
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> go.Figure:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
@@ -436,10 +454,11 @@ def interact_cross_validation_plotly(
     Args:
         cv_results: cross-validation results.
         show_context: if True, show context on hover.
+        label_dict: optional map from real metric names to shortened names
 
     Returns a plotly.graph_objects.Figure
     """
-    data = _get_cv_plot_data(cv_results)
+    data = _get_cv_plot_data(cv_results, label_dict=label_dict)
     fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
     current_bmargin = fig["layout"]["margin"].b or 90
     caption_height = 100 * (len(caption) > 0)
@@ -451,7 +470,9 @@ def interact_cross_validation_plotly(
 
 
 def interact_cross_validation(
-    cv_results: List[CVResult], show_context: bool = True
+    cv_results: List[CVResult],
+    show_context: bool = True,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
@@ -461,12 +482,15 @@ def interact_cross_validation(
     Args:
         cv_results: cross-validation results.
         show_context: if True, show context on hover.
+        label_dict: optional map from real metric names to shortened names
 
     Returns an AxPlotConfig
     """
     return AxPlotConfig(
         data=interact_cross_validation_plotly(
-            cv_results=cv_results, show_context=show_context
+            cv_results=cv_results,
+            show_context=show_context,
+            label_dict=label_dict,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
@@ -476,6 +500,7 @@ def tile_cross_validation(
     cv_results: List[CVResult],
     show_arm_details_on_hover: bool = True,
     show_context: bool = True,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Tile version of CV plots; sorted by 'best fitting' outcomes.
 
@@ -490,10 +515,11 @@ def tile_cross_validation(
             parameterizations of arms on hover. Default is True.
         show_context: if True (default), display context on
             hover.
+        label_dict: optional map from real metric names to shortened names
 
     Returns a plotly.graph_objects.Figure
     """
-    data = _get_cv_plot_data(cv_results)
+    data = _get_cv_plot_data(cv_results, label_dict=label_dict)
     metrics = data.metrics
 
     # make subplots (2 plots per row)
