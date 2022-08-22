@@ -40,6 +40,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         name: str,
         curve_name: str,
         lower_is_better: bool = True,
+        cumulative_best: bool = False,
     ) -> None:
         """Inits Metric.
 
@@ -48,9 +49,13 @@ class AbstractCurveMetric(MapMetric, ABC):
             curve_name: The name of the learning curve in the training output
                 (there may be multiple outputs e.g. for MTML models).
             lower_is_better: If True, lower curve values are considered better.
+            cumulative_best: If True, for each trial, apply cumulative best to
+                the curve (i.e., if lower is better, then we return a curve
+                representing the cumulative min of the raw curve).
         """
         super().__init__(name=name, lower_is_better=lower_is_better)
         self.curve_name = curve_name
+        self.cumulative_best = cumulative_best
 
     @classmethod
     def is_available_while_running(cls) -> bool:
@@ -132,13 +137,15 @@ class AbstractCurveMetric(MapMetric, ABC):
                 continue
             curve_series = all_curve_series[id_]
             for m in metrics:
-                if m.curve_name in curve_series:  # pyre-ignore [16]
+                if m.curve_name in curve_series:  # pyre-ignore[16]
                     dfi = _get_single_curve(
                         curve_series=curve_series,
                         curve_name=m.curve_name,
                         metric_name=m.name,
                         map_key=cls.MAP_KEY.key,
                         trial=experiment.trials[trial_idx],
+                        cumulative_best=m.cumulative_best,  # pyre-ignore[16]
+                        lower_is_better=m.lower_is_better,  # pyre-ignore[6]
                     )
                     dfs.append(dfi)
                 else:
@@ -212,6 +219,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
         coefficients: Dict[str, float],
         offset: float = 0.0,
         lower_is_better: bool = True,
+        cumulative_best: bool = False,
     ) -> None:
         """Construct a AbstractScalarizedCurveMetric.
 
@@ -222,10 +230,14 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
             offset: The offset of the affine scalarization.
             lower_is_better: If True, lower values (of the scalarized metric) are
                 considered better.
+            cumulative_best: If True, for each trial, apply cumulative best to
+                the curve (i.e., if lower is better, then we return a curve
+                representing the cumulative min of the raw curve).
         """
         MapMetric.__init__(self, name=name, lower_is_better=lower_is_better)
         self.coefficients = coefficients
         self.offset = offset
+        self.cumulative_best = cumulative_best
 
     @classmethod
     def get_df_from_curve_series(
@@ -267,6 +279,8 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                             curve_name=curve_name,
                             map_key=cls.MAP_KEY.key,
                             trial=experiment.trials[trial_idx],
+                            cumulative_best=m.cumulative_best,  # pyre-ignore[16]
+                            lower_is_better=m.lower_is_better,  # pyre-ignore[6]
                         )
                         curve_dfs.append(curve_df)
                     else:
@@ -316,6 +330,8 @@ def _get_single_curve(
     curve_name: str,
     map_key: str,
     trial: BaseTrial,
+    cumulative_best: bool,
+    lower_is_better: bool,
     metric_name: Optional[str] = None,
 ) -> pd.DataFrame:
     """Get a single curve from `curve_series` and return as a dataframe.
@@ -330,6 +346,8 @@ def _get_single_curve(
     dfi["arm_name"] = trial.arm.name  # pyre-ignore [16]
     dfi["metric_name"] = metric_name
     dfi["sem"] = float("nan")
+    if cumulative_best:
+        dfi["mean"] = dfi["mean"].cummin() if lower_is_better else dfi["mean"].cummax()
     return dfi.drop_duplicates()
 
 
