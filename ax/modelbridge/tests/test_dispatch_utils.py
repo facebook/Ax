@@ -134,6 +134,10 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
             self.assertEqual(sobol_fullybayesian._steps[1].model.value, "FullyBayesian")
             self.assertTrue(sobol_fullybayesian._steps[1].model_kwargs["verbose"])
+            self.assertDictEqual(
+                sobol_fullybayesian._steps[1].model_gen_kwargs,
+                {"optimizer_kwargs": {"init_batch_limit": 128}},
+            )
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -150,6 +154,10 @@ class TestDispatchUtils(TestCase):
                 sobol_fullybayesianmoo._steps[1].model.value, "FullyBayesianMOO"
             )
             self.assertTrue(sobol_fullybayesianmoo._steps[1].model_kwargs["verbose"])
+            self.assertDictEqual(
+                sobol_fullybayesian._steps[1].model_gen_kwargs,
+                {"optimizer_kwargs": {"init_batch_limit": 128}},
+            )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
                 search_space=get_large_ordinal_search_space(

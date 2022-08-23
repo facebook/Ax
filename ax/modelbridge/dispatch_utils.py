@@ -98,6 +98,9 @@ def _make_botorch_step(
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
         model_kwargs.update({"disable_progbar": disable_progbar})
+    model_gen_kwargs = None
+    if is_saasbo(model):
+        model_gen_kwargs = {"optimizer_kwargs": {"init_batch_limit": 128}}
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -108,6 +111,7 @@ def _make_botorch_step(
         # `model_kwargs` should default to `None` if empty
         model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
+        model_gen_kwargs=model_gen_kwargs,
     )
 
 
@@ -373,10 +377,7 @@ def choose_generation_strategy(
                 )
 
         # `verbose` and `disable_progbar` defaults and overrides
-        model_is_saasbo = not_none(suggested_model).name in [
-            "FULLYBAYESIANMOO",
-            "FULLYBAYESIAN",
-        ]
+        model_is_saasbo = is_saasbo(suggested_model)
         if verbose is None and model_is_saasbo:
             verbose = True
         elif verbose is not None and not model_is_saasbo:
@@ -465,3 +466,9 @@ def _get_winsorization_transform_config(
     if optimization_config:
         transform_config["optimization_config"] = optimization_config
     return transform_config
+
+
+def is_saasbo(model: Union[None, Models]) -> bool:
+    if model is not None:
+        return model.name in ["FULLYBAYESIANMOO", "FULLYBAYESIAN"]
+    return False
