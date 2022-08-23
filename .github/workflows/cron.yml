@@ -46,7 +46,7 @@ jobs:
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install "gpytorch==1.8.1"
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For tensorboard unit tests
@@ -58,7 +58,7 @@ jobs:
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install "gpytorch==1.8.1"
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .
         pip install tensorboard  # For tensorboard unit tests
@@ -116,7 +116,7 @@ jobs:
         ALLOW_BOTORCH_LATEST: true
       run: |
         # use latest BoTorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install "gpytorch==1.8.1"
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
         pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
@@ -152,7 +152,7 @@ jobs:
         ALLOW_BOTORCH_LATEST: true
       run: |
         # use latest BoTorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install "gpytorch==1.8.1"
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
         pip install wheel
