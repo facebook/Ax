@@ -12,6 +12,7 @@
 import contextlib
 import io
 import linecache
+import os
 import signal
 import subprocess
 import sys
@@ -224,6 +225,9 @@ def _build_comparison_str(
 class TestCase(unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
+    # try to remove these files on tearDown
+    FILES_TO_CLEAN: List[str] = []
+
     MAX_TEST_SECONDS = 540
     MIN_TTOT = 1.0
     PROFILER_COLUMNS = {
@@ -251,6 +255,11 @@ class TestCase(unittest.TestCase):
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
+
+    def tearDown(self) -> None:
+        for f in self.FILES_TO_CLEAN:
+            if os.path.exists(f):
+                os.remove(f)
 
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
