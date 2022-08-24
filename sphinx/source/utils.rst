@@ -159,6 +159,33 @@ Render
     :undoc-members:
     :show-inheritance:
 
+Sensitivity
+---------------
+
+Derivative GP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.sensitivity.derivative_gp
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Derivative Measures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.sensitivity.derivative_measures
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Sobol Measures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.sensitivity.sobol_measures
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Stats
 ---------------
 
