@@ -33,6 +33,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from unittest.mock import MagicMock
 
 import yappi
 
@@ -220,6 +221,11 @@ def _build_comparison_str(
                 values_in_suffix=f" in {bul}",
             )
     return msg
+
+
+def setup_import_mocks(mocked_import_paths: List[str]) -> None:
+    for import_path in mocked_import_paths:
+        sys.modules[import_path] = MagicMock()
 
 
 class TestCase(unittest.TestCase):
