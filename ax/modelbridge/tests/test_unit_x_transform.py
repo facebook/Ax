@@ -54,8 +54,7 @@ class UnitXTransformTest(TestCase):
         )
         self.t = self.transform_class(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         self.search_space_with_target = SearchSpace(
             parameters=[
@@ -134,8 +133,7 @@ class UnitXTransformTest(TestCase):
         # Test transform of target value
         t = self.transform_class(
             search_space=self.search_space_with_target,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(self.search_space_with_target)
         self.assertEqual(
@@ -153,8 +151,7 @@ class UnitXTransformTest(TestCase):
             expected = str(rss)
             t = self.transform_class(
                 search_space=rss,
-                observation_features=None,
-                observation_data=None,
+                observations=[],
             )
             self.assertEqual(expected, str(t.transform_search_space(rss)))
         # Error if distribution is multiplicative.
@@ -162,8 +159,7 @@ class UnitXTransformTest(TestCase):
         rss.parameter_distributions[0].multiplicative = True
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         with self.assertRaisesRegex(NotImplementedError, "multiplicative"):
             t.transform_search_space(rss)
@@ -171,8 +167,7 @@ class UnitXTransformTest(TestCase):
         rss = get_robust_search_space(lb=5.0, ub=10.0)
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(rss)
         dists = rss.parameter_distributions
@@ -205,8 +200,7 @@ class UnitXTransformTest(TestCase):
         rss.parameters["z"]._parameter_type = ParameterType.FLOAT
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         with self.assertRaisesRegex(UnsupportedError, "`loc` and `scale`"):
             t.transform_search_space(rss)
@@ -217,8 +211,7 @@ class UnitXTransformTest(TestCase):
         rss.parameter_distributions[0].distribution_class = "multivariate_t"
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         with self.assertRaisesRegex(UnsupportedError, "multivariate"):
             t.transform_search_space(rss)
@@ -227,8 +220,7 @@ class UnitXTransformTest(TestCase):
         old_params = deepcopy(rss.parameter_distributions[0].distribution_parameters)
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(rss)
         new_params = rss.parameter_distributions[0].distribution_parameters
@@ -257,8 +249,7 @@ class UnitXTransformTest(TestCase):
         )
         t = self.transform_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(rss)
         new_params = rss.parameter_distributions[0].distribution_parameters

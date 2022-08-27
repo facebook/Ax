@@ -37,8 +37,7 @@ class TaskEncodeTransformTest(TestCase):
         )
         self.t = TaskEncode(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
 
     def testInit(self):
@@ -90,7 +89,8 @@ class TaskEncodeTransformTest(TestCase):
         )
         with self.assertRaises(ValueError):
             TaskEncode(
-                search_space=ss3, observation_features=None, observation_data=None
+                search_space=ss3,
+                observations=[],
             )
 
     def test_w_parameter_distributions(self):
@@ -99,8 +99,7 @@ class TaskEncodeTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = TaskEncode(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -118,8 +117,7 @@ class TaskEncodeTransformTest(TestCase):
         )
         t = TaskEncode(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)

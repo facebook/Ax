@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.parameter_distribution import ParameterDistribution
@@ -36,12 +36,12 @@ class UnitX(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "UnitX requires search space"
         # Identify parameters that should be transformed
         self.bounds: Dict[str, Tuple[float, float]] = {}
         for p_name, p in search_space.parameters.items():
@@ -99,12 +99,13 @@ class UnitX(Transform):
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
-                # pyre: param is declared to have type `float` but is used as
-                # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-                param: float = obsf.parameters[p_name]
-                obsf.parameters[p_name] = (
-                    param - self.target_lb
-                ) / self.target_range * (u - l) + l
+                if p_name in obsf.parameters:
+                    # pyre: param is declared to have type `float` but is used as
+                    # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
+                    param: float = obsf.parameters[p_name]
+                    obsf.parameters[p_name] = (
+                        param - self.target_lb
+                    ) / self.target_range * (u - l) + l
         return observation_features
 
     def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:

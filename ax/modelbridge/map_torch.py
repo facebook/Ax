@@ -16,6 +16,7 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_map_data,
+    separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
@@ -157,8 +158,7 @@ class MapTorchModelBridge(TorchModelBridge):
         self,
         model: TorchModel,
         search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        observations: List[Observation],
         parameters: Optional[List[str]] = None,
     ) -> None:
         """The difference from `TorchModelBridge._fit(...)` is that we use
@@ -170,8 +170,7 @@ class MapTorchModelBridge(TorchModelBridge):
         super()._fit(
             model=model,
             search_space=search_space,
-            observation_features=observation_features,
-            observation_data=observation_data,
+            observations=observations,
             parameters=parameters,
         )
 
@@ -213,8 +212,7 @@ class MapTorchModelBridge(TorchModelBridge):
     def _update(
         self,
         search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        observations: List[Observation],
         parameters: Optional[List[str]] = None,
     ) -> None:
         """The difference b/t this method and TorchModelBridge._update(...) is
@@ -222,8 +220,7 @@ class MapTorchModelBridge(TorchModelBridge):
         """
         return super()._update(
             search_space=search_space,
-            observation_features=observation_features,
-            observation_data=observation_data,
+            observations=observations,
             parameters=self.parameters_with_map_keys,
         )
 
@@ -244,7 +241,7 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _compute_in_design(
-        self, search_space: SearchSpace, observation_features: List[ObservationFeatures]
+        self, search_space: SearchSpace, observations: List[Observation]
     ) -> List[bool]:
         """The difference b/t this method and ModelBridge._compute_in_design(...)
         is that this one correctly excludes map_keys when checking membership in
@@ -255,18 +252,17 @@ class MapTorchModelBridge(TorchModelBridge):
                 # Exclude map key features when checking
                 {
                     p: v
-                    for p, v in obsf.parameters.items()
+                    for p, v in obs.features.parameters.items()
                     if p not in self._map_key_features
                 }
             )
-            for obsf in observation_features
+            for obs in observations
         ]
 
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
     ) -> List[ObservationData]:
@@ -280,11 +276,11 @@ class MapTorchModelBridge(TorchModelBridge):
             parameters = self.parameters_with_map_keys
         cv_test_data = super()._cross_validate(
             search_space=search_space,
-            observation_features=observation_features,
-            observation_data=observation_data,
+            cv_training_data=cv_training_data,
             cv_test_points=cv_test_points,
             parameters=parameters,  # we pass the map_keys too by default
         )
+        observation_features, observation_data = separate_observations(cv_training_data)
         # Since map_keys are used as features, there can be the possibility that
         # models for different outcomes were fit on different ranges of map_key
         # values; for example, this is the case if we (1) mix learning curve data with

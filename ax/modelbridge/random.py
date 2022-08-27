@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import GenResults, ModelBridge
@@ -48,8 +48,7 @@ class RandomModelBridge(ModelBridge):
         self,
         model: RandomModel,
         search_space: SearchSpace,
-        observation_features: Optional[List[ObservationFeatures]] = None,
-        observation_data: Optional[List[ObservationData]] = None,
+        observations: Optional[List[Observation]] = None,
     ) -> None:
         self.model = model
         # Extract and fix parameters from initial search space.
@@ -103,8 +102,7 @@ class RandomModelBridge(ModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         raise NotImplementedError

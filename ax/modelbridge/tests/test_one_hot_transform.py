@@ -48,13 +48,11 @@ class OneHotTransformTest(TestCase):
         )
         self.t = OneHot(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         self.t2 = OneHot(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
             config={"rounding": "randomized"},
         )
 
@@ -148,7 +146,7 @@ class OneHotTransformTest(TestCase):
                 )
             ]
         )
-        t = OneHot(search_space=ss3, observation_features=None, observation_data=None)
+        t = OneHot(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
@@ -157,8 +155,7 @@ class OneHotTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = OneHot(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -176,8 +173,7 @@ class OneHotTransformTest(TestCase):
         )
         t = OneHot(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)

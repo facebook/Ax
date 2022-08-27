@@ -35,8 +35,7 @@ class LogTransformTest(TestCase):
         )
         self.t = Log(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         self.search_space_with_target = SearchSpace(
             parameters=[
@@ -76,8 +75,7 @@ class LogTransformTest(TestCase):
         self.assertEqual(ss2.parameters["x"].upper, math.log10(3))
         t2 = Log(
             search_space=self.search_space_with_target,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t2.transform_search_space(self.search_space_with_target)
         self.assertEqual(
@@ -90,8 +88,7 @@ class LogTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = Log(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(rss)
         self.assertFalse(rss.parameters.get("y").log_scale)
@@ -99,8 +96,7 @@ class LogTransformTest(TestCase):
         rss.parameters["x"].set_log_scale(True)
         t = Log(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)

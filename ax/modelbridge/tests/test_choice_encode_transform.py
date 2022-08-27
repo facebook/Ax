@@ -48,8 +48,7 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         self.t = self.t_class(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         self.observation_features = [
             ObservationFeatures(
@@ -127,9 +126,7 @@ class ChoiceEncodeTransformTest(TestCase):
                 )
             ]
         )
-        t = OrderedChoiceEncode(
-            search_space=ss3, observation_features=None, observation_data=None
-        )
+        t = OrderedChoiceEncode(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
@@ -139,8 +136,7 @@ class ChoiceEncodeTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = self.t_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -158,8 +154,7 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         t = self.t_class(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -219,9 +214,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
                 )
             ]
         )
-        t = OrderedChoiceEncode(
-            search_space=ss3, observation_features=None, observation_data=None
-        )
+        t = OrderedChoiceEncode(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 

@@ -10,7 +10,7 @@ from math import sqrt
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
@@ -38,10 +38,11 @@ class StandardizeYTransformTest(TestCase):
                 ]
             ),
         )
+        obs1 = Observation(features=ObservationFeatures({}), data=self.obsd1)
+        obs2 = Observation(features=ObservationFeatures({}), data=self.obsd2)
         self.t = StandardizeY(
             search_space=None,
-            observation_features=None,
-            observation_data=[self.obsd1, self.obsd2],
+            observations=[obs1, obs2],
         )
 
     def testInit(self):
@@ -49,7 +50,8 @@ class StandardizeYTransformTest(TestCase):
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
             StandardizeY(
-                search_space=None, observation_features=None, observation_data=[]
+                search_space=None,
+                observations=[],
             )
 
     def testTransformObservations(self):
@@ -65,9 +67,9 @@ class StandardizeYTransformTest(TestCase):
             ),
         )
         obsd2 = [deepcopy(self.obsd1)]
-        obsd2 = self.t.transform_observation_data(obsd2, [])
+        obsd2 = self.t._transform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], obsd1_t))
-        obsd2 = self.t.untransform_observation_data(obsd2, [])
+        obsd2 = self.t._untransform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
     def testTransformOptimizationConfig(self):
