@@ -6,7 +6,7 @@
 
 from typing import Dict, List, Optional, TYPE_CHECKING, Union
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
@@ -29,12 +29,12 @@ class RemoveFixed(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "RemoveFixed requires search space"
         # Identify parameters that should be transformed
         self.fixed_parameters: Dict[str, FixedParameter] = {
             p_name: p

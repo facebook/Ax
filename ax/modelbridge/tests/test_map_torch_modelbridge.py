@@ -10,10 +10,12 @@ import numpy as np
 
 import torch
 
-from ax.core import ObservationFeatures
-
 from ax.core.base_trial import TrialStatus
-from ax.core.observation import ObservationData
+from ax.core.observation import (
+    ObservationData,
+    ObservationFeatures,
+    recombine_observations,
+)
 from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.constants import Keys
@@ -136,14 +138,14 @@ class MapTorchModelBridgeTest(TestCase):
                 covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
             ),
         ]
+        cv_training_data = recombine_observations(features, data)
         with mock.patch(
             "ax.modelbridge.torch.TorchModelBridge._cross_validate",
             return_value=test_data,
         ):
             cv_obs_data = modelbridge._cross_validate(
                 search_space=experiment.search_space,
-                observation_features=features,
-                observation_data=data,
+                cv_training_data=cv_training_data,
                 cv_test_points=test_features,
             )
             # check that the out-of-design metric is deleted

@@ -6,7 +6,7 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
@@ -39,12 +39,12 @@ class Cast(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: Optional[List[ObservationFeatures]] = None,
-        observation_data: Optional[List[ObservationData]] = None,
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "Cast requires search space"
         self.search_space = search_space.clone()
         self.flatten_hss: bool = (
             config is None or checked_cast(bool, config.get("flatten_hss", True))

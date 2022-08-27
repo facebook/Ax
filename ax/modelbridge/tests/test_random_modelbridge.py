@@ -40,7 +40,7 @@ class RandomModelBridgeTest(TestCase):
     def testFit(self, mock_init):
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
-        modelbridge._fit(model, self.search_space, None, None)
+        modelbridge._fit(model, self.search_space, None)
         self.assertEqual(modelbridge.parameters, ["x", "y", "z"])
         self.assertTrue(isinstance(modelbridge.model, RandomModel))
 
@@ -58,7 +58,7 @@ class RandomModelBridgeTest(TestCase):
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
-            modelbridge._cross_validate(None, [], [], [])
+            modelbridge._cross_validate(None, [], [])
 
     @mock.patch(
         "ax.models.random.base.RandomModel.gen",

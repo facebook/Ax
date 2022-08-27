@@ -10,7 +10,7 @@ from math import sqrt
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -53,10 +53,11 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )
         self.obsf1 = ObservationFeatures({"x": 2, "z": "a"})
         self.obsf2 = ObservationFeatures({"x": 5, "z": "b"})
+        self.obs1 = Observation(features=self.obsf1, data=self.obsd1)
+        self.obs2 = Observation(features=self.obsf2, data=self.obsd2)
         self.t = StratifiedStandardizeY(
             search_space=self.search_space,
-            observation_features=[self.obsf1, self.obsf2],
-            observation_data=[self.obsd1, self.obsd2],
+            observations=[self.obs1, self.obs2],
             config={"parameter_name": "z"},
         )
 
@@ -84,15 +85,13 @@ class StratifiedStandardizeYTransformTest(TestCase):
             # No parameter specified
             StratifiedStandardizeY(
                 search_space=self.search_space,
-                observation_features=[self.obsf1, self.obsf2],
-                observation_data=[self.obsd1, self.obsd2],
+                observations=[self.obs1, self.obs2],
             )
         with self.assertRaises(ValueError):
             # Wrong parameter type
             StratifiedStandardizeY(
                 search_space=self.search_space,
-                observation_features=[self.obsf1, self.obsf2],
-                observation_data=[self.obsd1, self.obsd2],
+                observations=[self.obs1, self.obs2],
                 config={"parameter_name": "x"},
             )
         # Multiple tasks parameters
@@ -118,8 +117,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         with self.assertRaises(ValueError):
             StratifiedStandardizeY(
                 search_space=ss3,
-                observation_features=[self.obsf1, self.obsf2],
-                observation_data=[self.obsd1, self.obsd2],
+                observations=[self.obs1, self.obs2],
             )
 
         # Grab from task feature
@@ -138,8 +136,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )
         t2 = StratifiedStandardizeY(
             search_space=ss2,
-            observation_features=[self.obsf1, self.obsf2],
-            observation_data=[self.obsd1, self.obsd2],
+            observations=[self.obs1, self.obs2],
         )
         self.assertEqual(
             t2.Ymean,
@@ -174,24 +171,24 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 ]
             ),
         )
-        obsd2 = [deepcopy(self.obsd1)]
-        obsd2 = self.t.transform_observation_data(
-            obsd2, [ObservationFeatures({"z": "a"})]
-        )
-        self.assertTrue(osd_allclose(obsd2[0], obsd1_ta))
-        obsd2 = self.t.untransform_observation_data(
-            obsd2, [ObservationFeatures({"z": "a"})]
-        )
-        self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
-        obsd2 = [deepcopy(self.obsd1)]
-        obsd2 = self.t.transform_observation_data(
-            obsd2, [ObservationFeatures({"z": "b"})]
-        )
-        self.assertTrue(osd_allclose(obsd2[0], obsd1_tb))
-        obsd2 = self.t.untransform_observation_data(
-            obsd2, [ObservationFeatures({"z": "b"})]
-        )
-        self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
+        obsd2 = deepcopy(self.obsd1)
+        obsd2 = self.t.transform_observations(
+            [Observation(data=obsd2, features=ObservationFeatures({"z": "a"}))]
+        )[0].data
+        self.assertTrue(osd_allclose(obsd2, obsd1_ta))
+        obsd2 = self.t.untransform_observations(
+            [Observation(data=obsd2, features=ObservationFeatures({"z": "a"}))]
+        )[0].data
+        self.assertTrue(osd_allclose(obsd2, self.obsd1))
+        obsd2 = deepcopy(self.obsd1)
+        obsd2 = self.t.transform_observations(
+            [Observation(data=obsd2, features=ObservationFeatures({"z": "b"}))]
+        )[0].data
+        self.assertTrue(osd_allclose(obsd2, obsd1_tb))
+        obsd2 = self.t.untransform_observations(
+            [Observation(data=obsd2, features=ObservationFeatures({"z": "b"}))]
+        )[0].data
+        self.assertTrue(osd_allclose(obsd2, self.obsd1))
 
     def testTransformOptimizationConfig(self):
         m1 = Metric(name="m1")

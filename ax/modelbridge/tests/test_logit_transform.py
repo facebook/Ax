@@ -35,8 +35,7 @@ class LogitTransformTest(TestCase):
         )
         self.t = Logit(
             search_space=self.search_space,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         self.search_space_with_target = SearchSpace(
             parameters=[
@@ -107,8 +106,7 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss2.parameters["x"].upper, logit(0.999))
         t2 = Logit(
             search_space=self.search_space_with_target,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         ss_target = deepcopy(self.search_space_with_target)
         t2.transform_search_space(ss_target)
@@ -122,8 +120,7 @@ class LogitTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = Logit(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         t.transform_search_space(rss)
         self.assertFalse(rss.parameters.get("y").logit_scale)
@@ -131,8 +128,7 @@ class LogitTransformTest(TestCase):
         rss.parameters["x"].set_logit_scale(True)
         t = Logit(
             search_space=rss,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)

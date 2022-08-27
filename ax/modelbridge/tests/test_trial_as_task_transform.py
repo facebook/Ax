@@ -6,7 +6,8 @@
 
 from copy import deepcopy
 
-from ax.core.observation import ObservationFeatures
+import numpy as np
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -30,10 +31,19 @@ class TrialAsTaskTransformTest(TestCase):
             ObservationFeatures({"x": 3}, trial_index=1),
             ObservationFeatures({"x": 4}, trial_index=2),
         ]
+        self.training_obs = [
+            Observation(
+                data=ObservationData(
+                    metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+                ),
+                features=obsf,
+            )
+            for obsf in self.training_feats
+        ]
+
         self.t = TrialAsTask(
             search_space=self.search_space,
-            observation_features=self.training_feats,
-            observation_data=None,
+            observations=self.training_obs,
         )
         self.bm = {
             "bp1": {0: "v1", 1: "v2", 2: "v3"},
@@ -42,14 +52,12 @@ class TrialAsTaskTransformTest(TestCase):
 
         self.t2 = TrialAsTask(
             search_space=self.search_space,
-            observation_features=self.training_feats,
-            observation_data=None,
+            observations=self.training_obs,
             config={"trial_level_map": self.bm},
         )
         self.t3 = TrialAsTask(
             search_space=self.search_space,
-            observation_features=self.training_feats,
-            observation_data=None,
+            observations=self.training_obs,
             config={"trial_level_map": {}},
         )
 
@@ -62,18 +70,19 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertIsNone(self.t2.inverse_map)
         # Test validation
         obsf = ObservationFeatures({"x": 2})
+        obs = Observation(
+            data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
+        )
         with self.assertRaises(ValueError):
             TrialAsTask(
                 search_space=self.search_space,
-                observation_features=self.training_feats + [obsf],
-                observation_data=None,
+                observations=self.training_obs + [obs],
             )
         bm = {"p": {0: "x1", 1: "x2"}}
         with self.assertRaises(ValueError):
             TrialAsTask(
                 search_space=self.search_space,
-                observation_features=self.training_feats,
-                observation_data=None,
+                observations=self.training_obs,
                 config={"trial_level_map": bm},
             )
 
@@ -132,6 +141,5 @@ class TrialAsTaskTransformTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             TrialAsTask(
                 search_space=rss,
-                observation_features=[],
-                observation_data=None,
+                observations=[],
             )

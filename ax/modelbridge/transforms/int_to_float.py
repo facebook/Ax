@@ -6,7 +6,7 @@
 
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
@@ -17,6 +17,7 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -40,13 +41,12 @@ class IntToFloat(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        self.search_space = search_space
+        self.search_space = not_none(search_space, "IntToFloat requires search space")
         self.rounding = "strict"
         if config is not None:
             self.rounding = config.get("rounding", "strict")
@@ -59,7 +59,7 @@ class IntToFloat(Transform):
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name
-            for p_name, p in search_space.parameters.items()
+            for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):

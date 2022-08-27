@@ -6,7 +6,7 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation
 from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
@@ -27,13 +27,13 @@ class CapParameter(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         self.config = config or {}
+        assert search_space is not None, "CapParameter requires search space"
         self.transform_parameters = {  # Only transform parameters in config.
             p_name for p_name in search_space.parameters if p_name in self.config
         }

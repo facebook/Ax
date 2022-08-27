@@ -6,7 +6,8 @@
 
 from copy import deepcopy
 
-from ax.core.observation import ObservationFeatures
+import numpy as np
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
@@ -45,10 +46,15 @@ class MapUnitXTransformTest(TestCase):
                 parameters={"x": 2, "a": 2, "b": "b", "step_1": 7.0, "step_2": 3.0}
             ),
         ]
+        self.observations = [
+            Observation(
+                data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
+            )
+            for obsf in self.observation_features
+        ]
         self.t = MapUnitX(
             search_space=self.search_space,
-            observation_features=self.observation_features,
-            observation_data=[],
+            observations=self.observations,
         )
 
     def testInit(self):

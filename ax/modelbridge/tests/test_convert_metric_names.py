@@ -27,30 +27,27 @@ class ConvertMetricNamesTest(TestCase):
 
     def testConvertMetricNames(self):
         transform = ConvertMetricNames(
-            None, self.observation_features, self.observation_data, config=self.tconfig
+            None, observations=self.observations, config=self.tconfig
         )
 
         transformed_observations = convert_mt_observations(
             self.observations, self.experiment
         )
         transformed_observation_data = [o.data for o in transformed_observations]
-        transformed_observation_features = [
-            o.features for o in transformed_observations
-        ]
 
         # All trials should have canonical name "m1"
         for obsd in transformed_observation_data:
             self.assertEqual(obsd.metric_names[0], "m1")
 
         # By default untransform does nothing
-        untransformed_observation_data = transform.untransform_observation_data(
-            transformed_observation_data, transformed_observation_features
+        untransformed_observations = transform.untransform_observations(
+            transformed_observations
         )
-        self.assertEqual(transformed_observation_data, untransformed_observation_data)
+        self.assertEqual(transformed_observations, untransformed_observations)
 
         transform.perform_untransform = True
-        untransformed_observation_data = transform.untransform_observation_data(
-            transformed_observation_data, transformed_observation_features
+        untransformed_observations = transform.untransform_observations(
+            transformed_observations
         )
 
         # Should have original metric_name
@@ -59,22 +56,19 @@ class ConvertMetricNamesTest(TestCase):
                 "m1" if self.observation_features[i].trial_index == 0 else "m2"
             )
             self.assertEqual(
-                untransformed_observation_data[i].metric_names[0], metric_name
+                untransformed_observations[i].data.metric_names[0], metric_name
             )
 
     def testBadInputs(self):
         with self.assertRaises(ValueError):
-            ConvertMetricNames(
-                None, self.observation_features, self.observation_data, config=None
-            )
+            ConvertMetricNames(None, observations=self.observations, config=None)
 
         with self.assertRaises(ValueError):
             tconfig_copy = dict(self.tconfig)
             tconfig_copy.pop("metric_name_map")
             ConvertMetricNames(
                 None,
-                self.observation_features,
-                self.observation_data,
+                observations=self.observations,
                 config=tconfig_copy,
             )
 
@@ -83,8 +77,7 @@ class ConvertMetricNamesTest(TestCase):
             tconfig_copy.pop("trial_index_to_type")
             ConvertMetricNames(
                 None,
-                self.observation_features,
-                self.observation_data,
+                observations=self.observations,
                 config=tconfig_copy,
             )
 
@@ -93,8 +86,7 @@ class ConvertMetricNamesTest(TestCase):
             tconfig_copy.pop("metric_name_to_trial_type")
             ConvertMetricNames(
                 None,
-                self.observation_features,
-                self.observation_data,
+                observations=self.observations,
                 config=tconfig_copy,
             )
 
@@ -103,8 +95,7 @@ class ConvertMetricNamesTest(TestCase):
             tconfig_copy["trial_index_to_type"].pop(0)
             ConvertMetricNames(
                 None,
-                self.observation_features,
-                self.observation_data,
+                observations=self.observations,
                 config=tconfig_copy,
             )
 
@@ -114,6 +105,4 @@ class ConvertMetricNamesTest(TestCase):
         online_metric._name = "m3"
         self.experiment.add_tracking_metric(online_metric, "type2", "m4")
         tconfig = tconfig_from_mt_experiment(self.experiment)
-        ConvertMetricNames(
-            None, self.observation_features, self.observation_data, config=tconfig
-        )
+        ConvertMetricNames(None, observations=self.observations, config=tconfig)

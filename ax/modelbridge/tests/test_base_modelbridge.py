@@ -88,8 +88,7 @@ class BaseModelBridgeTest(TestCase):
         )
         fit_args = mock_fit.mock_calls[0][2]
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
-        self.assertTrue(fit_args["observation_features"] == [])
-        self.assertTrue(fit_args["observation_data"] == [])
+        self.assertTrue(fit_args["observations"] == [])
         self.assertTrue(mock_observations_from_data.called)
 
         # Test prediction on out of design features.
@@ -212,8 +211,7 @@ class BaseModelBridgeTest(TestCase):
         )
         modelbridge._cross_validate.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
-            observation_features=[get_observation2trans().features],
-            observation_data=[get_observation2trans().data],
+            cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after
         )
         self.assertTrue(cv_predictions == [get_observation1().data])
@@ -553,7 +551,7 @@ class BaseModelBridgeTest(TestCase):
     def test_update(self, _mock_update, _mock_gen):
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
-        ss = get_search_space_for_range_values()
+        ss = get_search_space_for_range_values(min=0, max=1000)
         exp.search_space = ss
         modelbridge = ModelBridge(
             search_space=ss, model=Model(), transforms=[Log], experiment=exp

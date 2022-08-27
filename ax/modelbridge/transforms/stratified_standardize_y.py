@@ -8,8 +8,9 @@ from collections import defaultdict
 from typing import DefaultDict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures, separate_observations
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -44,12 +45,13 @@ class StratifiedStandardizeY(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "StratifiedStandardizeY requires search space"
+        assert observations is not None, "StratifiedStandardizeY requires observations"
         # Get parameter name for standardization.
         if config is not None and "parameter_name" in config:
             # pyre: Attribute `p_name` declared in class `ax.modelbridge.
@@ -78,6 +80,7 @@ class StratifiedStandardizeY(Transform):
                 )
             self.p_name = task_parameters[0]
         # Compute means and SDs
+        observation_features, observation_data = separate_observations(observations)
         Ys: DefaultDict[Tuple[str, TParamValue], List[float]] = defaultdict(list)
         for j, obsd in enumerate(observation_data):
             v = observation_features[j].parameters[self.p_name]
@@ -92,29 +95,28 @@ class StratifiedStandardizeY(Transform):
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
-    def transform_observation_data(
+    def transform_observations(
         self,
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
-    ) -> List[ObservationData]:
-        # Transform observation data
-        for j, obsd in enumerate(observation_data):
-            v = observation_features[j].parameters[self.p_name]
-            means = np.array([self.Ymean[(m, v)] for m in obsd.metric_names])
-            stds = np.array([self.Ystd[(m, v)] for m in obsd.metric_names])
-            obsd.means = (obsd.means - means) / stds
-            obsd.covariance /= np.dot(stds[:, None], stds[:, None].transpose())
-        return observation_data
+        observations: List[Observation],
+    ) -> List[Observation]:
+        # Transform observations
+        for obs in observations:
+            v = obs.features.parameters[self.p_name]
+            means = np.array([self.Ymean[(m, v)] for m in obs.data.metric_names])
+            stds = np.array([self.Ystd[(m, v)] for m in obs.data.metric_names])
+            obs.data.means = (obs.data.means - means) / stds
+            obs.data.covariance /= np.dot(stds[:, None], stds[:, None].transpose())
+        return observations
 
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"],
-        fixed_features: ObservationFeatures,
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> OptimizationConfig:
         if len(optimization_config.all_constraints) == 0:
             return optimization_config
-        if self.p_name not in fixed_features.parameters:
+        if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(
                 f"StratifiedStandardizeY transform requires {self.p_name} to be fixed "
                 "during generation."
@@ -131,15 +133,34 @@ class StratifiedStandardizeY(Transform):
             ]
         return optimization_config
 
-    def untransform_observation_data(
+    def untransform_observations(
         self,
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
-    ) -> List[ObservationData]:
-        for j, obsd in enumerate(observation_data):
-            v = observation_features[j].parameters[self.p_name]
-            means = np.array([self.Ymean[(m, v)] for m in obsd.metric_names])
-            stds = np.array([self.Ystd[(m, v)] for m in obsd.metric_names])
-            obsd.means = obsd.means * stds + means
-            obsd.covariance *= np.dot(stds[:, None], stds[:, None].transpose())
-        return observation_data
+        observations: List[Observation],
+    ) -> List[Observation]:
+        for obs in observations:
+            v = obs.features.parameters[self.p_name]
+            means = np.array([self.Ymean[(m, v)] for m in obs.data.metric_names])
+            stds = np.array([self.Ystd[(m, v)] for m in obs.data.metric_names])
+            obs.data.means = obs.data.means * stds + means
+            obs.data.covariance *= np.dot(stds[:, None], stds[:, None].transpose())
+        return observations
+
+    def untransform_outcome_constraints(
+        self,
+        outcome_constraints: List[OutcomeConstraint],
+        fixed_features: Optional[ObservationFeatures] = None,
+    ) -> List[OutcomeConstraint]:
+        if fixed_features is None or self.p_name not in fixed_features.parameters:
+            raise ValueError(
+                f"StratifiedStandardizeY requires {self.p_name} to be fixed here"
+            )
+        v = fixed_features.parameters[self.p_name]
+        for c in outcome_constraints:
+            if c.relative:
+                raise ValueError(
+                    "StratifiedStandardizeY does not support relative constraints"
+                )
+            c.bound = float(
+                c.bound * self.Ystd[(c.metric.name, v)] + self.Ymean[(c.metric.name, v)]
+            )
+        return outcome_constraints

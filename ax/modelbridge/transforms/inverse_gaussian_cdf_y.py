@@ -6,7 +6,7 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import match_ci_width_truncated
@@ -32,18 +32,16 @@ class InverseGaussianCdfY(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         self.dist = norm(loc=0, scale=1)
 
-    def transform_observation_data(
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Map to inverse Gaussian CDF in place."""
         # TODO (jej): Transform covariances.

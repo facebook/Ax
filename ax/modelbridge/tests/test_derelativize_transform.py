@@ -77,7 +77,8 @@ class DerelativizeTransformTest(TestCase):
         self, mock_predict, mock_fit, mock_observations_from_data
     ):
         t = Derelativize(
-            search_space=None, observation_features=None, observation_data=None
+            search_space=None,
+            observations=[],
         )
 
         # ModelBridge with in-design status quo
@@ -233,8 +234,7 @@ class DerelativizeTransformTest(TestCase):
         # Bypasses error if use_raw_sq
         t2 = Derelativize(
             search_space=None,
-            observation_features=None,
-            observation_data=None,
+            observations=[],
             config={"use_raw_status_quo": True},
         )
         oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
@@ -256,7 +256,8 @@ class DerelativizeTransformTest(TestCase):
 
     def testErrors(self):
         t = Derelativize(
-            search_space=None, observation_features=None, observation_data=None
+            search_space=None,
+            observations=[],
         )
         oc = OptimizationConfig(
             objective=Objective(Metric("c")),
