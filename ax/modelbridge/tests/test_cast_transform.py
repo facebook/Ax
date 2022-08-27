@@ -42,9 +42,9 @@ class CastTransformTest(TestCase):
             ],
             parameter_constraints=[],
         )
-        self.t = Cast(search_space=self.search_space, observations=[])
+        self.t = Cast(search_space=self.search_space)
         self.hss = get_hierarchical_search_space()
-        self.t_hss = Cast(search_space=self.hss, observations=[])
+        self.t_hss = Cast(search_space=self.hss)
         self.obs_feats_hss = ObservationFeatures(
             parameters={
                 "model": "Linear",
@@ -92,9 +92,9 @@ class CastTransformTest(TestCase):
         )
 
     def test_flatten_hss_setting(self):
-        t = Cast(search_space=self.hss, observations=[])
+        t = Cast(search_space=self.hss)
         self.assertTrue(t.flatten_hss)
-        t = Cast(search_space=self.hss, config={"flatten_hss": False}, observations=[])
+        t = Cast(search_space=self.hss, config={"flatten_hss": False})
         self.assertFalse(t.flatten_hss)
         self.assertFalse(self.t.flatten_hss)  # `self.t` does not have HSS
         self.assertTrue(self.t_hss.flatten_hss)  # `self.t_hss` does have HSS

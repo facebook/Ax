@@ -6,9 +6,8 @@
 
 from copy import deepcopy
 
-import numpy as np
 from ax.core.arm import Arm
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -54,23 +53,20 @@ class SearchSpaceToChoiceTest(TestCase):
                 parameters={"arms": Arm(parameters={"a": 3, "b": "c"}).signature}
             ),
         ]
-        self.observations = [
-            Observation(
-                data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
-            )
-            for obsf in self.observation_features
-        ]
         self.t = SearchSpaceToChoice(
             search_space=self.search_space,
-            observations=self.observations,
+            observation_features=self.observation_features,
+            observation_data=None,
         )
         self.t2 = SearchSpaceToChoice(
             search_space=self.search_space,
-            observations=self.observations[:1],
+            observation_features=[self.observation_features[0]],
+            observation_data=None,
         )
         self.t3 = SearchSpaceToChoice(
             search_space=self.search_space,
-            observations=self.observations,
+            observation_features=self.observation_features,
+            observation_data=None,
             config={"use_ordered": True},
         )
 
@@ -113,7 +109,8 @@ class SearchSpaceToChoiceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpaceToChoice(
                 search_space=ss3,
-                observations=[],
+                observation_features=self.observation_features,
+                observation_data=None,
             )
 
     def testTransformSearchSpaceWithFixedParam(self):
@@ -140,5 +137,6 @@ class SearchSpaceToChoiceTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             SearchSpaceToChoice(
                 search_space=rss,
-                observations=[],
+                observation_features=None,
+                observation_data=None,
             )

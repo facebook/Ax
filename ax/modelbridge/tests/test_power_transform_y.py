@@ -12,7 +12,7 @@ from math import isfinite, isnan
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
@@ -56,15 +56,12 @@ class PowerTransformYTest(TestCase):
             means=np.array([0.3, 0.2]),
             covariance=np.array([[float("nan"), 0.0], [0.0, float("nan")]]),
         )
-        self.observations = [
-            Observation(features=ObservationFeatures({}), data=obsd)
-            for obsd in [self.obsd1, self.obsd2, self.obsd3, self.obsd_nan]
-        ]
 
     def testInit(self):
         shared_init_args = {
             "search_space": None,
-            "observations": self.observations[:2],
+            "observation_features": None,
+            "observation_data": [self.obsd1, self.obsd2],
         }
         # Test error for not specifying a config
         with self.assertRaises(ValueError):
@@ -164,16 +161,16 @@ class PowerTransformYTest(TestCase):
         self.assertTrue(isfinite(new_mean_2) and isfinite(new_var_2))
 
     def testTransformAndUntransformOneMetric(self):
+        observation_data = [deepcopy(self.obsd1), deepcopy(self.obsd2)]
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:2]),
+            observation_features=None,
+            observation_data=observation_data,
             config={"metrics": ["m1"]},
         )
 
         # Transform the data and make sure we don't touch m1
-        observation_data_tf = pt._transform_observation_data(
-            deepcopy([self.obsd1, self.obsd2])
-        )
+        observation_data_tf = pt.transform_observation_data(observation_data, [])
         for obsd, obsd_orig in zip(observation_data_tf, [self.obsd1, self.obsd2]):
             self.assertNotAlmostEqual(obsd.means[0], obsd_orig.means[0])
             self.assertNotAlmostEqual(obsd.covariance[0][0], obsd_orig.covariance[0][0])
@@ -181,28 +178,28 @@ class PowerTransformYTest(TestCase):
             self.assertAlmostEqual(obsd.covariance[1][1], obsd_orig.covariance[1][1])
 
         # Untransform the data and make sure the means are the same
-        observation_data_untf = pt._untransform_observation_data(observation_data_tf)
+        observation_data_untf = pt.untransform_observation_data(observation_data_tf, [])
         for obsd, obsd_orig in zip(observation_data_untf, [self.obsd1, self.obsd2]):
             self.assertAlmostEqual(obsd.means[0], obsd_orig.means[0], places=4)
             self.assertAlmostEqual(obsd.means[1], obsd_orig.means[1], places=4)
 
         # NaN covar values remain as NaNs
-        transformed_obsd_nan = pt._transform_observation_data(
-            [deepcopy(self.obsd_nan)]
+        transformed_obsd_nan = pt.transform_observation_data(
+            [deepcopy(self.obsd_nan)], []
         )[0]
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
     def testTransformAndUntransformAllMetrics(self):
+        observation_data = [deepcopy(self.obsd1), deepcopy(self.obsd2)]
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:2]),
+            observation_features=None,
+            observation_data=observation_data,
             config={"metrics": ["m1", "m2"]},
         )
 
-        observation_data_tf = pt._transform_observation_data(
-            deepcopy([self.obsd1, self.obsd2])
-        )
+        observation_data_tf = pt.transform_observation_data(observation_data, [])
         for obsd, obsd_orig in zip(observation_data_tf, [self.obsd1, self.obsd2]):
             for i in range(2):  # Both metrics should be transformed
                 self.assertNotAlmostEqual(obsd.means[i], obsd_orig.means[i])
@@ -211,14 +208,14 @@ class PowerTransformYTest(TestCase):
                 )
 
         # Untransform the data and make sure the means are the same
-        observation_data_untf = pt._untransform_observation_data(observation_data_tf)
+        observation_data_untf = pt.untransform_observation_data(observation_data_tf, [])
         for obsd, obsd_orig in zip(observation_data_untf, [self.obsd1, self.obsd2]):
             for i in range(2):  # Both metrics should be transformed
                 self.assertAlmostEqual(obsd.means[i], obsd_orig.means[i])
 
         # NaN covar values remain as NaNs
-        transformed_obsd_nan = pt._transform_observation_data(
-            [deepcopy(self.obsd_nan)]
+        transformed_obsd_nan = pt.transform_observation_data(
+            [deepcopy(self.obsd_nan)], []
         )[0]
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
@@ -232,10 +229,11 @@ class PowerTransformYTest(TestCase):
 
         pt = PowerTransformY(
             search_space=None,
-            observations=deepcopy(self.observations[:3]),
+            observation_features=None,
+            observation_data=deepcopy(observation_data),
             config={"metrics": ["m1"]},
         )
-        observation_data_tf = pt._transform_observation_data(observation_data)
+        observation_data_tf = pt.transform_observation_data(observation_data, [])
         y2 = [data.means[0] for data in observation_data_tf]
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
@@ -247,7 +245,8 @@ class PowerTransformYTest(TestCase):
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = PowerTransformY(
             search_space=None,
-            observations=self.observations[:2],
+            observation_features=None,
+            observation_data=[self.obsd1, self.obsd2],
             config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
@@ -279,11 +278,6 @@ class PowerTransformYTest(TestCase):
             )
             oc_true.outcome_constraints[0].bound = tf_bound
             self.assertEqual(oc_tf, oc_true)
-        # Check untransform of outcome constraint
-        cons = tf.untransform_outcome_constraints(
-            outcome_constraints=oc_tf.outcome_constraints, fixed_features=None
-        )
-        self.assertEqual(cons, oc.outcome_constraints)
         # Relative constraints aren't supported
         oc = OptimizationConfig(
             objective=objective_m2,
@@ -295,12 +289,6 @@ class PowerTransformYTest(TestCase):
             "subject to a relative constraint.",
         ):
             tf.transform_optimization_config(oc, None, None)
-        # Untransform doesn't work if relative
-        with self.assertRaises(ValueError):
-            tf.untransform_outcome_constraints(
-                outcome_constraints=oc.outcome_constraints,
-                fixed_features=None,
-            )
         # Support for scalarized outcome constraints isn't implemented
         m3 = Metric(name="m3")
         oc = OptimizationConfig(

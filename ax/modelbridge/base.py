@@ -20,7 +20,6 @@ from ax.core.observation import (
     ObservationData,
     ObservationFeatures,
     observations_from_data,
-    recombine_observations,
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
@@ -151,7 +150,7 @@ class ModelBridge(ABC):
         # Convert Data to Observations
         observations = self._prepare_observations(experiment=experiment, data=data)
 
-        observations_raw = self._set_training_data(
+        obs_feats_raw, obs_data_raw = self._set_training_data(
             observations=observations, search_space=search_space
         )
         # Set model status quo
@@ -161,8 +160,9 @@ class ModelBridge(ABC):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
         )
-        observations, search_space = self._transform_data(
-            observations=observations_raw,
+        obs_feats, obs_data, search_space = self._transform_data(
+            obs_feats=obs_feats_raw,
+            obs_data=obs_data_raw,
             search_space=search_space,
             transforms=transforms,
             transform_configs=transform_configs,
@@ -174,7 +174,8 @@ class ModelBridge(ABC):
             self._fit(
                 model=model,
                 search_space=search_space,
-                observations=observations,
+                observation_features=obs_feats,
+                observation_data=obs_data,
             )
             self.fit_time = time.time() - t_fit_start
             self.fit_time_since_gen = float(self.fit_time)
@@ -193,11 +194,12 @@ class ModelBridge(ABC):
 
     def _transform_data(
         self,
-        observations: List[Observation],
+        obs_feats: List[ObservationFeatures],
+        obs_data: List[ObservationData],
         search_space: SearchSpace,
         transforms: Optional[List[Type[Transform]]],
         transform_configs: Optional[Dict[str, TConfig]],
-    ) -> Tuple[List[Observation], SearchSpace]:
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData], SearchSpace]:
         """Initialize transforms and apply them to provided data."""
         # Initialize transforms
         search_space = search_space.clone()
@@ -208,48 +210,53 @@ class ModelBridge(ABC):
             for t in transforms:
                 t_instance = t(
                     search_space=search_space,
-                    observations=observations,
+                    observation_features=obs_feats,
+                    observation_data=obs_data,
                     modelbridge=self,
                     config=transform_configs.get(t.__name__, None),
                 )
                 search_space = t_instance.transform_search_space(search_space)
-                observations = t_instance.transform_observations(observations)
+                obs_feats = t_instance.transform_observation_features(obs_feats)
+                obs_data = t_instance.transform_observation_data(obs_data, obs_feats)
                 self.transforms[t.__name__] = t_instance
 
-        return observations, search_space
+        return obs_feats, obs_data, search_space
 
     def _prepare_training_data(
         self, observations: List[Observation]
-    ) -> List[Observation]:
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         observation_features, observation_data = separate_observations(observations)
         if len(observation_features) != len(set(observation_features)):
             raise ValueError(
                 "Observation features not unique."
                 "Something went wrong constructing training data..."
             )
-        return observations
+        return observation_features, observation_data
 
     def _set_training_data(
         self, observations: List[Observation], search_space: SearchSpace
-    ) -> List[Observation]:
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Store training data, not-transformed.
 
         If the modelbridge specifies _fit_out_of_design, all training data is
         returned. Otherwise, only in design points are returned.
         """
-        observations = self._prepare_training_data(observations=observations)
+        observation_features, observation_data = self._prepare_training_data(
+            observations=observations
+        )
         self._training_data = deepcopy(observations)
         self._metric_names: Set[str] = set()
-        for obs in observations:
-            self._metric_names.update(obs.data.metric_names)
+        for obsd in observation_data:
+            self._metric_names.update(obsd.metric_names)
         return self._process_in_design(
             search_space=search_space,
-            observations=observations,
+            observation_features=observation_features,
+            observation_data=observation_data,
         )
 
     def _extend_training_data(
         self, observations: List[Observation]
-    ) -> List[Observation]:
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Extend and return training data, not-transformed.
 
         If the modelbridge specifies _fit_out_of_design, all training data is
@@ -258,11 +265,15 @@ class ModelBridge(ABC):
         Args:
             observations: New observations.
 
-        Returns: New + old observations.
+        Returns:
+            observation_features: New + old observation features.
+            observation_data: New + old observation data.
         """
-        observations = self._prepare_training_data(observations=observations)
-        for obs in observations:
-            for metric_name in obs.data.metric_names:
+        observation_features, observation_data = self._prepare_training_data(
+            observations=observations
+        )
+        for obsd in observation_data:
+            for metric_name in obsd.metric_names:
                 if metric_name not in self._metric_names:
                     raise ValueError(
                         f"Unrecognised metric {metric_name}; cannot update "
@@ -271,42 +282,46 @@ class ModelBridge(ABC):
                     )
         # Initialize with all points in design.
         self._training_data.extend(deepcopy(observations))
-        all_observations = self.get_training_data()
+        all_observation_features, all_observation_data = separate_observations(
+            self.get_training_data()
+        )
         return self._process_in_design(
             search_space=self._model_space,
-            observations=all_observations,
+            observation_features=all_observation_features,
+            observation_data=all_observation_data,
         )
 
     def _process_in_design(
         self,
         search_space: SearchSpace,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
+    ) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
         """Set training_in_design, and decide whether to filter out of design points."""
         # Don't filter points.
         if self._fit_out_of_design:
             # Use all data for training
             # Set training_in_design to True for all observations so that
             # all observations are used in CV and plotting
-            self.training_in_design = [True] * len(observations)
-            return observations
+            self.training_in_design = [True] * len(observation_features)
+            return observation_features, observation_data
         in_design = self._compute_in_design(
-            search_space=search_space, observations=observations
+            search_space=search_space, observation_features=observation_features
         )
         self.training_in_design = in_design
-        in_design_obs = [
-            observations[i] for i, is_in_design in enumerate(in_design) if is_in_design
-        ]
-        return in_design_obs
+        in_design_indices = [i for i, in_design in enumerate(in_design) if in_design]
+        in_design_features = [observation_features[i] for i in in_design_indices]
+        in_design_data = [observation_data[i] for i in in_design_indices]
+        return in_design_features, in_design_data
 
     def _compute_in_design(
         self,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
     ) -> List[bool]:
         return [
-            search_space.check_membership(obs.features.parameters)
-            for obs in observations
+            search_space.check_membership(obsf.parameters)
+            for obsf in observation_features
         ]
 
     def _set_status_quo(
@@ -420,7 +435,8 @@ class ModelBridge(ABC):
         self,
         model: Any,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform and fit model."""
         raise NotImplementedError  # pragma: no cover
@@ -441,13 +457,14 @@ class ModelBridge(ABC):
         observation_data = self._predict(observation_features)
 
         # Apply reverse transforms, in reverse order
-        pred_observations = recombine_observations(
-            observation_features=observation_features, observation_data=observation_data
-        )
-
         for t in reversed(list(self.transforms.values())):
-            pred_observations = t.untransform_observations(pred_observations)
-        return [obs.data for obs in pred_observations]
+            observation_features = t.untransform_observation_features(
+                observation_features
+            )
+            observation_data = t.untransform_observation_data(
+                observation_data, observation_features
+            )
+        return observation_data
 
     def _single_predict(
         self, observation_features: List[ObservationFeatures]
@@ -537,16 +554,20 @@ class ModelBridge(ABC):
         """
         t_update_start = time.time()
         observations = self._prepare_observations(experiment=experiment, data=new_data)
-        obs_raw = self._extend_training_data(observations=observations)
-        observations, search_space = self._transform_data(
-            observations=obs_raw,
+        obs_feats_raw, obs_data_raw = self._extend_training_data(
+            observations=observations
+        )
+        obs_feats, obs_data, search_space = self._transform_data(
+            obs_feats=obs_feats_raw,
+            obs_data=obs_data_raw,
             search_space=self._model_space,
             transforms=self._raw_transforms,
             transform_configs=self._transform_configs,
         )
         self._update(
             search_space=search_space,
-            observations=observations,
+            observation_features=obs_feats,
+            observation_data=obs_data,
         )
         self.fit_time += time.time() - t_update_start
         self.fit_time_since_gen += time.time() - t_update_start
@@ -554,7 +575,8 @@ class ModelBridge(ABC):
     def _update(
         self,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
     ) -> None:
         """Apply terminal transform and update model.
 
@@ -755,34 +777,36 @@ class ModelBridge(ABC):
         """
         # Apply transforms to cv_training_data and cv_test_points
         cv_test_points = deepcopy(cv_test_points)
-        cv_training_data = deepcopy(cv_training_data)
+        obs_feats, obs_data = separate_observations(
+            observations=cv_training_data, copy=True
+        )
         search_space = self._model_space.clone()
         for t in self.transforms.values():
-            cv_training_data = t.transform_observations(cv_training_data)
+            obs_feats = t.transform_observation_features(obs_feats)
+            obs_data = t.transform_observation_data(obs_data, obs_feats)
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
-        obs_feats, obs_data = separate_observations(observations=cv_training_data)
         # Apply terminal transform, and get predictions.
         cv_predictions = self._cross_validate(
             search_space=search_space,
-            cv_training_data=cv_training_data,
+            observation_features=obs_feats,
+            observation_data=obs_data,
             cv_test_points=cv_test_points,
         )
         # Apply reverse transforms, in reverse order
-        cv_test_observations = [
-            Observation(features=obsf, data=cv_predictions[i])
-            for i, obsf in enumerate(cv_test_points)
-        ]
-
         for t in reversed(list(self.transforms.values())):
-            cv_test_observations = t.untransform_observations(cv_test_observations)
-        return [obs.data for obs in cv_test_observations]
+            cv_test_points = t.untransform_observation_features(cv_test_points)
+            cv_predictions = t.untransform_observation_data(
+                cv_predictions, cv_test_points
+            )
+        return cv_predictions
 
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Apply the terminal transform, make predictions on the test points,
@@ -823,7 +847,9 @@ class ModelBridge(ABC):
             "Feature importance not available for this model type"
         )
 
-    def transform_observations(self, observations: List[Observation]) -> Any:
+    def transform_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> Any:
         """Applies transforms to given observation features and returns them in the
         model space.
 
@@ -834,14 +860,16 @@ class ModelBridge(ABC):
             Transformed values. This could be e.g. a torch Tensor, depending
             on the ModelBridge subclass.
         """
-        observations = deepcopy(observations)
+        obsd = deepcopy(observation_data)
         for t in self.transforms.values():
-            observations = t.transform_observations(observations)
+            obsd = t.transform_observation_data(obsd, [])
         # Apply terminal transform and return
-        return self._transform_observations(observations)
+        return self._transform_observation_data(obsd)
 
-    def _transform_observations(self, observations: List[Observation]) -> Any:
-        """Apply terminal transform to given observations and return result."""
+    def _transform_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> Any:
+        """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
     def transform_observation_features(

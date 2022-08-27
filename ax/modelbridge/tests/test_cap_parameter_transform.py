@@ -28,14 +28,16 @@ class CapParameterTest(TestCase):
     def test_transform_search_space(self):
         t = CapParameter(
             search_space=self.search_space,
-            observations=[],
+            observation_features=[],
+            observation_data=[],
             config={"a": "2"},
         )
         t.transform_search_space(self.search_space)
         self.assertEqual(self.search_space.parameters.get("a").upper, 2)
         t2 = CapParameter(
             search_space=self.search_space,
-            observations=[],
+            observation_features=[],
+            observation_data=[],
             config={"b": "2"},
         )
         with self.assertRaises(NotImplementedError):
@@ -46,7 +48,8 @@ class CapParameterTest(TestCase):
         # Transform a non-distributional parameter.
         t = CapParameter(
             search_space=rss,
-            observations=[],
+            observation_features=[],
+            observation_data=[],
             config={"z": "2"},
         )
         t.transform_search_space(rss)
@@ -54,7 +57,8 @@ class CapParameterTest(TestCase):
         # Error with distributional parameter.
         t = CapParameter(
             search_space=rss,
-            observations=[],
+            observation_features=[],
+            observation_data=[],
             config={"x": "2"},
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):

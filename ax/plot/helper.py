@@ -215,8 +215,8 @@ def _get_in_sample_arms(
 
     # Merge multiple measurements within each Observation with IVW to get
     # un-modeled prediction
-    t = IVW(None, [])
-    observations = t.transform_observations(observations)
+    t = IVW(None, [], [])
+    obs_data = t.transform_observation_data([obs.data for obs in observations], [])
     # Start filling in plot data
     in_sample_plot: Dict[str, PlotInSampleArm] = {}
     for i, obs in enumerate(observations):
@@ -226,10 +226,11 @@ def _get_in_sample_arms(
         # Extract raw measurement
         obs_y = {}  # Observed metric means.
         obs_se = {}  # Observed metric standard errors.
-        for j, metric_name in enumerate(obs.data.metric_names):
+        # Use the IVW data, not obs.data
+        for j, metric_name in enumerate(obs_data[i].metric_names):
             if metric_name in metric_names:
-                obs_y[metric_name] = obs.data.means[j]
-                obs_se[metric_name] = np.sqrt(obs.data.covariance[j, j])
+                obs_y[metric_name] = obs_data[i].means[j]
+                obs_se[metric_name] = np.sqrt(obs_data[i].covariance[j, j])
         if training_in_design[i]:
             # Update with the input fixed features
             features = obs.features

@@ -93,8 +93,8 @@ class IVWTransformTest(TestCase):
             covariance=np.array([[0.5, 0.14], [0.14, 1.584]]),
         )
         observation_data = [obsd1_0, obsd1_1]
-        t = IVW(None, [])
-        observation_data2 = t._transform_observation_data(observation_data)
+        t = IVW(None, None, None)
+        observation_data2 = t.transform_observation_data(observation_data, [])
         observation_data2_true = [obsd2_0, obsd2_1]
         for i, obsd in enumerate(observation_data2_true):
             self.assertEqual(observation_data2[i].metric_names, obsd.metric_names)

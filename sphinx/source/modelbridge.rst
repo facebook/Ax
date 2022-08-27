@@ -253,14 +253,6 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
-`ax.modelbridge.transforms.metrics_as_task`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.metrics_as_task
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `ax.modelbridge.transforms.one\_hot`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -75,7 +75,9 @@ class DiscreteModelBridgeTest(TestCase):
         ma = DiscreteModelBridge()
         ma._training_data = self.observations
         model = mock.create_autospec(DiscreteModel, instance=True)
-        ma._fit(model, self.search_space, self.observations)
+        ma._fit(
+            model, self.search_space, self.observation_features, self.observation_data
+        )
         self.assertEqual(ma.parameters, ["x", "y", "z"])
         self.assertEqual(sorted(ma.outcomes), ["a", "b"])
         Xs = {
@@ -94,11 +96,15 @@ class DiscreteModelBridgeTest(TestCase):
             self.assertEqual(v, Yvars[ma.outcomes[i]])
         self.assertEqual(model_fit_args["parameter_values"], parameter_values)
 
-        sq_obs = Observation(
-            features=ObservationFeatures({}), data=self.observation_data[0]
-        )
+        sq_feat = ObservationFeatures({})
+        sq_data = self.observation_data[0]
         with self.assertRaises(ValueError):
-            ma._fit(model, self.search_space, self.observations + [sq_obs])
+            ma._fit(
+                model,
+                self.search_space,
+                self.observation_features + [sq_feat],
+                self.observation_data + [sq_data],
+            )
 
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
@@ -224,7 +230,8 @@ class DiscreteModelBridgeTest(TestCase):
         ma.outcomes = ["a", "b"]
         observation_data = ma._cross_validate(
             search_space=self.search_space,
-            cv_training_data=self.observations,
+            observation_features=self.observation_features,
+            observation_data=self.observation_data,
             cv_test_points=self.observation_features,
         )
         Xs = [

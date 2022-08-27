@@ -28,7 +28,8 @@ class IntRangeToChoiceTransformTest(TestCase):
         )
         self.t = IntRangeToChoice(
             search_space=self.search_space,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
 
     def testInit(self):
@@ -53,7 +54,8 @@ class IntRangeToChoiceTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = IntRangeToChoice(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -71,7 +73,8 @@ class IntRangeToChoiceTransformTest(TestCase):
         )
         t = IntRangeToChoice(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -83,7 +86,8 @@ class IntRangeToChoiceTransformTest(TestCase):
         rss = get_robust_search_space(use_discrete=True)
         t = IntRangeToChoice(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)

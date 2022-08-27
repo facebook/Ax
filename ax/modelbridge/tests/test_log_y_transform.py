@@ -10,7 +10,7 @@ from copy import deepcopy
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -45,10 +45,6 @@ class LogYTransformTest(TestCase):
                 ]
             ),
         )
-        self.observations = [
-            Observation(features=ObservationFeatures({}), data=obsd)
-            for obsd in [self.obsd1, self.obsd2]
-        ]
 
     def get_constraint(self, metric, bound, relative):
         return [
@@ -60,7 +56,8 @@ class LogYTransformTest(TestCase):
     def testInit(self):
         shared_init_args = {
             "search_space": None,
-            "observations": self.observations,
+            "observation_features": None,
+            "observation_data": [self.obsd1, self.obsd2],
         }
         # test error for not specifying a config
         with self.assertRaises(ValueError):
@@ -90,15 +87,16 @@ class LogYTransformTest(TestCase):
         )
         tf = LogY(
             search_space=None,
-            observations=[],
+            observation_features=None,
+            observation_data=[],
             config={"metrics": ["m3"]},
         )
         obsd1 = deepcopy(self.obsd1)
-        obsd1_ = tf._transform_observation_data([obsd1])
+        obsd1_ = tf.transform_observation_data([obsd1], [])
         self.assertTrue(np.allclose(obsd1_[0].means, obsd1_t.means))
         self.assertTrue(np.allclose(obsd1_[0].covariance, obsd1_t.covariance))
 
-        obsd1 = tf._untransform_observation_data(obsd1_)
+        obsd1 = tf.untransform_observation_data(obsd1_, [])
         self.assertTrue(np.allclose(obsd1[0].means, self.obsd1.means))
         self.assertTrue(np.allclose(obsd1[0].covariance, self.obsd1.covariance))
 
@@ -107,7 +105,7 @@ class LogYTransformTest(TestCase):
         obsd1_.covariance[0, 2] = 0.1
         obsd1_.covariance[2, 0] = 0.1
         with self.assertRaises(NotImplementedError):
-            tf._transform_observation_data([obsd1_])
+            tf.transform_observation_data([obsd1_], [])
         # test full covariance for single metric
         Z = np.zeros((3, 3))
         Z[0, 2] = np.sqrt(np.exp(1)) - 1
@@ -117,7 +115,7 @@ class LogYTransformTest(TestCase):
             means=np.ones(3),
             covariance=np.diag(np.ones(3) * (np.exp(1) - 1)) + Z,
         )
-        obsd1_ = tf._transform_observation_data([obsd1])
+        obsd1_ = tf.transform_observation_data([obsd1], [])
         cov_expected = np.array([[1.0, 0.0, 0.5], [0.0, 1.0, 0.0], [0.5, 0.0, 1.0]])
         self.assertTrue(np.allclose(obsd1_[0].means, -0.5 * np.ones(3)))
         self.assertTrue(np.allclose(obsd1_[0].covariance, cov_expected))
@@ -130,7 +128,8 @@ class LogYTransformTest(TestCase):
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = LogY(
             search_space=None,
-            observations=self.observations,
+            observation_features=None,
+            observation_data=[self.obsd1, self.obsd2],
             config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
@@ -216,7 +215,8 @@ class LogYTransformTest(TestCase):
         )
         tf = LogY(
             search_space=None,
-            observations=self.observations,
+            observation_features=None,
+            observation_data=[self.obsd1, self.obsd2],
             config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)

@@ -6,7 +6,7 @@
 
 from typing import List, Optional, Set, TYPE_CHECKING
 
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
@@ -26,12 +26,12 @@ class Logit(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert search_space is not None, "Logit requires search space"
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name

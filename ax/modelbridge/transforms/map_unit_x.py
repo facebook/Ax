@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.types import TConfig
@@ -32,21 +32,20 @@ class MapUnitX(UnitX):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert observations is not None, "MapUnitX requires observations"
-        assert search_space is not None, "MapUnitX requires search space"
         # Loop through observation features and identify parameters that
         # are not part of the search space. Store all observed values to
         # infer bounds
         map_values = defaultdict(list)
-        for obs in observations:
-            for p in obs.features.parameters:
+        for obsf in observation_features:
+            for p in obsf.parameters:
                 if p not in search_space.parameters:
-                    map_values[p].append(obs.features.parameters[p])
+                    map_values[p].append(obsf.parameters[p])
 
         def get_range(values: List) -> Tuple[float, float]:
             return (min(values), max(values))

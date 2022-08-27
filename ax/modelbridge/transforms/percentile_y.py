@@ -7,7 +7,7 @@
 import math
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import Observation, ObservationData
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
@@ -32,15 +32,16 @@ class PercentileY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert observations is not None, "PercentileY requires observations"
-        if len(observations) == 0:
-            raise DataRequiredError("Percentile transform requires non-empty data.")
-        observation_data = [obs.data for obs in observations]
+        if len(observation_data) == 0:
+            raise DataRequiredError(
+                "Percentile transform requires non-empty observation data."
+            )
         metric_values = get_data(observation_data=observation_data)
         self.percentiles = {
             metric_name: vals for metric_name, vals in metric_values.items()
@@ -50,9 +51,10 @@ class PercentileY(Transform):
         else:
             self.winsorize = False
 
-    def _transform_observation_data(
+    def transform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Map observation data to empirical CDF quantiles in place."""
         # TODO (jej): Transform covariances.

@@ -412,8 +412,7 @@ class HierarchicalSearchSpace(SearchSpace):
         }
         obs_feats = observation_features.clone(
             replace_parameters=self._cast_parameterization(
-                parameters=observation_features.parameters,
-                check_all_parameters_present=False,
+                parameters=observation_features.parameters
             )
         )
         if not obs_feats.metadata:
@@ -587,9 +586,7 @@ class HierarchicalSearchSpace(SearchSpace):
             return applicable
 
         applicable_paramers = _find_applicable_parameters(root=self.root)
-        if check_all_parameters_present and not all(
-            k in parameters for k in applicable_paramers
-        ):
+        if not all(k in parameters for k in applicable_paramers):
             raise RuntimeError(
                 f"Parameters {applicable_paramers- set(parameters.keys())} "
                 "missing from the arm."

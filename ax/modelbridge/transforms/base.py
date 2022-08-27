@@ -8,14 +8,10 @@ from __future__ import annotations
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+import numpy as np
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.models.types import TConfig
@@ -55,8 +51,9 @@ class Transform:
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: Optional[SearchSpace],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -66,7 +63,8 @@ class Transform:
 
         Args:
             search_space: The search space
-            observations: Observations
+            observation_features: Observation features
+            observation_data: Observation data
             modelbridge: ModelBridge for referencing experiment, status quo, etc...
             config: A dictionary of options specific to each transform
         """
@@ -107,8 +105,8 @@ class Transform:
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: Optional[modelbridge_module.base.ModelBridge],
+        fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         """Transform optimization config.
 
@@ -121,28 +119,6 @@ class Transform:
         Returns: transformed optimization config.
         """
         return optimization_config
-
-    def transform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
-        """Transform observations.
-
-        Typically done in place. By default, the effort is split into separate
-        transformations of the features and the data.
-
-        Args:
-            observations: Observations.
-
-        Returns: transformed observations.
-        """
-        obs_feats, obs_data = separate_observations(observations=observations)
-        obs_feats = self.transform_observation_features(observation_features=obs_feats)
-        obs_data = self._transform_observation_data(observation_data=obs_data)
-        trans_obs = [
-            Observation(features=obs_feats[i], data=obs_data[i], arm_name=obs.arm_name)
-            for i, obs in enumerate(observations)
-        ]
-        return trans_obs
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -159,48 +135,26 @@ class Transform:
         """
         return observation_features
 
-    def _transform_observation_data(
+    def transform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Transform observation features.
 
         This is typically done in-place. This class implements the identity
         transform (does nothing).
 
-        This method does not need to be implemented if transform_observations
-        is overridden.
+        This takes in observation_features, so that data transforms can be
+        conditional on features, but observation_features are notmutated.
 
         Args:
             observation_data: Observation data
+            observation_features: Corresponding observation features
 
         Returns: transformed observation data
         """
         return observation_data
-
-    def untransform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
-        """Untransform observations.
-
-        Typically done in place. By default, the effort is split into separate
-        backwards transformations of the features and the data.
-
-        Args:
-            observations: Observations.
-
-        Returns: untransformed observations.
-        """
-        obs_feats, obs_data = separate_observations(observations=observations)
-        obs_feats = self.untransform_observation_features(
-            observation_features=obs_feats
-        )
-        obs_data = self._untransform_observation_data(observation_data=obs_data)
-        untrans_obs = [
-            Observation(features=obs_feats[i], data=obs_data[i], arm_name=obs.arm_name)
-            for i, obs in enumerate(observations)
-        ]
-        return untrans_obs
 
     def untransform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -217,37 +171,67 @@ class Transform:
         """
         return observation_features
 
-    def _untransform_observation_data(
+    def untransform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Untransform observation data.
 
         This is typically done in-place. This class implements the identity
         transform (does nothing).
 
-        This method does not need to be implemented if untransform_observations
-        is overridden.
-
         Args:
             observation_data: Observation data, in transformed space
+            observation_features: Corresponding observation features, in same
+                space.
 
         Returns: observation data in original space.
         """
         return observation_data
 
-    def untransform_outcome_constraints(
+    def untransform_objective_thresholds(
         self,
-        outcome_constraints: List[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
-        """Untransform outcome constraints.
+        objective_thresholds: List[ObjectiveThreshold],
+        observation_features: List[ObservationFeatures],
+    ) -> List[ObjectiveThreshold]:
+        """Untransforms objective thresholds.
 
-        If outcome constraints are modified in transform_optimization_config,
-        this method should reverse the portion of that transformation that was
-        applied to the outcome constraints.
+        By default, we untransform objective thresholds in the same way as the
+        observation data.
+
+        Args:
+            objective_thresholds: Objective thresholds in transformed space.
+            observation_features: Observation features in transformed space. Required
+                to correctly untransform thresholds for stratified observation data.
         """
-        return outcome_constraints
+        # Create dummy ObservationData from objective_thresholds so we can easily
+        # untransform them using the existing Transform methods.
+        means = np.array([t.bound for t in objective_thresholds])
+        metric_names = [t.metric.name for t in objective_thresholds]
+        observation_data = [
+            ObservationData(
+                means=means,
+                metric_names=metric_names,
+                covariance=np.zeros((len(metric_names), len(metric_names))),
+            )
+        ]
+        observation_data = self.untransform_observation_data(
+            observation_data, observation_features
+        )[0]
+
+        untransformed_thresholds = []
+        for threshold, bound in zip(objective_thresholds, observation_data.means):
+            if not np.isnan(bound):
+                untransformed_thresholds.append(
+                    ObjectiveThreshold(
+                        metric=threshold.metric,
+                        bound=bound,
+                        relative=False,
+                        op=threshold.op,
+                    )
+                )
+        return untransformed_thresholds
 
     def _transform_parameter_distributions(self, search_space: SearchSpace) -> None:
         """Transform the parameter distributions of the given search space, in-place.

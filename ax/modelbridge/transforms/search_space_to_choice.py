@@ -7,7 +7,7 @@
 from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
-from ax.core.observation import Observation, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -34,16 +34,16 @@ class SearchSpaceToChoice(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert search_space is not None, "SearchSpaceToChoice requires search space"
-        assert observations is not None, "SeachSpaceToChoice requires observations"
         super().__init__(
             search_space=search_space,
-            observations=observations,
+            observation_features=observation_features,
+            observation_data=observation_data,
             config=config,
         )
         if any(p.is_fidelity for p in search_space.parameters.values()):
@@ -57,8 +57,8 @@ class SearchSpaceToChoice(Transform):
             )
         self.parameter_name = "arms"
         self.signature_to_parameterization = {
-            Arm(parameters=obs.features.parameters).signature: obs.features.parameters
-            for obs in observations
+            Arm(parameters=obsf.parameters).signature: obsf.parameters
+            for obsf in observation_features
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:

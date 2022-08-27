@@ -17,12 +17,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
 from ax.core.metric import Metric
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -313,7 +308,8 @@ class TorchModelBridge(ModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
     ) -> List[ObservationData]:
@@ -324,7 +320,6 @@ class TorchModelBridge(ModelBridge):
             raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
         if parameters is None:
             parameters = self.parameters
-        observation_features, observation_data = separate_observations(cv_training_data)
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
@@ -463,14 +458,14 @@ class TorchModelBridge(ModelBridge):
         self,
         model: TorchModel,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         parameters: Optional[List[str]] = None,
     ) -> None:  # pragma: no cover
         self.parameters = list(search_space.parameters.keys())
         if parameters is None:
             parameters = self.parameters
         all_metric_names: Set[str] = set()
-        observation_features, observation_data = separate_observations(observations)
         for od in observation_data:
             all_metric_names.update(od.metric_names)
         self.outcomes = sorted(all_metric_names)  # Deterministic order
@@ -693,25 +688,22 @@ class TorchModelBridge(ModelBridge):
         )
         return search_space_digest, torch_opt_config
 
-    def _transform_observations(
-        self, observations: List[Observation]
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    def _transform_observation_data(
+        self, observation_data: List[ObservationData]
+    ) -> Any:  # TODO(jej): Make return type parametric
         """Apply terminal transform to given observation data and return result.
 
-        Converts a set of observations to a tuple of
-            - a (n x d) array of X
+        Converts a set of observation data to a tuple of
             - an (n x m) array of means
             - an (n x m x m) array of covariances
         """
-        observation_features, observation_data = separate_observations(observations)
         try:
             mean, cov = observation_data_to_array(
                 outcomes=self.outcomes, observation_data=observation_data
             )
         except (KeyError, TypeError):  # pragma: no cover
             raise ValueError("Invalid formatting of observation data.")
-        X = self._transform_observation_features(observation_features)
-        return X, self._array_to_tensor(mean), self._array_to_tensor(cov)
+        return self._array_to_tensor(mean), self._array_to_tensor(cov)
 
     def _untransform_objective_thresholds(
         self,
@@ -736,22 +728,25 @@ class TorchModelBridge(ModelBridge):
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
                 )
             )
-        fixed_features = fixed_features or {}
-        fixed_features_obs = ObservationFeatures(
-            parameters={
-                name: fixed_features[i]
-                for i, name in enumerate(self.parameters)
-                if i in fixed_features
-            }
-        )
 
+        # Create dummy ObservationFeatures from the fixed features.
+        fixed = fixed_features or {}
+        observation_features = [
+            ObservationFeatures(
+                parameters={
+                    name: fixed.get(i, 0.0) for i, name in enumerate(self.parameters)
+                }
+            )
+        ]
+
+        # Untransform ObjectiveThresholds along with the dummy ObservationFeatures.
         for t in reversed(list(self.transforms.values())):
-            fixed_features_obs = t.untransform_observation_features(
-                [fixed_features_obs]
-            )[0]
-            thresholds = t.untransform_outcome_constraints(
-                outcome_constraints=thresholds,
-                fixed_features=fixed_features_obs,
+            thresholds = t.untransform_objective_thresholds(
+                objective_thresholds=thresholds,
+                observation_features=observation_features,
+            )
+            observation_features = t.untransform_observation_features(
+                observation_features
             )
 
         return thresholds
@@ -759,13 +754,13 @@ class TorchModelBridge(ModelBridge):
     def _update(
         self,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         parameters: Optional[List[str]] = None,
     ) -> None:
         """Apply terminal transform for update data, and pass along to model."""
         if parameters is None:
             parameters = self.parameters
-        observation_features, observation_data = separate_observations(observations)
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,

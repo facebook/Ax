@@ -6,7 +6,7 @@
 
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ax.core.observation import Observation
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -33,12 +33,12 @@ class TaskEncode(OrderedChoiceEncode):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert search_space is not None, "TaskEncode requires search space"
         # Identify parameters that should be transformed
         self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():

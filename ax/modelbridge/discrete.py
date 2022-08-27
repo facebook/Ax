@@ -6,12 +6,7 @@
 
 from typing import Dict, List, Optional, Set, Tuple
 
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    separate_observations,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
@@ -49,13 +44,13 @@ class DiscreteModelBridge(ModelBridge):
         self,
         model: DiscreteModel,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
     ) -> None:
         self.model = model
         # Convert observations to arrays
         self.parameters = list(search_space.parameters.keys())
         all_metric_names: Set[str] = set()
-        observation_features, observation_data = separate_observations(observations)
         for od in observation_data:
             all_metric_names.update(od.metric_names)
         self.outcomes = list(all_metric_names)
@@ -168,13 +163,13 @@ class DiscreteModelBridge(ModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: List[Observation],
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         cv_test_points: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
         """
-        observation_features, observation_data = separate_observations(cv_training_data)
         Xs_train, Ys_train, Yvars_train = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,

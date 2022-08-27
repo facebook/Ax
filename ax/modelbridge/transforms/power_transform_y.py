@@ -10,9 +10,9 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
@@ -49,12 +49,12 @@ class PowerTransformY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        search_space: SearchSpace,
+        observation_features: List[ObservationFeatures],
+        observation_data: List[ObservationData],
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert observations is not None, "PowerTransformY requires observations"
         if config is None:
             raise ValueError("PowerTransform requires a config.")
         # pyre-fixme[6]: Same issue as for LogY
@@ -63,14 +63,14 @@ class PowerTransformY(Transform):
             raise ValueError("Must specify at least one metric in the config.")
         self.clip_mean = config.get("clip_mean", True)
         self.metric_names = metric_names
-        observation_data = [obs.data for obs in observations]
         Ys = get_data(observation_data=observation_data, metric_names=metric_names)
         self.power_transforms = _compute_power_transforms(Ys=Ys)
         self.inv_bounds = _compute_inverse_bounds(self.power_transforms, tol=1e-10)
 
-    def _transform_observation_data(
+    def transform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
@@ -86,9 +86,10 @@ class PowerTransformY(Transform):
                     )
         return observation_data
 
-    def _untransform_observation_data(
+    def untransform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
@@ -113,8 +114,8 @@ class PowerTransformY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: Optional[modelbridge_module.base.ModelBridge],
+        fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
@@ -135,22 +136,6 @@ class PowerTransformY(Transform):
                     transform = self.power_transforms[c.metric.name].transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return optimization_config
-
-    def untransform_outcome_constraints(
-        self,
-        outcome_constraints: List[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
-        for c in outcome_constraints:
-            if isinstance(c, ScalarizedOutcomeConstraint):
-                raise ValueError("ScalarizedOutcomeConstraint not supported here")
-            elif c.metric.name in self.metric_names:
-                if c.relative:
-                    raise ValueError("Relative constraints not supported here.")
-                else:
-                    transform = self.power_transforms[c.metric.name].inverse_transform
-                    c.bound = transform(np.array(c.bound, ndmin=2)).item()
-        return outcome_constraints
 
 
 def _compute_power_transforms(

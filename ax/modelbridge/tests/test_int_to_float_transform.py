@@ -36,11 +36,13 @@ class IntToFloatTransformTest(TestCase):
         )
         self.t = IntToFloat(
             search_space=self.search_space,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         self.t2 = IntToFloat(
             search_space=self.search_space,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
             config={"rounding": "randomized"},
         )
 
@@ -122,7 +124,8 @@ class IntToFloatTransformTest(TestCase):
         )
         t = IntToFloat(
             search_space=constrained_int_search_space,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         self.assertEqual(t.rounding, "randomized")
         observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
@@ -147,7 +150,8 @@ class IntToFloatTransformTest(TestCase):
         )
         t = IntToFloat(
             search_space=constrained_int_search_space,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         self.assertEqual(t.rounding, "randomized")
         observation_features = [ObservationFeatures(parameters={"x": 2.6, "y": 2.6})]
@@ -164,7 +168,8 @@ class IntToFloatTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = IntToFloat(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -184,7 +189,8 @@ class IntToFloatTransformTest(TestCase):
         )
         t = IntToFloat(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
@@ -198,7 +204,8 @@ class IntToFloatTransformTest(TestCase):
         rss = get_robust_search_space(use_discrete=True)
         t = IntToFloat(
             search_space=rss,
-            observations=[],
+            observation_features=None,
+            observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)

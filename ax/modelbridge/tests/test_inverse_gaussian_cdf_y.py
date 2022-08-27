@@ -32,13 +32,12 @@ class InverseGaussianCdfYTransformTest(TestCase):
             ),
         )
         self.t = InverseGaussianCdfY(
-            search_space=None,
-            observations=[],
+            search_space=None, observation_features=None, observation_data=None
         )
 
     def testTransformObservations(self):
-        transformed_obsd_mid = self.t._transform_observation_data(
-            [deepcopy(self.obsd_mid)]
+        transformed_obsd_mid = self.t.transform_observation_data(
+            [deepcopy(self.obsd_mid)], []
         )[0]
         # Approximate assertion for robustness.
         mean_results = np.array(list(transformed_obsd_mid.means))
@@ -57,11 +56,11 @@ class InverseGaussianCdfYTransformTest(TestCase):
 
         # Fail with extreme values.
         with self.assertRaises(ValueError):
-            self.t._transform_observation_data([deepcopy(self.obsd_extreme)])[0]
+            self.t.transform_observation_data([deepcopy(self.obsd_extreme)], [])[0]
 
         # NaN covar values remain as NaNs
-        transformed_obsd_nan_covars = self.t._transform_observation_data(
-            [deepcopy(self.obsd_nan_covars)]
+        transformed_obsd_nan_covars = self.t.transform_observation_data(
+            [deepcopy(self.obsd_nan_covars)], []
         )[0]
         cov_results = np.array(transformed_obsd_nan_covars.covariance)
         self.assertTrue(

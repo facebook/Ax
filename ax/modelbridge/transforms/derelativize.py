@@ -4,12 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
@@ -38,8 +38,8 @@ class Derelativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: Optional["modelbridge_module.base.ModelBridge"],
+        fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         use_raw_sq = self.config.get("use_raw_status_quo", False)
         has_relative_constraint = any(
@@ -91,12 +91,3 @@ class Derelativize(Transform):
                 c.bound = (1 + c.bound / 100.0) * sq_val
                 c.relative = False
         return optimization_config
-
-    def untransform_outcome_constraints(
-        self,
-        outcome_constraints: List[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
-        # We intentionally leave outcome constraints derelativized when
-        # untransforming.
-        return outcome_constraints

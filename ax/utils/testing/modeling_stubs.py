@@ -10,7 +10,6 @@ import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
@@ -18,6 +17,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_experiment,
     get_search_space,
@@ -108,7 +108,7 @@ def get_observation1trans(
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
-            parameters={"x": 9.0, "y": 121.0}, trial_index=np.int64(0)
+            parameters={"x": 9.0, "y": 10.0}, trial_index=np.int64(0)
         ),
         data=ObservationData(
             means=np.array([9.0, 25.0]),
@@ -140,7 +140,7 @@ def get_observation2trans(
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
-            parameters={"x": 16.0, "y": 9.0}, trial_index=np.int64(1)
+            parameters={"x": 16.0, "y": 2.0}, trial_index=np.int64(1)
         ),
         data=ObservationData(
             means=np.array([9.0, 4.0]),
@@ -181,19 +181,14 @@ def get_experiment_for_value() -> Experiment:
 class transform_1(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         new_ss = search_space.clone()
-        for param in new_ss.parameters.values():
-            if isinstance(param, FixedParameter):
-                param._value += 1.0
-            elif isinstance(param, RangeParameter):
-                param._lower += 1.0
-                param._upper += 1.0
+        new_ss.parameters["x"]._value += 1.0  # pyre-ignore[16]: testing hack.
         return new_ss
 
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
         modelbridge: Optional[ModelBridge],
-        fixed_features: Optional[ObservationFeatures],
+        fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
             # pyre-fixme[58]: `+` is not supported for operand types
@@ -207,13 +202,19 @@ class transform_1(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in obsf.parameters:
-                obsf.parameters[p_name] += 1  # pyre-ignore
+            if "x" in obsf.parameters:
+                obsf.parameters["x"] = (
+                    # pyre-fixme[58]: `+` is not supported for operand types
+                    #  `Union[float, str]` and `int`.
+                    not_none(obsf.parameters["x"])
+                    + 1
+                )
         return observation_features
 
-    def _transform_observation_data(
+    def transform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             obsd.means += 1
@@ -223,13 +224,13 @@ class transform_1(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name in obsf.parameters:
-                obsf.parameters[p_name] -= 1  # pyre-ignore
+            obsf.parameters["x"] = obsf.parameters["x"] - 1  # pyre-ignore
         return observation_features
 
-    def _untransform_observation_data(
+    def untransform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             obsd.means -= 1
@@ -239,19 +240,14 @@ class transform_1(Transform):
 class transform_2(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         new_ss = search_space.clone()
-        for param in new_ss.parameters.values():
-            if isinstance(param, FixedParameter):
-                param._value *= 2.0
-            elif isinstance(param, RangeParameter):
-                param._lower *= 2.0
-                param._upper *= 2.0
+        new_ss.parameters["x"]._value *= 2.0  # pyre-ignore[16]: testing hack.
         return new_ss
 
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
         modelbridge: Optional[ModelBridge],
-        fixed_features: Optional[ObservationFeatures],
+        fixed_features: ObservationFeatures,
     ) -> OptimizationConfig:
         return (
             # pyre-fixme[58]: `**` is not supported for operand types
@@ -265,13 +261,14 @@ class transform_2(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for pname in obsf.parameters:
-                obsf.parameters[pname] = obsf.parameters[pname] ** 2  # pyre-ignore
+            if "x" in obsf.parameters:
+                obsf.parameters["x"] = obsf.parameters["x"] ** 2  # pyre-ignore
         return observation_features
 
-    def _transform_observation_data(
+    def transform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             obsd.means = obsd.means**2
@@ -281,13 +278,13 @@ class transform_2(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
-            for pname in obsf.parameters:
-                obsf.parameters[pname] = np.sqrt(obsf.parameters[pname])
+            obsf.parameters["x"] = np.sqrt(obsf.parameters["x"])
         return observation_features
 
-    def _untransform_observation_data(
+    def untransform_observation_data(
         self,
         observation_data: List[ObservationData],
+        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             obsd.means = np.sqrt(obsd.means)

@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from copy import deepcopy
 from functools import partial
 from typing import (
     Callable,
@@ -28,12 +27,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -742,11 +736,7 @@ def get_pareto_frontier_and_configs(
         )
     if observation_data is not None:
         if transform_outcomes_and_configs:
-            observations = recombine_observations(
-                observation_features=observation_features,
-                observation_data=observation_data,
-            )
-            _, Y, Yvar = modelbridge.transform_observations(observations)
+            Y, Yvar = modelbridge.transform_observation_data(observation_data)
         else:
             Y, Yvar = observation_data_to_array(
                 outcomes=modelbridge.outcomes, observation_data=observation_data
@@ -774,10 +764,11 @@ def get_pareto_frontier_and_configs(
         )
     else:
         # de-relativize outcome constraints and objective thresholds
-        observations = modelbridge.get_training_data()
+        obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
         tf = Derelativize(
             search_space=modelbridge.model_space.clone(),
-            observations=observations,
+            observation_data=obs_data,
+            observation_features=obs_feats,
             config={"use_raw_status_quo": True},
         )
         # pyre-ignore [9]
@@ -824,28 +815,28 @@ def get_pareto_frontier_and_configs(
     frontier_observation_data = array_to_observation_data(
         f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
     )
-    # Construct observations
-    frontier_observations = []
-    for i, obsd in enumerate(frontier_observation_data):
-        frontier_observations.append(
-            Observation(
-                features=deepcopy(observation_features[indx[i]]),
-                data=deepcopy(obsd),
-                arm_name=arm_names[indx[i]],
-            )
-        )
 
     if use_model_predictions:
         # Untransform observations
         for t in reversed(list(modelbridge.transforms.values())):
-            frontier_observations = t.untransform_observations(
-                frontier_observations,
+            frontier_observation_data = t.untransform_observation_data(
+                frontier_observation_data, []
             )
         # reconstruct tensor representation of untransformed predictions
         Y_arr, _ = observation_data_to_array(
             outcomes=modelbridge.outcomes, observation_data=frontier_observation_data
         )
         f = _array_to_tensor(Y_arr)
+    # Construct observations
+    frontier_observations = []
+    for i, obsd in enumerate(frontier_observation_data):
+        frontier_observations.append(
+            Observation(
+                features=observation_features[indx[i]],
+                data=obsd,
+                arm_name=arm_names[indx[i]],
+            )
+        )
     return frontier_observations, f, obj_w.cpu(), obj_t.cpu()
 
 
