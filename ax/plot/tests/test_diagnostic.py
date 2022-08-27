@@ -29,7 +29,8 @@ class DiagnosticTest(TestCase):
         )
         cv = cross_validate(model)
         # Assert that each type of plot can be constructed successfully
-        plot = interact_cross_validation_plotly(cv)
+        label_dict = {"branin": "BrAnIn"}
+        plot = interact_cross_validation_plotly(cv, label_dict=label_dict)
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_cross_validation(cv)
+        plot = interact_cross_validation(cv, label_dict=label_dict)
         self.assertIsInstance(plot, AxPlotConfig)
