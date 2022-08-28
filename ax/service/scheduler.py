@@ -834,10 +834,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             >>> def write_n_trials(scheduler: Scheduler) -> None:
             ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
             >>>
-            >>> scheduler.run_n_trials(  # doctest: +SKIP
+            >>> scheduler.run_n_trials(
             ...     max_trials=3, idle_callback=write_n_trials
             ... )
-            >>> print(trials_info["n_completed"])  # doctest: +SKIP
+            >>> print(trials_info["n_completed"])
             3
         """
         for _ in self.run_trials_and_yield_results(
@@ -879,10 +879,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             >>> def write_n_trials(scheduler: Scheduler) -> None:
             ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
             >>>
-            >>> scheduler.run_all_trials(  # doctest: +SKIP
+            >>> scheduler.run_all_trials(
             ...     timeout_hours=0.1, idle_callback=write_n_trials
             ... )
-            >>> print(trials_info["n_completed"])  # doctest: +SKIP
+            >>> print(trials_info["n_completed"])
         """
         if self.options.total_trials is None:
             # NOTE: Capping on number of trials will likely be needed as fallback
