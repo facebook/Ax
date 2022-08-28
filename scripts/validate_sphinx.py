@@ -25,9 +25,7 @@ AUTOMODULE_REGEX = re.compile(r"\.\. automodule:: ([\.\w]*)")
 
 # Modules to exclude from validation
 EXCLUDE_MODULES = {
-    "ax.utils.testing.fully_annotated",
     "ax.utils.testing.manifest",
-    "ax.utils.testing.pyre_strict",
 }
 
 
