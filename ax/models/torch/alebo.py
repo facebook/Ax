@@ -74,7 +74,7 @@ class ALEBOKernel(Kernel):
         self.B = B
         # Initialize U
         Arnd = torch.randn(D, D, dtype=B.dtype, device=B.device)
-        Arnd = torch.qr(Arnd)[0]
+        Arnd = torch.linalg.qr(Arnd)[0]
         ABinv = Arnd[: self.d, :] @ torch.pinverse(B)
         # U is the upper Cholesky decomposition of Gamma, the Mahalanobis
         # matrix. Uvec is the upper triangular portion of U squeezed out into
