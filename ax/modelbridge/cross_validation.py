@@ -186,8 +186,8 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
       predictions, relative to the observed mean.
     - 'MAPE': mean absolute percentage error of the estimated mean relative
       to the observed mean.
-    - 'Total raw effect': the percent change from the smallest observed
-      mean to the largest observed mean.
+    - 'Total raw effect': the multiple change from the smallest observed
+      mean to the largest observed mean, i.e. `(max - min) / min`.
     - 'Correlation coefficient': the Pearson correlation of the estimated
       and observed means.
     - 'Rank correlation': the Spearman correlation of the estimated
@@ -353,7 +353,8 @@ def _mape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
 def _total_raw_effect(
     y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
 ) -> float:
-    return float((np.max(y_obs) - np.min(y_obs)) / np.min(y_obs))
+    min_y_obs = np.min(y_obs)
+    return float((np.max(y_obs) - min_y_obs) / min_y_obs)
 
 
 def _correlation_coefficient(
