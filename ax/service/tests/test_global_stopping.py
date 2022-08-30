@@ -27,6 +27,9 @@ class TestGlobalStoppingIntegration(TestCase):
         ax_client = AxClient(global_stopping_strategy=global_stopping_strategy)
         ax_client.create_experiment(
             name="branin_test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -47,8 +50,11 @@ class TestGlobalStoppingIntegration(TestCase):
     def evaluate(self, parameters: TParameterization) -> Dict[str, Tuple[float, float]]:
         """Evaluates the parameters for branin experiment."""
         x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
+        # pyre-fixme[7]: Expected `Dict[str, Tuple[float, float]]` but got
+        #  `Dict[str, Tuple[Union[float, ndarray], float]]`.
         return {"branin": (branin(x), 0.0)}
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_global_stopping_integration(self):
         """
         Specifying a dummy global stopping strategy which stops
@@ -65,7 +71,9 @@ class TestGlobalStoppingIntegration(TestCase):
         for _ in range(3):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
-                trial_index=trial_index, raw_data=self.evaluate(parameters)
+                trial_index=trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[...
+                raw_data=self.evaluate(parameters),
             )
 
         # Trying to run the 4th iteration, which should raise
@@ -79,6 +87,7 @@ class TestGlobalStoppingIntegration(TestCase):
         parameters, trial_index = ax_client.get_next_trial(force=True)
         self.assertIsNotNone(parameters)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_min_trials(self):
         """
         Tests the min_trials mechanism of the stopping strategy; that is,
@@ -96,13 +105,17 @@ class TestGlobalStoppingIntegration(TestCase):
         for _ in range(2):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
-                trial_index=trial_index, raw_data=self.evaluate(parameters)
+                trial_index=trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[...
+                raw_data=self.evaluate(parameters),
             )
 
         # Since min_trials=3, GSS should not stop creating the 3rd iteration.
         parameters, trial_index = ax_client.get_next_trial()
         ax_client.complete_trial(
-            trial_index=trial_index, raw_data=self.evaluate(parameters)
+            trial_index=trial_index,
+            # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[Unio...
+            raw_data=self.evaluate(parameters),
         )
         self.assertIsNotNone(parameters)
 

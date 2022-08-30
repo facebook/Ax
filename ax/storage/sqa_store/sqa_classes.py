@@ -159,12 +159,14 @@ class SQAMetric(Base):
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
     canonical_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
+    # pyre-fixme[4]: Attribute must be annotated.
     scalarized_objective_id = Column(Integer, ForeignKey("metric_v2.id"))
 
     # Relationship containing SQAMetric(s) only defined for the parent metric
     # of Multi/Scalarized Objective contains all children of the parent metric
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
+    # pyre-fixme[4]: Attribute must be annotated.
     scalarized_objective_children_metrics = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
@@ -177,7 +179,9 @@ class SQAMetric(Base):
     #  `Column[decimal.Decimal]`.
     scalarized_objective_weight: Optional[float] = Column(Float)
 
+    # pyre-fixme[4]: Attribute must be annotated.
     scalarized_outcome_constraint_id = Column(Integer, ForeignKey("metric_v2.id"))
+    # pyre-fixme[4]: Attribute must be annotated.
     scalarized_outcome_constraint_children_metrics = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",

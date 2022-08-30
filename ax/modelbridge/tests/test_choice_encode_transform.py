@@ -19,6 +19,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 class ChoiceEncodeTransformTest(TestCase):
     t_class = ChoiceEncode
 
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -48,7 +49,11 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         self.t = self.t_class(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.observation_features = [
@@ -68,9 +73,11 @@ class ChoiceEncodeTransformTest(TestCase):
             "d": 0,
         }
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = self.observation_features
         obs_ft2 = deepcopy(observation_features)
@@ -93,6 +100,7 @@ class ChoiceEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
@@ -128,25 +136,39 @@ class ChoiceEncodeTransformTest(TestCase):
             ]
         )
         t = OrderedChoiceEncode(
-            search_space=ss3, observation_features=None, observation_data=None
+            search_space=ss3,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            observation_data=None,
         )
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space()
+        # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
         rss.parameters["c"]._is_ordered = True
         # Transform a non-distributional parameter.
         t = self.t_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
         self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
         # Test with environmental variables.
         all_params = list(rss.parameters.values())
@@ -158,13 +180,18 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         t = self.t_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
         self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
 
@@ -172,6 +199,7 @@ class ChoiceEncodeTransformTest(TestCase):
 class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
     t_class = OrderedChoiceEncode
 
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         super().setUp()
         # expected parameters after transform
@@ -185,9 +213,11 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             "d": "r",
         }
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
@@ -220,12 +250,20 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             ]
         )
         t = OrderedChoiceEncode(
-            search_space=ss3, observation_features=None, observation_data=None
+            search_space=ss3,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            observation_data=None,
         )
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def normalize_values(values):
     values = np.array(values, dtype=float)
     vmin, vmax = values.min(), values.max()

@@ -12,6 +12,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

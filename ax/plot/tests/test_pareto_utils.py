@@ -29,6 +29,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class ParetoUtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         experiment = get_branin_experiment()
         experiment.add_tracking_metric(
@@ -40,6 +41,7 @@ class ParetoUtilsTest(TestCase):
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testComputePosteriorParetoFrontierByTrial(self):
         # Experiments with batch trials must specify trial_index or data
         with self.assertRaises(UnsupportedError):
@@ -59,6 +61,7 @@ class ParetoUtilsTest(TestCase):
         )
         self.assertIsNone(pfr.arm_names)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testComputePosteriorParetoFrontierByData(self):
         # Experiments with batch trials must specify trial_index or data
         compute_posterior_pareto_frontier(
@@ -70,6 +73,7 @@ class ParetoUtilsTest(TestCase):
             num_points=2,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservedParetoFrontiers(self):
         experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, has_optimization_config=False, with_status_quo=True
@@ -141,10 +145,13 @@ class ParetoUtilsTest(TestCase):
             self.assertEqual(list(pfr.means.keys()), ["m1", "m2", "m3"])
             self.assertEqual(len(pfr.means["m1"]), len(pareto_arms))
             self.assertTrue(np.isnan(pfr.sems["m1"]).all())
+            # pyre-fixme[6]: For 1st param expected `Sized` but got
+            #  `Optional[List[Optional[str]]]`.
             self.assertEqual(len(pfr.arm_names), len(pareto_arms))
             arm_idx = np.argsort(pfr.arm_names)
             for i, idx in enumerate(arm_idx):
                 name = pareto_arms[i]
+                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
                 self.assertEqual(pfr.arm_names[idx], name)
                 self.assertEqual(
                     pfr.param_dicts[idx], experiment.arms_by_name[name].parameters
@@ -154,8 +161,11 @@ class ParetoUtilsTest(TestCase):
             experiment=experiment, data=data, arm_names=["0_1"]
         )
         for pfr in pfrs:
+            # pyre-fixme[58]: `in` is not supported for right operand type
+            #  `Optional[typing.List[typing.Optional[str]]]`.
             self.assertTrue("status_quo" in pfr.arm_names)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testPlotMultipleParetoFrontiers(self):
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
@@ -168,6 +178,7 @@ class ParetoUtilsTest(TestCase):
         pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
         self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_extract_observed_pareto_2d(self):
         Y = np.array([[1.0, 2.0], [2.1, 1.0], [1.0, 1.0], [2.0, 2.0], [3.0, 0.0]])
         reference_point = (1.5, 0.5)

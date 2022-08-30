@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -63,6 +64,7 @@ class WinsorizationConfig:
 
 OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
+# pyre-fixme[5]: Global expression must be annotated.
 DEFAULT_CUTOFFS = (-float("inf"), float("inf"))
 
 
@@ -148,6 +150,7 @@ class Winsorize(Transform):
                 )
             opt_config = checked_cast(OptimizationConfig, opt_config)
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.cutoffs = {}
         for metric_name, metric_values in all_metric_values.items():
             if use_legacy:

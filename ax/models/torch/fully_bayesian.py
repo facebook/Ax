@@ -69,6 +69,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -261,10 +262,14 @@ def _get_model_mcmc_samples(
     disable_progbar: bool = False,
     gp_kernel: str = "matern",
     verbose: bool = False,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     pyro_model: Callable = single_task_pyro_model,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     get_gpytorch_model: Callable = _get_single_task_gpytorch_model,
     rank: Optional[int] = 1,
     **kwargs: Any,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
+    #  to avoid runtime subscripting errors.
 ) -> Tuple[ModelListGP, List[Dict]]:
     r"""Instantiates a batched GPyTorchModel(ModelListGP) based on the given data and
     fit the model based on MCMC in pyro.
@@ -370,6 +375,7 @@ def get_and_fit_model_mcmc(
 
 
 def run_inference(
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     pyro_model: Callable,
     X: Tensor,
     Y: Tensor,
@@ -460,6 +466,9 @@ def get_fully_bayesian_acqf(
     )
     base_forward = acqf.forward
 
+    # pyre-fixme[53]: Captured variable `base_forward` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, X):
         # unsqueeze dim for GP hyperparameter samples
         return base_forward(X.unsqueeze(-3)).mean(dim=-1)

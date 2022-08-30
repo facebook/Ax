@@ -16,6 +16,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TrialAsTaskTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -25,14 +26,20 @@ class TrialAsTaskTransformTest(TestCase):
             ]
         )
         self.training_feats = [
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 1}, trial_index=0),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 2}, trial_index=0),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 3}, trial_index=1),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 4}, trial_index=2),
         ]
         self.t = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.bm = {
@@ -43,16 +50,21 @@ class TrialAsTaskTransformTest(TestCase):
         self.t2 = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
             config={"trial_level_map": self.bm},
         )
         self.t3 = TrialAsTask(
             search_space=self.search_space,
             observation_features=self.training_feats,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
             config={"trial_level_map": {}},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(
             self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
@@ -66,6 +78,8 @@ class TrialAsTaskTransformTest(TestCase):
             TrialAsTask(
                 search_space=self.search_space,
                 observation_features=self.training_feats + [obsf],
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
             )
         bm = {"p": {0: "x1", 1: "x2"}}
@@ -73,10 +87,13 @@ class TrialAsTaskTransformTest(TestCase):
             TrialAsTask(
                 search_space=self.search_space,
                 observation_features=self.training_feats,
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
                 config={"trial_level_map": bm},
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
@@ -104,13 +121,16 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft4 = self.t3.untransform_observation_features(obs_ft4)
         self.assertEqual(obs_ft4, self.training_feats)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "TRIAL_PARAM"})
         p = ss2.parameters["TRIAL_PARAM"]
         self.assertEqual(p.parameter_type, ParameterType.STRING)
+        # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertEqual(set(p.values), {"0", "1", "2"})
+        # pyre-fixme[16]: `Parameter` has no attribute `is_task`.
         self.assertTrue(p.is_task)
         ss2 = deepcopy(self.search_space)
         ss2 = self.t2.transform_search_space(ss2)
@@ -126,6 +146,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(set(p.values), {"u1", "u2"})
         self.assertTrue(p.is_task)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_robust_search_space(self):
         rss = get_robust_search_space()
         # Raises an error in __init__.
@@ -133,5 +154,7 @@ class TrialAsTaskTransformTest(TestCase):
             TrialAsTask(
                 search_space=rss,
                 observation_features=[],
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
             )

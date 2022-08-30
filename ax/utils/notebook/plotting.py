@@ -11,9 +11,12 @@ from IPython.display import display
 from plotly.offline import init_notebook_mode, iplot
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def init_notebook_plotting(offline=False):
     """Initialize plotting in notebooks, either in online or offline mode."""
     display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
@@ -22,6 +25,7 @@ def init_notebook_plotting(offline=False):
     init_notebook_mode()
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def render(plot_config: AxPlotConfig, inject_helpers=False) -> None:
     """Render plot config."""
     if plot_config.plot_type == AxPlotTypes.GENERIC:

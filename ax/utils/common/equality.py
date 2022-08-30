@@ -14,12 +14,15 @@ import pandas as pd
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def equality_typechecker(eq_func: Callable) -> Callable:
     """A decorator to wrap all __eq__ methods to ensure that the inputs
     are of the right type.
     """
 
     # no type annotation for now; breaks sphinx-autodoc-typehints
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _type_safe_equals(self, other):
         if not isinstance(other, self.__class__):
             return False
@@ -28,6 +31,7 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     return _type_safe_equals
 
 
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     """Compare equality of two lists of core Ax objects.
 
@@ -103,6 +107,7 @@ def object_attribute_dicts_equal(
     return not bool(unequal_type or unequal_value)
 
 
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def object_attribute_dicts_find_unequal_fields(
     one_dict: Dict[str, Any],
     other_dict: Dict[str, Any],

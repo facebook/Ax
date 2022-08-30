@@ -15,6 +15,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TaskEncodeTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -37,13 +38,19 @@ class TaskEncodeTransformTest(TestCase):
         )
         self.t = TaskEncode(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "b": 10.0, "c": "online"})
@@ -62,6 +69,7 @@ class TaskEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
@@ -73,6 +81,7 @@ class TaskEncodeTransformTest(TestCase):
         self.assertEqual(ss2.parameters["b"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.INT)
 
+        # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertEqual(ss2.parameters["c"].values, [0, 1])
 
         # Test error if there are fidelities
@@ -90,23 +99,37 @@ class TaskEncodeTransformTest(TestCase):
         )
         with self.assertRaises(ValueError):
             TaskEncode(
-                search_space=ss3, observation_features=None, observation_data=None
+                search_space=ss3,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
+                observation_features=None,
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
+                observation_data=None,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space()
+        # pyre-fixme[16]: `Parameter` has no attribute `_is_task`.
         rss.parameters["c"]._is_task = True
         # Transform a non-distributional parameter.
         t = TaskEncode(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
         self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
         # Test with environmental variables.
         all_params = list(rss.parameters.values())
@@ -118,12 +141,17 @@ class TaskEncodeTransformTest(TestCase):
         )
         t = TaskEncode(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
         self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)

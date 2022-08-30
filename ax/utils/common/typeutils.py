@@ -134,6 +134,8 @@ def checked_cast_to_tuple(typ: Tuple[Type[V], ...], val: V) -> T:
     return val
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def numpy_type_to_python_type(value: Any) -> Any:
     """If `value` is a Numpy int or float, coerce to a Python int or float.
     This is necessary because some of our transforms return Numpy values.

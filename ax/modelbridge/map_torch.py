@@ -100,6 +100,7 @@ class MapTorchModelBridge(TorchModelBridge):
             raise ValueError(
                 "`MapTorchModelBridge expects `MapData` instead of `Data`."
             )
+        # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_features = data.map_keys
         self._map_data_limit_total_rows = map_data_limit_total_rows
 
@@ -120,6 +121,7 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     @property
+    # pyre-fixme[3]: Return type must be annotated.
     def parameters_with_map_keys(self):
         return self.parameters + self._map_key_features
 
@@ -306,6 +308,7 @@ class MapTorchModelBridge(TorchModelBridge):
         self,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
         map_key_ranges: Dict[str, Dict[str, Optional[Tuple]]],
     ) -> List[ObservationData]:
         """Uses `map_key_ranges` to detect which `observation_features` have
@@ -341,6 +344,7 @@ class MapTorchModelBridge(TorchModelBridge):
         self,
         observation_features: List[ObservationFeatures],
         observation_data: List[ObservationData],
+        # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
     ) -> Dict[str, Dict[str, Optional[Tuple]]]:
         """Get ranges of map_key values in observation features. Returns a dict of the
         form: {"outcome": {"map_key": (min_val, max_val)}}.
@@ -352,6 +356,9 @@ class MapTorchModelBridge(TorchModelBridge):
                 for o in obsd.metric_names:
                     map_values[o][p].append(param_value)
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         def get_range(values: List):
             return (min(values), max(values)) if len(values) > 0 else None
 

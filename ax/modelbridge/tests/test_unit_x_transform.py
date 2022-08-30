@@ -20,9 +20,11 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 class UnitXTransformTest(TestCase):
 
     transform_class = UnitX
+    # pyre-fixme[4]: Attribute must be annotated.
     expected_c_dicts = [{"x": -1.0, "y": 1.0}, {"x": -1.0, "a": 1.0}]
     expected_c_bounds = [0.0, 1.0]
 
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.target_lb = self.transform_class.target_lb
         self.target_range = self.transform_class.target_range
@@ -54,7 +56,11 @@ class UnitXTransformTest(TestCase):
         )
         self.t = self.transform_class(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.search_space_with_target = SearchSpace(
@@ -70,9 +76,11 @@ class UnitXTransformTest(TestCase):
             ]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.bounds, {"x": (1.0, 3.0), "y": (1.0, 2.0)})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = [
             ObservationFeatures(parameters={"x": 2, "y": 2, "z": 2, "a": 2, "b": "b"})
@@ -105,6 +113,7 @@ class UnitXTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
@@ -134,7 +143,11 @@ class UnitXTransformTest(TestCase):
         # Test transform of target value
         t = self.transform_class(
             search_space=self.search_space_with_target,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         t.transform_search_space(self.search_space_with_target)
@@ -142,6 +155,7 @@ class UnitXTransformTest(TestCase):
             self.search_space_with_target.parameters["x"].target_value, 1.0
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_robust_search_space_univariate(self):
         # Check that if no transforms are needed, it is untouched.
         for multivariate in (True, False):
@@ -153,7 +167,11 @@ class UnitXTransformTest(TestCase):
             expected = str(rss)
             t = self.transform_class(
                 search_space=rss,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
                 observation_features=None,
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
             )
             self.assertEqual(expected, str(t.transform_search_space(rss)))
@@ -162,7 +180,11 @@ class UnitXTransformTest(TestCase):
         rss.parameter_distributions[0].multiplicative = True
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         with self.assertRaisesRegex(NotImplementedError, "multiplicative"):
@@ -171,7 +193,11 @@ class UnitXTransformTest(TestCase):
         rss = get_robust_search_space(lb=5.0, ub=10.0)
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         t.transform_search_space(rss)
@@ -205,19 +231,28 @@ class UnitXTransformTest(TestCase):
         rss.parameters["z"]._parameter_type = ParameterType.FLOAT
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "`loc` and `scale`"):
             t.transform_search_space(rss)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_robust_search_space_multivariate(self):
         # Error if trying to transform non-normal multivariate distributions.
         rss = get_robust_search_space(multivariate=True)
         rss.parameter_distributions[0].distribution_class = "multivariate_t"
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "multivariate"):
@@ -227,7 +262,11 @@ class UnitXTransformTest(TestCase):
         old_params = deepcopy(rss.parameter_distributions[0].distribution_parameters)
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         t.transform_search_space(rss)
@@ -257,7 +296,11 @@ class UnitXTransformTest(TestCase):
         )
         t = self.transform_class(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         t.transform_search_space(rss)

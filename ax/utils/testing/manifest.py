@@ -25,10 +25,15 @@ class lazy_property:
     replacing the function it decorates with an instance variable.
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, wrapped):
+        # pyre-fixme[4]: Attribute must be annotated.
         self.wrapped = wrapped
         update_wrapper(self, wrapped)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def __get__(self, inst, objtype=None):
         if inst is None:
             return self
@@ -41,6 +46,8 @@ class ModuleInfo:
     local_path: str
     base_path: str
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, local_path, base_path):
         self.local_path = local_path
         self.base_path = base_path
@@ -73,9 +80,11 @@ class ModuleInfo:
         return self.module.__file__
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 _LIST_MODULES = None
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def list_modules():
     global _LIST_MODULES
     if _LIST_MODULES is None:
@@ -93,6 +102,7 @@ TestFunc = Callable[[TestCase, ModuleInfo], None]
 
 def _add_test_case(m: ModuleInfo, f: TestFunc, cls: Type[TestCase]) -> None:
     @wraps(f)
+    # pyre-fixme[3]: Return type must be annotated.
     def run_test(test: TestCase):
         # we pass in the TestCase instance instance to `f` to allow it to call methods
         # on it (like `assertEqual`)
@@ -132,6 +142,8 @@ def populate_test_class(f: TestFunc) -> Callable[[T], T]:
     .. http://docs.python.org/library/unittest.html#load-tests-protocol
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def populate(cls):
         """
         Decorator that adds the tests to a given class.

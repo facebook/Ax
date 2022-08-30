@@ -31,6 +31,7 @@ from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
 
 
 class TestImprovementGlobalStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_base_cases(self):
         exp = get_experiment_with_data()
         _ = exp.trials[0].mark_running(no_runner_required=True)
@@ -78,6 +79,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             {
                 "trial_index": trial.index,
                 "metric_name": "m1",
+                # pyre-fixme[16]: Optional type has no attribute `name`.
                 "arm_name": trial.arm.name,
                 "mean": values[0],
                 "sem": 0.0,
@@ -225,6 +227,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
 
         return exp
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_multi_objective(self):
 
         metric_values = [
@@ -251,6 +254,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "0.1.",
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_single_objective(self):
 
         metric_values = [
@@ -277,6 +281,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "less than 0.1.",
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_safety_check(self):
         experiment = get_experiment()
         gss = ImprovementGlobalStoppingStrategy(min_trials=2, window_size=3)
@@ -288,6 +293,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "There are no completed trials yet.",
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_constraint_satisfaction(self):
         metric_values = [
             (0.1, 0.6, 0.1),  # feasible
@@ -296,7 +302,11 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             (0.5, 0.2, 0.4),  # infeasible
         ]
         exp = self._create_single_objective_experiment(metric_values=metric_values)
+        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertTrue(constraint_satisfaction(exp.trials[0]))
+        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[1]))
+        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[2]))
+        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[3]))

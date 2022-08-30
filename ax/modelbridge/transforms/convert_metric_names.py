@@ -74,6 +74,7 @@ class ConvertMetricNames(Transform):
         self.reverse_metric_name_map: Dict[str, Dict[str, str]] = {}
 
         # For most practical cases we want to skip the untransform
+        # pyre-fixme[4]: Attribute must be annotated.
         self.perform_untransform = config.get("perform_untransform", False)
 
         for orig_name, trans_name in self.metric_name_map.items():

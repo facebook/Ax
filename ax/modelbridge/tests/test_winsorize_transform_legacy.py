@@ -15,6 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class WinsorizeTransformTestLegacy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -34,25 +35,37 @@ class WinsorizeTransformTestLegacy(TestCase):
             ),
         )
         self.t = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={"winsorization_upper": 0.2},
         )
         self.t1 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={"winsorization_upper": 0.8},
         )
         self.t2 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={"winsorization_lower": 0.2},
         )
         self.t3 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -64,7 +77,10 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
         self.t4 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -82,7 +98,10 @@ class WinsorizeTransformTestLegacy(TestCase):
             covariance=np.eye(4),
         )
         self.t5 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[
                 deepcopy(self.obsd1),
@@ -95,7 +114,10 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
         self.t6 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -108,11 +130,15 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testPrintDeprecationWarning(self):
         warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
+                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
                 search_space=None,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
                 observation_features=None,
                 observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
                 config={"winsorization_upper": 0.2},
@@ -125,6 +151,7 @@ class WinsorizeTransformTestLegacy(TestCase):
                 in [str(w.message) for w in ws]
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
@@ -133,8 +160,10 @@ class WinsorizeTransformTestLegacy(TestCase):
         self.assertEqual(self.t2.cutoffs["m1"], (0.0, float("inf")))
         self.assertEqual(self.t2.cutoffs["m2"], (0.0, float("inf")))
         with self.assertRaises(DataRequiredError):
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             Winsorize(search_space=None, observation_features=[], observation_data=[])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         observation_data = self.t1.transform_observation_data(
             [deepcopy(self.obsd1)], []
@@ -153,16 +182,21 @@ class WinsorizeTransformTestLegacy(TestCase):
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInitPercentileBounds(self):
         self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
         self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
         self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
         self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValueError(self):
         with self.assertRaises(ValueError):
             Winsorize(
+                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
                 search_space=None,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
                 observation_features=None,
                 observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
                 config={
@@ -171,6 +205,7 @@ class WinsorizeTransformTestLegacy(TestCase):
                 },
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationsPercentileBounds(self):
         observation_data = self.t3.transform_observation_data(
             [deepcopy(self.obsd1)], []
@@ -189,6 +224,7 @@ class WinsorizeTransformTestLegacy(TestCase):
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationsDifferentLowerUpper(self):
         observation_data = self.t5.transform_observation_data(
             [deepcopy(self.obsd2)], []

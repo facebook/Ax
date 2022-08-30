@@ -14,6 +14,7 @@ from scipy.stats._distn_infrastructure import rv_frozen
 
 
 class ParameterDistributionTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_parameter_distribution(self):
         dist = ParameterDistribution(
             parameters=["x1"],
@@ -25,7 +26,9 @@ class ParameterDistributionTest(TestCase):
         dist_obj = dist.distribution
         self.assertEqual(dist.parameters, ["x1"])
         self.assertIsInstance(dist_obj, rv_frozen)
+        # pyre-fixme[16]: `rv_generic` has no attribute `dist`.
         self.assertIsInstance(dist_obj.dist, norm_gen)
+        # pyre-fixme[16]: `rv_generic` has no attribute `kwds`.
         dist_kwds = dist_obj.kwds
         self.assertEqual(dist_kwds["loc"], 0.0)
         self.assertEqual(dist_kwds["scale"], 1.0)

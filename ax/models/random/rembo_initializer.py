@@ -33,6 +33,7 @@ class REMBOInitializer(UniformGenerator):
     ) -> None:
         self.bounds_d = bounds_d
         self.A = A
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X_d_gen = []  # Store points in low-d space generated here
         super().__init__(seed=seed)
 

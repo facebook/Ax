@@ -93,6 +93,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
 
     optimal_value: float = field()
 
+    # pyre-fixme[2]: Parameter must be annotated.
     def __init__(self, optimal_value: float, **kwargs) -> None:
         super().__init__(**kwargs)
 
@@ -132,7 +133,11 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     reference_point: List[float] = field()
 
     def __init__(
-        self, maximum_hypervolume: float, reference_point: List[float], **kwargs
+        self,
+        maximum_hypervolume: float,
+        reference_point: List[float],
+        # pyre-fixme[2]: Parameter must be annotated.
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
 

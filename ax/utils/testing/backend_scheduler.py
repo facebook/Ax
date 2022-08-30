@@ -17,6 +17,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.testing.backend_simulator import BackendSimulator
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

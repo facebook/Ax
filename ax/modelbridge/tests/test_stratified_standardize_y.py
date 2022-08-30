@@ -23,6 +23,7 @@ from .test_standardize_y_transform import osd_allclose
 
 
 class StratifiedStandardizeYTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -60,6 +61,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
             config={"parameter_name": "z"},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         Ymean_expected = {
             ("m1", "a"): 1.0,
@@ -149,6 +151,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         for k, v in t2.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         std_m2_a = sqrt(2) * 3
         obsd1_ta = ObservationData(
@@ -193,6 +196,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformOptimizationConfig(self):
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")

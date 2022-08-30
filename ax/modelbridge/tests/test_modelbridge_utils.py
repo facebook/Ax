@@ -17,6 +17,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space, get_search_spac
 
 
 class TestModelBridgeUtils(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_extract_robust_digest(self):
         # Test with non-robust search space.
         ss = get_search_space()
@@ -29,9 +30,14 @@ class TestModelBridgeUtils(TestCase):
                     p.multiplicative = True
                 rss.multiplicative = True
             robust_digest = extract_robust_digest(rss, list(rss.parameters))
+            # pyre-fixme[16]: Optional type has no attribute `multiplicative`.
             self.assertEqual(robust_digest.multiplicative, multiplicative)
+            # pyre-fixme[16]: Optional type has no attribute `environmental_variables`.
             self.assertEqual(robust_digest.environmental_variables, [])
+            # pyre-fixme[16]: Optional type has no attribute `sample_environmental`.
             self.assertIsNone(robust_digest.sample_environmental)
+            # pyre-fixme[16]: Optional type has no attribute
+            #  `sample_param_perturbations`.
             samples = robust_digest.sample_param_perturbations()
             self.assertEqual(samples.shape, (8, 4))
             constructor = np.ones if multiplicative else np.zeros
@@ -80,6 +86,7 @@ class TestModelBridgeUtils(TestCase):
         self.assertEqual(robust_digest.sample_environmental().shape, (8, 1))
         self.assertEqual(robust_digest.environmental_variables, ["x"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_feasible_hypervolume(self):
         ma = Metric(name="a", lower_is_better=False)
         mb = Metric(name="b", lower_is_better=True)

@@ -17,6 +17,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -29,6 +30,7 @@ class NoisyFunctionMapMetric(MapMetric):
         self,
         name: str,
         param_names: Iterable[str],
+        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Iterable[MapKeyInfo],
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
@@ -56,6 +58,7 @@ class NoisyFunctionMapMetric(MapMetric):
         self.param_names = param_names
         self.map_key_infos = map_key_infos
         self.noise_sd = noise_sd
+        # pyre-fixme[4]: Attribute must be annotated.
         self.cache = {}
         self.cache_evaluations = cache_evaluations
         super().__init__(name=name, lower_is_better=lower_is_better)
@@ -107,6 +110,7 @@ class NoisyFunctionMapMetric(MapMetric):
         raise NotImplementedError
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         nf_map_metric = checked_cast(NoisyFunctionMapMetric, obj)
         init_args = serialize_init_args(

@@ -52,6 +52,7 @@ from ax.utils.common.typeutils import (
     numpy_type_to_python_type,
 )
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -63,6 +64,7 @@ TParameterRepresentation = Dict[
 ]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
+# pyre-fixme[5]: Global expression must be annotated.
 COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
 EXPECTED_KEYS_IN_PARAM_REPR = {
     "name",
@@ -103,6 +105,8 @@ class InstantiationBase:
     def _make_metric(
         name: str,
         lower_is_better: Optional[bool] = None,
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
         metric_class_override: Optional[type] = None,
         for_opt_config: bool = False,
         metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,

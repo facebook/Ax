@@ -15,6 +15,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class FittedScatterTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fitted_scatter(self):
         exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()

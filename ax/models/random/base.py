@@ -23,6 +23,7 @@ from botorch.utils.sampling import HitAndRunPolytopeSampler
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

@@ -11,9 +11,11 @@ from ax.utils.testing.core_stubs import get_branin_arms, get_multi_type_experime
 
 
 class MultiTypeExperimentTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.experiment = get_multi_type_experiment()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMTExperimentFlow(self):
         self.assertTrue(self.experiment.supports_trial_type("type1"))
         self.assertTrue(self.experiment.supports_trial_type("type2"))
@@ -62,9 +64,11 @@ class MultiTypeExperimentTest(TestCase):
             places=10,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.experiment), "MultiTypeExperiment(test_exp)")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         exp2 = get_multi_type_experiment()
 
@@ -95,6 +99,7 @@ class MultiTypeExperimentTest(TestCase):
         exp2.remove_tracking_metric("m3")
         self.assertFalse(self.experiment == exp2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadBehavior(self):
         # Add trial type that already exists
         with self.assertRaises(ValueError):

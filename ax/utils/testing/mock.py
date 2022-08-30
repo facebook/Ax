@@ -22,6 +22,8 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
     iteration.
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def one_iteration_minimize(*args, **kwargs):
         if kwargs["options"] is None:
             kwargs["options"] = {}
@@ -30,12 +32,16 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         return minimize(*args, **kwargs)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def minimal_gen_ics(*args, **kwargs):
         kwargs["num_restarts"] = 2
         kwargs["raw_samples"] = 4
 
         return gen_batch_initial_conditions(*args, **kwargs)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def minimal_gen_os_ics(*args, **kwargs):
         kwargs["num_restarts"] = 2
         kwargs["raw_samples"] = 4
@@ -83,10 +89,13 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
         )
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def fast_botorch_optimize(f: Callable) -> Callable:
     """Wraps f in the fast_botorch_optimize_context_manager for use as a decorator."""
 
     @wraps(f)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def inner(*args, **kwargs):
         with fast_botorch_optimize_context_manager():
             return f(*args, **kwargs)

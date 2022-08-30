@@ -10,18 +10,22 @@ from ax.utils.common.testutils import TestCase
 
 
 class DiscreteModelTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         pass
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_discrete_model_get_state(self):
         discrete_model = DiscreteModel()
         self.assertEqual(discrete_model._get_state(), {})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_discrete_model_feature_importances(self):
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.feature_importances()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testDiscreteModelFit(self):
         discrete_model = DiscreteModel()
         discrete_model.fit(
@@ -32,11 +36,13 @@ class DiscreteModelTest(TestCase):
             outcome_names=[],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testdiscreteModelPredict(self):
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.predict([[0]])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testdiscreteModelGen(self):
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
@@ -44,6 +50,7 @@ class DiscreteModelTest(TestCase):
                 n=1, parameter_values=[[0, 1]], objective_weights=np.array([1])
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testdiscreteModelCrossValidate(self):
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):

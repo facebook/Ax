@@ -22,6 +22,7 @@ from ax.utils.testing.core_stubs import get_hierarchical_search_space
 
 
 class CastTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -52,6 +53,7 @@ class CastTransformTest(TestCase):
                 "l2_reg_weight": 0.0001,
                 "num_boost_rounds": 12,
             },
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=9,
             metadata=None,
         )
@@ -62,10 +64,12 @@ class CastTransformTest(TestCase):
                 "l2_reg_weight": 0.0001,
                 "num_boost_rounds": 12,
             },
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=10,
             metadata=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_observation_features(self):
         # Verify running the transform on already-casted features does nothing
         observation_features = [
@@ -77,6 +81,7 @@ class CastTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_untransform_observation_features(self):
         # Verify running the transform on uncasted values properly converts them
         # (e.g. typing, rounding)
@@ -91,6 +96,7 @@ class CastTransformTest(TestCase):
             [ObservationFeatures(parameters={"a": 1.0, "b": 2.35, "c": "a", "d": 2})],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_flatten_hss_setting(self):
         t = Cast(search_space=self.hss)
         self.assertTrue(t.flatten_hss)
@@ -99,6 +105,7 @@ class CastTransformTest(TestCase):
         self.assertFalse(self.t.flatten_hss)  # `self.t` does not have HSS
         self.assertTrue(self.t_hss.flatten_hss)  # `self.t_hss` does have HSS
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_search_space_HSS(self):
         with patch.object(
             self.hss, "flatten", wraps=self.hss.flatten
@@ -112,6 +119,7 @@ class CastTransformTest(TestCase):
                 isinstance(flattened_search_space, HierarchicalSearchSpace)
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_observation_features_HSS(self):
         # Untransform the observation features first to cast them and
         # save their full parameterization in metadata.
@@ -134,6 +142,7 @@ class CastTransformTest(TestCase):
                 self.assertIn(p_name, obsf.parameters)
             # Check that full parameterization is recorded in metadata
             self.assertEqual(
+                # pyre-fixme[16]: Optional type has no attribute `get`.
                 obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
                 self.obs_feats_hss.parameters,
             )
@@ -155,6 +164,7 @@ class CastTransformTest(TestCase):
                 self.obs_feats_hss.parameters,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_untransform_observation_features_HSS(self):
         # Test transformation in one subtree of HSS.
         with patch.object(
@@ -178,7 +188,9 @@ class CastTransformTest(TestCase):
             },
         )
         self.assertEqual(
-            obsf.metadata.get(Keys.FULL_PARAMETERIZATION), self.obs_feats_hss.parameters
+            # pyre-fixme[16]: Optional type has no attribute `get`.
+            obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
+            self.obs_feats_hss.parameters,
         )
 
         # Test transformation in other subtree of HSS.

@@ -11,6 +11,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class ParallelCoordinatesTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testParallelCoordinates(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()

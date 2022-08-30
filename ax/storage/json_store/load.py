@@ -17,7 +17,10 @@ from ax.storage.json_store.registry import (
 
 def load_experiment(
     filepath: str,
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     class_decoder_registry: Dict[
         str, Callable[[Dict[str, Any]], Any]
     ] = CORE_CLASS_DECODER_REGISTRY,

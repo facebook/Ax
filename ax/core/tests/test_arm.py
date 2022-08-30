@@ -9,9 +9,11 @@ from ax.utils.common.testutils import TestCase
 
 
 class ArmTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         pass
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         self.assertEqual(str(arm), "Arm(parameters={'y': 0.25, 'x': 0.75, 'z': 75})")
@@ -22,6 +24,7 @@ class ArmTest(TestCase):
             "Arm(name='status_quo', parameters={'y': 0.25, 'x': 0.75, 'z': 75})",
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testNameValidation(self):
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         self.assertFalse(arm.has_name)
@@ -31,6 +34,7 @@ class ArmTest(TestCase):
         with self.assertRaises(ValueError):
             arm.name = "1_0"
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testNameOrShortSignature(self):
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75}, name="0_0")
         self.assertEqual(arm.name_or_short_signature, "0_0")
@@ -38,6 +42,7 @@ class ArmTest(TestCase):
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         self.assertEqual(arm.name_or_short_signature, arm.signature[-4:])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         arm1 = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         arm2 = Arm(parameters={"z": 75, "x": 0.75, "y": 0.25})
@@ -53,6 +58,7 @@ class ArmTest(TestCase):
         arm6 = Arm(name="0_1", parameters={"y": 0.25, "x": 0.75, "z": 75})
         self.assertNotEqual(arm4, arm6)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         arm1 = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         arm2 = arm1.clone()
@@ -60,6 +66,7 @@ class ArmTest(TestCase):
         self.assertEqual(arm1, arm2)
         self.assertFalse(arm1.parameters is arm2.parameters)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         arm1 = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         arm2 = Arm(parameters={"z": 0, "x": 0, "y": 0})

@@ -17,6 +17,7 @@ class DBSettings(NamedTuple):
     Either creator or url must be specified as a way to connect to the SQL db.
     """
 
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     creator: Optional[Callable] = None
     decoder: Decoder = Decoder(config=SQAConfig())
     encoder: Encoder = Encoder(config=SQAConfig())

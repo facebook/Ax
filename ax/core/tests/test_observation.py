@@ -28,6 +28,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class ObservationsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationFeatures(self):
         t = np.datetime64("now")
         attrs = {
@@ -37,6 +38,14 @@ class ObservationsTest(TestCase):
             "end_time": t,
             "random_split": 1,
         }
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
+        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
         obsf = ObservationFeatures(**attrs)
         for k, v in attrs.items():
             self.assertEqual(getattr(obsf, k), v)
@@ -45,19 +54,37 @@ class ObservationsTest(TestCase):
         printstr += "start_time={t}, end_time={t}, ".format(t=t)
         printstr += "random_split=1)"
         self.assertEqual(repr(obsf), printstr)
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
+        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
         obsf2 = ObservationFeatures(**attrs)
         self.assertEqual(hash(obsf), hash(obsf2))
         a = {obsf, obsf2}
         self.assertEqual(len(a), 1)
         self.assertEqual(obsf, obsf2)
         attrs.pop("trial_index")
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
+        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
+        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
+        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
         obsf3 = ObservationFeatures(**attrs)
         self.assertNotEqual(obsf, obsf3)
         self.assertFalse(obsf == 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         # Test simple cloning.
         arm = Arm({"x": 0, "y": "a"})
+        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
         self.assertIsNot(obsf, obsf.clone())
         self.assertEqual(obsf, obsf.clone())
@@ -68,16 +95,22 @@ class ObservationsTest(TestCase):
         obsf.parameters = {"x": 1, "y": "b"}
         self.assertEqual(obsf, clone_with_new_params)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationFeaturesFromArm(self):
         arm = Arm({"x": 0, "y": "a"})
+        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
         self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUpdateFeatures(self):
         parameters = {"x": 0, "y": "a"}
         new_parameters = {"z": "foo"}
 
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Dict[str, Union[int, str]]`.
+        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures(parameters=parameters, trial_index=3)
 
         # Ensure None trial_index doesn't override existing value
@@ -86,10 +119,14 @@ class ObservationsTest(TestCase):
 
         # Test override
         new_obsf = ObservationFeatures(
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Dict[str, str]`.
             parameters=new_parameters,
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=4,
             start_time=pd.Timestamp("2005-02-25"),
             end_time=pd.Timestamp("2005-02-26"),
+            # pyre-fixme[6]: For 5th param expected `Optional[int64]` but got `int`.
             random_split=7,
         )
         obsf.update_features(new_obsf)
@@ -99,12 +136,17 @@ class ObservationsTest(TestCase):
         self.assertEqual(obsf.start_time, pd.Timestamp("2005-02-25"))
         self.assertEqual(obsf.end_time, pd.Timestamp("2005-02-26"))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationData(self):
         attrs = {
             "metric_names": ["a", "b"],
             "means": np.array([4.0, 5.0]),
             "covariance": np.array([[1.0, 4.0], [3.0, 6.0]]),
         }
+        # pyre-fixme[6]: For 1st param expected `List[str]` but got
+        #  `Union[List[str], ndarray]`.
+        # pyre-fixme[6]: For 1st param expected `ndarray` but got `Union[List[str],
+        #  ndarray]`.
         obsd = ObservationData(**attrs)
         self.assertEqual(obsd.metric_names, attrs["metric_names"])
         self.assertTrue(np.array_equal(obsd.means, attrs["means"]))
@@ -122,6 +164,7 @@ class ObservationsTest(TestCase):
             {"a": {"a": 1.0, "b": 4.0}, "b": {"a": 3.0, "b": 6.0}},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationDataValidation(self):
         with self.assertRaises(ValueError):
             ObservationData(
@@ -136,6 +179,7 @@ class ObservationsTest(TestCase):
                 covariance=np.array([1.0, 4.0]),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationDataEq(self):
         od1 = ObservationData(
             metric_names=["a", "b"],
@@ -156,6 +200,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(od1, od3)
         self.assertFalse(od1 == 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservation(self):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
@@ -190,6 +235,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obs, obs3)
         self.assertNotEqual(obs, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsFromData(self):
         truth = [
             {
@@ -218,6 +264,11 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[Dict[str, Union[int, str]], float, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[Dict[str, Union[int, str]], float,
+            #  str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for obs in truth
         }
@@ -260,6 +311,7 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsFromDataWithFidelities(self):
         truth = {
             0.5: {
@@ -300,6 +352,12 @@ class ObservationsTest(TestCase):
             },
         }
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
+            #  ndarray, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
+            #  Dict[str, Union[int, str]], float, ndarray, str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for _, obs in truth.items()
         }
@@ -322,6 +380,8 @@ class ObservationsTest(TestCase):
 
         self.assertEqual(len(observations), 3)
         for obs in observations:
+            # pyre-fixme[6]: For 1st param expected `float` but got `Union[None,
+            #  bool, float, int, str]`.
             t = truth[obs.features.parameters["z"]]
             self.assertEqual(obs.features.parameters, t["updated_parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
@@ -330,6 +390,7 @@ class ObservationsTest(TestCase):
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsFromMapData(self):
         truth = {
             0.5: {
@@ -373,6 +434,12 @@ class ObservationsTest(TestCase):
             },
         }
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
+            #  ndarray, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
+            #  Dict[str, Union[int, str]], float, ndarray, str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for _, obs in truth.items()
         }
@@ -402,6 +469,8 @@ class ObservationsTest(TestCase):
         self.assertEqual(len(observations), 3)
 
         for obs in observations:
+            # pyre-fixme[6]: For 1st param expected `float` but got `Union[None,
+            #  bool, float, int, str]`.
             t = truth[obs.features.parameters["z"]]
             self.assertEqual(obs.features.parameters, t["updated_parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
@@ -411,6 +480,7 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsFromDataAbandoned(self):
         truth = {
             0.5: {
@@ -467,6 +537,12 @@ class ObservationsTest(TestCase):
             },
         }
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
+            #  ndarray, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
+            #  Dict[str, Union[int, str]], float, ndarray, str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for _, obs in truth.items()
         }
@@ -477,11 +553,20 @@ class ObservationsTest(TestCase):
                 Trial(experiment, GeneratorRun(arms=[arms[obs["arm_name"]]]))
             )
             for _, obs in list(truth.items())[:-1]
+            # pyre-fixme[16]: Item `Dict` of `Union[Dict[str, typing.Union[float,
+            #  str]], Dict[str, typing.Union[int, str]], float, ndarray, str]` has no
+            #  attribute `startswith`.
             if not obs["arm_name"].startswith("2")
         }
         batch = BatchTrial(experiment, GeneratorRun(arms=[arms["2_0"], arms["2_1"]]))
+        # pyre-fixme[6]: For 1st param expected
+        #  `SupportsKeysAndGetItem[Union[Dict[str, Union[float, str]], Dict[str,
+        #  Union[int, str]], float, ndarray, str], Trial]` but got `Dict[int,
+        #  BatchTrial]`.
         trials.update({2: batch})
+        # pyre-fixme[16]: Optional type has no attribute `mark_abandoned`.
         trials.get(1).mark_abandoned()
+        # pyre-fixme[16]: Optional type has no attribute `mark_arm_abandoned`.
         trials.get(2).mark_arm_abandoned(arm_name="2_1")
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
@@ -503,6 +588,7 @@ class ObservationsTest(TestCase):
         )
         self.assertEqual(len(obs_with_abandoned), 4)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsFromDataWithSomeMissingTimes(self):
         truth = [
             {
@@ -543,6 +629,11 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[None, Dict[str, Union[int, str]], float, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[None, Dict[str, Union[int, str]],
+            #  float, str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for obs in truth
         }
@@ -585,6 +676,7 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSeparateObservations(self):
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
@@ -610,6 +702,7 @@ class ObservationsTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationsWithCandidateMetadata(self):
         SOME_METADATA_KEY = "metadatum"
         truth = [
@@ -631,6 +724,11 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
+            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
+            #  `Union[Dict[str, Union[int, str]], float, str]`.
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Union[Dict[str, Union[int, str]], float,
+            #  str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
             for obs in truth
         }
@@ -660,6 +758,7 @@ class ObservationsTest(TestCase):
         observations = observations_from_data(experiment, data)
         for observation in observations:
             self.assertEqual(
+                # pyre-fixme[16]: Optional type has no attribute `get`.
                 observation.features.metadata.get(SOME_METADATA_KEY),
                 f"value_{observation.features.trial_index}",
             )

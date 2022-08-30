@@ -17,6 +17,7 @@ from scipy.special import expit, logit
 
 
 class LogitTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -35,7 +36,11 @@ class LogitTransformTest(TestCase):
         )
         self.t = Logit(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.search_space_with_target = SearchSpace(
@@ -52,6 +57,8 @@ class LogitTransformTest(TestCase):
             ]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _create_logit_parameter(self, lower, upper, log_scale=False):
         return RangeParameter(
             "x",
@@ -62,9 +69,11 @@ class LogitTransformTest(TestCase):
             logit_scale=True,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.transform_parameters, {"x"})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = [
             ObservationFeatures(parameters={"x": 0.95, "a": 2, "b": "c"})
@@ -84,6 +93,7 @@ class LogitTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": x_true, "a": 2, "b": "c"})],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInvalidSettings(self):
         with self.assertRaises(UserInputError) as cm:
             self._create_logit_parameter(lower=0.1, upper=0.9, log_scale=True)
@@ -100,14 +110,21 @@ class LogitTransformTest(TestCase):
             self._create_logit_parameter(lower=0.5, upper=10.0)
         self.assertEqual(str_exc, str(cm.exception))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
+        # pyre-fixme[16]: `Parameter` has no attribute `lower`.
         self.assertEqual(ss2.parameters["x"].lower, logit(0.9))
+        # pyre-fixme[16]: `Parameter` has no attribute `upper`.
         self.assertEqual(ss2.parameters["x"].upper, logit(0.999))
         t2 = Logit(
             search_space=self.search_space_with_target,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         ss_target = deepcopy(self.search_space_with_target)
@@ -116,22 +133,33 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss_target.parameters["x"].lower, logit(0.1))
         self.assertEqual(ss_target.parameters["x"].upper, logit(0.3))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space(use_discrete=True)
+        # pyre-fixme[16]: `Parameter` has no attribute `set_logit_scale`.
         rss.parameters["y"].set_logit_scale(True)
         # Transform a non-distributional parameter.
         t = Logit(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         t.transform_search_space(rss)
+        # pyre-fixme[16]: Optional type has no attribute `logit_scale`.
         self.assertFalse(rss.parameters.get("y").logit_scale)
         # Error with distributional parameter.
         rss.parameters["x"].set_logit_scale(True)
         t = Logit(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):

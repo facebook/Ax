@@ -27,16 +27,23 @@ from sqlalchemy.orm.mapper import Mapper
 T = TypeVar("T")
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
 def listens_for_multiple(
-    targets: List[InstrumentedAttribute], identifier: str, *args: Any, **kwargs: Any
+    targets: List[InstrumentedAttribute],
+    identifier: str,
+    *args: Any,
+    **kwargs: Any
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 ) -> Callable:
     """Analogue of SQLAlchemy `listen_for`, but applies the same listening handler
     function to multiple instrumented attributes.
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     def wrapper(fn: Callable):
         for target in targets:
             event.listen(target, identifier, fn, *args, **kwargs)
@@ -45,6 +52,7 @@ def listens_for_multiple(
     return wrapper
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
 def consistency_exactly_one(instance: SQABase, exactly_one_fields: List[str]) -> Any:
     """Ensure that exactly one of `exactly_one_fields` has a value set."""
     values = [getattr(instance, field) is not None for field in exactly_one_fields]

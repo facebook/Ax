@@ -43,11 +43,16 @@ from botorch.utils.multi_objective.pareto import is_non_dominated
 PARETO_FRONTIER_EVALUATOR_PATH = (
     f"{pareto_frontier_evaluator.__module__}.pareto_frontier_evaluator"
 )
+# pyre-fixme[5]: Global expression must be annotated.
 STUBS_PATH = get_branin_experiment_with_multi_objective.__module__
 
 
 # Prepare mock transforms
 class t1(Transform):
+    # pyre-fixme[14]: `transform_search_space` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_search_space(self, ss):
         new_ss = ss.clone()
         for param_name in new_ss.parameters:
@@ -55,8 +60,15 @@ class t1(Transform):
             new_ss.parameters[param_name]._upper += 1.0
         return new_ss
 
+    # pyre-fixme[3]: Return type must be annotated.
     def transform_optimization_config(
-        self, optimization_config, modelbridge, fixed_features
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        optimization_config,
+        # pyre-fixme[2]: Parameter must be annotated.
+        modelbridge,
+        # pyre-fixme[2]: Parameter must be annotated.
+        fixed_features,
     ):
         return (
             optimization_config + 1
@@ -64,23 +76,39 @@ class t1(Transform):
             else optimization_config
         )
 
+    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_features(self, x):
         for obsf in x:
             for param_name in obsf.parameters:
                 obsf.parameters[param_name] += 1
         return x
 
+    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_data(self, x, y):
         for obsd in x:
             obsd.means += 1
         return x
 
+    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_features(self, x):
         for obsf in x:
             for param_name in obsf.parameters:
                 obsf.parameters[param_name] -= 1
         return x
 
+    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_data(self, x, y):
         for obsd in x:
             obsd.means -= 1
@@ -88,6 +116,10 @@ class t1(Transform):
 
 
 class t2(Transform):
+    # pyre-fixme[14]: `transform_search_space` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_search_space(self, ss):
         new_ss = ss.clone()
         for param_name in new_ss.parameters:
@@ -99,8 +131,15 @@ class t2(Transform):
             )
         return new_ss
 
+    # pyre-fixme[3]: Return type must be annotated.
     def transform_optimization_config(
-        self, optimization_config, modelbridge, fixed_features
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        optimization_config,
+        # pyre-fixme[2]: Parameter must be annotated.
+        modelbridge,
+        # pyre-fixme[2]: Parameter must be annotated.
+        fixed_features,
     ):
         return (
             optimization_config**2
@@ -108,23 +147,39 @@ class t2(Transform):
             else optimization_config
         )
 
+    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_features(self, x):
         for obsf in x:
             for param_name in obsf.parameters:
                 obsf.parameters[param_name] = obsf.parameters[param_name] ** 2
         return x
 
+    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_data(self, x, y):
         for obsd in x:
             obsd.means = obsd.means**2
         return x
 
+    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_features(self, x):
         for obsf in x:
             for param_name in obsf.parameters:
                 obsf.parameters[param_name] = np.sqrt(obsf.parameters[param_name])
         return x
 
+    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_data(self, x, y):
         for obsd in x:
             obsd.means = np.sqrt(obsd.means)
@@ -139,12 +194,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         return_value=False,
     )
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pareto_frontier(self, _):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )
         for trial in exp.trials.values():
             trial.mark_running(no_runner_required=True).mark_completed()
+        # pyre-fixme[16]: Optional type has no attribute `metrics`.
         metrics_dict = exp.optimization_config.metrics
         objective_thresholds = [
             ObjectiveThreshold(
@@ -160,6 +217,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 op=ComparisonOp.GEQ,
             ),
         ]
+        # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
         exp.optimization_config = exp.optimization_config.clone_with_args(
             objective_thresholds=objective_thresholds
         )
@@ -177,6 +235,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
+            # pyre-fixme[16]: Optional type has no attribute `frontier_evaluator`.
+            # pyre-fixme[16]: `TorchModel` has no attribute `frontier_evaluator`.
             modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
             observed_frontier = observed_pareto_frontier(
                 modelbridge=modelbridge, objective_thresholds=objective_thresholds
@@ -245,6 +305,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 torch.equal(obj_w, torch.tensor([1.0, 1.0], dtype=torch.double))
             )
             self.assertTrue(
+                # pyre-fixme[6]: For 1st param expected `Tensor` but got
+                #  `Optional[Tensor]`.
                 torch.equal(obj_t, torch.tensor([0.0, 0.0], dtype=torch.double))
             )
             observed_frontier2 = pareto_frontier(
@@ -282,6 +344,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_hypervolume(self, _, cuda=False):
         for num_objectives in (2, 3):
             exp = get_branin_experiment_with_multi_objective(
@@ -291,6 +355,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
             for trial in exp.trials.values():
                 trial.mark_running(no_runner_required=True).mark_completed()
+            # pyre-fixme[16]: Optional type has no attribute `metrics`.
             metrics_dict = exp.optimization_config.metrics
             objective_thresholds = [
                 ObjectiveThreshold(
@@ -315,6 +380,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                         op=ComparisonOp.GEQ,
                     )
                 )
+            # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
             optimization_config = exp.optimization_config.clone_with_args(
                 objective_thresholds=objective_thresholds
             )
@@ -335,6 +401,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             with patch(
                 PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
             ) as wrapped_frontier_evaluator:
+                # pyre-fixme[16]: Optional type has no attribute `frontier_evaluator`.
+                # pyre-fixme[16]: `TorchModel` has no attribute `frontier_evaluator`.
                 modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
                 hv = observed_hypervolume(
                     modelbridge=modelbridge, objective_thresholds=objective_thresholds
@@ -386,6 +454,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 )
                 self.assertTrue(predicted_hv >= 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_hypervolume_cuda(self):
         if torch.cuda.is_available():
             self.test_hypervolume(cuda=True)
@@ -397,6 +466,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         return_value=False,
     )
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_infer_objective_thresholds(self, _, cuda=False):
         # lightweight test
         exp = get_branin_experiment_with_multi_objective(
@@ -425,6 +496,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ParameterConstraint(constraint_dict={"x1": 1.0}, bound=10.0)
         ]
         search_space.add_parameter_constraints(param_constraints)
+        # pyre-fixme[16]: Optional type has no attribute `clone`.
         oc = exp.optimization_config.clone()
         oc.objective._objectives[0].minimize = True
         expected_base_gen_args = modelbridge._get_transformed_gen_args(
@@ -534,6 +606,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             experiment=exp,
             data=data,
         )
+        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         fixed_features = ObservationFeatures(parameters={}, trial_index=1)
         expected_base_gen_args = modelbridge._get_transformed_gen_args(
             search_space=search_space.clone(),
@@ -582,6 +655,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_status_quo_for_non_monolithic_data(self):
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
         sobol_generator = get_sobol(
@@ -603,8 +677,10 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             data=data,
             transforms=[],
         )
+        # pyre-fixme[16]: Optional type has no attribute `arm_name`.
         self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_point(self):
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True

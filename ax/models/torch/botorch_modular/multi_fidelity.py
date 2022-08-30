@@ -63,9 +63,11 @@ class MultiFidelityAcquisition(Acquisition):
         )
         cost_aware_utility = InverseCostWeightedUtility(cost_model=cost_model)
 
+        # pyre-fixme[53]: Captured variable `target_fidelities` is not annotated.
         def project(X: Tensor) -> Tensor:
             return project_to_target_fidelity(X=X, target_fidelities=target_fidelities)
 
+        # pyre-fixme[53]: Captured variable `target_fidelities` is not annotated.
         def expand(X: Tensor) -> Tensor:
             return expand_trace_observations(
                 X=X,

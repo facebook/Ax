@@ -17,6 +17,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class IntToFloatTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
@@ -27,6 +28,8 @@ class IntToFloatTransformTest(TestCase):
             ),
         ]
         self.search_space = SearchSpace(
+            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+            #  `List[Union[ChoiceParameter, RangeParameter]]`.
             parameters=parameters,
             parameter_constraints=[
                 OrderConstraint(
@@ -36,19 +39,29 @@ class IntToFloatTransformTest(TestCase):
         )
         self.t = IntToFloat(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.t2 = IntToFloat(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
             config={"rounding": "randomized"},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.transform_parameters, {"a", "d"})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})
@@ -90,6 +103,7 @@ class IntToFloatTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": 2.2, "a": 1, "b": "b", "d": 3})],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeaturesRandomized(self):
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 4})
@@ -105,26 +119,36 @@ class IntToFloatTransformTest(TestCase):
         obs_ft2 = self.t2.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRoundingWithConstrainedIntRanges(self):
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
+            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
+                # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+                #  `List[RangeParameter]`.
                 SumConstraint(parameters=parameters, is_upper_bound=True, bound=5)
             ],
         )
         t = IntToFloat(
             search_space=constrained_int_search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.assertEqual(t.rounding, "randomized")
@@ -137,20 +161,29 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRoundingWithImpossiblyConstrainedIntRanges(self):
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
+            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+            #  `List[RangeParameter]`.
             parameters=parameters,
             parameter_constraints=[
+                # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+                #  `List[RangeParameter]`.
                 SumConstraint(parameters=parameters, is_upper_bound=True, bound=3)
             ],
         )
         t = IntToFloat(
             search_space=constrained_int_search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.assertEqual(t.rounding, "randomized")
@@ -163,21 +196,29 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
         t = IntToFloat(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
+        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertEqual(
-            rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
+            # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
+            rss_new.parameters.get("z").parameter_type,
+            ParameterType.FLOAT,
         )
         # Test with environmental variables.
         all_params = list(rss.parameters.values())
@@ -189,13 +230,18 @@ class IntToFloatTransformTest(TestCase):
         )
         t = IntToFloat(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
+        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
         self.assertEqual(
             rss_new.parameters.get("z").parameter_type, ParameterType.FLOAT
@@ -204,7 +250,11 @@ class IntToFloatTransformTest(TestCase):
         rss = get_robust_search_space(use_discrete=True)
         t = IntToFloat(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):

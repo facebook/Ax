@@ -28,13 +28,18 @@ from ax.utils.testing.core_stubs import (
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_generation_strategy(self):
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, {"torch_device": None})
             device = torch.device("cpu")
@@ -54,14 +59,20 @@ class TestDispatchUtils(TestCase):
                 search_space=get_branin_search_space(),
                 optimization_config=optimization_config,
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_gpei._steps[1].model.value, "MOO")
             model_kwargs = sobol_gpei._steps[1].model_kwargs
             self.assertEqual(
+                # pyre-fixme[16]: Optional type has no attribute `keys`.
                 list(model_kwargs.keys()),
                 ["torch_device", "transforms", "transform_configs"],
             )
+            # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             self.assertGreater(len(model_kwargs["transforms"]), 0)
             transform_config_dict = {
                 "Winsorize": {"optimization_config": optimization_config}
@@ -71,6 +82,8 @@ class TestDispatchUtils(TestCase):
             sobol = choose_generation_strategy(
                 search_space=get_factorial_search_space(), num_trials=1000
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol._steps[0].model.value, "Sobol")
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
@@ -78,27 +91,40 @@ class TestDispatchUtils(TestCase):
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_large._steps[0].model.value, "Sobol")
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("GPEI-Batched"):
             sobol_gpei_batched = choose_generation_strategy(
-                search_space=get_branin_search_space(), use_batch_trials=3
+                search_space=get_branin_search_space(),
+                # pyre-fixme[6]: For 2nd param expected `bool` but got `int`.
+                use_batch_trials=3,
             )
             self.assertEqual(sobol_gpei_batched._steps[0].num_trials, 1)
         with self.subTest("BO_MIXED (purely categorical)"):
             bo_mixed = choose_generation_strategy(
                 search_space=get_factorial_search_space()
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed._steps[0].num_trials, 6)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
             self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
         with self.subTest("BO_MIXED (mixed search space)"):
             ss = get_branin_search_space(with_choice_parameter=True)
+            # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
             ss.parameters["x2"]._is_ordered = False
             bo_mixed_2 = choose_generation_strategy(search_space=ss)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed_2._steps[0].model.value, "Sobol")
             self.assertEqual(bo_mixed_2._steps[0].num_trials, 5)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
             self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -110,8 +136,12 @@ class TestDispatchUtils(TestCase):
             moo_mixed = choose_generation_strategy(
                 search_space=search_space, optimization_config=optimization_config
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(moo_mixed._steps[0].model.value, "Sobol")
             self.assertEqual(moo_mixed._steps[0].num_trials, 5)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(moo_mixed._steps[1].model.value, "BO_MIXED")
             model_kwargs = moo_mixed._steps[1].model_kwargs
             self.assertEqual(
@@ -130,11 +160,17 @@ class TestDispatchUtils(TestCase):
                 num_initialization_trials=3,
                 use_saasbo=True,
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_fullybayesian._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_fullybayesian._steps[1].model.value, "FullyBayesian")
             self.assertTrue(sobol_fullybayesian._steps[1].model_kwargs["verbose"])
             self.assertDictEqual(
+                # pyre-fixme[6]: For 1st param expected `Mapping[typing.Any,
+                #  object]` but got `Optional[Dict[str, typing.Any]]`.
                 sobol_fullybayesian._steps[1].model_gen_kwargs,
                 {"optimizer_kwargs": {"init_batch_limit": 128}},
             )
@@ -148,13 +184,20 @@ class TestDispatchUtils(TestCase):
                     objective=MultiObjective(objectives=[])
                 ),
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_fullybayesianmoo._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_fullybayesianmoo._steps[0].num_trials, 3)
             self.assertEqual(
-                sobol_fullybayesianmoo._steps[1].model.value, "FullyBayesianMOO"
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                sobol_fullybayesianmoo._steps[1].model.value,
+                "FullyBayesianMOO",
             )
             self.assertTrue(sobol_fullybayesianmoo._steps[1].model_kwargs["verbose"])
             self.assertDictEqual(
+                # pyre-fixme[6]: For 1st param expected `Mapping[typing.Any,
+                #  object]` but got `Optional[Dict[str, typing.Any]]`.
                 sobol_fullybayesian._steps[1].model_gen_kwargs,
                 {"optimizer_kwargs": {"init_batch_limit": 128}},
             )
@@ -165,10 +208,15 @@ class TestDispatchUtils(TestCase):
                 ),
                 use_saasbo=True,
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_fullybayesian_large._steps[0].model.value, "Sobol")
             self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 30)
             self.assertEqual(
-                sobol_fullybayesian_large._steps[1].model.value, "FullyBayesian"
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                sobol_fullybayesian_large._steps[1].model.value,
+                "FullyBayesian",
             )
             self.assertTrue(sobol_fullybayesian_large._steps[1].model_kwargs["verbose"])
         with self.subTest("num_initialization_trials"):
@@ -179,31 +227,46 @@ class TestDispatchUtils(TestCase):
             gs_12_init_trials = choose_generation_strategy(
                 search_space=ss, num_trials=100
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_12_init_trials._steps[0].model.value, "Sobol")
             self.assertEqual(gs_12_init_trials._steps[0].num_trials, 12)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_12_init_trials._steps[1].model.value, "GPEI")
             # at least 5 initialization trials are performed
             gs_5_init_trials = choose_generation_strategy(search_space=ss, num_trials=0)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_5_init_trials._steps[0].model.value, "Sobol")
             self.assertEqual(gs_5_init_trials._steps[0].num_trials, 5)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_5_init_trials._steps[1].model.value, "GPEI")
             # avoid spending >20% of budget on initialization trials if there are
             # more than 5 initialization trials
             gs_6_init_trials = choose_generation_strategy(
                 search_space=ss, num_trials=30
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_6_init_trials._steps[0].model.value, "Sobol")
             self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_6_init_trials._steps[1].model.value, "GPEI")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_setting_random_seed(self):
         sobol = choose_generation_strategy(
             search_space=get_factorial_search_space(), random_seed=9
         )
         sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually a bridge, second is the Sobol engine.
+        # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertEqual(sobol.model.model.seed, 9)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enforce_sequential_optimization(self):
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
         self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
@@ -217,38 +280,51 @@ class TestDispatchUtils(TestCase):
         self.assertFalse(sobol_gpei._steps[0].enforce_num_trials)
         self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_max_parallelism_override(self):
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
         self.assertTrue(all(s.max_parallelism == 10 for s in sobol_gpei._steps))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_winsorization(self):
         winsorized = choose_generation_strategy(
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
         )
         self.assertIn(
-            "Winsorize", winsorized._steps[1].model_kwargs.get("transform_configs")
+            "Winsorize",
+            # pyre-fixme[16]: Optional type has no attribute `get`.
+            winsorized._steps[1].model_kwargs.get("transform_configs"),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_num_trials(self):
         ss = get_discrete_search_space()
         # Check that with budget that is lower than exhaustive, BayesOpt is used.
         sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
+        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+        #  ModelRegistryBase]` has no attribute `value`.
         self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+        #  ModelRegistryBase]` has no attribute `value`.
         self.assertEqual(sobol_gpei._steps[1].model.value, "BO_MIXED")
         # Check that with budget that is exhaustive, Sobol is used.
         sobol = choose_generation_strategy(search_space=ss, num_trials=24)
+        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+        #  ModelRegistryBase]` has no attribute `value`.
         self.assertEqual(sobol._steps[0].model.value, "Sobol")
         self.assertEqual(len(sobol._steps), 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_use_batch_trials(self):
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(), use_batch_trials=True
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fixed_num_initialization_trials(self):
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
@@ -257,6 +333,7 @@ class TestDispatchUtils(TestCase):
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_max_parallelism_adjustments(self):
         # No adjustment.
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
@@ -271,6 +348,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(
             sobol_gpei._steps[0].max_parallelism,
             sobol_gpei._steps[1].max_parallelism,
+            # pyre-fixme[6]: For 3rd param expected `Optional[str]` but got `int`.
             1,
         )
         # Disable enforcing max parallelism for all steps.
@@ -286,6 +364,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(sobol_gpei._steps[0].max_parallelism, 10)
         self.assertEqual(sobol_gpei._steps[1].max_parallelism, 10)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_set_should_deduplicate(self):
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
@@ -305,6 +384,7 @@ class TestDispatchUtils(TestCase):
             [s.should_deduplicate for s in sobol_gpei._steps], [True] * 2
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_setting_experiment_attribute(self):
         exp = get_experiment()
         gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)

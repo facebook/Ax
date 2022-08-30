@@ -23,6 +23,9 @@ T = TypeVar("T")
 MaybeType = Union[T, Type[T]]  # Annotation for a type or instance thereof
 
 
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 def _optimizerArgparse_encoder(arg: Any) -> Type:
     """
     Transforms arguments passed to `optimizer_argparse.__call__`

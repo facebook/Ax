@@ -245,8 +245,10 @@ class Surrogate(Base):
     def _set_formatted_inputs(
         self,
         formatted_model_inputs: Dict[str, Any],
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         inputs: List[List[Any]],
         dataset: SupervisedDataset,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         botorch_model_class_args: Any,
     ) -> None:
         for input_name, input_class, input_options, input_object in inputs:

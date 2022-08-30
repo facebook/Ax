@@ -39,6 +39,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
     effect_table = marginal_effects(pd.concat(arm_dfs, 0))
 
     varnames = effect_table["Name"].unique()
+    # pyre-fixme[33]: Given annotation cannot contain `Any`.
     data: List[Any] = []
     for varname in varnames:
         var_df = effect_table[effect_table["Name"] == varname]

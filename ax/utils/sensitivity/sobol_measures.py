@@ -46,33 +46,53 @@ class SobolSensitivity(object):
         self.dim = dim
         self.num_mc_samples = num_mc_samples
         self.second_order = second_order
+        # pyre-fixme[4]: Attribute must be annotated.
         self.bootstrap = num_bootstrap_samples > 1
+        # pyre-fixme[4]: Attribute must be annotated.
         self.num_bootstrap_samples = (
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
         if input_qmc:
+            # pyre-fixme[4]: Attribute must be annotated.
             self.A = draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1).squeeze(1)
+            # pyre-fixme[4]: Attribute must be annotated.
             self.B = draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1).squeeze(1)
         else:
             self.A = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
             self.B = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.A_B_ABi = self.generate_all_input_matrix().to(torch.double)
 
         if self.bootstrap:
             subset_size = 4
+            # pyre-fixme[4]: Attribute must be annotated.
             self.bootstrap_indices = torch.randint(
                 0, num_mc_samples, (self.num_bootstrap_samples, subset_size)
             )
         self.f_A: Optional[Tensor] = None
         self.f_B: Optional[Tensor] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_ABis: Optional[List] = None
         self.f_total_var: Optional[Tensor] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_A_btsp: Optional[List] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_B_btsp: Optional[List] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_ABis_btsp: Optional[List] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_total_var_btsp: Optional[List] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_BAis: Optional[List] = None
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         self.f_BAis_btsp: Optional[List] = None
         self.first_order_idxs: Optional[Tensor] = None
         self.first_order_idxs_btsp: Optional[Tensor] = None
@@ -204,6 +224,7 @@ class SobolSensitivity(object):
                     .detach()
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def total_order_indices(self):
         r"""Computes the total Sobol indices:
 
@@ -217,6 +238,9 @@ class SobolSensitivity(object):
         for i in range(self.dim):
             vti = (
                 0.5
+                # pyre-fixme[58]: `-` is not supported for operand types
+                #  `Optional[torch._tensor.Tensor]` and `Any`.
+                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
                 * torch.mean(torch.pow(self.f_A - self.f_ABis[i], 2))
                 / self.f_total_var
             )
@@ -260,6 +284,7 @@ class SobolSensitivity(object):
                     .detach()
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def second_order_indices(
         self,
         first_order_idxs: Optional[Tensor] = None,
@@ -367,10 +392,13 @@ class SobolSensitivityGPMean(object):
         self.dim = model.train_inputs[0].shape[-1]  # pyre-ignore
         self.second_order = second_order
         self.input_qmc = input_qmc
+        # pyre-fixme[4]: Attribute must be annotated.
         self.bootstrap = num_bootstrap_samples > 1
         self.num_bootstrap_samples = num_bootstrap_samples
         self.num_mc_samples = num_mc_samples
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def input_function(x):
             return self.model.posterior(x).mean
 
@@ -385,6 +413,7 @@ class SobolSensitivityGPMean(object):
         )
         self.sensitivity.evalute_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def first_order_indices(self):
         r"""Computes the first order Sobol indices:
 
@@ -396,6 +425,7 @@ class SobolSensitivityGPMean(object):
         """
         return self.sensitivity.first_order_indices()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def total_order_indices(self):
         r"""Computes the total Sobol indices:
 
@@ -407,6 +437,7 @@ class SobolSensitivityGPMean(object):
         """
         return self.sensitivity.total_order_indices()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def second_order_indices(self):
         r"""Computes the Second order Sobol indices:
 
@@ -452,6 +483,7 @@ class SobolSensitivityGPSampling(object):
         self.second_order = second_order
         self.input_qmc = input_qmc
         self.gp_sample_qmc = gp_sample_qmc
+        # pyre-fixme[4]: Attribute must be annotated.
         self.bootstrap = num_bootstrap_samples > 1
         self.num_bootstrap_samples = num_bootstrap_samples
         self.num_mc_samples = num_mc_samples
@@ -468,10 +500,12 @@ class SobolSensitivityGPSampling(object):
         posterior = self.model.posterior(self.sensitivity.A_B_ABi)
         if self.gp_sample_qmc:
             sampler = SobolQMCNormalSampler(num_samples=self.num_gp_samples, seed=0)
+            # pyre-fixme[4]: Attribute must be annotated.
             self.samples = sampler(posterior)
         else:
             self.samples = posterior.sample(torch.Size([self.num_gp_samples]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def first_order_indices(self):
         r"""Computes the first order Sobol indices:
 
@@ -486,6 +520,8 @@ class SobolSensitivityGPSampling(object):
             self.sensitivity.evalute_function(self.samples[j])
             first_order_idxs = self.sensitivity.first_order_indices()
             first_order_idxs_list.append(first_order_idxs.unsqueeze(0))
+        # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
+        #  `first_order_idxs_list`.
         self.first_order_idxs_list = torch.cat(first_order_idxs_list, dim=0)
         if not (self.bootstrap):
             first_order_idxs_mean_var_se = []
@@ -525,6 +561,7 @@ class SobolSensitivityGPSampling(object):
             )
             return first_order_idxs_mean_vargp_segp_varmc_segp
 
+    # pyre-fixme[3]: Return type must be annotated.
     def total_order_indices(self):
         r"""Computes the total Sobol indices:
 
@@ -576,6 +613,7 @@ class SobolSensitivityGPSampling(object):
             )
             return total_order_idxs_mean_vargp_segp_varmc_segp
 
+    # pyre-fixme[3]: Return type must be annotated.
     def second_order_indices(self):
         r"""Computes the Second order Sobol indices:
 
@@ -590,6 +628,8 @@ class SobolSensitivityGPSampling(object):
             for j in range(self.num_gp_samples):
                 self.sensitivity.evalute_function(self.samples[j])
                 second_order_idxs = self.sensitivity.second_order_indices(
+                    # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
+                    #  `first_order_idxs_list`.
                     self.first_order_idxs_list[j]
                 )
                 second_order_idxs_list.append(second_order_idxs.unsqueeze(0))

@@ -49,6 +49,7 @@ class Metric(SortableBase, SerializationMixin):
         """
         self._name = name
         self.lower_is_better = lower_is_better
+        # pyre-fixme[4]: Attribute must be annotated.
         self.properties = properties or {}
 
     @classmethod

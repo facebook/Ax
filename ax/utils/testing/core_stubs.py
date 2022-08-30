@@ -91,6 +91,7 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
@@ -112,6 +113,7 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
     )
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def get_experiment_with_map_data_type():
     return Experiment(
         name="test_map_data",
@@ -395,6 +397,7 @@ def get_branin_experiment_with_multi_objective(
     return exp
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def get_branin_with_multi_task(with_multi_objective: bool = False):
     exp = Experiment(
         name="branin_test_experiment",
@@ -618,7 +621,10 @@ def get_large_factorial_search_space() -> SearchSpace:
 
 
 def get_large_ordinal_search_space(
-    n_ordinal_choice_parameters, n_continuous_range_parameters
+    # pyre-fixme[2]: Parameter must be annotated.
+    n_ordinal_choice_parameters,
+    # pyre-fixme[2]: Parameter must be annotated.
+    n_continuous_range_parameters,
 ) -> SearchSpace:
     return SearchSpace(
         parameters=[  # pyre-ignore[6]
@@ -899,6 +905,7 @@ class TestTrial(BaseTrial):
         return self._arms
 
     @arms.setter
+    # pyre-fixme[3]: Return type must be annotated.
     def arms(self, val: List[Arm]):
         self._arms = val
 
@@ -1045,21 +1052,25 @@ def get_metric() -> Metric:
     return Metric(name="m1", properties={"prop": "val"})
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_branin_metric(name="branin") -> BraninMetric:
     param_names = ["x1", "x2"]
     return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_augmented_branin_metric(name="aug_branin") -> AugmentedBraninMetric:
     param_names = ["x1", "x2", "fidelity"]
     return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_hartmann_metric(name="hartmann") -> Hartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_augmented_hartmann_metric(name="aug_hartmann") -> AugmentedHartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     param_names.append("fidelity")
@@ -1090,7 +1101,10 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 
 
 def get_objective_threshold(
-    metric_name: str = "m1", bound=-0.25, comparison_op: ComparisonOp = ComparisonOp.GEQ
+    metric_name: str = "m1",
+    # pyre-fixme[2]: Parameter must be annotated.
+    bound=-0.25,
+    comparison_op: ComparisonOp = ComparisonOp.GEQ,
 ) -> ObjectiveThreshold:
     return ObjectiveThreshold(
         metric=Metric(name=metric_name), bound=bound, op=comparison_op
@@ -1485,6 +1499,7 @@ def get_map_data(trial_index: int = 0) -> MapData:
     )
 
 
+# pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
 def get_map_key_info() -> MapKeyInfo:
     return MapKeyInfo(key="epoch", default_value=0.0)
 
@@ -1614,7 +1629,9 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+    # pyre-fixme[3]: Return type must be annotated.
     def __init__(self, early_stop_trials: Optional[Dict[int, str]] = None):
+        # pyre-fixme[4]: Attribute must be annotated.
         self.early_stop_trials = early_stop_trials or {}
 
     def should_stop_trials_early(
@@ -1632,10 +1649,12 @@ class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
     a pre-specified number of trials are completed.
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
     def __init__(self, min_trials: int, trial_to_stop: int):
         super().__init__(min_trials=min_trials)
         self.trial_to_stop = trial_to_stop
 
+    # pyre-fixme[3]: Return type must be annotated.
     def should_stop_optimization(
         self, experiment: Experiment, **kwargs: Dict[str, Any]
     ):

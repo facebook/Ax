@@ -30,6 +30,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class ALEBOTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testALEBOKernel(self):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
@@ -59,6 +60,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.equal(K, Ktrue))
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testALEBOGP(self):
         # First non-batch
         B = torch.tensor(
@@ -160,6 +162,7 @@ class ALEBOTest(TestCase):
                 map_sds[i]["covar_module.base_kernel.Uvec"].shape, torch.Size([3])
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testAcq(self):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
@@ -181,6 +184,7 @@ class ALEBOTest(TestCase):
             noiseless=True,
         )
         self.assertIsInstance(acq, ExpectedImprovement)
+        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase.ite...
         self.assertEqual(acq.best_f.item(), 3.0)
 
         objective_weights = torch.tensor([-1.0], dtype=torch.double)
@@ -193,6 +197,7 @@ class ALEBOTest(TestCase):
             q=1,
             noiseless=True,
         )
+        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase.ite...
         self.assertEqual(acq.best_f.item(), 1.0)
         with mock.patch(
             "ax.models.torch.alebo.optimize_acqf",
@@ -201,8 +206,11 @@ class ALEBOTest(TestCase):
         ) as optim_mock:
             alebo_acqf_optimizer(
                 acq_function=acq,
+                # pyre-fixme[6]: For 2nd param expected `Tensor` but got `None`.
                 bounds=None,
                 n=1,
+                # pyre-fixme[6]: For 4th param expected `Optional[List[Tuple[Tensor,
+                #  Tensor, float]]]` but got `float`.
                 inequality_constraints=5.0,
                 fixed_features=None,
                 rounding_func=None,
@@ -233,8 +241,11 @@ class ALEBOTest(TestCase):
         ) as optim_mock:
             alebo_acqf_optimizer(
                 acq_function=acq,
+                # pyre-fixme[6]: For 2nd param expected `Tensor` but got `None`.
                 bounds=None,
                 n=2,
+                # pyre-fixme[6]: For 4th param expected `Optional[List[Tuple[Tensor,
+                #  Tensor, float]]]` but got `float`.
                 inequality_constraints=5.0,
                 fixed_features=None,
                 rounding_func=None,
@@ -256,6 +267,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.allclose(Z, X[:, 0, :]))
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testALEBO(self):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
@@ -286,6 +298,8 @@ class ALEBOTest(TestCase):
             metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
+                # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,
+                #  int], Union[float, int]]]` but got `List[Tuple[int, int]]`.
                 bounds=[(-1, 1)] * 5,
             ),
         )
@@ -301,6 +315,8 @@ class ALEBOTest(TestCase):
         objective_weights = torch.tensor([1.0, 0.0], dtype=torch.double)
         search_space_digest = SearchSpaceDigest(
             feature_names=[],
+            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+            #  Union[float, int]]]` but got `List[Tuple[int, int]]`.
             bounds=[(-1, 1)] * 5,
         )
         torch_opt_config = TorchOptConfig(objective_weights=objective_weights)

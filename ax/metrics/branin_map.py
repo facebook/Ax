@@ -27,6 +27,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         self,
         name: str,
         param_names: Iterable[str],
+        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
@@ -48,6 +49,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             rate: Parameter of the multiplicative factor.
         """
         self.rate = rate
+        # pyre-fixme[4]: Attribute must be annotated.
         self._trial_index_to_timestamp = defaultdict(int)
 
         super().__init__(

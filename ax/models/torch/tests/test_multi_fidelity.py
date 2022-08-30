@@ -20,7 +20,9 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 ACQUISITION_PATH = Acquisition.__module__
+# pyre-fixme[5]: Global expression must be annotated.
 MULTI_FIDELITY_PATH = MultiFidelityAcquisition.__module__
 MFKG_PATH = (
     f"{qMultiFidelityKnowledgeGradient.__module__}.qMultiFidelityKnowledgeGradient"
@@ -28,6 +30,7 @@ MFKG_PATH = (
 
 
 class MultiFidelityAcquisitionTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
@@ -73,12 +76,18 @@ class MultiFidelityAcquisitionTest(TestCase):
     @patch(f"{MULTI_FIDELITY_PATH}.InverseCostWeightedUtility", return_value=None)
     @patch(f"{MULTI_FIDELITY_PATH}.project_to_target_fidelity", return_value=None)
     @patch(f"{MULTI_FIDELITY_PATH}.expand_trace_observations", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_compute_model_dependencies(
         self,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_expand,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_project,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_inverse_utility,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_affine_model,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_Acquisition_compute,
     ):
         # TODO: Patch only `MFKG_PATH.__init__` once `construct_inputs`

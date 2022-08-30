@@ -19,6 +19,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class TracesTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testTraces(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
@@ -30,12 +31,14 @@ class TracesTest(TestCase):
         # Assert that each type of plot can be constructed successfully
         plot = optimization_trace_single_method_plotly(
             np.array([[1, 2, 3], [4, 5, 6]]),
+            # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got `str`.
             list(model.metric_names)[0],
             optimization_direction="minimize",
         )
         self.assertIsInstance(plot, go.Figure)
         plot = optimization_trace_single_method(
             np.array([[1, 2, 3], [4, 5, 6]]),
+            # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got `str`.
             list(model.metric_names)[0],
             optimization_direction="minimize",
         )

@@ -10,6 +10,7 @@ import torch
 from ax.utils.common.typeutils import checked_cast
 
 
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def torch_type_to_str(value: Any) -> str:
     """Converts torch types, commonly used in Ax, to string representations."""
     if isinstance(value, torch.dtype):

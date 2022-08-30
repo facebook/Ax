@@ -14,6 +14,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class PercentileYTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
@@ -46,7 +47,10 @@ class PercentileYTransformTest(TestCase):
             covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
         )
         self.t = PercentileY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[
                 deepcopy(self.obsd1),
@@ -56,7 +60,10 @@ class PercentileYTransformTest(TestCase):
             ],
         )
         self.t_with_winsorization = PercentileY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[
                 deepcopy(self.obsd1),
@@ -67,10 +74,13 @@ class PercentileYTransformTest(TestCase):
             config={"winsorize": True},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         with self.assertRaises(DataRequiredError):
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             PercentileY(search_space=None, observation_features=[], observation_data=[])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         self.assertListEqual(self.t.percentiles["m1"], [0.0, 1.0, 2.0, 3.0])
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])
@@ -107,6 +117,7 @@ class PercentileYTransformTest(TestCase):
             msg=f"Unexpected covariance Result: {cov_results}. Expected all nans.",
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationsWithWinsorization(self):
         self.assertListEqual(self.t.percentiles["m1"], [0.0, 1.0, 2.0, 3.0])
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])

@@ -12,6 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class ThompsonSamplerTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.Xs = [[[1, 1], [2, 2], [3, 3], [4, 4]]]  # 4 arms, each of dimensionality 2
         self.Ys = [[1, 2, 3, 4]]
@@ -26,17 +27,30 @@ class ThompsonSamplerTest(TestCase):
         self.multiple_metrics_Ys = [[1, 2, 3, 4], [0, 0, 0, 1]]
         self.multiple_metrics_Yvars = [[1, 1, 1, 1], [1, 1, 1, 1]]
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSampler(self):
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         arms, weights, gen_metadata = generator.gen(
-            n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
+            n=3,
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
+            parameter_values=self.parameter_values,
+            objective_weights=np.ones(1),
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(
@@ -45,6 +59,7 @@ class ThompsonSamplerTest(TestCase):
             self.assertAlmostEqual(weight, expected_weight, 1)
         self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerValidation(self):
         generator = ThompsonSampler(min_weight=0.01)
 
@@ -52,8 +67,14 @@ class ThompsonSamplerTest(TestCase):
         with self.assertRaises(ValueError):
             generator.fit(
                 Xs=[[[1, 1], [2, 2], [3, 3], [4, 4]], [[1, 1], [2, 2], [4, 4]]],
+                # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Ys=self.Ys,
+                # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Yvars=self.Yvars,
+                # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 outcome_names=self.outcome_names,
             )
@@ -62,8 +83,14 @@ class ThompsonSamplerTest(TestCase):
         with self.assertRaises(ValueError):
             generator.fit(
                 Xs=[[[1, 1], [2, 2], [2, 2]]],
+                # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Ys=self.Ys,
+                # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Yvars=self.Yvars,
+                # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 outcome_names=self.outcome_names,
             )
@@ -71,27 +98,48 @@ class ThompsonSamplerTest(TestCase):
         # these are not the same observations, so should not error
         generator.fit(
             Xs=[[[1, 1], [2.0, 2], [2, 2]]],
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
 
         # requires objective weights
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             generator.gen(5, self.parameter_values, objective_weights=None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerMinWeight(self):
         generator = ThompsonSampler(min_weight=0.01)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         arms, weights, _ = generator.gen(
-            n=5, parameter_values=self.parameter_values, objective_weights=np.ones(1)
+            n=5,
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
+            parameter_values=self.parameter_values,
+            objective_weights=np.ones(1),
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(
@@ -99,49 +147,84 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerUniformWeights(self):
         generator = ThompsonSampler(min_weight=0.0, uniform_weights=True)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         arms, weights, _ = generator.gen(
-            n=3, parameter_values=self.parameter_values, objective_weights=np.ones(1)
+            n=3,
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
+            parameter_values=self.parameter_values,
+            objective_weights=np.ones(1),
         )
         self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
         for weight, expected_weight in zip(weights, [1.0, 1.0, 1.0]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerInfeasible(self):
         generator = ThompsonSampler(min_weight=0.9)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         with self.assertRaises(ModelError):
             generator.gen(
                 n=3,
+                # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 objective_weights=np.ones(1),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerOutcomeConstraints(self):
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.multiple_metrics_Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.multiple_metrics_Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.multiple_metrics_Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         arms, weights, _ = generator.gen(
             n=4,
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),
             outcome_constraints=(
@@ -157,29 +240,49 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.15)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerOutcomeConstraintsInfeasible(self):
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.multiple_metrics_Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.multiple_metrics_Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.multiple_metrics_Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         with self.assertRaises(ModelError):
             generator.gen(
                 n=3,
+                # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 objective_weights=np.ones(2),
                 outcome_constraints=(np.array([[0, 1]]), np.array([[-10]])),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testThompsonSamplerPredict(self):
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )

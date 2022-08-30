@@ -16,7 +16,11 @@ class DataProviderError(Exception):
     """
 
     def __init__(
-        self, message: str, data_provider: str, data_provider_error: Any
+        self,
+        message: str,
+        data_provider: str,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+        data_provider_error: Any,
     ) -> None:
         self.message = message
         self.data_provider = data_provider

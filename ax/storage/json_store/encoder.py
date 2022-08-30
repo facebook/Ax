@@ -24,11 +24,19 @@ from ax.utils.common.typeutils import numpy_type_to_python_type
 from ax.utils.common.typeutils_torch import torch_type_to_str
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
 def object_to_json(  # noqa C901
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     obj: Any,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     class_encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_CLASS_ENCODER_REGISTRY,

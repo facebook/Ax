@@ -12,15 +12,19 @@ from ax.utils.common.testutils import TestCase
 
 
 class SobolGeneratorTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.tunable_param_bounds = (0, 1)
         self.fixed_param_bounds = (1, 100)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _create_bounds(self, n_tunable, n_fixed):
         tunable_bounds = [self.tunable_param_bounds] * n_tunable
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorAllTunable(self):
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
@@ -32,6 +36,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.all(weights == 1.0))
         self.assertEqual(generator._get_state(), {"init_position": 3})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorFixedSpace(self):
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
@@ -43,6 +48,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorNoScramble(self):
         generator = SobolGenerator(scramble=False)
         n_tunable = fixed_param_index = 3
@@ -55,6 +61,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorOnline(self):
         # Verify that the generator will return the expected arms if called
         # one at a time.
@@ -76,6 +83,7 @@ class SobolGeneratorTest(TestCase):
             self.assertTrue(generated_points[..., -1] == 1)
             self.assertTrue(np.array_equal(expected_points, generated_points.flatten()))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorWithOrderConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
@@ -99,6 +107,7 @@ class SobolGeneratorTest(TestCase):
             )
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorWithLinearConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
@@ -121,6 +130,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorFallbackToPolytopeSampler(self):
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
@@ -140,6 +150,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.shape(generated_points) == (3, 10))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self):
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
@@ -161,6 +172,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorOnlineRestart(self):
         # Ensure a single batch generation can also equivalently done by
         # a partial generation, re-initialization of a new SobolGenerator,
@@ -194,11 +206,13 @@ class SobolGeneratorTest(TestCase):
             np.allclose(generated_points_single_batch, generated_points_two_trials)
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorBadBounds(self):
         generator = SobolGenerator()
         with self.assertRaises(ValueError):
             generated_points, weights = generator.gen(n=1, bounds=[(-1, 1)])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorMaxDraws(self):
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
@@ -215,6 +229,7 @@ class SobolGeneratorTest(TestCase):
                 model_gen_options={"max_rs_draws": 0},
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGeneratorDedupe(self):
         generator = SobolGenerator(seed=0, deduplicate=True)
         n_tunable = fixed_param_index = 3

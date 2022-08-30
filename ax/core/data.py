@@ -69,6 +69,7 @@ class Data(Base, SerializationMixin):
         """
         # Initialize with barebones DF.
         if df is None:
+            # pyre-fixme[4]: Attribute must be annotated.
             self._df = pd.DataFrame(columns=self.required_columns())
         else:
             columns = set(df.columns)
@@ -91,7 +92,11 @@ class Data(Base, SerializationMixin):
 
     @classmethod
     def _safecast_df(
-        cls, df: pd.DataFrame, extra_column_types: Optional[Dict[str, Type]] = None
+        cls,
+        df: pd.DataFrame,
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
+        extra_column_types: Optional[Dict[str, Type]] = None,
     ) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
@@ -143,8 +148,12 @@ class Data(Base, SerializationMixin):
     @classmethod
     def column_data_types(
         cls,
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
         extra_column_types: Optional[Dict[str, Type]] = None,
         excluded_columns: Optional[Iterable[str]] = None,
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
     ) -> Dict[str, Type]:
         """Type specification for all supported columns."""
         extra_column_types = extra_column_types or {}
@@ -159,6 +168,7 @@ class Data(Base, SerializationMixin):
         return columns
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
@@ -389,6 +399,8 @@ def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> D
 
 
 def custom_data_class(
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     column_data_types: Optional[Dict[str, Type]] = None,
     required_columns: Optional[Set[str]] = None,
     time_columns: Optional[Set[str]] = None,

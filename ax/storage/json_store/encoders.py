@@ -374,6 +374,7 @@ def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
     return properties
 
 
+# pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
 def map_key_info_to_dict(mki: MapKeyInfo) -> Dict[str, Any]:
     """Convert Ax map data metadata to a dictionary."""
     properties = serialize_init_args(object=mki)
@@ -467,6 +468,7 @@ def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
     return dict_representation
 
 
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
     """Convert any class to a dictionary."""
     for _class in CLASS_TO_REGISTRY:
@@ -489,6 +491,7 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
     )
 
 
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_component_to_dict(input_obj: Type[Any]) -> Dict[str, Any]:
     class_type = input_obj.__class__
     state_dict = input_obj.state_dict()

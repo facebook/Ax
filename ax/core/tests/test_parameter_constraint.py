@@ -20,12 +20,14 @@ from ax.utils.common.testutils import TestCase
 
 
 class ParameterConstraintTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.constraint = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
         )
         self.constraint_repr = "ParameterConstraint(2.0*x + -3.0*y <= 6.0)"
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         constraint1 = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
@@ -40,20 +42,27 @@ class ParameterConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint1, constraint3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.constraint.constraint_dict["x"], 2.0)
         self.assertEqual(self.constraint.bound, 6.0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         parameters = {"x": 4, "z": 3}
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]`
+            #  but got `Dict[str, int]`.
             self.constraint.check(parameters)
 
         # check slack constraint
         parameters = {"x": 4, "y": 1}
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]` but
+        #  got `Dict[str, int]`.
         self.assertTrue(self.constraint.check(parameters))
 
         # check tight constraint (within numerical tolerance)
@@ -64,6 +73,7 @@ class ParameterConstraintTest(TestCase):
         parameters = {"x": 4, "y": (2 - 0.5e-6) / 3}
         self.assertFalse(self.constraint.check(parameters))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         constraint_clone = self.constraint.clone()
         self.assertEqual(self.constraint.bound, constraint_clone.bound)
@@ -71,6 +81,7 @@ class ParameterConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCloneWithTransformedParameters(self):
         constraint_clone = self.constraint.clone_with_transformed_parameters(
             transformed_parameters={}
@@ -80,6 +91,7 @@ class ParameterConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         constraint1 = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=1.0
@@ -91,6 +103,7 @@ class ParameterConstraintTest(TestCase):
 
 
 class OrderConstraintTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.x = RangeParameter("x", ParameterType.INT, lower=0, upper=1)
         self.y = RangeParameter("y", ParameterType.INT, lower=0, upper=1)
@@ -99,18 +112,22 @@ class OrderConstraintTest(TestCase):
         )
         self.constraint_repr = "OrderConstraint(x <= y)"
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.constraint.lower_parameter.name, "x")
         self.assertEqual(self.constraint.upper_parameter.name, "y")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         self.assertTrue(self.constraint.check({"x": 0, "y": 1}))
         self.assertTrue(self.constraint.check({"x": 1, "y": 1}))
         self.assertFalse(self.constraint.check({"x": 1, "y": 0}))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         constraint_clone = self.constraint.clone()
         self.assertEqual(
@@ -122,6 +139,7 @@ class OrderConstraintTest(TestCase):
             self.constraint.lower_parameter, constraint_clone.lower_parameter
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCloneWithTransformedParameters(self):
         constraint_clone = self.constraint.clone_with_transformed_parameters(
             transformed_parameters={p.name: p for p in self.constraint.parameters}
@@ -135,6 +153,7 @@ class OrderConstraintTest(TestCase):
             self.constraint.lower_parameter, constraint_clone.lower_parameter
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInvalidSetup(self):
         z = FixedParameter("z", ParameterType.INT, 0)
         with self.assertRaises(ValueError):
@@ -146,6 +165,7 @@ class OrderConstraintTest(TestCase):
 
 
 class SumConstraintTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.x = RangeParameter("x", ParameterType.INT, lower=-5, upper=5)
         self.y = RangeParameter("y", ParameterType.INT, lower=-5, upper=5)
@@ -159,23 +179,28 @@ class SumConstraintTest(TestCase):
         self.constraint_repr1 = "SumConstraint(x + y <= 5.0)"
         self.constraint_repr2 = "SumConstraint(x + y >= -5.0)"
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadConstruct(self):
         with self.assertRaises(ValueError):
             SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
         z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
         with self.assertRaises(ValueError):
+            # pyre-fixme[16]: `SumConstraintTest` has no attribute `constraint`.
             self.constraint = SumConstraint(
                 parameters=[self.x, z], is_upper_bound=False, bound=-5.0
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
         self.assertEqual(self.constraint2.op, ComparisonOp.GEQ)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.constraint1), self.constraint_repr1)
         self.assertEqual(str(self.constraint2), self.constraint_repr2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         self.assertTrue(self.constraint1.check({"x": 1, "y": 4}))
         self.assertTrue(self.constraint1.check({"x": 4, "y": 1}))
@@ -185,6 +210,7 @@ class SumConstraintTest(TestCase):
         self.assertTrue(self.constraint2.check({"x": -1, "y": -4}))
         self.assertFalse(self.constraint2.check({"x": -5, "y": -1}))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         constraint_clone = self.constraint1.clone()
         self.assertEqual(self.constraint1.bound, constraint_clone.bound)
@@ -195,6 +221,7 @@ class SumConstraintTest(TestCase):
         constraint_clone_2 = self.constraint2.clone()
         self.assertEqual(self.constraint2.bound, constraint_clone_2.bound)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCloneWithTransformedParameters(self):
         constraint_clone = self.constraint1.clone_with_transformed_parameters(
             transformed_parameters={p.name: p for p in self.constraint1.parameters}

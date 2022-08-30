@@ -12,6 +12,7 @@ from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 num_mixed = Union[np.ndarray, List[float]]
 

@@ -56,6 +56,7 @@ class SearchSpaceToChoice(Transform):
                 "SearchSpaceToChoice transform is not supported for RobustSearchSpace."
             )
         self.parameter_name = "arms"
+        # pyre-fixme[4]: Attribute must be annotated.
         self.signature_to_parameterization = {
             Arm(parameters=obsf.parameters).signature: obsf.parameters
             for obsf in observation_features

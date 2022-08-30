@@ -20,6 +20,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class RemoveFixedTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -34,13 +35,19 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.t = RemoveFixed(
             search_space=self.search_space,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         observation_features = [
             ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
@@ -63,11 +70,13 @@ class RemoveFixedTransformTest(TestCase):
         with self.assertRaises(ValueError):
             self.t.transform_observation_features(observation_features_invalid)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters.get("c"), None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space()
         rss.add_parameter(
@@ -76,13 +85,18 @@ class RemoveFixedTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = RemoveFixed(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss, RobustSearchSpace)
         self.assertEqual(len(rss.parameters.keys()), 4)
+        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(len(rss.parameter_distributions), 2)
         self.assertNotIn("d", rss.parameters)
         # Test with environmental variables.
@@ -90,6 +104,7 @@ class RemoveFixedTransformTest(TestCase):
         rss = RobustSearchSpace(
             parameters=all_params[2:],
             parameter_distributions=rss.parameter_distributions,
+            # pyre-fixme[16]: `SearchSpace` has no attribute `num_samples`.
             num_samples=rss.num_samples,
             environmental_variables=all_params[:2],
         )
@@ -98,12 +113,17 @@ class RemoveFixedTransformTest(TestCase):
         )
         t = RemoveFixed(
             search_space=rss,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         rss = t.transform_search_space(rss)
         self.assertIsInstance(rss, RobustSearchSpace)
         self.assertEqual(len(rss.parameters.keys()), 4)
         self.assertEqual(len(rss.parameter_distributions), 2)
+        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(len(rss._environmental_variables), 2)
         self.assertNotIn("d", rss.parameters)

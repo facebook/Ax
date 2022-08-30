@@ -20,6 +20,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class ContoursTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testContours(self):
         exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()
@@ -30,7 +31,11 @@ class ContoursTest(TestCase):
         )
         # Assert that each type of plot can be constructed successfully
         plot = plot_contour_plotly(
-            model, model.parameters[0], model.parameters[1], list(model.metric_names)[0]
+            model,
+            # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
+            model.parameters[0],
+            model.parameters[1],
+            list(model.metric_names)[0],
         )
         self.assertIsInstance(plot, go.Figure)
         plot = interact_contour_plotly(model, list(model.metric_names)[0])

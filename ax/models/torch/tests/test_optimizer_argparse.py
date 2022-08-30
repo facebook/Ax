@@ -37,29 +37,35 @@ class DummyAcquisitionFunction(AcquisitionFunction):
 
 
 class OptimizerArgparseTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_notImplemented(self):
         with self.assertRaises(NotImplementedError) as e:
             optimizer_argparse[type(None)]  # passing `None` produces a different error
             self.assertTrue("Could not find signature for" in str(e))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_register(self):
         with patch.dict(optimizer_argparse.funcs, {}):
 
             @optimizer_argparse.register(DummyAcquisitionFunction)
+            # pyre-fixme[3]: Return type must be annotated.
             def _argparse(acqf: MaybeType[DummyAcquisitionFunction]):
                 pass
 
             self.assertEqual(optimizer_argparse[DummyAcquisitionFunction], _argparse)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fallback(self):
         with patch.dict(optimizer_argparse.funcs, {}):
 
             @optimizer_argparse.register(AcquisitionFunction)
+            # pyre-fixme[3]: Return type must be annotated.
             def _argparse(acqf: MaybeType[DummyAcquisitionFunction]):
                 pass
 
             self.assertEqual(optimizer_argparse[DummyAcquisitionFunction], _argparse)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_optimizer_options(self):
         skipped_funcs = {  # These should all have bespoke tests
             optimizer_argparse[acqf_class]
@@ -78,6 +84,7 @@ class OptimizerArgparseTest(TestCase):
             for key, val in user_options.items():
                 self.assertEqual(val, parsed_options.get(key))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ehvi(self):
         user_options = {"foo": "bar", "num_restarts": 651}
         inner_options = {"init_batch_limit": 23, "batch_limit": 67}
@@ -97,6 +104,7 @@ class OptimizerArgparseTest(TestCase):
                 self.assertEqual(options.pop("options"), inner_options)
                 self.assertEqual(options, generic_options)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_kg(self):
         with patch(
             "botorch.optim.initializers.gen_one_shot_kg_initial_conditions"
@@ -117,6 +125,7 @@ class OptimizerArgparseTest(TestCase):
                     self.assertEqual(options.pop(Keys.BATCH_INIT_CONDITIONS), "TEST")
                     self.assertEqual(options, generic_options)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_mes(self):
         user_options = {"foo": "bar", "num_restarts": 83}
         generic_options = _argparse_base(None, optimizer_options=user_options)

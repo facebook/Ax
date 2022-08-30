@@ -17,11 +17,14 @@ from botorch.test_functions import synthetic as botorch_synthetic
 
 
 class TestSyntheticFunctions(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_branin(self):
         self.assertEqual(branin.name, "Branin")
         self.assertAlmostEqual(branin(1, 2), 21.62763539206238)
         self.assertAlmostEqual(branin(x1=1, x2=2), 21.62763539206238)
         self.assertAlmostEqual(branin(np.array([1, 2])), 21.62763539206238)
+        # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no attribute
+        #  `__getitem__`.
         self.assertAlmostEqual(branin(np.array([[1, 2], [1, 2]]))[0], 21.62763539206238)
         self.assertAlmostEqual(branin.minimums[0][0], -np.pi)
         self.assertAlmostEqual(branin.fmin, 0.397887, places=6)
@@ -34,13 +37,17 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(ValueError, "Synthetic function call"):
             branin(np.array([[[1, 3]]]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_hartmann6(self):
         self.assertEqual(hartmann6.name, "Hartmann6")
         self.assertAlmostEqual(hartmann6(1, 2, 3, 4, 5, 6), 0.0)
         self.assertAlmostEqual(hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6), 0.0)
         self.assertAlmostEqual(hartmann6(np.array([1, 2, 3, 4, 5, 6])), 0.0)
         self.assertAlmostEqual(
-            hartmann6(np.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]))[0], 0.0
+            # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
+            #  attribute `__getitem__`.
+            hartmann6(np.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]))[0],
+            0.0,
         )
         self.assertAlmostEqual(hartmann6.minimums[0][0], 0.20169, places=5)
         self.assertAlmostEqual(hartmann6.fmin, -3.32237, places=5)
@@ -50,6 +57,7 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "Hartmann6 does not specify"):
             hartmann6.maximums
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_aug_hartmann6(self):
         self.assertEqual(aug_hartmann6.name, "Aug_Hartmann6")
         self.assertAlmostEqual(aug_hartmann6(1, 2, 3, 4, 5, 6, 1), 0.0)
@@ -58,6 +66,8 @@ class TestSyntheticFunctions(TestCase):
         )
         self.assertAlmostEqual(aug_hartmann6(np.array([1, 2, 3, 4, 5, 6, 1])), 0.0)
         self.assertAlmostEqual(
+            # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
+            #  attribute `__getitem__`.
             aug_hartmann6(np.array([[1, 2, 3, 4, 5, 6, 1], [1, 2, 3, 4, 5, 6, 1]]))[0],
             0.0,
         )
@@ -71,13 +81,17 @@ class TestSyntheticFunctions(TestCase):
         ):
             aug_hartmann6.maximums
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_aug_branin(self):
         self.assertEqual(aug_branin.name, "Aug_Branin")
         self.assertAlmostEqual(aug_branin(1, 2, 1), 21.62763539206238)
         self.assertAlmostEqual(aug_branin(x1=1, x2=2, x3=1), 21.62763539206238)
         self.assertAlmostEqual(aug_branin(np.array([1, 2, 1])), 21.62763539206238)
         self.assertAlmostEqual(
-            aug_branin(np.array([[1, 2, 1], [1, 2, 1]]))[0], 21.62763539206238
+            # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
+            #  attribute `__getitem__`.
+            aug_branin(np.array([[1, 2, 1], [1, 2, 1]]))[0],
+            21.62763539206238,
         )
         self.assertAlmostEqual(aug_branin.minimums[0][0], -np.pi)
         self.assertAlmostEqual(aug_branin.fmin, branin.fmin)
@@ -90,13 +104,18 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(ValueError, "Synthetic function call"):
             aug_branin(np.array([[[1, 3, 1]]]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_botorch_ackley(self):
         ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
         self.assertEqual(ackley.name, "FromBotorch_Ackley")
         self.assertAlmostEqual(ackley(1.0, 2.0), 5.422131717799505)
         self.assertAlmostEqual(ackley(x1=1.0, x2=2.0), 5.422131717799505)
         self.assertAlmostEqual(ackley(np.array([1, 2])), 5.422131717799505)
+        # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no attribute
+        #  `__getitem__`.
         self.assertAlmostEqual(ackley(np.array([[1, 2], [1, 2]]))[0], 5.422131717799505)
+        # pyre-fixme[6]: For 2nd param expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `Tuple[float, float]`.
         self.assertAlmostEqual(ackley.domain[0], (-32.768, 32.768), places=3)
         self.assertEqual(ackley.required_dimensionality, 2)
         self.assertEqual(ackley.fmin, 0.0)

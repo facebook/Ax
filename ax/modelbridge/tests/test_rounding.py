@@ -13,9 +13,11 @@ from ax.utils.common.testutils import TestCase
 
 
 class RoundingTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         pass
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testOneHotRound(self):
         self.assertTrue(
             np.allclose(

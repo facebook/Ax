@@ -21,6 +21,7 @@ class DummyEnum(Enum):
 
 
 class ChemistryMetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testChemistryMetric(self):
         # basic test
         read_csv = pd.read_csv

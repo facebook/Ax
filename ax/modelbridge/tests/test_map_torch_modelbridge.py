@@ -50,6 +50,7 @@ class MapTorchModelBridgeTest(TestCase):
         )
         # Check map data is converted to observations, that we get one Observation
         # per row of MapData
+        # pyre-fixme[16]: `Data` has no attribute `map_df`.
         map_df = experiment.lookup_data().map_df
         objective_df = map_df[map_df["metric_name"] == "branin_map"]
         self.assertEqual(len(modelbridge.get_training_data()), len(objective_df))

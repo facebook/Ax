@@ -18,6 +18,7 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 
 
 class DataTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.df_hash = "3dd7ab8c67942d43c78ea4af05bbb1c4"
         self.df = pd.DataFrame(
@@ -79,6 +80,7 @@ class DataTest(TestCase):
             ]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testData(self):
         self.assertEqual(Data(), Data())
         data = Data(df=self.df)
@@ -93,17 +95,21 @@ class DataTest(TestCase):
             float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"]), 0.5
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadData(self):
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
         with self.assertRaises(ValueError):
             Data(df=df)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmptyData(self):
         df = Data().df
         self.assertTrue(df.empty)
+        # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got `bool`.
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSetSingleBatch(self):
         data = Data(df=self.df)
         merged_data = set_single_trial(data)
@@ -117,6 +123,7 @@ class DataTest(TestCase):
         merged_data = set_single_trial(data)
         self.assertTrue("trial_index" not in merged_data.df)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCustomData(self):
         CustomData = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
@@ -150,6 +157,7 @@ class DataTest(TestCase):
         with self.assertRaises(ValueError):
             Data(df=pd.DataFrame([data_entry2]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testFromEvaluations(self):
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
@@ -166,6 +174,7 @@ class DataTest(TestCase):
             self.assertIn("start_time", data.df)
             self.assertIn("end_time", data.df)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testFromFidelityEvaluations(self):
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
@@ -187,6 +196,7 @@ class DataTest(TestCase):
             self.assertIn("start_time", data.df)
             self.assertIn("end_time", data.df)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCloneWithoutMetrics(self):
         data = Data(df=self.df)
         expected = Data(
@@ -224,6 +234,7 @@ class DataTest(TestCase):
         )
         self.assertEqual(clone_without_metrics(data, {"a"}), expected)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testFromMultipleDataMismatchedTypes(self):
         # create two custom data types
         CustomDataA = custom_data_class(
@@ -268,8 +279,11 @@ class DataTest(TestCase):
             )
             Data.from_multiple_data([data_elt_A, data_elt_B])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGetFilteredResults(self):
         data = Data(df=self.df)
+        # pyre-fixme[6]: For 1st param expected `Dict[str, typing.Any]` but got `str`.
+        # pyre-fixme[6]: For 2nd param expected `Dict[str, typing.Any]` but got `str`.
         actual_filtered = data.get_filtered_results(arm_name="0_0", metric_name="a")
         # Create new Data to replicate timestamp casting.
         expected_filtered = Data(
@@ -291,9 +305,11 @@ class DataTest(TestCase):
         print(expected_filtered)
         self.assertTrue(actual_filtered.equals(expected_filtered))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_data_column_data_types_default(self):
         self.assertEqual(Data.column_data_types(), Data.COLUMN_DATA_TYPES)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_data_column_data_types_with_extra_columns(self):
         bartype = random.choice([str, int, float])
         columns = Data.column_data_types(extra_column_types={"foo": bartype})
@@ -301,6 +317,7 @@ class DataTest(TestCase):
             self.assertEqual(columns[c], t)
         self.assertEqual(columns["foo"], bartype)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_data_column_data_types_with_removed_columns(self):
         columns = Data.column_data_types(excluded_columns=["fidelities"])
         self.assertNotIn("fidelities", columns)
@@ -311,6 +328,7 @@ class DataTest(TestCase):
     # there isn't really a point in doing this
     # this test just documents expected behavior
     # that excluded_columns wins out
+    # pyre-fixme[3]: Return type must be annotated.
     def test_data_column_data_types_with_extra_columns_also_deleted(self):
         bartype = random.choice([str, int, float])
         excluded_columns = ["fidelities", "foo"]

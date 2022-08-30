@@ -45,6 +45,7 @@ class Cast(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        # pyre-fixme[4]: Attribute must be annotated.
         self.search_space = search_space.clone()
         self.flatten_hss: bool = (
             config is None or checked_cast(bool, config.get("flatten_hss", True))

@@ -21,6 +21,7 @@ GENERATOR_RUN_STR_PLUS_1 = "GeneratorRun(3 arms, total weight 4.0)"
 
 
 class GeneratorRunTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.model_predictions = get_model_predictions()
         self.optimization_config = get_optimization_config()
@@ -38,18 +39,23 @@ class GeneratorRunTest(TestCase):
         )
         self.weighted_run = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
             optimization_config=self.optimization_config,
             search_space=self.search_space,
             model_predictions=self.model_predictions,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(
+            # pyre-fixme[16]: Optional type has no attribute `outcome_constraints`.
             len(self.unweighted_run.optimization_config.outcome_constraints),
             len(self.optimization_config.outcome_constraints),
         )
         self.assertEqual(
+            # pyre-fixme[16]: Optional type has no attribute `parameters`.
             len(self.unweighted_run.search_space.parameters),
             len(self.search_space.parameters),
         )
@@ -82,6 +88,7 @@ class GeneratorRunTest(TestCase):
                 },
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         weighted_run2 = self.weighted_run.clone()
         self.assertEqual(
@@ -90,6 +97,7 @@ class GeneratorRunTest(TestCase):
         weighted_run2.arms[0].name = "bogus_name"
         self.assertNotEqual(self.weighted_run.arms, weighted_run2.arms)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMergeDuplicateArm(self):
         arms = self.arms + [self.arms[0]]
         run = GeneratorRun(
@@ -100,12 +108,14 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(str(run), GENERATOR_RUN_STR_PLUS_1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testIndex(self):
         self.assertIsNone(self.unweighted_run.index)
         self.unweighted_run.index = 1
         with self.assertRaises(ValueError):
             self.unweighted_run.index = 2
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testModelPredictions(self):
         self.assertEqual(self.unweighted_run.model_predictions, get_model_predictions())
         self.assertEqual(
@@ -114,6 +124,8 @@ class GeneratorRunTest(TestCase):
         )
         run_no_model_predictions = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -121,6 +133,7 @@ class GeneratorRunTest(TestCase):
         self.assertIsNone(run_no_model_predictions.model_predictions)
         self.assertIsNone(run_no_model_predictions.model_predictions_by_arm)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         self.assertEqual(self.unweighted_run, self.unweighted_run)
 
@@ -135,13 +148,17 @@ class GeneratorRunTest(TestCase):
         )
         self.assertNotEqual(self.unweighted_run, unweighted_run_2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testParamDf(self):
         param_df = self.unweighted_run.param_df
         self.assertEqual(len(param_df), len(self.arms))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBestArm(self):
         generator_run = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -152,10 +169,13 @@ class GeneratorRunTest(TestCase):
             (self.arms[0], ({"a": 1.0}, {"a": {"a": 2.0}})),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGenMetadata(self):
         gm = {"hello": "world"}
         generator_run = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -163,13 +183,18 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(generator_run.gen_metadata, gm)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         generator_run1 = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
         )
         generator_run2 = GeneratorRun(
             arms=self.arms,
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
+            #  `List[int]`.
             weights=self.weights,
         )
         generator_run1.index = 1

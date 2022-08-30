@@ -39,6 +39,7 @@ Mu = Dict[str, List[float]]
 Cov = Dict[str, Dict[str, List[float]]]
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -476,8 +477,16 @@ def _validate_outcome_constraints(
                 )
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _build_new_optimization_config(
-    weights, primary_objective, secondary_objective, outcome_constraints=None
+    # pyre-fixme[2]: Parameter must be annotated.
+    weights,
+    # pyre-fixme[2]: Parameter must be annotated.
+    primary_objective,
+    # pyre-fixme[2]: Parameter must be annotated.
+    secondary_objective,
+    # pyre-fixme[2]: Parameter must be annotated.
+    outcome_constraints=None,
 ):
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],

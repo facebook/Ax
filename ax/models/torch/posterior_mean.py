@@ -62,6 +62,7 @@ def get_PosteriorMean(
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
 
+    # pyre-fixme[53]: Captured variable `obj_tf` is not annotated.
     def obj_fn(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
         return obj_tf(samples)
 

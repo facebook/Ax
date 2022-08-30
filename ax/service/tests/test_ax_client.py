@@ -80,6 +80,7 @@ def run_trials_using_recommended_parallelism(
                 remaining_trials -= 1
             for _ in range(parallelism_setting):
                 params, idx = in_flight_trials.pop()
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 ax_client.complete_trial(idx, branin(params["x"], params["y"]))
     # If all went well and no errors were raised, remaining_trials should be 0.
     return remaining_trials
@@ -101,6 +102,9 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
     ax_client.create_experiment(
+        # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
+        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {"name": "x", "type": "range", "bounds": [0.0, 1.0]},
             {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -108,12 +112,16 @@ def get_branin_currin_optimization_with_N_sobol_trials(
         objectives={
             "branin": ObjectiveProperties(
                 minimize=False,
+                # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
+                #  `Optional[Tensor]`.
                 threshold=branin_currin.ref_point[0]
                 if include_objective_thresholds
                 else None,
             ),
             "currin": ObjectiveProperties(
                 minimize=False,
+                # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
+                #  `Optional[Tensor]`.
                 threshold=branin_currin.ref_point[1]
                 if include_objective_thresholds
                 else None,
@@ -146,6 +154,9 @@ def get_branin_optimization(
     )
     ax_client.create_experiment(
         name="test_experiment",
+        # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
+        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
             {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -201,9 +212,13 @@ class TestAxClient(TestCase):
             ],
         )
         status_quo_params = {"x": 1.0, "y": 1.0}
+        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, Union[None,
+        #  bool, float, int, str]]]` but got `Dict[str, float]`.
         ax_client.set_status_quo(status_quo_params)
         self.assertEqual(
             ax_client.experiment.status_quo,
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Dict[str, float]`.
             Arm(parameters=status_quo_params, name="status_quo"),
         )
 
@@ -216,6 +231,8 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
+            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Union[None,
+            #  bool, float, int, str]]]` but got `Dict[str, float]`.
             status_quo=status_quo_params,
         )
         self.assertEqual(ax_client.status_quo, status_quo_params)
@@ -244,6 +261,7 @@ class TestAxClient(TestCase):
         )
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             opt_config.objective.objectives[0].metric.name,
             "foo",
         )
@@ -260,6 +278,7 @@ class TestAxClient(TestCase):
             False,
         )
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
             opt_config.objective_thresholds[0],
             ObjectiveThreshold(
                 metric=Metric(name="foo"),
@@ -278,6 +297,7 @@ class TestAxClient(TestCase):
             ),
         )
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             opt_config.outcome_constraints[0],
             OutcomeConstraint(
                 metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
@@ -302,6 +322,7 @@ class TestAxClient(TestCase):
         )
         opt_config = ax_client.experiment.optimization_config
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             opt_config.objective.metric.name,
             "foo",
         )
@@ -310,12 +331,14 @@ class TestAxClient(TestCase):
             True,
         )
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             opt_config.outcome_constraints[0],
             OutcomeConstraint(
                 metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_set_optimization_config_without_objectives_raises_error(self):
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -387,6 +410,7 @@ class TestAxClient(TestCase):
                 },
                 sample_size=i,
             )
+        # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
         self.assertEqual(ax_client.generation_strategy.model._model_key, "GPEI")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
@@ -471,6 +495,7 @@ class TestAxClient(TestCase):
         self.assertEqual(len(empty_trials_dict), 0)
         self.assertTrue(is_complete)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_and_load_generation_strategy(self):
         init_test_engine_and_session_factory(force_init=True)
         config = SQAConfig()
@@ -485,6 +510,9 @@ class TestAxClient(TestCase):
         )
         ax_client.create_experiment(
             name="unique_test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -559,6 +587,7 @@ class TestAxClient(TestCase):
                 },
                 sample_size=i,
             )
+        # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
         self.assertEqual(ax_client.generation_strategy.model._model_key, "MOO")
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
@@ -591,6 +620,10 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
+            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -637,6 +670,7 @@ class TestAxClient(TestCase):
         assert ax_client._experiment is not None
         self.assertEqual(ax_client._experiment, ax_client.experiment)
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `search_space`.
             ax_client._experiment.search_space.parameters["x"],
             RangeParameter(
                 name="x",
@@ -675,6 +709,7 @@ class TestAxClient(TestCase):
             ),
         )
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `optimization_config`.
             ax_client._experiment.optimization_config.outcome_constraints[0],
             OutcomeConstraint(
                 metric=Metric(name="some_metric"),
@@ -694,9 +729,12 @@ class TestAxClient(TestCase):
         )
         self.assertTrue(ax_client._experiment.optimization_config.objective.minimize)
         self.assertDictEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `_tracking_metrics`.
             ax_client._experiment._tracking_metrics,
             {"test_tracking_metric": Metric(name="test_tracking_metric")},
         )
+        # pyre-fixme[16]: `Optional` has no attribute
+        #  `immutable_search_space_and_opt_config`.
         self.assertTrue(ax_client._experiment.immutable_search_space_and_opt_config)
         self.assertTrue(ax_client.experiment.is_test)
 
@@ -717,6 +755,10 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
+            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -789,6 +831,9 @@ class TestAxClient(TestCase):
         }
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -805,17 +850,20 @@ class TestAxClient(TestCase):
             metric_definitions=metric_definitions,
             is_test=True,
         )
+        # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
+        # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
+            # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
@@ -848,6 +896,9 @@ class TestAxClient(TestCase):
         }
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -865,17 +916,20 @@ class TestAxClient(TestCase):
             outcome_constraints=["const_m3 >= 3"],
             metric_definitions=metric_definitions,
         )
+        # pyre-fixme[16]: `Optional` has no attribute `objective`.
         objectives = ax_client.experiment.optimization_config.objective.objectives
         self.assertEqual(objectives[0].metric.name, "obj_m1")
         self.assertEqual(objectives[0].metric.properties, {"m1_opt": "m1_val"})
         self.assertEqual(objectives[1].metric.name, "obj_m2")
         self.assertEqual(objectives[1].metric.properties, {"m2_opt": "m2_val"})
+        # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
         thresholds = ax_client.experiment.optimization_config.objective_thresholds
         self.assertEqual(thresholds[0].metric.name, "obj_m1")
         self.assertEqual(thresholds[0].metric.properties, {"m1_opt": "m1_val"})
         self.assertEqual(thresholds[1].metric.name, "obj_m2")
         self.assertEqual(thresholds[1].metric.properties, {"m2_opt": "m2_val"})
         outcome_constraints = (
+            # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             ax_client.experiment.optimization_config.outcome_constraints
         )
         self.assertEqual(outcome_constraints[0].metric.name, "const_m3")
@@ -946,14 +1000,41 @@ class TestAxClient(TestCase):
         }
         with self.subTest("objective_name"):
             with self.assertRaises(UnsupportedError):
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None, L...
+                # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, typing.An...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Dict[str,...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[Non...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Objective...
+                # pyre-fixme[6]: For 2nd param expected `Optional[bool]` but got `Uni...
+                # pyre-fixme[6]: For 2nd param expected `Optional[str]` but got `Unio...
+                # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[List[Un...
                 ax_client.create_experiment(objective_name="something", **params)
         with self.subTest("minimize"):
             with self.assertRaises(UnsupportedError):
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None, L...
+                # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, typing.An...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Dict[str,...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[Non...
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Objective...
+                # pyre-fixme[6]: For 2nd param expected `Optional[str]` but got `Unio...
+                # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[List[Un...
                 ax_client.create_experiment(minimize=False, **params)
         with self.subTest("both"):
             with self.assertRaises(UnsupportedError):
                 ax_client.create_experiment(
-                    objective_name="another thing", minimize=False, **params
+                    objective_name="another thing",
+                    minimize=False,
+                    # pyre-fixme[6]: For 3rd param expected `List[Dict[str, Union[Non...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[List[str]]` but...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, typin...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Dict[...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Union...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Objec...
+                    # pyre-fixme[6]: For 3rd param expected `Optional[str]` but got `...
+                    # pyre-fixme[6]: For 3rd param expected `bool` but got `Union[Lis...
+                    **params,
                 )
 
     def test_create_moo_experiment(self) -> None:
@@ -967,6 +1048,10 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
+            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -1015,6 +1100,7 @@ class TestAxClient(TestCase):
         assert ax_client._experiment is not None
         self.assertEqual(ax_client._experiment, ax_client.experiment)
         self.assertEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `search_space`.
             ax_client._experiment.search_space.parameters["x"],
             RangeParameter(
                 name="x",
@@ -1052,6 +1138,7 @@ class TestAxClient(TestCase):
                 values=["one", "two", "three"],
             ),
         )
+        # pyre-fixme[16]: `Optional` has no attribute `optimization_config`.
         optimization_config = ax_client._experiment.optimization_config
         self.assertEqual(
             [m.name for m in optimization_config.objective.metrics],
@@ -1100,9 +1187,12 @@ class TestAxClient(TestCase):
             ),
         )
         self.assertDictEqual(
+            # pyre-fixme[16]: `Optional` has no attribute `_tracking_metrics`.
             ax_client._experiment._tracking_metrics,
             {"test_tracking_metric": Metric(name="test_tracking_metric")},
         )
+        # pyre-fixme[16]: `Optional` has no attribute
+        #  `immutable_search_space_and_opt_config`.
         self.assertTrue(ax_client._experiment.immutable_search_space_and_opt_config)
         self.assertTrue(ax_client.experiment.is_test)
 
@@ -1115,6 +1205,7 @@ class TestAxClient(TestCase):
                 ax_client.objective_names, ["test_objective_1", "test_objective_2"]
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_constraint_same_as_objective(self):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
@@ -1133,9 +1224,13 @@ class TestAxClient(TestCase):
             )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_raw_data_format(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1145,16 +1240,23 @@ class TestAxClient(TestCase):
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
             x, y = parameterization.get("x"), parameterization.get("y")
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
         with self.assertRaisesRegex(
             ValueError, AxClient.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
         ):
+            # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_raw_data_format_with_map_results(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1168,12 +1270,14 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
                     ({"y": y / 2.0}, {"objective": (branin(x, y / 2.0), 0.0)}),
                     ({"y": y}, {"objective": (branin(x, y), 0.0)}),
                 ],
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_keep_generating_without_data(self):
         # Check that normally numebr of arms to generate is enforced.
         ax_client = get_branin_optimization()
@@ -1185,6 +1289,9 @@ class TestAxClient(TestCase):
         # generating.
         ax_client = AxClient(enforce_sequential_optimization=False)
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1198,9 +1305,13 @@ class TestAxClient(TestCase):
         for _ in range(10):
             parameterization, trial_index = ax_client.get_next_trial()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_running_trial_with_intermediate_data(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1223,11 +1334,15 @@ class TestAxClient(TestCase):
                     0,
                     raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
+            # pyre-fixme[16]: `Data` has no attribute `map_df`.
             current_data = ax_client.experiment.fetch_data().map_df
             self.assertEqual(len(current_data), 0 if t < 2 else 3)
 
         no_intermediate_data_ax_client = AxClient()
         no_intermediate_data_ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1239,32 +1354,43 @@ class TestAxClient(TestCase):
         with self.assertRaises(ValueError):
             no_intermediate_data_ax_client.update_running_trial_with_intermediate_data(
                 0,
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=[
+                    # pyre-fixme[61]: `t` is undefined, or not always defined.
                     ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
                     for p_t in range(t + 1)
                 ],
             )
 
+    # pyre-fixme[56]: Pyre was not able to infer the type of argument `f"{ax.service....
     @patch(
         f"{get_best_parameters_from_model_predictions_with_trial_index.__module__}"
         + ".get_best_parameters_from_model_predictions_with_trial_index",
         wraps=get_best_parameters_from_model_predictions_with_trial_index,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_best_point_no_model_predictions(
-        self, mock_get_best_parameters_from_model_predictions_with_trial_index
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_get_best_parameters_from_model_predictions_with_trial_index,
     ):
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[int, Dict[str,
+        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
+        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 3 values.
         best_idx, best_params, _ = ax_client.get_best_trial()
         self.assertEqual(best_idx, idx)
         self.assertEqual(best_params, params)
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         mock_get_best_parameters_from_model_predictions_with_trial_index.assert_called()
         mock_get_best_parameters_from_model_predictions_with_trial_index.reset_mock()
         ax_client.get_best_parameters(use_model_predictions=False)
         mock_get_best_parameters_from_model_predictions_with_trial_index.assert_not_called()  # noqa
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_trial_completion(self):
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
@@ -1285,6 +1411,7 @@ class TestAxClient(TestCase):
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
         self.assertNotIn("m1", metrics_in_data)
         self.assertIn("branin", metrics_in_data)
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         params2, idy = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
@@ -1295,12 +1422,15 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(ax_client.get_best_parameters()[0], params3)
         self.assertEqual(
-            ax_client.experiment.trials.get(2).run_metadata.get("dummy"), "test"
+            # pyre-fixme[16]: `Optional` has no attribute `run_metadata`.
+            ax_client.experiment.trials.get(2).run_metadata.get("dummy"),
+            "test",
         )
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"branin": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_abandon_trial(self):
         ax_client = get_branin_optimization()
 
@@ -1316,9 +1446,13 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* in a terminal state."):
             ax_client.abandon_trial(trial_index=idx2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ttl_trial(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1328,6 +1462,7 @@ class TestAxClient(TestCase):
 
         # A ttl trial that ends adds no data.
         params, idx = ax_client.get_next_trial(ttl_seconds=1)
+        # pyre-fixme[16]: `Optional` has no attribute `status`.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
         time.sleep(1)  # Wait for TTL to elapse.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
@@ -1339,12 +1474,17 @@ class TestAxClient(TestCase):
 
         params2, idy = ax_client.get_next_trial(ttl_seconds=1)
         ax_client.complete_trial(trial_index=idy, raw_data=(-1, 0.0))
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_start_and_end_time_in_trial_completion(self):
         start_time = current_timestamp_in_millis()
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1363,9 +1503,13 @@ class TestAxClient(TestCase):
         dat = ax_client.experiment.fetch_data().df
         self.assertGreater(dat["end_time"][0], dat["start_time"][0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fail_on_batch(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1385,9 +1529,13 @@ class TestAxClient(TestCase):
         ):
             ax_client.complete_trial(batch_trial.index, 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_log_failure(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1396,16 +1544,23 @@ class TestAxClient(TestCase):
         )
         _, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(idx, metadata={"dummy": "test"})
+        # pyre-fixme[16]: `Optional` has no attribute `status`.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
         self.assertEqual(
-            ax_client.experiment.trials.get(idx).run_metadata.get("dummy"), "test"
+            # pyre-fixme[16]: `Optional` has no attribute `run_metadata`.
+            ax_client.experiment.trials.get(idx).run_metadata.get("dummy"),
+            "test",
         )
         with self.assertRaisesRegex(ValueError, ".* no longer expects"):
             ax_client.complete_trial(idx, {})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_attach_trial_and_get_trial_parameters(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1414,6 +1569,7 @@ class TestAxClient(TestCase):
         )
         params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=5)
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
             ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
@@ -1425,9 +1581,13 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* is of type"):
             ax_client.attach_trial({"x": 1, "y": 2})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_attach_trial_ttl_seconds(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1437,6 +1597,7 @@ class TestAxClient(TestCase):
         params, idx = ax_client.attach_trial(
             parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
         )
+        # pyre-fixme[16]: `Optional` has no attribute `status`.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_running)
         time.sleep(1)  # Wait for TTL to elapse.
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
@@ -1450,14 +1611,19 @@ class TestAxClient(TestCase):
             parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
         )
         ax_client.complete_trial(trial_index=idx2, raw_data=5)
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
         self.assertEqual(
             ax_client.get_trial_parameters(trial_index=idx2), {"x": 0, "y": 1}
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_attach_trial_numpy(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1466,14 +1632,20 @@ class TestAxClient(TestCase):
         )
         params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_relative_oc_without_sq(self):
         """Must specify status quo to have relative outcome constraint."""
         ax_client = AxClient()
         with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="test_experiment",
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
+                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
+                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1484,11 +1656,15 @@ class TestAxClient(TestCase):
             )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_recommended_parallelism(self):
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
             ax_client.get_max_parallelism()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1506,6 +1682,9 @@ class TestAxClient(TestCase):
         # still be raised.
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1518,10 +1697,13 @@ class TestAxClient(TestCase):
     @patch.dict(sys.modules, {"ax.storage.sqa_store.structs": None})
     @patch.dict(sys.modules, {"sqalchemy": None})
     @patch("ax.service.ax_client.DBSettings", None)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_no_sqa(self):
         # Make sure we couldn't import sqa_store.structs (this could happen when
         # SQLAlchemy is not installed).
         with self.assertRaises(ModuleNotFoundError):
+            # pyre-fixme[21]: Could not find module
+            #  `ax_client.storage.sqa_store.structs`.
             import ax_client.storage.sqa_store.structs  # noqa F401
         # Make sure we can still import ax_client.
         __import__("ax.service.ax_client")
@@ -1529,8 +1711,11 @@ class TestAxClient(TestCase):
         # DBSettings should be defined in `ax_client` now, but incorrectly typed
         # `db_settings` argument should still make instantiation fail.
         with self.assertRaisesRegex(ValueError, "`db_settings` argument should "):
+            # pyre-fixme[6]: For 1st param expected `Optional[DBSettings]` but got
+            #  `str`.
             AxClient(db_settings="badly_typed_db_settings")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_plotting_validation(self):
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1547,6 +1732,9 @@ class TestAxClient(TestCase):
             ax_client.get_contour_plot()
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1572,6 +1760,7 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, "Could not obtain feature"):
             ax_client.get_feature_importances()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)
         config = SQAConfig()
@@ -1581,6 +1770,9 @@ class TestAxClient(TestCase):
         ax_client = AxClient(db_settings=db_settings)
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1590,7 +1782,9 @@ class TestAxClient(TestCase):
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
-                trial_index=trial_index, raw_data=branin(*parameters.values())
+                trial_index=trial_index,
+                # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
+                raw_data=branin(*parameters.values()),
             )
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
@@ -1609,6 +1803,10 @@ class TestAxClient(TestCase):
             # Overwriting existing experiment.
             ax_client.create_experiment(
                 name="test_experiment",
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
+                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
+                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1621,17 +1819,25 @@ class TestAxClient(TestCase):
             # experiments stored in the DB.
             ax_client.create_experiment(
                 name="test_experiment",
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
+                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
+                #  str]]]`.
                 parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
                 overwrite_existing_experiment=True,
             )
         # Original experiment should still be in DB and not have been overwritten.
         self.assertEqual(len(ax_client.experiment.trials), 5)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_overwrite(self):
         init_test_engine_and_session_factory(force_init=True)
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1642,13 +1848,19 @@ class TestAxClient(TestCase):
         # Log a trial
         parameters, trial_index = ax_client.get_next_trial()
         ax_client.complete_trial(
-            trial_index=trial_index, raw_data=branin(*parameters.values())
+            trial_index=trial_index,
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
+            raw_data=branin(*parameters.values()),
         )
 
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
             ax_client.create_experiment(
                 name="test_experiment",
+                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
+                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
+                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1658,6 +1870,9 @@ class TestAxClient(TestCase):
         # Overwriting existing experiment with overwrite flag.
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -1672,12 +1887,18 @@ class TestAxClient(TestCase):
         self.assertIn("x1", parameters.keys())
         self.assertIn("x2", parameters.keys())
         ax_client.complete_trial(
-            trial_index=trial_index, raw_data=branin(*parameters.values())
+            trial_index=trial_index,
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
+            raw_data=branin(*parameters.values()),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fixed_random_seed_reproducibility(self):
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1685,12 +1906,18 @@ class TestAxClient(TestCase):
         )
         for _ in range(5):
             params, idx = ax_client.get_next_trial()
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
         trial_parameters_1 = [
-            t.arm.parameters for t in ax_client.experiment.trials.values()
+            # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
+            t.arm.parameters
+            for t in ax_client.experiment.trials.values()
         ]
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1698,15 +1925,20 @@ class TestAxClient(TestCase):
         )
         for _ in range(5):
             params, idx = ax_client.get_next_trial()
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
         trial_parameters_2 = [
             t.arm.parameters for t in ax_client.experiment.trials.values()
         ]
         self.assertEqual(trial_parameters_1, trial_parameters_2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init_position_saved(self):
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1727,16 +1959,22 @@ class TestAxClient(TestCase):
                 self.assertEqual(params, new_params)
                 self.assertEqual(idx, new_idx)
                 self.assertEqual(
+                    # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run`.
                     ax_client.experiment.trials[
                         idx
                     ]._generator_run._model_state_after_gen["init_position"],
                     idx + 1,
                 )
+            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_unnamed_experiment_snapshot(self):
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1761,12 +1999,14 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions(self, _predict, _tr_data, _obs_from_data):
         ax_client = get_branin_optimization()
         ax_client.get_next_trial()
         ax_client.experiment.trials[0].arm._name = "1_1"
         self.assertEqual(ax_client.get_model_predictions(), {0: {"branin": (9.0, 1.0)}})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_no_next_trial_all_trials(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
@@ -1778,12 +2018,14 @@ class TestAxClient(TestCase):
         # Expect two metrics (i.e. not filtered) per trial
         self.assertEqual(len(all_predictions_dict[0].keys()), 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_no_next_trial_no_completed_trial(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_not_completed_trials(ax_client)
 
         self.assertRaises(ValueError, ax_client.get_model_predictions)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_no_next_trial_filtered(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
@@ -1795,6 +2037,7 @@ class TestAxClient(TestCase):
         # Expect only one metric (i.e. filteres from two metrics) per trial
         self.assertEqual(len(all_predictions_dict[0]), 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_no_next_trial_in_sample(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
@@ -1806,6 +2049,7 @@ class TestAxClient(TestCase):
         # Expect only 2 (completed) trial predictions
         self.assertEqual(len(in_sample_predictions_dict), 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_no_next_trial_parameterizations(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
@@ -1822,6 +2066,7 @@ class TestAxClient(TestCase):
         # and no trial predictions
         self.assertEqual(len(parameterization_predictions_dict), 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_predictions_for_parameterization_no_next_trial(self):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
@@ -1836,6 +2081,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(len(predictions_list), 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_deprecated_save_load_method_errors(self):
         ax_client = AxClient()
         with self.assertRaises(NotImplementedError):
@@ -1847,10 +2093,14 @@ class TestAxClient(TestCase):
         with self.assertRaises(NotImplementedError):
             ax_client.get_recommended_max_parallelism()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_find_last_trial_with_parameterization(self):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1874,10 +2124,14 @@ class TestAxClient(TestCase):
                 parameterization={k: v + 1.0 for k, v in params.items()}
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_verify_parameterization(self):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1909,10 +2163,14 @@ class TestAxClient(TestCase):
         "ax.core.experiment.Experiment.new_trial",
         side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_annotate_exception(self, _):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1935,8 +2193,13 @@ class TestAxClient(TestCase):
         wraps=observed_pareto,
     )
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pareto_optimal_points(
-        self, mock_observed_pareto, mock_predicted_pareto
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_observed_pareto,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_predicted_pareto,
     ):
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20
@@ -1962,13 +2225,18 @@ class TestAxClient(TestCase):
         # NOTE: model predictions are very poor due to `fast_botorch_optimize`.
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
+        # pyre-fixme[16]: `Optional` has no attribute `model`.
         model = ax_client.generation_strategy.model.model
         ys = torch.cat(model.Ys, dim=-1)
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
         ):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(predicted_pareto), 3)
+        # pyre-fixme[16]: `Optional` has no attribute `keys`.
         self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
@@ -1979,15 +2247,20 @@ class TestAxClient(TestCase):
             mock_predicted_pareto.call_args[1].get("objective_thresholds")
         )
         # Observed Pareto values should be better than the reference point.
+        # pyre-fixme[16]: `Optional` has no attribute `values`.
         for obs in observed_pareto.values():
             self.assertGreater(obs[1][0].get("branin"), branin_currin.ref_point[0])
             self.assertGreater(obs[1][0].get("currin"), branin_currin.ref_point[1])
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(observed_pareto), 1)
         self.assertEqual(sorted(observed_pareto.keys()), [14])
         # Check that we did not specify objective threshold overrides (because we
         # did not have to infer them)
         self.assertIsNone(mock_observed_pareto.call_args[1].get("objective_thresholds"))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pareto_optimal_points_from_sobol_step(self):
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20
@@ -1996,11 +2269,18 @@ class TestAxClient(TestCase):
 
         with manual_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(predicted_pareto), 3)
+        # pyre-fixme[16]: `Optional` has no attribute `keys`.
         self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
         )
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(observed_pareto), 1)
         self.assertEqual(sorted(observed_pareto.keys()), [14])
 
@@ -2013,8 +2293,13 @@ class TestAxClient(TestCase):
         wraps=observed_pareto,
     )
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pareto_optimal_points_objective_threshold_inference(
-        self, mock_observed_pareto, mock_predicted_pareto
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_observed_pareto,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_predicted_pareto,
     ):
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, include_objective_thresholds=False
@@ -2034,6 +2319,9 @@ class TestAxClient(TestCase):
         )
         mock_predicted_pareto.reset_mock()
         mock_observed_pareto.assert_not_called()
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertGreater(len(predicted_pareto), 0)
 
         with manual_seed(seed=RANDOM_SEED):
@@ -2046,9 +2334,13 @@ class TestAxClient(TestCase):
             mock_observed_pareto.call_args[1].get("objective_thresholds")
         )
         mock_predicted_pareto.assert_not_called()
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
+        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
+        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertGreater(len(observed_pareto), 0)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_hypervolume(self):
         # First check that hypervolume gets returned for observed data
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
@@ -2071,9 +2363,14 @@ class TestAxClient(TestCase):
 
         self.assertGreaterEqual(ax_client.get_hypervolume(), 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_with_hss(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
+            #  List[int], List[str], Dict[str, List[str]], str]]]`.
             parameters=[
                 {
                     "name": "model",
@@ -2103,6 +2400,7 @@ class TestAxClient(TestCase):
             objectives={"objective": ObjectiveProperties(minimize=True)},
             choose_generation_strategy_kwargs={"no_bayesian_optimization": True},
         )
+        # pyre-fixme[16]: `SearchSpace` has no attribute `root`.
         self.assertTrue(ax_client.experiment.search_space.root.is_hierarchical)
 
         for _ in range(10):
@@ -2119,6 +2417,7 @@ class TestAxClient(TestCase):
                 {"model": "Linear", "learning_rate": 1, "l2_reg_weight": 0.0001}
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_should_stop_trials_early(self):
         expected = {
             1: "Stopped due to testing.",
@@ -2128,18 +2427,26 @@ class TestAxClient(TestCase):
             early_stopping_strategy=DummyEarlyStoppingStrategy(expected)
         )
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
             support_intermediate_data=True,
         )
+        # pyre-fixme[6]: For 1st param expected `Set[int]` but got `List[int]`.
         actual = ax_client.should_stop_trials_early(trial_indices=[1, 2, 3])
         self.assertEqual(actual, expected)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_stop_trial_early(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2151,9 +2458,13 @@ class TestAxClient(TestCase):
         trial = ax_client.get_trial(idx)
         self.assertTrue(trial.status.is_early_stopped)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_max_parallelism_exception_when_early_stopping(self):
         ax_client = AxClient()
         ax_client.create_experiment(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2165,9 +2476,13 @@ class TestAxClient(TestCase):
             step_index=1, model_name="test", num_running=10
         )
 
+        # pyre-fixme[53]: Captured variable `exception` is not annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def fake_new_trial(*args, **kwargs):
             raise exception
 
+        # pyre-fixme[16]: `Optional` has no attribute `new_trial`.
         ax_client._experiment.new_trial = fake_new_trial
 
         # Without early stopping.
@@ -2182,10 +2497,15 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(MaxParallelismReachedException, ".*early.*stop"):
             ax_client.get_next_trial()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_experiment_does_not_support_early_stopping(self):
         ax_client = AxClient(early_stopping_strategy=DummyEarlyStoppingStrategy())
         with self.assertRaisesRegex(ValueError, ".*`support_intermediate_data=True`.*"):
             ax_client.create_experiment(
+                # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
+                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
+                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2193,6 +2513,7 @@ class TestAxClient(TestCase):
                 support_intermediate_data=False,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_torch_device(self):
         device = torch.device("cpu")
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
@@ -2204,9 +2525,12 @@ class TestAxClient(TestCase):
             )
         ax_client = get_branin_optimization(torch_device=device)
         gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
+        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _resolve_db_id(gs_to_resolve, source_gs):
     gs_to_resolve._steps[1].model_kwargs["transform_configs"]["Winsorize"][
         "optimization_config"
@@ -2222,11 +2546,15 @@ def _resolve_db_id(gs_to_resolve, source_gs):
 # num_initial_trials kwarg is zero. Note that this kwarg is
 # needed to be able to instantiate the model for the first time
 # without calling get_next_trial().
+# pyre-fixme[3]: Return type must be annotated.
 def _set_up_client_for_get_model_predictions_no_next_trial():
     ax_client = AxClient()
     ax_client.create_experiment(
         name="test_experiment",
         choose_generation_strategy_kwargs={"num_initialization_trials": 0},
+        # pyre-fixme[6]: For 3rd param expected `List[Dict[str, Union[None,
+        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
+        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {
                 "name": "x1",
@@ -2246,6 +2574,8 @@ def _set_up_client_for_get_model_predictions_no_next_trial():
     return ax_client
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _attach_completed_trials(ax_client):
     # Attach completed trials
     trial1 = {"x1": 0.1, "x2": 0.1}
@@ -2261,6 +2591,8 @@ def _attach_completed_trials(ax_client):
     )
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _attach_not_completed_trials(ax_client):
     # Attach not yet completed trials
     trial3 = {"x1": 0.3, "x2": 0.1}
@@ -2274,6 +2606,8 @@ def _attach_not_completed_trials(ax_client):
 
 
 # Test metric evaluation method
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _evaluate_test_metrics(parameters):
     x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}

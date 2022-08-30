@@ -19,6 +19,7 @@ from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 """
@@ -41,14 +42,22 @@ CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
 }
 
 
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_metric(
     metric_cls: Type[Metric],
     metric_registry: Optional[Dict[Type[Metric], int]] = None,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
     val: Optional[int] = None,
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+    #  avoid runtime subscripting errors.
 ) -> Tuple[
     Dict[Type[Metric], int],
     Dict[Type, Callable[[Any], Dict[str, Any]]],
@@ -68,13 +77,21 @@ def register_metric(
     return new_metric_registry, new_encoder_registry, new_decoder_registry
 
 
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_metrics(
     metric_clss: Dict[Type[Metric], Optional[int]],
     metric_registry: Optional[Dict[Type[Metric], int]] = None,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+    #  avoid runtime subscripting errors.
 ) -> Tuple[
     Dict[Type[Metric], int],
     Dict[Type, Callable[[Any], Dict[str, Any]]],

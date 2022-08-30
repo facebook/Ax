@@ -36,14 +36,25 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 # Prepare mock transforms
 class TestTransform1(Transform):
+    # pyre-fixme[14]: `transform_search_space` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_search_space(self, ss):
         new_ss = ss.clone()
         new_ss.parameters["x"]._lower += 1.0
         new_ss.parameters["x"]._upper += 1.0
         return new_ss
 
+    # pyre-fixme[3]: Return type must be annotated.
     def transform_optimization_config(
-        self, optimization_config, modelbridge, fixed_features
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        optimization_config,
+        # pyre-fixme[2]: Parameter must be annotated.
+        modelbridge,
+        # pyre-fixme[2]: Parameter must be annotated.
+        fixed_features,
     ):
         return (
             optimization_config + 1
@@ -51,22 +62,38 @@ class TestTransform1(Transform):
             else optimization_config
         )
 
+    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_features(self, x):
         for obsf in x:
             if "x" in obsf.parameters:
                 obsf.parameters["x"] += 1
         return x
 
+    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_data(self, x, y):
         for obsd in x:
             obsd.means += 1
         return x
 
+    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_features(self, x):
         for obsf in x:
             obsf.parameters["x"] -= 1
         return x
 
+    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_data(self, x, y):
         for obsd in x:
             obsd.means -= 1
@@ -74,14 +101,25 @@ class TestTransform1(Transform):
 
 
 class TestTransform2(Transform):
+    # pyre-fixme[14]: `transform_search_space` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_search_space(self, ss):
         new_ss = ss.clone()
         new_ss.parameters["x"]._lower *= 2
         new_ss.parameters["x"]._upper *= 2
         return new_ss
 
+    # pyre-fixme[3]: Return type must be annotated.
     def transform_optimization_config(
-        self, optimization_config, modelbridge, fixed_features
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        optimization_config,
+        # pyre-fixme[2]: Parameter must be annotated.
+        modelbridge,
+        # pyre-fixme[2]: Parameter must be annotated.
+        fixed_features,
     ):
         return (
             optimization_config**2
@@ -89,22 +127,38 @@ class TestTransform2(Transform):
             else optimization_config
         )
 
+    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_features(self, x):
         for obsf in x:
             if "x" in obsf.parameters:
                 obsf.parameters["x"] = obsf.parameters["x"] ** 2
         return x
 
+    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transform_observation_data(self, x, y):
         for obsd in x:
             obsd.means = obsd.means**2
         return x
 
+    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_features(self, x):
         for obsf in x:
             obsf.parameters["x"] = np.sqrt(obsf.parameters["x"])
         return x
 
+    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
+    #  `Transform` inconsistently.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def untransform_observation_data(self, x, y):
         for obsd in x:
             obsd.means = np.sqrt(obsd.means)
@@ -117,11 +171,17 @@ class TorchModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testTorchModelBridge(self, mock_init, dtype=None, device=None):
         ma = TorchModelBridge(
+            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
+            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
             data=None,
+            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
             model=None,
             transforms=[],
             torch_dtype=dtype,
@@ -169,6 +229,8 @@ class TorchModelBridgeTest(TestCase):
                 datasets["y2"].Yvar().tolist(),
             )
         ]
+        # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+        #  Union[float, int]]]` but got `List[Tuple[int, int]]`.
         ssd = SearchSpaceDigest(feature_names=feature_names, bounds=[(0, 1)] * 3)
 
         with mock.patch(
@@ -345,9 +407,13 @@ class TorchModelBridgeTest(TestCase):
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
         # test fit out of design
         ma = TorchModelBridge(
+            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
+            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
             data=None,
+            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
             model=None,
             transforms=[],
             torch_dtype=dtype,
@@ -356,20 +422,28 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelBridge_float(self):
         self.testTorchModelBridge(dtype=torch.float)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelBridge_cuda(self):
         if torch.cuda.is_available():
             self.testTorchModelBridge(device=torch.device("cuda"))
 
     @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
     @mock.patch(f"{ModelBridge.__module__}.ModelBridge.__init__")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_evaluate_acquisition_function(self, _, mock_torch_model):
         ma = TorchModelBridge(
+            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
+            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
             data=None,
+            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
             model=None,
             transforms=[],
             torch_dtype=torch.float64,
@@ -377,6 +451,9 @@ class TorchModelBridgeTest(TestCase):
         )
         # These attributes would've been set by `ModelBridge` __init__, but it's mocked.
         ma.model = mock_torch_model()
+        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
+        #  `None`.
+        # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got `None`.
         t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
         ma.transforms = {"ExampleTransform": t}
         ma.parameters = ["x", "y"]
@@ -503,6 +580,7 @@ class TorchModelBridgeTest(TestCase):
         ),
         autospec=True,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_point(
         self,
         _mock_gen,
@@ -542,7 +620,13 @@ class TorchModelBridgeTest(TestCase):
             autospec=True,
         ):
             run = modelbridge.gen(n=1, optimization_config=oc)
+            # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Arm,
+            #  Optional[Tuple[Dict[str, float], Optional[Dict[str, typing.Dict[str,
+            #  float]]]]]]]` into 2 values.
             arm, predictions = run.best_arm_predictions
+            # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Arm,
+            #  Optional[Tuple[Dict[str, float], Optional[Dict[str, typing.Dict[str,
+            #  float]]]]]]]` into 2 values.
             model_arm, model_predictions = modelbridge.model_best_point()
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
@@ -597,11 +681,15 @@ class TorchModelBridgeTest(TestCase):
         return_value=({"m": [1.0]}, {"m": {"m": [2.0]}}),
     )
     @mock.patch(f"{TorchModelBridge.__module__}.TorchModelBridge._fit", autospec=True)
+    # pyre-fixme[56]: Pyre was not able to infer the type of argument
+    #  `numpy.array([[[1.000000]], [[2.000000]]])` to decorator factory
+    #  `unittest.mock.patch`.
     @mock.patch(
         f"{TorchModel.__module__}.TorchModel.feature_importances",
         return_value=np.array([[[1.0]], [[2.0]]]),
         autospec=True,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_importances(
         self,
         _mock_feature_importances,
@@ -641,12 +729,20 @@ class TorchModelBridgeTest(TestCase):
     )
     @mock.patch(f"{TorchModel.__module__}.TorchModel.update", autospec=True)
     @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_candidate_metadata_propagation(
-        self, mock_model_fit, mock_model_update, mock_model_gen
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_model_fit,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_model_update,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_model_gen,
     ):
         exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
+        # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run_structs`.
         preexisting_batch_gr = exp.trials[0]._generator_run_structs[0].generator_run
         preexisting_batch_gr._candidate_metadata_by_arm_signature = {
             preexisting_batch_gr.arms[0].signature: {
@@ -756,6 +852,8 @@ class TorchModelBridgeTest(TestCase):
             )
             # Hack in outcome names to bypass validation (since we did not pass any
             # to the model so _fit did not populate this)
+            # pyre-fixme[8]: Attribute has type `List[str]`; used as `str`.
+            # pyre-fixme[8]: Attribute has type `Set[str]`; used as `str`.
             modelbridge.outcomes = modelbridge._metric_names = next(iter(exp.metrics))
         gr = modelbridge.gen(n=1)
         self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))

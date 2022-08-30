@@ -44,9 +44,13 @@ class ThompsonSampler(DiscreteModel):
         self.min_weight = min_weight
         self.uniform_weights = uniform_weights
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X = None
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Ys = None
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Yvars = None
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X_to_Ys_and_Yvars = None
 
     @copy_doc(DiscreteModel.fit)

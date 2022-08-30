@@ -70,6 +70,7 @@ class SurrogateMetric(Metric):
     def __init__(self) -> None:
         super().__init__(name="prediction")
 
+    # pyre-fixme[2]: Parameter must be annotated.
     def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> Data:
         prediction = [
             trial.run_metadata["prediction"][name]
@@ -131,6 +132,7 @@ class SurrogateRunner(Runner):
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.

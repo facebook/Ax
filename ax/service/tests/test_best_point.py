@@ -10,6 +10,7 @@ from ax.utils.testing.core_stubs import get_experiment_with_observations
 
 
 class TestBestPointMixin(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_trace(self):
         # Alias for easier access.
         get_trace = BestPointMixin.get_trace

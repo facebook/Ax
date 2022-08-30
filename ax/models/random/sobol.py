@@ -51,6 +51,7 @@ class SobolGenerator(RandomModel):
         self.init_position = init_position
         self.scramble = scramble
         # Initialize engine on gen.
+        # pyre-fixme[4]: Attribute must be annotated.
         self._engine = None
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
 

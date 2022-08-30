@@ -47,8 +47,10 @@ from botorch.models.model import Model
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
+# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[
     [
         List[AcquisitionFunction],
@@ -214,6 +216,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.acqf_optimizer = acqf_optimizer
         self.best_point_recommender = best_point_recommender
         self.frontier_evaluator = frontier_evaluator
+        # pyre-fixme[4]: Attribute must be annotated.
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update

@@ -25,12 +25,18 @@ class PairwiseModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testPairwiseModelBridge(self, mock_init):
         # Test _convert_observations
         pmb = PairwiseModelBridge(
+            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
+            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
             data=None,
+            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
             model=None,
             transforms=[],
             torch_dtype=None,
@@ -50,13 +56,17 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         observation_features = [
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"y1": 0.1, "y2": 0.2}, trial_index=0),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"y1": 0.3, "y2": 0.4}, trial_index=0),
         ]
         observation_features_with_metadata = [
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"y1": 0.1, "y2": 0.2}, trial_index=0),
             ObservationFeatures(
                 parameters={"y1": 0.3, "y2": 0.4},
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 trial_index=0,
                 metadata={"metadata_key": "metadata_val"},
             ),

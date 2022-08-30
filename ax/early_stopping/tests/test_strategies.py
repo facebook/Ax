@@ -34,13 +34,17 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestBaseEarlyStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_early_stopping_strategy(self):
         # can't instantiate abstract class
         with self.assertRaises(TypeError):
+            # pyre-fixme[45]: Cannot instantiate abstract class
+            #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
 
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_training_data(self):
         class FakeStrategy(ModelBasedEarlyStoppingStrategy):
             def should_stop_trials_early(
@@ -65,7 +69,9 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
 
         experiment.attach_data(data=experiment.fetch_data())
         training_data = FakeStrategy().get_training_data(
-            experiment, map_data=experiment.lookup_data()
+            experiment,
+            # pyre-fixme[6]: For 2nd param expected `MapData` but got `Data`.
+            map_data=experiment.lookup_data(),
         )
         # check that there is a map dimension in the training data
         X = training_data.X
@@ -76,6 +82,7 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_percentile_early_stopping_strategy_validation(self):
         exp = get_branin_experiment()
 
@@ -134,6 +141,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy.true_objective_metric_name, "true_obj_metric"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_percentile_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
@@ -194,6 +202,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             percentile_threshold=25,
             min_curves=4,
             min_progression=0.1,
+            # pyre-fixme[6]: For 4th param expected `Optional[List[int]]` but got
+            #  `Set[int]`.
             trial_indices_to_ignore={0},
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
@@ -232,8 +242,10 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, {})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_percentile_early_stopping_strategy_non_objective_metric(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        # pyre-fixme[16]: `Optional` has no attribute `objective`.
         map_metric = exp.optimization_config.objective.metric
         exp._optimization_config = None
         exp.add_tracking_metric(map_metric)
@@ -300,6 +312,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             percentile_threshold=25,
             min_curves=4,
             min_progression=0.1,
+            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
+            #  `Set[int]`.
             trial_indices_to_ignore={0},
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
@@ -358,6 +372,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 min_progression=0.1,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_early_stopping_with_unaligned_results(self):
         # test case 1
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
@@ -468,6 +483,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_threshold_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
@@ -520,7 +536,11 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
 
         # test ignore trial indices
         early_stopping_strategy = ThresholdEarlyStoppingStrategy(
-            metric_threshold=50, min_progression=1, trial_indices_to_ignore={0}
+            metric_threshold=50,
+            min_progression=1,
+            # pyre-fixme[6]: For 3rd param expected `Optional[List[int]]` but got
+            #  `Set[int]`.
+            trial_indices_to_ignore={0},
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
@@ -538,6 +558,7 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
 
 
 class TestLogicalEarlyStoppingStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_and_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
@@ -606,6 +627,7 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             else:
                 self.assertNotIn(idc, and_should_stop.keys())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_or_early_stopping_strategy(self):
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
@@ -685,6 +707,7 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
                 self.assertNotIn(idc, or_from_collection_should_stop.keys())
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _evaluate_early_stopping_with_df(
     early_stopping_strategy: PercentileEarlyStoppingStrategy,
     experiment: Experiment,
@@ -705,6 +728,7 @@ def _evaluate_early_stopping_with_df(
             df=aligned_means,
             df_raw=df,
             map_key="timestamp",
+            # pyre-fixme[16]: `Optional` has no attribute `objective`.
             minimize=experiment.optimization_config.objective.minimize,
         )
         for trial_index in set(experiment.trials.keys())

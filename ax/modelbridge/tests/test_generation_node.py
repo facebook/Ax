@@ -22,6 +22,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestGenerationNode(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.sobol_model_spec = ModelSpec(
             model_enum=Models.SOBOL,
@@ -31,11 +32,13 @@ class TestGenerationNode(TestCase):
         self.sobol_generation_node = GenerationNode(model_specs=[self.sobol_model_spec])
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init(self):
         self.assertEqual(
             self.sobol_generation_node.model_specs, [self.sobol_model_spec]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fit(self):
         dat = self.branin_experiment.lookup_data()
         with patch.object(
@@ -52,6 +55,7 @@ class TestGenerationNode(TestCase):
             optimization_config=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_gen(self):
         dat = self.branin_experiment.lookup_data()
         self.sobol_generation_node.fit(
@@ -66,8 +70,10 @@ class TestGenerationNode(TestCase):
             )
         mock_model_spec_gen.assert_called_with(n=1, pending_observations={"branin": []})
         self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
+        # pyre-fixme[16]: Optional type has no attribute `get`.
         self.assertEqual(gr._model_kwargs.get("init_position"), 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_gen_validates_one_model_spec(self):
         generation_node = GenerationNode(
             model_specs=[self.sobol_model_spec, self.sobol_model_spec]
@@ -82,6 +88,7 @@ class TestGenerationNode(TestCase):
             generation_node.gen()
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_properties(self):
         node = GenerationNode(
             model_specs=[
@@ -91,7 +98,10 @@ class TestGenerationNode(TestCase):
                     model_gen_kwargs={
                         "n": 1,
                         "fixed_features": ObservationFeatures(
-                            parameters={}, trial_index=0
+                            parameters={},
+                            # pyre-fixme[6]: For 2nd param expected
+                            #  `Optional[int64]` but got `int`.
+                            trial_index=0,
                         ),
                     },
                 ),
@@ -150,25 +160,34 @@ class TestGenerationNode(TestCase):
 
 
 class TestGenerationStep(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.model_kwargs = ({"init_position": 5},)
         self.sobol_generation_step = GenerationStep(
             model=Models.SOBOL,
             num_trials=5,
+            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
+            #  typing.Any]]` but got `Tuple[Dict[str, int]]`.
             model_kwargs=self.model_kwargs,
         )
         self.model_spec = ModelSpec(
+            # pyre-fixme[6]: For 1st param expected `ModelRegistryBase` but got
+            #  `Union[typing.Callable[..., ModelBridge], ModelRegistryBase]`.
             model_enum=self.sobol_generation_step.model,
+            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str,
+            #  typing.Any]]` but got `Tuple[Dict[str, int]]`.
             model_kwargs=self.model_kwargs,
             model_gen_kwargs=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init(self):
         self.assertEqual(
             self.sobol_generation_step.model_specs,
             [self.model_spec],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init_factory_function(self):
         generation_step = GenerationStep(model=get_sobol, num_trials=-1)
         self.assertEqual(
@@ -182,6 +201,7 @@ class TestGenerationStep(TestCase):
             ],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_properties(self):
         self.assertEqual(self.sobol_generation_step.model_spec, self.model_spec)
         self.assertEqual(self.sobol_generation_step.model_name, "Sobol")
@@ -190,6 +210,7 @@ class TestGenerationStep(TestCase):
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.branin_experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
@@ -211,12 +232,17 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
             model_specs=self.fitted_model_specs,
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",
+                # pyre-fixme[6]: For 2nd param expected `DiagnosticCriterion` but
+                #  got `MetricAggregation`.
                 criterion=MetricAggregation.MEAN,
+                # pyre-fixme[6]: For 3rd param expected `MetricAggregation` but got
+                #  `DiagnosticCriterion`.
                 metric_aggregation=DiagnosticCriterion.MIN,
             ),
         )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_gen(self):
         self.model_selection_node.fit(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()

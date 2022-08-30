@@ -36,6 +36,7 @@ from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
 
 class BoTorchModelUtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.dtype = torch.float
         self.Xs, self.Ys, self.Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
@@ -53,6 +54,7 @@ class BoTorchModelUtilsTest(TestCase):
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_model_class_fidelity_features(self):
         # Only a single fidelity feature can be used.
         with self.assertRaisesRegex(
@@ -100,6 +102,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_model_class_task_features(self):
         # Only a single task feature can be used.
         with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
@@ -130,6 +133,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_model_class_discrete_features(self):
         # With discrete features, use MixedSingleTaskyGP.
         self.assertEqual(
@@ -145,6 +149,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_model_class(self):
         # Mix of known and unknown variances.
         with self.assertRaisesRegex(
@@ -180,6 +185,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_choose_botorch_acqf_class(self):
         self.assertEqual(qNoisyExpectedImprovement, choose_botorch_acqf_class())
         self.assertEqual(
@@ -195,6 +201,7 @@ class BoTorchModelUtilsTest(TestCase):
             choose_botorch_acqf_class(objective_weights=torch.tensor([1.0, 0.0])),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct_acquisition_and_optimizer_options(self):
         # Two dicts for `Acquisition` should be concatenated
         acqf_options = {Keys.NUM_FANTASIES: 64}
@@ -210,7 +217,19 @@ class BoTorchModelUtilsTest(TestCase):
             final_acq_options,
             final_opt_options,
         ) = construct_acquisition_and_optimizer_options(
-            acqf_options=acqf_options, model_gen_options=model_gen_options
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, Dict[str,
+            #  typing.Any], OptimizationConfig, AcquisitionFunction, float, int, str]]`
+            #  but got `Dict[Keys, int]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int], Dict[Keys,
+            #  Tensor]]]`.
+            acqf_options=acqf_options,
+            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[Keys, Union[Dict[Keys, int], Dict[Keys,
+            #  Tensor]]]`.
+            model_gen_options=model_gen_options,
         )
         self.assertEqual(
             final_acq_options,
@@ -218,6 +237,7 @@ class BoTorchModelUtilsTest(TestCase):
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_use_model_list(self):
         self.assertFalse(
             use_model_list(
@@ -247,6 +267,7 @@ class BoTorchModelUtilsTest(TestCase):
 
 
 class ConvertToBlockDesignTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_shared_rows(self):
 
         X1 = torch.rand(4, 2)
@@ -281,6 +302,7 @@ class ConvertToBlockDesignTest(TestCase):
         self.assertTrue(torch.equal(shared_idcs[2], torch.tensor([1, 2, 4])))
         self.assertTrue(torch.equal(X_shared, X1[torch.tensor([0, 1, 3])]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_convert_to_block_design(self):
 
         # simple case: block design, supervised
@@ -311,6 +333,7 @@ class ConvertToBlockDesignTest(TestCase):
         self.assertIsInstance(new_datasets[0], FixedNoiseDataset)
         self.assertTrue(torch.equal(new_datasets[0].X(), X))
         self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
+        # pyre-fixme[16]: `SupervisedDataset` has no attribute `Yvar`.
         self.assertTrue(torch.equal(new_datasets[0].Yvar(), torch.cat(Yvars, dim=-1)))
         self.assertEqual(new_metric_names, ["y1_y2"])
 
@@ -327,6 +350,7 @@ class ConvertToBlockDesignTest(TestCase):
             new_datasets, new_metric_names = convert_to_block_design(
                 datasets=datasets, metric_names=metric_names, force=True
             )
+        # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
         self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
         self.assertTrue(
             any(
@@ -352,6 +376,7 @@ class ConvertToBlockDesignTest(TestCase):
             new_datasets, new_metric_names = convert_to_block_design(
                 datasets=datasets, metric_names=metric_names, force=True
             )
+        # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
         self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
         self.assertTrue(
             any(

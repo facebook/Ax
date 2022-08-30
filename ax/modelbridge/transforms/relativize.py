@@ -58,9 +58,11 @@ class Relativize(Transform):
             config=config,
         )
         # self.modelbridge should NOT be modified
+        # pyre-fixme[4]: Attribute must be annotated.
         self.modelbridge = not_none(
             modelbridge, "Relativize transform requires a modelbridge"
         )
+        # pyre-fixme[4]: Attribute must be annotated.
         self.status_quo_by_trial = self._get_status_quo_by_trial(
             observation_data=observation_data,
             observation_features=observation_features,

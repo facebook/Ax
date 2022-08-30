@@ -24,6 +24,7 @@ class BraninBackendMapMetric(
         self,
         name: str,
         param_names: List[str],
+        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = True,

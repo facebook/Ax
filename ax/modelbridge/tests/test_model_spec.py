@@ -30,6 +30,7 @@ class BaseModelSpecTest(TestCase):
 
 class ModelSpecTest(BaseModelSpecTest):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct(self):
         ms = ModelSpec(model_enum=Models.GPEI)
         with self.assertRaises(UserInputError):
@@ -39,12 +40,14 @@ class ModelSpecTest(BaseModelSpecTest):
         with self.assertRaises(NotImplementedError):
             ms.update(experiment=self.experiment, new_data=self.data)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_model_key(self):
         ms = ModelSpec(model_enum=Models.GPEI)
         self.assertEqual(ms.model_key, "GPEI")
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", return_value=["fake-cv-result"])
+    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_with_GP_model(self, mock_cv: Mock, mock_diagnostics: Mock):
         mock_enum = Mock()
         mock_enum.return_value = "fake-modelbridge"
@@ -88,6 +91,7 @@ class ModelSpecTest(BaseModelSpecTest):
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", side_effect=NotImplementedError)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_with_non_GP_model(
         self, mock_cv: Mock, mock_diagnostics: Mock
     ):
@@ -109,16 +113,19 @@ class ModelSpecTest(BaseModelSpecTest):
         mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
         mock_diagnostics.assert_not_called()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fixed_features(self):
         ms = ModelSpec(model_enum=Models.GPEI)
         self.assertIsNone(ms.fixed_features)
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
         self.assertEqual(ms.fixed_features, new_features)
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
 
 
 class FactoryFunctionModelSpecTest(BaseModelSpecTest):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct(self):
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)
         with self.assertRaises(UserInputError):
@@ -128,6 +135,7 @@ class FactoryFunctionModelSpecTest(BaseModelSpecTest):
         with self.assertRaises(NotImplementedError):
             ms.update(experiment=self.experiment, new_data=self.data)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_model_key(self):
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)
         self.assertEqual(ms.model_key, "get_sobol")

@@ -10,7 +10,9 @@ from ax.utils.common.testutils import TestCase
 
 
 class AbstractCurveMetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testAbstractCurveMetric(self):
         self.assertTrue(AbstractCurveMetric.is_available_while_running())
         with self.assertRaises(TypeError):
+            # pyre-fixme[45]: Cannot instantiate abstract class `AbstractCurveMetric`.
             AbstractCurveMetric("foo", "bar")

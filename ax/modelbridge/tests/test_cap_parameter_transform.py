@@ -13,6 +13,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class CapParameterTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -25,6 +26,7 @@ class CapParameterTest(TestCase):
             ]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_search_space(self):
         t = CapParameter(
             search_space=self.search_space,
@@ -33,6 +35,7 @@ class CapParameterTest(TestCase):
             config={"a": "2"},
         )
         t.transform_search_space(self.search_space)
+        # pyre-fixme[16]: Optional type has no attribute `upper`.
         self.assertEqual(self.search_space.parameters.get("a").upper, 2)
         t2 = CapParameter(
             search_space=self.search_space,
@@ -43,6 +46,7 @@ class CapParameterTest(TestCase):
         with self.assertRaises(NotImplementedError):
             t2.transform_search_space(self.search_space)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_parameter_distributions(self):
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
@@ -53,6 +57,7 @@ class CapParameterTest(TestCase):
             config={"z": "2"},
         )
         t.transform_search_space(rss)
+        # pyre-fixme[16]: Optional type has no attribute `upper`.
         self.assertEqual(rss.parameters.get("z").upper, 2)
         # Error with distributional parameter.
         t = CapParameter(

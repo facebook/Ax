@@ -37,6 +37,7 @@ class SklearnDataset(Enum):
 
 
 @lru_cache(maxsize=8)
+# pyre-fixme[2]: Parameter must be annotated.
 def _get_data(dataset) -> Dict[str, np.ndarray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:
@@ -101,6 +102,7 @@ class SklearnMetric(Metric):
             )
         if model_type is SklearnModelType.NN:
             if regression:
+                # pyre-fixme[4]: Attribute must be annotated.
                 self._model_cls = MLPRegressor
             else:
                 self._model_cls = MLPClassifier

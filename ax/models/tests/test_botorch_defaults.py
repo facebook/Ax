@@ -26,6 +26,7 @@ from gpytorch.priors.prior import Prior
 
 
 class BotorchDefaultsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model(self):
         x = torch.rand(2, 2)
         y = torch.rand(2, 1)
@@ -59,31 +60,65 @@ class BotorchDefaultsTest(TestCase):
                 "eta": 0.6,
             }
         }
+        # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
+        #  `Dict[str, Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
+        # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
+        #  Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs)
         self.assertIsInstance(
-            model.task_covar_module.IndexKernelPrior, LKJCovariancePrior
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior,
+            LKJCovariancePrior,
         )
         self.assertEqual(
-            model.task_covar_module.IndexKernelPrior.sd_prior.concentration, 2.0
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
+            2.0,
         )
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `IndexKernelPrior`.
         self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
         self.assertEqual(
-            model.task_covar_module.IndexKernelPrior.correlation_prior.eta, 0.6
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
+            0.6,
         )
 
         kwargs2 = {"prior": {"type": LKJCovariancePrior}}
         model = _get_model(
-            X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs2
+            X=x,
+            Y=y,
+            Yvar=partial_var.clone(),
+            task_feature=1,
+            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
+            #  `Dict[str, Type[LKJCovariancePrior]]`.
+            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
+            #  Type[LKJCovariancePrior]]`.
+            **kwargs2,
         )
         self.assertIsInstance(
-            model.task_covar_module.IndexKernelPrior, LKJCovariancePrior
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior,
+            LKJCovariancePrior,
         )
         self.assertEqual(
-            model.task_covar_module.IndexKernelPrior.sd_prior.concentration, 1.0
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
+            1.0,
         )
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `IndexKernelPrior`.
         self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.15)
         self.assertEqual(
-            model.task_covar_module.IndexKernelPrior.correlation_prior.eta, 0.5
+            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
+            #  attribute `IndexKernelPrior`.
+            model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
+            0.5,
         )
         kwargs3 = {
             "prior": {
@@ -93,16 +128,26 @@ class BotorchDefaultsTest(TestCase):
             }
         }
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
+            #  `Dict[str, Union[Type[LKJCovariancePrior], GammaPrior, str]]`.
+            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
+            #  Union[Type[LKJCovariancePrior], GammaPrior, str]]`.
             _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs3)
 
         kwargs5 = {
             "prior": {"type": Prior, "sd_prior": GammaPrior(2.0, 0.44), "eta": 0.5}
         }
         with self.assertRaises(NotImplementedError):
+            # pyre-fixme[6]: For 5th param expected `Optional[List[int]]` but got
+            #  `Dict[str, Union[Type[Prior], float, GammaPrior]]`.
+            # pyre-fixme[6]: For 5th param expected `bool` but got `Dict[str,
+            #  Union[Type[Prior], float, GammaPrior]]`.
             _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs5)
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_task_feature(self, get_model_mock):
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
@@ -159,6 +204,7 @@ class BotorchDefaultsTest(TestCase):
                 refit_model=False,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_acquisition_func(self):
         x = torch.zeros(2, 2)
         y = torch.zeros(2, 1)
@@ -194,6 +240,7 @@ class BotorchDefaultsTest(TestCase):
                 X_observed=X_observed,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_warping_transform(self):
         warp_tf = get_warping_transform(d=4)
         self.assertIsInstance(warp_tf, Warp)

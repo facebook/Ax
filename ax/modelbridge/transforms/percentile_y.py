@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -43,10 +44,12 @@ class PercentileY(Transform):
                 "Percentile transform requires non-empty observation data."
             )
         metric_values = get_data(observation_data=observation_data)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.percentiles = {
             metric_name: vals for metric_name, vals in metric_values.items()
         }
         if config is not None and "winsorize" in config:
+            # pyre-fixme[4]: Attribute must be annotated.
             self.winsorize = checked_cast(bool, (config.get("winsorize") or False))
         else:
             self.winsorize = False

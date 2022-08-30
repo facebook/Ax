@@ -23,17 +23,22 @@ class DummyEnum(Enum):
 
 
 class SklearnMetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testSklearnMetric(self):
         # test not implemented dataset
         with self.assertRaises(NotImplementedError):
             SklearnMetric(
                 name="test_metric",
+                # pyre-fixme[6]: For 2nd param expected `SklearnDataset` but got
+                #  `DummyEnum`.
                 dataset=DummyEnum.DUMMY,
             )
         # test not implemented model type
         with self.assertRaises(NotImplementedError):
             SklearnMetric(
                 name="test_metric",
+                # pyre-fixme[6]: For 2nd param expected `SklearnModelType` but got
+                #  `DummyEnum`.
                 model_type=DummyEnum.DUMMY,
             )
         # basic test
@@ -70,6 +75,8 @@ class SklearnMetricTest(TestCase):
             params = {"max_depth": 2, "min_samples_split": 0.5}
             trial = get_trial()
             trial._generator_run = GeneratorRun(
+                # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
+                #  float, int, str]]` but got `Dict[str, float]`.
                 arms=[Arm(name="0_0", parameters=params)]
             )
             df = metric.fetch_trial_data(trial).df

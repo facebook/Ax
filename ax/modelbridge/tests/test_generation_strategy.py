@@ -43,6 +43,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestGenerationStrategy(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
@@ -107,15 +108,18 @@ class TestGenerationStrategy(TestCase):
             ]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def tearDown(self):
         self.torch_model_bridge_patcher.stop()
         self.discrete_model_bridge_patcher.stop()
         self.registry_setup_dict_patcher.stop()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_name(self):
         self.sobol_GS.name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_validation(self):
         # num_trials can be positive or -1.
         with self.assertRaises(UserInputError):
@@ -161,6 +165,7 @@ class TestGenerationStrategy(TestCase):
                 ]
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_custom_callables_for_models(self):
         exp = get_branin_experiment()
         sobol_factory_generation_strategy = GenerationStrategy(
@@ -171,6 +176,7 @@ class TestGenerationStrategy(TestCase):
         gr = sobol_factory_generation_strategy.gen(experiment=exp, n=1)
         self.assertEqual(len(gr.arms), 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_string_representation(self):
         gs1 = GenerationStrategy(
             steps=[
@@ -192,6 +198,7 @@ class TestGenerationStrategy(TestCase):
             str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_equality(self):
         gs1 = GenerationStrategy(
             name="Sobol+GPEI",
@@ -213,6 +220,7 @@ class TestGenerationStrategy(TestCase):
         gs3 = gs1.clone_reset()
         self.assertEqual(gs1, gs3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_restore_from_generator_run(self):
         gs = GenerationStrategy(
             steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
@@ -237,12 +245,16 @@ class TestGenerationStrategy(TestCase):
         # Model should be reset, but it should be the same model with same data.
         self.assertIsNot(model, new_gs.model)
         self.assertEqual(model.__class__, new_gs.model.__class__)  # Model bridge.
+        # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertEqual(model.model.__class__, new_gs.model.model.__class__)  # Model.
+        # pyre-fixme[16]: Optional type has no attribute `_training_data`.
         self.assertEqual(model._training_data, new_gs.model._training_data)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_min_observed(self):
         # We should fail to transition the next model if there is not
         # enough data observed.
+        # pyre-fixme[6]: For 1st param expected `bool` but got `Experiment`.
         exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
             steps=[
@@ -256,6 +268,7 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(DataRequiredError):
             gs.gen(exp)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_do_not_enforce_min_observations(self):
         # We should be able to move on to the next model if there is not
         # enough data observed if `enforce_num_trials` setting is False, in which
@@ -277,6 +290,7 @@ class TestGenerationStrategy(TestCase):
         # Make sure Sobol is used to generate the 6th point.
         self.assertIsInstance(gs._model, RandomModelBridge)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sobol_GPEI_strategy(self):
         exp = get_branin_experiment()
         self.assertEqual(self.sobol_GPEI_GS.name, "Sobol+GPEI")
@@ -317,6 +331,7 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(GenerationStrategyCompleted):
             g = self.sobol_GPEI_GS.gen(exp)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sobol_GPEI_strategy_keep_generating(self):
         exp = get_branin_experiment()
         sobol_GPEI_generation_strategy = GenerationStrategy(
@@ -344,6 +359,7 @@ class TestGenerationStrategy(TestCase):
                     sobol_GPEI_generation_strategy.model, TorchModelBridge
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sobol_strategy(self):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
@@ -361,7 +377,11 @@ class TestGenerationStrategy(TestCase):
             sobol_generation_strategy.gen(exp, n=1)
             self.assertEqual(len(sobol_generation_strategy._generator_runs), i)
 
+    # pyre-fixme[56]: Pyre was not able to infer the type of argument
+    #  `ax.utils.testing.core_stubs.get_data()` to decorator factory
+    #  `unittest.mock.patch`.
     @patch(f"{Experiment.__module__}.Experiment.fetch_data", return_value=get_data())
+    # pyre-fixme[3]: Return type must be annotated.
     def test_factorial_thompson_strategy(self, _):
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
@@ -394,6 +414,7 @@ class TestGenerationStrategy(TestCase):
         args, kwargs = mock_model_bridge._set_kwargs_to_save.call_args
         self.assertEqual(kwargs.get("model_key"), "Thompson")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_clone_reset(self):
         ftgs = GenerationStrategy(
             steps=[
@@ -405,6 +426,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(ftgs._curr.index, 1)
         self.assertEqual(ftgs.clone_reset()._curr.index, 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_kwargs_passed(self):
         gs = GenerationStrategy(
             steps=[
@@ -415,8 +437,10 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         gs.gen(exp)
+        # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertFalse(gs._model.model.scramble)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sobol_GPEI_strategy_batches(self):
         mock_GPEI_gen = self.mock_torch_model_bridge.return_value.gen
         mock_GPEI_gen.return_value = GeneratorRun(
@@ -453,6 +477,7 @@ class TestGenerationStrategy(TestCase):
             exp.new_batch_trial(generator_run=g).run()
         self.assertIsInstance(sobol_GPEI_generation_strategy.model, TorchModelBridge)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_with_factory_function(self):
         """Checks that generation strategy works with custom factory functions.
         No information about the model should be saved on generator run."""
@@ -474,6 +499,7 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(g._model_kwargs)
         self.assertIsNone(g._bridge_kwargs)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_store_experiment(self):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
@@ -483,6 +509,7 @@ class TestGenerationStrategy(TestCase):
         sobol_generation_strategy.gen(exp)
         self.assertIsNotNone(sobol_generation_strategy._experiment)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_trials_as_df(self):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
@@ -492,8 +519,10 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy.trials_as_df)
         # Now the trial should appear in the DF.
         trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
+        # pyre-fixme[16]: Optional type has no attribute `empty`.
         self.assertFalse(sobol_generation_strategy.trials_as_df.empty)
         self.assertEqual(
+            # pyre-fixme[16]: Optional type has no attribute `head`.
             sobol_generation_strategy.trials_as_df.head()["Trial Status"][0],
             "CANDIDATE",
         )
@@ -503,6 +532,7 @@ class TestGenerationStrategy(TestCase):
             sobol_generation_strategy.trials_as_df.head()["Trial Status"][0], "RUNNING"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_max_parallelism_reached(self):
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
@@ -516,6 +546,8 @@ class TestGenerationStrategy(TestCase):
 
     @patch(f"{RandomModelBridge.__module__}.RandomModelBridge.update")
     @patch(f"{Experiment.__module__}.Experiment.lookup_data")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_use_update(self, mock_lookup_data, mock_update):
         exp = get_branin_experiment()
         sobol_gs_with_update = GenerationStrategy(
@@ -577,6 +609,7 @@ class TestGenerationStrategy(TestCase):
             )
             mock_update.assert_not_called()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_deduplication(self):
         tiny_parameters = [
             FixedParameter(
@@ -616,6 +649,7 @@ class TestGenerationStrategy(TestCase):
         ):
             g = sobol.gen(exp)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_current_generator_run_limit(self):
         NUM_INIT_TRIALS = 5
         SECOND_STEP_PARALLELISM = 3
@@ -659,6 +693,7 @@ class TestGenerationStrategy(TestCase):
             could_gen, [NUM_INIT_TRIALS] + [SECOND_STEP_PARALLELISM] * (NUM_ROUNDS - 1)
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_current_generator_run_limit_unlimited_second_step(self):
         NUM_INIT_TRIALS = 5
         SECOND_STEP_PARALLELISM = 3
@@ -693,6 +728,7 @@ class TestGenerationStrategy(TestCase):
             could_gen, [NUM_INIT_TRIALS] + [SECOND_STEP_PARALLELISM] * (NUM_ROUNDS - 1)
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_hierarchical_search_space(self):
         experiment = get_hierarchical_search_space_experiment()
         self.assertTrue(experiment.search_space.is_hierarchical)
@@ -707,6 +743,8 @@ class TestGenerationStrategy(TestCase):
                 mock_model_fit.assert_called_once()
                 obs_feats = mock_model_fit.call_args[1].get("observation_features")
                 all_parameter_names = (
+                    # pyre-fixme[16]: `SearchSpace` has no attribute
+                    #  `_all_parameter_names`.
                     experiment.search_space._all_parameter_names.copy()
                 )
                 # One of the parameter names is modified by transforms (because it's

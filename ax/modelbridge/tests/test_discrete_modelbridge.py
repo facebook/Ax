@@ -25,6 +25,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class DiscreteModelBridgeTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.parameters = [
             ChoiceParameter("x", ParameterType.FLOAT, values=[0, 1]),
@@ -33,6 +34,8 @@ class DiscreteModelBridgeTest(TestCase):
         ]
         parameter_constraints = []
 
+        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
 
         self.observation_features = [
@@ -71,7 +74,10 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testFit(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         ma._training_data = self.observations
         model = mock.create_autospec(DiscreteModel, instance=True)
@@ -109,7 +115,10 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testPredict(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
         model.predict.return_value = (
@@ -130,6 +139,8 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testGen(self, mock_init):
         # Test with constraints
         optimization_config = OptimizationConfig(
@@ -138,6 +149,7 @@ class DiscreteModelBridgeTest(TestCase):
                 OutcomeConstraint(Metric("b"), ComparisonOp.GEQ, 2, False)
             ],
         )
+        # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
         model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0], {})
@@ -150,6 +162,9 @@ class DiscreteModelBridgeTest(TestCase):
             optimization_config=optimization_config,
             pending_observations=self.pending_observations,
             fixed_features=ObservationFeatures({}),
+            # pyre-fixme[6]: For 6th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, str]`.
             model_gen_options=self.model_gen_options,
         )
         gen_args = model.gen.mock_calls[0][2]
@@ -180,6 +195,8 @@ class DiscreteModelBridgeTest(TestCase):
         self.assertEqual(gen_results.weights, [1.0, 2.0])
 
         # Test with no constraints, no fixed feature, no pending observations
+        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         search_space = SearchSpace(self.parameters[:2])
         optimization_config.outcome_constraints = []
         ma.parameters = ["x", "y"]
@@ -216,7 +233,10 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testCrossValidate(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
         model.cross_validate.return_value = (
@@ -254,9 +274,12 @@ class DiscreteModelBridgeTest(TestCase):
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGetParameterValues(self):
         parameter_values = _get_parameter_values(self.search_space, ["x", "y", "z"])
         self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True]])
+        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+        #  `List[Union[ChoiceParameter, FixedParameter]]`.
         search_space = SearchSpace(self.parameters)
         search_space._parameters["x"] = RangeParameter(
             "x", ParameterType.FLOAT, 0.1, 0.4

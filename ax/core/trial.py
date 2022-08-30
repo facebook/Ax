@@ -58,6 +58,7 @@ class Trial(BaseTrial):
             ttl_seconds=ttl_seconds,
             index=index,
         )
+        # pyre-fixme[4]: Attribute must be annotated.
         self._generator_run = None
         if generator_run is not None:
             self.add_generator_run(generator_run=generator_run)

@@ -22,6 +22,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class SearchSpaceToChoiceTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.search_space = SearchSpace(
             parameters=[
@@ -56,20 +57,27 @@ class SearchSpaceToChoiceTest(TestCase):
         self.t = SearchSpaceToChoice(
             search_space=self.search_space,
             observation_features=self.observation_features,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.t2 = SearchSpaceToChoice(
             search_space=self.search_space,
             observation_features=[self.observation_features[0]],
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
         )
         self.t3 = SearchSpaceToChoice(
             search_space=self.search_space,
             observation_features=self.observation_features,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
             config={"use_ordered": True},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
@@ -110,9 +118,12 @@ class SearchSpaceToChoiceTest(TestCase):
             SearchSpaceToChoice(
                 search_space=ss3,
                 observation_features=self.observation_features,
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpaceWithFixedParam(self):
         ss2 = self.search_space.clone()
         ss2 = self.t2.transform_search_space(ss2)
@@ -124,6 +135,7 @@ class SearchSpaceToChoiceTest(TestCase):
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -131,12 +143,17 @@ class SearchSpaceToChoiceTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.observation_features)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_w_robust_search_space(self):
         rss = get_robust_search_space()
         # Raises an error in __init__.
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             SearchSpaceToChoice(
                 search_space=rss,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
                 observation_features=None,
+                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
+                #  got `None`.
                 observation_data=None,
             )

@@ -12,6 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class EmpiricalBayesThompsonSamplerTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.Xs = [
             [[1, 1], [2, 2], [3, 3], [4, 4]],
@@ -22,12 +23,21 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
         self.outcome_names = ["x", "y"]  # not used for regular EB
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmpiricalBayesThompsonSamplerFit(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
@@ -45,12 +55,21 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             )
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmpiricalBayesThompsonSamplerGen(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
@@ -68,6 +87,8 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         ):
             arms, weights, _ = generator.gen(
                 n=5,
+                # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 objective_weights=np.array([1, 0]),
             )
@@ -77,17 +98,28 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             ):
                 self.assertAlmostEqual(weight, expected_weight, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmpiricalBayesThompsonSamplerWarning(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=[x[:-1] for x in self.Xs],
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=[y[:-1] for y in self.Ys],
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=[y[:-1] for y in self.Yvars],
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )
         arms, weights, _ = generator.gen(
             n=5,
+            # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             objective_weights=np.array([1, 0]),
         )
@@ -97,23 +129,39 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmpiricalBayesThompsonSamplerValidation(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.01)
         with self.assertRaises(ValueError):
             generator.fit(
                 Xs=[[[1, 1], [2, 2], [3, 3], [4, 4]], [[1, 1], [2, 2], [4, 4]]],
+                # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Ys=self.Ys,
+                # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+                #  `List[List[int]]`.
                 Yvars=self.Yvars,
+                # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+                #  float, int, str]]]` but got `List[List[int]]`.
                 parameter_values=self.parameter_values,
                 outcome_names=self.outcome_names,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEmpiricalBayesThompsonSamplerPredict(self):
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
+            # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
+            #  bool, float, int, str]]]]` but got `List[List[List[int]]]`.
             Xs=self.Xs,
+            # pyre-fixme[6]: For 2nd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Ys=self.Ys,
+            # pyre-fixme[6]: For 3rd param expected `List[List[float]]` but got
+            #  `List[List[int]]`.
             Yvars=self.Yvars,
+            # pyre-fixme[6]: For 4th param expected `List[List[Union[None, bool,
+            #  float, int, str]]]` but got `List[List[int]]`.
             parameter_values=self.parameter_values,
             outcome_names=self.outcome_names,
         )

@@ -29,6 +29,7 @@ from hypothesis import assume, given, settings, strategies as st
 
 
 class RelativizeDataTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_relativize_transform_requires_a_modelbridge(self):
         with self.assertRaisesRegex(ValueError, "modelbridge"):
             Relativize(
@@ -37,6 +38,7 @@ class RelativizeDataTest(TestCase):
                 observation_data=[],
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_relativize_transform_requires_a_modelbridge_to_have_status_quo_data(self):
         sobol = Models.SOBOL(search_space=get_search_space())
         self.assertIsNone(sobol.status_quo)
@@ -57,6 +59,7 @@ class RelativizeDataTest(TestCase):
                 observation_features=[ObservationFeatures(parameters={"x": 1})],
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_relativize_transform_observation_data(self):
         obs_data = [
             ObservationData(
@@ -71,7 +74,9 @@ class RelativizeDataTest(TestCase):
             ),
         ]
         obs_features = [
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 1}, trial_index=0),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
         ]
         modelbridge = Mock(
@@ -105,6 +110,9 @@ class RelativizeDataTest(TestCase):
             results[1].covariance,
         )
 
+    # pyre-fixme[56]: Pyre was not able to infer the type of argument
+    #  `hypothesis.strategies.floats($parameter$min_value = - 10.000000,
+    #  $parameter$max_value = 10.000000)` to decorator factory `hypothesis.given`.
     @given(
         st.floats(min_value=-10.0, max_value=10.0),
         st.floats(min_value=0, max_value=10.0),
@@ -112,6 +120,7 @@ class RelativizeDataTest(TestCase):
         st.floats(min_value=0, max_value=10.0),
     )
     @settings(max_examples=1000)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_status_quos_always_zero(
         self,
         sq_mean: float,
@@ -135,7 +144,9 @@ class RelativizeDataTest(TestCase):
             ),
         ]
         obs_features = [
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 1}, trial_index=0),
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
         ]
         modelbridge = Mock(
@@ -155,6 +166,7 @@ class RelativizeDataTest(TestCase):
         self.assertEqual(relative_data[0].means[0], 0)
         self.assertEqual(relative_data[0].covariance[0][0], 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_multitask_data(self):
         experiment = get_branin_with_multi_task()
         data = experiment.fetch_data()
@@ -226,6 +238,7 @@ class RelativizeDataTest(TestCase):
 
 
 class RelativizeDataOptConfigTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         super().setUp()
         search_space = get_search_space()
@@ -237,6 +250,7 @@ class RelativizeDataOptConfigTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_optimization_config_without_constraints(self):
         relativize = Relativize(
             search_space=None,
@@ -252,6 +266,7 @@ class RelativizeDataOptConfigTest(TestCase):
         )
         self.assertEqual(new_config.objective, optimization_config.objective)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_optimization_config_with_relative_constraints(self):
         relativize = Relativize(
             search_space=None,
@@ -280,6 +295,7 @@ class RelativizeDataOptConfigTest(TestCase):
         )
         self.assertFalse(new_config.outcome_constraints[0].relative)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_optimization_config_with_non_relative_constraints(self):
         relativize = Relativize(
             search_space=None,
@@ -303,6 +319,7 @@ class RelativizeDataOptConfigTest(TestCase):
                 fixed_features=Mock(),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_optimization_config_with_relative_thresholds(self):
         relativize = Relativize(
             search_space=None,
@@ -323,6 +340,8 @@ class RelativizeDataOptConfigTest(TestCase):
         )
         self.assertEqual(new_config.objective, optimization_config.objective)
         self.assertEqual(
+            # pyre-fixme[16]: `OptimizationConfig` has no attribute
+            #  `objective_thresholds`.
             new_config.objective_thresholds[0].bound,
             optimization_config.objective_thresholds[0].bound,
         )
@@ -333,6 +352,7 @@ class RelativizeDataOptConfigTest(TestCase):
         )
         self.assertFalse(new_config.objective_thresholds[1].relative)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_transform_optimization_config_with_non_relative_thresholds(self):
         relativize = Relativize(
             search_space=None,
