@@ -46,6 +46,8 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 class BotorchModelTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_fixed_rank_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -72,10 +74,13 @@ class BotorchModelTest(TestCase):
             _mock_fit_model.assert_called_once()
 
         # Check ranks
+        # pyre-fixme[16]: Optional type has no attribute `models`.
         model_list = model.model.models
         self.assertEqual(model_list[0]._rank, 2)
         self.assertEqual(model_list[1]._rank, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_fixed_prior_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -90,6 +95,21 @@ class BotorchModelTest(TestCase):
                 "eta": 0.6,
             }
         }
+        # pyre-fixme[6]: For 1st param expected `(TorchModel, List[Tuple[float, float...
+        # pyre-fixme[6]: For 1st param expected `(AcquisitionFunction, Tensor, int, O...
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor) -> Tuple[Tensor,
+        #  Tensor]` but got `Dict[str, Union[Type[LKJCovariancePrior], float,
+        #  GammaPrior]]`.
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor,
+        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any) ->
+        #  AcquisitionFunction` but got `Dict[str, Union[Type[LKJCovariancePrior],
+        #  float, GammaPrior]]`.
+        # pyre-fixme[6]: For 1st param expected `(List[Tensor], List[Tensor],
+        #  List[Tensor], List[int], List[int], List[str], Optional[Dict[str, Tensor]],
+        #  Any) -> Model` but got `Dict[str, Union[Type[LKJCovariancePrior], float,
+        #  GammaPrior]]`.
+        # pyre-fixme[6]: For 1st param expected `bool` but got `Dict[str,
+        #  Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
         model = BotorchModel(**kwargs)
         datasets = [
             FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
@@ -109,6 +129,7 @@ class BotorchModelTest(TestCase):
             _mock_fit_model.assert_called_once()
 
         # Check ranks
+        # pyre-fixme[16]: Optional type has no attribute `models`.
         model_list = model.model.models
         for i in range(1):
             self.assertIsInstance(
@@ -127,6 +148,8 @@ class BotorchModelTest(TestCase):
             )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_BotorchModel(self, dtype=torch.float, cuda=False):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
@@ -176,6 +199,7 @@ class BotorchModelTest(TestCase):
                 self.assertIsInstance(model.model, ModelListGP)
 
                 # Check fitting
+                # pyre-fixme[16]: Optional type has no attribute `models`.
                 model_list = model.model.models
                 self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
                 self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2_diff[0]))
@@ -265,6 +289,7 @@ class BotorchModelTest(TestCase):
                 )
             )
             expected_infeasible_cost = -1 * torch.min(
+                # pyre-fixme[20]: Argument `1` expected.
                 objective_transform(
                     model.model.posterior(Xs1[0]).mean
                     - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
@@ -319,6 +344,10 @@ class BotorchModelTest(TestCase):
                         linear_constraints=linear_constraints,
                         fixed_features=fixed_features,
                         pending_observations=pending_observations,
+                        # pyre-fixme[6]: For 6th param expected `Dict[str,
+                        #  Union[None, Dict[str, typing.Any], OptimizationConfig,
+                        #  AcquisitionFunction, float, int, str]]` but got `Dict[str,
+                        #  bool]`.
                         model_gen_options=model_gen_options,
                         rounding_func=dummy_func,
                     ),
@@ -366,6 +395,8 @@ class BotorchModelTest(TestCase):
             # test get_rounding_func
             dummy_rounding = get_rounding_func(rounding_func=dummy_func)
             X_temp = torch.rand(1, 2, 3, 4)
+            # pyre-fixme[29]: `Optional[typing.Callable[[torch._tensor.Tensor],
+            #  torch._tensor.Tensor]]` is not a function.
             self.assertTrue(torch.equal(X_temp, dummy_rounding(X_temp)))
 
             # Check best point selection
@@ -513,6 +544,7 @@ class BotorchModelTest(TestCase):
         model = BotorchModel(best_point_recommender=recommend_best_out_of_sample_point)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
+                # pyre-fixme[61]: `datasets` is undefined, or not always defined.
                 datasets=datasets,
                 metric_names=mns,
                 search_space_digest=SearchSpaceDigest(
@@ -523,21 +555,29 @@ class BotorchModelTest(TestCase):
             )
         with self.assertRaises(RuntimeError):
             xbest = model.best_point(
+                # pyre-fixme[61]: `search_space_digest` is undefined, or not always
+                #  defined.
                 search_space_digest=search_space_digest,
+                # pyre-fixme[61]: `torch_opt_config` is undefined, or not always
+                #  defined.
                 torch_opt_config=torch_opt_config,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchModel_cuda(self):
         if torch.cuda.is_available():
             self.test_BotorchModel(cuda=True)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchModel_double(self):
         self.test_BotorchModel(dtype=torch.double)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchModel_double_cuda(self):
         if torch.cuda.is_available():
             self.test_BotorchModel(dtype=torch.double, cuda=True)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchModelOneOutcome(self):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
@@ -574,10 +614,12 @@ class BotorchModelTest(TestCase):
             self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
             if use_input_warping:
                 self.assertTrue(hasattr(model.model, "input_transform"))
+                # pyre-fixme[16]: Optional type has no attribute `input_transform`.
                 self.assertIsInstance(model.model.input_transform, Warp)
             else:
                 self.assertFalse(hasattr(model.model, "input_transform"))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchModelConstraints(self):
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
@@ -616,6 +658,7 @@ class BotorchModelTest(TestCase):
                 torch_opt_config=TorchOptConfig(objective_weights),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_botorchmodel_raises_when_no_data(self):
         _, _, _, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True

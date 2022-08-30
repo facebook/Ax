@@ -77,6 +77,7 @@ class TestModelbridgeUtils(TestCase):
             metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pending_observation_features(self):
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.experiment))
@@ -165,6 +166,7 @@ class TestModelbridgeUtils(TestCase):
                 },
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pending_observation_features_hss(self):
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.hss_exp))
@@ -186,6 +188,7 @@ class TestModelbridgeUtils(TestCase):
         #  and observation features made from full parameterization should be the same.
         self.assertEqual(
             self.hss_sobol._transform_data(
+                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
                 obs_feats=pending["m1"],
                 obs_data=[],
                 search_space=self.hss_exp.search_space,
@@ -296,6 +299,7 @@ class TestModelbridgeUtils(TestCase):
                 },
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pending_observation_features_batch_trial(self):
         # Check the same functionality for batched trials.
         self.assertIsNone(get_pending_observation_features(self.experiment_2))
@@ -313,6 +317,7 @@ class TestModelbridgeUtils(TestCase):
             },
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pending_observation_features_based_on_trial_status(self):
         # Pending observations should be none if there aren't any as trial is
         # candidate.
@@ -346,6 +351,7 @@ class TestModelbridgeUtils(TestCase):
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_pending_observation_features_based_on_trial_status_hss(self):
         self.assertTrue(self.hss_trial.status.is_candidate)
         self.assertIsNone(get_pending_status(self.hss_exp))
@@ -395,6 +401,7 @@ class TestModelbridgeUtils(TestCase):
         #  and observation features made from full parameterization should be the same.
         self.assertEqual(
             self.hss_sobol._transform_data(
+                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
                 obs_feats=pending["m1"],
                 obs_data=[],
                 search_space=self.hss_exp.search_space,
@@ -410,6 +417,7 @@ class TestModelbridgeUtils(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pending_observations_as_array_list(self):
         # Mark a trial dispatched so that there are pending observations.
         self.trial.mark_running(no_runner_required=True)
@@ -417,7 +425,11 @@ class TestModelbridgeUtils(TestCase):
         self.assertEqual(
             [
                 x.tolist()
+                # pyre-fixme[16]: Optional type has no attribute `__iter__`.
                 for x in pending_observations_as_array_list(
+                    # pyre-fixme[6]: For 1st param expected `Dict[str,
+                    #  List[ObservationFeatures]]` but got `Optional[Dict[str,
+                    #  List[ObservationFeatures]]]`.
                     pending_observations=get_pending_observation_features(
                         self.experiment
                     ),
@@ -448,6 +460,9 @@ class TestModelbridgeUtils(TestCase):
             [
                 x.tolist()
                 for x in pending_observations_as_array_list(
+                    # pyre-fixme[6]: For 1st param expected `Dict[str,
+                    #  List[ObservationFeatures]]` but got `Optional[Dict[str,
+                    #  List[ObservationFeatures]]]`.
                     pending_observations=pending,
                     outcome_names=["m2", "m1"],
                     param_names=["x", "y", "z", "w"],
@@ -456,6 +471,7 @@ class TestModelbridgeUtils(TestCase):
             [[], [["1", "foo", "True", "4"]]],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_extract_outcome_constraints(self):
         outcomes = ["m1", "m2", "m3"]
         # pass no outcome constraints
@@ -465,6 +481,7 @@ class TestModelbridgeUtils(TestCase):
             OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0)
         ]
         res = extract_outcome_constraints(outcome_constraints, outcomes)
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(res[0].shape, (1, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
         self.assertEqual(res[1][0][0], 0)
@@ -485,6 +502,7 @@ class TestModelbridgeUtils(TestCase):
         self.assertEqual(res[1][0][0], 0)
         self.assertEqual(res[1][1][0], -1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_extract_objective_thresholds(self):
         outcomes = ["m1", "m2", "m3", "m4"]
         objective = MultiObjective(
@@ -514,8 +532,10 @@ class TestModelbridgeUtils(TestCase):
             outcomes=outcomes,
         )
         expected_obj_t_not_nan = np.array([2.0, 3.0, 4.0])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertTrue(np.array_equal(obj_t[:3], expected_obj_t_not_nan[:3]))
         self.assertTrue(np.isnan(obj_t[-1]))
+        # pyre-fixme[16]: Optional type has no attribute `shape`.
         self.assertEqual(obj_t.shape[0], 4)
 
         # Fails if threshold not provided for all objective metrics
@@ -565,6 +585,7 @@ class TestModelbridgeUtils(TestCase):
                 outcomes=outcomes,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObservationDataToArray(self):
         outcomes = ["a", "b", "c"]
         obsd = ObservationData(

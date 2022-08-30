@@ -36,6 +36,8 @@ def get_modelbridge() -> ModelBridge:
     )
 
 
+# pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
+#  to avoid runtime subscripting errors.
 def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
     """
     Compute lengscale sensitivity value for on an ax model.
@@ -45,17 +47,21 @@ def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
     ls = ax_model.model.model.covar_module.base_kernel.lengthscale.squeeze()
     if len(ls.shape) > 1:
         ls = ls.mean(dim=0)
+    # pyre-fixme[16]: `float` has no attribute `detach`.
     importances_tensor = torch.stack([(1 / ls).detach().cpu()])
+    # pyre-fixme[16]: `ModelBridge` has no attribute `outcomes`.
     importances_dict = dict(zip(ax_model.outcomes, importances_tensor))
     res = {}
     for metric_name in ax_model.outcomes:
         importances_arr = importances_dict[metric_name].numpy()
+        # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
         res[metric_name] = dict(zip(ax_model.parameters, importances_arr))
     return res
 
 
 class FeatureImportancesTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testFeatureImportances(self):
         model = get_modelbridge()
         # Assert that each type of plot can be constructed successfully
@@ -65,6 +71,7 @@ class FeatureImportancesTest(TestCase):
             model=model, caption=DUMMY_CAPTION
         )
         self.assertIsInstance(plot, go.Figure)
+        # pyre-fixme[16]: `Figure` has no attribute `layout`.
         self.assertEqual(len(plot.layout.annotations), 1)
         self.assertEqual(plot.layout.annotations[0].text, DUMMY_CAPTION)
         plot = plot_feature_importance_by_feature(model=model)

@@ -11,14 +11,16 @@ from ax.utils.common.base import Base
 from ax.utils.common.testutils import TestCase
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _f():
     e = RuntimeError("Test")
     raise e
 
 
-F_FAILURE_LINENO = 16  # Line # for the error in `_f`.
+F_FAILURE_LINENO = 17  # Line # for the error in `_f`.
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _g():
     _f()  # Lines along the path are matched too
 
@@ -29,6 +31,7 @@ class MyBase(Base):
 
 
 class TestTestUtils(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_equal(self):
         try:  # Check case where values aren't `Base` subclasses.
             self.assertEqual(1, 2)
@@ -44,6 +47,7 @@ class TestTestUtils(TestCase):
             )
             self.assertIn(expected_suffix, str(err))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_raises_on(self):
         with self.assertRaisesOn(RuntimeError, "raise e"):
             _f()
@@ -66,9 +70,12 @@ class TestTestUtils(TestCase):
         # Use this as a context manager to get the position of an error
         with self.assertRaisesOn(RuntimeError) as cm:
             _f()
+        # pyre-fixme[16]: `None` has no attribute `filename`.
         self.assertEqual(cm.filename, __file__)
+        # pyre-fixme[16]: `None` has no attribute `lineno`.
         self.assertEqual(cm.lineno, F_FAILURE_LINENO)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_silence_warning_normal(self):
         new_stderr = io.StringIO()
         old_err = sys.stderr
@@ -80,6 +87,7 @@ class TestTestUtils(TestCase):
             sys.stderr = old_err
         self.assertEqual(new_stderr.getvalue(), "")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_silence_warning(self):
         new_stderr = io.StringIO()
         old_err = sys.stderr
@@ -93,6 +101,7 @@ class TestTestUtils(TestCase):
                 sys.stderr = old_err
         self.assertTrue(new_stderr.getvalue().startswith("A message\n"))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_fail_deprecated(self):
         self.assertEqual(1, 1)
         with self.assertRaises(RuntimeError):

@@ -13,6 +13,7 @@ from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulato
 
 class BackendSimulatorTest(TestCase):
     @patch("ax.utils.testing.backend_simulator.time.time")
+    # pyre-fixme[3]: Return type must be annotated.
     def test_backend_simulator(self, time_mock: Mock):
         time_mock.return_value = 0.0
         dt = 0.001
@@ -100,6 +101,7 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim3.num_failed, 1)
         self.assertEqual(sim3.num_completed, 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_backend_simulator_internal_clock(self):
         options = BackendSimulatorOptions(
             internal_clock=0.0, use_update_as_start_time=True, max_concurrency=2
@@ -141,5 +143,7 @@ class BackendSimulatorTest(TestCase):
             sim.lookup_trial_index_status(trial_index=2), TrialStatus.COMPLETED
         )
         self.assertEqual(
-            sim.get_sim_trial_by_index(trial_index=2).sim_completed_time, 2.0
+            # pyre-fixme[16]: Optional type has no attribute `sim_completed_time`.
+            sim.get_sim_trial_by_index(trial_index=2).sim_completed_time,
+            2.0,
         )

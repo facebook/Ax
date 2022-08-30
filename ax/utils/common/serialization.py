@@ -12,6 +12,8 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 
 # https://stackoverflow.com/a/39235373
+# pyre-fixme[3]: Return annotation cannot be `Any`.
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def named_tuple_to_dict(data: Any) -> Any:
     """Recursively convert NamedTuples to dictionaries."""
     if isinstance(data, dict):
@@ -29,6 +31,7 @@ def named_tuple_to_dict(data: Any) -> Any:
 
 
 # https://stackoverflow.com/a/2166841
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def _is_named_tuple(x: Any) -> bool:
     """Return True if x is an instance of NamedTuple."""
     t = type(x)
@@ -41,6 +44,7 @@ def _is_named_tuple(x: Any) -> bool:
     return all(type(n) == str for n in f)
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def callable_to_reference(callable: Callable) -> str:
     """Obtains path to the callable of form <module>.<name>."""
     if not isinstance(callable, (FunctionType, type)):
@@ -56,6 +60,7 @@ def callable_to_reference(callable: Callable) -> str:
         )
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def callable_from_reference(path: str) -> Callable:
     """Retrieves a callable by its path."""
     return pydoc.locate(path)  # pyre-ignore[7]
@@ -63,7 +68,9 @@ def callable_from_reference(path: str) -> Callable:
 
 # TODO: update signature to avoid shadowing python `object` fn.
 def serialize_init_args(
-    object: Any, exclude_fields: Optional[List[str]] = None
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+    object: Any,
+    exclude_fields: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Given an object, return a dictionary of the arguments that are
     needed by its constructor.
@@ -85,6 +92,8 @@ def serialize_init_args(
     return properties
 
 
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
     """Given a dictionary, extract the arguments required for the
     given class's constructor.
@@ -113,6 +122,7 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
 
 class SerializationMixin(ABC):
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the object.
         Used for storage.

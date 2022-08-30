@@ -13,13 +13,16 @@ METRIC_STRING = "Metric('m1')"
 
 
 class MetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         pass
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m1", lower_is_better=False)
@@ -28,6 +31,7 @@ class MetricTest(TestCase):
         metric3 = Metric(name="m1", lower_is_better=True)
         self.assertNotEqual(metric1, metric3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         metric1 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
@@ -38,6 +42,7 @@ class MetricTest(TestCase):
         metric3 = get_factorial_metric(name="factorial")
         self.assertEqual(metric3, metric3.clone())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m2", lower_is_better=False)

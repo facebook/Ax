@@ -33,9 +33,11 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class CrossValidationTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.training_data = [
             Observation(
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=0),
                 data=ObservationData(
                     means=np.array([2.0, 4.0]),
@@ -45,6 +47,7 @@ class CrossValidationTest(TestCase):
                 arm_name="1_1",
             ),
             Observation(
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=1),
                 data=ObservationData(
                     means=np.array([3.0, 5.0, 6.0]),
@@ -65,6 +68,7 @@ class CrossValidationTest(TestCase):
                 arm_name="1_2",
             ),
             Observation(
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 4.0}, trial_index=2),
                 data=ObservationData(
                     means=np.array([9.0, 10.0]),
@@ -87,6 +91,7 @@ class CrossValidationTest(TestCase):
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
         ]
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCrossValidate(self):
         # Prepare input and output data
         ma = mock.MagicMock()
@@ -121,6 +126,8 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
+        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
+        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -141,12 +148,16 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
+        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
+        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
         # Test selector
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def test_selector(obs):
             return obs.features.parameters["x"] != 4.0
 
@@ -155,10 +166,13 @@ class CrossValidationTest(TestCase):
         z = ma.cross_validate.mock_calls[5:]
         self.assertEqual(len(z), 2)
         all_test = np.hstack(
+            # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
+            #  `List[List[typing.Any]]`.
             [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCrossValidateByTrial(self):
         # With only 1 trial
         ma = mock.MagicMock()
@@ -201,12 +215,14 @@ class CrossValidationTest(TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].observed.features.trial_index, 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self):
         exp = get_branin_experiment()
         sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_raises_not_implemented_error_for_non_cv_model_with_data(
         self,
     ):
@@ -218,6 +234,7 @@ class CrossValidationTest(TestCase):
         with self.assertRaises(NotImplementedError):
             cross_validate(model=sobol)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testComputeDiagnostics(self):
         # Construct CVResults
         result = []
@@ -234,6 +251,7 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Log likelihood"]["a"], -50.09469266602336)
         self.assertAlmostEqual(diag["Log likelihood"]["b"], -25.82334285505847)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testAssessModelFit(self):
         # Construct diagnostics
         result = []
@@ -262,6 +280,7 @@ class CrossValidationTest(TestCase):
         self.assertTrue("a" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
         self.assertTrue("b" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHasGoodOptConfigModelFit(self):
         # Construct diagnostics
         result = []
@@ -306,6 +325,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertFalse(has_good_fit)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSingleDiagnosticBestModelSelector_min_mean(self):
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
@@ -314,6 +334,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSingleDiagnosticBestModelSelector_min_min(self):
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
@@ -322,6 +343,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSingleDiagnosticBestModelSelector_max_mean(self):
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",

@@ -33,6 +33,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -80,6 +81,7 @@ class ModelBridge(ABC):
     def __init__(
         self,
         search_space: SearchSpace,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         model: Any,
         transforms: Optional[List[Type[Transform]]] = None,
         experiment: Optional[Experiment] = None,
@@ -135,12 +137,14 @@ class ModelBridge(ABC):
         self._model_kwargs: Optional[Dict[str, Any]] = None
         self._bridge_kwargs: Optional[Dict[str, Any]] = None
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self._model_space = search_space.clone()
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
         self._fit_abandoned = fit_abandoned
         imm = experiment and experiment.immutable_search_space_and_opt_config
+        # pyre-fixme[4]: Attribute must be annotated.
         self._experiment_has_immutable_search_space_and_opt_config = imm
         if experiment is not None:
             if self._optimization_config is None:
@@ -177,7 +181,9 @@ class ModelBridge(ABC):
                 observation_features=obs_feats,
                 observation_data=obs_data,
             )
+            # pyre-fixme[4]: Attribute must be annotated.
             self.fit_time = time.time() - t_fit_start
+            # pyre-fixme[4]: Attribute must be annotated.
             self.fit_time_since_gen = float(self.fit_time)
         except NotImplementedError:
             self.fit_time = 0.0
@@ -433,6 +439,7 @@ class ModelBridge(ABC):
 
     def _fit(
         self,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         model: Any,
         search_space: SearchSpace,
         observation_features: List[ObservationFeatures],
@@ -847,6 +854,7 @@ class ModelBridge(ABC):
             "Feature importance not available for this model type"
         )
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observation_data(
         self, observation_data: List[ObservationData]
     ) -> Any:
@@ -866,12 +874,14 @@ class ModelBridge(ABC):
         # Apply terminal transform and return
         return self._transform_observation_data(obsd)
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_data(
         self, observation_data: List[ObservationData]
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> Any:
@@ -891,12 +901,14 @@ class ModelBridge(ABC):
         # Apply terminal transform and return
         return self._transform_observation_features(obsf)
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,

@@ -94,6 +94,7 @@ from ax.utils.common.typeutils import (
 from botorch.utils.sampling import manual_seed
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -101,6 +102,7 @@ AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
+# pyre-fixme[5]: Global expression must be annotated.
 round_floats_for_logging = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
@@ -1240,7 +1242,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     @classmethod
     def load_from_json_file(
-        cls: Type[AxClientSubclass], filepath: str = "ax_client_snapshot.json", **kwargs
+        cls: Type[AxClientSubclass],
+        filepath: str = "ax_client_snapshot.json",
+        # pyre-fixme[2]: Parameter must be annotated.
+        **kwargs,
     ) -> AxClientSubclass:
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
@@ -1251,7 +1256,13 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
         encoder_registry: Optional[Dict[Type, Callable[[Any], Dict[str, Any]]]] = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
         class_encoder_registry: Optional[
             Dict[Type, Callable[[Any], Dict[str, Any]]]
         ] = None,
@@ -1287,10 +1298,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def from_json_snapshot(
         cls: Type[AxClientSubclass],
         serialized: Dict[str, Any],
+        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+        #  `typing.Type` to avoid runtime subscripting errors.
         decoder_registry: Optional[Dict[str, Type]] = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: Optional[
             Dict[str, Callable[[Dict[str, Any]], Any]]
         ] = None,
+        # pyre-fixme[2]: Parameter must be annotated.
         **kwargs,
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
@@ -1598,7 +1613,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     @classmethod
     def _get_pending_observation_features(
-        cls, experiment
+        cls,
+        # pyre-fixme[2]: Parameter must be annotated.
+        experiment,
     ) -> Optional[Dict[str, List[ObservationFeatures]]]:
         """Extract pending points for the given experiment.
 

@@ -26,6 +26,8 @@ from ax.utils.common.testutils import TestCase
 from sklearn.preprocessing import PowerTransformer
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def get_constraint(metric, bound, relative):
     return [
         OutcomeConstraint(
@@ -35,6 +37,7 @@ def get_constraint(metric, bound, relative):
 
 
 class PowerTransformYTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
@@ -57,6 +60,7 @@ class PowerTransformYTest(TestCase):
             covariance=np.array([[float("nan"), 0.0], [0.0, float("nan")]]),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         shared_init_args = {
             "search_space": None,
@@ -65,12 +69,42 @@ class PowerTransformYTest(TestCase):
         }
         # Test error for not specifying a config
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
+            #  got `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
+            #  `Optional[List[ObservationData]]`.
             PowerTransformY(**shared_init_args)
         # Test error for not specifying at least one metric
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
+            #  got `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
+            #  `Optional[List[ObservationData]]`.
             PowerTransformY(**shared_init_args, config={})
         # Test default init
         for m in ["m1", "m2"]:
+            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
+            #  got `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
+            #  `Optional[List[ObservationData]]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, List[str]]`.
             tf = PowerTransformY(**shared_init_args, config={"metrics": [m]})
             # tf.power_transforms should only exist for m and be a PowerTransformer
             self.assertIsInstance(tf.power_transforms, dict)
@@ -82,8 +116,10 @@ class PowerTransformYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds[m], tuple)
             self.assertTrue(len(tf.inv_bounds[m]) == 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGetData(self):
         for m in ["m1", "m2"]:
+            # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got `str`.
             Ys = get_data([self.obsd1, self.obsd2, self.obsd3], m)
             self.assertIsInstance(Ys, dict)
             self.assertEqual([*Ys], [m])
@@ -92,10 +128,12 @@ class PowerTransformYTest(TestCase):
             else:
                 self.assertEqual(Ys[m], [0.9, 0.4, 0.8])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testComputePowerTransform(self):
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pts = _compute_power_transforms(Ys)
         self.assertEqual(pts["m2"].method, "yeo-johnson")
+        # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         self.assertIsInstance(pts["m2"].lambdas_, np.ndarray)
         self.assertEqual(pts["m2"].lambdas_.shape, (1,))
         Y_np = np.array(Ys["m2"])[:, None]
@@ -107,10 +145,12 @@ class PowerTransformYTest(TestCase):
         Y_np2 = pts["m2"].inverse_transform(Y_trans)
         self.assertAlmostEqual(np.max(np.abs(Y_np - Y_np2)), 0.0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testComputeInverseBounds(self):
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
+        # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt.lambdas_.fill(-2.5)
         bounds = _compute_inverse_bounds({"m2": pt})["m2"]
         self.assertEqual(bounds[0], -np.inf)
@@ -131,9 +171,11 @@ class PowerTransformYTest(TestCase):
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
         self.assertTrue(not isnan(right) and isnan(left))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMatchCIWidth(self):
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)
+        # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt["m2"].lambdas_.fill(-3.0)
         bounds = _compute_inverse_bounds(pt)["m2"]
 
@@ -160,12 +202,19 @@ class PowerTransformYTest(TestCase):
         self.assertTrue(isnan(new_mean_1) and isnan(new_var_1))
         self.assertTrue(isfinite(new_mean_2) and isfinite(new_var_2))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformAndUntransformOneMetric(self):
         observation_data = [deepcopy(self.obsd1), deepcopy(self.obsd2)]
         pt = PowerTransformY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=observation_data,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, List[str]]`.
             config={"metrics": ["m1"]},
         )
 
@@ -190,12 +239,19 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformAndUntransformAllMetrics(self):
         observation_data = [deepcopy(self.obsd1), deepcopy(self.obsd2)]
         pt = PowerTransformY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=observation_data,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, List[str]]`.
             config={"metrics": ["m1", "m2"]},
         )
 
@@ -220,6 +276,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCompareToSklearn(self):
         # Make sure the transformed values agree with Sklearn
         observation_data = [self.obsd1, self.obsd2, self.obsd3]
@@ -228,9 +285,15 @@ class PowerTransformYTest(TestCase):
         y1 = PowerTransformer("yeo-johnson").fit(y_orig).transform(y_orig).ravel()
 
         pt = PowerTransformY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=deepcopy(observation_data),
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, List[str]]`.
             config={"metrics": ["m1"]},
         )
         observation_data_tf = pt.transform_observation_data(observation_data, [])
@@ -238,17 +301,25 @@ class PowerTransformYTest(TestCase):
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformOptimizationConfig(self):
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = PowerTransformY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[self.obsd1, self.obsd2],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, List[str]]`.
             config={"metrics": ["m1"]},
         )
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # Output constraint on a different metric should not transform the bound
@@ -260,6 +331,8 @@ class PowerTransformYTest(TestCase):
                     metric=m2, bound=bound, relative=False
                 ),
             )
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
             self.assertEqual(oc_tf, oc)
         # Output constraint on the same metric should transform the bound
@@ -271,6 +344,8 @@ class PowerTransformYTest(TestCase):
                     metric=m1, bound=bound, relative=False
                 ),
             )
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
             oc_true = deepcopy(oc)
             tf_bound = (
@@ -288,6 +363,8 @@ class PowerTransformYTest(TestCase):
             "PowerTransformY cannot be applied to metric m1 since it is "
             "subject to a relative constraint.",
         ):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             tf.transform_optimization_config(oc, None, None)
         # Support for scalarized outcome constraints isn't implemented
         m3 = Metric(name="m3")
@@ -300,6 +377,8 @@ class PowerTransformYTest(TestCase):
             ],
         )
         with self.assertRaises(NotImplementedError) as cm:
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             tf.transform_optimization_config(oc, None, None)
         self.assertEqual(
             "PowerTransformY cannot be used for metric(s) {'m1'} "

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -47,9 +48,11 @@ class IntToFloat(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         self.search_space = search_space
+        # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
         if config is not None:
             self.rounding = config.get("rounding", "strict")
+            # pyre-fixme[4]: Attribute must be annotated.
             self.max_round_attempts = config.get(
                 "max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS
             )

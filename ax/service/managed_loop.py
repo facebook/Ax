@@ -68,6 +68,7 @@ class OptimizationLoop:
         )
         self.experiment = experiment
         if generation_strategy is None:
+            # pyre-fixme[4]: Attribute must be annotated.
             self.generation_strategy = choose_generation_strategy(
                 search_space=experiment.search_space,
                 use_batch_trials=self.arms_per_trial > 1,

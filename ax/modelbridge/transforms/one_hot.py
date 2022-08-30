@@ -94,6 +94,7 @@ class OneHot(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
+        # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
         if config is not None:
             self.rounding = config.get("rounding", "strict")

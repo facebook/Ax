@@ -53,6 +53,7 @@ class ParameterDistribution(SortableBase):
         super().__init__()
         self.parameters = parameters
         self.distribution_class = distribution_class
+        # pyre-fixme[4]: Attribute must be annotated.
         self.distribution_parameters = distribution_parameters or {}
         self.multiplicative = multiplicative
 

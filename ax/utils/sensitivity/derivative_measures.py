@@ -58,10 +58,13 @@ class GpDGSMGpMean(object):
                 from the `input_mc_samples` and return the variance and standard error
                 across all computed measures.
         """
+        # pyre-fixme[4]: Attribute must be annotated.
         self.dim = checked_cast(tuple, model.train_inputs)[0].shape[-1]
         self.derivative_gp = derivative_gp
         self.kernel_type = kernel_type
+        # pyre-fixme[4]: Attribute must be annotated.
         self.bootstrap = num_bootstrap_samples > 1
+        # pyre-fixme[4]: Attribute must be annotated.
         self.num_bootstrap_samples = (
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
@@ -69,6 +72,7 @@ class GpDGSMGpMean(object):
             raise ValueError("Kernel type has to be specified to use derivative GP")
         self.num_mc_samples = num_mc_samples
         if input_qmc:
+            # pyre-fixme[4]: Attribute must be annotated.
             self.input_mc_samples = (
                 draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1)
                 .squeeze(1)

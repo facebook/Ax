@@ -19,13 +19,17 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from scipy.stats import norm
 
 
+# pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
+#  to avoid runtime subscripting errors.
 class ClosestLookupDict(dict):
     """A dictionary with numeric keys that looks up the closest key."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        # pyre-fixme[4]: Attribute must be annotated.
         self._keys = sorted(self.keys())
 
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def __setitem__(self, key: Number, val: Any) -> None:
         if not isinstance(key, Number):
             raise ValueError("ClosestLookupDict only allows numerical keys.")
@@ -33,6 +37,7 @@ class ClosestLookupDict(dict):
         ipos = np.searchsorted(self._keys, key)
         self._keys.insert(ipos, key)
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def __getitem__(self, key: Number) -> Any:
         try:
             return super().__getitem__(key)

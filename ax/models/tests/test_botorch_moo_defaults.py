@@ -39,6 +39,8 @@ GET_OBJ_PATH = (
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def dummy_predict(model, X):
     # Add column to X that is a product of previous elements.
     mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
@@ -47,6 +49,7 @@ def dummy_predict(model, X):
 
 
 class FrontierEvaluatorTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.X = torch.tensor(
             [[1.0, 0.0], [1.0, 1.0], [1.0, 3.0], [2.0, 2.0], [3.0, 1.0]]
@@ -80,6 +83,7 @@ class FrontierEvaluatorTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pareto_frontier_raise_error_when_missing_data(self):
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
@@ -89,6 +93,7 @@ class FrontierEvaluatorTest(TestCase):
                 Yvar=self.Yvar,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pareto_frontier_evaluator_raw(self):
         Yvar = torch.diag_embed(self.Yvar)
         Y, cov, indx = pareto_frontier_evaluator(
@@ -144,6 +149,7 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(cov, torch.zeros(0, 3, 3)))
         self.assertTrue(torch.equal(torch.tensor([], dtype=torch.long), indx))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pareto_frontier_evaluator_predict(self):
         Y, cov, indx = pareto_frontier_evaluator(
             model=self.model,
@@ -157,6 +163,7 @@ class FrontierEvaluatorTest(TestCase):
         )
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_pareto_frontier_evaluator_with_outcome_constraints(self):
         Y, cov, indx = pareto_frontier_evaluator(
             model=self.model,
@@ -174,6 +181,7 @@ class FrontierEvaluatorTest(TestCase):
 
 
 class BotorchMOODefaultsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_EHVI_input_validation_errors(self):
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
@@ -187,6 +195,7 @@ class BotorchMOODefaultsTest(TestCase):
                 objective_thresholds=objective_thresholds,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_weighted_mc_objective_and_objective_thresholds(self):
         objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
         objective_thresholds = torch.arange(4, dtype=torch.float)
@@ -201,6 +210,7 @@ class BotorchMOODefaultsTest(TestCase):
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_NEHVI_input_validation_errors(self):
         model = MultiObjectiveBotorchModel()
         weights = torch.ones(2)
@@ -209,11 +219,14 @@ class BotorchMOODefaultsTest(TestCase):
             ValueError, "There are no feasible observed points."
         ):
             get_NEHVI(
+                # pyre-fixme[6]: For 1st param expected `Model` but got
+                #  `Optional[Model]`.
                 model=model.model,
                 objective_weights=weights,
                 objective_thresholds=objective_thresholds,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_ehvi(self):
         weights = torch.tensor([0.0, 1.0, 1.0])
         X_observed = torch.rand(4, 3)
@@ -259,6 +272,8 @@ class BotorchMOODefaultsTest(TestCase):
             )
 
     # test infer objective thresholds alone
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_infer_objective_thresholds(self, cuda=False):
         for dtype in (torch.float, torch.double):
 
@@ -266,16 +281,52 @@ class BotorchMOODefaultsTest(TestCase):
                 "device": torch.device("cuda") if cuda else torch.device("cpu"),
                 "dtype": dtype,
             }
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)]
             bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
             outcome_constraints = (
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[10.0]], **tkwargs),
             )
             linear_constraints = (
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([1.0, 0.0, 0.0], **tkwargs),
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([2.0], **tkwargs),
             )
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             objective_weights = torch.tensor([-1.0, -1.0, 0.0], **tkwargs)
             with ExitStack() as es:
                 _mock_get_X_pending_and_observed = es.enter_context(
@@ -307,6 +358,12 @@ class BotorchMOODefaultsTest(TestCase):
                                 [11.0, 2.0],
                                 [9.0, 3.0],
                             ],
+                            # pyre-fixme[6]: For 2nd param expected
+                            #  `Optional[dtype]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `Union[None,
+                            #  str, device]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `bool` but got
+                            #  `Union[device, dtype]`.
                             **tkwargs,
                         )
                     )
@@ -349,10 +406,23 @@ class BotorchMOODefaultsTest(TestCase):
                 self.assertEqual(ckwargs["scale"], 0.1)
                 self.assertTrue(
                     torch.equal(
-                        ckwargs["pareto_Y"], torch.tensor([[-9.0, -3.0]], **tkwargs)
+                        ckwargs["pareto_Y"],
+                        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]`
+                        #  but got `Union[device, dtype]`.
+                        # pyre-fixme[6]: For 2nd param expected `Union[None, str,
+                        #  device]` but got `Union[device, dtype]`.
+                        # pyre-fixme[6]: For 2nd param expected `bool` but got
+                        #  `Union[device, dtype]`.
+                        torch.tensor([[-9.0, -3.0]], **tkwargs),
                     )
                 )
                 self.assertTrue(
+                    # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but
+                    #  got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `Union[None, str,
+                    #  device]` but got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `bool` but got
+                    #  `Union[device, dtype]`.
                     torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
                 )
                 self.assertTrue(np.isnan(obj_thresholds[2].item()))
@@ -378,6 +448,12 @@ class BotorchMOODefaultsTest(TestCase):
                                 [11.0, 2.0],
                                 [9.0, 3.0],
                             ],
+                            # pyre-fixme[6]: For 2nd param expected
+                            #  `Optional[dtype]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `Union[None,
+                            #  str, device]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `bool` but got
+                            #  `Union[device, dtype]`.
                             **tkwargs,
                         )
                     )
@@ -392,6 +468,12 @@ class BotorchMOODefaultsTest(TestCase):
                 )
                 _mock_get_X_pending_and_observed.assert_not_called()
                 self.assertTrue(
+                    # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but
+                    #  got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `Union[None, str,
+                    #  device]` but got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `bool` but got
+                    #  `Union[device, dtype]`.
                     torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
                 )
                 self.assertTrue(np.isnan(obj_thresholds[2].item()))
@@ -417,6 +499,12 @@ class BotorchMOODefaultsTest(TestCase):
                             [11.0, 2.0],
                             [9.0, 3.0],
                         ],
+                        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]`
+                        #  but got `Union[device, dtype]`.
+                        # pyre-fixme[6]: For 2nd param expected `Union[None, str,
+                        #  device]` but got `Union[device, dtype]`.
+                        # pyre-fixme[6]: For 2nd param expected `bool` but got
+                        #  `Union[device, dtype]`.
                         **tkwargs,
                     )
                 )
@@ -428,12 +516,22 @@ class BotorchMOODefaultsTest(TestCase):
                 X_observed=Xs[0],
             )
             self.assertTrue(
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
             )
             self.assertTrue(np.isnan(obj_thresholds[2].item()))
             # test passing subset_idcs
             subset_idcs = torch.tensor(
-                [0, 1], dtype=torch.long, device=tkwargs["device"]
+                [0, 1],
+                dtype=torch.long,
+                # pyre-fixme[6]: For 3rd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                device=tkwargs["device"],
             )
             obj_thresholds = infer_objective_thresholds(
                 subset_model,
@@ -443,13 +541,31 @@ class BotorchMOODefaultsTest(TestCase):
                 subset_idcs=subset_idcs,
             )
             self.assertTrue(
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
             )
             self.assertTrue(np.isnan(obj_thresholds[2].item()))
             # test without subsetting (e.g. if there are
             # 3 metrics for 2 objectives + 1 outcome constraint)
             outcome_constraints = (
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[0.0, 0.0, 1.0]], **tkwargs),
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[5.0]], **tkwargs),
             )
             with ExitStack() as es:
@@ -473,6 +589,12 @@ class BotorchMOODefaultsTest(TestCase):
                                 [11.0, 2.0, 6.0],
                                 [9.0, 3.0, 4.0],
                             ],
+                            # pyre-fixme[6]: For 2nd param expected
+                            #  `Optional[dtype]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `Union[None,
+                            #  str, device]` but got `Union[device, dtype]`.
+                            # pyre-fixme[6]: For 2nd param expected `bool` but got
+                            #  `Union[device, dtype]`.
                             **tkwargs,
                         )
                     )
@@ -488,10 +610,17 @@ class BotorchMOODefaultsTest(TestCase):
                     Xs=Xs + Xs + Xs,
                 )
                 self.assertTrue(
+                    # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but
+                    #  got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `Union[None, str,
+                    #  device]` but got `Union[device, dtype]`.
+                    # pyre-fixme[6]: For 2nd param expected `bool` but got
+                    #  `Union[device, dtype]`.
                     torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
                 )
                 self.assertTrue(np.isnan(obj_thresholds[2].item()))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_infer_objective_thresholds_cuda(self):
         if torch.cuda.is_available():
             self.test_infer_objective_thresholds(cuda=True)

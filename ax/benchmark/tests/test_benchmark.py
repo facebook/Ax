@@ -26,6 +26,7 @@ from botorch.test_functions.synthetic import Branin
 
 
 class TestBenchmark(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_replication_synthetic(self):
         problem = get_single_objective_benchmark_problem()
 
@@ -40,6 +41,7 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_replication_moo(self):
         problem = get_multi_objective_benchmark_problem()
 
@@ -58,6 +60,7 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_test(self):
         problem = get_single_objective_benchmark_problem()
         agg = benchmark_test(
@@ -79,6 +82,7 @@ class TestBenchmark(TestCase):
             self.assertTrue((agg.score_trace[col] <= 100).all())
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_full_run(self):
         aggs = benchmark_full_run(
             problems=[get_single_objective_benchmark_problem()],
@@ -93,6 +97,7 @@ class TestBenchmark(TestCase):
                 self.assertTrue((agg.score_trace[col] <= 100).all())
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_timeout(self):
         problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
             test_problem=Branin(), num_trials=1000  # Unachievable num_trials

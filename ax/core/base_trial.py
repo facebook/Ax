@@ -148,6 +148,7 @@ class TrialStatus(int, Enum):
         return f"{self!s}"
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 DEFAULT_STATUSES_TO_WARM_START = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
@@ -156,12 +157,15 @@ DEFAULT_STATUSES_TO_WARM_START = [
 ]
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def immutable_once_run(func: Callable) -> Callable:
     """Decorator for methods that should throw Error when
     trial is running or has ever run and immutable.
     """
 
     # no type annotation for now; breaks sphinx-autodoc-typehints
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _immutable_once_run(self, *args, **kwargs):
         if self._status != TrialStatus.CANDIDATE:
             raise ValueError(
@@ -212,6 +216,7 @@ class BaseTrial(ABC, SortableBase):
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
         self._ttl_seconds: Optional[int] = ttl_seconds
+        # pyre-fixme[4]: Attribute must be annotated.
         self._index = self._experiment._attach_trial(self, index=index)
 
         if trial_type is not None:
@@ -223,6 +228,7 @@ class BaseTrial(ABC, SortableBase):
             trial_type = self._experiment.default_trial_type
         self._trial_type: Optional[str] = trial_type
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.__status = None
         # Uses `_status` setter, which updates trial statuses to trial indices
         # mapping on the experiment, with which this trial is associated.
@@ -246,7 +252,9 @@ class BaseTrial(ABC, SortableBase):
         # If generator run(s) in this trial were generated from a generation
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
+        # pyre-fixme[4]: Attribute must be annotated.
         self._generation_step_index = None
+        # pyre-fixme[4]: Attribute must be annotated.
         self._properties = {}
 
     @property

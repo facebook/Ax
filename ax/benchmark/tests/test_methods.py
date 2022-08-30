@@ -10,6 +10,7 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 
 
 class TestMethods(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_mbm_acquisition(self):
         method = get_sobol_botorch_modular_acquisition(
             acquisition_cls=qKnowledgeGradient,
@@ -20,5 +21,6 @@ class TestMethods(TestCase):
         sobol, kg = gs._steps
         self.assertEqual(kg.model, Models.BOTORCH_MODULAR)
         model_kwargs = kg.model_kwargs
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
         self.assertEqual(model_kwargs["acquisition_options"], {"num_fantasies": 16})

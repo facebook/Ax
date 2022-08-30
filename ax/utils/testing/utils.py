@@ -9,6 +9,7 @@ import torch
 from torch import Tensor
 
 
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def generic_equals(first: Any, second: Any) -> bool:
     if isinstance(first, Tensor):
         return torch.equal(first, second)

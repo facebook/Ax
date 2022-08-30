@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -38,6 +39,7 @@ class InverseGaussianCdfY(Transform):
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        # pyre-fixme[4]: Attribute must be annotated.
         self.dist = norm(loc=0, scale=1)
 
     def transform_observation_data(

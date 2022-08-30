@@ -80,15 +80,24 @@ class SQAConfig:
     experiment_type_enum: Optional[Enum] = None
     generator_run_type_enum: Optional[Enum] = GeneratorRunType  # pyre-ignore [8]
 
+    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     json_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
         default_factory=lambda: CORE_ENCODER_REGISTRY
     )
+    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
         default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY
     )
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     json_decoder_registry: Dict[str, Type] = field(
         default_factory=lambda: CORE_DECODER_REGISTRY
     )
+    # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
         default_factory=lambda: CORE_CLASS_DECODER_REGISTRY
     )

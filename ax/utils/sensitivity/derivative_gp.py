@@ -23,6 +23,7 @@ def get_KXX_inv(gp: Model) -> Tensor:
     return L_inv_upper @ L_inv_upper.transpose(0, 1)
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_KxX_dx(gp: Model, x: Tensor, kernel_type="rbf") -> Tensor:
     """Computes the analytic derivative of the kernel K(x,X) w.r.t. x.
     Args:
@@ -66,6 +67,7 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type="rbf") -> Tensor:
     return total
 
 
+# pyre-fixme[2]: Parameter must be annotated.
 def get_Kxx_dx2(gp: Model, kernel_type="rbf") -> Tensor:
     r"""Computes the analytic second derivative of the kernel w.r.t. the training data
     Args:

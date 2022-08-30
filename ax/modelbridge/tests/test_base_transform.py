@@ -11,6 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TransformsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testIdentityTransform(self):
         # Test that the identity transform does not mutate anything
         t = Transform(MagicMock(), MagicMock(), MagicMock())

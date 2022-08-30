@@ -9,6 +9,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TransformUtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_closest_lookup_dict(self):
         # test empty lookup
         d = ClosestLookupDict()
@@ -24,4 +25,5 @@ class TransformUtilsTest(TestCase):
         self.assertEqual(d[0], "a")
         self.assertEqual(d[6], "c")
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `Number` but got `str`.
             d["str_key"] = 3

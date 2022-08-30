@@ -61,6 +61,7 @@ class BotorchTestProblemRunner(Runner):
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.

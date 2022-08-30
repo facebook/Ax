@@ -209,6 +209,8 @@ def _get_acquisition_func(
     constrained_mc_objective: Optional[
         Type[ConstrainedMCObjective]
     ] = ConstrainedMCObjective,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+    #  `typing.Dict` to avoid runtime subscripting errors.
     mc_objective_kwargs: Optional[Dict] = None,
     **kwargs: Any,
 ) -> AcquisitionFunction:
@@ -256,6 +258,7 @@ def _get_acquisition_func(
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
 
+    # pyre-fixme[53]: Captured variable `obj_tf` is not annotated.
     def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
         return obj_tf(samples)
 

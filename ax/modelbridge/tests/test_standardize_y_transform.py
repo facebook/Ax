@@ -20,6 +20,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class StandardizeYTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -39,19 +40,31 @@ class StandardizeYTransformTest(TestCase):
             ),
         )
         self.t = StandardizeY(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[self.obsd1, self.obsd2],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
             StandardizeY(
-                search_space=None, observation_features=None, observation_data=[]
+                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
+                search_space=None,
+                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
+                #  but got `None`.
+                observation_features=None,
+                observation_data=[],
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         obsd1_t = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -70,6 +83,7 @@ class StandardizeYTransformTest(TestCase):
         obsd2 = self.t.untransform_observation_data(obsd2, [])
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformOptimizationConfig(self):
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")
@@ -91,6 +105,7 @@ class StandardizeYTransformTest(TestCase):
             ),
         ]
         oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc = self.t.transform_optimization_config(oc, None, None)
         cons_t = [
             OutcomeConstraint(
@@ -119,6 +134,8 @@ class StandardizeYTransformTest(TestCase):
         )
         oc = OptimizationConfig(objective=objective, outcome_constraints=[con])
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc = self.t.transform_optimization_config(oc, None, None)
 
 

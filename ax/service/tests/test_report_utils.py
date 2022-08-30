@@ -31,7 +31,9 @@ from plotly import graph_objects as go
 
 OBJECTIVE_NAME = "branin"
 PARAMETER_COLUMNS = ["x1", "x2"]
+# pyre-fixme[5]: Global expression must be annotated.
 FLOAT_COLUMNS = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
+# pyre-fixme[5]: Global expression must be annotated.
 EXPECTED_COLUMNS = [
     "trial_index",
     "arm_name",
@@ -46,6 +48,7 @@ TRUE_OBJECTIVE_MEAN = 2.3456
 
 
 class ReportUtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_exp_to_df(self):
         # MultiTypeExperiment should fail
         exp = get_multi_type_experiment()
@@ -128,6 +131,7 @@ class ReportUtilsTest(TestCase):
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_shortest_unique_suffix_dict(self):
         expected_output = {
             "abc.123": "abc.123",
@@ -143,6 +147,7 @@ class ReportUtilsTest(TestCase):
         self.assertDictEqual(expected_output, actual_output)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_standard_plots(self):
         exp = get_branin_experiment()
         self.assertEqual(
@@ -164,6 +169,8 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
+        # pyre-fixme[16]: Optional type has no attribute `_objective_thresholds`.
+        # pyre-fixme[16]: `OptimizationConfig` has no attribute `_objective_thresholds`.
         exp.optimization_config._objective_thresholds = [
             ObjectiveThreshold(
                 metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -48,6 +49,7 @@ class StandardizeY(Transform):
         Ys = get_data(observation_data=observation_data)
         # Compute means and SDs
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
     def transform_observation_data(

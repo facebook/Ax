@@ -21,6 +21,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 # Typing alias
@@ -127,6 +128,7 @@ def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
         return (arm_name, 0, 0)
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def resize_subtitles(figure: Dict[str, Any], size: int):
     for ant in figure["layout"]["annotations"]:
         ant["font"].update(size=size)
@@ -484,6 +486,8 @@ def get_fixed_values(
 
 
 # Utility methods ported from JS
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def contour_config_to_trace(config):
     # Load from config
     arm_data = config["arm_data"]
@@ -610,7 +614,12 @@ def contour_config_to_trace(config):
 
     sd_in_sample_arm_trace = {"showlegend": False, "xaxis": "x2", "yaxis": "y2"}
 
+    # pyre-fixme[6]: For 1st param expected `SupportsKeysAndGetItem[str, str]` but
+    #  got `Dict[str, Union[Dict[str, Union[float, str]], List[typing.Any], str]]`.
     f_in_sample_arm_trace.update(base_in_sample_arm_config)
+    # pyre-fixme[6]: For 1st param expected `SupportsKeysAndGetItem[str, Union[bool,
+    #  str]]` but got `Dict[str, Union[Dict[str, Union[float, str]], List[typing.Any],
+    #  str]]`.
     sd_in_sample_arm_trace.update(base_in_sample_arm_config)
 
     traces = [f_trace, sd_trace, f_in_sample_arm_trace, sd_in_sample_arm_trace]
@@ -685,7 +694,12 @@ def relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float
 
 
 def relativize_data(
-    f: List[float], sd: List[float], rel: bool, arm_data: Dict[Any, Any], metric: str
+    f: List[float],
+    sd: List[float],
+    rel: bool,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    arm_data: Dict[Any, Any],
+    metric: str,
 ) -> List[List[float]]:
     # if relative, extract status quo & compute ratio
     f_final = [] if rel else f
@@ -738,18 +752,31 @@ def infer_is_relative(
     return relative
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def slice_config_to_trace(
+    # pyre-fixme[2]: Parameter must be annotated.
     arm_data,
+    # pyre-fixme[2]: Parameter must be annotated.
     arm_name_to_parameters,
+    # pyre-fixme[2]: Parameter must be annotated.
     f,
+    # pyre-fixme[2]: Parameter must be annotated.
     fit_data,
+    # pyre-fixme[2]: Parameter must be annotated.
     grid,
+    # pyre-fixme[2]: Parameter must be annotated.
     metric,
+    # pyre-fixme[2]: Parameter must be annotated.
     param,
+    # pyre-fixme[2]: Parameter must be annotated.
     rel,
+    # pyre-fixme[2]: Parameter must be annotated.
     setx,
+    # pyre-fixme[2]: Parameter must be annotated.
     sd,
+    # pyre-fixme[2]: Parameter must be annotated.
     is_log,
+    # pyre-fixme[2]: Parameter must be annotated.
     visible,
 ):
     # format data

@@ -17,6 +17,7 @@ from ax.utils.testing.core_stubs import get_multi_type_experiment
 
 
 class ConvertMetricNamesTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.experiment = get_multi_type_experiment(add_trials=True)
         self.data = self.experiment.fetch_data()
@@ -25,6 +26,7 @@ class ConvertMetricNamesTest(TestCase):
         self.observation_features = [o.features for o in self.observations]
         self.tconfig = tconfig_from_mt_experiment(self.experiment)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testConvertMetricNames(self):
         transform = ConvertMetricNames(
             None, self.observation_features, self.observation_data, config=self.tconfig
@@ -62,6 +64,7 @@ class ConvertMetricNamesTest(TestCase):
                 untransformed_observation_data[i].metric_names[0], metric_name
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadInputs(self):
         with self.assertRaises(ValueError):
             ConvertMetricNames(
@@ -108,6 +111,7 @@ class ConvertMetricNamesTest(TestCase):
                 config=tconfig_copy,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMultipleMetrics(self):
         # Create copy of online metric for offline
         online_metric = copy(self.experiment.metrics["m1"])

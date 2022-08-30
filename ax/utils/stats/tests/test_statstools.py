@@ -16,6 +16,7 @@ from ax.utils.stats.statstools import (
 
 
 class InverseVarianceWeightingTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_bad_arg_ivw(self):
         with self.assertRaises(ValueError):
             inverse_variance_weight(
@@ -24,6 +25,7 @@ class InverseVarianceWeightingTest(TestCase):
         with self.assertRaises(ValueError):
             inverse_variance_weight(np.array([1, 2]), np.array([1]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_very_simple_ivw(self):
         means = np.array([1, 1, 1])
         variances = np.array([1, 1, 1])
@@ -31,6 +33,7 @@ class InverseVarianceWeightingTest(TestCase):
         self.assertEqual(new_mean, 1.0)
         self.assertEqual(new_var, 1 / 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_simple_ivw(self):
         means = np.array([1, 2, 3])
         variances = np.array([1, 1, 1])
@@ -38,6 +41,7 @@ class InverseVarianceWeightingTest(TestCase):
         self.assertEqual(new_mean, 2.0)
         self.assertEqual(new_var, 1 / 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_another_simple_ivw(self):
         means = np.array([1, 3])
         variances = np.array([1, 3])
@@ -45,6 +49,7 @@ class InverseVarianceWeightingTest(TestCase):
         self.assertEqual(new_mean, 1.5)
         self.assertEqual(new_var, 0.75)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_conflicting_noiseless_ivw(self):
         means = np.array([1, 2, 1])
         variances = np.array([0, 0, 1])
@@ -58,6 +63,7 @@ class InverseVarianceWeightingTest(TestCase):
 
 
 class MarginalEffectsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_marginal_effects(self):
         df = pd.DataFrame(
             {
@@ -73,6 +79,7 @@ class MarginalEffectsTest(TestCase):
 
 
 class RelativizeDataTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_relativize_data(self):
         data = Data(
             df=pd.DataFrame(

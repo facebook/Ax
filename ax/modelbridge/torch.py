@@ -97,11 +97,13 @@ class TorchModelBridge(ModelBridge):
         fit_out_of_design: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
+        # pyre-fixme[4]: Attribute must be annotated.
         self.dtype = torch.double if torch_dtype is None else torch_dtype
         self.device = torch_device
         self._default_model_gen_options = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.
+        # pyre-fixme[4]: Attribute must be annotated.
         self.is_moo_problem = False
         if optimization_config or (experiment and experiment.optimization_config):
             optimization_config = not_none(
@@ -597,6 +599,7 @@ class TorchModelBridge(ModelBridge):
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
         )
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
     ) -> Any:  # TODO(jej): Make return type parametric
@@ -688,6 +691,7 @@ class TorchModelBridge(ModelBridge):
         )
         return search_space_digest, torch_opt_config
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_data(
         self, observation_data: List[ObservationData]
     ) -> Any:  # TODO(jej): Make return type parametric
@@ -796,6 +800,8 @@ class TorchModelBridge(ModelBridge):
         observation_data: List[ObservationData],
         observation_features: List[ObservationFeatures],
         parameters: List[str],
+        # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+        #  `typing.Dict` to avoid runtime subscripting errors.
     ) -> Tuple[Dict, Dict, Dict, Dict, bool]:
         Xs: Dict[str, List[Tensor]] = defaultdict(list)
         Ys: Dict[str, List[Tensor]] = defaultdict(list)

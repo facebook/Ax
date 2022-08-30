@@ -15,6 +15,7 @@ from typing import Any, Generator, List, Optional, Tuple, Type
 MAX_WAIT_SECONDS: int = 600
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
 def retry_on_exception(
     exception_types: Optional[Tuple[Type[Exception], ...]] = None,
     no_retry_on_exception_types: Optional[Tuple[Type[Exception], ...]] = None,
@@ -22,6 +23,7 @@ def retry_on_exception(
     retries: int = 3,
     suppress_all_errors: bool = False,
     logger: Optional[Logger] = None,
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     default_return_on_suppression: Optional[Any] = None,
     wrap_error_message_in: Optional[str] = None,
     initial_wait_seconds: Optional[int] = None,
@@ -74,6 +76,8 @@ def retry_on_exception(
             then there is no wait between retries.
     """
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def func_wrapper(func):
         # Depending on whether `func` is async or not, we use a slightly different
         # wrapper; if wrapping an async function, decorator will await it.
@@ -82,6 +86,9 @@ def retry_on_exception(
         if asyncio.iscoroutinefunction(func):
 
             @functools.wraps(func)
+            # pyre-fixme[53]: Captured variable `func` is not annotated.
+            # pyre-fixme[3]: Return type must be annotated.
+            # pyre-fixme[2]: Parameter must be annotated.
             async def async_actual_wrapper(*args, **kwargs):
                 (
                     retry_exceptions,
@@ -99,6 +106,8 @@ def retry_on_exception(
                         no_retry_exceptions=no_retry_exceptions,
                         retry_exceptions=retry_exceptions,
                         suppress_errors=suppress_errors,
+                        # pyre-fixme[6]: For 4th param expected `Optional[str]` but
+                        #  got `Optional[List[str]]`.
                         check_message_contains=check_message_contains,
                         last_retry=i >= retries - 1,
                         logger=logger,
@@ -117,6 +126,9 @@ def retry_on_exception(
             return async_actual_wrapper
 
         @functools.wraps(func)
+        # pyre-fixme[53]: Captured variable `func` is not annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def actual_wrapper(*args, **kwargs):
             (
                 retry_exceptions,
@@ -134,6 +146,8 @@ def retry_on_exception(
                     no_retry_exceptions=no_retry_exceptions,
                     retry_exceptions=retry_exceptions,
                     suppress_errors=suppress_errors,
+                    # pyre-fixme[6]: For 4th param expected `Optional[str]` but got
+                    #  `Optional[List[str]]`.
                     check_message_contains=check_message_contains,
                     last_retry=i >= retries - 1,
                     logger=logger,

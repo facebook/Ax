@@ -11,6 +11,7 @@ from ax.utils.common.logger import get_logger
 from typeguard import check_type
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 TKwargs = Dict[str, Any]
@@ -39,13 +40,16 @@ def consolidate_kwargs(
 
 
 def get_function_argument_names(
-    function: Callable, omit: Optional[List[str]] = None
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+    function: Callable,
+    omit: Optional[List[str]] = None,
 ) -> List[str]:
     """Extract parameter names from function signature."""
     omit = omit or []
     return [p for p in signature(function).parameters.keys() if p not in omit]
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def get_function_default_arguments(function: Callable) -> Dict[str, Any]:
     """Extract default arguments from function signature."""
     params = signature(function).parameters
@@ -54,6 +58,7 @@ def get_function_default_arguments(function: Callable) -> Dict[str, Any]:
     }
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> None:
     """Check if keywords in kwargs exist in any of the typed_callables and
     if the type of each keyword value matches the type of corresponding arg in one of
@@ -94,6 +99,7 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
         )
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
     """Log a warning when a decoder function receives unexpected kwargs.
 
@@ -112,6 +118,8 @@ def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
         )
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""

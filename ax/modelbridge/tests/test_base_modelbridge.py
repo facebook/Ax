@@ -68,6 +68,8 @@ class BaseModelBridgeTest(TestCase):
         return_value=([Arm(parameters={})], None),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
         # Test that on init transforms are stored and applied in the correct order
         transforms = [transform_1, transform_2]
@@ -76,8 +78,12 @@ class BaseModelBridgeTest(TestCase):
         modelbridge = ModelBridge(
             search_space=ss,
             model=Model(),
+            # pyre-fixme[6]: For 3rd param expected
+            #  `Optional[List[Type[Transform]]]` but got `List[Type[Union[transform_1,
+            #  transform_2]]]`.
             transforms=transforms,
             experiment=exp,
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             data=0,
         )
         self.assertFalse(
@@ -129,6 +135,7 @@ class BaseModelBridgeTest(TestCase):
         )
         modelbridge.predict([get_observation2().features])
         # Observation features sent to _predict are un-transformed afterwards
+        # pyre-fixme[16]: Callable `_predict` has no attribute `assert_called_with`.
         modelbridge._predict.assert_called_with([get_observation2().features])
 
         # Check that _single_predict is equivalent here.
@@ -156,6 +163,7 @@ class BaseModelBridgeTest(TestCase):
             fixed_features=ObservationFeatures({"x": 5}),
         )
         self.assertEqual(gr._model_key, "TestModel")
+        # pyre-fixme[16]: Callable `_gen` has no attribute `assert_called_with`.
         modelbridge._gen.assert_called_with(
             n=1,
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
@@ -210,6 +218,8 @@ class BaseModelBridgeTest(TestCase):
         cv_predictions = modelbridge.cross_validate(
             cv_training_data=cv_training_data, cv_test_points=cv_test_points
         )
+        # pyre-fixme[16]: Callable `_cross_validate` has no attribute
+        #  `assert_called_with`.
         modelbridge._cross_validate.assert_called_with(
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             observation_features=[get_observation2trans().features],
@@ -249,6 +259,7 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
         return_value=([get_observation1(), get_observation2()]),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ood_gen(self, _):
         # Test fit_out_of_design by returning OOD candidats
         exp = get_experiment_for_value()
@@ -258,6 +269,7 @@ class BaseModelBridgeTest(TestCase):
             model=Model(),
             transforms=[],
             experiment=exp,
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             data=0,
             fit_out_of_design=True,
         )
@@ -276,6 +288,7 @@ class BaseModelBridgeTest(TestCase):
             model=Model(),
             transforms=[],
             experiment=exp,
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             data=0,
             fit_out_of_design=False,
         )
@@ -294,6 +307,8 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1()]),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testSetStatusQuo(self, mock_fit, mock_observations_from_data):
         # NOTE: If empty data object is not passed, observations are not
         # extracted, even with mock.
@@ -312,6 +327,7 @@ class BaseModelBridgeTest(TestCase):
             0,
             [],
             get_experiment_for_value(),
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             0,
             status_quo_features=get_observation1().features,
         )
@@ -323,6 +339,7 @@ class BaseModelBridgeTest(TestCase):
         sq = Arm(name="1_1", parameters={"x": 3.0})
         exp._status_quo = sq
         # Check that we set SQ to arm 1_1
+        # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
         modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
         self.assertEqual(modelbridge.status_quo, get_observation1())
 
@@ -333,6 +350,7 @@ class BaseModelBridgeTest(TestCase):
                 0,
                 [],
                 exp,
+                # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
                 0,
                 status_quo_features=get_observation1().features,
                 status_quo_name="1_1",
@@ -340,7 +358,13 @@ class BaseModelBridgeTest(TestCase):
 
         # Left as None if features or name don't exist
         modelbridge = ModelBridge(
-            get_search_space_for_value(), 0, [], exp, 0, status_quo_name="1_0"
+            get_search_space_for_value(),
+            0,
+            [],
+            exp,
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
+            0,
+            status_quo_name="1_0",
         )
         self.assertIsNone(modelbridge.status_quo)
         modelbridge = ModelBridge(
@@ -348,6 +372,7 @@ class BaseModelBridgeTest(TestCase):
             0,
             [],
             get_experiment_for_value(),
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             0,
             status_quo_features=ObservationFeatures(parameters={"x": 3.0, "y": 10.0}),
         )
@@ -357,6 +382,8 @@ class BaseModelBridgeTest(TestCase):
         "ax.modelbridge.base.ModelBridge._gen",
         autospec=True,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_status_quo_for_non_monolithic_data(self, mock_gen):
         mock_gen.return_value = GenResults(
             observation_features=[
@@ -365,6 +392,7 @@ class BaseModelBridgeTest(TestCase):
                 )
                 for i in range(5)
             ],
+            # pyre-fixme[6]: For 2nd param expected `List[float]` but got `List[int]`.
             weights=[1] * 5,
         )
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
@@ -386,6 +414,7 @@ class BaseModelBridgeTest(TestCase):
         bridge.gen(5)
         self.assertTrue(any("start_time" in str(w.message) for w in ws))
         self.assertTrue(any("end_time" in str(w.message) for w in ws))
+        # pyre-fixme[16]: Optional type has no attribute `arm_name`.
         self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
     @mock.patch(
@@ -401,12 +430,16 @@ class BaseModelBridgeTest(TestCase):
         ),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testSetStatusQuoMultipleObs(self, mock_fit, mock_observations_from_data):
         exp = get_experiment_with_repeated_arms(2)
 
         trial_index = 1
         status_quo_features = ObservationFeatures(
+            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
             parameters=exp.trials[trial_index].status_quo.parameters,
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=trial_index,
         )
         modelbridge = ModelBridge(
@@ -414,6 +447,7 @@ class BaseModelBridgeTest(TestCase):
             0,
             [],
             exp,
+            # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
             0,
             status_quo_features=status_quo_features,
         )
@@ -428,6 +462,8 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation1()]),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testSetTrainingDataDupFeatures(self, mock_fit, mock_observations_from_data):
         # Throws an error if repeated features in observations.
         with self.assertRaises(ValueError):
@@ -436,10 +472,12 @@ class BaseModelBridgeTest(TestCase):
                 0,
                 [],
                 get_experiment_for_value(),
+                # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
                 0,
                 status_quo_name="1_1",
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUnwrapObservationData(self):
         observation_data = [get_observation1().data, get_observation2().data]
         f, cov = unwrap_observation_data(observation_data)
@@ -456,17 +494,24 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGenArms(self):
         p1 = {"x": 0, "y": 1}
         p2 = {"x": 4, "y": 8}
         observation_features = [
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Dict[str, int]`.
             ObservationFeatures(parameters=p1),
+            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
+            #  float, int, str]]` but got `Dict[str, int]`.
             ObservationFeatures(parameters=p2),
         ]
         arms, candidate_metadata = gen_arms(observation_features=observation_features)
         self.assertEqual(arms[0].parameters, p1)
         self.assertIsNone(candidate_metadata)
 
+        # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Dict[str, int]`.
         arm = Arm(name="1_1", parameters=p1)
         arms_by_signature = {arm.signature: arm}
         observation_features[0].metadata = {"some_key": "some_val_0"}
@@ -494,6 +539,8 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testGenWithDefaults(self, _, mock_gen):
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
@@ -525,6 +572,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _, __):
         exp = get_experiment_for_value()
         exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
@@ -550,6 +598,7 @@ class BaseModelBridgeTest(TestCase):
         ],
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._update", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update(self, _mock_update, _mock_gen):
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
@@ -607,6 +656,7 @@ class BaseModelBridgeTest(TestCase):
 
 
 class testClampObservationFeatures(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testClampObservationFeaturesNearBounds(self):
         cases = [
             (

@@ -54,6 +54,7 @@ except ModuleNotFoundError:  # pragma: no cover
 STORAGE_MINI_BATCH_SIZE = 50
 LOADING_MINI_BATCH_SIZE = 10000
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

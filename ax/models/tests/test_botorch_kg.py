@@ -32,9 +32,16 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 class KnowledgeGradientTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.dataset = FixedNoiseDataset(
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
             Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
             Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),
@@ -62,6 +69,7 @@ class KnowledgeGradientTest(TestCase):
         )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_KnowledgeGradient(self):
         model = KnowledgeGradient()
         model.fit(
@@ -121,6 +129,7 @@ class KnowledgeGradientTest(TestCase):
             mock_warmstart_initialization.assert_called_once()
 
         posterior_tf = ScalarizedPosteriorTransform(weights=self.objective_weights)
+        # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
         dummy_acq = PosteriorMean(model=model.model, posterior_transform=posterior_tf)
         with mock.patch(
             "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
@@ -167,6 +176,7 @@ class KnowledgeGradientTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
+        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
@@ -180,6 +190,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_KnowledgeGradient_multifidelity(self):
         search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
@@ -263,6 +274,7 @@ class KnowledgeGradientTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
+        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
@@ -276,6 +288,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_KnowledgeGradient_helpers(self):
         model = KnowledgeGradient()
         model.fit(
@@ -292,6 +305,7 @@ class KnowledgeGradientTest(TestCase):
 
         # test acquisition setting
         acq_function = _instantiate_KG(
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             posterior_transform=posterior_tf,
             n_fantasies=10,
@@ -304,6 +318,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertEqual(acq_function.num_fantasies, 10)
 
         acq_function = _instantiate_KG(
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             posterior_transform=posterior_tf,
             n_fantasies=10,
@@ -312,17 +327,23 @@ class KnowledgeGradientTest(TestCase):
         self.assertIsInstance(acq_function.sampler, IIDNormalSampler)
 
         acq_function = _instantiate_KG(
-            model=model.model, posterior_transform=posterior_tf, qmc=False
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
+            model=model.model,
+            posterior_transform=posterior_tf,
+            qmc=False,
         )
         self.assertIsNone(acq_function.inner_sampler)
 
         acq_function = _instantiate_KG(
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             posterior_transform=posterior_tf,
             qmc=True,
             X_pending=self.X_dummy,
         )
         self.assertIsNone(acq_function.inner_sampler)
+        # pyre-fixme[6]: For 1st param expected `Tensor` but got `Union[Tensor,
+        #  Module]`.
         self.assertTrue(torch.equal(acq_function.X_pending, self.X_dummy))
 
         # test _get_best_point_acqf
@@ -366,14 +387,17 @@ class KnowledgeGradientTest(TestCase):
         )
 
         acq_function = _instantiate_KG(
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             posterior_transform=posterior_tf,
             target_fidelities={2: 1.0},
+            # pyre-fixme[6]: For 4th param expected `Optional[Tensor]` but got `int`.
             current_value=0,
         )
         self.assertIsInstance(acq_function, qMultiFidelityKnowledgeGradient)
 
         acq_function = _instantiate_KG(
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             objective=LinearMCObjective(weights=self.objective_weights),
         )
@@ -382,10 +406,14 @@ class KnowledgeGradientTest(TestCase):
         # test error that target fidelity and fidelity weight indices must match
         with self.assertRaises(RuntimeError):
             _instantiate_KG(
+                # pyre-fixme[6]: For 1st param expected `Model` but got
+                #  `Optional[Model]`.
                 model=model.model,
                 posterior_transform=posterior_tf,
                 target_fidelities={1: 1.0},
                 fidelity_weights={2: 1.0},
+                # pyre-fixme[6]: For 5th param expected `Optional[Tensor]` but got
+                #  `int`.
                 current_value=0,
             )
 
@@ -397,6 +425,8 @@ class KnowledgeGradientTest(TestCase):
             target_fidelities={2: 1.0},
         )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `sampler`.
         self.assertIsInstance(acq_function.acq_func.sampler, SobolQMCNormalSampler)
         self.assertEqual(non_fixed_idcs, [0, 1])
 
@@ -408,6 +438,8 @@ class KnowledgeGradientTest(TestCase):
             qmc=False,
         )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
+        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
+        #  `sampler`.
         self.assertIsInstance(acq_function.acq_func.sampler, IIDNormalSampler)
         self.assertEqual(non_fixed_idcs, [0, 1])
 

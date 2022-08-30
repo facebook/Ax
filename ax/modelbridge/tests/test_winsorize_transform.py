@@ -35,6 +35,7 @@ from ax.utils.testing.core_stubs import get_optimization_config
 
 
 class WinsorizeTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -54,31 +55,52 @@ class WinsorizeTransformTest(TestCase):
             ),
         )
         self.t = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, WinsorizationConfig]`.
             config={
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.2)
             },
         )
         self.t1 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, WinsorizationConfig]`.
             config={
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.8)
             },
         )
         self.t2 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, WinsorizationConfig]`.
             config={
                 "winsorization_config": WinsorizationConfig(lower_quantile_margin=0.2)
             },
         )
         self.t3 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -91,7 +113,10 @@ class WinsorizeTransformTest(TestCase):
             },
         )
         self.t4 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -110,7 +135,10 @@ class WinsorizeTransformTest(TestCase):
             covariance=np.eye(4),
         )
         self.t5 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[
                 deepcopy(self.obsd1),
@@ -125,7 +153,10 @@ class WinsorizeTransformTest(TestCase):
             },
         )
         self.t6 = Winsorize(
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
             observation_data=[deepcopy(self.obsd1), deepcopy(self.obsd2)],
             config={
@@ -138,6 +169,7 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
@@ -149,6 +181,7 @@ class WinsorizeTransformTest(TestCase):
             DataRequiredError,
             "`Winsorize` transform requires non-empty observation data.",
         ):
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             Winsorize(search_space=None, observation_features=[], observation_data=[])
         obsd = [deepcopy(self.obsd1)]
         with self.assertRaisesRegex(
@@ -157,6 +190,7 @@ class WinsorizeTransformTest(TestCase):
             "non-empty when using winsorization.",
         ):
             Winsorize(
+                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
                 search_space=None,
                 observation_features=[],
                 observation_data=obsd,
@@ -167,12 +201,14 @@ class WinsorizeTransformTest(TestCase):
             "but got type `<class 'int'>.",
         ):
             Winsorize(
+                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
                 search_space=None,
                 observation_features=[],
                 observation_data=obsd,
                 config={"optimization_config": 1234},
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         observation_data = self.t1.transform_observation_data(
             [deepcopy(self.obsd1)], []
@@ -191,12 +227,14 @@ class WinsorizeTransformTest(TestCase):
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInitPercentileBounds(self):
         self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
         self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
         self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
         self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationsPercentileBounds(self):
         observation_data = self.t3.transform_observation_data(
             [deepcopy(self.obsd1)], []
@@ -215,6 +253,7 @@ class WinsorizeTransformTest(TestCase):
         )[0]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationsDifferentLowerUpper(self):
         observation_data = self.t5.transform_observation_data(
             [deepcopy(self.obsd2)], []
@@ -236,6 +275,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(self.t6.cutoffs["m2"], (0.0, float("inf")))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_optimization_config_default(self):
         # Specify the winsorization
         optimization_config = get_optimization_config()
@@ -253,11 +293,13 @@ class WinsorizeTransformTest(TestCase):
         ):
             get_default_transform_cutoffs(optimization_config=optimization_config)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_tukey_cutoffs(self):
         Y = np.array([-100, 0, 1, 2, 50])
         self.assertEqual(_get_tukey_cutoffs(Y=Y, lower=True), -3.0)
         self.assertEqual(_get_tukey_cutoffs(Y=Y, lower=False), 5.0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_winsorize_outcome_constraints(self):
         metric_values = [-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]
         ma, mb = Metric(name="a"), Metric(name="b")
@@ -269,6 +311,7 @@ class WinsorizeTransformTest(TestCase):
         )
         # From above with a loose bound
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_leq],
         )
@@ -276,12 +319,14 @@ class WinsorizeTransformTest(TestCase):
         # From above with a tight bound
         outcome_constraint_leq.bound = 2
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_leq],
         )
         self.assertEqual(cutoffs, (-float("inf"), 13.5))
         # From below with a loose bound
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_geq],
         )
@@ -289,6 +334,7 @@ class WinsorizeTransformTest(TestCase):
         # From below with a tight bound
         outcome_constraint_geq.bound = 5
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_geq],
         )
@@ -296,24 +342,29 @@ class WinsorizeTransformTest(TestCase):
         # Both with the tight bounds
         outcome_constraint_geq.bound = 5
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_leq, outcome_constraint_geq],
         )
         self.assertEqual(cutoffs, (-6.5, 13.5))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_winsorization_single_objective(self):
         metric_values = [-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             minimize=True,
         )
         self.assertEqual(cutoffs, (-float("inf"), 13.5))
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
+            # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             minimize=False,
         )
         self.assertEqual(cutoffs, (-6.5, float("inf")))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_winsorization_without_optimization_config(self):
         means = np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50])
         obsd = ObservationData(
@@ -323,6 +374,8 @@ class WinsorizeTransformTest(TestCase):
         )
         config = {
             "winsorization_config": {
+                # pyre-fixme[6]: For 1st param expected `float` but got `None`.
+                # pyre-fixme[6]: For 2nd param expected `float` but got `None`.
                 "m1": WinsorizationConfig(None, None),
             }
         }
@@ -368,6 +421,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 13.5))
         self.assertEqual(transform.cutoffs["m2"], (0.0, float("inf")))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_winsorization_with_optimization_config(self):
         obsd_1 = ObservationData(
             metric_names=["m1"] * 10,
@@ -537,17 +591,28 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m3"], (-3.5, float("inf")))  # 1 - 1.5 * 3
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def get_transform(observation_data, config):
     return Winsorize(
+        # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
         search_space=None,
+        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
+        #  `None`.
         observation_features=None,
         observation_data=observation_data,
         config=config,
     )
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def get_default_transform_cutoffs(
-    optimization_config, winsorization_config=None, obs_data_len=6
+    # pyre-fixme[2]: Parameter must be annotated.
+    optimization_config,
+    # pyre-fixme[2]: Parameter must be annotated.
+    winsorization_config=None,
+    # pyre-fixme[2]: Parameter must be annotated.
+    obs_data_len=6,
 ):
     obsd = ObservationData(
         metric_names=["m1"] * obs_data_len,
@@ -555,7 +620,10 @@ def get_default_transform_cutoffs(
         covariance=np.eye(obs_data_len),
     )
     transform = Winsorize(
+        # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
         search_space=None,
+        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
+        #  `None`.
         observation_features=None,
         observation_data=[deepcopy(obsd)],
         config={

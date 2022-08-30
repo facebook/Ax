@@ -118,6 +118,7 @@ GPYTORCH_COMPONENT_REGISTRY: Dict[Type[Module], str] = {
 """
 Overarching mapping from encoded classes to registry map.
 """
+# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     Acquisition: ACQUISITION_REGISTRY,
     AcquisitionFunction: ACQUISITION_FUNCTION_REGISTRY,
@@ -162,6 +163,7 @@ REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[Module]] = {
 """
 Overarching mapping from encoded classes to reverse registry map.
 """
+# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[str, Type[Any]]] = {
     Acquisition: REVERSE_ACQUISITION_REGISTRY,
     AcquisitionFunction: REVERSE_ACQUISITION_FUNCTION_REGISTRY,

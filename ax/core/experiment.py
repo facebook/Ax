@@ -44,6 +44,8 @@ class DataType(Enum):
     MAP_DATA = 3
 
 
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
     DataType.DATA: Data,
     DataType.MAP_DATA: MapData,
@@ -97,11 +99,13 @@ class Experiment(Base):
 
         self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: Optional[str] = experiment_type
+        # pyre-fixme[4]: Attribute must be annotated.
         self._optimization_config = None
         self._tracking_metrics: Dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._trials: Dict[int, BaseTrial] = {}
         self._properties: Dict[str, Any] = properties or {}
+        # pyre-fixme[4]: Attribute must be annotated.
         self._default_data_type = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
@@ -319,6 +323,7 @@ class Experiment(Base):
             self._default_data_type = DataType.MAP_DATA
 
     @property
+    # pyre-fixme[24]: Generic type `OrderedDict` expects 2 type parameters.
     def data_by_trial(self) -> Dict[int, OrderedDict]:
         """Data stored on the experiment, indexed by trial index and storage time.
 
@@ -785,6 +790,8 @@ class Experiment(Base):
         return self._default_data_type
 
     @property
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     def default_data_constructor(self) -> Type:
         return DATA_TYPE_LOOKUP[self.default_data_type]
 

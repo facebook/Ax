@@ -45,6 +45,7 @@ from scipy.optimize import approx_fprime
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -69,6 +70,7 @@ class ALEBOKernel(Kernel):
         super().__init__(
             has_lengthscale=False, ard_num_dims=None, eps=0.0, batch_shape=batch_shape
         )
+        # pyre-fixme[4]: Attribute must be annotated.
         self.d, D = B.shape
         assert self.d < D
         self.B = B
@@ -80,6 +82,7 @@ class ALEBOKernel(Kernel):
         # matrix. Uvec is the upper triangular portion of U squeezed out into
         # a vector.
         U = torch.linalg.cholesky(torch.mm(ABinv.t(), ABinv)).t()
+        # pyre-fixme[4]: Attribute must be annotated.
         self.triu_indx = torch.triu_indices(self.d, self.d, device=B.device)
         Uvec = U[self.triu_indx.tolist()].repeat(*batch_shape, 1)
         self.register_parameter(name="Uvec", parameter=torch.nn.Parameter(Uvec))
@@ -322,6 +325,11 @@ def laplace_sample_U(
     epsilon = 1e-4 + 1e-3 * np.abs(x0)
     for i, _ in enumerate(x0):
         # Compute gradient of df/dx_i wrt x_i
+        # pyre-fixme[53]: Captured variable `property_dict` is not annotated.
+        # pyre-fixme[53]: Captured variable `x0` is not annotated.
+        # pyre-fixme[53]: Captured variable `i` is not annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def f(x):
             x_all = x0.copy()
             x_all[i] = x[0]
@@ -583,6 +591,7 @@ class ALEBO(BotorchModel):
         self, B: Tensor, laplace_nsamp: int = 25, fit_restarts: int = 10
     ) -> None:
         self.B = B
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Binv = torch.pinverse(B)
         self.laplace_nsamp = laplace_nsamp
         self.fit_restarts = fit_restarts

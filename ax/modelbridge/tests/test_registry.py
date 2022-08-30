@@ -49,6 +49,7 @@ from torch import float64 as torch_float64
 
 class ModelRegistryTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_botorch_modular(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
@@ -74,6 +75,7 @@ class ModelRegistryTest(TestCase):
         self.assertIsNotNone(gr.best_arm_predictions)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_sobol_GPEI(self):
         """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
@@ -140,6 +142,7 @@ class ModelRegistryTest(TestCase):
         )
         self.assertIsInstance(gpei, TorchModelBridge)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_model_kwargs(self):
         """Tests that kwargs are passed correctly when instantiating through the
         Models enum."""
@@ -152,6 +155,7 @@ class ModelRegistryTest(TestCase):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_factorial(self):
         """Tests factorial instantiation through the Models enum."""
         exp = get_factorial_experiment()
@@ -160,6 +164,7 @@ class ModelRegistryTest(TestCase):
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_empirical_bayes_thompson(self):
         """Tests EB/TS instantiation through the Models enum."""
         exp = get_factorial_experiment()
@@ -176,6 +181,7 @@ class ModelRegistryTest(TestCase):
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_thompson(self):
         """Tests TS instantiation through the Models enum."""
         exp = get_factorial_experiment()
@@ -187,6 +193,7 @@ class ModelRegistryTest(TestCase):
         thompson = Models.THOMPSON(experiment=exp, data=data)
         self.assertIsInstance(thompson.model, ThompsonSampler)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_enum_uniform(self):
         """Tests uniform random instantiation through the Models enum."""
         exp = get_branin_experiment()
@@ -195,6 +202,7 @@ class ModelRegistryTest(TestCase):
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_view_defaults(self):
         """Checks that kwargs are correctly constructed from default kwargs +
         standard kwargs."""
@@ -243,6 +251,7 @@ class ModelRegistryTest(TestCase):
         )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_model_from_generator_run(self):
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
@@ -306,6 +315,7 @@ class ModelRegistryTest(TestCase):
                 continue
             self.assertEqual(original, restored)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ModelSetups_do_not_share_kwargs(self):
         """Tests that none of the preset model and bridge combinations share a
         kwarg.
@@ -319,6 +329,7 @@ class ModelRegistryTest(TestCase):
             self.assertEqual(model_args & bridge_args, set())
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ST_MTGP(self):
         """Tests single type MTGP instantiation."""
         # Test Single-type MTGP
@@ -331,7 +342,9 @@ class ModelRegistryTest(TestCase):
             t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
             t.run().mark_completed()
         status_quo_features = ObservationFeatures(
+            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
             parameters=exp.trials[0].status_quo.parameters,
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=0,
         )
         mtgp = Models.ST_MTGP(
@@ -352,6 +365,7 @@ class ModelRegistryTest(TestCase):
         with self.assertRaises(ValueError):
             status_quo_features = ObservationFeatures(
                 parameters=exp.trials[0].status_quo.parameters,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 trial_index=0,
             )
             Models.ST_MTGP(
@@ -361,6 +375,7 @@ class ModelRegistryTest(TestCase):
             )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ALEBO(self):
         """Tests Alebo fitting and generations"""
         experiment = get_branin_experiment(with_batch=True)
@@ -385,6 +400,7 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(m.model, ALEBO)
         self.assertTrue(np.array_equal(m.model.B.numpy(), B))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ALEBO_Initializer(self):
         """Tests Alebo Initializer generations"""
         experiment = get_branin_experiment(with_batch=True)
@@ -401,12 +417,14 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(len(gr.arms), 2)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ST_MTGP_NEHVI(self):
         """Tests single type MTGP NEHVI instantiation."""
         multi_obj_exp = get_branin_experiment_with_multi_objective(
             with_batch=True,
             with_status_quo=True,
         )
+        # pyre-fixme[16]: Optional type has no attribute `objective`.
         metrics = multi_obj_exp.optimization_config.objective.metrics
         multi_objective_thresholds = [
             ObjectiveThreshold(
@@ -424,9 +442,12 @@ class ModelRegistryTest(TestCase):
             t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
             t.run().mark_completed()
         status_quo_features = ObservationFeatures(
+            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
             parameters=multi_obj_exp.trials[0].status_quo.parameters,
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=0,
         )
+        # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
         optimization_config = multi_obj_exp.optimization_config.clone_with_args(
             objective_thresholds=multi_objective_thresholds
         )
@@ -441,7 +462,9 @@ class ModelRegistryTest(TestCase):
 
         # test it can generate
         mtgp_run = mtgp.gen(
-            n=1, fixed_features=ObservationFeatures(parameters={}, trial_index=1)
+            n=1,
+            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
+            fixed_features=ObservationFeatures(parameters={}, trial_index=1),
         )
         self.assertEqual(len(mtgp_run.arms), 1)
 

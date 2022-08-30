@@ -14,6 +14,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class MapUnitXTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.target_lb = MapUnitX.target_lb
         self.target_range = MapUnitX.target_range
@@ -51,9 +52,11 @@ class MapUnitXTransformTest(TestCase):
             observation_data=[],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertEqual(self.t.bounds, {"step_1": (0.0, 10.0), "step_2": (0.0, 20.0)})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservationFeatures(self):
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -78,11 +81,13 @@ class MapUnitXTransformTest(TestCase):
                         obsf.parameters[step], expected_obsf.parameters[step]
                     )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformSearchSpace(self):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters, self.search_space.parameters)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def _construct_expected_param_dict(
         self, obsf: ObservationFeatures, transform: MapUnitX
     ):
@@ -92,5 +97,9 @@ class MapUnitXTransformTest(TestCase):
                 scale_fac = self.target_range / (
                     transform.bounds[step][1] - transform.bounds[step][0]
                 )
+                # pyre-fixme[6]: For 2nd param expected `Union[int, str]` but got
+                #  `float`.
+                # pyre-fixme[58]: `*` is not supported for operand types
+                #  `Union[None, bool, float, int, str]` and `float`.
                 result[step] = self.target_lb + obsf.parameters[step] * scale_fac
         return result

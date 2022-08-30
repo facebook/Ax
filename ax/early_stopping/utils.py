@@ -10,6 +10,7 @@ from typing import Dict, List, Tuple
 import pandas as pd
 from ax.utils.common.logger import get_logger
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

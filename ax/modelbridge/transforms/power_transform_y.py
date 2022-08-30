@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -61,10 +62,14 @@ class PowerTransformY(Transform):
         metric_names = list(config.get("metrics", []))
         if len(metric_names) == 0:
             raise ValueError("Must specify at least one metric in the config.")
+        # pyre-fixme[4]: Attribute must be annotated.
         self.clip_mean = config.get("clip_mean", True)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.metric_names = metric_names
         Ys = get_data(observation_data=observation_data, metric_names=metric_names)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.power_transforms = _compute_power_transforms(Ys=Ys)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.inv_bounds = _compute_inverse_bounds(self.power_transforms, tol=1e-10)
 
     def transform_observation_data(

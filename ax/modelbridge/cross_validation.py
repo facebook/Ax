@@ -17,6 +17,7 @@ from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 CVDiagnostics = Dict[str, Dict[str, float]]
@@ -45,7 +46,10 @@ class AssessModelFitResult(NamedTuple):
 
 
 def cross_validate(
-    model: ModelBridge, folds: int = -1, test_selector: Optional[Callable] = None
+    model: ModelBridge,
+    folds: int = -1,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+    test_selector: Optional[Callable] = None,
 ) -> List[CVResult]:
     """Cross validation for model predictions.
 
@@ -399,6 +403,7 @@ class BestModelSelector:
 
 
 class CallableEnum(Enum):
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def __call__(self, *args: Optional[Any], **kwargs: Optional[Any]) -> Any:
         return self.value(*args, **kwargs)
 

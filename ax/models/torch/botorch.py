@@ -40,9 +40,11 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
+# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TModelConstructor = Callable[
     [
         List[Tensor],
@@ -57,6 +59,7 @@ TModelConstructor = Callable[
     Model,
 ]
 TModelPredictor = Callable[[Model, Tensor], Tuple[Tensor, Tensor]]
+# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TAcqfConstructor = Callable[
     [
         Model,
@@ -68,6 +71,7 @@ TAcqfConstructor = Callable[
     ],
     AcquisitionFunction,
 ]
+# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizer = Callable[
     [
         AcquisitionFunction,
@@ -258,6 +262,7 @@ class BotorchModel(TorchModel):
         self.acqf_constructor = acqf_constructor
         self.acqf_optimizer = acqf_optimizer
         self.best_point_recommender = best_point_recommender
+        # pyre-fixme[4]: Attribute must be annotated.
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
         self.refit_on_update = refit_on_update
@@ -359,6 +364,15 @@ class BotorchModel(TorchModel):
 
         from botorch.exceptions.errors import UnsupportedError
 
+        # pyre-fixme[53]: Captured variable `X_observed` is not annotated.
+        # pyre-fixme[53]: Captured variable `X_pending` is not annotated.
+        # pyre-fixme[53]: Captured variable `acf_options` is not annotated.
+        # pyre-fixme[53]: Captured variable `botorch_rounding_func` is not annotated.
+        # pyre-fixme[53]: Captured variable `bounds_` is not annotated.
+        # pyre-fixme[53]: Captured variable `model` is not annotated.
+        # pyre-fixme[53]: Captured variable `objective_weights` is not annotated.
+        # pyre-fixme[53]: Captured variable `optimizer_options` is not annotated.
+        # pyre-fixme[53]: Captured variable `outcome_constraints` is not annotated.
         def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
             add_kwargs = {"qmc": False} if override_qmc else {}
             acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]

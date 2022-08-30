@@ -17,6 +17,7 @@ from ax.utils.common.logger import get_logger
 from plotly import subplots
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

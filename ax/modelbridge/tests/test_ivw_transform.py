@@ -11,6 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class IVWTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testNoRepeats(self):
         obsd = ObservationData(
             metric_names=["m1", "m2"],
@@ -20,6 +21,7 @@ class IVWTransformTest(TestCase):
         obsd2 = ivw_metric_merge(obsd)
         self.assertEqual(obsd2, obsd)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMerge(self):
         obsd = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -37,6 +39,7 @@ class IVWTransformTest(TestCase):
         discrep = np.max(np.abs(obsd2.covariance - cov_true))
         self.assertTrue(discrep < 1e-8)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testNoiselessMerge(self):
         # One noiseless
         obsd = ObservationData(
@@ -64,6 +67,7 @@ class IVWTransformTest(TestCase):
         with self.assertRaises(ValueError):
             obsd2 = ivw_metric_merge(obsd, conflicting_noiseless="raise")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransform(self):
         obsd1_0 = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -93,6 +97,9 @@ class IVWTransformTest(TestCase):
             covariance=np.array([[0.5, 0.14], [0.14, 1.584]]),
         )
         observation_data = [obsd1_0, obsd1_1]
+        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
+        #  `None`.
+        # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got `None`.
         t = IVW(None, None, None)
         observation_data2 = t.transform_observation_data(observation_data, [])
         observation_data2_true = [obsd2_0, obsd2_1]

@@ -24,10 +24,17 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class MaxValueEntropySearchTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.training_data = [
             FixedNoiseDataset(
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
                 Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
                 Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),
@@ -51,9 +58,12 @@ class MaxValueEntropySearchTest(TestCase):
         )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_MaxValueEntropySearch(self):
         model = MaxValueEntropySearch()
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -138,18 +148,23 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
+        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -157,6 +172,7 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_MaxValueEntropySearch_MultiFidelity(self):
         search_space_digest = dataclasses.replace(
             self.search_space_digest,
@@ -164,6 +180,8 @@ class MaxValueEntropySearchTest(TestCase):
         )
         model = MaxValueEntropySearch()
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=search_space_digest,
@@ -238,6 +256,8 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -248,12 +268,15 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
+        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=search_space_digest,
@@ -261,10 +284,13 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_instantiate_MES(self):
 
         model = MaxValueEntropySearch()
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -276,6 +302,7 @@ class MaxValueEntropySearchTest(TestCase):
         # test acquisition setting
         X_dummy = torch.ones(1, 3, **self.tkwargs)
         candidate_set = torch.rand(10, 3, **self.tkwargs)
+        # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
         acq_function = _instantiate_MES(model=model.model, candidate_set=candidate_set)
 
         self.assertIsInstance(acq_function, qMaxValueEntropy)
@@ -287,13 +314,18 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertEqual(acq_function.maximize, True)
 
         acq_function = _instantiate_MES(
-            model=model.model, candidate_set=candidate_set, X_pending=X_dummy
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
+            model=model.model,
+            candidate_set=candidate_set,
+            X_pending=X_dummy,
         )
         self.assertTrue(torch.equal(acq_function.X_pending, X_dummy))
 
         # multi-fidelity tests
         model = MaxValueEntropySearch()
         model.fit(
+            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
+            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -305,15 +337,22 @@ class MaxValueEntropySearchTest(TestCase):
 
         candidate_set = torch.rand(10, 3, **self.tkwargs)
         acq_function = _instantiate_MES(
-            model=model.model, candidate_set=candidate_set, target_fidelities={2: 1.0}
+            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
+            model=model.model,
+            candidate_set=candidate_set,
+            target_fidelities={2: 1.0},
         )
         self.assertIsInstance(acq_function, qMultiFidelityMaxValueEntropy)
         Xs = [self.training_data[0].X()]
+        # pyre-fixme[29]: `Union[torch._tensor.Tensor,
+        #  torch.nn.modules.module.Module]` is not a function.
         self.assertEqual(acq_function.expand(Xs), Xs)
 
         # test error that target fidelity and fidelity weight indices must match
         with self.assertRaises(RuntimeError):
             _instantiate_MES(
+                # pyre-fixme[6]: For 1st param expected `Model` but got
+                #  `Optional[Model]`.
                 model=model.model,
                 candidate_set=candidate_set,
                 target_fidelities={1: 1.0},

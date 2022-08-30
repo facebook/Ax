@@ -134,6 +134,9 @@ from gpytorch.priors.torch_priors import GammaPrior
 from torch.nn import Module
 
 
+# pyre-fixme[5]: Global annotation cannot contain `Any`.
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
@@ -203,6 +206,9 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
+# pyre-fixme[5]: Global annotation cannot contain `Any`.
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
@@ -213,6 +219,8 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Transform: transform_type_to_dict,  # Ax general (not just MBM) component
 }
 
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "AbandonedArm": AbandonedArm,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
@@ -301,6 +309,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
 
 
 # Registry for class types, not instances.
+# pyre-fixme[5]: Global annotation cannot contain `Any`.
 CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,

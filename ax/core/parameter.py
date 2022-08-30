@@ -47,9 +47,12 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
     ParameterType.BOOL: bool,
 }
 
+# pyre-fixme[5]: Global expression must be annotated.
 SUPPORTED_PARAMETER_TYPES = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
 
 
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
 def _get_parameter_type(python_type: Type) -> ParameterType:
     """Given a Python type, retrieve corresponding Ax ``ParameterType``."""
     for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
@@ -120,6 +123,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         )
 
     def clone(self) -> Parameter:
+        # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
         pass  # pragma: no cover
 
     @property
@@ -174,11 +178,14 @@ class RangeParameter(Parameter):
         self._name = name
         self._parameter_type = parameter_type
         self._digits = digits
+        # pyre-fixme[4]: Attribute must be annotated.
         self._lower = self.cast(lower)
+        # pyre-fixme[4]: Attribute must be annotated.
         self._upper = self.cast(upper)
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
+        # pyre-fixme[4]: Attribute must be annotated.
         self._target_value = self.cast(target_value)
 
         self._validate_range_param(
@@ -431,17 +438,21 @@ class ChoiceParameter(Parameter):
         self._parameter_type = parameter_type
         self._is_task = is_task
         self._is_fidelity = is_fidelity
+        # pyre-fixme[4]: Attribute must be annotated.
         self._target_value = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
+        # pyre-fixme[4]: Attribute must be annotated.
         self._values = self._cast_values(values)
+        # pyre-fixme[4]: Attribute must be annotated.
         self._is_ordered = (
             is_ordered
             if is_ordered is not None
             else self._get_default_bool_and_warn(param_string="is_ordered")
         )
         # sort_values defaults to True if the parameter is not a string
+        # pyre-fixme[4]: Attribute must be annotated.
         self._sort_values = (
             sort_values
             if sort_values is not None
@@ -604,8 +615,10 @@ class FixedParameter(Parameter):
 
         self._name = name
         self._parameter_type = parameter_type
+        # pyre-fixme[4]: Attribute must be annotated.
         self._value = self.cast(value)
         self._is_fidelity = is_fidelity
+        # pyre-fixme[4]: Attribute must be annotated.
         self._target_value = self.cast(target_value)
         # NOTE: We don't need to check that dependent parameters actually exist as
         # that is done in `HierarchicalSearchSpace` constructor.

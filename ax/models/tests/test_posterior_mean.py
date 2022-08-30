@@ -16,8 +16,14 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 # TODO (jej): Streamline testing for a simple acquisition function.
 class PosteriorMeanTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
+        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **self.tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
@@ -33,8 +39,10 @@ class PosteriorMeanTest(TestCase):
             bounds=self.bounds,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_GetPosteriorMean(self):
 
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = BotorchModel(acqf_constructor=get_PosteriorMean)
         dataset = FixedNoiseDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)
         model.fit(
@@ -68,6 +76,7 @@ class PosteriorMeanTest(TestCase):
         )
 
         # test model.gen() works with chebyshev scalarization.
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_PosteriorMean)
         model.fit(
             datasets=[dataset, dataset],
@@ -94,7 +103,11 @@ class PosteriorMeanTest(TestCase):
         # ValueError with empty X_Observed
         with self.assertRaises(ValueError):
             get_PosteriorMean(
-                model=model, objective_weights=self.objective_weights, X_observed=None
+                # pyre-fixme[6]: For 1st param expected `Model` but got
+                #  `MultiObjectiveBotorchModel`.
+                model=model,
+                objective_weights=self.objective_weights,
+                X_observed=None,
             )
 
         # test model.predict()

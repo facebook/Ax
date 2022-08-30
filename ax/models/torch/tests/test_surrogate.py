@@ -43,11 +43,13 @@ UTILS_PATH = f"{fit_botorch_model.__module__}"
 
 
 class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
+    # pyre-fixme[3]: Return type must be annotated.
     def __init__(self, train_X: Tensor, train_Y: Tensor):
         super().__init__(train_X=train_X, train_Y=train_Y)
 
 
 class SurrogateTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.device = torch.device("cpu")
         self.dtype = torch.float
@@ -80,6 +82,8 @@ class SurrogateTest(TestCase):
             fixed_features=self.fixed_features,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _get_surrogate(self, botorch_model_class):
         surrogate = Surrogate(
             botorch_model_class=botorch_model_class, mll_class=self.mll_class
@@ -89,6 +93,8 @@ class SurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.Kernel")
     @patch(f"{CURRENT_PATH}.Likelihood")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_init(self, mock_Likelihood, mock_Kernel):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -96,6 +102,7 @@ class SurrogateTest(TestCase):
             self.assertEqual(surrogate.mll_class, self.mll_class)
 
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
+    # pyre-fixme[3]: Return type must be annotated.
     def test_mll_options(self, _):
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
@@ -111,6 +118,7 @@ class SurrogateTest(TestCase):
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_botorch_transforms(self):
         # Successfully passing down the transforms
         input_transform = Normalize(d=self.Xs[0].shape[-1])
@@ -144,6 +152,7 @@ class SurrogateTest(TestCase):
                 refit=self.refit,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_model_property(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -152,6 +161,7 @@ class SurrogateTest(TestCase):
             ):
                 surrogate.model
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_training_data_property(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -161,6 +171,7 @@ class SurrogateTest(TestCase):
             ):
                 surrogate.training_data
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_dtype_property(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -170,6 +181,7 @@ class SurrogateTest(TestCase):
             )
             self.assertEqual(self.dtype, surrogate.dtype)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_device_property(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -179,6 +191,7 @@ class SurrogateTest(TestCase):
             )
             self.assertEqual(self.device, surrogate.device)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_from_botorch(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate_kwargs = botorch_model_class.construct_inputs(
@@ -190,6 +203,8 @@ class SurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.__init__", return_value=None)
     @patch(f"{CURRENT_PATH}.SingleTaskGP.__init__", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_construct(self, mock_GP, mock_SAAS):
         mock_GPs = [mock_SAAS, mock_GP]
         for i, botorch_model_class in enumerate(
@@ -230,6 +245,7 @@ class SurrogateTest(TestCase):
                     training_data=self.training_data[0], some_option="some_value"
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct_custom_model(self):
         # Test error for unsupported covar_module and likelihood.
         surrogate = Surrogate(
@@ -253,17 +269,21 @@ class SurrogateTest(TestCase):
         surrogate.construct(self.training_data)
         self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
         self.assertEqual(
+            # pyre-fixme[16]: Optional type has no attribute `likelihood`.
             surrogate._model.likelihood.noise_covar.raw_noise_constraint,
             noise_constraint,
         )
         self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
         self.assertEqual(type(surrogate._model.covar_module), RBFKernel)
+        # pyre-fixme[16]: Optional type has no attribute `covar_module`.
         self.assertEqual(surrogate._model.covar_module.ard_num_dims, 1)
 
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_fit(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
         for mock_fit, botorch_model_class in zip(
             [mock_fit_saas, mock_fit_gpytorch],
@@ -318,6 +338,8 @@ class SurrogateTest(TestCase):
             mock_MLL.reset_mock()
 
     @patch(f"{SURROGATE_PATH}.predict_from_model")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_predict(self, mock_predict):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -328,6 +350,7 @@ class SurrogateTest(TestCase):
             surrogate.predict(X=self.Xs[0])
             mock_predict.assert_called_with(model=surrogate.model, X=self.Xs[0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_in_sample_point(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -379,8 +402,15 @@ class SurrogateTest(TestCase):
         f"{SURROGATE_PATH}.pick_best_out_of_sample_point_acqf_class",
         return_value=(qSimpleRegret, {Keys.SAMPLER: SobolQMCNormalSampler}),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_out_of_sample_point(
-        self, mock_best_point_util, mock_acqf_optimize, mock_acqf_init
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_best_point_util,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_acqf_optimize,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_acqf_init,
     ):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -417,6 +447,8 @@ class SurrogateTest(TestCase):
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_update(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, surrogate_kwargs = self._get_surrogate(
@@ -483,6 +515,7 @@ class SurrogateTest(TestCase):
                     refit=self.refit,
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_serialize_attributes_as_kwargs(self):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)

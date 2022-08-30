@@ -33,7 +33,9 @@ class CapParameter(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        # pyre-fixme[4]: Attribute must be annotated.
         self.config = config or {}
+        # pyre-fixme[4]: Attribute must be annotated.
         self.transform_parameters = {  # Only transform parameters in config.
             p_name for p_name in search_space.parameters if p_name in self.config
         }

@@ -22,6 +22,7 @@ class COLORS(enum.Enum):
 
 
 # colors to be used for plotting discrete series
+# pyre-fixme[5]: Global expression must be annotated.
 DISCRETE_COLOR_SCALE = [
     COLORS.STEELBLUE.value,
     COLORS.CORAL.value,

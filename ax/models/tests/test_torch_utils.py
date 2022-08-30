@@ -22,6 +22,7 @@ from botorch.models.model import Model
 
 
 class TorchUtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.device = torch.device("cpu")
         self.dtype = torch.double
@@ -36,6 +37,7 @@ class TorchUtilsTest(TestCase):
         self.moo_objective_weights = torch.ones(2, **tkwargs)
         self.objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_X_pending_and_observed(self):
         def _to_obs_set(X: torch.Tensor) -> Set[Tuple[float]]:
             return {tuple(float(x_i) for x_i in x) for x in X}
@@ -52,6 +54,7 @@ class TorchUtilsTest(TestCase):
             fixed_features=fixed_features,
         )
         expected = Xs[0][1:]
+        # pyre-fixme[6]: For 1st param expected `Tensor` but got `Optional[Tensor]`.
         self.assertEqual(_to_obs_set(expected), _to_obs_set(X_observed))
 
         # Filter too strict; return unfiltered X_observed
@@ -63,12 +66,14 @@ class TorchUtilsTest(TestCase):
             fixed_features=fixed_features,
         )
         expected = Xs[0]
+        # pyre-fixme[6]: For 1st param expected `Tensor` but got `Optional[Tensor]`.
         self.assertEqual(_to_obs_set(expected), _to_obs_set(X_observed))
 
     @patch(
         f"{get_botorch_objective_and_transform.__module__}.get_infeasible_cost",
         return_value=1.0,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_botorch_objective(self, _):
         # If there are outcome constraints, use a ConstrainedMCObjective
         obj, tf = get_botorch_objective_and_transform(

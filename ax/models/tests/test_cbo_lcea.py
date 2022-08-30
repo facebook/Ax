@@ -17,6 +17,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class LCEABOTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testLCEABO(self):
         train_X = torch.tensor(
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]
@@ -81,6 +82,7 @@ class LCEABOTest(TestCase):
                 bounds=[(0.0, 1.0) for _ in range(4)],
             ),
         )
+        # pyre-fixme[16]: Optional type has no attribute `decomposition`.
         self.assertDictEqual(m2.model.decomposition, {"1": [0, 2], "2": [1, 3]})
 
         # Test decomposition validation in get_and_fit_model

@@ -12,6 +12,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class TorchModelTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.dataset = FixedNoiseDataset(
             X=torch.zeros(1), Y=torch.zeros(1), Yvar=torch.ones(1)
@@ -22,6 +23,7 @@ class TorchModelTest(TestCase):
         )
         self.torch_opt_config = TorchOptConfig(objective_weights=torch.ones(1))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelFit(self):
         torch_model = TorchModel()
         torch_model.fit(
@@ -33,11 +35,13 @@ class TorchModelTest(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelPredict(self):
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
             torch_model.predict(torch.zeros(1))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelGen(self):
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
@@ -47,6 +51,7 @@ class TorchModelTest(TestCase):
                 torch_opt_config=self.torch_opt_config,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testNumpyTorchBestPoint(self):
         torch_model = TorchModel()
         x = torch_model.best_point(
@@ -55,6 +60,7 @@ class TorchModelTest(TestCase):
         )
         self.assertIsNone(x)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelCrossValidate(self):
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
@@ -65,6 +71,7 @@ class TorchModelTest(TestCase):
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTorchModelUpdate(self):
         model = TorchModel()
         with self.assertRaises(NotImplementedError):

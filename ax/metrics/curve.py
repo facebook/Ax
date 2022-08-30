@@ -27,12 +27,14 @@ from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
 class AbstractCurveMetric(MapMetric, ABC):
     """Metric representing (partial) learning curves of ML model training jobs."""
 
+    # pyre-fixme[4]: Attribute must be annotated.
     MAP_KEY = MapKeyInfo(key="training_rows", default_value=0.0)
 
     def __init__(

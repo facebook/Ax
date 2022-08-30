@@ -16,6 +16,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class RangeParameterTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.param1 = RangeParameter(
             name="x",
@@ -40,6 +41,7 @@ class RangeParameterTest(TestCase):
             "RangeParameter(name='y', parameter_type=INT, range=[10, 15])"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         param2 = RangeParameter(
             name="x",
@@ -54,6 +56,7 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1, param2)
         self.assertNotEqual(self.param1, self.param2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.FLOAT)
@@ -68,16 +71,19 @@ class RangeParameterTest(TestCase):
         self.assertFalse(self.param2.is_fidelity)
         self.assertIsNone(self.param2.target_value)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate("foo"))
         self.assertTrue(self.param1.validate(1))
         self.assertTrue(self.param1.validate(1.3))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
         self.assertEqual(str(self.param2), self.param2_repr)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadCreations(self):
         with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.STRING, 1, 3)
@@ -94,11 +100,14 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.INT, 0.5, 1, is_fidelity=True)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadSetter(self):
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `Optional[float]` but got `str`.
             self.param1.update_range(upper="foo")
 
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 1st param expected `Optional[float]` but got `str`.
             self.param1.update_range(lower="foo")
 
         with self.assertRaises(UserInputError):
@@ -110,6 +119,7 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(UserInputError):
             self.param1.update_range(lower=1.0, upper=0.9)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testGoodSetter(self):
         self.param1.update_range(lower=1.0)
         self.param1.update_range(upper=1.0011)
@@ -126,11 +136,13 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1.lower, 2.0)
         self.assertEqual(self.param1.upper, 3.0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCast(self):
         self.assertEqual(self.param2.cast(2.5), 2)
         self.assertEqual(self.param2.cast(3), 3)
         self.assertEqual(self.param2.cast(None), None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         param_clone = self.param1.clone()
         self.assertEqual(self.param1.lower, param_clone.lower)
@@ -138,6 +150,7 @@ class RangeParameterTest(TestCase):
         param_clone._lower = 2.0
         self.assertNotEqual(self.param1.lower, param_clone.lower)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_parameter_type(self):
         self.assertEqual(_get_parameter_type(float), ParameterType.FLOAT)
         self.assertEqual(_get_parameter_type(int), ParameterType.INT)
@@ -146,6 +159,7 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(ValueError):
             _get_parameter_type(dict)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         param2 = RangeParameter(
             name="z",
@@ -155,6 +169,7 @@ class RangeParameterTest(TestCase):
         )
         self.assertTrue(self.param1 < param2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHierarchicalValidation(self):
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
@@ -162,6 +177,7 @@ class RangeParameterTest(TestCase):
 
 
 class ChoiceParameterTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.param1 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
@@ -199,6 +215,7 @@ class ChoiceParameterTest(TestCase):
             "values=[1, 2], is_ordered=True, sort_values=True)"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadCreations(self):
         with self.assertRaises(UserInputError):
             ChoiceParameter(
@@ -208,6 +225,7 @@ class ChoiceParameterTest(TestCase):
                 is_fidelity=True,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         param4 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
@@ -220,6 +238,7 @@ class ChoiceParameterTest(TestCase):
         )
         self.assertNotEqual(self.param1, param5)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.STRING)
@@ -238,6 +257,10 @@ class ChoiceParameterTest(TestCase):
             name="x", parameter_type=ParameterType.INT, values=[2, 1, 3]
         )
         self.assertTrue(int_param.is_ordered)
+        # pyre-fixme[6]: For 1st param expected
+        #  `Iterable[Variable[SupportsRichComparisonT (bound to
+        #  Union[SupportsDunderGT[typing.Any], SupportsDunderLT[typing.Any]])]]` but
+        #  got `List[Union[None, bool, float, int, str]]`.
         self.assertListEqual(int_param.values, sorted(int_param.values))
         float_param = ChoiceParameter(
             name="x", parameter_type=ParameterType.FLOAT, values=[1.5, 2.5, 3.5]
@@ -248,17 +271,20 @@ class ChoiceParameterTest(TestCase):
         )
         self.assertFalse(string_param.is_ordered)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
         self.assertEqual(str(self.param3), self.param3_repr)
         self.assertEqual(str(self.param4), self.param4_repr)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate(3))
         for value in ["foo", "bar", "baz"]:
             self.assertTrue(self.param1.validate(value))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSetter(self):
         self.param1.add_values(["bin"])
         self.assertTrue(self.param1.validate("bin"))
@@ -268,6 +294,7 @@ class ChoiceParameterTest(TestCase):
         self.assertTrue(self.param1.validate("bar"))
         self.assertFalse(self.param1.validate("foo"))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSingleValue(self):
         with self.assertRaises(UserInputError):
             ChoiceParameter(
@@ -276,6 +303,7 @@ class ChoiceParameterTest(TestCase):
         with self.assertRaises(UserInputError):
             self.param1.set_values(["foo"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         param_clone = self.param1.clone()
         self.assertEqual(len(self.param1.values), len(param_clone.values))
@@ -284,6 +312,7 @@ class ChoiceParameterTest(TestCase):
         param_clone._values.append("boo")
         self.assertNotEqual(len(self.param1.values), len(param_clone.values))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHierarchicalValidation(self):
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
@@ -293,15 +322,20 @@ class ChoiceParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.BOOL,
                 values=[True, False],
+                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
+                #  bool, float, int, str], List[str]]]` but got `Dict[str, str]`.
                 dependents={"not_a_value": "other_param"},
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHierarchical(self):
         # Test case where only some of the values entail dependents.
         hierarchical_param = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.BOOL,
             values=[True, False],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
+            #  float, int, str], List[str]]]` but got `Dict[bool, str]`.
             dependents={True: "other_param"},
         )
         self.assertTrue(hierarchical_param.is_hierarchical)
@@ -312,6 +346,8 @@ class ChoiceParameterTest(TestCase):
             name="x",
             parameter_type=ParameterType.STRING,
             values=["a", "b"],
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
+            #  float, int, str], List[str]]]` but got `Dict[str, str]`.
             dependents={"a": "other_param", "b": "third_param"},
         )
         self.assertTrue(hierarchical_param_2.is_hierarchical)
@@ -325,17 +361,21 @@ class ChoiceParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.STRING,
                 values=["a", "b"],
+                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
+                #  bool, float, int, str], List[str]]]` but got `Dict[str, str]`.
                 dependents={"c": "other_param"},
             )
 
 
 class FixedParameterTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.param1 = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
         )
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testBadCreations(self):
         with self.assertRaises(UserInputError):
             FixedParameter(
@@ -345,6 +385,7 @@ class FixedParameterTest(TestCase):
                 is_fidelity=True,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         param2 = FixedParameter(name="x", parameter_type=ParameterType.BOOL, value=True)
         self.assertEqual(self.param1, param2)
@@ -354,27 +395,32 @@ class FixedParameterTest(TestCase):
         )
         self.assertNotEqual(self.param1, param3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testProperties(self):
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.BOOL)
         self.assertEqual(self.param1.value, True)
         self.assertFalse(self.param1.is_numeric)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         self.assertEqual(str(self.param1), self.param1_repr)
         self.param1._is_fidelity = True
         self.assertNotEqual(str(self.param1), self.param1_repr)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidate(self):
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate("foo"))
         self.assertFalse(self.param1.validate(False))
         self.assertTrue(self.param1.validate(True))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSetter(self):
         self.param1.set_value(False)
         self.assertEqual(self.param1.value, False)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         param_clone = self.param1.clone()
         self.assertEqual(self.param1.value, param_clone.value)
@@ -382,22 +428,27 @@ class FixedParameterTest(TestCase):
         param_clone._value = False
         self.assertNotEqual(self.param1.value, param_clone.value)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testCast(self):
         self.assertEqual(self.param1.cast(1), True)
         self.assertEqual(self.param1.cast(False), False)
         self.assertEqual(self.param1.cast(None), None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHierarchicalValidation(self):
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHierarchical(self):
         # Test case where only some of the values entail dependents.
         hierarchical_param = FixedParameter(
             name="x",
             parameter_type=ParameterType.BOOL,
             value=True,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None, bool,
+            #  float, int, str], List[str]]]` but got `Dict[bool, str]`.
             dependents={True: "other_param"},
         )
         self.assertTrue(hierarchical_param.is_hierarchical)
@@ -409,11 +460,14 @@ class FixedParameterTest(TestCase):
                 name="x",
                 parameter_type=ParameterType.BOOL,
                 value=True,
+                # pyre-fixme[6]: For 4th param expected `Optional[Dict[Union[None,
+                #  bool, float, int, str], List[str]]]` but got `Dict[bool, str]`.
                 dependents={False: "other_param"},
             )
 
 
 class ParameterEqualityTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.fixed_parameter = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
@@ -422,5 +476,6 @@ class ParameterEqualityTest(TestCase):
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testNotEqual(self):
         self.assertNotEqual(self.fixed_parameter, self.choice_parameter)

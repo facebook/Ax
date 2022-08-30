@@ -44,6 +44,7 @@ from ax.utils.stats.statstools import relativize_data
 from numpy import NaN
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -675,6 +676,11 @@ def _filter_feasible_rows(
     # Nested function from OC -> Mask for consumption in later map/reduce from
     # [OC] -> Mask. Constraint relativity is handled inside so long as relative bounds
     # are set in surrounding closure (which will occur in proper experiment setup).
+    # pyre-fixme[53]: Captured variable `lower_bound` is not annotated.
+    # pyre-fixme[53]: Captured variable `name` is not annotated.
+    # pyre-fixme[53]: Captured variable `rel_lower_bound` is not annotated.
+    # pyre-fixme[53]: Captured variable `rel_upper_bound` is not annotated.
+    # pyre-fixme[53]: Captured variable `upper_bound` is not annotated.
     def oc_mask(oc: OutcomeConstraint) -> pd.Series:
         name_match_mask = name == oc.metric.name
 

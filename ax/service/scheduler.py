@@ -806,6 +806,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         max_trials: int,
         timeout_hours: Optional[int] = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Optional[Callable[[Scheduler], Any]] = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
@@ -851,6 +852,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def run_all_trials(
         self,
         timeout_hours: Optional[int] = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Optional[Callable[[Scheduler], Any]] = None,
     ) -> OptimizationResult:
         """Run all trials until ``completion_criterion`` is reached (by default,
@@ -1147,6 +1149,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _complete_optimization(
         self,
         num_preexisting_trials: int,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Optional[Callable[[Scheduler], Any]] = None,
     ) -> Dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
@@ -1357,6 +1360,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 batch.
         """
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def _process_trial(trial):
             if trial.index in metadata:
                 trial.update_run_metadata(metadata=metadata[trial.index])

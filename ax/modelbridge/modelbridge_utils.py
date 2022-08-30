@@ -65,6 +65,7 @@ from botorch.utils.multi_objective.box_decompositions.dominated import (
 )
 from torch import Tensor
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -204,6 +205,9 @@ def extract_robust_digest(
         # NOTE: Extracting it from `param_names` in case the ordering is different.
         environmental_variables = param_names[num_non_env_vars:]
 
+        # pyre-fixme[53]: Captured variable `env_vars` is not annotated.
+        # pyre-fixme[53]: Captured variable `num_non_env_vars` is not annotated.
+        # pyre-fixme[53]: Captured variable `num_samples` is not annotated.
         def sample_environmental() -> np.ndarray:
             """Get samples from the environmental distributions.
 
@@ -229,6 +233,9 @@ def extract_robust_digest(
     if len(pert_params) > 0:
         constructor = np.ones if search_space.multiplicative else np.zeros
 
+        # pyre-fixme[53]: Captured variable `constructor` is not annotated.
+        # pyre-fixme[53]: Captured variable `env_vars` is not annotated.
+        # pyre-fixme[53]: Captured variable `num_samples` is not annotated.
         def sample_param_perturbations() -> np.ndarray:
             """Get samples of the input perturbations.
 

@@ -43,6 +43,7 @@ class ALEBOInitializer(UniformGenerator):
         init_bound: int = 16,
         seed: Optional[int] = None,
     ) -> None:
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Q = np.linalg.pinv(B) @ B  # Projects down to B and then back up
         self.nsamp = nsamp
         self.init_bound = init_bound

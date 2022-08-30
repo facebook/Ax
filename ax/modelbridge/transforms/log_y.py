@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -60,11 +61,14 @@ class LogY(Transform):
             observation_data=observation_data,
             config=config,
         )
+        # pyre-fixme[4]: Attribute must be annotated.
         self.metric_names = metric_names
         if config.get("match_ci_width", False):
             # perform moment-matching to compute variance that results in a CI
             # of same width as the when transforming the moments
+            # pyre-fixme[4]: Attribute must be annotated.
             self._transform = lambda m, v: match_ci_width(m, v, np.log)
+            # pyre-fixme[4]: Attribute must be annotated.
             self._untransform = lambda m, v: match_ci_width(m, v, np.exp)
         else:
             self._transform = lognorm_to_norm

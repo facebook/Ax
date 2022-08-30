@@ -32,7 +32,11 @@ from ax.utils.testing.modeling_stubs import get_observation
     "ax.modelbridge.base.gen_arms", autospec=True, return_value=[Arm(parameters={})]
 )
 def get_modelbridge(
-    mock_gen_arms, mock_observations_from_data, status_quo_name: Optional[str] = None
+    # pyre-fixme[2]: Parameter must be annotated.
+    mock_gen_arms,
+    # pyre-fixme[2]: Parameter must be annotated.
+    mock_observations_from_data,
+    status_quo_name: Optional[str] = None,
 ) -> ModelBridge:
     exp = get_experiment()
     modelbridge = ModelBridge(
@@ -51,6 +55,7 @@ def get_modelbridge(
 
 
 class TileFittedTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testTileFitted(self):
         model = get_modelbridge(status_quo_name=None)
 
@@ -111,11 +116,14 @@ class TileFittedTest(TestCase):
 
 
 class TileObservationsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testTileObservations(self):
         exp = get_experiment_with_data()
         exp.trials[0].run()
         exp.trials[0].mark_completed()
         exp.add_tracking_metric(Metric("ax_test_metric"))
+        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
+        #  `dict_values[str, Parameter]`.
         exp.search_space = SearchSpace(parameters=exp.search_space.parameters.values())
         config = tile_observations(experiment=exp, arm_names=["0_1", "0_2"], rel=False)
 

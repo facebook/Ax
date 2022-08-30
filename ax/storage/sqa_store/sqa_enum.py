@@ -14,11 +14,16 @@ from sqlalchemy import types
 class BaseNullableEnum(types.TypeDecorator):
     cache_ok = True
 
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def __init__(self, enum: Any, *arg: List[Any], **kw: Dict[Any, Any]) -> None:
         types.TypeDecorator.__init__(self, *arg, **kw)
+        # pyre-fixme[4]: Attribute must be annotated.
         self._member_map = enum._member_map_
+        # pyre-fixme[4]: Attribute must be annotated.
         self._value2member_map = enum._value2member_map_
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if value is None:
             return value  # pragma: no cover
@@ -33,6 +38,8 @@ class BaseNullableEnum(types.TypeDecorator):
             )
         return val._value_
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is None:
             return value  # pragma: no cover

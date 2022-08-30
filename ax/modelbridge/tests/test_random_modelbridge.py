@@ -22,6 +22,7 @@ from ax.utils.testing.core_stubs import get_small_discrete_search_space
 
 
 class RandomModelBridgeTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
         y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
@@ -32,12 +33,18 @@ class RandomModelBridgeTest(TestCase):
             SumConstraint([x, z], False, 3.5),
         ]
 
+        # pyre-fixme[6]: For 2nd param expected
+        #  `Optional[List[ParameterConstraint]]` but got `List[Union[OrderConstraint,
+        #  SumConstraint]]`.
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
 
         self.model_gen_options = {"option": "yes"}
 
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testFit(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
         modelbridge._fit(model, self.search_space, None, None)
@@ -45,7 +52,10 @@ class RandomModelBridgeTest(TestCase):
         self.assertTrue(isinstance(modelbridge.model, RandomModel))
 
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testPredict(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
@@ -53,11 +63,15 @@ class RandomModelBridgeTest(TestCase):
             modelbridge._predict([])
 
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testCrossValidate(self, mock_init):
+        # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             modelbridge._cross_validate(None, [], [], [])
 
     @mock.patch(
@@ -69,8 +83,11 @@ class RandomModelBridgeTest(TestCase):
         ),
     )
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def testGen(self, mock_init, mock_gen):
         # Test with constraints
+        # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
@@ -81,6 +98,9 @@ class RandomModelBridgeTest(TestCase):
             pending_observations={},
             fixed_features=ObservationFeatures({"z": 3.0}),
             optimization_config=None,
+            # pyre-fixme[6]: For 6th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, str]`.
             model_gen_options=self.model_gen_options,
         )
         gen_args = mock_gen.mock_calls[0][2]
@@ -111,6 +131,9 @@ class RandomModelBridgeTest(TestCase):
             pending_observations={},
             fixed_features=ObservationFeatures({}),
             optimization_config=None,
+            # pyre-fixme[6]: For 6th param expected `Optional[Dict[str, Union[None,
+            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
+            #  int, str]]]` but got `Dict[str, str]`.
             model_gen_options=self.model_gen_options,
         )
         gen_args = mock_gen.mock_calls[1][2]
@@ -118,6 +141,7 @@ class RandomModelBridgeTest(TestCase):
         self.assertIsNone(gen_args["linear_constraints"])
         self.assertIsNone(gen_args["fixed_features"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_deduplicate(self):
         sobol = RandomModelBridge(
             search_space=get_small_discrete_search_space(),

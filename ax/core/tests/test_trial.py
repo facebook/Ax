@@ -32,16 +32,19 @@ TEST_DATA = Data(
 
 
 class TrialTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.experiment = get_experiment()
         self.trial = self.experiment.new_trial()
         self.arm = get_arms()[0]
         self.trial.add_arm(self.arm)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_eq(self):
         new_trial = self.experiment.new_trial()
         self.assertNotEqual(self.trial, new_trial)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_basic_properties(self):
         self.assertEqual(self.experiment, self.trial.experiment)
         self.assertEqual(self.trial.index, 0)
@@ -66,12 +69,17 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.status.is_completed)
         self.assertTrue(self.trial.completed_successfully)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_adding_new_trials(self):
         new_arm = get_arms()[1]
         cand_metadata = {new_arm.signature: {"a": "b"}}
         new_trial = self.experiment.new_trial(
             generator_run=GeneratorRun(
-                arms=[new_arm], candidate_metadata_by_arm_signature=cand_metadata
+                arms=[new_arm],
+                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str,
+                #  Optional[Dict[str, typing.Any]]]]` but got `Dict[str, Dict[str,
+                #  str]]`.
+                candidate_metadata_by_arm_signature=cand_metadata,
             )
         )
         with self.assertRaises(ValueError):
@@ -90,6 +98,7 @@ class TrialTest(TestCase):
             ValueError, new_trial._get_candidate_metadata, "this_is_not_an_arm"
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_add_trial_same_arm(self):
         # Check that adding new arm w/out name works correctly.
         new_trial1 = self.experiment.new_trial(
@@ -110,6 +119,7 @@ class TrialTest(TestCase):
                 generator_run=GeneratorRun(arms=[arm_wrong_name])
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_abandonment(self):
         self.assertFalse(self.trial.status.is_abandoned)
         self.trial.mark_abandoned(reason="testing")
@@ -117,6 +127,7 @@ class TrialTest(TestCase):
         self.assertFalse(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_mark_as(self):
         for terminal_status in (
             TrialStatus.ABANDONED,
@@ -152,6 +163,7 @@ class TrialTest(TestCase):
                 else:
                     self.assertFalse(self.trial.status.expecting_data)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_stop(self):
         # test bad old status
         with self.assertRaisesRegex(ValueError, "Can only stop STAGED or RUNNING"):
@@ -189,16 +201,19 @@ class TrialTest(TestCase):
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
         return_value=TEST_DATA,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_objective_mean(self, _mock):
         self.assertEqual(self.trial.objective_mean, 1.0)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data", return_value=Data()
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_objective_mean_empty_df(self, _mock):
         with self.assertRaisesRegex(ValueError, "No data was retrieved for trial"):
             self.assertIsNone(self.trial.objective_mean)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRepr(self):
         repr_ = (
             "Trial(experiment_name='test', index=0, "
@@ -207,11 +222,13 @@ class TrialTest(TestCase):
         )
         self.assertEqual(str(self.trial), repr_)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_run_metadata(self):
         self.assertEqual(len(self.trial.run_metadata), 0)
         self.trial.update_run_metadata({"something": "new"})
         self.assertEqual(self.trial.run_metadata, {"something": "new"})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_stop_metadata(self):
         self.assertEqual(len(self.trial.stop_metadata), 0)
         self.trial.update_stop_metadata({"something": "new"})

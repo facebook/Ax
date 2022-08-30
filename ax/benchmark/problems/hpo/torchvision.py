@@ -72,6 +72,7 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
     """
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         pytorch_cnn_runner = checked_cast(PyTorchCNNRunner, obj)
 

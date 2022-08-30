@@ -26,6 +26,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class UtilsTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.df = pd.DataFrame(
             [
@@ -109,11 +110,13 @@ class UtilsTest(TestCase):
             ],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_missing_metrics_by_name(self):
         expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
         actual = get_missing_metrics_by_name(self.data, ["a", "b"])
         self.assertEqual(actual, expected)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_missing_metrics(self):
         expected = MissingMetrics(
             {"a": {("0_1", 1)}},
@@ -123,6 +126,7 @@ class UtilsTest(TestCase):
         actual = get_missing_metrics(self.data, self.optimization_config)
         self.assertEqual(actual, expected)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_feasible_objective(self):
         bfo = best_feasible_objective(
             self.optimization_config,
@@ -130,6 +134,7 @@ class UtilsTest(TestCase):
         )
         self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_feasible_hypervolume(self):
         ma = Metric(name="a", lower_is_better=False)
         mb = Metric(name="b", lower_is_better=True)

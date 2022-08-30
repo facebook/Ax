@@ -23,6 +23,7 @@ OUTCOME_CONSTRAINT_PATH = "ax.core.outcome_constraint"
 
 
 class OutcomeConstraintTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.minimize_metric = Metric(name="bar", lower_is_better=True)
         self.maximize_metric = Metric(name="baz", lower_is_better=False)
@@ -32,6 +33,7 @@ class OutcomeConstraintTest(TestCase):
             metric=simple_metric, op=ComparisonOp.GEQ, bound=self.bound
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         constraint1 = OutcomeConstraint(
             metric=Metric(name="foo"), op=ComparisonOp.GEQ, bound=self.bound
@@ -46,12 +48,14 @@ class OutcomeConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint1, constraint3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidMutations(self):
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.constraint.metric = self.maximize_metric
         self.constraint.op = ComparisonOp.LEQ
         self.assertEqual(self.constraint.metric.name, "baz")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testOutcomeConstraintFail(self):
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
         with mock.patch(logger_name) as mock_warning:
@@ -69,6 +73,7 @@ class OutcomeConstraintTest(TestCase):
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSortable(self):
         constraint1 = OutcomeConstraint(
             metric=Metric(name="foo"), op=ComparisonOp.LEQ, bound=self.bound
@@ -80,6 +85,7 @@ class OutcomeConstraintTest(TestCase):
 
 
 class ObjectiveThresholdTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.minimize_metric = Metric(name="bar", lower_is_better=True)
         self.maximize_metric = Metric(name="baz", lower_is_better=False)
@@ -89,6 +95,7 @@ class ObjectiveThresholdTest(TestCase):
             metric=self.maximize_metric, op=ComparisonOp.GEQ, bound=self.bound
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         threshold1 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
         threshold2 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
@@ -104,12 +111,14 @@ class ObjectiveThresholdTest(TestCase):
         )
         self.assertNotEqual(threshold1, constraint3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidMutations(self):
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.threshold.metric = self.ambiguous_metric
         self.threshold.op = ComparisonOp.LEQ
         self.assertEqual(self.threshold.metric.name, "buz")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testObjectiveThresholdFail(self):
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
         with mock.patch(logger_name) as mock_warning:
@@ -127,6 +136,7 @@ class ObjectiveThresholdTest(TestCase):
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRelativize(self):
         self.assertTrue(
             ObjectiveThreshold(
@@ -152,6 +162,7 @@ class ObjectiveThresholdTest(TestCase):
 
 
 class ScalarizedOutcomeConstraintTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.metrics = [
             Metric(name="m1", lower_is_better=True),
@@ -167,6 +178,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
             bound=self.bound,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         self.assertListEqual(self.constraint.metrics, self.metrics)
         self.assertListEqual(self.constraint.weights, self.weights)
@@ -189,6 +201,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         )
         self.assertListEqual(con.weights, [0.5, 0.5])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testEq(self):
         constraint1 = ScalarizedOutcomeConstraint(
             metrics=self.metrics,
@@ -206,9 +219,11 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint2, self.constraint)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testClone(self):
         self.assertEqual(self.constraint, self.constraint.clone())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testValidMutations(self):
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.constraint.metrics = [
@@ -217,6 +232,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         ]
         self.constraint.op = ComparisonOp.LEQ
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testRaiseError(self):
         # set a wrong weights
         with self.assertRaises(ValueError):

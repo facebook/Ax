@@ -27,17 +27,25 @@ class JSONEncodedObject(TypeDecorator):
     cache_ok = True
 
     def __init__(
-        self, object_pairs_hook: Any = None, *args: List[Any], **kwargs: Dict[Any, Any]
+        self,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+        object_pairs_hook: Any = None,
+        *args: List[Any],
+        **kwargs: Dict[Any, Any],
     ) -> None:
+        # pyre-fixme[4]: Attribute annotation cannot be `Any`.
         self.object_pairs_hook: Any = object_pairs_hook
         super().__init__(*args, **kwargs)
 
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_bind_param(self, value: Any, dialect: Any) -> Optional[str]:
         if value is not None:
             return json.dumps(value)
         else:
             return None
 
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is not None:
             try:  # TODO T61331534: revert this; just a hotfix for AutoML
@@ -86,7 +94,11 @@ class JSONEncodedLongText(JSONEncodedObject):
     impl = Text(LONGTEXT_BYTES)
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 JSONEncodedList = MutableList.as_mutable(JSONEncodedObject)
+# pyre-fixme[5]: Global expression must be annotated.
 JSONEncodedDict = MutableDict.as_mutable(JSONEncodedObject)
+# pyre-fixme[5]: Global expression must be annotated.
 JSONEncodedTextDict = MutableDict.as_mutable(JSONEncodedText)
+# pyre-fixme[5]: Global expression must be annotated.
 JSONEncodedLongTextDict = MutableDict.as_mutable(JSONEncodedLongText)

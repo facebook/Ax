@@ -80,7 +80,11 @@ class TestScheduler(Scheduler):
     testing.
     """
 
+    # pyre-fixme[15]: `report_results` overrides method defined in `Scheduler`
+    #  inconsistently.
     def report_results(self) -> Tuple[bool, Dict[str, Set[int]]]:
+        # pyre-fixme[7]: Expected `Tuple[bool, Dict[str, Set[int]]]` but got
+        #  `Dict[str, Set[int]]`.
         return {
             # Use `set` constructor to copy the set, else the value
             # will be a pointer and all will be the same.
@@ -96,6 +100,7 @@ class TestScheduler(Scheduler):
 class EarlyStopsInsteadOfNormalCompletionScheduler(TestScheduler):
     """Test scheduler that marks all trials as ones that should be early-stopped."""
 
+    # pyre-fixme[3]: Return type must be annotated.
     def should_stop_trials_early(self, trial_indices: Set[int]):
         return {i: None for i in trial_indices}
 
@@ -138,6 +143,7 @@ class NoReportResultsRunner(SyntheticRunner):
 
 
 class InfinitePollRunner(SyntheticRunner):
+    # pyre-fixme[3]: Return type must be annotated.
     def poll_trial_status(self, trials: Iterable[BaseTrial]):
         return {}
 
@@ -145,6 +151,7 @@ class InfinitePollRunner(SyntheticRunner):
 class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
     poll_trial_status_count = 0
 
+    # pyre-fixme[3]: Return type must be annotated.
     def poll_trial_status(self, trials: Iterable[BaseTrial]):
         self.poll_trial_status_count += 1
 
@@ -163,6 +170,10 @@ class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
+    # pyre-fixme[14]: `run_multiple` overrides method defined in `Runner`
+    #  inconsistently.
+    # pyre-fixme[15]: `run_multiple` overrides method defined in `Runner`
+    #  inconsistently.
     def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
         self.run_trial_call_count += 1
         raise ValueError("Failing for testing purposes.")
@@ -172,6 +183,10 @@ class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
+    # pyre-fixme[14]: `run_multiple` overrides method defined in `Runner`
+    #  inconsistently.
+    # pyre-fixme[15]: `run_multiple` overrides method defined in `Runner`
+    #  inconsistently.
     def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
         self.run_trial_call_count += 1
         raise RuntimeError("Failing for testing purposes.")
@@ -180,6 +195,7 @@ class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
 class TestAxScheduler(TestCase):
     """Tests base `Scheduler` functionality."""
 
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.branin_experiment = get_branin_experiment()
         self.branin_timestamp_map_metric_experiment = (
@@ -216,6 +232,7 @@ class TestAxScheduler(TestCase):
             steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, max_parallelism=1)]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init(self):
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -257,9 +274,12 @@ class TestAxScheduler(TestCase):
         # `_latest_optimization_start_timestamp` should be set now.
         self.assertLessEqual(
             scheduler._latest_optimization_start_timestamp,
+            # pyre-fixme[6]: For 2nd param expected `SupportsDunderGT[Variable[_T]]`
+            #  but got `int`.
             current_timestamp_in_millis(),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_repr(self):
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -288,6 +308,7 @@ class TestAxScheduler(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_validate_early_stopping_strategy(self):
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
@@ -328,6 +349,8 @@ class TestAxScheduler(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
         return_value=[get_generator_run()],
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_run_multi_arm_generator_run_error(self, mock_gen):
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -345,6 +368,8 @@ class TestAxScheduler(TestCase):
         ),
         side_effect=get_pending_observation_features_based_on_trial_status,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_run_all_trials_using_runner_and_metrics(self, mock_get_pending):
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
@@ -352,6 +377,7 @@ class TestAxScheduler(TestCase):
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 total_trials=8,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -388,6 +414,7 @@ class TestAxScheduler(TestCase):
             [],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_all_trials_callback(self):
         n_total_trials = 8
 
@@ -396,11 +423,13 @@ class TestAxScheduler(TestCase):
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 total_trials=n_total_trials,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
         trials_info = {"n_completed": 0}
 
+        # pyre-fixme[53]: Captured variable `trials_info` is not annotated.
         def write_n_trials(scheduler: Scheduler) -> None:
             trials_info["n_completed"] = len(scheduler.experiment.trials)
 
@@ -408,12 +437,15 @@ class TestAxScheduler(TestCase):
         scheduler.run_all_trials(idle_callback=write_n_trials)
         self.assertTrue(trials_info["n_completed"] == n_total_trials)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     def base_run_n_trials(self, idle_callback: Optional[Callable[[Scheduler], Any]]):
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -428,12 +460,15 @@ class TestAxScheduler(TestCase):
         dat = scheduler.experiment.fetch_data().df
         self.assertEqual(set(dat["trial_index"].values), set(range(11)))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_n_trials(self):
         self.base_run_n_trials(None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_n_trials_callback(self):
         test_obj = [0, 0]
 
+        # pyre-fixme[53]: Captured variable `test_obj` is not annotated.
         def _callback(scheduler: Scheduler) -> None:
             test_obj[0] = scheduler._latest_optimization_start_timestamp
             test_obj[1] = "apple"
@@ -444,6 +479,7 @@ class TestAxScheduler(TestCase):
         self.assertFalse(test_obj[0] == 0)
         self.assertTrue(test_obj[1] == "apple")
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_preattached_trials_only(self):
         # assert that pre-attached trials run when max_trials = number of
         # pre-attached trials
@@ -451,11 +487,14 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
         trial = scheduler.experiment.new_trial()
         parameter_dict = {"x1": 5, "x2": 5}
+        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
+        #  int, str]]` but got `Dict[str, int]`.
         trial.add_arm(Arm(parameters=parameter_dict))
         with self.assertRaisesRegex(
             UserInputError, "number of pre-attached candidate trials .* is greater than"
@@ -464,18 +503,22 @@ class TestAxScheduler(TestCase):
         scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
         self.assertDictEqual(
-            scheduler.experiment.trials[0].arm.parameters, parameter_dict
+            # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
+            scheduler.experiment.trials[0].arm.parameters,
+            parameter_dict,
         )
         self.assertTrue(  # Make sure all trials got to complete.
             all(t.completed_successfully for t in scheduler.experiment.trials.values())
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_stop_trial(self):
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -487,6 +530,7 @@ class TestAxScheduler(TestCase):
             mock_runner_stop.assert_called_once()
 
     @patch(f"{Scheduler.__module__}.MAX_SECONDS_BETWEEN_REPORTS", 2)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_stop_at_MAX_SECONDS_BETWEEN_REPORTS(self):
         self.branin_experiment.runner = InfinitePollRunner()
         scheduler = Scheduler(
@@ -500,6 +544,7 @@ class TestAxScheduler(TestCase):
         with patch.object(
             scheduler, "wait_for_completed_trials_and_report_results", return_value=None
         ) as mock_await_trials:
+            # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
             scheduler.run_all_trials(timeout_hours=1 / 60 / 15)  # 4 second timeout.
             # We should be calling `wait_for_completed_trials_and_report_results`
             # N = total runtime / `test_stop_at_MAX_SECONDS_BETWEEN_REPORTS` times.
@@ -508,6 +553,7 @@ class TestAxScheduler(TestCase):
                 2,  # test_stop_at_MAX_SECONDS_BETWEEN_REPORTS as patched in decorator
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_timeout(self):
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -521,6 +567,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(len(scheduler.experiment.trials), 0)
         self.assertIn("aborted", scheduler.experiment._properties["run_trials_success"])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_logging(self):
         with NamedTemporaryFile() as temp_file:
             Scheduler(
@@ -536,6 +583,7 @@ class TestAxScheduler(TestCase):
             self.assertIn("Running trials [0]", str(temp_file.readline()))
             temp_file.close()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_logging_level(self):
         # We don't have any warnings yet, so warning level of logging shouldn't yield
         # any logs as of now.
@@ -554,6 +602,7 @@ class TestAxScheduler(TestCase):
             self.assertEqual(os.stat(temp_file.name).st_size, 0)
             temp_file.close()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_retries(self):
         # Check that retries will be performed for a retriable error.
         self.branin_experiment.runner = BrokenRunnerRuntimeError()
@@ -565,8 +614,10 @@ class TestAxScheduler(TestCase):
         # Should raise after 3 retries.
         with self.assertRaisesRegex(RuntimeError, ".* testing .*"):
             scheduler.run_all_trials()
+            # pyre-fixme[16]: `Scheduler` has no attribute `run_trial_call_count`.
             self.assertEqual(scheduler.run_trial_call_count, 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_retries_nonretriable_error(self):
         # Check that no retries will be performed for `ValueError`, since we
         # exclude it from the retriable errors.
@@ -579,8 +630,10 @@ class TestAxScheduler(TestCase):
         # Should raise right away since ValueError is non-retriable.
         with self.assertRaisesRegex(ValueError, ".* testing .*"):
             scheduler.run_all_trials()
+            # pyre-fixme[16]: `Scheduler` has no attribute `run_trial_call_count`.
             self.assertEqual(scheduler.run_trial_call_count, 1)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_set_ttl(self):
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -597,6 +650,7 @@ class TestAxScheduler(TestCase):
             all(t.ttl_seconds == 1 for t in scheduler.experiment.trials.values())
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_failure_rate(self):
         options = SchedulerOptions(
             total_trials=8,
@@ -632,6 +686,7 @@ class TestAxScheduler(TestCase):
             scheduler.run_all_trials()
         self.assertEqual(len(scheduler.experiment.trials), num_preexisting_trials + 2)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_sqa_storage(self):
         init_test_engine_and_session_factory(force_init=True)
         encoder_registry = {
@@ -685,7 +740,9 @@ class TestAxScheduler(TestCase):
         exp, gs = scheduler._load_experiment_and_generation_strategy(
             experiment.name, reduced_state=True
         )
+        # pyre-fixme[16]: `Optional` has no attribute `trials`.
         self.assertEqual(len(exp.trials), NUM_TRIALS)
+        # pyre-fixme[16]: `Optional` has no attribute `_generator_runs`.
         self.assertEqual(len(gs._generator_runs), NUM_TRIALS)
         # Test `from_stored_experiment`.
         new_scheduler = Scheduler.from_stored_experiment(
@@ -698,6 +755,7 @@ class TestAxScheduler(TestCase):
         )
         # Hack "resumed from storage timestamp" into `exp` to make sure all other fields
         # are equal, since difference in resumed from storage timestamps is expected.
+        # pyre-fixme[16]: `Optional` has no attribute `_properties`.
         exp._properties[
             ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
         ] = new_scheduler.experiment._properties[
@@ -714,6 +772,7 @@ class TestAxScheduler(TestCase):
             1,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_trials_and_yield_results(self):
         total_trials = 3
         scheduler = TestScheduler(
@@ -733,6 +792,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 2)
         self.assertEqual(len(res_list[2]["trials_completed_so_far"]), 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_trials_and_yield_results_with_early_stopper(self):
         total_trials = 3
         self.branin_experiment.runner = InfinitePollRunner()
@@ -740,6 +800,7 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,
             ),
         )
@@ -766,6 +827,7 @@ class TestAxScheduler(TestCase):
             )
             self.assertEqual(mock_stop_trial_runs.call_count, expected_num_polls)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_scheduler_with_odd_index_early_stopping_strategy(self):
         total_trials = 3
 
@@ -795,6 +857,7 @@ class TestAxScheduler(TestCase):
             experiment=self.branin_timestamp_map_metric_experiment,
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,
                 early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
             ),
@@ -836,9 +899,11 @@ class TestAxScheduler(TestCase):
         #   num_map_metrics * num_trials + an extra row, since trial 0 runs
         #   longer and gets results for an extra timestamp
         expected_num_rows = (1 * total_trials) + (1 * total_trials + 1)
+        # pyre-fixme[16]: `Data` has no attribute `map_df`.
         self.assertEqual(len(fetched_data.map_df), expected_num_rows)
         self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_run_trials_in_batches(self):
         # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`
         # is moved to `Runner`
@@ -863,6 +928,7 @@ class TestAxScheduler(TestCase):
             # should be dispatched but capacity is limited to 2.
             self.assertEqual(mock_run_trials.call_count, ceil(3 / 2))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_base_report_results(self):
         self.branin_experiment.runner = NoReportResultsRunner()
         scheduler = Scheduler(
@@ -878,6 +944,7 @@ class TestAxScheduler(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
         side_effect=OptimizationComplete("test error"),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_optimization_complete(self, _):
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
@@ -885,6 +952,7 @@ class TestAxScheduler(TestCase):
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 max_pending_trials=100,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -901,6 +969,8 @@ class TestAxScheduler(TestCase):
     @patch(
         f"{WithDBSettingsBase.__module__}._save_experiment", side_effect=StaleDataError
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_suppress_all_storage_errors(self, mock_save_exp, _):
         init_test_engine_and_session_factory(force_init=True)
         config = SQAConfig()
@@ -912,6 +982,7 @@ class TestAxScheduler(TestCase):
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
                 max_pending_trials=100,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 suppress_storage_errors_after_retries=True,
             ),
@@ -919,6 +990,7 @@ class TestAxScheduler(TestCase):
         )
         self.assertEqual(mock_save_exp.call_count, 3)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_max_pending_trials(self):
         # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
         scheduler = TestScheduler(
@@ -926,6 +998,7 @@ class TestAxScheduler(TestCase):
             generation_strategy=self.sobol_GPEI_GS,
             options=SchedulerOptions(
                 max_pending_trials=1,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -944,11 +1017,13 @@ class TestAxScheduler(TestCase):
                 idx + 1 if idx < 3 else idx,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_best_trial(self):
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
@@ -957,8 +1032,17 @@ class TestAxScheduler(TestCase):
 
         scheduler.run_n_trials(max_trials=1)
 
+        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[int, Dict[str,
+        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
+        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 3 values.
         trial, params, _arm = scheduler.get_best_trial()
+        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Dict[str,
+        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
+        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 2 values.
         just_params, _just_arm = scheduler.get_best_parameters()
+        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Dict[str,
+        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
+        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 2 values.
         just_params_unmodeled, _just_arm_unmodled = scheduler.get_best_parameters(
             use_model_predictions=False
         )
@@ -974,6 +1058,7 @@ class TestAxScheduler(TestCase):
         self.assertEqual(params, just_params)
         self.assertEqual(params, just_params_unmodeled)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_best_trial_moo(self):
         experiment = get_branin_experiment_with_multi_objective()
         experiment.runner = self.runner
@@ -981,6 +1066,7 @@ class TestAxScheduler(TestCase):
         scheduler = Scheduler(
             experiment=experiment,
             generation_strategy=self.sobol_GPEI_GS,
+            # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
             options=SchedulerOptions(init_seconds_between_polls=0.1),
         )
 
@@ -998,11 +1084,13 @@ class TestAxScheduler(TestCase):
 
         self.assertIsNotNone(scheduler.get_pareto_optimal_parameters())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_batch_trial(self):
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=self.two_sobol_steps_GS,
             options=SchedulerOptions(
+                # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 trial_type=TrialType.BATCH_TRIAL,
                 batch_size=2,

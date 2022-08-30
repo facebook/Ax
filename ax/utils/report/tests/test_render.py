@@ -21,6 +21,7 @@ from ax.utils.report.render import (
 
 
 class RenderTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testRenderReportElements(self):
         elements = [
             p_html("foobar"),

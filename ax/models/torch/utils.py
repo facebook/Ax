@@ -39,6 +39,7 @@ from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -378,6 +379,7 @@ def get_botorch_objective_and_transform(
         # If there are outcome constraints, we use MC Acquistion functions
         obj_tf = get_objective_weights_transform(objective_weights)
 
+        # pyre-fixme[53]: Captured variable `obj_tf` is not annotated.
         def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
             return obj_tf(samples)
 

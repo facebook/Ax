@@ -347,7 +347,10 @@ def get_standard_plots(
 
 
 def _merge_trials_dict_with_df(
-    df: pd.DataFrame, trials_dict: Dict[int, Any], column_name: str
+    df: pd.DataFrame,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    trials_dict: Dict[int, Any],
+    column_name: str,
 ) -> None:
     """Add a column ``column_name`` to a DataFrame ``df`` containing a column
     ``trial_index``. Each value of the new column is given by the element of
@@ -392,6 +395,7 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
     return ", ".join(generation_methods) if generation_methods else "Unknown"
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
     data: Data,
@@ -662,6 +666,7 @@ def get_figure_and_callback(
     """
     fig = go.FigureWidget(layout=go.Layout())
 
+    # pyre-fixme[53]: Captured variable `fig` is not annotated.
     def _update_fig_in_place(scheduler: "Scheduler") -> None:
         try:
             new_fig = plot_fn(scheduler)

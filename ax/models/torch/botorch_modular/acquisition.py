@@ -82,6 +82,7 @@ class Acquisition(Base):
         options: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.surrogate = surrogate
+        # pyre-fixme[4]: Attribute must be annotated.
         self.options = options or {}
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.surrogate.Xs,
@@ -93,7 +94,9 @@ class Acquisition(Base):
             fixed_features=torch_opt_config.fixed_features,
         )
         # Store objective thresholds for all outcomes (including non-objectives).
+        # pyre-fixme[4]: Attribute must be annotated.
         self._objective_thresholds = torch_opt_config.objective_thresholds
+        # pyre-fixme[4]: Attribute must be annotated.
         self._full_objective_weights = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
         # Subset model only to the outcomes we need for the optimization.
@@ -180,7 +183,9 @@ class Acquisition(Base):
             **input_constructor_kwargs,
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X_pending = X_pending
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X_observed = X_observed
 
     @property

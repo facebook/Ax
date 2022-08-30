@@ -88,7 +88,9 @@ class ALEBOStrategy(GenerationStrategy):
         self.init_size = init_size
         self.dtype = dtype
         self.device = device
+        # pyre-fixme[4]: Attribute must be annotated.
         self.random_kwargs = random_kwargs if random_kwargs is not None else {}
+        # pyre-fixme[4]: Attribute must be annotated.
         self.gp_kwargs = gp_kwargs if gp_kwargs is not None else {}
         self.gp_gen_kwargs = gp_gen_kwargs
 

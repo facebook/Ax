@@ -19,6 +19,7 @@ Objective(metric_name="m3", minimize=False)])
 
 
 class ObjectiveTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.metrics = {
             "m1": Metric(name="m1"),
@@ -42,6 +43,7 @@ class ObjectiveTest(TestCase):
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         with self.assertRaises(ValueError):
             ScalarizedObjective(
@@ -65,6 +67,7 @@ class ObjectiveTest(TestCase):
             self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMultiObjective(self):
         with self.assertRaises(NotImplementedError):
             return self.multi_objective.metric
@@ -89,6 +92,7 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testMultiObjectiveBackwardsCompatibility(self):
         multi_objective = MultiObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
@@ -104,6 +108,7 @@ class ObjectiveTest(TestCase):
         minimizes = [obj.minimize for obj in multi_objective_min.objectives]
         self.assertEqual(minimizes, [True, False, True])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testScalarizedObjective(self):
         with self.assertRaises(NotImplementedError):
             return self.scalarized_objective.metric

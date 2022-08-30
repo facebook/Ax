@@ -29,6 +29,7 @@ class TestBestPointUtils(TestCase):
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_from_model_prediction(self):
         exp = get_branin_experiment()
 
@@ -97,6 +98,7 @@ class TestBestPointUtils(TestCase):
         # Assert the non-mocked method works correctly as well
         self.assertIsNotNone(get_best_parameters(exp, Models))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_raw_objective_point(self):
         exp = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
@@ -106,11 +108,13 @@ class TestBestPointUtils(TestCase):
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
         ).run()
         exp.fetch_data()
+        # pyre-fixme[16]: Optional type has no attribute `clone`.
         opt_conf = exp.optimization_config.clone()
         opt_conf.objective.metric._name = "not_branin"
         with self.assertRaisesRegex(ValueError, "No data has been logged"):
             get_best_raw_objective_point(exp, opt_conf)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_raw_objective_point_unsatisfiable(self):
         exp = get_branin_experiment()
         trial = exp.new_trial(
@@ -119,6 +123,7 @@ class TestBestPointUtils(TestCase):
         trial.mark_completed()
         exp.fetch_data()
 
+        # pyre-fixme[16]: Optional type has no attribute `clone`.
         opt_conf = exp.optimization_config.clone()
         opt_conf.outcome_constraints.append(
             OutcomeConstraint(
@@ -129,10 +134,12 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_raw_objective_point_unsatisfiable_relative(self):
         exp = get_branin_experiment()
 
         # Optimization config with unsatisfiable constraint
+        # pyre-fixme[16]: Optional type has no attribute `clone`.
         opt_conf = exp.optimization_config.clone()
         opt_conf.outcome_constraints.append(
             OutcomeConstraint(
@@ -158,6 +165,8 @@ class TestBestPointUtils(TestCase):
 
         exp.status_quo = Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
         sq_trial = exp.new_trial(
+            # pyre-fixme[6]: For 1st param expected `List[Arm]` but got
+            #  `List[Optional[Arm]]`.
             generator_run=GeneratorRun(arms=[exp.status_quo])
         ).run()
         sq_trial.mark_completed()
@@ -166,6 +175,7 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_raw_objective_point_scalarized(self):
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(
@@ -180,6 +190,7 @@ class TestBestPointUtils(TestCase):
         exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_best_raw_objective_point_scalarized_multi(self):
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(

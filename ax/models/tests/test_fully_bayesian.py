@@ -42,6 +42,7 @@ RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
 MCMC_PATH = "pyro.infer.mcmc.MCMC"
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -59,18 +60,82 @@ def _get_dummy_mcmc_samples(
             # use real MAP values with tiny perturbations
             # so that the generation code below has feasible in-sample
             # points
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             "lengthscale": (i + 1) * torch.tensor([[1 / 3, 1 / 3, 1 / 3]], **tkwargs)
+            # pyre-fixme[6]: For 4th param expected `Optional[Sequence[Union[None,
+            #  ellipsis, str]]]` but got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 4th param expected `Optional[bool]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 4th param expected `Optional[Generator]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 4th param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 4th param expected `Optional[layout]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 4th param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, 1, 3, **tkwargs),
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             "outputscale": (i + 1) * torch.tensor(2.3436, **tkwargs)
+            # pyre-fixme[6]: For 2nd param expected `Optional[Sequence[Union[None,
+            #  ellipsis, str]]]` but got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[bool]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[Generator]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[layout]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, **tkwargs),
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
+            #  dtype]`.
             "mean": (i + 1) * torch.tensor([3.5000], **tkwargs)
+            # pyre-fixme[6]: For 2nd param expected `Optional[Sequence[Union[None,
+            #  ellipsis, str]]]` but got `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[bool]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[Generator]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Optional[layout]` but got
+            #  `Union[device, dtype]`.
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, **tkwargs),
         }
+        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         dummy_samples["kernel_tausq"] = (i + 1) * torch.tensor(0.5, **tkwargs)
         dummy_samples["_kernel_inv_length_sq"] = (
-            1.0 / dummy_samples["lengthscale"].sqrt()
+            # pyre-fixme[6]: For 2nd param expected `Tensor` but got `float`.
+            1.0
+            # pyre-fixme[58]: `/` is not supported for operand types `float` and
+            #  `Tensor`.
+            / dummy_samples["lengthscale"].sqrt()
         )
         dummy_sample_list.append(dummy_samples)
+    # pyre-fixme[7]: Expected `Dict[str, Tensor]` but got `List[typing.Any]`.
     return dummy_sample_list
 
 
@@ -84,12 +149,16 @@ try:
     class BaseFullyBayesianBotorchModelTest(ABC):
         model_cls: Type[FullyBayesianBotorchModel]
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def test_FullyBayesianBotorchModel(self, dtype=torch.float, cuda=False):
             # test deprecation warning
             warnings.resetwarnings()  # this is necessary for building in mode/opt
             warnings.simplefilter("always", append=True)
             with warnings.catch_warnings(record=True) as ws:
                 self.model_cls(use_saas=True)
+                # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                #  attribute `assertTrue`.
                 self.assertTrue(
                     any(issubclass(w.category, DeprecationWarning) for w in ws)
                 )
@@ -132,6 +201,7 @@ try:
                 )
                 for dummy_samples in dummy_samples_list:
                     if use_input_warping:
+                        # pyre-fixme[16]: `str` has no attribute `__setitem__`.
                         dummy_samples["c0"] = (
                             torch.rand(4, 1, Xs1[0].shape[-1], **tkwargs) * 0.5 + 0.1
                         )
@@ -159,12 +229,16 @@ try:
                         ),
                         metric_names=["y1", "y2"],
                     )
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertEqual`.
                     self.assertEqual(_mock_fit_model.call_count, 2)
                     for i, call in enumerate(_mock_fit_model.call_args_list):
                         _, ckwargs = call
                         X = Xs[i]
                         Y = Ys[i]
                         Yvar = Yvars[i]
+                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                        #  attribute `assertIs`.
                         self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
 
                         self.assertTrue(torch.equal(ckwargs["X"], X))
@@ -187,15 +261,19 @@ try:
                         self.assertTrue(torch.equal(model.Xs[i], Xs[i]))
                         self.assertEqual(model.dtype, Xs[i].dtype)
                         self.assertEqual(model.device, Xs[i].device)
+                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                        #  attribute `assertIsInstance`.
                         self.assertIsInstance(model.model, ModelListGP)
 
                         # Check fitting
                         # Note each model in the model list is a batched model, where
                         # the batch dim corresponds to the MCMC samples
+                        # pyre-fixme[16]: Optional type has no attribute `models`.
                         model_list = model.model.models
                         # Put model in `eval` mode to transform the train inputs.
                         m = model_list[i].eval()
                         # check mcmc samples
+                        # pyre-fixme[6]: For 1st param expected `str` but got `int`.
                         dummy_samples = dummy_samples_list[i]
                         expected_train_inputs = Xs[i].expand(4, *Xs[i].shape)
                         if use_input_warping:
@@ -216,6 +294,9 @@ try:
                             )
                         )
                         expected_noise = (
+                            # pyre-fixme[6]: For 1st param expected `Union[None,
+                            #  List[typing.Any], int, slice, Tensor,
+                            #  typing.Tuple[typing.Any, ...]]` but got `str`.
                             dummy_samples["noise"].view(m.likelihood.noise.shape)
                             if inferred_noise
                             else Yvars[i].view(1, -1).expand(4, Yvars[i].numel())
@@ -230,6 +311,9 @@ try:
                         self.assertTrue(
                             torch.allclose(
                                 m.covar_module.base_kernel.lengthscale.detach(),
+                                # pyre-fixme[6]: For 1st param expected `Union[None,
+                                #  List[typing.Any], int, slice, Tensor,
+                                #  typing.Tuple[typing.Any, ...]]` but got `str`.
                                 dummy_samples["lengthscale"].view(
                                     m.covar_module.base_kernel.lengthscale.shape
                                 ),
@@ -240,6 +324,9 @@ try:
                         self.assertTrue(
                             torch.allclose(
                                 m.covar_module.outputscale.detach(),
+                                # pyre-fixme[6]: For 1st param expected `Union[None,
+                                #  List[typing.Any], int, slice, Tensor,
+                                #  typing.Tuple[typing.Any, ...]]` but got `str`.
                                 dummy_samples["outputscale"].view(
                                     m.covar_module.outputscale.shape
                                 ),
@@ -248,6 +335,9 @@ try:
                         self.assertTrue(
                             torch.allclose(
                                 m.mean_module.constant.detach(),
+                                # pyre-fixme[6]: For 1st param expected `Union[None,
+                                #  List[typing.Any], int, slice, Tensor,
+                                #  typing.Tuple[typing.Any, ...]]` but got `str`.
                                 dummy_samples["mean"].view(
                                     m.mean_module.constant.shape
                                 ),
@@ -259,16 +349,30 @@ try:
                             self.assertTrue(
                                 torch.equal(
                                     m.input_transform.concentration0,
+                                    # pyre-fixme[6]: For 1st param expected `str`
+                                    #  but got `int`.
+                                    # pyre-fixme[6]: For 1st param expected
+                                    #  `Union[None, List[typing.Any], int, slice,
+                                    #  Tensor, typing.Tuple[typing.Any, ...]]` but got
+                                    #  `str`.
                                     dummy_samples_list[i]["c0"],
                                 )
                             )
                             self.assertTrue(
                                 torch.equal(
                                     m.input_transform.concentration1,
+                                    # pyre-fixme[6]: For 1st param expected `str`
+                                    #  but got `int`.
+                                    # pyre-fixme[6]: For 1st param expected
+                                    #  `Union[None, List[typing.Any], int, slice,
+                                    #  Tensor, typing.Tuple[typing.Any, ...]]` but got
+                                    #  `str`.
                                     dummy_samples_list[i]["c1"],
                                 )
                             )
                         else:
+                            # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest`
+                            #  has no attribute `assertFalse`.
                             self.assertFalse(hasattr(m, "input_transform"))
                 # test that multi-task is not implemented
                 (
@@ -285,6 +389,8 @@ try:
                 with mock.patch(
                     RUN_INFERENCE_PATH,
                     side_effect=dummy_samples_list,
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertRaises`.
                 ) as _mock_fit_model, self.assertRaises(NotImplementedError):
                     model.fit(
                         datasets=[
@@ -378,13 +484,19 @@ try:
                 objective_transform = get_objective_weights_transform(objective_weights)
                 infeasible_cost = (
                     get_infeasible_cost(
-                        X=Xs1[0], model=model.model, objective=objective_transform
+                        X=Xs1[0],
+                        # pyre-fixme[6]: For 2nd param expected `Model` but got
+                        #  `Optional[Model]`.
+                        model=model.model,
+                        objective=objective_transform,
                     )
                     .detach()
                     .clone()
                 )
                 expected_infeasible_cost = -1 * torch.min(
+                    # pyre-fixme[20]: Argument `1` expected.
                     objective_transform(
+                        # pyre-fixme[16]: Optional type has no attribute `posterior`.
                         model.model.posterior(Xs1[0]).mean
                         - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
                     ).min(),
@@ -441,6 +553,9 @@ try:
                     linear_constraints=linear_constraints,
                     fixed_features=fixed_features,
                     pending_observations=pending_observations,
+                    # pyre-fixme[6]: For 7th param expected `Dict[str, Union[None,
+                    #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction,
+                    #  float, int, str]]` but got `Dict[Keys, Dict[str, int]]`.
                     model_gen_options=model_gen_options,
                     rounding_func=dummy_func,
                     is_moo=self.model_cls is FullyBayesianMOOBotorchModel,
@@ -483,18 +598,24 @@ try:
 
                 # Check best point selection
                 if self.model_cls is FullyBayesianMOOBotorchModel:
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertRaisesRegex`.
                     with self.assertRaisesRegex(NotImplementedError, "Best observed"):
                         model.best_point(
                             search_space_digest=search_space_digest,
                             torch_opt_config=torch_opt_config,
                         )
                 else:
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertIsNotNone`.
                     self.assertIsNotNone(
                         model.best_point(
                             search_space_digest=search_space_digest,
                             torch_opt_config=torch_opt_config,
                         )
                     )
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertIsNone`.
                     self.assertIsNone(
                         model.best_point(
                             search_space_digest=search_space_digest,
@@ -587,6 +708,7 @@ try:
                 with self.assertRaises(RuntimeError):
                     unfit_model.feature_importances()
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_saasbo_sample(self):
             for use_input_warping, gp_kernel in product(
                 [False, True], ["rbf", "matern"]
@@ -606,22 +728,31 @@ try:
                         gp_kernel=gp_kernel,
                     )
                     samples = mcmc.get_samples()
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertTrue`.
                     self.assertTrue("kernel_tausq" in samples)
                     self.assertTrue("_kernel_inv_length_sq" in samples)
                     self.assertTrue("lengthscale" not in samples)
                     if use_input_warping:
+                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                        #  attribute `assertIn`.
                         self.assertIn("c0", samples)
                         self.assertIn("c1", samples)
                     else:
+                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                        #  attribute `assertNotIn`.
                         self.assertNotIn("c0", samples)
                         self.assertNotIn("c1", samples)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_gp_kernels(self):
             torch.manual_seed(0)
             X = torch.randn(3, 2)
             Y = torch.randn(3, 1)
             Yvar = torch.randn(3, 1)
             kernel = NUTS(single_task_pyro_model, max_tree_depth=1)
+            # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no attribute
+            #  `assertRaises`.
             with self.assertRaises(ValueError):
                 mcmc = MCMC(kernel, warmup_steps=0, num_samples=1)
                 mcmc.run(
@@ -631,17 +762,21 @@ try:
                     gp_kernel="some_kernel_we_dont_support",
                 )
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModel_cuda(self):
             if torch.cuda.is_available():
                 self.test_FullyBayesianBotorchModel(cuda=True)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModel_double(self):
             self.test_FullyBayesianBotorchModel(dtype=torch.double)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModel_double_cuda(self):
             if torch.cuda.is_available():
                 self.test_FullyBayesianBotorchModel(dtype=torch.double, cuda=True)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModelConstraints(self):
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=torch.float, cuda=False, constant_noise=True
@@ -680,9 +815,13 @@ try:
                     metric_names=mns,
                     search_space_digest=search_space_digest,
                 )
+                # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                #  attribute `assertEqual`.
                 self.assertEqual(_mock_fit_model.call_count, 2)
 
             # because there are no feasible points:
+            # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no attribute
+            #  `assertRaises`.
             with self.assertRaises(ValueError):
                 model.gen(
                     n,
@@ -692,6 +831,8 @@ try:
                     ),
                 )
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def test_FullyBayesianBotorchModelPyro(self, dtype=torch.double, cuda=False):
             Xs1, Ys1, raw_Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=dtype, cuda=cuda, constant_noise=True
@@ -741,10 +882,16 @@ try:
                         ),
                     )
                     # check run_inference arguments
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertEqual`.
                     self.assertEqual(_mock_fit_model.call_count, 2)
                     _, ckwargs = _mock_fit_model.call_args
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertIs`.
                     self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
 
+                    # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+                    #  attribute `assertTrue`.
                     self.assertTrue(torch.equal(ckwargs["X"], Xs1[0]))
                     self.assertTrue(torch.equal(ckwargs["Y"], Ys1[0]))
                     if inferred_noise:
@@ -807,7 +954,11 @@ try:
                     )
 
                     for m, X, Y, Yvar in zip(
-                        model.model.models, Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2
+                        # pyre-fixme[16]: Optional type has no attribute `models`.
+                        model.model.models,
+                        Xs1 + Xs2,
+                        Ys1 + Ys2,
+                        Yvars1 + Yvars2,
                     ):
                         self.assertTrue(
                             torch.equal(
@@ -847,6 +998,8 @@ try:
                         )
                         if use_input_warping:
                             self.assertTrue(hasattr(m, "input_transform"))
+                            # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest`
+                            #  has no attribute `assertIsInstance`.
                             self.assertIsInstance(m.input_transform, Warp)
                             self.assertEqual(
                                 m.input_transform.concentration0.shape,
@@ -857,15 +1010,20 @@ try:
                                 torch.Size([4, 1, 3]),
                             )
                         else:
+                            # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest`
+                            #  has no attribute `assertFalse`.
                             self.assertFalse(hasattr(m, "input_transform"))
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModelPyro_float(self):
             self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=False)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModelPyro_cuda_double(self):
             if torch.cuda.is_available():
                 self.test_FullyBayesianBotorchModelPyro(dtype=torch.double, cuda=True)
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModelPyro_cuda_float(self):
             if torch.cuda.is_available():
                 self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=True)
@@ -875,6 +1033,7 @@ try:
     ):
         model_cls = FullyBayesianBotorchModel
 
+        # pyre-fixme[3]: Return type must be annotated.
         def test_FullyBayesianBotorchModelOneOutcome(self):
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=torch.float, cuda=False, constant_noise=True
@@ -916,6 +1075,7 @@ try:
                 f_mean, f_cov = model.predict(X)
                 self.assertTrue(f_mean.shape == torch.Size([2, 1]))
                 self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
+                # pyre-fixme[16]: Optional type has no attribute `models`.
                 model_list = model.model.models
                 self.assertTrue(len(model_list) == 1)
                 if use_input_warping:
@@ -925,6 +1085,8 @@ try:
                     self.assertFalse(hasattr(model_list[0], "input_transform"))
 
     class FullyBayesianMOOBotorchModelTest(TestCase, BaseFullyBayesianBotorchModelTest):
+        # pyre-fixme[15]: `model_cls` overrides attribute defined in
+        #  `BaseFullyBayesianBotorchModelTest` inconsistently.
         model_cls = FullyBayesianMOOBotorchModel
 
 except ImportError:
@@ -933,11 +1095,13 @@ except ImportError:
 
 
 class TestKernels(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_matern_kernel(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
         # test matern 1/2
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `int`.
         res = matern_kernel(a, b, nu=0.5, lengthscale=lengthscale)
         actual = (
             torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float)
@@ -946,6 +1110,7 @@ class TestKernels(TestCase):
         )
         self.assertLess(torch.norm(res - actual), 1e-3)
         # matern test 3/2
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `int`.
         res = matern_kernel(a, b, nu=1.5, lengthscale=lengthscale)
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(
             sqrt(3) / lengthscale
@@ -953,14 +1118,17 @@ class TestKernels(TestCase):
         actual = (dist + 1).mul(torch.exp(-dist))
         self.assertLess(torch.norm(res - actual), 1e-3)
         # matern test 5/2
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `int`.
         res = matern_kernel(a, b, nu=2.5, lengthscale=lengthscale)
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(
             sqrt(5) / lengthscale
         )
+        # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and `int`.
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
         self.assertLess(torch.norm(res - actual), 1e-3)
 
         # test k(x,x) with no gradients
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `float`.
         res = matern_kernel(b, b, nu=0.5, lengthscale=2.0)
         actual = (
             torch.tensor([[0, 2], [2, 0]], dtype=torch.float).div_(-lengthscale).exp()
@@ -969,13 +1137,16 @@ class TestKernels(TestCase):
 
         # test unsupported nu
         with self.assertRaises(AxError):
+            # pyre-fixme[6]: For 4th param expected `Tensor` but got `float`.
             matern_kernel(b, b, nu=0.0, lengthscale=2.0)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_rbf_kernel(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
         # test rbf
+        # pyre-fixme[6]: For 3rd param expected `Tensor` but got `int`.
         res = rbf_kernel(a, b, lengthscale=lengthscale)
         actual = (
             torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float)

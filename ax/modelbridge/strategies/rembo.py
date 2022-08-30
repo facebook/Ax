@@ -114,8 +114,10 @@ class REMBOStrategy(GenerationStrategy):
         self.init_per_proj = init_per_proj
         self.dtype = dtype
         self.device = device
+        # pyre-fixme[4]: Attribute must be annotated.
         self.gp_kwargs = gp_kwargs if gp_kwargs is not None else {}
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.projections = {
             i: self.get_projection(
                 D=self.D, d=self.d, dtype=self.dtype, device=self.device
@@ -123,6 +125,7 @@ class REMBOStrategy(GenerationStrategy):
             for i in range(self.k)
         }
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.X_d_by_proj = defaultdict(list)
         self.current_iteration = 0
         self.arms_by_proj: Dict[int, Set[str]] = {i: set({}) for i in range(self.k)}

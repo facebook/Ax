@@ -20,10 +20,12 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class ALEBOStrategyTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_factory_functions(self):
         experiment = get_branin_experiment(with_batch=True)
         B = np.array([[1.0, 2.0]])
         m1 = get_ALEBOInitializer(search_space=experiment.search_space, B=B)
+        # pyre-fixme[16]: `RandomModel` has no attribute `Q`.
         self.assertTrue(np.allclose(m1.model.Q, np.linalg.pinv(B) @ B))
         data = Data(
             pd.DataFrame(
@@ -37,17 +39,24 @@ class ALEBOStrategyTest(TestCase):
         )
         with mock.patch("ax.modelbridge.strategies.alebo.ALEBO.fit", autospec=True):
             m2 = get_ALEBO(
-                experiment=experiment, search_space=None, data=data, B=torch.tensor(B)
+                experiment=experiment,
+                # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
+                search_space=None,
+                data=data,
+                B=torch.tensor(B),
             )
 
+        # pyre-fixme[16]: Optional type has no attribute `B`.
         self.assertTrue(np.array_equal(m2.model.B.numpy(), B))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_ALEBOStrategy(self):
         D = 20
         d = 3
         init_size = 5
         s = ALEBOStrategy(D=D, d=d, init_size=init_size)
         self.assertEqual(s._steps[0].num_trials, init_size)
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         random_B = s._steps[0].model_kwargs["B"]
         gp_B = s._steps[1].model_kwargs["B"]
         # Check that random and GP have the same projection

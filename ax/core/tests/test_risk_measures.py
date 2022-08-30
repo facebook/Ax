@@ -10,6 +10,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestRiskMeasure(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_risk_measure(self):
         rm = RiskMeasure(
             risk_measure="VaR",
@@ -46,6 +47,7 @@ class TestRiskMeasure(TestCase):
                 options={"alpha": 5, "n_w": 5},
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_custom_risk_measure(self):
         # Test using user-defined risk measures.
 

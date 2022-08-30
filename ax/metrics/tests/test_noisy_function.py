@@ -12,7 +12,10 @@ from ax.utils.testing.core_stubs import get_trial
 
 
 class GenericNoisyFunctionMetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testGenericNoisyFunctionMetric(self):
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def f(params):
             return params["x"] + 1.0
 
@@ -25,6 +28,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
         df = metric.fetch_trial_data(trial).df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
+        # pyre-fixme[16]: Optional type has no attribute `parameters`.
         self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
         self.assertEqual(df["sem"].tolist(), [0.0])
 

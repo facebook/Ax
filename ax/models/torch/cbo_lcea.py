@@ -24,6 +24,7 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -33,9 +34,15 @@ def get_map_model(
     train_Yvar: Tensor,
     decomposition: Dict[str, List[int]],
     train_embedding: bool = True,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+    #  `typing.Dict` to avoid runtime subscripting errors.
     cat_feature_dict: Optional[Dict] = None,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+    #  `typing.Dict` to avoid runtime subscripting errors.
     embs_feature_dict: Optional[Dict] = None,
     embs_dim_list: Optional[List[int]] = None,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+    #  `typing.Dict` to avoid runtime subscripting errors.
     context_weight_dict: Optional[Dict] = None,
 ) -> Tuple[LCEAGP, ExactMarginalLogLikelihood]:
     """Obtain MAP fitting of Latent Context Embedding Additive (LCE-A) GP."""
@@ -74,8 +81,14 @@ class LCEABO(BotorchModel):
     def __init__(
         self,
         decomposition: Dict[str, List[str]],
+        # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+        #  `typing.Dict` to avoid runtime subscripting errors.
         cat_feature_dict: Optional[Dict] = None,
+        # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+        #  `typing.Dict` to avoid runtime subscripting errors.
         embs_feature_dict: Optional[Dict] = None,
+        # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+        #  `typing.Dict` to avoid runtime subscripting errors.
         context_weight_dict: Optional[Dict] = None,
         embs_dim_list: Optional[List[int]] = None,
         gp_model_args: Optional[Dict[str, Any]] = None,
@@ -90,8 +103,10 @@ class LCEABO(BotorchModel):
         self.embs_feature_dict = embs_feature_dict
         self.context_weight_dict = context_weight_dict
         self.embs_dim_list = embs_dim_list
+        # pyre-fixme[4]: Attribute must be annotated.
         self.gp_model_args = gp_model_args if gp_model_args is not None else {}
         self.feature_names: List[str] = []
+        # pyre-fixme[4]: Attribute must be annotated.
         self.train_embedding = self.gp_model_args.get("train_embedding", True)
         super().__init__(
             model_constructor=self.get_and_fit_model,

@@ -77,6 +77,7 @@ from ax.utils.common.serialization import callable_from_reference, callable_to_r
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 Cont_X_trans: List[Type[Transform]] = [

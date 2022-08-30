@@ -60,8 +60,16 @@ def _get_optimizer_kwargs() -> Dict[str, int]:
     return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def _get_torch_test_data(
-    dtype=torch.float, cuda=False, constant_noise=True, task_features=None
+    # pyre-fixme[2]: Parameter must be annotated.
+    dtype=torch.float,
+    # pyre-fixme[2]: Parameter must be annotated.
+    cuda=False,
+    # pyre-fixme[2]: Parameter must be annotated.
+    constant_noise=True,
+    # pyre-fixme[2]: Parameter must be annotated.
+    task_features=None,
 ):
     device = torch.device("cuda") if cuda else torch.device("cpu")
     Xs = [torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=dtype, device=device)]
@@ -77,9 +85,11 @@ def _get_torch_test_data(
 
 
 class BotorchMOOModelTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_double(self):
         self.test_BotorchMOOModel_with_random_scalarization(dtype=torch.double)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_cuda(self):
         if torch.cuda.is_available():
             for dtype in (torch.float, torch.double):
@@ -101,6 +111,7 @@ class BotorchMOOModelTest(TestCase):
                     dtype=dtype, cuda=True, use_qnehvi=True
                 )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_qnehvi(self):
         for dtype in (torch.float, torch.double):
             self.test_BotorchMOOModel_with_qehvi(dtype=dtype, use_qnehvi=True)
@@ -109,8 +120,13 @@ class BotorchMOOModelTest(TestCase):
             )
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_random_scalarization(
-        self, dtype=torch.float, cuda=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
     ):
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
@@ -136,6 +152,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -193,7 +210,9 @@ class BotorchMOOModelTest(TestCase):
         # test input warping
         self.assertFalse(model.use_input_warping)
         model = MultiObjectiveBotorchModel(
-            acqf_constructor=get_NEI, use_input_warping=True
+            # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[T...
+            acqf_constructor=get_NEI,
+            use_input_warping=True,
         )
         model.fit(
             datasets=training_data,
@@ -202,6 +221,7 @@ class BotorchMOOModelTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertIsInstance(model.model, ModelListGP)
+        # pyre-fixme[16]: Optional type has no attribute `models`.
         for m in model.model.models:
             self.assertTrue(hasattr(m, "input_transform"))
             self.assertIsInstance(m.input_transform, Warp)
@@ -210,7 +230,9 @@ class BotorchMOOModelTest(TestCase):
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MultiObjectiveBotorchModel(
-            acqf_constructor=get_NEI, use_loocv_pseudo_likelihood=True
+            # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[T...
+            acqf_constructor=get_NEI,
+            use_loocv_pseudo_likelihood=True,
         )
         model.fit(
             datasets=training_data,
@@ -220,8 +242,13 @@ class BotorchMOOModelTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_chebyshev_scalarization(
-        self, dtype=torch.float, cuda=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
     ):
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
@@ -247,6 +274,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -275,8 +303,15 @@ class BotorchMOOModelTest(TestCase):
             # get_chebyshev_scalarization should be called once for generated candidate.
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_qehvi(
-        self, dtype=torch.float, cuda=False, use_qnehvi=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
+        # pyre-fixme[2]: Parameter must be annotated.
+        use_qnehvi=False,
     ):
         if use_qnehvi:
             acqf_constructor = get_NEHVI
@@ -302,6 +337,7 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
         X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
@@ -547,8 +583,13 @@ class BotorchMOOModelTest(TestCase):
             self.assertTrue(np.isnan(obj_t[2]))
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
-        self, dtype=torch.float, cuda=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
     ):
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
@@ -568,6 +609,7 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         search_space_digest = SearchSpaceDigest(
@@ -607,8 +649,13 @@ class BotorchMOOModelTest(TestCase):
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_chebyshev_scalarization_and_outcome_constraints(
-        self, dtype=torch.float, cuda=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
     ):
         tkwargs = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
@@ -626,8 +673,19 @@ class BotorchMOOModelTest(TestCase):
         ]
 
         n = 2
+        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
+        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `Union[device, dtype]`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         search_space_digest = SearchSpaceDigest(
@@ -646,7 +704,19 @@ class BotorchMOOModelTest(TestCase):
         torch_opt_config = TorchOptConfig(
             objective_weights=objective_weights,
             outcome_constraints=(
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[1.0, 1.0]], **tkwargs),
+                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
+                #  `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
+                #  but got `Union[device, dtype]`.
+                # pyre-fixme[6]: For 2nd param expected `bool` but got
+                #  `Union[device, dtype]`.
                 torch.tensor([[10.0]], **tkwargs),
             ),
             model_gen_options={
@@ -667,8 +737,15 @@ class BotorchMOOModelTest(TestCase):
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
-        self, dtype=torch.float, cuda=False, use_qnehvi=False
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        dtype=torch.float,
+        # pyre-fixme[2]: Parameter must be annotated.
+        cuda=False,
+        # pyre-fixme[2]: Parameter must be annotated.
+        use_qnehvi=False,
     ):
         acqf_constructor = get_NEHVI if use_qnehvi else get_EHVI
         tkwargs = {
@@ -693,6 +770,7 @@ class BotorchMOOModelTest(TestCase):
         n = 3
         objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
+        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
         search_space_digest = SearchSpaceDigest(

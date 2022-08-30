@@ -12,6 +12,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class RandomForestTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def testRFModel(self):
         datasets = [
             FixedNoiseDataset(
@@ -26,10 +27,13 @@ class RandomForestTest(TestCase):
             metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2"],
+                # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,
+                #  int], Union[float, int]]]` but got `List[Tuple[int, int]]`.
                 bounds=[(0, 1)] * 2,
             ),
         )
         self.assertEqual(len(m.models), 2)
+        # pyre-fixme[16]: `RandomForestRegressor` has no attribute `estimators_`.
         self.assertEqual(len(m.models[0].estimators_), 5)
 
         f, cov = m.predict(torch.rand(5, 2))

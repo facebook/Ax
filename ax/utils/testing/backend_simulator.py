@@ -14,6 +14,7 @@ from ax.core.base_trial import TrialStatus
 from ax.utils.common.logger import get_logger
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -142,16 +143,22 @@ class BackendSimulator:
         if options is None:
             options = BackendSimulatorOptions()
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.max_concurrency = options.max_concurrency
+        # pyre-fixme[4]: Attribute must be annotated.
         self.time_scaling = options.time_scaling
+        # pyre-fixme[4]: Attribute must be annotated.
         self.failure_rate = options.failure_rate
+        # pyre-fixme[4]: Attribute must be annotated.
         self.use_update_as_start_time = options.use_update_as_start_time
         self._queued: List[SimTrial] = queued or []
         self._running: List[SimTrial] = running or []
         self._failed: List[SimTrial] = failed or []
         self._completed: List[SimTrial] = completed or []
+        # pyre-fixme[4]: Attribute must be annotated.
         self._internal_clock = options.internal_clock
         self._verbose_logging = verbose_logging
+        # pyre-fixme[4]: Attribute must be annotated.
         self._init_state = self.state()
         self._create_index_to_trial_map()
 
@@ -237,6 +244,7 @@ class BackendSimulator:
         )
 
     @classmethod
+    # pyre-fixme[3]: Return type must be annotated.
     def from_state(cls, state: BackendSimulatorState):
         """Construct a simulator from a state.
 

@@ -15,6 +15,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -60,6 +61,7 @@ class Objective(SortableBase):
                     "`lower_is_better=False`."
                 )
         self._metric = metric
+        # pyre-fixme[4]: Attribute must be annotated.
         self.minimize = not_none(minimize)
 
     @property
@@ -140,6 +142,7 @@ class MultiObjective(Objective):
                 _minimize = not lower_is_better if minimize else lower_is_better
                 objectives.append(Objective(metric=metric, minimize=_minimize))
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self._objectives = not_none(objectives)
 
         # For now, assume all objectives are weighted equally.

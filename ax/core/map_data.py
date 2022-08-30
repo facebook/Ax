@@ -19,6 +19,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -54,6 +55,8 @@ class MapKeyInfo(Generic[T], SortableBase):
         return self._default_value
 
     @property
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     def value_type(self) -> Type:
         return type(self._default_value)
 
@@ -83,15 +86,18 @@ class MapData(Data):
     def __init__(
         self,
         df: Optional[pd.DataFrame] = None,
+        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         description: Optional[str] = None,
     ) -> None:
         if map_key_infos is None and df is not None:
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_infos = map_key_infos or []
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
+            # pyre-fixme[4]: Attribute must be annotated.
             self._map_df = pd.DataFrame(
                 columns=self.required_columns().union(self.map_keys)
             )
@@ -121,6 +127,7 @@ class MapData(Data):
 
         self.description = description
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self._memo_df = None
 
     def __eq__(self, o: MapData) -> bool:
@@ -130,10 +137,12 @@ class MapData(Data):
         return mkis_match and dfs_match
 
     @property
+    # pyre-fixme[3]: Return type must be annotated.
     def true_df(self):
         return self.map_df
 
     @property
+    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     def map_key_infos(self) -> Iterable[MapKeyInfo]:
         return self._map_key_infos
 
@@ -142,6 +151,8 @@ class MapData(Data):
         return [mki.key for mki in self.map_key_infos]
 
     @property
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
     def map_key_to_type(self) -> Dict[str, Type]:
         return {mki.key: mki.value_type for mki in self.map_key_infos}
 
@@ -178,6 +189,7 @@ class MapData(Data):
     def from_map_evaluations(
         evaluations: Dict[str, TMapTrialEvaluation],
         trial_index: int,
+        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
     ) -> MapData:
         records = [
@@ -213,6 +225,7 @@ class MapData(Data):
         return self._map_df
 
     @map_df.setter
+    # pyre-fixme[3]: Return type must be annotated.
     def map_df(self, df: pd.DataFrame):
         raise UnsupportedError(
             "MapData's underlying DataFrame is immutable; create a new"
@@ -259,6 +272,7 @@ class MapData(Data):
         return self._memo_df
 
     @classmethod
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         map_data = checked_cast(MapData, obj)
         properties = serialize_init_args(object=map_data)

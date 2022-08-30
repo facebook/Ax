@@ -14,6 +14,7 @@ from ax.core.map_data import MapKeyInfo
 from ax.metrics.curve import AbstractCurveMetric
 from ax.utils.common.logger import get_logger
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 try:
@@ -27,6 +28,7 @@ try:
     class TensorboardCurveMetric(AbstractCurveMetric):
         """A `CurveMetric` for getting Tensorboard curves."""
 
+        # pyre-fixme[4]: Attribute must be annotated.
         MAP_KEY = MapKeyInfo(key="steps", default_value=0.0)
 
         @classmethod
@@ -87,6 +89,8 @@ try:
             tb_run_data[key] = series
         return tb_run_data
 
+    # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+    #  `typing.List` to avoid runtime subscripting errors.
     def _get_latest_start_time(events: List) -> float:
         """In each directory, there may be previous training runs due to restarting
         training jobs.

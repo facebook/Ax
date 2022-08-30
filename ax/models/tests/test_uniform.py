@@ -11,15 +11,19 @@ from ax.utils.common.testutils import TestCase
 
 
 class UniformGeneratorTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.tunable_param_bounds = (0, 1)
         self.fixed_param_bounds = (1, 100)
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def _create_bounds(self, n_tunable, n_fixed):
         tunable_bounds = [self.tunable_param_bounds] * n_tunable
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorAllTunable(self):
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
@@ -36,6 +40,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.allclose(expected_points, generated_points))
         self.assertTrue(np.all(weights == 1.0))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorFixedSpace(self):
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
@@ -47,6 +52,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorOnline(self):
         # Verify that the generator will return the expected arms if called
         # one at a time.
@@ -69,6 +75,7 @@ class UniformGeneratorTest(TestCase):
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorReseed(self):
         # Verify that the generator will return the expected arms if called
         # one at a time.
@@ -91,6 +98,7 @@ class UniformGeneratorTest(TestCase):
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorWithOrderConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
@@ -117,6 +125,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorWithLinearConstraints(self):
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
@@ -142,6 +151,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testUniformGeneratorBadBounds(self):
         generator = UniformGenerator()
         with self.assertRaises(ValueError):

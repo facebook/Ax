@@ -29,6 +29,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -211,6 +212,8 @@ def _save_or_update_trials(
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
 
+    # pyre-fixme[53]: Captured variable `experiment_id` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
     def add_experiment_id(sqa: Union[SQATrial, SQAData]):
         sqa.experiment_id = experiment_id
 
@@ -218,6 +221,7 @@ def _save_or_update_trials(
         latest_trial = trials[-1]
         trials_to_reduce_state = trials[0:-1]
 
+        # pyre-fixme[3]: Return type must be annotated.
         def trial_to_reduced_state_sqa_encoder(t: BaseTrial):
             return encoder.trial_to_sqa(t, generator_run_reduced_state=True)
 
@@ -325,9 +329,12 @@ def _update_generation_strategy(
             }
         )
 
+    # pyre-fixme[53]: Captured variable `gs_id` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
     def add_generation_strategy_id(sqa: SQAGeneratorRun):
         sqa.generation_strategy_id = gs_id
 
+    # pyre-fixme[3]: Return type must be annotated.
     def generator_run_to_sqa_encoder(gr: GeneratorRun, weight: Optional[float] = None):
         return encoder.generator_run_to_sqa(
             gr,
@@ -363,6 +370,8 @@ def update_runner_on_experiment(
     with session_scope() as session:
         session.query(runner_sqa_class).filter_by(experiment_id=exp_id).delete()
 
+    # pyre-fixme[53]: Captured variable `exp_id` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
     def add_experiment_id(sqa: SQARunner):
         sqa.experiment_id = exp_id
 
@@ -395,10 +404,13 @@ def update_properties_on_experiment(
 
 def _merge_into_session(
     obj: Base,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     encode_func: Callable,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
     encode_args: Optional[Dict[str, Any]] = None,
     decode_args: Optional[Dict[str, Any]] = None,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     modify_sqa: Optional[Callable] = None,
 ) -> SQABase:
     """Given a user-facing object (that may or may not correspond to an
@@ -434,10 +446,13 @@ def _merge_into_session(
 
 def _bulk_merge_into_session(
     objs: Sequence[Base],
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     encode_func: Callable,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
     encode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
     decode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     modify_sqa: Optional[Callable] = None,
     batch_size: Optional[int] = None,
 ) -> List[SQABase]:
@@ -465,6 +480,8 @@ def _bulk_merge_into_session(
         sqas.append(sqa)
 
     # https://stackoverflow.com/a/312464
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def split_into_batches(lst, n):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
@@ -489,6 +506,7 @@ def _bulk_merge_into_session(
     return new_sqas
 
 
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def _copy_db_ids_if_possible(new_obj: Any, obj: Any) -> None:
     """Wraps _copy_db_ids in a try/except, and logs warnings on error."""
     try:

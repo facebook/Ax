@@ -14,7 +14,11 @@ from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.test_functions import synthetic as botorch_synthetic
 
 
+# pyre-fixme[3]: Return annotation cannot be `Any`.
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def informative_failure_on_none(func: Callable) -> Any:
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
+    # pyre-fixme[2]: Parameter must be annotated.
     def function_wrapper(*args, **kwargs) -> Any:
         res = func(*args, **kwargs)
         if res is None:
@@ -28,11 +32,17 @@ def informative_failure_on_none(func: Callable) -> Any:
 
 class SyntheticFunction(ABC):
 
+    # pyre-fixme[4]: Attribute must be annotated.
     _required_dimensionality = None
+    # pyre-fixme[4]: Attribute must be annotated.
     _domain = None
+    # pyre-fixme[4]: Attribute must be annotated.
     _minimums = None
+    # pyre-fixme[4]: Attribute must be annotated.
     _maximums = None
+    # pyre-fixme[4]: Attribute must be annotated.
     _fmin = None
+    # pyre-fixme[4]: Attribute must be annotated.
     _fmax = None
 
     @property
@@ -173,8 +183,11 @@ class FromBotorch(SyntheticFunction):
         self, botorch_synthetic_function: botorch_synthetic.SyntheticTestFunction
     ) -> None:
         self._botorch_function = botorch_synthetic_function
+        # pyre-fixme[4]: Attribute must be annotated.
         self._required_dimensionality = self._botorch_function.dim
+        # pyre-fixme[4]: Attribute must be annotated.
         self._domain = self._botorch_function._bounds
+        # pyre-fixme[4]: Attribute must be annotated.
         self._fmin = self._botorch_function._optimal_value
 
     @property
@@ -197,11 +210,15 @@ class Hartmann6(SyntheticFunction):
     """Hartmann6 function (6-dimensional with 1 global minimum)."""
 
     _required_dimensionality = 6
+    # pyre-fixme[4]: Attribute must be annotated.
     _domain = [(0, 1) for i in range(6)]
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
+    # pyre-fixme[4]: Attribute must be annotated.
     _fmin = -3.32237
     _fmax = 0.0
+    # pyre-fixme[4]: Attribute must be annotated.
     _alpha = np.array([1.0, 1.2, 3.0, 3.2])
+    # pyre-fixme[4]: Attribute must be annotated.
     _A = np.array(
         [
             [10, 3, 17, 3.5, 1.7, 8],
@@ -210,6 +227,7 @@ class Hartmann6(SyntheticFunction):
             [17, 8, 0.05, 10, 0.1, 14],
         ]
     )
+    # pyre-fixme[4]: Attribute must be annotated.
     _P = 10 ** (-4) * np.array(
         [
             [1312, 1696, 5569, 124, 8283, 5886],
@@ -234,10 +252,12 @@ class Aug_Hartmann6(Hartmann6):
     """Augmented Hartmann6 function (7-dimensional with 1 global minimum)."""
 
     _required_dimensionality = 7
+    # pyre-fixme[4]: Attribute must be annotated.
     _domain = [(0, 1) for i in range(7)]
     # pyre-fixme[15]: `_minimums` overrides attribute defined in `Hartmann6`
     #  inconsistently.
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)]
+    # pyre-fixme[4]: Attribute must be annotated.
     _fmin = -3.32237
     _fmax = 0.0
 
@@ -261,6 +281,7 @@ class Branin(SyntheticFunction):
 
     _required_dimensionality = 2
     _domain = [(-5, 10), (0, 15)]
+    # pyre-fixme[4]: Attribute must be annotated.
     _minimums = [(-np.pi, 12.275), (np.pi, 2.275), (9.42478, 2.475)]
     _fmin = 0.397887
     _fmax = 308.129
@@ -281,6 +302,7 @@ class Aug_Branin(SyntheticFunction):
 
     _required_dimensionality = 3
     _domain = [(-5, 10), (0, 15), (0, 1)]
+    # pyre-fixme[4]: Attribute must be annotated.
     _minimums = [(-np.pi, 12.275, 1), (np.pi, 2.275, 1), (9.42478, 2.475, 1)]
     _fmin = 0.397887
     _fmax = 308.129

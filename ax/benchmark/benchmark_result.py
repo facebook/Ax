@@ -149,9 +149,13 @@ class AggregatedBenchmarkResult(Base):
 
 
 def _get_stats(
+    # pyre-fixme[24]: Generic type `Iterable` expects 1 type parameter.
     step_data: Iterable,
+    # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
     percentiles: Tuple,
     progressions: Optional[np.ndarray],
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
+    #  to avoid runtime subscripting errors.
 ) -> Dict:
     quantiles = []
     stats = {"mean": [], "sem": []}

@@ -22,6 +22,7 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 

@@ -93,6 +93,7 @@ class PyTorchCNNMetric(Metric):
     def __init__(self) -> None:
         super().__init__(name="accuracy")
 
+    # pyre-fixme[2]: Parameter must be annotated.
     def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> Data:
         accuracy = [
             trial.run_metadata["accuracy"][name]
@@ -115,7 +116,9 @@ class PyTorchCNNRunner(Runner):
     def __init__(self, name: str, train_set: Dataset, test_set: Dataset) -> None:
         self.name = name
 
+        # pyre-fixme[4]: Attribute must be annotated.
         self.train_loader = DataLoader(train_set)
+        # pyre-fixme[4]: Attribute must be annotated.
         self.test_loader = DataLoader(test_set)
 
         self.results: Dict[int, float] = {}
@@ -124,12 +127,15 @@ class PyTorchCNNRunner(Runner):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     class CNN(nn.Module):
+        # pyre-fixme[3]: Return type must be annotated.
         def __init__(self):
             super().__init__()
             self.conv1 = nn.Conv2d(1, 20, kernel_size=5, stride=1)
             self.fc1 = nn.Linear(8 * 8 * 20, 64)
             self.fc2 = nn.Linear(64, 10)
 
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def forward(self, x):
             x = F.relu(self.conv1(x))
             x = F.max_pool2d(x, 3, 3)

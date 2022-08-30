@@ -34,6 +34,7 @@ def get_color(x: float, ci: float, rel: bool, reverse: bool) -> str:
     return color_scale[index]
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def table_view_plot(
     experiment: Experiment,
     data: Data,
@@ -135,6 +136,8 @@ def table_view_plot(
             for records in [records_with_mean, records_with_ci]
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def transpose(m):
         return [[m[j][i] for j in range(len(m))] for i in range(len(m[0]))]
 

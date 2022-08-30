@@ -122,6 +122,7 @@ def _get_experiment_sqa(
     experiment_name: str,
     exp_sqa_class: Type[SQAExperiment],
     trial_sqa_class: Type[SQATrial],
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: Optional[List[Any]] = None,
     load_trials_in_batches_of_size: Optional[int] = None,
 ) -> SQAExperiment:
@@ -153,6 +154,7 @@ def _get_trials_sqa(
     experiment_id: int,
     trial_sqa_class: Type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: Optional[List[Any]] = None,
 ) -> List[SQATrial]:
 
@@ -406,6 +408,7 @@ def _get_generation_strategy_id(
 def _get_generation_strategy_sqa(
     gs_id: int,
     decoder: Decoder,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     query_options: Optional[List[Any]] = None,
 ) -> SQAGenerationStrategy:
     """Obtains the SQLAlchemy generation strategy object from DB."""

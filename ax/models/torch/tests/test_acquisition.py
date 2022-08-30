@@ -41,30 +41,41 @@ from botorch.utils.testing import MockPosterior
 from torch import Tensor
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 ACQUISITION_PATH = Acquisition.__module__
+# pyre-fixme[5]: Global expression must be annotated.
 CURRENT_PATH = __name__
+# pyre-fixme[5]: Global expression must be annotated.
 SURROGATE_PATH = Surrogate.__module__
 
 
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
 class DummyAcquisitionFunction(AcquisitionFunction):
+    # pyre-fixme[4]: Attribute must be annotated.
     X_pending = None
 
     def __init__(self, **kwargs: Any) -> None:
+        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
         super().__init__(model=None)
 
+    # pyre-fixme[2]: Parameter must be annotated.
     def __call__(self, X, **kwargs: Any) -> None:
         return X.sum(dim=-1)
 
+    # pyre-fixme[14]: `set_X_pending` overrides method defined in
+    #  `AcquisitionFunction` inconsistently.
     def set_X_pending(self, X: Tensor, **kwargs: Any) -> None:
         self.X_pending = X
 
+    # pyre-fixme[15]: `forward` overrides method defined in `AcquisitionFunction`
+    #  inconsistently.
     def forward(self, X: torch.Tensor) -> None:
         pass
 
 
 class AcquisitionTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
         self.mock_input_constructor = mock.MagicMock(
@@ -78,8 +89,17 @@ class AcquisitionTest(TestCase):
         tkwargs = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `dtype`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `dtype`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `dtype`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
@@ -94,15 +114,27 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
+        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
+        #  `dtype`.
+        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **tkwargs)]
         self.outcome_constraints = (
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `dtype`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[1.0]], **tkwargs),
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `dtype`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[0.5]], **tkwargs),
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
         self.options = {"best_f": 0.0}
         self.inequality_constraints = [
+            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
+            #  got `dtype`.
+            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
         self.rounding_func = lambda x: x
@@ -117,6 +149,8 @@ class AcquisitionTest(TestCase):
             fixed_features=self.fixed_features,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def get_acquisition_function(self, fixed_features=None):
         return Acquisition(
             botorch_acqf_class=self.botorch_acqf_class,
@@ -128,6 +162,7 @@ class AcquisitionTest(TestCase):
             options=self.options,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def tearDown(self):
         # Avoid polluting the registry for other tests.
         ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
@@ -135,6 +170,8 @@ class AcquisitionTest(TestCase):
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     @mock.patch(
         f"{ACQUISITION_PATH}.subset_model",
+        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
+        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
         return_value=SubsetModelData(None, torch.ones(1), None, None, None),
     )
     @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective_and_transform")
@@ -146,15 +183,22 @@ class AcquisitionTest(TestCase):
         f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
         return_value=None,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init(
         self,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_botorch_acqf_class,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_compute_model_deps,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_get_objective_and_transform,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_subset_model,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_get_X,
     ):
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
+            # pyre-fixme[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
@@ -227,6 +271,8 @@ class AcquisitionTest(TestCase):
             self.assertEqual(ckwargs[k], v)
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_optimize(self, mock_optimize_acqf):
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         acquisition.optimize(
@@ -256,9 +302,12 @@ class AcquisitionTest(TestCase):
             torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_optimize_discrete(self):
         ssd1 = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
+            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
             bounds=[(1, 2, 3), (2, 3, 4)],
             categorical_features=[0, 1, 2],
             discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
@@ -319,8 +368,12 @@ class AcquisitionTest(TestCase):
         # [4, 2, 4], [3, 2, 4], [4, 2, 3]
         ssd2 = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
+            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
             bounds=[(0, 0, 0), (4, 4, 4)],
             categorical_features=[0, 1, 2],
+            # pyre-fixme[6]: For 4th param expected `Dict[int, List[Union[float,
+            #  int]]]` but got `Dict[int, List[int]]`.
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
         X_selected, _ = acquisition.optimize(
@@ -363,12 +416,17 @@ class AcquisitionTest(TestCase):
         self.assertTrue(torch.equal(expected, X_selected))
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search")
+    # pyre-fixme[3]: Return type must be annotated.
     def test_optimize_acqf_discrete_local_search(
-        self, mock_optimize_acqf_discrete_local_search
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_optimize_acqf_discrete_local_search,
     ):
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
+            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
             bounds=[(0, 0, 0), (1, 1, 1)],
             categorical_features=[0, 1, 2],
             discrete_choices={  # 30 * 60 * 90 > 100,000
@@ -404,6 +462,8 @@ class AcquisitionTest(TestCase):
         )
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_optimize_mixed(self, mock_optimize_acqf_mixed):
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
@@ -442,14 +502,18 @@ class AcquisitionTest(TestCase):
         f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__call__",
         return_value=None,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_evaluate(self, mock_call):
         acquisition = self.get_acquisition_function()
         acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init_moo(
         self,
+        # pyre-fixme[2]: Parameter must be annotated.
         mock_get_X,
     ):
         moo_training_data = [SupervisedDataset(X=self.X, Y=self.Y.repeat(1, 3))]
@@ -479,7 +543,9 @@ class AcquisitionTest(TestCase):
         )
         self.assertTrue(
             torch.equal(
-                moo_objective_thresholds[:2], acquisition.objective_thresholds[:2]
+                moo_objective_thresholds[:2],
+                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
+                acquisition.objective_thresholds[:2],
             )
         )
         self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))

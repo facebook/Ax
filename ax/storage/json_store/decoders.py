@@ -149,6 +149,7 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
 
 
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
     index_in_registry = json.pop("index")
@@ -168,6 +169,8 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     )
 
 
+# pyre-fixme[3]: Return annotation cannot contain `Any`.
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Type[Any]:
     """Load any instance of `gpytorch.Module` or descendent registered in
     `CLASS_DECODER_REGISTRY` from state dict."""

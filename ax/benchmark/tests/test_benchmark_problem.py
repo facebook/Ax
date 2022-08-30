@@ -13,6 +13,7 @@ from botorch.test_functions.synthetic import Ackley
 
 
 class TestBenchmarkProblem(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_single_objective_from_botorch(self):
         test_problem = Ackley()
         ackley_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
@@ -27,6 +28,7 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
+                # pyre-fixme[16]: `Parameter` has no attribute `lower`.
                 ackley_problem.search_space.range_parameters[f"x{i}"].lower
                 == test_problem._bounds[i][0]
                 for i in range(test_problem.dim)
@@ -35,6 +37,7 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
+                # pyre-fixme[16]: `Parameter` has no attribute `upper`.
                 ackley_problem.search_space.range_parameters[f"x{i}"].upper
                 == test_problem._bounds[i][1]
                 for i in range(test_problem.dim)
@@ -45,6 +48,7 @@ class TestBenchmarkProblem(TestCase):
         # Test optimum
         self.assertEqual(ackley_problem.optimal_value, test_problem._optimal_value)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_moo_from_botorch(self):
         test_problem = BraninCurrin()
         branin_currin_problem = (
@@ -63,6 +67,7 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
+                # pyre-fixme[16]: `Parameter` has no attribute `lower`.
                 branin_currin_problem.search_space.range_parameters[f"x{i}"].lower
                 == test_problem._bounds[i][0]
                 for i in range(test_problem.dim)
@@ -71,6 +76,7 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
+                # pyre-fixme[16]: `Parameter` has no attribute `upper`.
                 branin_currin_problem.search_space.range_parameters[f"x{i}"].upper
                 == test_problem._bounds[i][1]
                 for i in range(test_problem.dim)

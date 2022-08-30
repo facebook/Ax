@@ -13,6 +13,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class InverseGaussianCdfYTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.obsd_mid = ObservationData(
             metric_names=["m1", "m2"],
@@ -32,9 +33,21 @@ class InverseGaussianCdfYTransformTest(TestCase):
             ),
         )
         self.t = InverseGaussianCdfY(
-            search_space=None, observation_features=None, observation_data=None
+            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            observation_data=None,
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
         transformed_obsd_mid = self.t.transform_observation_data(
             [deepcopy(self.obsd_mid)], []

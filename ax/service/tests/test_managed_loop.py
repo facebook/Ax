@@ -16,6 +16,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _branin_evaluation_function(parameterization, weight=None):
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -26,6 +28,8 @@ def _branin_evaluation_function(parameterization, weight=None):
     }
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _branin_evaluation_function_v2(parameterization, weight=None):
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -33,6 +37,8 @@ def _branin_evaluation_function_v2(parameterization, weight=None):
     return (branin(x1, x2), 0.0)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _branin_evaluation_function_with_unknown_sem(parameterization, weight=None):
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -84,6 +90,10 @@ class TestManagedLoop(TestCase):
     def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -112,6 +122,10 @@ class TestManagedLoop(TestCase):
     def test_branin_with_active_parameter_constraints(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -133,6 +147,8 @@ class TestManagedLoop(TestCase):
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
+        # pyre-fixme[58]: `+` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `Union[None, bool, float, int, str]`.
         self.assertTrue(bp["x1"] + bp["x2"] <= 1)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
@@ -140,6 +156,10 @@ class TestManagedLoop(TestCase):
     @fast_botorch_optimize
     def test_branin_without_objective_name(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -162,6 +182,10 @@ class TestManagedLoop(TestCase):
     @fast_botorch_optimize
     def test_branin_with_unknown_sem(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -188,6 +212,10 @@ class TestManagedLoop(TestCase):
         batch_branin = Mock(side_effect=_branin_evaluation_function)
 
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -221,7 +249,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", bp)
         assert vals is not None
         self.assertIn("branin", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("branin", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("branin", vals[1]["branin"])
         # Check that all total_trials * arms_per_trial * 2 metrics evaluations
         # are present in the dataframe.
@@ -235,6 +266,7 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
@@ -244,7 +276,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         assert vals is not None
         self.assertIn("objective", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("objective", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("objective", vals[1]["objective"])
 
     @patch(
@@ -261,6 +296,7 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
@@ -271,7 +307,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         assert vals is not None
         self.assertIn("a", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("a", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("a", vals[1]["a"])
 
     @fast_botorch_optimize
@@ -283,6 +322,7 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -294,7 +334,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("objective", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("objective", vals[1]["objective"])
 
     def test_optimize_propagates_random_seed(self) -> None:
@@ -305,12 +348,14 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
             total_trials=5,
             random_seed=12345,
         )
+        # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertEqual(12345, model.model.seed)
 
     def test_optimize_search_space_exhausted(self) -> None:
@@ -321,6 +366,7 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "choice", "values": [1, 2]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -333,7 +379,10 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("objective", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("objective", vals[1]["objective"])
 
     def test_custom_gs(self) -> None:
@@ -342,6 +391,10 @@ class TestManagedLoop(TestCase):
             name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -373,6 +426,7 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
+            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -389,18 +443,26 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
+        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
+        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
         self.assertIn("objective", vals[1])
+        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("objective", vals[1]["objective"])
 
     @patch(
         "ax.core.experiment.Experiment.new_trial",
         side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_annotate_exception(self, _):
         strategy0 = GenerationStrategy(
             name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
+            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -435,6 +497,7 @@ class TestManagedLoop(TestCase):
                 ],
                 experiment_name="test",
                 objective_name="foo",
+                # pyre-fixme[6]: For 4th param expected `(Dict[str, Union[None, bool,...
                 evaluation_function=lambda p: 0.0,
                 minimize=True,
                 total_trials=5,
@@ -442,6 +505,7 @@ class TestManagedLoop(TestCase):
             )
             loop.run_trial()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_eval_function_with_wrong_parameter_count_generates_error(self):
         with self.assertRaises(UserInputError):
             loop = OptimizationLoop.with_evaluation_function(
@@ -451,6 +515,7 @@ class TestManagedLoop(TestCase):
                 ],
                 experiment_name="test",
                 objective_name="foo",
+                # pyre-fixme[6]: For 4th param expected `(Dict[str, Union[None, bool,...
                 evaluation_function=lambda: 1.0,
                 minimize=True,
                 total_trials=5,

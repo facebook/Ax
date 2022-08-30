@@ -20,6 +20,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class SlicesTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testSlices(self):
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
@@ -30,7 +31,10 @@ class SlicesTest(TestCase):
         )
         # Assert that each type of plot can be constructed successfully
         plot = plot_slice_plotly(
-            model, model.parameters[0], list(model.metric_names)[0]
+            model,
+            # pyre-fixme[16]: `ModelBridge` has no attribute `parameters`.
+            model.parameters[0],
+            list(model.metric_names)[0],
         )
         self.assertIsInstance(plot, go.Figure)
         plot = interact_slice_plotly(model)

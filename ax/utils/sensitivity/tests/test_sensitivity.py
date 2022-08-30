@@ -29,9 +29,11 @@ def get_modelbridge() -> ModelBridge:
 
 
 class SensitivityAnanlysisTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.model = get_modelbridge().model.model
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testDgsmGpMean(self):
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_mean = GpDGSMGpMean(self.model, bounds=bounds, num_mc_samples=10)
@@ -60,6 +62,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 3]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 3]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testDgsmGpSampling(self):
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_sampling = GpDGSMGpSampling(
@@ -96,6 +99,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 5]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 5]))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGpMean(self):
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_mean = SobolSensitivityGPMean(
@@ -136,6 +140,7 @@ class SensitivityAnanlysisTest(TestCase):
             total_order = sensitivity_mean.total_order_indices()
             second_order = sensitivity_mean.second_order_indices()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testSobolGpSampling(self):
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_sampling = SobolSensitivityGPSampling(
@@ -185,6 +190,7 @@ class SensitivityAnanlysisTest(TestCase):
             total_order = sensitivity_sampling.total_order_indices()
             second_order = sensitivity_sampling.second_order_indices()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testDerivativeGp(self):
         test_x = torch.rand(2, 2)
         posterior = posterior_derivative(self.model, test_x, kernel_type="matern_l1")

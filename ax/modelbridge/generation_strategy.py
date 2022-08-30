@@ -31,6 +31,7 @@ from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
 
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -70,6 +71,7 @@ class GenerationStrategy(Base):
     # it exists.
     _experiment: Optional[Experiment] = None
     # Trial indices as last seen by the model; updated in `_model` property setter.
+    # pyre-fixme[4]: Attribute must be annotated.
     _seen_trial_indices_by_status = None
     _model: Optional[ModelBridge] = None  # Current model.
 
@@ -811,6 +813,7 @@ def _gen_from_generation_step(
     generation_step: GenerationStep,
     n: int,
     pending_observations: Optional[Dict[str, List[ObservationFeatures]]],
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     model_gen_kwargs: Any,
     should_deduplicate: bool,
     arms_by_signature: Dict[str, Arm],

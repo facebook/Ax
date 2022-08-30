@@ -47,6 +47,8 @@ class MapUnitX(UnitX):
                 if p not in search_space.parameters:
                     map_values[p].append(obsf.parameters[p])
 
+        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
+        #  `typing.List` to avoid runtime subscripting errors.
         def get_range(values: List) -> Tuple[float, float]:
             return (min(values), max(values))
 

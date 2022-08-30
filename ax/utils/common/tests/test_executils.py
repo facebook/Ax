@@ -14,6 +14,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestRetryDecorator(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_default_return(self):
         """
         Tests if the decorator correctly returns the default value.
@@ -29,6 +30,7 @@ class TestRetryDecorator(TestCase):
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_kwarg_passage(self):
         """
         Tests if the decorator correctly takes the suppress all errors
@@ -52,6 +54,7 @@ class TestRetryDecorator(TestCase):
             ),
         )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_message_checking(self):
         """
         Tests if the decorator correctly checks the list of messages
@@ -77,6 +80,7 @@ class TestRetryDecorator(TestCase):
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_empty_exception_type_tuple(self):
         """
         Tests if the decorator correctly handles an empty list
@@ -102,6 +106,7 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(RuntimeError):
             decorator_tester.error_throwing_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_message_checking_fail(self):
         """
         Tests if the decorator correctly checks the list of messages
@@ -123,6 +128,7 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(RuntimeError):
             decorator_tester.error_throwing_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_retry_mechanism(self):
         """
         Tests if the decorator retries sufficient number of times
@@ -149,6 +155,7 @@ class TestRetryDecorator(TestCase):
         decorator_tester = DecoratorTester()
         self.assertEqual("SUCCESS", decorator_tester.error_throwing_function())
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_retry_with_wait(self):
         """
         Tests if the decorator retries sufficient number of times
@@ -183,6 +190,7 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(RuntimeError):
             decorator_tester.no_wait_error_throwing_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_retry_mechanism_fail(self):
         """
         Tests that the decorator does not retry too many times
@@ -211,6 +219,7 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(KeyError):
             decorator_tester.error_throwing_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_no_retry_on_exception_types(self):
         class MyRuntimeError(RuntimeError):
             pass
@@ -249,6 +258,7 @@ class TestRetryDecorator(TestCase):
         with self.assertRaises(MyRuntimeError):
             decorator_tester.error_throwing_function()
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_on_function_with_wrapper_message(self):
         """Tests that the decorator works on standalone functions as well as on
         instance methods.
@@ -257,6 +267,8 @@ class TestRetryDecorator(TestCase):
         mock = Mock()
 
         @retry_on_exception(wrap_error_message_in="Wrapper error message")
+        # pyre-fixme[53]: Captured variable `mock` is not annotated.
+        # pyre-fixme[3]: Return type must be annotated.
         def error_throwing_function():
             mock()
             raise RuntimeError("I failed")

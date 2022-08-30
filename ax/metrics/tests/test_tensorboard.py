@@ -21,7 +21,10 @@ from ax.utils.testing.core_stubs import get_branin_search_space
 
 
 class TensorboardCurveMetricTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_tensorboard_curve_metric(self):
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
         def mock_get_tb_from_posix(path):
             data = np.array([10, 3, 5, 2, 7, 1])
             return {"test_curve": pd.Series((int(path) + 1) * data)}
@@ -63,6 +66,7 @@ class TensorboardCurveMetricTest(TestCase):
 
             self.assertTrue(
                 np.allclose(
+                    # pyre-fixme[16]: `Data` has no attribute `map_df`.
                     experiment.fetch_data().map_df["mean"].to_numpy(),
                     np.array(
                         [10.0, 3.0, 5.0, 2.0, 7.0, 1.0, 20.0, 6.0, 10.0, 4.0, 14.0, 2.0]

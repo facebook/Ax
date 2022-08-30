@@ -347,6 +347,8 @@ def _optimize_and_get_candidates(
     n: int,
     num_restarts: int,
     raw_samples: int,
+    # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
+    #  `typing.Dict` to avoid runtime subscripting errors.
     optimizer_options: Dict,
     rounding_func: Optional[Callable[[Tensor], Tensor]],
     inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]],

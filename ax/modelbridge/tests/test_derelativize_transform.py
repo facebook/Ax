@@ -24,6 +24,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class DerelativizeTransformTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         m = mock.patch.object(ModelBridge, "__abstractmethods__", frozenset())
         self.addCleanup(m.stop)
@@ -73,11 +74,24 @@ class DerelativizeTransformTest(TestCase):
             ]
         ),
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def testDerelativizeTransform(
-        self, mock_predict, mock_fit, mock_observations_from_data
+        self,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_predict,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_fit,
+        # pyre-fixme[2]: Parameter must be annotated.
+        mock_observations_from_data,
     ):
         t = Derelativize(
-            search_space=None, observation_features=None, observation_data=None
+            search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            observation_data=None,
         )
 
         # ModelBridge with in-design status quo
@@ -113,6 +127,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc2 = t.transform_optimization_config(oc, g, None)
         self.assertTrue(oc == oc2)
 
@@ -135,6 +150,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc = t.transform_optimization_config(oc, g, None)
         self.assertTrue(
             oc.outcome_constraints
@@ -186,6 +202,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc = t.transform_optimization_config(oc, g, None)
         self.assertTrue(
             oc.outcome_constraints
@@ -228,15 +245,22 @@ class DerelativizeTransformTest(TestCase):
             ],
         )
         with self.assertRaises(RuntimeError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc = t.transform_optimization_config(oc, g, None)
 
         # Bypasses error if use_raw_sq
         t2 = Derelativize(
             search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
             observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
             observation_data=None,
             config={"use_raw_status_quo": True},
         )
+        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
 
         # Raises error with relative constraint, no status quo
@@ -248,15 +272,26 @@ class DerelativizeTransformTest(TestCase):
             data=Data(),
         )
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc = t.transform_optimization_config(oc, g, None)
 
         # Raises error with relative constraint, no modelbridge
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             oc = t.transform_optimization_config(oc, None, None)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testErrors(self):
         t = Derelativize(
-            search_space=None, observation_features=None, observation_data=None
+            search_space=None,
+            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
+            #  got `None`.
+            observation_features=None,
+            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
+            #  `None`.
+            observation_data=None,
         )
         oc = OptimizationConfig(
             objective=Objective(Metric("c")),
@@ -269,6 +304,10 @@ class DerelativizeTransformTest(TestCase):
         )
         g = ModelBridge(search_space, None, [])
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             t.transform_optimization_config(oc, None, None)
         with self.assertRaises(ValueError):
+            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
+            #  `None`.
             t.transform_optimization_config(oc, g, None)

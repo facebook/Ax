@@ -40,6 +40,7 @@ RANK = "rank"
 
 
 class ListSurrogateTest(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = ExactMarginalLogLikelihood
@@ -95,9 +96,12 @@ class ListSurrogateTest(TestCase):
         self.bounds = [(0.0, 1.0), (1.0, 4.0)]
         self.feature_names = ["x1", "x2"]
 
+    # pyre-fixme[31]: Expression `type(None)` is not a valid type.
     def check_ranks(self, c: ListSurrogate) -> type(None):
         self.assertIsInstance(c, ListSurrogate)
         self.assertIsInstance(c.model, ModelListGP)
+        # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got
+        #  `Union[Tensor, Module]`.
         for idx, submodel in enumerate(c.model.models):
             self.assertIsInstance(submodel, self.expected_submodel_type)
             self.assertEqual(
@@ -105,6 +109,7 @@ class ListSurrogateTest(TestCase):
                 self.submodel_options_per_outcome[self.outcomes[idx]][RANK],
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_init(self):
         self.assertEqual(
             self.surrogate.botorch_submodel_class_per_outcome,
@@ -121,6 +126,8 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_construct_per_outcome_options(self, mock_MTGP_construct_inputs):
         with self.assertRaisesRegex(ValueError, "No model class specified for"):
             self.surrogate.construct(
@@ -160,6 +167,7 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=MultiTaskGP.construct_inputs,
     )
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct_per_outcome_options_no_Yvar(self, _):
         surrogate = ListSurrogate(
             botorch_submodel_class=MultiTaskGP,
@@ -172,9 +180,12 @@ class ListSurrogateTest(TestCase):
             task_features=self.task_features,
             metric_names=self.outcomes,
         )
+        # pyre-fixme[16]: Optional type has no attribute `__iter__`.
         for ds in surrogate._training_data:
             self.assertTrue(isinstance(ds, SupervisedDataset))
             self.assertFalse(isinstance(ds, FixedNoiseDataset))
+        # pyre-fixme[6]: For 1st param expected `Sized` but got
+        #  `Optional[List[SupervisedDataset]]`.
         self.assertEqual(len(surrogate._training_data), 2)
 
     @patch.object(
@@ -182,6 +193,8 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_construct_shared_shortcut_options(self, mock_construct_inputs):
         surrogate = ListSurrogate(
             botorch_submodel_class=self.botorch_submodel_class_per_outcome[
@@ -220,6 +233,8 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_construct_per_outcome_error_raises(self, mock_MTGP_construct_inputs):
         surrogate = ListSurrogate(
             botorch_submodel_class=self.botorch_submodel_class_per_outcome,
@@ -252,6 +267,8 @@ class ListSurrogateTest(TestCase):
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_fit(self, mock_fit_nuts, mock_fit_gpytorch, mock_MLL, mock_state_dict):
         default_class = self.botorch_submodel_class_per_outcome
         surrogates = [
@@ -299,6 +316,8 @@ class ListSurrogateTest(TestCase):
                     task_features=self.task_features,
                 ),
                 refit=False,
+                # pyre-fixme[6]: For 5th param expected `Optional[Dict[str,
+                #  Tensor]]` but got `Dict[str, str]`.
                 state_dict=state_dict,
             )
             mock_state_dict.assert_called_once()
@@ -324,6 +343,7 @@ class ListSurrogateTest(TestCase):
                 mll_class=self.mll_class,
             )
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_with_botorch_transforms(self):
         input_transforms = {"outcome_1": Normalize(d=3), "outcome_2": Normalize(d=3)}
         outcome_transforms = {
@@ -333,7 +353,11 @@ class ListSurrogateTest(TestCase):
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGPWithDifferentConstructor,
             mll_class=ExactMarginalLogLikelihood,
+            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
+            #  OutcomeTransform]]` but got `Dict[str, Standardize]`.
             submodel_outcome_transforms=outcome_transforms,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str,
+            #  InputTransform]]` but got `Dict[str, Normalize]`.
             submodel_input_transforms=input_transforms,
         )
         with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
@@ -344,7 +368,11 @@ class ListSurrogateTest(TestCase):
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGP,
             mll_class=ExactMarginalLogLikelihood,
+            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
+            #  OutcomeTransform]]` but got `Dict[str, Standardize]`.
             submodel_outcome_transforms=outcome_transforms,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str,
+            #  InputTransform]]` but got `Dict[str, Normalize]`.
             submodel_input_transforms=input_transforms,
         )
         surrogate.construct(
@@ -353,9 +381,12 @@ class ListSurrogateTest(TestCase):
         )
         models = surrogate.model.models
         for i, outcome in enumerate(("outcome_1", "outcome_2")):
+            # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase...
             self.assertIs(models[i].outcome_transform, outcome_transforms[outcome])
+            # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase...
             self.assertIs(models[i].input_transform, input_transforms[outcome])
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_serialize_attributes_as_kwargs(self):
         expected = self.surrogate.__dict__
         # The two attributes below don't need to be saved as part of state,
@@ -373,6 +404,7 @@ class ListSurrogateTest(TestCase):
             expected.pop(attr_name)
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_construct_custom_model(self):
         noise_con1, noise_con2 = Interval(1e-6, 1e-1), GreaterThan(1e-4)
         surrogate = ListSurrogate(
@@ -399,6 +431,7 @@ class ListSurrogateTest(TestCase):
             datasets=self.supervised_training_data,
             metric_names=self.outcomes,
         )
+        # pyre-fixme[16]: Optional type has no attribute `models`.
         self.assertEqual(len(surrogate._model.models), 2)
         self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
         for i, m in enumerate(surrogate._model.models):

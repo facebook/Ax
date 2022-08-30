@@ -17,6 +17,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class REMBOTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testREMBOModel(self):
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
@@ -24,6 +25,8 @@ class REMBOTest(TestCase):
         my_metric_names = ["a", "b"]
 
         # Test setting attributes
+        # pyre-fixme[6]: For 3rd param expected `List[Tuple[float, float]]` but got
+        #  `List[Tuple[int, int]]`.
         m = REMBO(A=A, initial_X_d=initial_X_d, bounds_d=bounds_d)
         self.assertTrue(torch.allclose(A, m.A))
         self.assertTrue(torch.allclose(torch.pinverse(A), m._pinvA))
@@ -51,11 +54,15 @@ class REMBOTest(TestCase):
                 metric_names=my_metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
+                    # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,
+                    #  int], Union[float, int]]]` but got `List[Tuple[int, int]]`.
                     bounds=[(0, 1)] * 4,
                 ),
             )
         search_space_digest = SearchSpaceDigest(
             feature_names=[],
+            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
+            #  Union[float, int]]]` but got `List[Tuple[int, int]]`.
             bounds=bounds,
         )
         m.fit(
@@ -93,6 +100,7 @@ class REMBOTest(TestCase):
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
         )
+        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Tensor]`.
         self.assertEqual(len(x_best), 4)
 
         # Test cross_validate

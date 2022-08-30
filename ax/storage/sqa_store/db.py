@@ -51,7 +51,11 @@ Base = declarative_base(cls=SQABase)
 
 
 def create_mysql_engine_from_creator(
-    creator: Callable, echo: bool = False, pool_recycle: int = 10, **kwargs: Any
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
+    creator: Callable,
+    echo: bool = False,
+    pool_recycle: int = 10,
+    **kwargs: Any,
 ) -> Engine:
     """Create a SQLAlchemy engine with the MySQL dialect given a creator function.
 
@@ -117,6 +121,7 @@ def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
 
 def init_engine_and_session_factory(
     url: Optional[str] = None,
+    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     creator: Optional[Callable] = None,
     echo: bool = False,
     force_init: bool = False,

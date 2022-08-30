@@ -33,6 +33,7 @@ from ax.utils.testing.modeling_stubs import get_generation_strategy
 class TestWithDBSettingsBase(TestCase):
     """Tests saving/loading functionality of WithDBSettingsBase class."""
 
+    # pyre-fixme[3]: Return type must be annotated.
     def setUp(self):
         self.generation_strategy = get_generation_strategy(with_experiment=True)
         self.experiment = self.generation_strategy.experiment
@@ -91,6 +92,7 @@ class TestWithDBSettingsBase(TestCase):
             )
         return experiment, generation_strategy
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_get_experiment_and_generation_strategy_db_id(self):
 
         (
@@ -102,6 +104,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertIsNotNone(exp_id)
         self.assertIsNotNone(gen_id)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_experiment(self):
         experiment = self.get_random_experiment()
         saved = self.with_db_settings._save_experiment_to_db_if_possible(experiment)
@@ -112,6 +115,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertIsNotNone(loaded_experiment)
         self.assertEqual(experiment, loaded_experiment)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_generation_strategy(self):
         experiment, generation_strategy = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False
@@ -127,6 +131,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertIsNotNone(loaded_gs)
         self.assertEqual(loaded_gs.name, generation_strategy.name)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_load_experiment_and_generation_strategy(self):
         experiment, generation_strategy = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False
@@ -157,6 +162,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertIsNotNone(db_gs)
         self.assertEqual(db_gs.name, generation_strategy.name)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_generation_strategy(self):
         _, generation_strategy = self.init_experiment_and_generation_strategy()
 
@@ -170,6 +176,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertIsNotNone(generator_run.arms[0].db_id)
 
     @patch(f"{WithDBSettingsBase.__module__}.STORAGE_MINI_BATCH_SIZE", 2)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_generation_strategy_mini_batches(self):
         _, generation_strategy = self.init_experiment_and_generation_strategy()
 
@@ -193,6 +200,7 @@ class TestWithDBSettingsBase(TestCase):
         for gr in grs:
             self.assertIsNotNone(gr.db_id)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_new_trial(self):
         experiment, _ = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False
@@ -212,6 +220,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertEqual(len(exp.trials), 1)
         self.assertEqual(exp.trials[0].status, TrialStatus.CANDIDATE)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_save_updated_trial(self):
         experiment, _ = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False
@@ -241,6 +250,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertEqual(exp.trials[0].status, TrialStatus.RUNNING)
 
     @patch(f"{WithDBSettingsBase.__module__}.STORAGE_MINI_BATCH_SIZE", 2)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_updated_trials_mini_batch(self):
         experiment, _ = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False
@@ -257,7 +267,9 @@ class TestWithDBSettingsBase(TestCase):
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
         self.assertEqual(
-            loaded_experiment.trials.get(trial.index).status, TrialStatus.CANDIDATE
+            # pyre-fixme[16]: Optional type has no attribute `status`.
+            loaded_experiment.trials.get(trial.index).status,
+            TrialStatus.CANDIDATE,
         )
         self.assertIsNotNone(trial.db_id)
 
@@ -271,6 +283,8 @@ class TestWithDBSettingsBase(TestCase):
 
         self.with_db_settings._save_or_update_trials_in_db_if_possible(
             experiment=experiment,
+            # pyre-fixme[6]: For 2nd param expected `List[BaseTrial]` but got
+            #  `List[Trial]`.
             trials=trials,
         )
         loaded_experiment = _load_experiment(
@@ -284,6 +298,7 @@ class TestWithDBSettingsBase(TestCase):
             else:
                 self.assertEqual(t.status, TrialStatus.RUNNING)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_reduced_state_generator_runs(self):
         experiment, generation_strategy = self.init_experiment_and_generation_strategy(
             save_generation_strategy=True
@@ -298,6 +313,8 @@ class TestWithDBSettingsBase(TestCase):
 
         self.with_db_settings._save_or_update_trials_and_generation_strategy_if_possible(  # noqa E501
             experiment=experiment,
+            # pyre-fixme[6]: For 2nd param expected `List[BaseTrial]` but got
+            #  `List[Trial]`.
             trials=trials,
             generation_strategy=generation_strategy,
             new_generator_runs=grs,
@@ -312,6 +329,7 @@ class TestWithDBSettingsBase(TestCase):
         for idx, trial in loaded_experiment.trials.items():
             for key in [f"_{attr.key}" for attr in GR_LARGE_MODEL_ATTRS]:
                 if idx < len(loaded_experiment.trials) - 1:
+                    # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run`.
                     self.assertIsNone(getattr(trial.generator_run, key))
                 else:
                     self.assertIsNotNone(getattr(trial.generator_run, key))
@@ -328,6 +346,7 @@ class TestWithDBSettingsBase(TestCase):
                 else:
                     self.assertIsNotNone(getattr(gr, key))
 
+    # pyre-fixme[3]: Return type must be annotated.
     def test_update_experiment_properties_in_db(self):
         experiment, _ = self.init_experiment_and_generation_strategy(
             save_generation_strategy=False

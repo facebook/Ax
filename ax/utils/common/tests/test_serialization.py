@@ -11,6 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestSerializationUtils(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
     def test_named_tuple_to_dict(self):
         class Foo(NamedTuple):
             x: int

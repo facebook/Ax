@@ -15,11 +15,13 @@ from botorch.models.model_list_gp_regression import ModelListGP
 
 class LCEMBOTest(TestCase):
     @fast_botorch_optimize
+    # pyre-fixme[3]: Return type must be annotated.
     def testLCEMBO(self):
         d = 1
         train_x = torch.rand(10, d)
         train_y = torch.cos(train_x)
         task_indices = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        # pyre-fixme[28]: Unexpected keyword argument `axis`.
         train_x = torch.cat([train_x, task_indices.unsqueeze(-1)], axis=1)
 
         # Test setting attributes

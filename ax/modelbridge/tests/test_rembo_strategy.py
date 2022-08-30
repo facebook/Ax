@@ -30,6 +30,8 @@ class REMBOStrategyTest(TestCase):
         ),
     )
     @patch("ax.models.torch.botorch_defaults.fit_gpytorch_model", autospec=True)
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def test_REMBOStrategy(self, mock_fit_gpytorch_model, mock_optimize_acqf):
         # Construct a high-D test experiment with multiple metrics
         hartmann_search_space = SearchSpace(
@@ -114,6 +116,7 @@ class REMBOStrategyTest(TestCase):
         self.assertEqual(gs2.D, 20)
         self.assertEqual(gs2.d, 6)
 
+    # pyre-fixme[3]: Return type must be annotated.
     def testHeSBOStrategy(self):
         gs = HeSBOStrategy(D=10, d=4, init_per_proj=2)
         self.assertEqual(gs.name, "HeSBO")

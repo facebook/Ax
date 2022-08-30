@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
+# pyre-fixme[5]: Global expression must be annotated.
 logger = get_logger(__name__)
 
 
@@ -90,6 +91,7 @@ class StratifiedStandardizeY(Transform):
         # but got `DefaultDict[typing.Tuple[str, Optional[typing.Union[bool, float,
         # str]]], List[float]]`.
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
+        # pyre-fixme[4]: Attribute must be annotated.
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
     def transform_observation_data(

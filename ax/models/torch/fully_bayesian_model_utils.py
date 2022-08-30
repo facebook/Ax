@@ -74,10 +74,12 @@ def _get_single_task_gpytorch_model(
     return model
 
 
+# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def load_pyro(func: Callable) -> Callable:
     """A decorator to import pyro"""
 
     @wraps(func)
+    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             import pyro
@@ -90,7 +92,11 @@ def load_pyro(func: Callable) -> Callable:
 
 @load_pyro
 def pyro_sample_outputscale(
-    concentration: float = 2.0, rate: float = 0.15, pyro: Any = None, **tkwargs: Any
+    concentration: float = 2.0,
+    rate: float = 0.15,
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+    pyro: Any = None,
+    **tkwargs: Any,
 ) -> Tensor:
     return pyro.sample(
         "outputscale",
@@ -102,6 +108,7 @@ def pyro_sample_outputscale(
 
 
 @load_pyro
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def pyro_sample_mean(pyro: Any = None, **tkwargs: Any) -> Tensor:
     return pyro.sample(
         "mean",
@@ -113,6 +120,7 @@ def pyro_sample_mean(pyro: Any = None, **tkwargs: Any) -> Tensor:
 
 
 @load_pyro
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def pyro_sample_noise(pyro: Any = None, **tkwargs: Any) -> Tensor:
     # this prefers small noise but has heavy tails
     return pyro.sample(
@@ -126,7 +134,11 @@ def pyro_sample_noise(pyro: Any = None, **tkwargs: Any) -> Tensor:
 
 @load_pyro
 def pyro_sample_saas_lengthscales(
-    dim: int, alpha: float = 0.1, pyro: Any = None, **tkwargs: Any
+    dim: int,
+    alpha: float = 0.1,
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+    pyro: Any = None,
+    **tkwargs: Any,
 ) -> Tensor:
     tausq = pyro.sample(
         "kernel_tausq",
@@ -146,7 +158,10 @@ def pyro_sample_saas_lengthscales(
 
 @load_pyro
 def pyro_sample_input_warping(
-    dim: int, pyro: Any = None, **tkwargs: Any
+    dim: int,
+    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+    pyro: Any = None,
+    **tkwargs: Any,
 ) -> Tuple[Tensor, Tensor]:
     c0 = pyro.sample(
         "c0",
@@ -165,6 +180,8 @@ def pyro_sample_input_warping(
     return c0, c1
 
 
+# pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
+#  to avoid runtime subscripting errors.
 def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None:
     """Load MCMC samples into GPyTorchModel."""
     if "noise" in mcmc_samples:
