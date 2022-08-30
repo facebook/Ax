@@ -13,7 +13,7 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
@@ -186,18 +186,24 @@ class TestModelbridgeUtils(TestCase):
         # is applying `Cast` transform, it should inject full parameterization into
         # resulting obs.feats.). Therefore, transforming the extracted pending features
         #  and observation features made from full parameterization should be the same.
+        obsd = ObservationData(
+            metric_names=["m1"], means=np.array([1.0]), covariance=np.array([[1.0]])
+        )
         self.assertEqual(
             self.hss_sobol._transform_data(
-                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                obs_feats=pending["m1"],
-                obs_data=[],
+                observations=[
+                    Observation(data=obsd, features=pending["m1"][0])  # pyre-ignore
+                ],
                 search_space=self.hss_exp.search_space,
                 transforms=self.hss_sobol._raw_transforms,
                 transform_configs=None,
             ),
             self.hss_sobol._transform_data(
-                obs_feats=[self.hss_obs_feat_all_params.clone()],
-                obs_data=[],
+                observations=[
+                    Observation(
+                        data=obsd, features=self.hss_obs_feat_all_params.clone()
+                    )
+                ],
                 search_space=self.hss_exp.search_space,
                 transforms=self.hss_sobol._raw_transforms,
                 transform_configs=None,
@@ -263,15 +269,17 @@ class TestModelbridgeUtils(TestCase):
             # Check that candidate metadata is property propagated for abandoned arm.
             self.assertEqual(
                 self.hss_sobol._transform_data(
-                    obs_feats=pending["m1"],
-                    obs_data=[],
+                    observations=[Observation(data=obsd, features=pending["m1"][0])],
                     search_space=hss_exp.search_space,
                     transforms=self.hss_sobol._raw_transforms,
                     transform_configs=None,
                 ),
                 self.hss_sobol._transform_data(
-                    obs_feats=[self.hss_obs_feat_all_params.clone()],
-                    obs_data=[],
+                    observations=[
+                        Observation(
+                            data=obsd, features=self.hss_obs_feat_all_params.clone()
+                        )
+                    ],
                     search_space=hss_exp.search_space,
                     transforms=self.hss_sobol._raw_transforms,
                     transform_configs=None,
@@ -399,18 +407,24 @@ class TestModelbridgeUtils(TestCase):
         # is applying `Cast` transform, it should inject full parameterization into
         # resulting obs.feats.). Therefore, transforming the extracted pending features
         #  and observation features made from full parameterization should be the same.
+        obsd = ObservationData(
+            metric_names=["m1"], means=np.array([1.0]), covariance=np.array([[1.0]])
+        )
         self.assertEqual(
             self.hss_sobol._transform_data(
-                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                obs_feats=pending["m1"],
-                obs_data=[],
+                observations=[
+                    Observation(data=obsd, features=pending["m1"][0])  # pyre-ignore
+                ],
                 search_space=self.hss_exp.search_space,
                 transforms=self.hss_sobol._raw_transforms,
                 transform_configs=None,
             ),
             self.hss_sobol._transform_data(
-                obs_feats=[self.hss_obs_feat_all_params],
-                obs_data=[],
+                observations=[
+                    Observation(
+                        data=obsd, features=self.hss_obs_feat_all_params.clone()
+                    )
+                ],
                 search_space=self.hss_exp.search_space,
                 transforms=self.hss_sobol._raw_transforms,
                 transform_configs=None,

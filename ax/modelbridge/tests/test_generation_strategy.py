@@ -741,7 +741,7 @@ class TestGenerationStrategy(TestCase):
             ) as mock_model_fit, patch.object(RandomModelBridge, "gen"):
                 self.sobol_GS.gen(experiment=experiment)
                 mock_model_fit.assert_called_once()
-                obs_feats = mock_model_fit.call_args[1].get("observation_features")
+                observations = mock_model_fit.call_args[1].get("observations")
                 all_parameter_names = (
                     # pyre-fixme[16]: `SearchSpace` has no attribute
                     #  `_all_parameter_names`.
@@ -751,9 +751,9 @@ class TestGenerationStrategy(TestCase):
                 # one-hot encoded).
                 all_parameter_names.remove("model")
                 all_parameter_names.add("model_OH_PARAM_")
-                for obsf in obs_feats:
+                for obs in observations:
                     for p_name in all_parameter_names:
-                        self.assertIn(p_name, obsf.parameters)
+                        self.assertIn(p_name, obs.features.parameters)
 
             trial = (
                 experiment.new_trial(

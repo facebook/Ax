@@ -10,7 +10,7 @@ from math import sqrt
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
@@ -39,13 +39,11 @@ class StandardizeYTransformTest(TestCase):
                 ]
             ),
         )
+        obs1 = Observation(features=ObservationFeatures({}), data=self.obsd1)
+        obs2 = Observation(features=ObservationFeatures({}), data=self.obsd2)
         self.t = StandardizeY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[self.obsd1, self.obsd2],
+            observations=[obs1, obs2],
         )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -54,14 +52,8 @@ class StandardizeYTransformTest(TestCase):
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
             StandardizeY(
-                # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
-                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
-                #  but got `None`.
                 search_space=None,
-                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
-                #  but got `None`.
-                observation_features=None,
-                observation_data=[],
+                observations=[],
             )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -78,9 +70,9 @@ class StandardizeYTransformTest(TestCase):
             ),
         )
         obsd2 = [deepcopy(self.obsd1)]
-        obsd2 = self.t.transform_observation_data(obsd2, [])
+        obsd2 = self.t._transform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], obsd1_t))
-        obsd2 = self.t.untransform_observation_data(obsd2, [])
+        obsd2 = self.t._untransform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -105,7 +97,6 @@ class StandardizeYTransformTest(TestCase):
             ),
         ]
         oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
-        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc = self.t.transform_optimization_config(oc, None, None)
         cons_t = [
             OutcomeConstraint(
@@ -134,8 +125,6 @@ class StandardizeYTransformTest(TestCase):
         )
         oc = OptimizationConfig(objective=objective, outcome_constraints=[con])
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
-            #  `None`.
             oc = self.t.transform_optimization_config(oc, None, None)
 
 

@@ -47,7 +47,7 @@ class RandomModelBridgeTest(TestCase):
         # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
-        modelbridge._fit(model, self.search_space, None, None)
+        modelbridge._fit(model, self.search_space, None)
         self.assertEqual(modelbridge.parameters, ["x", "y", "z"])
         self.assertTrue(isinstance(modelbridge.model, RandomModel))
 
@@ -71,8 +71,7 @@ class RandomModelBridgeTest(TestCase):
         modelbridge.transforms = OrderedDict()
         modelbridge.parameters = ["x", "y", "z"]
         with self.assertRaises(NotImplementedError):
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
-            modelbridge._cross_validate(None, [], [], [])
+            modelbridge._cross_validate(self.search_space, [], [])
 
     @mock.patch(
         "ax.models.random.base.RandomModel.gen",

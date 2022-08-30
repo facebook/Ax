@@ -6,11 +6,11 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -39,14 +39,12 @@ class Cast(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: Optional[List[ObservationFeatures]] = None,
-        observation_data: Optional[List[ObservationData]] = None,
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.search_space = search_space.clone()
+        self.search_space: SearchSpace = not_none(search_space).clone()
         self.flatten_hss: bool = (
             config is None or checked_cast(bool, config.get("flatten_hss", True))
         ) and isinstance(search_space, HierarchicalSearchSpace)

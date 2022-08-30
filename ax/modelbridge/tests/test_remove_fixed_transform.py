@@ -35,12 +35,7 @@ class RemoveFixedTransformTest(TestCase):
         )
         self.t = RemoveFixed(
             search_space=self.search_space,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -85,12 +80,7 @@ class RemoveFixedTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = RemoveFixed(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -113,12 +103,7 @@ class RemoveFixedTransformTest(TestCase):
         )
         t = RemoveFixed(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss = t.transform_search_space(rss)
         self.assertIsInstance(rss, RobustSearchSpace)

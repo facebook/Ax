@@ -12,11 +12,12 @@ from math import sqrt
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
@@ -44,16 +45,15 @@ class Relativize(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace],
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert observations is not None, "Relativize requires observations"
         super().__init__(
             search_space=search_space,
-            observation_features=observation_features,
-            observation_data=observation_data,
+            observations=observations,
             modelbridge=modelbridge,
             config=config,
         )
@@ -64,8 +64,7 @@ class Relativize(Transform):
         )
         # pyre-fixme[4]: Attribute must be annotated.
         self.status_quo_by_trial = self._get_status_quo_by_trial(
-            observation_data=observation_data,
-            observation_features=observation_features,
+            observations=observations,
             status_quo_feature=not_none(
                 self.modelbridge.status_quo, self.MISSING_STATUS_QUO_ERROR
             ).features,
@@ -74,8 +73,8 @@ class Relativize(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge],
-        fixed_features: ObservationFeatures,
+        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> OptimizationConfig:
         r"""
         Change the relative flag of the given relative optimization configuration
@@ -131,29 +130,40 @@ class Relativize(Transform):
 
         return new_optimization_config
 
-    def transform_observation_data(
+    def untransform_outcome_constraints(
         self,
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
-    ) -> List[ObservationData]:
+        outcome_constraints: List[OutcomeConstraint],
+        fixed_features: Optional[ObservationFeatures] = None,
+    ) -> List[OutcomeConstraint]:
+        for c in outcome_constraints:
+            c.relative = True
+        return outcome_constraints
+
+    def transform_observations(
+        self,
+        observations: List[Observation],
+    ) -> List[Observation]:
         return [
-            self._get_relative_data(
-                data=datum,
-                status_quo_data=not_none(
-                    self.status_quo_by_trial.get(obs_features.trial_index, None),
-                    self.MISSING_STATUS_QUO_ERROR,
+            Observation(
+                features=obs.features,
+                data=self._get_relative_data(
+                    data=obs.data,
+                    status_quo_data=not_none(
+                        self.status_quo_by_trial.get(obs.features.trial_index, None),
+                        self.MISSING_STATUS_QUO_ERROR,
+                    ),
                 ),
+                arm_name=obs.arm_name,
             )
-            for datum, obs_features in zip(observation_data, observation_features)
+            for obs in observations
         ]
 
-    def untransform_observation_data(
+    def _untransform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         warnings.warn(
-            "`Relativize.untransform_observation_data()` not yet implemented. "
+            "`Relativize._untransform_observation_data()` not yet implemented. "
             "Returning relative data."
         )
         return observation_data
@@ -202,13 +212,13 @@ class Relativize(Transform):
 
     @staticmethod
     def _get_status_quo_by_trial(
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
+        observations: List[Observation],
         status_quo_feature: ObservationFeatures,
     ) -> Dict[int, ObservationData]:
         status_quo_signature = json.dumps(status_quo_feature.parameters, sort_keys=True)
         return {
-            obs_f.trial_index: obs_data
-            for obs_data, obs_f in zip(observation_data, observation_features)
-            if json.dumps(obs_f.parameters, sort_keys=True) == status_quo_signature
+            int(not_none(obs.features.trial_index)): obs.data
+            for obs in observations
+            if json.dumps(obs.features.parameters, sort_keys=True)
+            == status_quo_signature
         }

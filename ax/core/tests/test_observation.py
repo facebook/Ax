@@ -21,6 +21,7 @@ from ax.core.observation import (
     ObservationFeatures,
     observations_from_data,
     observations_from_map_data,
+    recombine_observations,
     separate_observations,
 )
 from ax.core.trial import Trial
@@ -693,6 +694,11 @@ class ObservationsTest(TestCase):
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
         )
+        with self.assertRaises(ValueError):
+            recombine_observations(observation_features=obs_feats, observation_data=[])
+        new_obs = recombine_observations(obs_feats, obs_data)[0]
+        self.assertEqual(new_obs.features, obs.features)
+        self.assertEqual(new_obs.data, obs.data)
         obs_feats, obs_data = separate_observations(observations=[obs], copy=True)
         self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
         self.assertEqual(

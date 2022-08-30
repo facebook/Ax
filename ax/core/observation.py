@@ -532,3 +532,15 @@ def separate_observations(
         observation_features = [obs.features for obs in observations]
         observation_data = [obs.data for obs in observations]
     return observation_features, observation_data
+
+
+def recombine_observations(
+    observation_features: List[ObservationFeatures],
+    observation_data: List[ObservationData],
+) -> List[Observation]:
+    if len(observation_features) != len(observation_data):
+        raise ValueError("Got features and data of different lengths")
+    return [
+        Observation(features=observation_features[i], data=obsd)
+        for i, obsd in enumerate(observation_data)
+    ]

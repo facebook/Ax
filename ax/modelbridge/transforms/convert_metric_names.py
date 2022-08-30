@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
@@ -37,12 +37,12 @@ class ConvertMetricNames(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace],
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert observations is not None, "ConvertMetricNames requires observations"
         if config is None:
             raise ValueError("Config cannot be none.")
 
@@ -65,8 +65,8 @@ class ConvertMetricNames(Transform):
         if self.trial_index_to_type is None:
             raise ValueError("Config must contain trial_index_to_type")
 
-        for obsf in observation_features:
-            if obsf.trial_index not in self.trial_index_to_type:
+        for obs in observations:
+            if obs.features.trial_index not in self.trial_index_to_type:
                 raise ValueError("trial_index_to_type does not include all trials")
 
         # For each trial type, give a map from transformed name back to original
@@ -84,11 +84,10 @@ class ConvertMetricNames(Transform):
             else:
                 self.reverse_metric_name_map[trial_type] = {trans_name: orig_name}
 
-    @copy_doc(Transform.transform_observation_data)
-    def transform_observation_data(
+    @copy_doc(Transform._transform_observation_data)
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             for i in range(len(obsd.metric_names)):
@@ -96,26 +95,25 @@ class ConvertMetricNames(Transform):
                     obsd.metric_names[i] = self.metric_name_map[obsd.metric_names[i]]
         return observation_data
 
-    @copy_doc(Transform.untransform_observation_data)
-    def untransform_observation_data(
+    @copy_doc(Transform.untransform_observations)
+    def untransform_observations(
         self,
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
-    ) -> List[ObservationData]:
+        observations: List[Observation],
+    ) -> List[Observation]:
         if not self.perform_untransform:
-            return observation_data
-        for i, obsd in enumerate(observation_data):
-            trial_index = int(not_none(observation_features[i].trial_index))
+            return observations
+        for obs in observations:
+            trial_index = int(not_none(obs.features.trial_index))
             trial_type = self.trial_index_to_type[trial_index]
             reverse_map = self.reverse_metric_name_map.get(trial_type)
 
             if not reverse_map:
                 continue
 
-            for j in range(len(obsd.metric_names)):
-                if obsd.metric_names[j] in reverse_map:
-                    obsd.metric_names[j] = reverse_map[obsd.metric_names[j]]
-        return observation_data
+            for j in range(len(obs.data.metric_names)):
+                if obs.data.metric_names[j] in reverse_map:
+                    obs.data.metric_names[j] = reverse_map[obs.data.metric_names[j]]
+        return observations
 
 
 def tconfig_from_mt_experiment(experiment: MultiTypeExperiment) -> TConfig:
@@ -140,22 +138,12 @@ def convert_mt_observations(
     observations: List[Observation], experiment: MultiTypeExperiment
 ) -> List[Observation]:
     """Apply ConvertMetricNames transform to observations for a MT experiment."""
-    observation_data = [o.data for o in observations]
-    observation_features = [o.features for o in observations]
     transform = ConvertMetricNames(
         search_space=None,
-        observation_data=observation_data,
-        observation_features=observation_features,
+        observations=observations,
         config=tconfig_from_mt_experiment(experiment),
     )
-    transformed_observations = transform.transform_observation_data(
-        observation_data=observation_data, observation_features=observation_features
+    transformed_observations = transform.transform_observations(
+        observations=observations
     )
-    return [
-        Observation(
-            features=obs.features,
-            data=transformed_observations[i],
-            arm_name=obs.arm_name,
-        )
-        for i, obs in enumerate(observations)
-    ]
+    return transformed_observations

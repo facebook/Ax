@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.objective import ScalarizedObjective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -109,21 +109,19 @@ class Winsorize(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        if len(observation_data) == 0:
-            raise DataRequiredError(
-                "`Winsorize` transform requires non-empty observation data."
-            )
+        if observations is None or len(observations) == 0:
+            raise DataRequiredError("`Winsorize` transform requires non-empty data.")
         if config is None:
             raise ValueError(
                 "Transform config for `Winsorize` transform must be specified and "
                 "non-empty when using winsorization."
             )
+        observation_data = [obs.data for obs in observations]
         all_metric_values = get_data(observation_data=observation_data)
 
         # Check for legacy config
@@ -167,10 +165,9 @@ class Winsorize(Transform):
                     optimization_config=opt_config,  # pyre-ignore[6]
                 )
 
-    def transform_observation_data(
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:

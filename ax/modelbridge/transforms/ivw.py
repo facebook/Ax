@@ -7,7 +7,7 @@
 from typing import Dict, List
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import ObservationData
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 
@@ -111,10 +111,9 @@ class IVW(Transform):
     are combined using inverse variance weighting.
     """
 
-    def transform_observation_data(
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         # pyre: conflicting_noiseless is declared to have type `str` but is
         # pyre-fixme[9]: used as type `typing.Union[float, int, str]`.

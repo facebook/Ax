@@ -43,9 +43,9 @@ class CastTransformTest(TestCase):
             ],
             parameter_constraints=[],
         )
-        self.t = Cast(search_space=self.search_space)
+        self.t = Cast(search_space=self.search_space, observations=[])
         self.hss = get_hierarchical_search_space()
-        self.t_hss = Cast(search_space=self.hss)
+        self.t_hss = Cast(search_space=self.hss, observations=[])
         self.obs_feats_hss = ObservationFeatures(
             parameters={
                 "model": "Linear",
@@ -98,9 +98,9 @@ class CastTransformTest(TestCase):
 
     # pyre-fixme[3]: Return type must be annotated.
     def test_flatten_hss_setting(self):
-        t = Cast(search_space=self.hss)
+        t = Cast(search_space=self.hss, observations=[])
         self.assertTrue(t.flatten_hss)
-        t = Cast(search_space=self.hss, config={"flatten_hss": False})
+        t = Cast(search_space=self.hss, config={"flatten_hss": False}, observations=[])
         self.assertFalse(t.flatten_hss)
         self.assertFalse(self.t.flatten_hss)  # `self.t` does not have HSS
         self.assertTrue(self.t_hss.flatten_hss)  # `self.t_hss` does have HSS
@@ -129,7 +129,7 @@ class CastTransformTest(TestCase):
         with patch.object(
             self.t_hss.search_space,
             "flatten_observation_features",
-            wraps=self.t_hss.search_space.flatten_observation_features,
+            wraps=self.t_hss.search_space.flatten_observation_features,  # pyre-ignore
         ) as mock_flatten_obsf:
             transformed_obs_feats = self.t_hss.transform_observation_features(
                 observation_features=obs_feats
@@ -170,7 +170,7 @@ class CastTransformTest(TestCase):
         with patch.object(
             self.t_hss.search_space,
             "cast_observation_features",
-            wraps=self.t_hss.search_space.cast_observation_features,
+            wraps=self.t_hss.search_space.cast_observation_features,  # pyre-ignore
         ) as mock_cast_obsf:
             obs_feats = self.t_hss.untransform_observation_features(
                 observation_features=[self.obs_feats_hss]

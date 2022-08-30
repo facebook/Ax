@@ -9,8 +9,9 @@ from __future__ import annotations
 from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
@@ -41,9 +42,8 @@ class LogY(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -57,8 +57,7 @@ class LogY(Transform):
             raise ValueError("Must specify at least one metric in the config.")
         super().__init__(
             search_space=search_space,
-            observation_features=observation_features,
-            observation_data=observation_data,
+            observations=observations,
             config=config,
         )
         # pyre-fixme[4]: Attribute must be annotated.
@@ -77,8 +76,8 @@ class LogY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[base_modelbridge.ModelBridge],
-        fixed_features: ObservationFeatures,
+        modelbridge: Optional[base_modelbridge.ModelBridge] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if c.metric.name in self.metric_names:
@@ -98,7 +97,6 @@ class LogY(Transform):
     def _tf_obs_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
         transform: Callable[[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]],
     ) -> List[ObservationData]:
         for obsd in observation_data:
@@ -128,23 +126,29 @@ class LogY(Transform):
                 obsd.covariance = cov
         return observation_data
 
-    def transform_observation_data(
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
-        return self._tf_obs_data(
-            observation_data, observation_features, self._transform
-        )
+        return self._tf_obs_data(observation_data, self._transform)
 
-    def untransform_observation_data(
+    def _untransform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
-        return self._tf_obs_data(
-            observation_data, observation_features, self._untransform
-        )
+        return self._tf_obs_data(observation_data, self._untransform)
+
+    def untransform_outcome_constraints(
+        self,
+        outcome_constraints: List[OutcomeConstraint],
+        fixed_features: Optional[ObservationFeatures] = None,
+    ) -> List[OutcomeConstraint]:
+        for c in outcome_constraints:
+            if c.metric.name in self.metric_names:
+                if c.relative:
+                    raise ValueError("Unexpected relative transform.")
+                c.bound = np.exp(c.bound)
+        return outcome_constraints
 
 
 def match_ci_width(

@@ -7,7 +7,7 @@
 from copy import deepcopy
 
 import numpy as np
-from ax.core.observation import ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.percentile_y import PercentileY
 from ax.utils.common.testutils import TestCase
@@ -46,39 +46,25 @@ class PercentileYTransformTest(TestCase):
             means=np.array([-1.0, 126.0]),
             covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
         )
+
+        self.observations = [
+            Observation(features=ObservationFeatures({}), data=deepcopy(obsd))
+            for obsd in [self.obsd1, self.obsd2, self.obsd3, self.obsd4]
+        ]
         self.t = PercentileY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[
-                deepcopy(self.obsd1),
-                deepcopy(self.obsd2),
-                deepcopy(self.obsd3),
-                deepcopy(self.obsd4),
-            ],
+            observations=self.observations,
         )
         self.t_with_winsorization = PercentileY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[
-                deepcopy(self.obsd1),
-                deepcopy(self.obsd2),
-                deepcopy(self.obsd3),
-                deepcopy(self.obsd4),
-            ],
+            observations=self.observations,
             config={"winsorize": True},
         )
 
     # pyre-fixme[3]: Return type must be annotated.
     def testInit(self):
         with self.assertRaises(DataRequiredError):
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
-            PercentileY(search_space=None, observation_features=[], observation_data=[])
+            PercentileY(search_space=None, observations=[])
 
     # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
@@ -86,8 +72,8 @@ class PercentileYTransformTest(TestCase):
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])
 
         # Mid-range value transformation
-        transformed_obsd_mid = self.t.transform_observation_data(
-            [deepcopy(self.obsd_mid)], []
+        transformed_obsd_mid = self.t._transform_observation_data(
+            [deepcopy(self.obsd_mid)]
         )[0]
         mean_results = np.array(list(transformed_obsd_mid.means))
         expected = np.array([0.5, 0.75])
@@ -102,8 +88,8 @@ class PercentileYTransformTest(TestCase):
         )
 
         # Extreme value transformation
-        transformed_obsd_extreme = self.t.transform_observation_data(
-            [deepcopy(self.obsd_extreme)], []
+        transformed_obsd_extreme = self.t._transform_observation_data(
+            [deepcopy(self.obsd_extreme)]
         )[0]
         mean_results = np.array(list(transformed_obsd_extreme.means))
         expected = np.array([0.0, 1.0])
@@ -121,8 +107,8 @@ class PercentileYTransformTest(TestCase):
     def testTransformObservationsWithWinsorization(self):
         self.assertListEqual(self.t.percentiles["m1"], [0.0, 1.0, 2.0, 3.0])
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])
-        transformed_obsd_mid = self.t_with_winsorization.transform_observation_data(
-            [deepcopy(self.obsd_mid)], []
+        transformed_obsd_mid = self.t_with_winsorization._transform_observation_data(
+            [deepcopy(self.obsd_mid)]
         )[0]
         mean_results = np.array(list(transformed_obsd_mid.means))
         expected = np.array([0.5, 0.75])
@@ -130,9 +116,11 @@ class PercentileYTransformTest(TestCase):
             np.allclose(mean_results, expected),
             msg=f"Unexpected mean Results: {mean_results}. Expected: {expected}.",
         )
-        transformed_obsd_extreme = self.t_with_winsorization.transform_observation_data(
-            [deepcopy(self.obsd_extreme)], []
-        )[0]
+        transformed_obsd_extreme = (
+            self.t_with_winsorization._transform_observation_data(
+                [deepcopy(self.obsd_extreme)]
+            )[0]
+        )
         mean_results = np.array(list(transformed_obsd_extreme.means))
         expected = np.array([0.0847075, 0.9152924])
         self.assertTrue(
