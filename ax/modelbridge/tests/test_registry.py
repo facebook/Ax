@@ -134,6 +134,7 @@ class ModelRegistryTest(TestCase):
                 "optimization_config": None,
                 "transforms": Cont_X_trans + Y_trans,
                 "fit_out_of_design": False,
+                "fit_abandoned": False,
                 "default_model_gen_options": None,
             },
         )

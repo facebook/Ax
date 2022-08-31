@@ -100,6 +100,7 @@ class TorchModelBridge(ModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
+        fit_abandoned: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         # pyre-fixme[4]: Attribute must be annotated.
@@ -127,6 +128,7 @@ class TorchModelBridge(ModelBridge):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
         )
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
