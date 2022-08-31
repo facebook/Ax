@@ -44,7 +44,6 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
-from torch import float64 as torch_float64
 
 
 class ModelRegistryTest(TestCase):
@@ -127,7 +126,7 @@ class ModelRegistryTest(TestCase):
             gpei._bridge_kwargs,
             {
                 "transform_configs": None,
-                "torch_dtype": torch_float64,
+                "torch_dtype": torch.float64,
                 "torch_device": None,
                 "status_quo_name": None,
                 "status_quo_features": None,
