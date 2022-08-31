@@ -17,7 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.modelbridge.modelbridge_utils import (
-    _get_modelbridge_training_data,
+    _unpack_observations,
     observation_data_to_array,
     observation_features_to_array,
 )
@@ -416,16 +416,14 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         transform_model = get_transform_helper_model(
             experiment=experiment, data=map_data
         )
-        obs_feats_raw, obs_data_raw, arm_names = _get_modelbridge_training_data(
-            transform_model
-        )
-        obs_features, obs_data, _ = transform_model._transform_data(
-            obs_feats=obs_feats_raw,
-            obs_data=obs_data_raw,
+        observations_raw = transform_model.get_training_data()
+        observations, _ = transform_model._transform_data(
+            observations=observations_raw,
             search_space=transform_model._model_space,
             transforms=transform_model._raw_transforms,
             transform_configs=None,
         )
+        obs_features, obs_data, arm_names = _unpack_observations(observations)
         X = observation_features_to_array(parameters=parameters, obsf=obs_features)
         Y, Yvar = observation_data_to_array(
             outcomes=list(outcomes), observation_data=obs_data

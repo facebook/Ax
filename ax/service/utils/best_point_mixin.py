@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.core.observation import ObservationFeatures
+from ax.core.observation import ObservationFeatures, separate_observations
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -21,7 +21,6 @@ from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     _array_to_tensor,
-    _get_modelbridge_training_data,
     extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
@@ -327,7 +326,8 @@ class BestPointMixin(metaclass=ABCMeta):
             experiment=experiment,
             data=experiment.lookup_data(),
         )
-        obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=modelbridge)
+        observations = modelbridge.get_training_data()
+        obs_features, obs_data = separate_observations(observations)
         array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
         Y, _ = observation_data_to_array(
             outcomes=modelbridge.outcomes, observation_data=obs_data
@@ -336,8 +336,7 @@ class BestPointMixin(metaclass=ABCMeta):
 
         tf = Derelativize(
             search_space=modelbridge.model_space.clone(),
-            observation_data=obs_data,
-            observation_features=obs_feats,
+            observations=observations,
             config={"use_raw_status_quo": True},
         )
         optimization_config = optimization_config or not_none(

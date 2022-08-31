@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
@@ -48,12 +48,12 @@ class ChoiceEncode(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "ChoiceEncode requires search space"
         # Identify parameters that should be transformed
         self.encoded_parameters: Dict[str, Dict[TParamValue, TParamValue]] = {}
         self.encoded_parameters_inverse: Dict[str, ClosestLookupDict] = {}
@@ -111,10 +111,11 @@ class ChoiceEncode(Transform):
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, reverse_transform in self.encoded_parameters_inverse.items():
-                # pyre: pval is declared to have type `int` but is used as
-                # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-                pval: int = obsf.parameters[p_name]
-                obsf.parameters[p_name] = reverse_transform[pval]
+                if p_name in obsf.parameters:
+                    # pyre: pval is declared to have type `int` but is used as
+                    # pyre-fixme[9]: type `Union[bool, float, str]`.
+                    pval: int = obsf.parameters[p_name]
+                    obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features
 
 
@@ -136,8 +137,7 @@ class OrderedChoiceEncode(ChoiceEncode):
     def __init__(
         self,
         search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        observations: List[Observation],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:

@@ -6,8 +6,9 @@
 
 from copy import deepcopy
 
+import numpy as np
 from ax.core.arm import Arm
-from ax.core.observation import ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -54,26 +55,23 @@ class SearchSpaceToChoiceTest(TestCase):
                 parameters={"arms": Arm(parameters={"a": 3, "b": "c"}).signature}
             ),
         ]
+        self.observations = [
+            Observation(
+                data=ObservationData([], np.array([]), np.empty((0, 0))), features=obsf
+            )
+            for obsf in self.observation_features
+        ]
         self.t = SearchSpaceToChoice(
             search_space=self.search_space,
-            observation_features=self.observation_features,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=self.observations,
         )
         self.t2 = SearchSpaceToChoice(
             search_space=self.search_space,
-            observation_features=[self.observation_features[0]],
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=self.observations[:1],
         )
         self.t3 = SearchSpaceToChoice(
             search_space=self.search_space,
-            observation_features=self.observation_features,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=self.observations,
             config={"use_ordered": True},
         )
 
@@ -117,10 +115,7 @@ class SearchSpaceToChoiceTest(TestCase):
         with self.assertRaises(ValueError):
             SearchSpaceToChoice(
                 search_space=ss3,
-                observation_features=self.observation_features,
-                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
-                #  got `None`.
-                observation_data=None,
+                observations=[],
             )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -150,10 +145,5 @@ class SearchSpaceToChoiceTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             SearchSpaceToChoice(
                 search_space=rss,
-                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
-                #  but got `None`.
-                observation_features=None,
-                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
-                #  got `None`.
-                observation_data=None,
+                observations=[],
             )

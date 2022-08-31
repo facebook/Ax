@@ -33,24 +33,14 @@ class InverseGaussianCdfYTransformTest(TestCase):
             ),
         )
         self.t = InverseGaussianCdfY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
 
     # pyre-fixme[3]: Return type must be annotated.
     def testTransformObservations(self):
-        transformed_obsd_mid = self.t.transform_observation_data(
-            [deepcopy(self.obsd_mid)], []
+        transformed_obsd_mid = self.t._transform_observation_data(
+            [deepcopy(self.obsd_mid)]
         )[0]
         # Approximate assertion for robustness.
         mean_results = np.array(list(transformed_obsd_mid.means))
@@ -69,11 +59,11 @@ class InverseGaussianCdfYTransformTest(TestCase):
 
         # Fail with extreme values.
         with self.assertRaises(ValueError):
-            self.t.transform_observation_data([deepcopy(self.obsd_extreme)], [])[0]
+            self.t._transform_observation_data([deepcopy(self.obsd_extreme)])[0]
 
         # NaN covar values remain as NaNs
-        transformed_obsd_nan_covars = self.t.transform_observation_data(
-            [deepcopy(self.obsd_nan_covars)], []
+        transformed_obsd_nan_covars = self.t._transform_observation_data(
+            [deepcopy(self.obsd_nan_covars)]
         )[0]
         cov_results = np.array(transformed_obsd_nan_covars.covariance)
         self.assertTrue(

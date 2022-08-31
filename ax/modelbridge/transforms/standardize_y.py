@@ -7,9 +7,9 @@
 from typing import DefaultDict, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.exceptions.core import DataRequiredError
@@ -36,26 +36,23 @@ class StandardizeY(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        if len(observation_data) == 0:
-            raise DataRequiredError(
-                "`StandardizeY` transform requires non-empty observation data."
-            )
+        if observations is None or len(observations) == 0:
+            raise DataRequiredError("`StandardizeY` transform requires non-empty data.")
+        observation_data = [obs.data for obs in observations]
         Ys = get_data(observation_data=observation_data)
         # Compute means and SDs
         # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
         # pyre-fixme[4]: Attribute must be annotated.
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
-    def transform_observation_data(
+    def _transform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         # Transform observation data
         for obsd in observation_data:
@@ -68,8 +65,8 @@ class StandardizeY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional["base_modelbridge.ModelBridge"],
-        fixed_features: ObservationFeatures,
+        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if c.relative:
@@ -102,10 +99,9 @@ class StandardizeY(Transform):
                 )
         return optimization_config
 
-    def untransform_observation_data(
+    def _untransform_observation_data(
         self,
         observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
     ) -> List[ObservationData]:
         for obsd in observation_data:
             means = np.array([self.Ymean[m] for m in obsd.metric_names])
@@ -113,6 +109,23 @@ class StandardizeY(Transform):
             obsd.means = obsd.means * stds + means
             obsd.covariance *= np.dot(stds[:, None], stds[:, None].transpose())
         return observation_data
+
+    def untransform_outcome_constraints(
+        self,
+        outcome_constraints: List[OutcomeConstraint],
+        fixed_features: Optional[ObservationFeatures] = None,
+    ) -> List[OutcomeConstraint]:
+        for c in outcome_constraints:
+            if c.relative:
+                raise ValueError(
+                    f"StandardizeY transform does not support relative constraint {c}"
+                )
+            if isinstance(c, ScalarizedOutcomeConstraint):
+                raise ValueError("ScalarizedOutcomeConstraint not supported")
+            c.bound = float(
+                c.bound * self.Ystd[c.metric.name] + self.Ymean[c.metric.name]
+            )
+        return outcome_constraints
 
 
 def compute_standardization_parameters(

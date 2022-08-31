@@ -49,21 +49,11 @@ class OneHotTransformTest(TestCase):
         )
         self.t = OneHot(
             search_space=self.search_space,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         self.t2 = OneHot(
             search_space=self.search_space,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
             config={"rounding": "randomized"},
         )
 
@@ -163,10 +153,7 @@ class OneHotTransformTest(TestCase):
                 )
             ]
         )
-        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
-        #  `None`.
-        # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got `None`.
-        t = OneHot(search_space=ss3, observation_features=None, observation_data=None)
+        t = OneHot(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
@@ -176,12 +163,7 @@ class OneHotTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = OneHot(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -200,12 +182,7 @@ class OneHotTransformTest(TestCase):
         )
         t = OneHot(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)

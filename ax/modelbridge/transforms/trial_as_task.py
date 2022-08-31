@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -47,14 +47,14 @@ class TrialAsTask(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert observations is not None, "TrialAskTask requires observations"
         # Identify values of trial.
-        trials = {obsf.trial_index for obsf in observation_features}
+        trials = {obs.features.trial_index for obs in observations}
         if isinstance(search_space, RobustSearchSpace):
             raise UnsupportedError(
                 "TrialAsTask transform is not supported for RobustSearchSpace."

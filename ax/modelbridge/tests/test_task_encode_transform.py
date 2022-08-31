@@ -38,12 +38,7 @@ class TaskEncodeTransformTest(TestCase):
         )
         self.t = TaskEncode(
             search_space=self.search_space,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -100,12 +95,7 @@ class TaskEncodeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             TaskEncode(
                 search_space=ss3,
-                # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]`
-                #  but got `None`.
-                observation_features=None,
-                # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but
-                #  got `None`.
-                observation_data=None,
+                observations=[],
             )
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -116,12 +106,7 @@ class TaskEncodeTransformTest(TestCase):
         # Transform a non-distributional parameter.
         t = TaskEncode(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
@@ -141,12 +126,7 @@ class TaskEncodeTransformTest(TestCase):
         )
         t = TaskEncode(
             search_space=rss,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got
-            #  `None`.
-            observation_data=None,
+            observations=[],
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)

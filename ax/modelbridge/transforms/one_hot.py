@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, TYPE_CHECKING, TypeVar
 
 import numpy as np
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
@@ -87,12 +87,12 @@ class OneHot(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
+        assert search_space is not None, "OneHot requires search space"
         # Identify parameters that should be transformed
         # pyre-fixme[4]: Attribute must be annotated.
         self.rounding = "strict"
@@ -159,6 +159,13 @@ class OneHot(Transform):
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in self.encoder.keys():
+                has_params = [
+                    p in obsf.parameters for p in self.encoded_parameters[p_name]
+                ]
+                if not all(has_params):
+                    if any(has_params):
+                        raise ValueError(f"Missing some parameters for {p_name}")
+                    continue
                 x = np.array(
                     [obsf.parameters.pop(p) for p in self.encoded_parameters[p_name]]
                 )

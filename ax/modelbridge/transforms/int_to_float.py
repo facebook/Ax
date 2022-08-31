@@ -6,7 +6,7 @@
 
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
@@ -17,6 +17,7 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -41,17 +42,17 @@ class IntToFloat(Transform):
 
     def __init__(
         self,
-        search_space: SearchSpace,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        search_space: Optional[SearchSpace] = None,
+        observations: Optional[List[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        self.search_space = search_space
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.rounding = "strict"
+        self.search_space: SearchSpace = not_none(
+            search_space, "IntToFloat requires search space"
+        )
+        self.rounding: str = "strict"
         if config is not None:
-            self.rounding = config.get("rounding", "strict")
+            self.rounding = config.get("rounding", "strict")  # pyre-ignore
             # pyre-fixme[4]: Attribute must be annotated.
             self.max_round_attempts = config.get(
                 "max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS
@@ -62,7 +63,7 @@ class IntToFloat(Transform):
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name
-            for p_name, p in search_space.parameters.items()
+            for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):
@@ -116,8 +117,11 @@ class IntToFloat(Transform):
         self, observation_features: List[ObservationFeatures]
     ) -> List[ObservationFeatures]:
         for obsf in observation_features:
+            present_params = self.transform_parameters.intersection(
+                obsf.parameters.keys()
+            )
             if self.rounding == "strict":
-                for p_name in self.transform_parameters:
+                for p_name in present_params:
                     # pyre: param is declared to have type `float` but is used as
                     # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
                     param: float = obsf.parameters.get(p_name)
@@ -129,17 +133,21 @@ class IntToFloat(Transform):
                 )
                 # Try to round up to max_round_attempt times)
                 while (
-                    not self.search_space.check_membership(rounded_parameters)
+                    not self.search_space.check_membership(
+                        rounded_parameters, check_all_parameters_present=False
+                    )
                     and round_attempts < self.max_round_attempts
                 ):
                     rounded_parameters = randomized_round_parameters(
-                        obsf.parameters, self.transform_parameters
+                        obsf.parameters, present_params
                     )
                     round_attempts += 1
                 # Update observation with successful rounding or log warning.
-                for p_name in self.transform_parameters:
+                for p_name in present_params:
                     obsf.parameters[p_name] = rounded_parameters[p_name]
-                if not self.search_space.check_membership(rounded_parameters):
+                if not self.search_space.check_membership(
+                    rounded_parameters, check_all_parameters_present=False
+                ):
                     logger.warning(
                         f"Unable to round {obsf.parameters}"
                         f"to meet constraints of {self.search_space}"

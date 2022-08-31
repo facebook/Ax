@@ -10,7 +10,7 @@ from copy import deepcopy
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -46,6 +46,10 @@ class LogYTransformTest(TestCase):
                 ]
             ),
         )
+        self.observations = [
+            Observation(features=ObservationFeatures({}), data=obsd)
+            for obsd in [self.obsd1, self.obsd2]
+        ]
 
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
@@ -60,66 +64,21 @@ class LogYTransformTest(TestCase):
     def testInit(self):
         shared_init_args = {
             "search_space": None,
-            "observation_features": None,
-            "observation_data": [self.obsd1, self.obsd2],
+            "observations": self.observations,
         }
         # test error for not specifying a config
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
-            #  got `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
-            #  `Optional[List[ObservationData]]`.
             LogY(**shared_init_args)
         # test error for not specifying at least one metric
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
-            #  got `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
-            #  `Optional[List[ObservationData]]`.
             LogY(**shared_init_args, config={})
         # test default init
-        # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
-        #  `Optional[List[ObservationData]]`.
-        # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but got
-        #  `Optional[List[ObservationData]]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
-        #  `Optional[List[ObservationData]]`.
-        # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
-        #  `Optional[List[ObservationData]]`.
-        # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-        #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float, int,
-        #  str]]]` but got `Dict[str, List[str]]`.
         tf = LogY(**shared_init_args, config={"metrics": ["m1"]})
         self.assertEqual(tf._transform, lognorm_to_norm)
         self.assertEqual(tf._untransform, norm_to_lognorm)
         # test match_ci_width init
         tf = LogY(
-            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
-            #  got `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, Union[List[str], bool]]`.
             **shared_init_args,
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, Union[List[str], bool]]`.
             config={"metrics": ["m1"], "match_ci_width": True},
         )
         self.assertTrue("<lambda>" in tf._transform.__name__)
@@ -140,23 +99,16 @@ class LogYTransformTest(TestCase):
             covariance=np.diag(np.array([1.0, 1.0, 1.0])),
         )
         tf = LogY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[],
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, List[str]]`.
-            config={"metrics": ["m3"]},
+            observations=[],
+            config={"metrics": ["m3"]},  # pyre-ignore
         )
         obsd1 = deepcopy(self.obsd1)
-        obsd1_ = tf.transform_observation_data([obsd1], [])
+        obsd1_ = tf._transform_observation_data([obsd1])
         self.assertTrue(np.allclose(obsd1_[0].means, obsd1_t.means))
         self.assertTrue(np.allclose(obsd1_[0].covariance, obsd1_t.covariance))
 
-        obsd1 = tf.untransform_observation_data(obsd1_, [])
+        obsd1 = tf._untransform_observation_data(obsd1_)
         self.assertTrue(np.allclose(obsd1[0].means, self.obsd1.means))
         self.assertTrue(np.allclose(obsd1[0].covariance, self.obsd1.covariance))
 
@@ -165,7 +117,7 @@ class LogYTransformTest(TestCase):
         obsd1_.covariance[0, 2] = 0.1
         obsd1_.covariance[2, 0] = 0.1
         with self.assertRaises(NotImplementedError):
-            tf.transform_observation_data([obsd1_], [])
+            tf._transform_observation_data([obsd1_])
         # test full covariance for single metric
         Z = np.zeros((3, 3))
         Z[0, 2] = np.sqrt(np.exp(1)) - 1
@@ -175,7 +127,7 @@ class LogYTransformTest(TestCase):
             means=np.ones(3),
             covariance=np.diag(np.ones(3) * (np.exp(1) - 1)) + Z,
         )
-        obsd1_ = tf.transform_observation_data([obsd1], [])
+        obsd1_ = tf._transform_observation_data([obsd1])
         cov_expected = np.array([[1.0, 0.0, 0.5], [0.0, 1.0, 0.0], [0.5, 0.0, 1.0]])
         self.assertTrue(np.allclose(obsd1_[0].means, -0.5 * np.ones(3)))
         self.assertTrue(np.allclose(obsd1_[0].covariance, cov_expected))
@@ -188,18 +140,10 @@ class LogYTransformTest(TestCase):
         objective_m1 = Objective(metric=m1, minimize=False)
         oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
         tf = LogY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[self.obsd1, self.obsd2],
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, List[str]]`.
-            config={"metrics": ["m1"]},
+            observations=self.observations,
+            config={"metrics": ["m1"]},  # pyre-ignore
         )
-        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # output constraint on a different metric should work
@@ -210,7 +154,6 @@ class LogYTransformTest(TestCase):
                 metric=m2, bound=-1, relative=False
             ),
         )
-        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # output constraint with a negative bound should fail
@@ -222,7 +165,6 @@ class LogYTransformTest(TestCase):
             ),
         )
         with self.assertRaises(ValueError) as cm:
-            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
             #  `None`.
             tf.transform_optimization_config(oc, None, None)
         self.assertEqual(
@@ -236,7 +178,6 @@ class LogYTransformTest(TestCase):
             outcome_constraints=self.get_constraint(metric=m1, bound=0, relative=False),
         )
         with self.assertRaises(ValueError) as cm:
-            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
             #  `None`.
             tf.transform_optimization_config(oc, None, None)
         self.assertEqual(
@@ -251,7 +192,6 @@ class LogYTransformTest(TestCase):
                 metric=m1, bound=2.345, relative=False
             ),
         )
-        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         oc.outcome_constraints[0].bound = math.log(2.345)
         self.assertEqual(oc_tf, oc)
@@ -263,7 +203,6 @@ class LogYTransformTest(TestCase):
             ),
         )
         with self.assertRaises(ValueError) as cm:
-            # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got
             #  `None`.
             tf.transform_optimization_config(oc, None, None)
         self.assertEqual(
@@ -291,18 +230,10 @@ class LogYTransformTest(TestCase):
             objective_thresholds=objective_thresholds,
         )
         tf = LogY(
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got `None`.
             search_space=None,
-            # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but
-            #  got `None`.
-            observation_features=None,
-            observation_data=[self.obsd1, self.obsd2],
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, List[str]]`.
-            config={"metrics": ["m1"]},
+            observations=self.observations,
+            config={"metrics": ["m1"]},  # pyre-ignore
         )
-        # pyre-fixme[6]: For 3rd param expected `ObservationFeatures` but got `None`.
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         oc.objective_thresholds[0].bound = math.log(1.234)
         self.assertEqual(oc_tf, oc)

@@ -23,7 +23,6 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
 from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
@@ -38,6 +37,7 @@ from ax.utils.testing.core_stubs import (
     TEST_SOBOL_SEED,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
@@ -45,145 +45,6 @@ PARETO_FRONTIER_EVALUATOR_PATH = (
 )
 # pyre-fixme[5]: Global expression must be annotated.
 STUBS_PATH = get_branin_experiment_with_multi_objective.__module__
-
-
-# Prepare mock transforms
-class t1(Transform):
-    # pyre-fixme[14]: `transform_search_space` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_search_space(self, ss):
-        new_ss = ss.clone()
-        for param_name in new_ss.parameters:
-            new_ss.parameters[param_name]._lower += 1.0
-            new_ss.parameters[param_name]._upper += 1.0
-        return new_ss
-
-    # pyre-fixme[3]: Return type must be annotated.
-    def transform_optimization_config(
-        self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        optimization_config,
-        # pyre-fixme[2]: Parameter must be annotated.
-        modelbridge,
-        # pyre-fixme[2]: Parameter must be annotated.
-        fixed_features,
-    ):
-        return (
-            optimization_config + 1
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_features(self, x):
-        for obsf in x:
-            for param_name in obsf.parameters:
-                obsf.parameters[param_name] += 1
-        return x
-
-    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means += 1
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_features(self, x):
-        for obsf in x:
-            for param_name in obsf.parameters:
-                obsf.parameters[param_name] -= 1
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means -= 1
-        return x
-
-
-class t2(Transform):
-    # pyre-fixme[14]: `transform_search_space` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_search_space(self, ss):
-        new_ss = ss.clone()
-        for param_name in new_ss.parameters:
-            new_ss.parameters[param_name]._lower = (
-                new_ss.parameters[param_name]._lower ** 2
-            )
-            new_ss.parameters[param_name]._upper = (
-                new_ss.parameters[param_name]._upper ** 2
-            )
-        return new_ss
-
-    # pyre-fixme[3]: Return type must be annotated.
-    def transform_optimization_config(
-        self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        optimization_config,
-        # pyre-fixme[2]: Parameter must be annotated.
-        modelbridge,
-        # pyre-fixme[2]: Parameter must be annotated.
-        fixed_features,
-    ):
-        return (
-            optimization_config**2
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_features(self, x):
-        for obsf in x:
-            for param_name in obsf.parameters:
-                obsf.parameters[param_name] = obsf.parameters[param_name] ** 2
-        return x
-
-    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means = obsd.means**2
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_features(self, x):
-        for obsf in x:
-            for param_name in obsf.parameters:
-                obsf.parameters[param_name] = np.sqrt(obsf.parameters[param_name])
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means = np.sqrt(obsd.means)
-        return x
 
 
 class MultiObjectiveTorchModelBridgeTest(TestCase):
@@ -228,7 +89,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
             optimization_config=exp.optimization_config,
-            transforms=[t1, t2],
+            transforms=[transform_1, transform_2],
             experiment=exp,
             data=exp.fetch_data(),
         )

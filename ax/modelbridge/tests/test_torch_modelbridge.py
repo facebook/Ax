@@ -14,7 +14,11 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
-from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.observation import (
+    ObservationData,
+    ObservationFeatures,
+    recombine_observations,
+)
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
@@ -30,139 +34,8 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_search_space_for_range_value,
 )
-from ax.utils.testing.modeling_stubs import get_observation1
+from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
 from botorch.utils.datasets import FixedNoiseDataset
-
-
-# Prepare mock transforms
-class TestTransform1(Transform):
-    # pyre-fixme[14]: `transform_search_space` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_search_space(self, ss):
-        new_ss = ss.clone()
-        new_ss.parameters["x"]._lower += 1.0
-        new_ss.parameters["x"]._upper += 1.0
-        return new_ss
-
-    # pyre-fixme[3]: Return type must be annotated.
-    def transform_optimization_config(
-        self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        optimization_config,
-        # pyre-fixme[2]: Parameter must be annotated.
-        modelbridge,
-        # pyre-fixme[2]: Parameter must be annotated.
-        fixed_features,
-    ):
-        return (
-            optimization_config + 1
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_features(self, x):
-        for obsf in x:
-            if "x" in obsf.parameters:
-                obsf.parameters["x"] += 1
-        return x
-
-    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means += 1
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_features(self, x):
-        for obsf in x:
-            obsf.parameters["x"] -= 1
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means -= 1
-        return x
-
-
-class TestTransform2(Transform):
-    # pyre-fixme[14]: `transform_search_space` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_search_space(self, ss):
-        new_ss = ss.clone()
-        new_ss.parameters["x"]._lower *= 2
-        new_ss.parameters["x"]._upper *= 2
-        return new_ss
-
-    # pyre-fixme[3]: Return type must be annotated.
-    def transform_optimization_config(
-        self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        optimization_config,
-        # pyre-fixme[2]: Parameter must be annotated.
-        modelbridge,
-        # pyre-fixme[2]: Parameter must be annotated.
-        fixed_features,
-    ):
-        return (
-            optimization_config**2
-            if isinstance(optimization_config, int)
-            else optimization_config
-        )
-
-    # pyre-fixme[14]: `transform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_features(self, x):
-        for obsf in x:
-            if "x" in obsf.parameters:
-                obsf.parameters["x"] = obsf.parameters["x"] ** 2
-        return x
-
-    # pyre-fixme[14]: `transform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def transform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means = obsd.means**2
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_features` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_features(self, x):
-        for obsf in x:
-            obsf.parameters["x"] = np.sqrt(obsf.parameters["x"])
-        return x
-
-    # pyre-fixme[14]: `untransform_observation_data` overrides method defined in
-    #  `Transform` inconsistently.
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def untransform_observation_data(self, x, y):
-        for obsd in x:
-            obsd.means = np.sqrt(obsd.means)
-        return x
 
 
 class TorchModelBridgeTest(TestCase):
@@ -229,9 +102,10 @@ class TorchModelBridgeTest(TestCase):
                 datasets["y2"].Yvar().tolist(),
             )
         ]
-        # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
-        #  Union[float, int]]]` but got `List[Tuple[int, int]]`.
-        ssd = SearchSpaceDigest(feature_names=feature_names, bounds=[(0, 1)] * 3)
+        observations = recombine_observations(observation_features, observation_data)
+        ssd = SearchSpaceDigest(
+            feature_names=feature_names, bounds=[(0, 1)] * 3  # pyre-ignore
+        )
 
         with mock.patch(
             f"{TorchModelBridge.__module__}.extract_search_space_digest",
@@ -240,8 +114,7 @@ class TorchModelBridgeTest(TestCase):
             ma._fit(
                 model=model,
                 search_space=search_space,
-                observation_features=observation_features,
-                observation_data=observation_data,
+                observations=observations,
             )
         model_fit_args = model.fit.mock_calls[0][2]
         self.assertEqual(model_fit_args["datasets"], list(datasets.values()))
@@ -256,8 +129,7 @@ class TorchModelBridgeTest(TestCase):
         ):
             ma._update(
                 search_space=search_space,
-                observation_features=observation_features,
-                observation_data=observation_data,
+                observations=observations,
             )
         model_update_args = model.update.mock_calls[0][2]
         self.assertEqual(model_update_args["datasets"], list(datasets.values()))
@@ -390,8 +262,7 @@ class TorchModelBridgeTest(TestCase):
         ):
             cv_obs_data = ma._cross_validate(
                 search_space=search_space,
-                observation_features=observation_features,
-                observation_data=observation_data,
+                cv_training_data=observations,
                 cv_test_points=cv_test_points,
             )
         model_cv_args = model.cross_validate.mock_calls[0][2]
@@ -451,9 +322,6 @@ class TorchModelBridgeTest(TestCase):
         )
         # These attributes would've been set by `ModelBridge` __init__, but it's mocked.
         ma.model = mock_torch_model()
-        # pyre-fixme[6]: For 2nd param expected `List[ObservationFeatures]` but got
-        #  `None`.
-        # pyre-fixme[6]: For 3rd param expected `List[ObservationData]` but got `None`.
         t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
         ma.transforms = {"ExampleTransform": t}
         ma.parameters = ["x", "y"]
@@ -599,7 +467,7 @@ class TorchModelBridgeTest(TestCase):
         modelbridge = TorchModelBridge(
             search_space=search_space,
             model=TorchModel(),
-            transforms=[TestTransform1, TestTransform2],
+            transforms=[transform_1, transform_2],
             experiment=exp,
             data=Data(),
             optimization_config=oc,
@@ -607,7 +475,7 @@ class TorchModelBridgeTest(TestCase):
 
         self.assertEqual(
             list(modelbridge.transforms.keys()),
-            ["Cast", "TestTransform1", "TestTransform2"],
+            ["Cast", "transform_1", "transform_2"],
         )
 
         # _fit is mocked, which sets these
@@ -704,7 +572,7 @@ class TorchModelBridgeTest(TestCase):
         modelbridge = TorchModelBridge(
             search_space=search_space,
             model=TorchModel(),
-            transforms=[TestTransform1, TestTransform2],
+            transforms=[transform_1, transform_2],
             experiment=exp,
             data=Data(),
         )
