@@ -6,6 +6,8 @@
 
 from typing import Any, Callable, Dict, Type
 
+import torch
+
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
@@ -131,7 +133,6 @@ from gpytorch.constraints import Interval
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
-from torch.nn import Module
 
 
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
@@ -213,7 +214,7 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
     Likelihood: botorch_modular_to_dict,  # BoTorch component
-    Module: botorch_modular_to_dict,  # BoTorch module
+    torch.nn.Module: botorch_modular_to_dict,  # BoTorch module
     MarginalLogLikelihood: botorch_modular_to_dict,  # BoTorch component
     Model: botorch_modular_to_dict,  # BoTorch component
     Transform: transform_type_to_dict,  # Ax general (not just MBM) component
@@ -314,7 +315,7 @@ CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
     "Type[Likelihood]": class_from_json,
-    "Type[Module]": class_from_json,
+    "Type[torch.nn.Module]": class_from_json,
     "Type[MarginalLogLikelihood]": class_from_json,
     "Type[Model]": class_from_json,
     "Type[Transform]": transform_type_from_json,

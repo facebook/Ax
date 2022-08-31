@@ -32,6 +32,7 @@ import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+import pyro  # @manual=//third-party-source/native/pyro:pyro
 import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
@@ -197,10 +198,6 @@ def single_task_pyro_model(
             Matern Kernel and "rbf" for RBFKernel.
         rank: num of latent task features to learn for task covariance.
     """
-    try:
-        import pyro
-    except ImportError:  # pragma: no cover
-        raise RuntimeError("Cannot call pyro_model without pyro installed!")
     Y = Y.view(-1)
     Yvar = Yvar.view(-1)
     tkwargs = {"dtype": X.dtype, "device": X.device}
@@ -213,6 +210,7 @@ def single_task_pyro_model(
         noise = pyro_sample_noise(**tkwargs)
     else:
         noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
+    # pyre-fixme[6]: For 2nd param expected `float` but got `Union[device, dtype]`.
     lengthscale = pyro_sample_saas_lengthscales(dim=dim, **tkwargs)
 
     # transform inputs through kumaraswamy cdf
@@ -393,7 +391,10 @@ def run_inference(
 ) -> Dict[str, Tensor]:
     start = time.time()
     try:
+        # @manual=//third-party-source/native/pyro:pyro
         from pyro.infer.mcmc import MCMC, NUTS
+
+        # @manual=//third-party-source/native/pyro:pyro
         from pyro.infer.mcmc.util import print_summary
     except ImportError:  # pragma: no cover
         raise RuntimeError("Cannot call run_inference without pyro installed!")

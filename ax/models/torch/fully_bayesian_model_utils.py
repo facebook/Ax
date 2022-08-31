@@ -3,9 +3,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+import pyro  # @manual=//third-party-source/native/pyro:pyro
 import torch
 from ax.models.torch.botorch_defaults import _get_model
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
@@ -74,32 +74,15 @@ def _get_single_task_gpytorch_model(
     return model
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-def load_pyro(func: Callable) -> Callable:
-    """A decorator to import pyro"""
-
-    @wraps(func)
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            import pyro
-        except ImportError:  # pragma: no cover
-            raise RuntimeError("Cannot call pyro_model without pyro installed!")
-        return func(pyro=pyro, *args, **kwargs)
-
-    return wrapper
-
-
-@load_pyro
 def pyro_sample_outputscale(
     concentration: float = 2.0,
     rate: float = 0.15,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    pyro: Any = None,
     **tkwargs: Any,
 ) -> Tensor:
+
     return pyro.sample(
         "outputscale",
+        # pyre-fixme[16]: Module `distributions` has no attribute `Gamma`
         pyro.distributions.Gamma(
             torch.tensor(concentration, **tkwargs),
             torch.tensor(rate, **tkwargs),
@@ -107,11 +90,11 @@ def pyro_sample_outputscale(
     )
 
 
-@load_pyro
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
-def pyro_sample_mean(pyro: Any = None, **tkwargs: Any) -> Tensor:
+def pyro_sample_mean(**tkwargs: Any) -> Tensor:
+
     return pyro.sample(
         "mean",
+        # pyre-fixme[16]: Module `distributions` has no attribute `Normal`.
         pyro.distributions.Normal(
             torch.tensor(0.0, **tkwargs),
             torch.tensor(1.0, **tkwargs),
@@ -119,12 +102,12 @@ def pyro_sample_mean(pyro: Any = None, **tkwargs: Any) -> Tensor:
     )
 
 
-@load_pyro
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
-def pyro_sample_noise(pyro: Any = None, **tkwargs: Any) -> Tensor:
+def pyro_sample_noise(**tkwargs: Any) -> Tensor:
+
     # this prefers small noise but has heavy tails
     return pyro.sample(
         "noise",
+        # pyre-fixme[16]: Module `distributions` has no attribute `Gamma`.
         pyro.distributions.Gamma(
             torch.tensor(0.9, **tkwargs),
             torch.tensor(10.0, **tkwargs),
@@ -132,20 +115,20 @@ def pyro_sample_noise(pyro: Any = None, **tkwargs: Any) -> Tensor:
     )
 
 
-@load_pyro
 def pyro_sample_saas_lengthscales(
     dim: int,
     alpha: float = 0.1,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    pyro: Any = None,
     **tkwargs: Any,
 ) -> Tensor:
+
     tausq = pyro.sample(
         "kernel_tausq",
+        # pyre-fixme[16]: Module `distributions` has no attribute `HalfCauchy`.
         pyro.distributions.HalfCauchy(torch.tensor(alpha, **tkwargs)),
     )
     inv_length_sq = pyro.sample(
         "_kernel_inv_length_sq",
+        # pyre-fixme[16]: Module `distributions` has no attribute `HalfCauchy`.
         pyro.distributions.HalfCauchy(torch.ones(dim, **tkwargs)),
     )
     inv_length_sq = pyro.deterministic("kernel_inv_length_sq", tausq * inv_length_sq)
@@ -156,15 +139,14 @@ def pyro_sample_saas_lengthscales(
     return lengthscale
 
 
-@load_pyro
 def pyro_sample_input_warping(
     dim: int,
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    pyro: Any = None,
     **tkwargs: Any,
 ) -> Tuple[Tensor, Tensor]:
+
     c0 = pyro.sample(
         "c0",
+        # pyre-fixme[16]: Module `distributions` has no attribute `LogNormal`.
         pyro.distributions.LogNormal(
             torch.tensor([0.0] * dim, **tkwargs),
             torch.tensor([0.75**0.5] * dim, **tkwargs),
@@ -172,6 +154,7 @@ def pyro_sample_input_warping(
     )
     c1 = pyro.sample(
         "c1",
+        # pyre-fixme[16]: Module `distributions` has no attribute `LogNormal`.
         pyro.distributions.LogNormal(
             torch.tensor([0.0] * dim, **tkwargs),
             torch.tensor([0.75**0.5] * dim, **tkwargs),

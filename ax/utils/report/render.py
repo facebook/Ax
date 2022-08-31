@@ -8,14 +8,16 @@ import os
 import pkgutil
 from typing import List, Optional
 
-import ax.utils.report as report_module
 from ax.plot.render import _js_requires, _load_css_resource as _load_plot_css_resource
 from jinja2 import Environment, FunctionLoader
 
+REPORT_MODULE_NAME = "ax.utils.report"
+
 
 def _load_css_resource() -> str:
+
     resource = pkgutil.get_data(
-        report_module.__name__, os.path.join("resources", "report.css")
+        REPORT_MODULE_NAME, os.path.join("resources", "report.css")
     )
     assert resource is not None
     return resource.decode("utf8")
@@ -134,7 +136,8 @@ def render_report_elements(
 
 
 def _load_html_template(name: str) -> str:
-    resource = pkgutil.get_data(report_module.__name__, os.path.join("resources", name))
+
+    resource = pkgutil.get_data(REPORT_MODULE_NAME, os.path.join("resources", name))
     assert resource is not None
     return resource.decode("utf8")
 
