@@ -1047,8 +1047,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # 2. If any experiment metrics are available while running,
         #    fetch data for running trials
-        if any(
-            m.is_available_while_running() for m in self.experiment.metrics.values()
+        if (
+            any(
+                m.is_available_while_running() for m in self.experiment.metrics.values()
+            )
+            and len(running_trial_indices) > 0
         ):
             # NOTE: Metrics that are *not* available_while_running will be skipped
             # in fetch_trials_data
