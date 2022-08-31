@@ -114,7 +114,6 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_transform_type,
 )
-from torch.nn import Module
 
 
 # pyre-fixme[5]: Global expression must be annotated.
@@ -302,7 +301,7 @@ class JSONStoreTest(TestCase):
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
-            if isinstance(original_object, Module):
+            if isinstance(original_object, torch.nn.Module):
                 self.assertIsInstance(
                     converted_object,
                     original_object.__class__,

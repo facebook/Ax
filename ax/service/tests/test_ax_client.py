@@ -1704,6 +1704,7 @@ class TestAxClient(TestCase):
         with self.assertRaises(ModuleNotFoundError):
             # pyre-fixme[21]: Could not find module
             #  `ax_client.storage.sqa_store.structs`.
+            # @manual
             import ax_client.storage.sqa_store.structs  # noqa F401
         # Make sure we can still import ax_client.
         __import__("ax.service.ax_client")
