@@ -38,13 +38,13 @@ from botorch.utils.datasets import FixedNoiseDataset
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
 from pyro.infer.mcmc import MCMC, NUTS  # @manual=//third-party-source/native/pyro:pyro
+from logging import Logger
 
 RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
 MCMC_PATH = "pyro.infer.mcmc.MCMC"
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def _get_dummy_mcmc_samples(

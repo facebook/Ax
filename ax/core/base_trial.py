@@ -148,8 +148,7 @@ class TrialStatus(int, Enum):
         return f"{self!s}"
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-DEFAULT_STATUSES_TO_WARM_START = [
+DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
     TrialStatus.ABANDONED,

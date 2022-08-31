@@ -28,13 +28,13 @@ from ax.modelbridge.transforms.utils import get_data
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
+from logging import Logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 @dataclass
@@ -64,8 +64,7 @@ class WinsorizationConfig:
 
 OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
-# pyre-fixme[5]: Global expression must be annotated.
-DEFAULT_CUTOFFS = (-float("inf"), float("inf"))
+DEFAULT_CUTOFFS: Tuple[float, float] = (-float("inf"), float("inf"))
 
 
 class Winsorize(Transform):

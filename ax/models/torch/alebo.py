@@ -43,10 +43,10 @@ from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from scipy.optimize import approx_fprime
 from torch import Tensor
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class ALEBOKernel(Kernel):

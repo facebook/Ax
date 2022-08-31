@@ -14,8 +14,7 @@ from ax.core.map_data import MapKeyInfo
 from ax.metrics.curve import AbstractCurveMetric
 from ax.utils.common.logger import get_logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: logging.Logger = get_logger(__name__)
 
 try:
     from tensorboard.backend.event_processing import (

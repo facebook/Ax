@@ -32,6 +32,7 @@ from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.utils.multi_objective import is_non_dominated
+from logging import Logger
 
 
 # type aliases
@@ -39,8 +40,7 @@ Mu = Dict[str, List[float]]
 Cov = Dict[str, Dict[str, List[float]]]
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def _extract_observed_pareto_2d(
@@ -477,7 +477,6 @@ def _validate_outcome_constraints(
                 )
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def _build_new_optimization_config(
     # pyre-fixme[2]: Parameter must be annotated.
     weights,
@@ -487,7 +486,7 @@ def _build_new_optimization_config(
     secondary_objective,
     # pyre-fixme[2]: Parameter must be annotated.
     outcome_constraints=None,
-):
+) -> MultiObjectiveOptimizationConfig:
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],
         weights=weights,

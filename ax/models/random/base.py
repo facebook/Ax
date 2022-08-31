@@ -21,10 +21,10 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from botorch.utils.sampling import HitAndRunPolytopeSampler
 from torch import Tensor
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class RandomModel(Model):

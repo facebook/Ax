@@ -14,6 +14,7 @@ from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
+from pandas.core.frame import DataFrame
 
 
 COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]
@@ -34,14 +35,13 @@ def get_color(x: float, ci: float, rel: bool, reverse: bool) -> str:
     return color_scale[index]
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def table_view_plot(
     experiment: Experiment,
     data: Data,
     use_empirical_bayes: bool = True,
     only_data_frame: bool = False,
     arm_noun: str = "arm",
-):
+) -> tuple[DataFrame]:
     """Table of means and confidence intervals.
 
     Table is of the form:
@@ -158,4 +158,5 @@ def table_view_plot(
         margin=go.layout.Margin(l=0, r=20, b=20, t=20, pad=4),  # noqa E741
     )
     fig = go.Figure(data=[trace], layout=layout)
+    # pyre-fixme[7]: Expected `Tuple[DataFrame]` but got `AxPlotConfig`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

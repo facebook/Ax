@@ -2061,6 +2061,9 @@ class TestAxClient(TestCase):
             20: {"x1": 0.8, "x2": 0.5},
         }
         parameterization_predictions_dict = ax_client.get_model_predictions(
+            # pyre-fixme[6]: For 1st param expected `Optional[Dict[int, Dict[str,
+            #  Union[None, bool, float, int, str]]]]` but got `Dict[int, Dict[str,
+            #  float]]`.
             parameterizations=parameterizations
         )
         # Expect predicitons for only 3 input parameterizations,
@@ -2078,6 +2081,8 @@ class TestAxClient(TestCase):
             {"x1": 0.8, "x2": 0.5},
         ]
         predictions_list = ax_client.get_model_predictions_for_parameterizations(
+            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
+            #  bool, float, int, str]]]` but got `List[Dict[str, float]]`.
             parameterizations=parameterizations
         )
         self.assertEqual(len(predictions_list), 3)
@@ -2530,9 +2535,8 @@ class TestAxClient(TestCase):
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _resolve_db_id(gs_to_resolve, source_gs):
+def _resolve_db_id(gs_to_resolve, source_gs) -> None:
     gs_to_resolve._steps[1].model_kwargs["transform_configs"]["Winsorize"][
         "optimization_config"
     ].objective.metric._db_id = (
@@ -2547,8 +2551,7 @@ def _resolve_db_id(gs_to_resolve, source_gs):
 # num_initial_trials kwarg is zero. Note that this kwarg is
 # needed to be able to instantiate the model for the first time
 # without calling get_next_trial().
-# pyre-fixme[3]: Return type must be annotated.
-def _set_up_client_for_get_model_predictions_no_next_trial():
+def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
     ax_client = AxClient()
     ax_client.create_experiment(
         name="test_experiment",
@@ -2575,9 +2578,8 @@ def _set_up_client_for_get_model_predictions_no_next_trial():
     return ax_client
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _attach_completed_trials(ax_client):
+def _attach_completed_trials(ax_client) -> None:
     # Attach completed trials
     trial1 = {"x1": 0.1, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial1)
@@ -2592,9 +2594,8 @@ def _attach_completed_trials(ax_client):
     )
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _attach_not_completed_trials(ax_client):
+def _attach_not_completed_trials(ax_client) -> None:
     # Attach not yet completed trials
     trial3 = {"x1": 0.3, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial3)

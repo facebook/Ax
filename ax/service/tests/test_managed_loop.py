@@ -14,11 +14,12 @@ from ax.modelbridge.registry import Models
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
+from numpy import ndarray
+from typing import Dict, Tuple, Union
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _branin_evaluation_function(parameterization, weight=None):
+def _branin_evaluation_function(parameterization, weight=None) -> Dict[str, Tuple[Union[float, ndarray], float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
@@ -28,18 +29,16 @@ def _branin_evaluation_function(parameterization, weight=None):
     }
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _branin_evaluation_function_v2(parameterization, weight=None):
+def _branin_evaluation_function_v2(parameterization, weight=None) -> Tuple[Union[float, ndarray], float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
     return (branin(x1, x2), 0.0)
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _branin_evaluation_function_with_unknown_sem(parameterization, weight=None):
+def _branin_evaluation_function_with_unknown_sem(parameterization, weight=None) -> Tuple[Union[float, ndarray], None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]

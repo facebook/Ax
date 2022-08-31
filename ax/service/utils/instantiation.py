@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+from logging import Logger
+
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, Optional, Tuple, Union
 
@@ -52,8 +54,7 @@ from ax.utils.common.typeutils import (
     numpy_type_to_python_type,
 )
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
@@ -64,8 +65,7 @@ TParameterRepresentation = Dict[
 ]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
-# pyre-fixme[5]: Global expression must be annotated.
-COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
+COMPARISON_OPS: Dict[str, ComparisonOp] = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
 EXPECTED_KEYS_IN_PARAM_REPR = {
     "name",
     "type",

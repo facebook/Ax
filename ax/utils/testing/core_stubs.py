@@ -90,9 +90,9 @@ from gpytorch.constraints import Interval
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
 
@@ -113,8 +113,7 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
     )
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_experiment_with_map_data_type():
+def get_experiment_with_map_data_type() -> Experiment:
     return Experiment(
         name="test_map_data",
         search_space=get_search_space(),
@@ -397,8 +396,7 @@ def get_branin_experiment_with_multi_objective(
     return exp
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_branin_with_multi_task(with_multi_objective: bool = False):
+def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
@@ -1052,26 +1050,22 @@ def get_metric() -> Metric:
     return Metric(name="m1", properties={"prop": "val"})
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_branin_metric(name="branin") -> BraninMetric:
+def get_branin_metric(name: str="branin") -> BraninMetric:
     param_names = ["x1", "x2"]
     return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_augmented_branin_metric(name="aug_branin") -> AugmentedBraninMetric:
+def get_augmented_branin_metric(name: str="aug_branin") -> AugmentedBraninMetric:
     param_names = ["x1", "x2", "fidelity"]
     return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_hartmann_metric(name="hartmann") -> Hartmann6Metric:
+def get_hartmann_metric(name: str="hartmann") -> Hartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_augmented_hartmann_metric(name="aug_hartmann") -> AugmentedHartmann6Metric:
+def get_augmented_hartmann_metric(name: str="aug_hartmann") -> AugmentedHartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     param_names.append("fidelity")
     return AugmentedHartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
@@ -1102,8 +1096,7 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 
 def get_objective_threshold(
     metric_name: str = "m1",
-    # pyre-fixme[2]: Parameter must be annotated.
-    bound=-0.25,
+    bound: float=-0.25,
     comparison_op: ComparisonOp = ComparisonOp.GEQ,
 ) -> ObjectiveThreshold:
     return ObjectiveThreshold(

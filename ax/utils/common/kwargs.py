@@ -9,10 +9,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
 from typeguard import check_type
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 TKwargs = Dict[str, Any]
 

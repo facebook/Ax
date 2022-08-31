@@ -195,6 +195,7 @@ class RelativizeDataTest(TestCase):
                     covariance=np.array([status_quo_row["sem"].values ** 2]),
                 ),
                 features=ObservationFeatures(
+                    # pyre-fixme[16]: Optional type has no attribute `parameters`.
                     parameters=experiment.status_quo.parameters
                 ),
             )

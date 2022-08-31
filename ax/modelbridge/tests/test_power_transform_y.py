@@ -24,11 +24,11 @@ from ax.modelbridge.transforms.power_transform_y import (
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase
 from sklearn.preprocessing import PowerTransformer
+from typing import List
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def get_constraint(metric, bound, relative):
+def get_constraint(metric, bound, relative) -> List[OutcomeConstraint]:
     return [
         OutcomeConstraint(
             metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative

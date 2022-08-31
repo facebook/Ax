@@ -28,13 +28,12 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
+from typing import List
 
 OBJECTIVE_NAME = "branin"
 PARAMETER_COLUMNS = ["x1", "x2"]
-# pyre-fixme[5]: Global expression must be annotated.
-FLOAT_COLUMNS = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
-# pyre-fixme[5]: Global expression must be annotated.
-EXPECTED_COLUMNS = [
+FLOAT_COLUMNS: List[str] = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
+EXPECTED_COLUMNS: List[str] = [
     "trial_index",
     "arm_name",
     "trial_status",

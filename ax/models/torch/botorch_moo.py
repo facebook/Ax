@@ -45,10 +45,10 @@ from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from torch import Tensor
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[

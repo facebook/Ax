@@ -20,10 +20,8 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-ACQUISITION_PATH = Acquisition.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-MULTI_FIDELITY_PATH = MultiFidelityAcquisition.__module__
+ACQUISITION_PATH: str = Acquisition.__module__
+MULTI_FIDELITY_PATH: str = MultiFidelityAcquisition.__module__
 MFKG_PATH = (
     f"{qMultiFidelityKnowledgeGradient.__module__}.qMultiFidelityKnowledgeGradient"
 )

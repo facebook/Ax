@@ -14,6 +14,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_search_space
+from typing import Sized
 
 
 class ChoiceEncodeTransformTest(TestCase):
@@ -263,8 +264,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
 
 
 # pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def normalize_values(values):
+def normalize_values(values: Sized):
     values = np.array(values, dtype=float)
     vmin, vmax = values.min(), values.max()
     if len(values) > 1:

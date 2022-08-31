@@ -15,10 +15,10 @@ from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger
 from plotly import subplots
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:

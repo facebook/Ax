@@ -21,10 +21,10 @@ from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class ListSurrogate(Surrogate):

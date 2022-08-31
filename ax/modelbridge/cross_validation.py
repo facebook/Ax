@@ -16,9 +16,9 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 CVDiagnostics = Dict[str, Dict[str, float]]
 

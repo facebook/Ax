@@ -39,9 +39,9 @@ from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.

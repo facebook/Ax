@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Type, Union
+from typing import Tuple, Dict, List, Optional, Type, Union
 from warnings import warn
 
 from ax.core.types import TParamValue
@@ -47,8 +47,7 @@ PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
     ParameterType.BOOL: bool,
 }
 
-# pyre-fixme[5]: Global expression must be annotated.
-SUPPORTED_PARAMETER_TYPES = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
+SUPPORTED_PARAMETER_TYPES: Tuple[Union[Type[bool], Type[float], Type[int], Type[str]], ...] = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
 
 
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to

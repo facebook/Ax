@@ -15,10 +15,10 @@ from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.backend_simulator import BackendSimulator
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class AsyncSimulatedBackendScheduler(Scheduler):

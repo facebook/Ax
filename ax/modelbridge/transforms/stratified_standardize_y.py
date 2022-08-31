@@ -17,14 +17,14 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import compute_standardization_parameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
+from logging import Logger
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class StratifiedStandardizeY(Transform):

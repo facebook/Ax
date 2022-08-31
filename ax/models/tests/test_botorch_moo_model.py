@@ -32,6 +32,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from botorch.utils.testing import MockModel, MockPosterior
+from torch._C import dtype
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
@@ -62,12 +63,9 @@ def _get_optimizer_kwargs() -> Dict[str, int]:
 
 # pyre-fixme[3]: Return type must be annotated.
 def _get_torch_test_data(
-    # pyre-fixme[2]: Parameter must be annotated.
-    dtype=torch.float,
-    # pyre-fixme[2]: Parameter must be annotated.
-    cuda=False,
-    # pyre-fixme[2]: Parameter must be annotated.
-    constant_noise=True,
+    dtype: dtype=torch.float,
+    cuda: bool=False,
+    constant_noise: bool=True,
     # pyre-fixme[2]: Parameter must be annotated.
     task_features=None,
 ):

@@ -42,9 +42,9 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast_optional
 from ax.utils.stats.statstools import relativize
 from plotly import subplots
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # type aliases
 Traces = List[Dict[str, Any]]

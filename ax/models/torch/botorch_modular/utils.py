@@ -34,11 +34,11 @@ from botorch.models.pairwise_gp import PairwiseGP
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
+from logging import Logger
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def use_model_list(

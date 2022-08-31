@@ -42,10 +42,10 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.stats.statstools import relativize_data
 from numpy import NaN
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def get_best_raw_objective_point_with_trial_index(

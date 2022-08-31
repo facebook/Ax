@@ -19,11 +19,11 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from torch import Tensor
+from logging import Logger
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class SACBO(BotorchModel):

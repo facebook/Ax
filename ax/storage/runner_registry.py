@@ -11,9 +11,9 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # """
 # Mapping of Runner classes to ints.

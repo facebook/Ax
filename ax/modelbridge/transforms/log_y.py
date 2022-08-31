@@ -16,6 +16,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from scipy.stats import norm
+from logging import Logger
 
 
 if TYPE_CHECKING:
@@ -23,8 +24,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class LogY(Transform):

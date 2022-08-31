@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import time
-from logging import INFO
+from logging import Logger, INFO
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
@@ -54,8 +54,7 @@ except ModuleNotFoundError:  # pragma: no cover
 STORAGE_MINI_BATCH_SIZE = 50
 LOADING_MINI_BATCH_SIZE = 10000
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class WithDBSettingsBase:

@@ -12,6 +12,7 @@ Use of `Models` enum allows for serialization and reinstantiation of models and
 generation strategies from generator runs they produced. To reinstantiate a model
 from generator run, use `get_model_from_generator_run` utility from this module.
 """
+from logging import Logger
 
 
 from __future__ import annotations
@@ -77,8 +78,7 @@ from ax.utils.common.serialization import callable_from_reference, callable_to_r
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 Cont_X_trans: List[Type[Transform]] = [
     RemoveFixed,

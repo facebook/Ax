@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any, Callable, Dict, Optional, Tuple, Type
+from logging import Logger
 
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -19,8 +20,7 @@ from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 """
 Mapping of Metric classes to ints.

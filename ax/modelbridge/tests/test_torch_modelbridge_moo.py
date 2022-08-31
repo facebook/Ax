@@ -43,8 +43,7 @@ from botorch.utils.multi_objective.pareto import is_non_dominated
 PARETO_FRONTIER_EVALUATOR_PATH = (
     f"{pareto_frontier_evaluator.__module__}.pareto_frontier_evaluator"
 )
-# pyre-fixme[5]: Global expression must be annotated.
-STUBS_PATH = get_branin_experiment_with_multi_objective.__module__
+STUBS_PATH: str = get_branin_experiment_with_multi_objective.__module__
 
 
 # Prepare mock transforms

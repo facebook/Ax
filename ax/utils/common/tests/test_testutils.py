@@ -20,8 +20,7 @@ def _f():
 F_FAILURE_LINENO = 17  # Line # for the error in `_f`.
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def _g():
+def _g() -> None:
     _f()  # Lines along the path are matched too
 
 

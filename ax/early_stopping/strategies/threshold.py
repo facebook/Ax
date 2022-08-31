@@ -11,9 +11,9 @@ from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):

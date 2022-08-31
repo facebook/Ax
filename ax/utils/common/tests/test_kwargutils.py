@@ -11,9 +11,9 @@ from unittest.mock import patch
 from ax.utils.common.kwargs import validate_kwarg_typing, warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger("ax.utils.common.kwargs")
+logger: Logger = get_logger("ax.utils.common.kwargs")
 
 
 class TestKwargUtils(TestCase):

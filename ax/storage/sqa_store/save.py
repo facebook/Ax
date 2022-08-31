@@ -27,10 +27,10 @@ from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:

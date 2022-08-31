@@ -68,10 +68,10 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from torch import Tensor
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 SAAS_DEPRECATION_MSG = (
@@ -431,6 +431,7 @@ def run_inference(
     # this prints the summary
     if verbose:
         orig_std_out = sys.stdout.write
+        # pyre-fixme[8]: Attribute has type `BoundMethod[typing.Callable(IO.write)[[N...
         sys.stdout.write = logger.info
         print_summary(samples, prob=0.9, group_by_chain=False)
         sys.stdout.write = orig_std_out

@@ -24,6 +24,8 @@ class TestPredictionUtils(TestCase):
 
         observation_features = ObservationFeatures(parameters={"x1": 0.3, "x2": 0.5})
         y_hat, se_hat = predict_at_point(
+            # pyre-fixme[6]: For 1st param expected `ModelBridge` but got
+            #  `Optional[ModelBridge]`.
             model=ax_client.generation_strategy.model,
             obsf=observation_features,
             # pyre-fixme[6]: For 3rd param expected `Set[str]` but got `List[str]`.
@@ -45,6 +47,8 @@ class TestPredictionUtils(TestCase):
             20: ObservationFeatures(parameters={"x1": 0.8, "x2": 0.5}),
         }
         predictions_map = predict_by_features(
+            # pyre-fixme[6]: For 1st param expected `ModelBridge` but got
+            #  `Optional[ModelBridge]`.
             model=ax_client.generation_strategy.model,
             label_to_feature_dict=observation_features_dict,
             # pyre-fixme[6]: For 3rd param expected `Set[str]` but got `List[str]`.
@@ -92,8 +96,7 @@ class TestPredictionUtils(TestCase):
 # num_initial_trials kwarg is zero. Note that this kwarg is
 # needed to be able to instantiate the model for the first time
 # without calling get_next_trial().
-# pyre-fixme[3]: Return type must be annotated.
-def _set_up_client_for_get_model_predictions_no_next_trial():
+def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
     ax_client = AxClient()
     ax_client.create_experiment(
         name="test_experiment",
@@ -120,9 +123,8 @@ def _set_up_client_for_get_model_predictions_no_next_trial():
     return ax_client
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _attach_completed_trials(ax_client):
+def _attach_completed_trials(ax_client) -> None:
     # Attach completed trials
     trial1 = {"x1": 0.1, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial1)

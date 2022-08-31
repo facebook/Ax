@@ -22,13 +22,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.mapper import Mapper
+from logging import Logger
 
 
 T = TypeVar("T")
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def listens_for_multiple(

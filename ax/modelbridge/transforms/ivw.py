@@ -10,10 +10,10 @@ import numpy as np
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def ivw_metric_merge(

@@ -8,13 +8,11 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.testutils import TestCase
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def has_doc():
+def has_doc() -> None:
     """I have a docstring"""
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def has_no_doc():
+def has_no_doc() -> None:
     pass
 
 

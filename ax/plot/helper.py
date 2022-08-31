@@ -19,10 +19,10 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+from logging import Logger
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # Typing alias
 RawData = List[Dict[str, Union[str, float]]]
@@ -128,8 +128,7 @@ def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
         return (arm_name, 0, 0)
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def resize_subtitles(figure: Dict[str, Any], size: int):
+def resize_subtitles(figure: Dict[str, Any], size: int) -> Dict[str, Any]:
     for ant in figure["layout"]["annotations"]:
         ant["font"].update(size=size)
     return figure
@@ -486,9 +485,8 @@ def get_fixed_values(
 
 
 # Utility methods ported from JS
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def contour_config_to_trace(config):
+def contour_config_to_trace(config) -> List[Dict[str, Any]]:
     # Load from config
     arm_data = config["arm_data"]
     density = config["density"]
@@ -752,33 +750,28 @@ def infer_is_relative(
     return relative
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def slice_config_to_trace(
     # pyre-fixme[2]: Parameter must be annotated.
     arm_data,
     # pyre-fixme[2]: Parameter must be annotated.
     arm_name_to_parameters,
-    # pyre-fixme[2]: Parameter must be annotated.
-    f,
+    f: List[float],
     # pyre-fixme[2]: Parameter must be annotated.
     fit_data,
     # pyre-fixme[2]: Parameter must be annotated.
     grid,
-    # pyre-fixme[2]: Parameter must be annotated.
-    metric,
+    metric: str,
     # pyre-fixme[2]: Parameter must be annotated.
     param,
-    # pyre-fixme[2]: Parameter must be annotated.
-    rel,
+    rel: bool,
     # pyre-fixme[2]: Parameter must be annotated.
     setx,
-    # pyre-fixme[2]: Parameter must be annotated.
-    sd,
+    sd: List[float],
     # pyre-fixme[2]: Parameter must be annotated.
     is_log,
     # pyre-fixme[2]: Parameter must be annotated.
     visible,
-):
+) -> List[Dict[str, Any]]:
     # format data
     res = relativize_data(f, sd, rel, arm_data, metric)
     f_final = res[0]

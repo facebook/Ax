@@ -12,9 +12,9 @@ from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+from logging import Logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 try:
     from ax.runners.torchx import TORCHX_TRACKER_BASE
