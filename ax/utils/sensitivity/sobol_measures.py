@@ -11,15 +11,14 @@ from botorch.models.model import Model
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
-from torch import tensor, Tensor
 
 
 class SobolSensitivity(object):
     def __init__(
         self,
         dim: int,
-        bounds: Tensor,
-        input_function: Optional[Callable[[Tensor], Tensor]] = None,
+        bounds: torch.Tensor,
+        input_function: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         num_mc_samples: int = 10**4,
         input_qmc: bool = False,
         second_order: bool = False,
@@ -70,12 +69,12 @@ class SobolSensitivity(object):
             self.bootstrap_indices = torch.randint(
                 0, num_mc_samples, (self.num_bootstrap_samples, subset_size)
             )
-        self.f_A: Optional[Tensor] = None
-        self.f_B: Optional[Tensor] = None
+        self.f_A: Optional[torch.Tensor] = None
+        self.f_B: Optional[torch.Tensor] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
         self.f_ABis: Optional[List] = None
-        self.f_total_var: Optional[Tensor] = None
+        self.f_total_var: Optional[torch.Tensor] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
         self.f_A_btsp: Optional[List] = None
@@ -94,10 +93,10 @@ class SobolSensitivity(object):
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
         self.f_BAis_btsp: Optional[List] = None
-        self.first_order_idxs: Optional[Tensor] = None
-        self.first_order_idxs_btsp: Optional[Tensor] = None
+        self.first_order_idxs: Optional[torch.Tensor] = None
+        self.first_order_idxs_btsp: Optional[torch.Tensor] = None
 
-    def generate_all_input_matrix(self) -> Tensor:
+    def generate_all_input_matrix(self) -> torch.Tensor:
         A_B_ABi = torch.cat((self.A, self.B), dim=0)
         for i in range(self.dim):
             AB_i = deepcopy(self.A)
@@ -110,9 +109,9 @@ class SobolSensitivity(object):
                 A_B_ABi = torch.cat((A_B_ABi, BA_i), dim=0)
         return A_B_ABi
 
-    def evalute_function(self, f_A_B_ABi: Optional[Tensor] = None) -> None:
+    def evalute_function(self, f_A_B_ABi: Optional[torch.Tensor] = None) -> None:
         r"""evaluates the objective function and devides the evaluation into
-            Tensors needed for the indices computation.
+            torch.Tensors needed for the indices computation.
         Args:
             f_A_B_ABi: Function evaluations on the entire grid of size M(d+2).
         """
@@ -167,7 +166,7 @@ class SobolSensitivity(object):
                     for indices in self.bootstrap_indices
                 ]
 
-    def first_order_indices(self) -> Tensor:
+    def first_order_indices(self) -> torch.Tensor:
         r"""Computes the first order Sobol indices:
 
         Returns:
@@ -287,8 +286,8 @@ class SobolSensitivity(object):
     # pyre-fixme[3]: Return type must be annotated.
     def second_order_indices(
         self,
-        first_order_idxs: Optional[Tensor] = None,
-        first_order_idxs_btsp: Optional[Tensor] = None,
+        first_order_idxs: Optional[torch.Tensor] = None,
+        first_order_idxs_btsp: Optional[torch.Tensor] = None,
     ):
         r"""Computes the Second order Sobol indices:
         Args:
@@ -368,7 +367,7 @@ class SobolSensitivityGPMean(object):
     def __init__(
         self,
         model: Model,
-        bounds: Tensor,
+        bounds: torch.Tensor,
         num_mc_samples: int = 10**4,
         second_order: bool = False,
         input_qmc: bool = False,
@@ -454,7 +453,7 @@ class SobolSensitivityGPSampling(object):
     def __init__(
         self,
         model: Model,
-        bounds: Tensor,
+        bounds: torch.Tensor,
         num_gp_samples: int = 10**3,
         num_mc_samples: int = 10**4,
         second_order: bool = False,
@@ -527,7 +526,7 @@ class SobolSensitivityGPSampling(object):
             first_order_idxs_mean_var_se = []
             for i in range(self.dim):
                 first_order_idxs_mean_var_se.append(
-                    tensor(
+                    torch.tensor(
                         [
                             torch.mean(self.first_order_idxs_list[:, i]),
                             torch.var(self.first_order_idxs_list[:, i]),
@@ -552,7 +551,7 @@ class SobolSensitivityGPSampling(object):
             total_mean = self.first_order_idxs_list.reshape(-1, self.dim).mean(dim=0)
             first_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
-                    tensor(
+                    torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
                     ).unsqueeze(0)
                     for i in range(self.dim)
@@ -581,7 +580,7 @@ class SobolSensitivityGPSampling(object):
             total_order_idxs_mean_var = []
             for i in range(self.dim):
                 total_order_idxs_mean_var.append(
-                    tensor(
+                    torch.tensor(
                         [
                             torch.mean(total_order_idxs_list[:, i]),
                             torch.var(total_order_idxs_list[:, i]),
@@ -604,7 +603,7 @@ class SobolSensitivityGPSampling(object):
             total_mean = total_order_idxs_list.reshape(-1, self.dim).mean(dim=0)
             total_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
-                    tensor(
+                    torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
                     ).unsqueeze(0)
                     for i in range(self.dim)
@@ -637,7 +636,7 @@ class SobolSensitivityGPSampling(object):
             second_order_idxs_mean_var = []
             for i in range(len(second_order_idxs)):
                 second_order_idxs_mean_var.append(
-                    tensor(
+                    torch.tensor(
                         [
                             torch.mean(second_order_idxs_list[:, i]),
                             torch.var(second_order_idxs_list[:, i]),
@@ -672,7 +671,7 @@ class SobolSensitivityGPSampling(object):
             )
             second_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
-                    tensor(
+                    torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
                     ).unsqueeze(0)
                     for i in range(num_second_order)

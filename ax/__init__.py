@@ -35,12 +35,6 @@ from ax.service import OptimizationLoop, optimize
 from ax.storage import json_load, json_save
 
 
-try:
-    # pyre-fixme[21]: Could not find a module... to import `ax.version`.
-    from ax.version import version as __version__
-except Exception:
-    __version__ = "Unknown"
-
 __all__ = [
     "Arm",
     "BatchTrial",
