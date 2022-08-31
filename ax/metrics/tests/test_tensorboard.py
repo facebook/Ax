@@ -148,3 +148,47 @@ class TensorboardCurveMetricTest(TestCase):
                     ),
                 ),
             )
+
+            # test smoothing
+            experiment = Experiment(
+                name="dummy_experiment",
+                search_space=get_branin_search_space(),
+                optimization_config=OptimizationConfig(
+                    objective=Objective(
+                        metric=FakeTensorboardCurveMetric(
+                            name="test_metric",
+                            curve_name="test_curve",
+                            lower_is_better=True,
+                            cumulative_best=False,
+                            smoothing_window=3,
+                        ),
+                        minimize=True,
+                    )
+                ),
+                runner=SyntheticRunner(),
+            )
+            for param in range(0, 2):
+                trial = experiment.new_trial()
+                trial.add_arm(Arm(parameters={"x1": float(param), "x2": 0.0}))
+                trial.run()
+            self.assertTrue(
+                np.allclose(
+                    experiment.fetch_data().map_df["mean"].to_numpy(),
+                    np.array(
+                        [
+                            6.00000000,
+                            6.00000000,
+                            6.00000000,
+                            3.33333333,
+                            4.66666667,
+                            3.33333333,
+                            12.0,
+                            12.0,
+                            12.0,
+                            6.66666667,
+                            9.33333333,
+                            6.66666667,
+                        ]
+                    ),
+                )
+            )

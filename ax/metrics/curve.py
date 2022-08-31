@@ -43,6 +43,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         curve_name: str,
         lower_is_better: bool = True,
         cumulative_best: bool = False,
+        smoothing_window: Optional[int] = None,
     ) -> None:
         """Inits Metric.
 
@@ -54,10 +55,14 @@ class AbstractCurveMetric(MapMetric, ABC):
             cumulative_best: If True, for each trial, apply cumulative best to
                 the curve (i.e., if lower is better, then we return a curve
                 representing the cumulative min of the raw curve).
+            smoothing_window: If not None, specifies the window size used for a
+                rolling mean applied to the raw curve data. This can be helpful
+                if the underlying data is expected to be very noisy.
         """
         super().__init__(name=name, lower_is_better=lower_is_better)
         self.curve_name = curve_name
         self.cumulative_best = cumulative_best
+        self.smoothing_window = smoothing_window
 
     @classmethod
     def is_available_while_running(cls) -> bool:
@@ -148,6 +153,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                         trial=experiment.trials[trial_idx],
                         cumulative_best=m.cumulative_best,  # pyre-ignore[16]
                         lower_is_better=m.lower_is_better,  # pyre-ignore[6]
+                        smoothing_window=m.smoothing_window,  # pyre-ignore[16]
                     )
                     dfs.append(dfi)
                 else:
@@ -222,6 +228,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
         offset: float = 0.0,
         lower_is_better: bool = True,
         cumulative_best: bool = False,
+        smoothing_window: Optional[int] = None,
     ) -> None:
         """Construct a AbstractScalarizedCurveMetric.
 
@@ -235,11 +242,15 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
             cumulative_best: If True, for each trial, apply cumulative best to
                 the curve (i.e., if lower is better, then we return a curve
                 representing the cumulative min of the raw curve).
+            smoothing_window: If not None, specifies the window size used for a
+                rolling mean applied to the raw curve data. This can be helpful
+                if the underlying data is expected to be very noisy.
         """
         MapMetric.__init__(self, name=name, lower_is_better=lower_is_better)
         self.coefficients = coefficients
         self.offset = offset
         self.cumulative_best = cumulative_best
+        self.smoothing_window = smoothing_window
 
     @classmethod
     def get_df_from_curve_series(
@@ -283,6 +294,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                             trial=experiment.trials[trial_idx],
                             cumulative_best=m.cumulative_best,  # pyre-ignore[16]
                             lower_is_better=m.lower_is_better,  # pyre-ignore[6]
+                            smoothing_window=m.smoothing_window,  # pyre-ignore[16]
                         )
                         curve_dfs.append(curve_df)
                     else:
@@ -334,6 +346,7 @@ def _get_single_curve(
     trial: BaseTrial,
     cumulative_best: bool,
     lower_is_better: bool,
+    smoothing_window: Optional[int],
     metric_name: Optional[str] = None,
 ) -> pd.DataFrame:
     """Get a single curve from `curve_series` and return as a dataframe.
@@ -348,6 +361,10 @@ def _get_single_curve(
     dfi["arm_name"] = trial.arm.name  # pyre-ignore [16]
     dfi["metric_name"] = metric_name
     dfi["sem"] = float("nan")
+    if smoothing_window is not None and len(dfi["mean"]) >= smoothing_window:
+        dfi["mean"] = dfi["mean"].rolling(window=smoothing_window).mean()
+        first_smoothed = dfi["mean"].iloc[smoothing_window - 1]
+        dfi.iloc[: smoothing_window - 1, dfi.columns.get_loc("mean")] = first_smoothed
     if cumulative_best:
         dfi["mean"] = dfi["mean"].cummin() if lower_is_better else dfi["mean"].cummax()
     return dfi.drop_duplicates()
