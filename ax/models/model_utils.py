@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 import warnings
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
@@ -19,9 +19,6 @@ from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
 
-if TYPE_CHECKING:
-    # import as module to make sphinx-autodoc-typehints happy
-    from ax import models  # noqa F401  # pragma: no cover
 
 Tensoray = Union[torch.Tensor, np.ndarray]
 

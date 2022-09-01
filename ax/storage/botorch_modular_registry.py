@@ -6,6 +6,8 @@
 
 from typing import Any, Dict, Type
 
+import torch
+
 # Ax `Acquisition` imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 
@@ -52,7 +54,6 @@ from gpytorch.mlls.leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikel
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
-from torch.nn import Module
 
 # NOTE: When adding a new registry for a class, make sure to make changes
 # to `CLASS_TO_REGISTRY` and `CLASS_TO_REVERSE_REGISTRY` in this file.
@@ -110,7 +111,7 @@ LIKELIHOOD_REGISTRY: Dict[Type[GaussianLikelihood], str] = {
     GaussianLikelihood: "GaussianLikelihood"
 }
 
-GPYTORCH_COMPONENT_REGISTRY: Dict[Type[Module], str] = {
+GPYTORCH_COMPONENT_REGISTRY: Dict[Type[torch.nn.Module], str] = {
     Interval: "Interval",
     GammaPrior: "GammaPrior",
 }
@@ -156,7 +157,7 @@ REVERSE_LIKELIHOOD_REGISTRY: Dict[str, Type[Likelihood]] = {
     v: k for k, v in LIKELIHOOD_REGISTRY.items()
 }
 
-REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[Module]] = {
+REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[torch.nn.Module]] = {
     v: k for k, v in GPYTORCH_COMPONENT_REGISTRY.items()
 }
 

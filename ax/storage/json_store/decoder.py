@@ -47,7 +47,6 @@ from ax.storage.json_store.registry import (
 from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_from_str
-from torch.nn import Module
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -166,7 +165,7 @@ def object_from_json(
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
-        elif isclass(_class) and issubclass(_class, Module):
+        elif isclass(_class) and issubclass(_class, torch.nn.Module):
             return botorch_component_from_json(botorch_class=_class, json=object_json)
         elif _class == GeneratorRun:
             return generator_run_from_json(
