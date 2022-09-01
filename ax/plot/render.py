@@ -12,10 +12,11 @@ import uuid
 from typing import Dict
 
 import plotly.offline as plotly_offline
-from ax import plot as PLOT_MODULE
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from jinja2 import Template
 
+# Static plot module
+PLOT_MODULE_NAME = "ax.plot"
 
 # Rendering constants
 DEFAULT_WIDTH = "100%"
@@ -41,7 +42,7 @@ Ax_PLOT_REGISTRY: Dict[enum.Enum, str] = {AxPlotTypes.GENERIC: "generic_plotly.j
 def _load_js_resource(resource_type: _AxPlotJSResources) -> str:
     """Convert plot config to corresponding JS code."""
     resource = pkgutil.get_data(
-        PLOT_MODULE.__name__, os.path.join("js", "common", resource_type.value + ".js")
+        PLOT_MODULE_NAME, os.path.join("js", "common", resource_type.value + ".js")
     )
     if resource is None:
         raise ValueError(f"Cannot find JS resource {resource_type.value}.")
@@ -49,7 +50,7 @@ def _load_js_resource(resource_type: _AxPlotJSResources) -> str:
 
 
 def _load_css_resource() -> str:
-    resource = pkgutil.get_data(PLOT_MODULE.__name__, os.path.join("css", "base.css"))
+    resource = pkgutil.get_data(PLOT_MODULE_NAME, os.path.join("css", "base.css"))
     assert resource is not None
     return resource.decode("utf8")
 
@@ -121,7 +122,7 @@ def _plot_js_to_html(js_script: str, plotdivid: str) -> str:
 
 def plot_config_to_html(
     plot_config: AxPlotConfig,
-    plot_module_name: str = PLOT_MODULE.__name__,
+    plot_module_name: str = PLOT_MODULE_NAME,
     plot_resources: Dict[enum.Enum, str] = Ax_PLOT_REGISTRY,
     inject_helpers: bool = False,
 ) -> str:
