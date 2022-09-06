@@ -20,13 +20,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: "3.8"
     - name: Install dependencies (latest Botorch)
       env:
         ALLOW_BOTORCH_LATEST: true
       run: |
         # use latest Botorch
-        pip install "gpytorch==1.8.1"
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e .[dev,mysql,notebook]
         pip install tensorboard  # For tensorboard unit tests
@@ -58,7 +58,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: "3.8"
     - name: Install dependencies
       run: |
         # use stable Botorch
@@ -89,7 +89,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: "3.8"
     - name: Install dependencies
       run: |
         # use stable Botorch
