@@ -470,7 +470,7 @@ class TorchModelBridge(ModelBridge):
         observations: List[Observation],
         parameters: Optional[List[str]] = None,
     ) -> None:  # pragma: no cover
-        self.parameters = list(search_space.parameters.keys())
+        self.parameters = sorted(search_space.parameters.keys())  # Deterministic order
         if parameters is None:
             parameters = self.parameters
         all_metric_names: Set[str] = set()
