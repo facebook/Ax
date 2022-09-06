@@ -7,7 +7,18 @@
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, cast, Dict, Iterable, List, MutableMapping, Optional, Set, Type
+from typing import (
+    Any,
+    cast,
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 import numpy as np
 import pandas as pd
@@ -113,8 +124,7 @@ def get_experiment(with_status_quo: bool = True) -> Experiment:
     )
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_experiment_with_map_data_type():
+def get_experiment_with_map_data_type() -> Experiment:
     return Experiment(
         name="test_map_data",
         search_space=get_search_space(),
@@ -309,6 +319,11 @@ def get_experiment_with_repeated_arms(num_repeated_arms: int) -> Experiment:
     return batch_trial.experiment
 
 
+def get_experiment_with_trial() -> Experiment:
+    trial = get_trial()
+    return trial.experiment
+
+
 def get_experiment_with_batch_trial() -> Experiment:
     batch_trial = get_batch_trial()
     return batch_trial.experiment
@@ -397,8 +412,7 @@ def get_branin_experiment_with_multi_objective(
     return exp
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def get_branin_with_multi_task(with_multi_objective: bool = False):
+def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
@@ -621,10 +635,8 @@ def get_large_factorial_search_space() -> SearchSpace:
 
 
 def get_large_ordinal_search_space(
-    # pyre-fixme[2]: Parameter must be annotated.
-    n_ordinal_choice_parameters,
-    # pyre-fixme[2]: Parameter must be annotated.
-    n_continuous_range_parameters,
+    n_ordinal_choice_parameters: int,
+    n_continuous_range_parameters: int,
 ) -> SearchSpace:
     return SearchSpace(
         parameters=[  # pyre-ignore[6]
@@ -905,8 +917,7 @@ class TestTrial(BaseTrial):
         return self._arms
 
     @arms.setter
-    # pyre-fixme[3]: Return type must be annotated.
-    def arms(self, val: List[Arm]):
+    def arms(self, val: List[Arm]) -> None:
         self._arms = val
 
     def arms_by_name(self) -> str:
@@ -1052,26 +1063,24 @@ def get_metric() -> Metric:
     return Metric(name="m1", properties={"prop": "val"})
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_branin_metric(name="branin") -> BraninMetric:
+def get_branin_metric(name: str = "branin") -> BraninMetric:
     param_names = ["x1", "x2"]
     return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_augmented_branin_metric(name="aug_branin") -> AugmentedBraninMetric:
+def get_augmented_branin_metric(name: str = "aug_branin") -> AugmentedBraninMetric:
     param_names = ["x1", "x2", "fidelity"]
     return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_hartmann_metric(name="hartmann") -> Hartmann6Metric:
+def get_hartmann_metric(name: str = "hartmann") -> Hartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_augmented_hartmann_metric(name="aug_hartmann") -> AugmentedHartmann6Metric:
+def get_augmented_hartmann_metric(
+    name: str = "aug_hartmann",
+) -> AugmentedHartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     param_names.append("fidelity")
     return AugmentedHartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
@@ -1102,8 +1111,7 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
 
 def get_objective_threshold(
     metric_name: str = "m1",
-    # pyre-fixme[2]: Parameter must be annotated.
-    bound=-0.25,
+    bound: float = -0.25,
     comparison_op: ComparisonOp = ComparisonOp.GEQ,
 ) -> ObjectiveThreshold:
     return ObjectiveThreshold(
@@ -1629,10 +1637,10 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
-    # pyre-fixme[3]: Return type must be annotated.
-    def __init__(self, early_stop_trials: Optional[Dict[int, str]] = None):
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.early_stop_trials = early_stop_trials or {}
+    def __init__(
+        self, early_stop_trials: Optional[Dict[int, Optional[str]]] = None
+    ) -> None:
+        self.early_stop_trials: Dict[int, Optional[str]] = early_stop_trials or {}
 
     def should_stop_trials_early(
         self,
@@ -1649,15 +1657,13 @@ class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
     a pre-specified number of trials are completed.
     """
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def __init__(self, min_trials: int, trial_to_stop: int):
+    def __init__(self, min_trials: int, trial_to_stop: int) -> None:
         super().__init__(min_trials=min_trials)
         self.trial_to_stop = trial_to_stop
 
-    # pyre-fixme[3]: Return type must be annotated.
     def should_stop_optimization(
         self, experiment: Experiment, **kwargs: Dict[str, Any]
-    ):
+    ) -> Tuple[bool, str]:
         num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
 
         if num_completed_trials >= max([self.min_trials, self.trial_to_stop]):

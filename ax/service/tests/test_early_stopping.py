@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Dict, Optional
+
 from ax.service.utils import early_stopping as early_stopping_utils
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -21,7 +23,7 @@ class TestEarlyStoppingUtils(TestCase):
 
     # pyre-fixme[3]: Return type must be annotated.
     def test_should_stop_trials_early(self):
-        expected = {
+        expected: Dict[int, Optional[str]] = {
             1: "Stopped due to testing.",
             3: "Stopped due to testing.",
         }

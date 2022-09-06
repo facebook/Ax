@@ -20,6 +20,7 @@ from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.relativize import Relativize
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
     get_branin_multi_objective_optimization_config,
@@ -203,7 +204,7 @@ class RelativizeDataTest(TestCase):
                     covariance=np.array([status_quo_row["sem"].values ** 2]),
                 ),
                 features=ObservationFeatures(
-                    parameters=experiment.status_quo.parameters
+                    parameters=not_none(experiment.status_quo).parameters
                 ),
             )
         )

@@ -253,6 +253,9 @@ class BestPointMixin(metaclass=ABCMeta):
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> float:
+        data = experiment.lookup_data()
+        if len(data.df) == 0:
+            return 0.0
         moo_optimization_config = checked_cast(
             MultiObjectiveOptimizationConfig,
             optimization_config or experiment.optimization_config,
@@ -321,10 +324,13 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             A list of observed hypervolumes or best values.
         """
+        data = experiment.lookup_data()
+        if len(data.df) == 0:
+            return []
         # Use a minimal model to help parse the data.
         modelbridge = get_tensor_converter_model(
             experiment=experiment,
-            data=experiment.lookup_data(),
+            data=data,
         )
         observations = modelbridge.get_training_data()
         obs_features, obs_data = separate_observations(observations)
