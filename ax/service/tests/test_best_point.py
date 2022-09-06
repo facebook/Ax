@@ -3,15 +3,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import Mock
+
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
-from ax.utils.testing.core_stubs import get_experiment_with_observations
+from ax.utils.testing.core_stubs import (
+    get_experiment_with_observations,
+    get_experiment_with_trial,
+)
 
 
 class TestBestPointMixin(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_trace(self):
+    def test_get_trace(self) -> None:
         # Alias for easier access.
         get_trace = BestPointMixin.get_trace
 
@@ -50,3 +54,12 @@ class TestBestPointMixin(TestCase):
             observations=[[1, 1], [-1, 2], [3, 3], [-2, 4], [2, 1]], minimize=True
         )
         self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
+
+        # W/ empty data.
+        exp = get_experiment_with_trial()
+        self.assertEqual(get_trace(exp), [])
+
+    def test_get_hypervolume(self) -> None:
+        # W/ empty data.
+        exp = get_experiment_with_trial()
+        self.assertEqual(BestPointMixin._get_hypervolume(exp, Mock()), 0.0)
