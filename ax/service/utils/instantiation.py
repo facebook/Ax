@@ -6,7 +6,7 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Any, cast, Dict, List, Optional, Tuple, Union
+from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -105,15 +105,10 @@ class InstantiationBase:
     def _make_metric(
         name: str,
         lower_is_better: Optional[bool] = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        metric_class_override: Optional[type] = None,
+        metric_class: Type[Metric] = Metric,
         for_opt_config: bool = False,
         metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Metric:
-        metric_class = (
-            metric_class_override if metric_class_override is not None else Metric
-        )
         return metric_class(
             name=name,
             lower_is_better=lower_is_better,
@@ -708,9 +703,7 @@ class InstantiationBase:
                 metric=cls._make_metric(
                     name=objective_name,
                     lower_is_better=minimize,
-                    metric_class_override=MapMetric
-                    if support_intermediate_data
-                    else Metric,
+                    metric_class=MapMetric if support_intermediate_data else Metric,
                     for_opt_config=True,
                 ),
                 minimize=minimize,
