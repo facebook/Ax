@@ -36,6 +36,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import (
@@ -47,9 +48,11 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.generation_strategy import GenerationStrategy
+
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
+from ax.plot.pareto_utils import infer_reference_point_from_experiment
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -170,6 +173,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # Will be set to `True` if generation strategy signals that the optimization
     # is complete, in which case the optimization should gracefully exit early.
     _optimization_complete: bool = False
+    # This will disable the global stopping strategy. It is useful in some
+    # applications where the user wants to run the optimization loop to exhaust
+    # the declared number of trials.
+    __ignore_global_stopping_strategy: bool = False
+    # In MOO cases, the following will be populated by an infered reference point
+    # for pareto front after a certain number of completed trials.
+    __inferred_reference_point: Optional[List[ObjectiveThreshold]] = None
 
     def __init__(
         self,
@@ -364,24 +374,51 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     # ----------------- User-defined, optional. -----------------
 
-    def completion_criterion(self) -> bool:
-        """Optional stopping criterion for optimization, defaults to a check
-        of whether `total_trials` trials have been run.
+    def completion_criterion(self) -> Tuple[bool, str]:
+        """Optional stopping criterion for optimization, which checks
+        of whether `total_trials` trials have been run and checks whether
+        the global_stopping_strategy suggests stopping the optimization.
 
         Returns:
-            Boolean representing whether the optimization should be stopped.
+            A boolean representing whether the optimization should be stopped,
+            and a string describing the reason for stopping.
         """
         # TODO[Max, T61776778]: Default model-informed stopping criterion.
+
+        if (
+            not self.__ignore_global_stopping_strategy
+            and self.options.global_stopping_strategy is not None
+        ):
+            if (
+                self.experiment.is_moo_problem
+                and self.__inferred_reference_point is None
+                and len(self.experiment.trials_by_status[TrialStatus.COMPLETED])
+                >= self.options.global_stopping_strategy.min_trials  # pyre-ignore
+            ):
+                # We infer the nadir reference point to be used by the GSS.
+                self.__inferred_reference_point = infer_reference_point_from_experiment(
+                    self.experiment
+                )
+            (
+                stop_optimization,
+                global_stopping_message,
+            ) = self.options.global_stopping_strategy.should_stop_optimization(  # pyre-ignore
+                experiment=self.experiment,
+                objective_thresholds=self.__inferred_reference_point,
+            )
+            if stop_optimization:
+                return True, global_stopping_message
 
         if self.options.total_trials is None:
             # We validate that `total_trials` is set in `run_all_trials`,
             # so it will not run infinitely.
-            return False
+            return False, ""
 
         expecting_data = sum(  # Number of `RUNNING` + `COMPLETED` trials
             1 for t in self.experiment.trials.values() if t.status.expecting_data
         )
-        return expecting_data >= not_none(self.options.total_trials)
+        should_stop = expecting_data >= not_none(self.options.total_trials)
+        return should_stop, "Exceeding the total number of trials."
 
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
@@ -607,15 +644,18 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             idle_callback(self)
         return self.report_results()
 
-    def should_consider_optimization_complete(self) -> bool:
+    def should_consider_optimization_complete(self) -> Tuple[bool, str]:
         """Whether this scheduler should consider this optimization complete and not
         run more trials (and conclude the optimization via ``_complete_optimization``).
         An optimization is considered complete when a generation strategy signalled
-        completion or when the custom ``completion_criterion`` on this scheduler
-        evaluates to ``True``.
+        completion or when the ``completion_criterion`` on this scheduler
+        evaluates to ``True``. The ``completion_criterion`` method is also responsible
+        for checking global_stopping_strategy's decision as well. Alongside the stop
+        decision, this function returns a string describing the reason for stopping
+        the optimization.
         """
         if self._optimization_complete:
-            return True
+            return True, ""
 
         return self.completion_criterion()
 
@@ -692,6 +732,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def run_trials_and_yield_results(
         self,
         max_trials: int,
+        ignore_global_stopping_strategy: bool = False,
         timeout_hours: Optional[int] = None,
         idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> Generator[Dict[str, Any], None, None]:
@@ -704,6 +745,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 generator will run trials until a completion criterion is reached,
                 a completion signal is received from the generation strategy, or
                 ``max_trials`` trials have been run (whichever happens first).
+            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+                stopping strategy in completion_criterion.
             timeout_hours: Maximum number of hours, for which
                 to run the optimization. This function will abort after running
                 for `timeout_hours` even if stopping criterion has not been reached.
@@ -729,6 +772,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self._timeout_hours = timeout_hours
 
         self._latest_optimization_start_timestamp = current_timestamp_in_millis()
+        self.__ignore_global_stopping_strategy = ignore_global_stopping_strategy
 
         n_initial_candidate_trials = len(self.candidate_trials)
         if n_initial_candidate_trials == 0 and max_trials < 0:
@@ -752,7 +796,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # schedule new trials and poll existing ones in a loop.
         n_remaining_to_run = max_trials
         while (
-            not self.should_consider_optimization_complete() and n_remaining_to_run > 0
+            not self.should_consider_optimization_complete()[0]
+            and n_remaining_to_run > 0
         ):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
@@ -805,6 +850,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def run_n_trials(
         self,
         max_trials: int,
+        ignore_global_stopping_strategy: bool = False,
         timeout_hours: Optional[int] = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Optional[Callable[[Scheduler], Any]] = None,
@@ -817,6 +863,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         Args:
             max_trials: Maximum number of trials to run.
+            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+                stopping strategy in completion_criterion.
             timeout_hours: Limit on length of ths optimization; if reached, the
                 optimization will abort even if completon criterion is not yet reached.
             idle_callback: Callable that takes a Scheduler instance as an argument to
@@ -843,6 +891,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         for _ in self.run_trials_and_yield_results(
             max_trials=max_trials,
+            ignore_global_stopping_strategy=ignore_global_stopping_strategy,
             timeout_hours=timeout_hours,
             idle_callback=idle_callback,
         ):
@@ -915,9 +964,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             Boolean representing success status.
         """
-        if self.should_consider_optimization_complete():
+        (
+            optimization_complete,
+            completion_message,
+        ) = self.should_consider_optimization_complete()
+        if optimization_complete:
             self.logger.info(
-                "`completion_criterion` is `True`, not running more trials."
+                completion_message
+                + "`completion_criterion` is `True`, not running more trials."
             )
             return False
 

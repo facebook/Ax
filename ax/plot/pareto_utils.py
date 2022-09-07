@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
 from copy import deepcopy
 from itertools import combinations
 from typing import Dict, List, NamedTuple, Optional, Tuple, Union
@@ -17,10 +18,14 @@ from ax.core.metric import Metric
 from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError
-from ax.modelbridge.modelbridge_utils import observed_pareto_frontier
+from ax.modelbridge.modelbridge_utils import (
+    _get_modelbridge_training_data,
+    get_pareto_frontier_and_configs,
+    observed_pareto_frontier,
+)
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
@@ -32,6 +37,7 @@ from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.utils.multi_objective import is_non_dominated
+from botorch.utils.multi_objective.hypervolume import infer_reference_point
 
 
 # type aliases
@@ -497,3 +503,71 @@ def _build_new_optimization_config(
         objective=obj, outcome_constraints=outcome_constraints
     )
     return optimization_config
+
+
+def infer_reference_point_from_experiment(
+    experiment: Experiment,
+) -> List[ObjectiveThreshold]:
+    """This functions is a wrapper around ``infer_reference_point`` to find the nadir
+    point from the pareto front of an experiment. Aside from converting experiment
+    to tensors, this wrapper transforms back and forth the objectives of the experiment
+    so that they are appropriately used by ``infer_reference_point``.
+
+    Args:
+        experiment: The experiment for which we want to infer the reference point.
+
+    Returns:
+        List of obejective thresholds representing the reference point.
+    """
+
+    if not experiment.is_moo_problem:
+        raise ValueError(
+            "This function works for MOO experiments only."
+            f" Experiment {experiment.name} is single objective."
+        )
+
+    # Reading experiment data.
+    mb_reference = get_tensor_converter_model(
+        experiment=experiment, data=experiment.fetch_data()
+    )
+    obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=mb_reference)
+
+    # Turning all the objectives to be maximized.
+    multiplier = []
+    for objective in experiment.optimization_config.objective.objectives:  # pyre-ignore
+        multiplier.append(-1 if objective.minimize else +1)
+
+    # A dummy reference point so that all observed points are considered when
+    # calculating the parto front.
+    dummy_rp = copy.deepcopy(
+        experiment.optimization_config.objective_thresholds  # pyre-ignore
+    )
+    for i in range(len(dummy_rp)):
+        dummy_rp[i].bound = -1 * multiplier[i] * np.inf
+
+    # Finding the pareto frontier
+    frontier_observations, f, obj_w, obj_t = get_pareto_frontier_and_configs(
+        modelbridge=mb_reference,
+        observation_features=obs_feats,
+        observation_data=obs_data,
+        objective_thresholds=dummy_rp,
+        use_model_predictions=False,
+    )
+
+    # Transforming all the objectives to be maximized.
+    f_transformed = torch.tensor(multiplier, dtype=f.dtype, device=f.device) * f
+
+    # Finding nadir point.
+    rp_raw = infer_reference_point(f_transformed)
+
+    # Un-transforming the reference point.
+    rp = torch.tensor(multiplier, dtype=f.dtype, device=f.device) * rp_raw
+
+    # Constructing the objective thresholds.
+    nadir_objective_thresholds = copy.deepcopy(
+        experiment.optimization_config.objective_thresholds
+    )
+    for i, obj_threshold in enumerate(nadir_objective_thresholds):
+        obj_threshold.bound = rp[i].item()
+
+    return nadir_objective_thresholds
