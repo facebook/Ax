@@ -41,6 +41,18 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(stop)
         self.assertEqual(message, "There are pending trials in the experiment.")
 
+        gss_2 = ImprovementGlobalStoppingStrategy(
+            min_trials=2, window_size=3, inactive_when_pending_trials=False
+        )
+        stop, message = gss_2.should_stop_optimization(experiment=exp)
+        # This one should be fine with having pending trials, but is not
+        # stopping due to lack of completed trials.
+        self.assertFalse(stop)
+        self.assertEqual(
+            message,
+            "There are no completed trials yet.",
+        )
+
         _ = exp.trials[0].mark_completed()
         stop, message = gss.should_stop_optimization(experiment=exp)
         self.assertFalse(stop)
@@ -251,6 +263,39 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertEqual(
             message,
             "The improvement in hypervolume in the past 3 trials (=0.000) is less than "
+            "0.1.",
+        )
+
+        # Now we select a very far custom reference point against which the pareto front
+        # has not increased in hypervolume at trial 4. Hence, it should stop the
+        # optimization at this trial.
+        gss2 = ImprovementGlobalStoppingStrategy(
+            min_trials=3, window_size=3, improvement_bar=0.1
+        )
+        objectives = exp.optimization_config.objective.objectives  # pyre-ignore
+        custom_objective_thresholds = [
+            ObjectiveThreshold(
+                metric=objectives[0].metric,
+                bound=-10,
+                op=ComparisonOp.GEQ,
+                relative=False,
+            ),
+            ObjectiveThreshold(
+                metric=objectives[1].metric,
+                bound=-10,
+                op=ComparisonOp.GEQ,
+                relative=False,
+            ),
+        ]
+        stop, message = gss2.should_stop_optimization(
+            experiment=exp,
+            trial_to_check=4,
+            objective_thresholds=custom_objective_thresholds,
+        )
+        self.assertTrue(stop)
+        self.assertEqual(
+            message,
+            "The improvement in hypervolume in the past 3 trials (=0.033) is less than "
             "0.1.",
         )
 
