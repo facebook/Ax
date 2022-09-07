@@ -23,14 +23,19 @@ class BaseGlobalStoppingStrategy(ABC, Base):
     justify the cost of running these trials).
     """
 
-    def __init__(self, min_trials: int) -> None:
+    def __init__(
+        self, min_trials: int, inactive_when_pending_trials: bool = True
+    ) -> None:
         """
         Initiating a base stopping strategy.
 
         Args:
             min_trials: Minimum number of trials before the stopping strategy kicks in.
+            inactive_when_pending_trials: If set, the optimization will not stopped as
+                long as it has running trials.
         """
         self.min_trials = min_trials
+        self.inactive_when_pending_trials = inactive_when_pending_trials
 
     @abstractmethod
     def should_stop_optimization(

@@ -5,13 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from logging import Logger
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -19,6 +20,7 @@ from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
+
 
 logger: Logger = get_logger(__name__)
 
@@ -34,7 +36,11 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
     """
 
     def __init__(
-        self, min_trials: int, window_size: int = 5, improvement_bar: float = 0.1
+        self,
+        min_trials: int,
+        window_size: int = 5,
+        improvement_bar: float = 0.1,
+        inactive_when_pending_trials: bool = True,
     ) -> None:
         """
         Initialize an improvement-based stopping strategy.
@@ -44,8 +50,13 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             window_size: Number of recent trials to check the improvement in.
             improvement_bar: Threshold (in [0,1]) for considering relative improvement
                 over the best point.
+            inactive_when_pending_trials: If set, the optimization will not stopped as
+                long as it has running trials.
         """
-        super().__init__(min_trials=min_trials)
+        super().__init__(
+            min_trials=min_trials,
+            inactive_when_pending_trials=inactive_when_pending_trials,
+        )
         self.window_size = window_size
         self.improvement_bar = improvement_bar
         self.hv_by_trial: Dict[int, float] = {}
@@ -54,6 +65,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: Optional[int] = None,
+        objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
         **kwargs: Dict[str, Any],
     ) -> Tuple[bool, str]:
         """
@@ -67,12 +79,19 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             experiment: The experiment to apply the strategy on.
             trial_to_check: The trial in the experiment at which we want to check
                 for stopping. If None, we check at the latest trial.
+            objective_thresholds: Custom objective thresholds to use as reference pooint
+                when computing hv of the pareto front against. This is used only in the
+                MOO setting. If not specified, the objective thresholds on the
+                experiment's optimization config will be used for the purpose.
 
         Returns:
             A Tuple with a boolean determining whether the optimization should stop,
             and a str declaring the reason for stopping.
         """
-        if len(experiment.trials_by_status[TrialStatus.RUNNING]):
+        if (
+            self.inactive_when_pending_trials
+            and len(experiment.trials_by_status[TrialStatus.RUNNING]) > 0
+        ):
             message = "There are pending trials in the experiment."
             return False, message
 
@@ -104,7 +123,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
             return self._should_stop_moo(
-                experiment=experiment, trial_to_check=trial_to_check
+                experiment=experiment,
+                trial_to_check=trial_to_check,
+                objective_thresholds=objective_thresholds,
             )
         else:
             return self._should_stop_single_objective(
@@ -112,7 +133,10 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             )
 
     def _should_stop_moo(
-        self, experiment: Experiment, trial_to_check: int
+        self,
+        experiment: Experiment,
+        trial_to_check: int,
+        objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
     ) -> Tuple[bool, str]:
         """
         This is just the "should_stop_optimization" method of the class specialized to
@@ -124,6 +148,10 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             experiment: The experiment to apply the strategy on.
             trial_to_check: The trial in the experiment at which we want to check
                 for stopping. If None, we check at the latest trial.
+            objective_thresholds: Custom objective thresholds to use as reference pooint
+                when computing hv of the pareto front against. This is used only in the
+                MOO setting. If not specified, the objective thresholds on the
+                experiment's optimization config will be used for the purpose.
 
         Returns:
             A Tuple with a boolean determining whether the optimization should stop,
@@ -134,6 +162,11 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
         data_df = data_df[data_df["trial_index"] <= trial_to_check]
 
+        reference_point = (
+            objective_thresholds
+            or experiment.optimization_config.objective_thresholds  # pyre-ignore
+        )
+
         # Computing or retrieving HV at "window_size" iteration before
         if reference_trial_index in self.hv_by_trial:
             hv_reference = self.hv_by_trial[reference_trial_index]
@@ -141,7 +174,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             mb_reference = get_tensor_converter_model(
                 experiment=experiment, data=Data(data_df_reference)
             )
-            hv_reference = observed_hypervolume(mb_reference)
+            hv_reference = observed_hypervolume(
+                modelbridge=mb_reference, objective_thresholds=reference_point
+            )
             self.hv_by_trial[reference_trial_index] = hv_reference
 
         if hv_reference == 0:
@@ -150,7 +185,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         # Computing HV at current trial
         mb = get_tensor_converter_model(experiment=experiment, data=Data(data_df))
-        hv = observed_hypervolume(mb)
+        hv = observed_hypervolume(mb, objective_thresholds=reference_point)
         self.hv_by_trial[trial_to_check] = hv
 
         hv_improvement = (hv - hv_reference) / hv_reference
