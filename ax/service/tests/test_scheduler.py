@@ -51,6 +51,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
     DummyEarlyStoppingStrategy,
+    DummyGlobalStoppingStrategy,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
@@ -304,7 +305,8 @@ class TestAxScheduler(TestCase):
                 "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
                 "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
                 "debug_log_run_metadata=False, early_stopping_strategy=None, "
-                "suppress_storage_errors_after_retries=False))"
+                "global_stopping_strategy=None, suppress_storage_errors_after_"
+                "retries=False))"
             ),
         )
 
@@ -510,6 +512,58 @@ class TestAxScheduler(TestCase):
         self.assertTrue(  # Make sure all trials got to complete.
             all(t.completed_successfully for t in scheduler.experiment.trials.values())
         )
+
+    # pyre-fixme[3]: Return type must be annotated.
+    def test_inferring_reference_point(self):
+        experiment = get_branin_experiment_with_multi_objective()
+        experiment.runner = self.runner
+
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=SchedulerOptions(
+                # Stops the optimization after 5 trials.
+                global_stopping_strategy=DummyGlobalStoppingStrategy(
+                    min_trials=2, trial_to_stop=5
+                ),
+            ),
+        )
+
+        with patch(
+            "ax.service.scheduler.infer_reference_point_from_experiment"
+        ) as mock_infer_rp:
+            scheduler.run_n_trials(max_trials=10)
+            mock_infer_rp.assert_called_once()
+
+    # pyre-fixme[3]: Return type must be annotated.
+    def test_global_stopping(self):
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=SchedulerOptions(
+                # Stops the optimization after 5 trials.
+                global_stopping_strategy=DummyGlobalStoppingStrategy(
+                    min_trials=2, trial_to_stop=5
+                ),
+            ),
+        )
+        scheduler.run_n_trials(max_trials=10)
+        self.assertEqual(len(scheduler.experiment.trials), 5)
+
+    # pyre-fixme[3]: Return type must be annotated.
+    def test_ignore_global_stopping(self):
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=SchedulerOptions(
+                # Stops the optimization after 5 trials.
+                global_stopping_strategy=DummyGlobalStoppingStrategy(
+                    min_trials=2, trial_to_stop=5
+                ),
+            ),
+        )
+        scheduler.run_n_trials(max_trials=10, ignore_global_stopping_strategy=True)
+        self.assertEqual(len(scheduler.experiment.trials), 10)
 
     # pyre-fixme[3]: Return type must be annotated.
     def test_stop_trial(self):

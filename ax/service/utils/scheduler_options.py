@@ -9,6 +9,7 @@ from logging import INFO
 from typing import Optional
 
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 
 
 class TrialType(Enum):
@@ -92,6 +93,8 @@ class SchedulerOptions:
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
             the experiment. Used in ``should_stop_trials_early``.
+        global_stopping_strategy: A ``BaseGlobalStoppingStrategy`` that determines
+            whether the full optimization should be stopped or not.
         suppress_storage_errors_after_retries: Whether to fully suppress SQL
             storage-related errors if encounted, after retrying the call
             multiple times. Only use if SQL storage is not important for the given
@@ -115,4 +118,5 @@ class SchedulerOptions:
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
+    global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
     suppress_storage_errors_after_retries: bool = False

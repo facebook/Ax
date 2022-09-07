@@ -20,11 +20,14 @@ from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     compute_posterior_pareto_frontier,
     get_observed_pareto_frontiers,
+    infer_reference_point_from_experiment,
 )
+
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_experiment_with_observations,
 )
 
 
@@ -205,3 +208,27 @@ class ParetoUtilsTest(TestCase):
         self.assertTrue(
             np.array_equal(pareto, np.array([[3.0, 0.0], [2.1, 1.0], [2.0, 2.0]]))
         )
+
+
+class TestInfereReferencePointFromExperiment(TestCase):
+    # pyre-fixme[3]: Return type must be annotated.
+    def test_infer_reference_point_from_experiment(self):
+        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+        # Getting an experiment with 2 objectives by the above observations.
+        experiment = get_experiment_with_observations(
+            observations=observations,
+            minimize=True,
+            scalarized=False,
+            constrained=False,
+        )
+
+        inferred_reference_point = infer_reference_point_from_experiment(experiment)
+
+        # The nadir point for this experiment is [-0.5, 0.5]. The function actually
+        # deducts 0.1*Y_range from each of the objectives. Since the range for each
+        # of the objectives is +/-1.5, the inferred reference point would
+        # be [-0.35, 0.35].
+        self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
+        self.assertEqual(inferred_reference_point[0].bound, -0.35)
+        self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
+        self.assertEqual(inferred_reference_point[1].bound, 0.35)
