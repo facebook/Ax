@@ -5,12 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
+from random import choice
+from typing import cast, List
+from unittest import mock
 
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
+    Parameter,
     ParameterType,
     RangeParameter,
 )
@@ -45,8 +49,7 @@ RANGE_PARAMS = 3
 
 
 class SearchSpaceTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.a = RangeParameter(
             name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
         )
@@ -70,9 +73,14 @@ class SearchSpaceTest(TestCase):
         self.g = RangeParameter(
             name="g", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
-        self.parameters = [self.a, self.b, self.c, self.d, self.e, self.f]
-        # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-        #  `List[Union[ChoiceParameter, FixedParameter, RangeParameter]]`.
+        self.parameters: List[Parameter] = [
+            self.a,
+            self.b,
+            self.c,
+            self.d,
+            self.e,
+            self.f,
+        ]
         self.ss1 = SearchSpace(parameters=self.parameters)
         self.ss2 = SearchSpace(
             parameters=self.parameters,
@@ -109,8 +117,7 @@ class SearchSpaceTest(TestCase):
             "parameter_constraints=[OrderConstraint(a <= b)])"
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         ss2 = SearchSpace(
             parameters=self.parameters,
             parameter_constraints=[
@@ -120,8 +127,7 @@ class SearchSpaceTest(TestCase):
         self.assertEqual(self.ss2, ss2)
         self.assertNotEqual(self.ss1, self.ss2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testProperties(self):
+    def testProperties(self) -> None:
         self.assertEqual(len(self.ss1.parameters), TOTAL_PARAMS)
         self.assertTrue("a" in self.ss1.parameters)
         self.assertTrue(len(self.ss1.tunable_parameters), TUNABLE_PARAMS)
@@ -131,13 +137,11 @@ class SearchSpaceTest(TestCase):
         self.assertTrue(len(self.ss1.parameter_constraints) == 0)
         self.assertTrue(len(self.ss2.parameter_constraints) == 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRepr(self):
+    def testRepr(self) -> None:
         self.assertEqual(str(self.ss2), self.ss2_repr)
         self.assertEqual(str(self.ss1), self.ss1_repr)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSetter(self):
+    def testSetter(self) -> None:
         new_c = SumConstraint(
             parameters=[self.a, self.b], is_upper_bound=True, bound=10
         )
@@ -157,8 +161,7 @@ class SearchSpaceTest(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
         self.assertEqual(self.ss2.parameters["b"].lower, 10)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBadConstruction(self):
+    def testBadConstruction(self) -> None:
         # Duplicate parameter
         with self.assertRaises(ValueError):
             p1 = self.parameters + [self.parameters[0]]
@@ -220,8 +223,7 @@ class SearchSpaceTest(TestCase):
                 ],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBadSetter(self):
+    def testBadSetter(self) -> None:
         new_p = RangeParameter(
             name="b", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
@@ -241,8 +243,7 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss1.update_parameter(new_p)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCheckMembership(self):
+    def testCheckMembership(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
@@ -290,8 +291,7 @@ class SearchSpaceTest(TestCase):
             #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCheckTypes(self):
+    def testCheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
@@ -320,8 +320,7 @@ class SearchSpaceTest(TestCase):
             #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_types(p_dict, raise_error=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCastArm(self):
+    def testCastArm(self) -> None:
         p_dict = {"a": 1.0, "b": 5.0, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Check "b" parameter goes from float to int
@@ -338,8 +337,7 @@ class SearchSpaceTest(TestCase):
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["q"], int))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCopy(self):
+    def testCopy(self) -> None:
         a = RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5)
         b = RangeParameter("b", ParameterType.FLOAT, 2.0, 5.5)
         c = ChoiceParameter("c", ParameterType.INT, [2, 3])
@@ -358,16 +356,14 @@ class SearchSpaceTest(TestCase):
         ss_copy.add_parameter(FixedParameter("d", ParameterType.STRING, "h"))
         self.assertNotEqual(len(ss_copy.parameters), len(ss.parameters))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testOutOfDesignArm(self):
+    def testOutOfDesignArm(self) -> None:
         arm1 = self.ss1.out_of_design_arm()
         arm2 = self.ss2.out_of_design_arm()
         arm1_nones = [p is None for p in arm1.parameters.values()]
         self.assertTrue(all(arm1_nones))
         self.assertTrue(arm1 == arm2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConstructArm(self):
+    def testConstructArm(self) -> None:
         # Test constructing an arm of default values
         arm = self.ss1.construct_arm(name="test")
         self.assertEqual(arm.name, "test")
@@ -394,8 +390,7 @@ class SearchSpaceTest(TestCase):
 
 
 class SearchSpaceDigestTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.kwargs = {
             "feature_names": ["a", "b", "c"],
             "bounds": [(0.0, 1.0), (0, 2), (0, 4)],
@@ -408,8 +403,7 @@ class SearchSpaceDigestTest(TestCase):
             "robust_digest": None,
         }
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSearchSpaceDigest(self):
+    def testSearchSpaceDigest(self) -> None:
         # test required fields
         with self.assertRaises(TypeError):
             # pyre-fixme[20]: Argument `feature_names` expected.
@@ -430,8 +424,7 @@ class SearchSpaceDigestTest(TestCase):
 
 
 class RobustSearchSpaceDigestTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.kwargs = {
             "sample_param_perturbations": lambda: 1,
             "sample_environmental": lambda: 2,
@@ -439,8 +432,7 @@ class RobustSearchSpaceDigestTest(TestCase):
             "multiplicative": False,
         }
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_robust_search_space_digest(self):
+    def test_robust_search_space_digest(self) -> None:
         # test post init
         with self.assertRaises(UserInputError):
             RobustSearchSpaceDigest()
@@ -455,8 +447,7 @@ class RobustSearchSpaceDigestTest(TestCase):
 
 
 class HierarchicalSearchSpaceTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.model_parameter = get_model_parameter()
         self.lr_parameter = get_lr_parameter()
         self.l2_reg_weight_parameter = get_l2_reg_weight_parameter()
@@ -477,6 +468,16 @@ class HierarchicalSearchSpaceTest(TestCase):
                 self.lr_parameter,
                 self.l2_reg_weight_parameter,
                 self.num_boost_rounds_parameter,
+            ]
+        )
+        self.hss_with_fixed = HierarchicalSearchSpace(
+            parameters=[
+                self.use_linear_parameter,
+                FixedParameter(
+                    name="model",
+                    value="fixed_model",
+                    parameter_type=ParameterType.STRING,
+                ),
             ]
         )
         self.model_2_parameter = ChoiceParameter(
@@ -539,8 +540,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             }
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_init(self):
+    def test_init(self) -> None:
         self.assertEqual(self.hss_1._root, self.model_parameter)
         self.assertEqual(
             self.hss_1._all_parameter_names,
@@ -558,8 +558,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             },
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_validation(self):
+    def test_validation(self) -> None:
         # Case where dependent parameter is not in the search space.
         with self.assertRaisesRegex(ValueError, ".* 'l2_reg_weight' is not part"):
             HierarchicalSearchSpace(
@@ -610,8 +609,7 @@ class HierarchicalSearchSpaceTest(TestCase):
                 ]
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_hierarchical_structure_str(self):
+    def test_hierarchical_structure_str(self) -> None:
         self.assertEqual(
             self.hss_1.hierarchical_structure_str(),
             f"{self.hss_1.root}\n\t(Linear)\n\t\t{self.lr_parameter}\n\t\t"
@@ -625,8 +623,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             f"{self.num_boost_rounds_parameter.name}\n",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_flatten(self):
+    def test_flatten(self) -> None:
         # Test on basic HSS.
         flattened_hss_1 = self.hss_1.flatten()
         self.assertIsNot(flattened_hss_1, self.hss_1)
@@ -659,8 +656,7 @@ class HierarchicalSearchSpaceTest(TestCase):
         )
         self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_cast_arm(self):
+    def test_cast_arm(self) -> None:
         self.assertEqual(  # Check one subtree.
             self.hss_1._cast_arm(arm=self.hss_1_arm_1_flat),
             self.hss_1_arm_1_cast,
@@ -676,8 +672,7 @@ class HierarchicalSearchSpaceTest(TestCase):
         with self.assertRaises(RuntimeError):
             self.hss_1._cast_arm(arm=self.hss_1_arm_missing_param)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_cast_observation_features(self):
+    def test_cast_observation_features(self) -> None:
         # Ensure that during casting, full parameterization is saved
         # in metadata and actual parameterization is cast to HSS.
         hss_1_obs_feats_1 = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_flat)
@@ -701,8 +696,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_flatten_observation_features(self):
+    def test_flatten_observation_features(self) -> None:
         # Ensure that during casting, full parameterization is saved
         # in metadata and actual parameterization is cast to HSS; during
         # flattening, parameterization in metadata is used ot inject back
@@ -730,10 +724,92 @@ class HierarchicalSearchSpaceTest(TestCase):
             hss_1_obs_feats_1,
         )
 
+    @mock.patch(f"{HierarchicalSearchSpace.__module__}.uniform", return_value=0.6)
+    def test_flatten_observation_features_inject_dummy_parameter_values(
+        self, mock_uniform: mock.MagicMock
+    ) -> None:
+        # Case 1: Linear arm
+        hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast)
+        hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
+            observation_features=hss_obs_feats
+        )
+        mock_uniform.assert_not_called()
+        self.assertNotIn("num_boost_rounds", hss_obs_feats_flattened.parameters)
+        flattened_with_dummies = self.hss_1.flatten_observation_features(
+            observation_features=hss_obs_feats,
+            inject_dummy_values_to_complete_flat_parameterization=True,
+        ).parameters
+        mock_uniform.assert_called()
+        self.assertIn("num_boost_rounds", flattened_with_dummies)
+        self.assertEqual(
+            flattened_with_dummies["num_boost_rounds"],
+            1,  # int(0.6 + 0.5) = floor(0.6 + 0.5) = 1
+        )
+        self.assertIsInstance(  # Ensure we coerced parameter type correctly, too.
+            flattened_with_dummies["num_boost_rounds"],
+            int,
+        )
+
+        # Case 2: XGBoost arm
+        mock_uniform.reset_mock()
+        hss_obs_feats = ObservationFeatures.from_arm(arm=self.hss_1_arm_2_cast)
+        hss_obs_feats_flattened = self.hss_1.flatten_observation_features(
+            observation_features=hss_obs_feats
+        )
+        mock_uniform.assert_not_called()
+        self.assertNotIn("learning_rate", hss_obs_feats_flattened.parameters)
+        self.assertNotIn("l2_reg_weight", hss_obs_feats_flattened.parameters)
+        flattened_with_dummies = (
+            self.hss_1.flatten_observation_features(
+                observation_features=hss_obs_feats,
+                inject_dummy_values_to_complete_flat_parameterization=True,
+            )
+        ).parameters
+        mock_uniform.assert_called()
+        self.assertIn("learning_rate", flattened_with_dummies)
+        self.assertIn("l2_reg_weight", flattened_with_dummies)
+        self.assertEqual(
+            flattened_with_dummies["learning_rate"],
+            mock_uniform.return_value,
+        )
+        self.assertEqual(
+            flattened_with_dummies["l2_reg_weight"],
+            mock_uniform.return_value,
+        )
+
+        # Case 3: test setting of choice parameters
+        with mock.patch(
+            f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
+        ) as mock_choice:
+            flattened_only_dummies = self.hss_2.flatten_observation_features(
+                observation_features=ObservationFeatures(parameters={}),
+                inject_dummy_values_to_complete_flat_parameterization=True,
+            ).parameters
+            self.assertEqual(
+                mock_choice.call_args_list,
+                [mock.call([False, True]), mock.call(["Linear", "XGBoost"])],
+            )
+        self.assertEqual(
+            set(flattened_only_dummies.keys()), set(self.hss_2.parameters.keys())
+        )
+
+        # Case 4: test setting of fixed parameters
+        with mock.patch(
+            f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
+        ) as mock_choice:
+            flattened_only_dummies = self.hss_with_fixed.flatten_observation_features(
+                observation_features=ObservationFeatures(parameters={}),
+                inject_dummy_values_to_complete_flat_parameterization=True,
+            ).parameters
+            mock_choice.assert_called_once_with([False, True])
+        self.assertEqual(
+            set(flattened_only_dummies.keys()),
+            set(self.hss_with_fixed.parameters.keys()),
+        )
+
 
 class TestRobustSearchSpace(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.a = RangeParameter(
             name="a", parameter_type=ParameterType.FLOAT, lower=0.5, upper=5.5
         )
@@ -755,14 +831,11 @@ class TestRobustSearchSpace(TestCase):
         self.rss1 = RobustSearchSpace(
             parameters=self.parameters,
             parameter_distributions=[self.ab_dist],
-            # pyre-fixme[6]: For 3rd param expected
-            #  `Optional[List[ParameterConstraint]]` but got `List[OrderConstraint]`.
-            parameter_constraints=self.constraints,
+            parameter_constraints=cast(List[ParameterConstraint], self.constraints),
             num_samples=4,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_init_and_properties(self):
+    def test_init_and_properties(self) -> None:
         # Setup some parameters and distributions.
         a_dist = ParameterDistribution(
             parameters=["a"],
@@ -983,14 +1056,12 @@ class TestRobustSearchSpace(TestCase):
             any(rss.is_environmental_variable(p) for p in rss.parameters.keys())
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_update_parameter(self):
+    def test_update_parameter(self) -> None:
         rss = self.rss1
         with self.assertRaisesRegex(UnsupportedError, "update_parameter"):
             rss.update_parameter(self.a)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_clone(self):
+    def test_clone(self) -> None:
         rss_clone = self.rss1.clone()
         self.assertEqual(
             rss_clone._environmental_variables, self.rss1._environmental_variables
@@ -1007,8 +1078,7 @@ class TestRobustSearchSpace(TestCase):
             rss_clone._distributional_parameters, self.rss1._distributional_parameters
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_repr(self):
+    def test_repr(self) -> None:
         expected = (
             "RobustSearchSpace("
             "parameters=["
