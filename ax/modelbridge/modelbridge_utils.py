@@ -17,6 +17,7 @@ from typing import (
     MutableMapping,
     Optional,
     Tuple,
+    Type,
     TYPE_CHECKING,
     Union,
 )
@@ -46,6 +47,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import (
     RobustSearchSpace,
     RobustSearchSpaceDigest,
@@ -54,6 +56,7 @@ from ax.core.search_space import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.frontier_utils import (
@@ -65,6 +68,20 @@ from ax.utils.common.typeutils import (
     checked_cast_optional,
     checked_cast_to_tuple,
     not_none,
+)
+from botorch.acquisition.multi_objective.multi_output_risk_measures import (
+    IndependentCVaR,
+    IndependentVaR,
+    MARS,
+    MultiOutputExpectation,
+    MVaR,
+)
+from botorch.acquisition.risk_measures import (
+    CVaR,
+    Expectation,
+    RiskMeasureMCObjective,
+    VaR,
+    WorstCase,
 )
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
@@ -78,6 +95,48 @@ logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+
+
+"""A mapping of risk measure names to the corresponding classes.
+
+NOTE: This can be extended with user-defined risk measure classes by
+importing the dictionary and adding the new risk measure class as
+`RISK_MEASURE_NAME_TO_CLASS["my_risk_measure"] = MyRiskMeasure`.
+An example of this is found in `tests/test_risk_measure`.
+"""
+RISK_MEASURE_NAME_TO_CLASS: Dict[str, Type[RiskMeasureMCObjective]] = {
+    "Expectation": Expectation,
+    "CVaR": CVaR,
+    "MARS": MARS,
+    "MVaR": MVaR,
+    "IndependentCVaR": IndependentCVaR,
+    "IndependentVaR": IndependentVaR,
+    "MultiOutputExpectation": MultiOutputExpectation,
+    "VaR": VaR,
+    "WorstCase": WorstCase,
+}
+
+
+def extract_risk_measure(risk_measure: RiskMeasure) -> RiskMeasureMCObjective:
+    r"""Extracts the BoTorch risk measure objective from an Ax `RiskMeasure`.
+
+    Args:
+        risk_measure: The RiskMeasure object.
+
+    Returns:
+        The corresponding `RiskMeasureMCObjective` object.
+    """
+    try:
+        return RISK_MEASURE_NAME_TO_CLASS[risk_measure.risk_measure](
+            # pyre-ignore Incompatible parameter type [6]
+            **risk_measure.options
+        )
+    except (KeyError, RuntimeError, ValueError):
+        raise UserInputError(
+            "Got an error while constructing the risk measure. Make sure that "
+            f"{risk_measure.risk_measure} exists in  `RISK_MEASURE_NAME_TO_CLASS` "
+            f"and accepts arguments {risk_measure.options}."
+        )
 
 
 def check_has_multi_objective_and_data(

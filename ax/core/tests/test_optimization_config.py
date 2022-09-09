@@ -39,8 +39,7 @@ MOOC_STR = (
 
 
 class OptimizationConfigTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.metrics = {
             "m1": Metric(name="m1"),
             "m2": Metric(name="m2"),
@@ -81,8 +80,7 @@ class OptimizationConfigTest(TestCase):
             options={"n_w": 2},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective, outcome_constraints=self.outcome_constraints
         )
@@ -117,16 +115,8 @@ class OptimizationConfigTest(TestCase):
         )
         self.assertEqual(str(config3), expected_str)
         self.assertIs(config3.risk_measure, self.single_output_risk_measure)
-        # Error with multi-output risk measure.
-        with self.assertRaisesRegex(UserInputError, "multi-output risk"):
-            OptimizationConfig(
-                objective=self.objective,
-                outcome_constraints=self.outcome_constraints,
-                risk_measure=self.multi_output_risk_measure,
-            )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
@@ -148,8 +138,7 @@ class OptimizationConfigTest(TestCase):
         )
         self.assertNotEqual(config1, config3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConstraintValidation(self):
+    def testConstraintValidation(self) -> None:
         # Can build OptimizationConfig with MultiObjective
         with self.assertRaises(ValueError):
             OptimizationConfig(objective=self.multi_objective)
@@ -227,8 +216,7 @@ class OptimizationConfigTest(TestCase):
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
@@ -238,8 +226,7 @@ class OptimizationConfigTest(TestCase):
 
 
 class MultiObjectiveOptimizationConfigTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.metrics = {
             "m1": Metric(name="m1", lower_is_better=True),
             "m2": Metric(name="m2", lower_is_better=False),
@@ -298,8 +285,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             options={"n_w": 2},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -371,25 +357,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "MultiOutputExpectation, options={'n_w': 2}))"
         )
         self.assertEqual(str(config6), expected_str)
-        with self.assertRaisesRegex(UserInputError, "multi-output risk"):
-            MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
-                risk_measure=self.single_output_risk_measure,
-            )
         # With scalarized objective.
         config7 = MultiObjectiveOptimizationConfig(
             objective=self.scalarized_objective,
             risk_measure=self.single_output_risk_measure,
         )
         self.assertIs(config7.risk_measure, self.single_output_risk_measure)
-        with self.assertRaisesRegex(UserInputError, "single-output risk"):
-            MultiObjectiveOptimizationConfig(
-                objective=self.scalarized_objective,
-                risk_measure=self.multi_output_risk_measure,
-            )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -407,8 +382,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertNotEqual(config1, config3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConstraintValidation(self):
+    def testConstraintValidation(self) -> None:
         # Cannot build with non-MultiObjective
         with self.assertRaises(TypeError):
             MultiObjectiveOptimizationConfig(objective=self.objective)
@@ -481,8 +455,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -494,8 +467,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertEqual(config2, config2.clone())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCloneWithArgs(self):
+    def testCloneWithArgs(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective_just_m2,
             outcome_constraints=[self.m1_constraint],
