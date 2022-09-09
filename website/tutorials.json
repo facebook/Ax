@@ -55,6 +55,11 @@
     {
       "id": "saasbo_nehvi",
       "title": "Fully Bayesian, High-Dimensional, Multi-Objective Optimization"
+    },
+    {
+      "dir": "early_stopping",
+      "id": "early_stopping",
+      "title": "Early Stopping"
     }
   ],
   "Field Experiments": [
