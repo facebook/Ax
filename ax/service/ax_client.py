@@ -787,8 +787,23 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             Tuple of parameterization and trial index from newly created trial.
         """
         self._validate_search_space_membership(parameters=parameters)
+
+        # If search space is hierarchical, we need to store dummy values of parameters
+        # that are not in the arm (but are in flattened search space), as metadata,
+        # so later we are able to make the data for this arm "complete" in the
+        # flattened search space.
+        candidate_metadata = None
+        if self.experiment.search_space.is_hierarchical:
+            hss = checked_cast(HierarchicalSearchSpace, self.experiment.search_space)
+            candidate_metadata = hss.cast_observation_features(
+                observation_features=hss.flatten_observation_features(
+                    observation_features=ObservationFeatures(parameters=parameters),
+                    inject_dummy_values_to_complete_flat_parameterization=True,
+                )
+            ).metadata
+
         trial = self.experiment.new_trial(ttl_seconds=ttl_seconds).add_arm(
-            Arm(parameters=parameters)
+            Arm(parameters=parameters), candidate_metadata=candidate_metadata
         )
         trial.mark_running(no_runner_required=True)
         logger.info(
