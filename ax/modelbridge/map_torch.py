@@ -65,6 +65,7 @@ class MapTorchModelBridge(TorchModelBridge):
         fit_out_of_design: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
         map_data_limit_total_rows: Optional[int] = None,
+        map_data_limit_rows_per_group: Optional[int] = None,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -95,6 +96,9 @@ class MapTorchModelBridge(TorchModelBridge):
             default_model_gen_options: Options passed down to `model.gen(...)`.
             map_data_limit_total_rows: Subsample the map data so that the total
                 number of rows is limited by this value.
+            map_data_limit_rows_per_group: Subsample the map data so that the
+                number of rows in the `map_key` column for each (arm, metric)
+                is limited by this value.
         """
 
         if not isinstance(data, MapData):
@@ -104,6 +108,7 @@ class MapTorchModelBridge(TorchModelBridge):
         # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_features = data.map_keys
         self._map_data_limit_total_rows = map_data_limit_total_rows
+        self._map_data_limit_rows_per_group = map_data_limit_rows_per_group
 
         super().__init__(
             experiment=experiment,
@@ -240,6 +245,7 @@ class MapTorchModelBridge(TorchModelBridge):
             map_keys_as_parameters=True,
             include_abandoned=self._fit_abandoned,
             limit_total_rows=self._map_data_limit_total_rows,
+            limit_rows_per_group=self._map_data_limit_rows_per_group,
         )
 
     def _compute_in_design(
