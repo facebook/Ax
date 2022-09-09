@@ -22,7 +22,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
 )
 
-from ax.modelbridge.registry import Cont_X_trans
+from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.modelbridge.transforms.base import Transform
 
 from ax.models.torch_base import TorchModel
@@ -448,7 +448,7 @@ def get_transform_helper_model(
     Returns: A torch modelbridge.
     """
     if transforms is None:
-        transforms = Cont_X_trans
+        transforms = Cont_X_trans + Y_trans
     return MapTorchModelBridge(
         experiment=experiment,
         search_space=experiment.search_space,
