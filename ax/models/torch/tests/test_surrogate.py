@@ -278,15 +278,26 @@ class SurrogateTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `covar_module`.
         self.assertEqual(surrogate._model.covar_module.ard_num_dims, 1)
 
+    @patch(
+        f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.load_state_dict",
+        return_value=None,
+    )
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_fit(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
-        for mock_fit, botorch_model_class in zip(
+    def test_fit(
+        self,
+        mock_MLL,  # pyre-ignore[2]
+        mock_fit_gpytorch,  # pyre-ignore[2]
+        mock_fit_saas,  # pyre-ignore[2]
+        mock_state_dict_gpytorch,  # pyre-ignore[2]
+        mock_state_dict_saas,  # pyre-ignore[2]
+    ):
+        for mock_fit, mock_state_dict, botorch_model_class in zip(
             [mock_fit_saas, mock_fit_gpytorch],
+            [mock_state_dict_saas, mock_state_dict_gpytorch],
             [SaasFullyBayesianSingleTaskGP, SingleTaskGP],
         ):
             surrogate, surrogate_kwargs = self._get_surrogate(
@@ -443,13 +454,23 @@ class SurrogateTest(TestCase):
             self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
             self.assertTrue(torch.equal(acqf_value, torch.tensor([1.0])))
 
+    @patch(
+        f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.load_state_dict",
+        return_value=None,
+    )
     @patch(f"{CURRENT_PATH}.SingleTaskGP.load_state_dict", return_value=None)
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_update(self, mock_MLL, mock_fit_gpytorch, mock_fit_saas, mock_state_dict):
+    def test_update(
+        self,
+        mock_MLL,  # pyre-fixme[2]
+        mock_fit_gpytorch,  # pyre-fixme[2]
+        mock_fit_saas,  # pyre-fixme[2]
+        mock_state_dict_gpytorch,  # pyre-fixme[2]
+        mock_state_dict_saas,  # pyre-fixme[2]
+    ):
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, surrogate_kwargs = self._get_surrogate(
                 botorch_model_class=botorch_model_class
