@@ -399,10 +399,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 self.__inferred_reference_point = infer_reference_point_from_experiment(
                     self.experiment
                 )
+            global_stopping_strategy = self.options.global_stopping_strategy
             (
                 stop_optimization,
                 global_stopping_message,
-            ) = self.options.global_stopping_strategy.should_stop_optimization(  # pyre-ignore
+            ) = global_stopping_strategy.should_stop_optimization(  # pyre-ignore
                 experiment=self.experiment,
                 objective_thresholds=self.__inferred_reference_point,
             )
