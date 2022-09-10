@@ -181,11 +181,6 @@ class OptimizationConfig(Base):
             unconstrainable_metrics=unconstrainable_metrics,
             outcome_constraints=outcome_constraints,
         )
-        # Ensure that the risk measure is single-output.
-        if risk_measure is not None and risk_measure.is_multi_output:
-            raise UserInputError(
-                "Received a multi-output risk measure for a single objective problem."
-            )
 
     @staticmethod
     def _validate_outcome_constraints(
@@ -416,18 +411,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             unconstrainable_metrics=unconstrainable_metrics,
             outcome_constraints=outcome_constraints,
         )
-        if risk_measure is not None:
-            if isinstance(objective, MultiObjective):
-                if not risk_measure.is_multi_output:
-                    raise UserInputError(
-                        "A multi-output risk measure must be used with a "
-                        "`MultiObjective`."
-                    )
-            elif risk_measure.is_multi_output:
-                raise UserInputError(
-                    "A single-output risk measure must be used with a "
-                    "`ScalarizedObjective`"
-                )
 
     def __repr__(self) -> str:
         base_repr = (
