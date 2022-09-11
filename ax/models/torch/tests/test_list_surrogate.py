@@ -16,7 +16,11 @@ from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.tests.test_surrogate import SingleTaskGPWithDifferentConstructor
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
+from botorch.models import (
+    SaasFullyBayesianMultiTaskGP,
+    SaasFullyBayesianSingleTaskGP,
+    SingleTaskGP,
+)
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
@@ -277,6 +281,7 @@ class ListSurrogateTest(TestCase):
                 mll_class=ExactMarginalLogLikelihood,
             ),
             ListSurrogate(botorch_submodel_class=SaasFullyBayesianSingleTaskGP),
+            ListSurrogate(botorch_submodel_class=SaasFullyBayesianMultiTaskGP),
         ]
 
         for i, surrogate in enumerate(surrogates):
