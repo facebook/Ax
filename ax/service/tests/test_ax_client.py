@@ -24,6 +24,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import (
     DataRequiredError,
@@ -2325,6 +2326,7 @@ class TestAxClient(TestCase):
 
         self.assertGreaterEqual(ax_client.get_hypervolume(), 0)
 
+    @fast_botorch_optimize
     def test_with_hss(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -2359,15 +2361,29 @@ class TestAxClient(TestCase):
                 },
             ],
             objectives={"objective": ObjectiveProperties(minimize=True)},
-            choose_generation_strategy_kwargs={"no_bayesian_optimization": True},
+            choose_generation_strategy_kwargs={"num_initialization_trials": 2},
         )
-        # pyre-fixme[16]: `SearchSpace` has no attribute `root`.
-        self.assertTrue(ax_client.experiment.search_space.root.is_hierarchical)
+        hss = checked_cast(HierarchicalSearchSpace, ax_client.experiment.search_space)
+        self.assertTrue(hss.root.is_hierarchical)
 
-        for _ in range(10):
+        ax_client.attach_trial({"model": "XGBoost", "num_boost_rounds": 2})
+        ax_client.attach_trial(
+            {"model": "Linear", "learning_rate": 0.003, "l2_reg_weight": 0.0003}
+        )
+
+        with self.assertRaises(RuntimeError):
+            # Violates hierarchical structure of the search space.
+            ax_client.attach_trial({"model": "Linear", "num_boost_rounds": 2})
+
+        for _ in range(4):
             params, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
-        self.assertEqual(len(ax_client.experiment.trials), 10)
+        # Make sure we actually tried a GPEI iteration and all the transforms it
+        # applies.
+        self.assertEqual(
+            ax_client.generation_strategy._generator_runs[-1]._model_key, "GPEI"
+        )
+        self.assertEqual(len(ax_client.experiment.trials), 6)
         ax_client.attach_trial(
             {"model": "Linear", "learning_rate": 0.001, "l2_reg_weight": 0.0001}
         )

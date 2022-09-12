@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
@@ -92,7 +92,9 @@ class Trial(BaseTrial):
         return generator_run.arms[0]
 
     @immutable_once_run
-    def add_arm(self, arm: Arm) -> Trial:
+    def add_arm(
+        self, arm: Arm, candidate_metadata: Optional[Dict[str, Any]] = None
+    ) -> Trial:
         """Add arm to the trial.
 
         Returns:
@@ -100,7 +102,17 @@ class Trial(BaseTrial):
         """
 
         return self.add_generator_run(
-            generator_run=GeneratorRun(arms=[arm], type=GeneratorRunType.MANUAL.name)
+            generator_run=GeneratorRun(
+                arms=[arm],
+                type=GeneratorRunType.MANUAL.name,
+                # pyre-ignore[6]: [6]: In call `GeneratorRun.__init__`, for 3rd parameter
+                # `candidate_metadata_by_arm_signature`
+                # expected `Optional[Dict[str, Optional[Dict[str, typing.Any]]]]`
+                # but got `Optional[Dict[str, Dict[str, typing.Any]]]`
+                candidate_metadata_by_arm_signature=None
+                if candidate_metadata is None
+                else {arm.signature: candidate_metadata.copy()},
+            )
         )
 
     @immutable_once_run
