@@ -105,7 +105,7 @@ class Trial(BaseTrial):
             generator_run=GeneratorRun(
                 arms=[arm],
                 type=GeneratorRunType.MANUAL.name,
-                # pyre-ignore[6]: [6]: In call `GeneratorRun.__init__`, for 3rd parameter
+                # pyre-ignore[6]: In call `GeneratorRun.__init__`, for 3rd parameter
                 # `candidate_metadata_by_arm_signature`
                 # expected `Optional[Dict[str, Optional[Dict[str, typing.Any]]]]`
                 # but got `Optional[Dict[str, Dict[str, typing.Any]]]`
