@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
@@ -41,7 +41,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
     def should_stop_optimization(
         self,
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
+        **kwargs: Any,
     ) -> Tuple[bool, str]:
         """Decide whether to stop optimization.
 

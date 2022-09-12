@@ -383,32 +383,28 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             A boolean representing whether the optimization should be stopped,
             and a string describing the reason for stopping.
         """
-        # TODO[Max, T61776778]: Default model-informed stopping criterion.
-
         if (
             not self.__ignore_global_stopping_strategy
             and self.options.global_stopping_strategy is not None
         ):
+            gss = not_none(self.options.global_stopping_strategy)
             if (
                 self.experiment.is_moo_problem
                 and self.__inferred_reference_point is None
                 and len(self.experiment.trials_by_status[TrialStatus.COMPLETED])
-                >= self.options.global_stopping_strategy.min_trials  # pyre-ignore
+                >= gss.min_trials
             ):
                 # We infer the nadir reference point to be used by the GSS.
                 self.__inferred_reference_point = infer_reference_point_from_experiment(
                     self.experiment
                 )
-            global_stopping_strategy = self.options.global_stopping_strategy
-            (
-                stop_optimization,
-                global_stopping_message,
-            ) = global_stopping_strategy.should_stop_optimization(  # pyre-ignore
+
+            stop_optimization, global_stopping_msg = gss.should_stop_optimization(
                 experiment=self.experiment,
                 objective_thresholds=self.__inferred_reference_point,
             )
             if stop_optimization:
-                return True, global_stopping_message
+                return True, global_stopping_msg
 
         if self.options.total_trials is None:
             # We validate that `total_trials` is set in `run_all_trials`,
