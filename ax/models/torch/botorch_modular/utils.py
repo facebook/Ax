@@ -20,7 +20,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
-from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP
+from botorch.models import ModelListGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -32,6 +32,7 @@ from botorch.models.model import Model, ModelList
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.transforms import is_fully_bayesian
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
 
@@ -267,7 +268,7 @@ def fit_botorch_model(
     models = model.models if isinstance(model, (ModelListGP, ModelList)) else [model]
     for m in models:
         # TODO: Support deterministic models when we support `ModelList`
-        if isinstance(m, SaasFullyBayesianSingleTaskGP):
+        if is_fully_bayesian(m):
             fit_fully_bayesian_model_nuts(m, disable_progbar=True)
         elif isinstance(m, (GPyTorchModel, PairwiseGP)):
             mll_options = mll_options or {}
