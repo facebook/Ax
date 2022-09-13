@@ -1602,9 +1602,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # so if we just set the seed without the context manager, it can have
         # serious negative impact on the performance of the models that employ
         # stochasticity.
-        with manual_seed(seed=self._random_seed) and warnings.catch_warnings():
-            # Filter out GPYTorch warnings to avoid confusing users.
-            warnings.simplefilter("ignore")
+        with manual_seed(seed=self._random_seed):
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,
