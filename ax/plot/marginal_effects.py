@@ -64,7 +64,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
     # fig.layout.margin = go.layout.Margin(l=2, r=2)
     fig.layout.title = "Marginal Effects by Factor"
     fig.layout.yaxis = {
-        "title": "% better than experiment average",
+        "title": "% higher than experiment average",
         "hoverformat": ".{}f".format(DECIMALS),
     }
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
