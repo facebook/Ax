@@ -519,7 +519,6 @@ def infer_reference_point_from_experiment(
     Returns:
         List of obejective thresholds representing the reference point.
     """
-
     if not experiment.is_moo_problem:
         raise ValueError(
             "This function works for MOO experiments only."
@@ -538,7 +537,7 @@ def infer_reference_point_from_experiment(
         multiplier.append(-1 if objective.minimize else +1)
 
     # A dummy reference point so that all observed points are considered when
-    # calculating the parto front.
+    # calculating the Pareto front.
     dummy_rp = copy.deepcopy(
         experiment.optimization_config.objective_thresholds  # pyre-ignore
     )
@@ -555,7 +554,10 @@ def infer_reference_point_from_experiment(
     )
 
     # Transforming all the objectives to be maximized.
-    f_transformed = torch.tensor(multiplier, dtype=f.dtype, device=f.device) * f
+    f_transformed = (
+        torch.tensor(multiplier, dtype=f.dtype, device=f.device)
+        * f[:, obj_w.nonzero().view(-1)]
+    )
 
     # Finding nadir point.
     rp_raw = infer_reference_point(f_transformed)

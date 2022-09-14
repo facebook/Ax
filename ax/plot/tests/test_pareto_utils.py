@@ -32,8 +32,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class ParetoUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         experiment = get_branin_experiment()
         experiment.add_tracking_metric(
             BraninMetric(name="m2", param_names=["x1", "x2"])
@@ -44,8 +43,7 @@ class ParetoUtilsTest(TestCase):
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testComputePosteriorParetoFrontierByTrial(self):
+    def testComputePosteriorParetoFrontierByTrial(self) -> None:
         # Experiments with batch trials must specify trial_index or data
         with self.assertRaises(UnsupportedError):
             compute_posterior_pareto_frontier(
@@ -64,8 +62,7 @@ class ParetoUtilsTest(TestCase):
         )
         self.assertIsNone(pfr.arm_names)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testComputePosteriorParetoFrontierByData(self):
+    def testComputePosteriorParetoFrontierByData(self) -> None:
         # Experiments with batch trials must specify trial_index or data
         compute_posterior_pareto_frontier(
             self.experiment,
@@ -76,8 +73,7 @@ class ParetoUtilsTest(TestCase):
             num_points=2,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservedParetoFrontiers(self):
+    def testObservedParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, has_optimization_config=False, with_status_quo=True
         )
@@ -168,8 +164,7 @@ class ParetoUtilsTest(TestCase):
             #  `Optional[typing.List[typing.Optional[str]]]`.
             self.assertTrue("status_quo" in pfr.arm_names)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testPlotMultipleParetoFrontiers(self):
+    def testPlotMultipleParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )
@@ -181,8 +176,7 @@ class ParetoUtilsTest(TestCase):
         pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
         self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_extract_observed_pareto_2d(self):
+    def test_extract_observed_pareto_2d(self) -> None:
         Y = np.array([[1.0, 2.0], [2.1, 1.0], [1.0, 1.0], [2.0, 2.0], [3.0, 0.0]])
         reference_point = (1.5, 0.5)
         minimize = False
@@ -211,24 +205,28 @@ class ParetoUtilsTest(TestCase):
 
 
 class TestInfereReferencePointFromExperiment(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_infer_reference_point_from_experiment(self):
-        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
-        # Getting an experiment with 2 objectives by the above observations.
-        experiment = get_experiment_with_observations(
-            observations=observations,
-            minimize=True,
-            scalarized=False,
-            constrained=False,
-        )
+    def test_infer_reference_point_from_experiment(self) -> None:
+        for constrained in (True, False):
+            observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+            if constrained:
+                observations = [
+                    o + [c] for o, c in zip(observations, [1.0, 0.5, 1.0, 1.0])
+                ]
+            # Getting an experiment with 2 objectives by the above observations.
+            experiment = get_experiment_with_observations(
+                observations=observations,
+                minimize=True,
+                scalarized=False,
+                constrained=constrained,
+            )
 
-        inferred_reference_point = infer_reference_point_from_experiment(experiment)
+            inferred_reference_point = infer_reference_point_from_experiment(experiment)
 
-        # The nadir point for this experiment is [-0.5, 0.5]. The function actually
-        # deducts 0.1*Y_range from each of the objectives. Since the range for each
-        # of the objectives is +/-1.5, the inferred reference point would
-        # be [-0.35, 0.35].
-        self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
-        self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
-        self.assertEqual(inferred_reference_point[1].bound, 0.35)
+            # The nadir point for this experiment is [-0.5, 0.5]. The function actually
+            # deducts 0.1*Y_range from each of the objectives. Since the range for each
+            # of the objectives is +/-1.5, the inferred reference point would
+            # be [-0.35, 0.35].
+            self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
+            self.assertEqual(inferred_reference_point[0].bound, -0.35)
+            self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
+            self.assertEqual(inferred_reference_point[1].bound, 0.35)
