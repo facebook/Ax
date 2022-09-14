@@ -6,6 +6,9 @@ on:
     - cron:  '0 5 * * *'
   # allow this to be scheduled manually in addition to cron
   workflow_dispatch:
+  push:
+    paths:
+      - "tutorials/**"
 
 
 jobs:
