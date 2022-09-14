@@ -7,6 +7,11 @@ on:
   # allow this to be scheduled manually in addition to cron
   workflow_dispatch:
   push:
+    branches: [ main ]
+    paths:
+      - "tutorials/**"
+  pull_request:
+    branches: [ main ]
     paths:
       - "tutorials/**"
 
