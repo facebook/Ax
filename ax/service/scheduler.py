@@ -95,7 +95,7 @@ class SchedulerInternalError(AxError):
 
 
 class FailureRateExceededError(AxError):
-    """Error that indicates the sweep was aborted due to excessive failure rate."""
+    """Error that indicates the optimization was aborted due to excessive failure rate."""
 
     pass
 
@@ -156,7 +156,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
     # results}. This is a mapping and not a list to allow for changing of
-    # some sweep messages throughout the course of the optimization (e.g. progress
+    # some optimization messages throughout the course of the optimization (e.g. progress
     # report of the optimization).
     markdown_messages: Dict[str, str]
 
@@ -664,7 +664,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # this check should precede others to ensure it is not skipped.
         self.error_if_failure_rate_exceeded()
 
-        # if sweep is timed out, return True, else return False
+        # if optimization is timed out, return True, else return False
         timed_out = (
             self._timeout_hours is not None
             and self._latest_optimization_start_timestamp is not None
@@ -684,8 +684,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Args:
             force_check: Indicates whether to force a failure-rate check
                 regardless of the number of trials that have been executed. If False
-                (default), the check will be skipped if the sweep has fewer than five
-                failed iterations. If True, the check will be performed unless there
+                (default), the check will be skipped if the optimization has fewer than five
+                failed trials. If True, the check will be performed unless there
                 are 0 failures.
         """
         failed_idcs = self.experiment.trial_indices_by_status[TrialStatus.FAILED]
@@ -721,7 +721,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "Failure rate exceeds the tolerated trial failure rate of "
                 f"{self.options.tolerated_trial_failure_rate} (at least "
                 f"{num_failed_in_scheduler} out of first {num_ran_in_scheduler} trials "
-                "failed). Checks are triggered both at the end of a sweep and if "
+                "failed). Checks are triggered both at the end of a optimization and if "
                 f"at least {self.options.min_failed_trials_for_failure_rate_check} "
                 "trials have failed."
             )
@@ -807,7 +807,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             while n_remaining_to_run > 0 and self.run(
                 max_new_trials=n_remaining_to_generate
             ):
-                # Not checking `should_abort_optimization` on every iteration for perf.
+                # Not checking `should_abort_optimization` on every trial for perf.
                 # reasons.
                 n_already_run_by_scheduler = (
                     len(self.experiment.trials)
@@ -1213,7 +1213,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         res = self.wait_for_completed_trials_and_report_results(
             idle_callback=idle_callback
         )
-        # raise an error if the failure rate exceeds tolerance at the end of the sweep
+        # raise an error if the failure rate exceeds tolerance at the end of the optimization
         self.error_if_failure_rate_exceeded(force_check=True)
         self._record_run_trials_status(
             num_preexisting_trials=num_preexisting_trials,
