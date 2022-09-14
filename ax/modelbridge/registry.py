@@ -356,8 +356,8 @@ class ModelRegistryBase(Enum):
         )
 
         if model_setup_info.not_saved_model_kwargs:
-            for key in model_setup_info.not_saved_model_kwargs:
-                model_kwargs.pop(key, None)
+            for key in model_setup_info.not_saved_model_kwargs:  # pragma: no cover
+                model_kwargs.pop(key, None)  # pragma: no cover
 
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(
@@ -529,7 +529,7 @@ def _combine_model_kwargs_and_state(
     """
     model_kwargs = model_kwargs or generator_run._model_kwargs or {}
     if generator_run._model_state_after_gen is None:
-        return model_kwargs
+        return model_kwargs  # pragma: no cover
 
     # We don't want to update `model_kwargs` on the `GenerationStep`,
     # just to add to them for the purpose of this function.

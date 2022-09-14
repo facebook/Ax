@@ -117,11 +117,13 @@ class StandardizeY(Transform):
     ) -> List[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.relative:
-                raise ValueError(
+                raise ValueError(  # pragma: no cover
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
             if isinstance(c, ScalarizedOutcomeConstraint):
-                raise ValueError("ScalarizedOutcomeConstraint not supported")
+                raise ValueError(  # pragma: no cover
+                    "ScalarizedOutcomeConstraint not supported"
+                )
             c.bound = float(
                 c.bound * self.Ystd[c.metric.name] + self.Ymean[c.metric.name]
             )

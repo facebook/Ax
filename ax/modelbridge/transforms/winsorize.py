@@ -199,7 +199,7 @@ def _get_cutoffs_from_transform_config(
     if isinstance(winsorization_config, dict) and metric_name in winsorization_config:
         metric_config = winsorization_config[metric_name]
         if not isinstance(metric_config, WinsorizationConfig):
-            raise UserInputError(
+            raise UserInputError(  # pragma: no cover
                 "Expected winsorization config of type "
                 f"`WinsorizationConfig` but got {metric_config} of type "
                 f"{type(metric_config)} for metric {metric_name}."
@@ -363,7 +363,9 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
         elif oc.op == ComparisonOp.GEQ:
             lower_cutoff = min(q1, bnd) - 1.5 * (q3 - min(q1, bnd))
         else:
-            raise ValueError("Exected outcome_constraint to use operator LEQ or GEQ")
+            raise ValueError(  # pragma: no cover
+                "Exected outcome_constraint to use operator LEQ or GEQ"
+            )
     return lower_cutoff, upper_cutoff
 
 
@@ -438,8 +440,8 @@ def _get_cutoffs_from_legacy_transform_config(
         if isinstance(percentile_bounds, dict):
             if metric_name in percentile_bounds:
                 output_percentile_bounds = percentile_bounds[metric_name]
-        elif isinstance(percentile_bounds, tuple):
-            output_percentile_bounds = percentile_bounds
+        elif isinstance(percentile_bounds, tuple):  # pragma: no cover
+            output_percentile_bounds = percentile_bounds  # pragma: no cover
         if len(output_percentile_bounds) != 2 or not all(
             isinstance(pb, (int, float)) or pb is None
             for pb in output_percentile_bounds

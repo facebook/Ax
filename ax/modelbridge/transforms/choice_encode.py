@@ -83,7 +83,7 @@ class ChoiceEncode(Transform):
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
-                    raise ValueError(
+                    raise ValueError(  # pragma: no cover
                         f"Cannot choice-encode fidelity parameter {p_name}"
                     )
                 tvals, ptype = transform_choice_values(p)

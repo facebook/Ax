@@ -155,7 +155,7 @@ class TorchModelBridge(ModelBridge):
         objective across the current in-sample Pareto frontier.
         """
         if not self.is_moo_problem:
-            raise UnsupportedError(
+            raise UnsupportedError(  # pragma: no cover
                 "Objective thresholds are only supported for multi-objective "
                 "optimization."
             )
@@ -260,7 +260,7 @@ class TorchModelBridge(ModelBridge):
         return tensor_func
 
     def _array_list_to_tensors(self, arrays: List[np.ndarray]) -> List[Tensor]:
-        return [self._array_to_tensor(x) for x in arrays]
+        return [self._array_to_tensor(x) for x in arrays]  # pragma: no cover
 
     def _array_to_tensor(self, array: Union[np.ndarray, List[float]]) -> Tensor:
         return torch.as_tensor(array, dtype=self.dtype, device=self.device)
@@ -303,7 +303,7 @@ class TorchModelBridge(ModelBridge):
                 Yvars[outcome], dtype=self.dtype, device=self.device
             ).unsqueeze(-1)
             if Yvar.isnan().all():
-                dataset = SupervisedDataset(X=X, Y=Y)
+                dataset = SupervisedDataset(X=X, Y=Y)  # pragma: no cover
             else:
                 dataset = FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar.clamp_min(1e-6))
             datasets.append(dataset)
@@ -325,7 +325,9 @@ class TorchModelBridge(ModelBridge):
         and obs_data.
         """
         if self.model is None:
-            raise ValueError(FIT_MODEL_ERROR.format(action="_cross_validate"))
+            raise ValueError(  # pragma: no cover
+                FIT_MODEL_ERROR.format(action="_cross_validate")
+            )
         if parameters is None:
             parameters = self.parameters
         observation_features, observation_data = separate_observations(cv_training_data)
@@ -337,7 +339,7 @@ class TorchModelBridge(ModelBridge):
         )
         for outcome, dataset in zip(self.outcomes, datasets):
             if dataset is None:
-                raise UnsupportedError(
+                raise UnsupportedError(  # pragma: no cover
                     f"{self.__class__._cross_validate} requires observations "
                     f"for all outcomes, but no observations for {outcome}"
                 )
@@ -440,7 +442,7 @@ class TorchModelBridge(ModelBridge):
         acq_options: Optional[Dict[str, Any]] = None,
     ) -> List[float]:
         if self.model is None:
-            raise RuntimeError(
+            raise RuntimeError(  # pragma: no cover
                 FIT_MODEL_ERROR.format(action="_evaluate_acquisition_function")
             )
         search_space_digest, torch_opt_config = self._get_transformed_model_gen_args(
@@ -514,7 +516,7 @@ class TorchModelBridge(ModelBridge):
         The outcome constraints should be transformed to no longer be relative.
         """
         if self.model is None:
-            raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
+            raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))  # pragma: no cover
 
         augmented_model_gen_options = {
             **self._default_model_gen_options,
@@ -642,7 +644,7 @@ class TorchModelBridge(ModelBridge):
             search_space=search_space, param_names=self.parameters
         )
         if optimization_config is None:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"{self.__class__.__name__} requires an OptimizationConfig "
                 "to be specified"
             )
@@ -782,7 +784,9 @@ class TorchModelBridge(ModelBridge):
         )
         # Update in-design status for these new points.
         if self.model is None:
-            raise ValueError(FIT_MODEL_ERROR.format(action="_update"))
+            raise ValueError(  # pragma: no cover
+                FIT_MODEL_ERROR.format(action="_update")
+            )
         self.model.update(
             datasets=datasets,
             metric_names=self.outcomes,
@@ -793,8 +797,8 @@ class TorchModelBridge(ModelBridge):
     def _validate_observation_data(
         self, observation_data: List[ObservationData]
     ) -> None:
-        if len(observation_data) == 0:
-            raise ValueError(
+        if len(observation_data) == 0:  # pragma: no cover
+            raise ValueError(  # pragma: no cover
                 "Torch models cannot be fit without observation data. Possible "
                 "reasons include empty data being passed to the model's constructor "
                 "or data being excluded because it is out-of-design. Try setting "
@@ -822,8 +826,10 @@ class TorchModelBridge(ModelBridge):
                     dtype=self.dtype,
                     device=self.device,
                 )
-            except (KeyError, TypeError):
-                raise ValueError("Out of design points cannot be converted.")
+            except (KeyError, TypeError):  # pragma: no cover
+                raise ValueError(  # pragma: no cover
+                    "Out of design points cannot be converted."
+                )
             for metric_name, mean, var in zip(
                 obsd.metric_names, obsd.means, obsd.covariance.diagonal()
             ):
@@ -861,7 +867,7 @@ def validate_optimization_config(
         if c.relative:
             raise ValueError(f"{c} is a relative constraint.")
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric in c.metrics:
+            for c_metric in c.metrics:  # pragma: no cover
                 if c_metric.name not in outcomes:  # pragma: no cover
                     raise DataRequiredError(
                         f"Scalarized constraint metric component {c.metric.name} "

@@ -163,9 +163,11 @@ class OneHot(Transform):
                     p in obsf.parameters for p in self.encoded_parameters[p_name]
                 ]
                 if not all(has_params):
-                    if any(has_params):
-                        raise ValueError(f"Missing some parameters for {p_name}")
-                    continue
+                    if any(has_params):  # pragma: no cover
+                        raise ValueError(  # pragma: no cover
+                            f"Missing some parameters for {p_name}"
+                        )
+                    continue  # pragma: no cover
                 x = np.array(
                     [obsf.parameters.pop(p) for p in self.encoded_parameters[p_name]]
                 )

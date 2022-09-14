@@ -4,6 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
+import warnings
+
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -13,6 +16,7 @@ from ax.modelbridge.dispatch_utils import (
 )
 from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_discrete_search_space,
@@ -28,8 +32,7 @@ from ax.utils.testing.core_stubs import (
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_generation_strategy(self):
+    def test_choose_generation_strategy(self) -> None:
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
@@ -91,6 +94,27 @@ class TestDispatchUtils(TestCase):
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol_large._steps[0].model.value, "Sobol")
+            self.assertEqual(len(sobol_large._steps), 1)
+        with self.subTest("Sobol (because of too many categories) with saasbo"):
+            ss = get_large_factorial_search_space()
+            with self.assertLogs(
+                choose_generation_strategy.__module__, logging.WARNING
+            ) as logger:
+                sobol_large = choose_generation_strategy(
+                    search_space=get_large_factorial_search_space(),
+                    verbose=True,
+                    use_saasbo=True,
+                )
+                self.assertTrue(
+                    any(
+                        "SAASBO is incompatible with Sobol" in output
+                        for output in logger.output
+                    ),
+                    logger.output,
+                )
             # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_large._steps[0].model.value, "Sobol")
@@ -256,8 +280,54 @@ class TestDispatchUtils(TestCase):
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(gs_6_init_trials._steps[1].model.value, "GPEI")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_setting_random_seed(self):
+    def test_disable_progbar(self) -> None:
+        for disable_progbar in (True, False):
+            with self.subTest(str(disable_progbar)):
+                sobol_saasbo = choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    disable_progbar=disable_progbar,
+                    use_saasbo=True,
+                )
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                self.assertEqual(sobol_saasbo._steps[0].model.value, "Sobol")
+                self.assertNotIn(
+                    "disable_progbar",
+                    not_none(sobol_saasbo._steps[0].model_kwargs),
+                )
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                self.assertEqual(sobol_saasbo._steps[1].model.value, "FullyBayesian")
+                self.assertEqual(
+                    not_none(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
+                    disable_progbar,
+                )
+
+    def test_disable_progbar_for_non_saasbo_discards_the_model_kwarg(self) -> None:
+        for disable_progbar in (True, False):
+            with self.subTest(str(disable_progbar)):
+                gp_saasbo = choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    disable_progbar=disable_progbar,
+                    use_saasbo=False,
+                )
+                self.assertEqual(len(gp_saasbo._steps), 2)
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                self.assertEqual(gp_saasbo._steps[0].model.value, "Sobol")
+                self.assertNotIn(
+                    "disable_progbar",
+                    not_none(gp_saasbo._steps[0].model_kwargs),
+                )
+                # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+                #  ModelRegistryBase]` has no attribute `value`.
+                self.assertEqual(gp_saasbo._steps[1].model.value, "GPEI")
+                self.assertNotIn(
+                    "disable_progbar",
+                    not_none(gp_saasbo._steps[1].model_kwargs),
+                )
+
+    def test_setting_random_seed(self) -> None:
         sobol = choose_generation_strategy(
             search_space=get_factorial_search_space(), random_seed=9
         )
@@ -266,29 +336,93 @@ class TestDispatchUtils(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertEqual(sobol.model.model.seed, 9)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enforce_sequential_optimization(self):
-        sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
-        self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-        self.assertTrue(sobol_gpei._steps[0].enforce_num_trials)
-        self.assertIsNotNone(sobol_gpei._steps[1].max_parallelism)
-        sobol_gpei = choose_generation_strategy(
-            search_space=get_branin_search_space(),
-            enforce_sequential_optimization=False,
-        )
-        self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-        self.assertFalse(sobol_gpei._steps[0].enforce_num_trials)
-        self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
+        with self.subTest("warns if use_saasbo is true"):
+            with self.assertLogs(
+                choose_generation_strategy.__module__, logging.WARNING
+            ) as logger:
+                sobol = choose_generation_strategy(
+                    search_space=get_factorial_search_space(),
+                    random_seed=9,
+                    use_saasbo=True,
+                )
+                self.assertTrue(
+                    any(
+                        "SAASBO is incompatible with `BO_MIXED`" in output
+                        for output in logger.output
+                    ),
+                    logger.output,
+                )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_max_parallelism_override(self):
+    def test_enforce_sequential_optimization(self) -> None:
+        with self.subTest("True"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space()
+            )
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertTrue(sobol_gpei._steps[0].enforce_num_trials)
+            self.assertIsNotNone(sobol_gpei._steps[1].max_parallelism)
+        with self.subTest("False"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                enforce_sequential_optimization=False,
+            )
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
+            self.assertFalse(sobol_gpei._steps[0].enforce_num_trials)
+            self.assertIsNone(sobol_gpei._steps[1].max_parallelism)
+        with self.subTest("False and max_parallelism_override"):
+            with self.assertLogs(
+                choose_generation_strategy.__module__, logging.INFO
+            ) as logger:
+                choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    enforce_sequential_optimization=False,
+                    max_parallelism_override=5,
+                )
+                self.assertTrue(
+                    any(
+                        "other max parallelism settings will be ignored" in output
+                        for output in logger.output
+                    ),
+                    logger.output,
+                )
+        with self.subTest("False and max_parallelism_cap"):
+            with self.assertLogs(
+                choose_generation_strategy.__module__, logging.INFO
+            ) as logger:
+                choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    enforce_sequential_optimization=False,
+                    max_parallelism_cap=5,
+                )
+                self.assertTrue(
+                    any(
+                        "other max parallelism settings will be ignored" in output
+                        for output in logger.output
+                    ),
+                    logger.output,
+                )
+        with self.subTest("False and max_parallelism_override and max_parallelism_cap"):
+            with self.assertRaisesRegex(
+                ValueError,
+                (
+                    "If `max_parallelism_override` specified, cannot also apply "
+                    "`max_parallelism_cap`."
+                ),
+            ):
+                choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    enforce_sequential_optimization=False,
+                    max_parallelism_override=5,
+                    max_parallelism_cap=5,
+                )
+
+    def test_max_parallelism_override(self) -> None:
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(), max_parallelism_override=10
         )
         self.assertTrue(all(s.max_parallelism == 10 for s in sobol_gpei._steps))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_winsorization(self):
+    def test_winsorization(self) -> None:
         winsorized = choose_generation_strategy(
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
@@ -299,33 +433,71 @@ class TestDispatchUtils(TestCase):
             winsorized._steps[1].model_kwargs.get("transform_configs"),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_num_trials(self):
-        ss = get_discrete_search_space()
-        # Check that with budget that is lower than exhaustive, BayesOpt is used.
-        sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
-        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
-        #  ModelRegistryBase]` has no attribute `value`.
-        self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
-        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
-        #  ModelRegistryBase]` has no attribute `value`.
-        self.assertEqual(sobol_gpei._steps[1].model.value, "BO_MIXED")
-        # Check that with budget that is exhaustive, Sobol is used.
-        sobol = choose_generation_strategy(search_space=ss, num_trials=24)
-        # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
-        #  ModelRegistryBase]` has no attribute `value`.
-        self.assertEqual(sobol._steps[0].model.value, "Sobol")
-        self.assertEqual(len(sobol._steps), 1)
+    def test_no_winzorization_wins(self) -> None:
+        with warnings.catch_warnings(record=True) as w:
+            unwinsorized = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
+                no_winsorization=True,
+            )
+            self.assertEqual(len(w), 1)
+            self.assertIn("Not winsorizing", str(w[-1].message))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_use_batch_trials(self):
+        self.assertNotIn(
+            # transform_configs would have "Winsorize" if it existed
+            "transform_configs",
+            # pyre-fixme[6]: In call `unittest.case.TestCase.assertNotIn`,
+            # for 2nd positional only parameter expected `Union[Container[typing.Any],
+            # Iterable[typing.Any]]` but got `Optional[Dict[str, typing.Any]]`
+            unwinsorized._steps[1].model_kwargs,
+        )
+
+    def test_num_trials(self) -> None:
+        ss = get_discrete_search_space()
+        with self.subTest(
+            "with budget that is lower than exhaustive, BayesOpt is used"
+        ):
+            sobol_gpei = choose_generation_strategy(search_space=ss, num_trials=23)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol_gpei._steps[1].model.value, "BO_MIXED")
+        with self.subTest("with budget that is exhaustive, Sobol is used"):
+            sobol = choose_generation_strategy(search_space=ss, num_trials=24)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol._steps[0].model.value, "Sobol")
+            self.assertEqual(len(sobol._steps), 1)
+        with self.subTest("with budget that is exhaustive and use_saasbo, it warns"):
+            with self.assertLogs(
+                choose_generation_strategy.__module__, logging.WARNING
+            ) as logger:
+                sobol = choose_generation_strategy(
+                    search_space=ss,
+                    num_trials=24,
+                    use_saasbo=True,
+                )
+                self.assertTrue(
+                    any(
+                        "SAASBO is incompatible with Sobol" in output
+                        for output in logger.output
+                    ),
+                    logger.output,
+                )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol._steps[0].model.value, "Sobol")
+            self.assertEqual(len(sobol._steps), 1)
+
+    def test_use_batch_trials(self) -> None:
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(), use_batch_trials=True
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fixed_num_initialization_trials(self):
+    def test_fixed_num_initialization_trials(self) -> None:
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
@@ -333,8 +505,7 @@ class TestDispatchUtils(TestCase):
         )
         self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_max_parallelism_adjustments(self):
+    def test_max_parallelism_adjustments(self) -> None:
         # No adjustment.
         sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
         self.assertIsNone(sobol_gpei._steps[0].max_parallelism)
@@ -364,8 +535,7 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(sobol_gpei._steps[0].max_parallelism, 10)
         self.assertEqual(sobol_gpei._steps[1].max_parallelism, 10)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_set_should_deduplicate(self):
+    def test_set_should_deduplicate(self) -> None:
         sobol_gpei = choose_generation_strategy(
             search_space=get_branin_search_space(),
             use_batch_trials=True,
@@ -384,8 +554,7 @@ class TestDispatchUtils(TestCase):
             [s.should_deduplicate for s in sobol_gpei._steps], [True] * 2
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_setting_experiment_attribute(self):
+    def test_setting_experiment_attribute(self) -> None:
         exp = get_experiment()
         gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)
         self.assertEqual(gs._experiment, exp)
