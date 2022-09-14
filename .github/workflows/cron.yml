@@ -105,6 +105,7 @@ jobs:
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
         pip install pyro-ppl  # Required for to call run_inference
         pip install torchx  # For torchx unit tests.
+        pip install pytorch-lightning # For the early stopping tutorial
         pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Build tutorials
       run: |
@@ -137,6 +138,7 @@ jobs:
         pip install pyro-ppl  # Required for to call run_inference
         pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
         pip install torchx  # For generating Sphinx docs for TorchXMetric.
+        pip install pytorch-lightning # For the early stopping tutorial
         pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Publish latest website
       env:
