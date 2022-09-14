@@ -36,19 +36,11 @@ jobs:
     - name: Install dependencies (full requirements, stable Botorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
-        pip install -e .[dev,mysql,notebook]
-        pip install tensorboard  # For tensorboard unit tests
-        pip install torchvision # For torchvision unit tests
-        pip install torchx  # For torchx unit tests.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest]"
       if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, stable Botorch)
       run: |
-        pip install -e .
-        pip install tensorboard  # For tensorboard unit tests
-        pip install torchvision # For torchvision unit tests
-        pip install torchx  # For torchx unit tests.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest_minimal]"
       if: matrix.botorch == 'pinned' && matrix.requirements == 'minimal'
     - name: Install dependencies (full requirements, Botorch main)
       env:
@@ -56,11 +48,7 @@ jobs:
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
-        pip install tensorboard  # For tensorboard unit tests
-        pip install torchvision # For torchvision unit tests
-        pip install torchx  # For torchx unit tests.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest]"
       if: matrix.botorch == 'latest' && matrix.requirements == 'full'
     - name: Install dependencies (minimal requirements, Botorch main)
       env:
@@ -68,11 +56,7 @@ jobs:
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .
-        pip install tensorboard  # For tensorboard unit tests
-        pip install torchvision # For torchvision unit tests
-        pip install torchx  # For torchx unit tests.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest_minimal]"
       if: matrix.botorch == 'latest' && matrix.requirements == 'minimal'
     - name: Import Ax
       run: |
@@ -96,17 +80,7 @@ jobs:
     - name: Install dependencies
       run: |
         # will install the version of Botorch that is pinned in setup.py
-        pip install -e .[dev,mysql,notebook]
-        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
-        pip install torchvision  # required for tutorials
-        pip install ray  # Required for building RayTune tutorial notebook.
-        pip install tabulate  # Required for building RayTune tutorial notebook.
-        pip install tensorboardX  # Required for building RayTune tutorial notebook.
-        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
-        pip install pyro-ppl  # Required for to call run_inference
-        pip install torchx  # For torchx unit tests.
-        pip install pytorch-lightning # For the early stopping tutorial
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[tutorial]"
     - name: Build tutorials
       run: |
         python scripts/make_tutorials.py -w $(pwd) -e
@@ -128,18 +102,7 @@ jobs:
         # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
-        pip install psycopg2  # Used in example DBSettings in a tutorial (as part of postgres).
-        pip install torchvision  # required for tutorials
-        pip install ray  # Required for building RayTune tutorial notebook.
-        pip install tabulate  # Required for building RayTune tutorial notebook.
-        pip install tensorboardX  # Required for building RayTune tutorial notebook.
-        pip install matplotlib  # Required for building Multi-objective tutorial notebook.
-        pip install pyro-ppl  # Required for to call run_inference
-        pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric
-        pip install torchx  # For generating Sphinx docs for TorchXMetric.
-        pip install pytorch-lightning # For the early stopping tutorial
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[tutorial]"
     - name: Publish latest website
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
@@ -165,7 +128,7 @@ jobs:
         # use latest BoTorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
+        pip install -e ".[dev,mysql,notebook]"
         pip install wheel
     - name: Build wheel
       run: |
