@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9"]
+        python-version: ["3.8", "3.10"]
       fail-fast: false
 
     steps:
@@ -28,10 +28,7 @@ jobs:
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
-        pip install tensorboard  # For tensorboard unit tests.
-        pip install torchx  # For torchx unit tests.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest]"
     - name: Tests and coverage
       run: |
         pytest -ra --cov=ax
@@ -83,10 +80,7 @@ jobs:
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e .[dev,mysql,notebook]
-        pip install tensorboard  # For generating Sphinx docs for TensorboardCurveMetric.
-        pip install torchx  # For generating Sphinx docs for TorchXMetric.
-        pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
+        pip install -e ".[unittest]"
     - name: Validate Sphinx
       run: |
         python scripts/validate_sphinx.py -p "${pwd}"

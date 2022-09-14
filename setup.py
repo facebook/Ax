@@ -50,6 +50,27 @@ MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
+UNITTEST_MINIMAL_REQUIRES = [
+    "tensorboard",  # For tensorboard unit tests.
+    "torchvision",  # For torchvision unit tests.
+    "torchx",  # For torchx unit tests.
+    "protobuf<4",  # Temporary fix for tensorboard / ray import errors.
+]
+
+UNITTEST_REQUIRES = (
+    DEV_REQUIRES + MYSQL_REQUIRES + NOTEBOOK_REQUIRES + UNITTEST_MINIMAL_REQUIRES
+)
+
+TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
+    "psycopg2",  # Used in example DBSettings in a tutorial (as part of postgres).
+    "ray",  # Required for building RayTune tutorial notebook.
+    "tabulate",  # Required for building RayTune tutorial notebook.
+    "tensorboardX",  # Required for building RayTune tutorial notebook.
+    "matplotlib",  # Required for building Multi-objective tutorial notebook.
+    "pyro-ppl",  # Required for to call run_inference.
+    "pytorch-lightning",  # For the early stopping tutorial.
+]
+
 
 def local_version(version):
     """
@@ -90,6 +111,9 @@ def setup_package() -> None:
             "dev": DEV_REQUIRES,
             "mysql": MYSQL_REQUIRES,
             "notebook": NOTEBOOK_REQUIRES,
+            "unittest": UNITTEST_REQUIRES,
+            "unittest_minimal": UNITTEST_MINIMAL_REQUIRES,
+            "tutorial": TUTORIAL_REQUIRES,
         },
         use_scm_version={
             "write_to": "ax/version.py",
