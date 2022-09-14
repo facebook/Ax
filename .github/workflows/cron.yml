@@ -6,6 +6,14 @@ on:
     - cron:  '0 5 * * *'
   # allow this to be scheduled manually in addition to cron
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "tutorials/**"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "tutorials/**"
 
 
 jobs:
@@ -96,6 +104,7 @@ jobs:
         pip install tensorboardX  # Required for building RayTune tutorial notebook.
         pip install matplotlib  # Required for building Multi-objective tutorial notebook.
         pip install pyro-ppl  # Required for to call run_inference
+        pip install torchx  # For torchx unit tests.
         pip install "protobuf<4"  # Temporary fix for tensorboard / ray import errors.
     - name: Build tutorials
       run: |
