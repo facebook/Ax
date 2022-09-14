@@ -9,7 +9,7 @@ import os
 from setuptools import find_packages, setup
 
 # TODO: read pinned Botorch version from a shared source
-PINNED_BOTORCH_VERSION = "0.7.0"
+PINNED_BOTORCH_VERSION = "0.7.1"
 
 if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows a more recent previously installed version of botorch to remain
@@ -21,7 +21,6 @@ else:
 
 REQUIRES = [
     botorch_req,
-    "gpytorch==1.9.0",  # here until BoTorch 0.7.1 is pinned and released
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
