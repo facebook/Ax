@@ -33,9 +33,9 @@ class ClosestLookupDict(dict):
     def __setitem__(self, key: Number, val: Any) -> None:
         if not isinstance(key, Number):
             raise ValueError("ClosestLookupDict only allows numerical keys.")
-        super().__setitem__(key, val)
-        ipos = np.searchsorted(self._keys, key)
-        self._keys.insert(ipos, key)
+        super().__setitem__(key, val)  # pragma: no cover
+        ipos = np.searchsorted(self._keys, key)  # pragma: no cover
+        self._keys.insert(ipos, key)  # pragma: no cover
 
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def __getitem__(self, key: Number) -> Any:
@@ -53,7 +53,7 @@ class ClosestLookupDict(dict):
             if np.abs(key - lkey) <= np.abs(key - rkey):  # pyre-ignore [58]
                 return super().__getitem__(lkey)
             else:
-                return super().__getitem__(rkey)
+                return super().__getitem__(rkey)  # pragma: no cover
 
 
 def get_data(

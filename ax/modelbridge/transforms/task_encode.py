@@ -65,7 +65,7 @@ class TaskEncode(OrderedChoiceEncode):
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
-                    raise ValueError(
+                    raise ValueError(  # pragma: no cover
                         f"Cannot choice-encode fidelity parameter {p_name}."
                     )
                 # Choice(|K|) => Choice(0, K-1, is_task=True)

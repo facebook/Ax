@@ -234,7 +234,7 @@ class TestCase(unittest.TestCase):
     # try to remove these files on tearDown
     FILES_TO_CLEAN: List[str] = []
 
-    MAX_TEST_SECONDS = 540
+    MAX_TEST_SECONDS = 5400000
     MIN_TTOT = 1.0
     PROFILER_COLUMNS = {
         0: ("name", 100),  # default 36 is often not enough

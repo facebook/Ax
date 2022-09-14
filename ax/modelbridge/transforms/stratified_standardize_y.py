@@ -153,13 +153,13 @@ class StratifiedStandardizeY(Transform):
         fixed_features: Optional[ObservationFeatures] = None,
     ) -> List[OutcomeConstraint]:
         if fixed_features is None or self.p_name not in fixed_features.parameters:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"StratifiedStandardizeY requires {self.p_name} to be fixed here"
             )
         v = fixed_features.parameters[self.p_name]
         for c in outcome_constraints:
             if c.relative:
-                raise ValueError(
+                raise ValueError(  # pragma: no cover
                     "StratifiedStandardizeY does not support relative constraints"
                 )
             c.bound = float(

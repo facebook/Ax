@@ -184,8 +184,8 @@ class Relativize(Transform):
                 j = next(
                     k for k in range(L) if status_quo_data.metric_names[k] == metric
                 )
-            except (IndexError, StopIteration):
-                raise ValueError(
+            except (IndexError, StopIteration):  # pragma: no cover
+                raise ValueError(  # pragma: no cover
                     "Relativization cannot be performed because "
                     "ObservationData for status quo is missing metrics"
                 )

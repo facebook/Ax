@@ -177,7 +177,7 @@ def _suggest_gp_model(
     ):
         logger.info("Using Sobol since we can enumerate the search space.")
         if use_saasbo:
-            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
+            logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
         return None
 
     is_moo_problem = optimization_config and optimization_config.is_moo_problem
@@ -203,7 +203,7 @@ def _suggest_gp_model(
             "performance with a large number of unordered categorical parameters."
         )
         if use_saasbo:
-            logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
+            logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
 
     logger.info(
@@ -214,7 +214,7 @@ def _suggest_gp_model(
         "possible. Also, consider removing some or all unordered `ChoiceParameter`s."
     )
     if use_saasbo:
-        logger.warn(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
+        logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
     return None
 
 
@@ -468,7 +468,5 @@ def _get_winsorization_transform_config(
     return transform_config
 
 
-def is_saasbo(model: Union[None, Models]) -> bool:
-    if model is not None:
-        return model.name in ["FULLYBAYESIANMOO", "FULLYBAYESIAN"]
-    return False
+def is_saasbo(model: Models) -> bool:
+    return model.name in ["FULLYBAYESIANMOO", "FULLYBAYESIAN"]

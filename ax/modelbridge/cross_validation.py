@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from functools import partial
@@ -394,12 +395,13 @@ def _fisher_exact_test_p(
     return float(p)
 
 
-class BestModelSelector:
+class BestModelSelector(ABC):
+    @abstractmethod
     def best_diagnostic(self, diagnostics: List[CVDiagnostics]) -> int:
         """
         Return the index of the best diagnostic.
         """
-        ...
+        pass  # pragma: no cover
 
 
 class CallableEnum(Enum):

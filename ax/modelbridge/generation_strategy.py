@@ -140,7 +140,7 @@ class GenerationStrategy(Base):
     @property
     def current_step(self) -> GenerationStep:
         """Current generation step."""
-        return self._curr
+        return self._curr  # pragma: no cover
 
     @property
     def model(self) -> Optional[ModelBridge]:
@@ -488,10 +488,10 @@ class GenerationStrategy(Base):
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
                 # no trials were produced at all (in which case its safe to raise).
-                if len(generator_runs) == 0:
-                    raise
-                logger.debug(f"Model required more data: {err}.")
-                break
+                if len(generator_runs) == 0:  # pragma: no cover
+                    raise  # pragma: no cover
+                logger.debug(f"Model required more data: {err}.")  # pragma: no cover
+                break  # pragma: no cover
 
         return generator_runs
 
@@ -702,7 +702,7 @@ class GenerationStrategy(Base):
             and self._steps[self._curr.index - 1].min_trials_observed > 0
         )
         if data.df.empty and previous_step_required_observations:
-            raise NoDataError(
+            raise NoDataError(  # pragma: no cover
                 f"Observed data is required for generation step #{self._curr.index} "
                 f"(model {self._curr.model_name}), but fetched data was empty. "
                 "Something is wrong with experiment setup -- likely metrics do not "
@@ -716,7 +716,9 @@ class GenerationStrategy(Base):
         completed since the last call to `GenerationStrategy.gen`).
         """
         if self._model is None:  # Should not be reachable.
-            raise ValueError("Cannot update if no model instantiated.")
+            raise ValueError(  # pragma: no cover
+                "Cannot update if no model instantiated."
+            )
         trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
         logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
         # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
@@ -739,11 +741,13 @@ class GenerationStrategy(Base):
                     "No new data is attached to experiment; no need for model update."
                 )
                 return None
-            return new_data
+            return new_data  # pragma: no cover
 
         elif passed_in_data.df.empty:
-            logger.info("Manually supplied data is empty; no need for model update.")
-            return None
+            logger.info(  # pragma: no cover
+                "Manually supplied data is empty; no need for model update."
+            )
+            return None  # pragma: no cover
 
         return Data(
             # pyre-ignore[6]: Expected `Optional[pd.core.frame.DataFrame]`

@@ -822,8 +822,10 @@ class ModelBridge(ABC):
     def _deserialize_model_state(
         self, serialized_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        model = not_none(self.model)
-        return model.deserialize_state(serialized_state=serialized_state)
+        model = not_none(self.model)  # pragma: no cover
+        return model.deserialize_state(  # pragma: no cover
+            serialized_state=serialized_state
+        )
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         raise NotImplementedError(
