@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -16,10 +17,12 @@ from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
+    disable_one_to_many_transforms,
     use_model_list,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -31,13 +34,20 @@ from botorch.models.gp_regression_fidelity import (
     SingleTaskMultiFidelityGP,
 )
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
+from botorch.models.model import ModelList
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    InputPerturbation,
+    InputTransform,
+    Normalize,
+)
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.testing import MockModel, MockPosterior
 
 
 class BoTorchModelUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.dtype = torch.float
         self.Xs, self.Ys, self.Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
@@ -54,8 +64,7 @@ class BoTorchModelUtilsTest(TestCase):
         self.task_features = []
         self.objective_thresholds = torch.tensor([0.5, 1.5])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_model_class_fidelity_features(self):
+    def test_choose_model_class_fidelity_features(self) -> None:
         # Only a single fidelity feature can be used.
         with self.assertRaisesRegex(
             NotImplementedError, "Only a single fidelity feature"
@@ -102,8 +111,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_model_class_task_features(self):
+    def test_choose_model_class_task_features(self) -> None:
         # Only a single task feature can be used.
         with self.assertRaisesRegex(NotImplementedError, "Only a single task feature"):
             choose_model_class(
@@ -133,8 +141,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_model_class_discrete_features(self):
+    def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.
         self.assertEqual(
             MixedSingleTaskGP,
@@ -149,8 +156,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_model_class(self):
+    def test_choose_model_class(self) -> None:
         # Mix of known and unknown variances.
         with self.assertRaisesRegex(
             ValueError, "Variances should all be specified, or none should be."
@@ -185,8 +191,7 @@ class BoTorchModelUtilsTest(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_choose_botorch_acqf_class(self):
+    def test_choose_botorch_acqf_class(self) -> None:
         self.assertEqual(qNoisyExpectedImprovement, choose_botorch_acqf_class())
         self.assertEqual(
             qNoisyExpectedHypervolumeImprovement,
@@ -201,8 +206,7 @@ class BoTorchModelUtilsTest(TestCase):
             choose_botorch_acqf_class(objective_weights=torch.tensor([1.0, 0.0])),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct_acquisition_and_optimizer_options(self):
+    def test_construct_acquisition_and_optimizer_options(self) -> None:
         # Two dicts for `Acquisition` should be concatenated
         acqf_options = {Keys.NUM_FANTASIES: 64}
 
@@ -237,8 +241,7 @@ class BoTorchModelUtilsTest(TestCase):
         )
         self.assertEqual(final_opt_options, optimizer_kwargs)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_use_model_list(self):
+    def test_use_model_list(self) -> None:
         self.assertFalse(
             use_model_list(
                 datasets=self.supervised_datasets, botorch_model_class=SingleTaskGP
@@ -267,9 +270,7 @@ class BoTorchModelUtilsTest(TestCase):
 
 
 class ConvertToBlockDesignTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_shared_rows(self):
-
+    def test_get_shared_rows(self) -> None:
         X1 = torch.rand(4, 2)
 
         # X1 is subset of X2
@@ -302,9 +303,7 @@ class ConvertToBlockDesignTest(TestCase):
         self.assertTrue(torch.equal(shared_idcs[2], torch.tensor([1, 2, 4])))
         self.assertTrue(torch.equal(X_shared, X1[torch.tensor([0, 1, 3])]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_convert_to_block_design(self):
-
+    def test_convert_to_block_design(self) -> None:
         # simple case: block design, supervised
         X = torch.rand(4, 2)
         Ys = [torch.rand(4, 1), torch.rand(4, 1)]
@@ -376,8 +375,7 @@ class ConvertToBlockDesignTest(TestCase):
             new_datasets, new_metric_names = convert_to_block_design(
                 datasets=datasets, metric_names=metric_names, force=True
             )
-        # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
-        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
+        self.assertTrue(any(issubclass(w.category, AxWarning) for w in ws))
         self.assertTrue(
             any(
                 "Forcing converion of data not complying to a block design"
@@ -397,3 +395,43 @@ class ConvertToBlockDesignTest(TestCase):
             )
         )
         self.assertEqual(new_metric_names, ["y1_y2"])
+
+    def test_disable_one_to_many_transforms(self) -> None:
+        mm = MockModel(posterior=MockPosterior())
+        # No input transforms.
+        with disable_one_to_many_transforms(model=mm):
+            pass
+        # Error with Chained intf.
+        normalize = Normalize(d=2)
+        perturbation = InputPerturbation(perturbation_set=torch.rand(2, 2))
+        chained_tf = ChainedInputTransform(
+            normalize=normalize, perturbation=perturbation
+        )
+        # pyre-ignore [16]
+        mm.input_transform = deepcopy(chained_tf)
+        with self.assertRaisesRegex(UnsupportedError, "ChainedInputTransforms"):
+            with disable_one_to_many_transforms(model=mm):
+                pass
+        # The transform is not modified.
+        self.assertTrue(
+            checked_cast(InputTransform, mm.input_transform).equals(chained_tf)
+        )
+        # With one-to-many transform.
+        mm.input_transform = deepcopy(perturbation)
+        with disable_one_to_many_transforms(model=mm):
+            self.assertFalse(
+                checked_cast(InputTransform, mm.input_transform).transform_on_eval
+            )
+        self.assertTrue(
+            checked_cast(InputTransform, mm.input_transform).transform_on_eval
+        )
+        self.assertTrue(
+            checked_cast(InputTransform, mm.input_transform).equals(perturbation)
+        )
+        # With ModelList.
+        mm_list = ModelList(mm, deepcopy(mm))
+        with disable_one_to_many_transforms(model=mm_list):
+            for mm in mm_list.models:
+                self.assertFalse(mm.input_transform.transform_on_eval)
+        for mm in mm_list.models:
+            self.assertTrue(mm.input_transform.transform_on_eval)

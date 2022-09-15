@@ -189,6 +189,55 @@ def get_branin_experiment(
     return exp
 
 
+def get_robust_branin_experiment(
+    risk_measure: Optional[RiskMeasure] = None,
+    optimization_config: Optional[OptimizationConfig] = None,
+    num_sobol_trials: int = 2,
+) -> Experiment:
+    x1_dist = ParameterDistribution(
+        parameters=["x1"], distribution_class="norm", distribution_parameters={}
+    )
+    search_space = RobustSearchSpace(
+        parameters=[
+            RangeParameter(
+                name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
+            ),
+            RangeParameter(
+                name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
+            ),
+        ],
+        parameter_distributions=[x1_dist],
+        num_samples=16,
+    )
+
+    risk_measure = risk_measure or RiskMeasure(
+        risk_measure="CVaR",
+        options={"n_w": 16, "alpha": 0.8},
+    )
+
+    optimization_config = optimization_config or OptimizationConfig(
+        objective=Objective(
+            metric=BraninMetric(
+                name="branin_metric", param_names=["x1", "x2"], lower_is_better=True
+            ),
+            minimize=True,
+        ),
+        risk_measure=risk_measure,
+    )
+
+    exp = Experiment(
+        name="branin_experiment",
+        search_space=search_space,
+        optimization_config=optimization_config,
+        runner=SyntheticRunner(),
+    )
+
+    sobol = get_sobol(search_space=exp.search_space)
+    for _ in range(num_sobol_trials):
+        exp.new_trial(generator_run=sobol.gen(1)).run().mark_completed()
+    return exp
+
+
 def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
     rate: Optional[float] = None,

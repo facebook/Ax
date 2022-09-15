@@ -31,7 +31,9 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
+from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.models.model import Model
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -94,10 +96,10 @@ class Acquisition(Base):
             fixed_features=torch_opt_config.fixed_features,
         )
         # Store objective thresholds for all outcomes (including non-objectives).
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._objective_thresholds = torch_opt_config.objective_thresholds
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._full_objective_weights = torch_opt_config.objective_weights
+        self._objective_thresholds: Optional[
+            Tensor
+        ] = torch_opt_config.objective_thresholds
+        self._full_objective_weights: Tensor = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
@@ -126,6 +128,11 @@ class Acquisition(Base):
             objective_weights.nonzero().numel() > 1
             and self._objective_thresholds is None
         ):
+            if torch_opt_config.risk_measure is not None:
+                # TODO[T131759263]: modify the heuristic to support risk measures.
+                raise NotImplementedError(  # pragma: no cover
+                    "Objective thresholds must be provided when using risk measures."
+                )
             self._objective_thresholds = infer_objective_thresholds(
                 model=model,
                 objective_weights=self._full_objective_weights,
@@ -145,6 +152,7 @@ class Acquisition(Base):
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
             X_observed=X_observed,
+            risk_measure=torch_opt_config.risk_measure,
         )
         model_deps = self.compute_model_dependencies(
             surrogate=surrogate,
@@ -183,10 +191,8 @@ class Acquisition(Base):
             **input_constructor_kwargs,
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.X_pending = X_pending
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.X_observed = X_observed
+        self.X_pending: Optional[Tensor] = X_pending
+        self.X_observed: Tensor = not_none(X_observed)
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -286,7 +292,7 @@ class Acquisition(Base):
         if len(discrete_choices) == len(ssd.feature_names):
             X_observed = self.X_observed
             if self.X_pending is not None:
-                X_observed = torch.cat((X_observed, self.X_pending), dim=0)
+                X_observed = torch.cat([X_observed, self.X_pending], dim=0)
 
             # Special handling for search spaces with a large number of choices
             total_choices = reduce(
@@ -377,9 +383,12 @@ class Acquisition(Base):
             design points `X`, where `batch_shape'` is the broadcasted batch shape of
             model and input `X`.
         """
-        # NOTE: `AcquisitionFunction.__call__` calls `forward`,
-        # so below is equivalent to `self.acqf.forward(X=X)`.
-        return self.acqf(X=X)
+        if isinstance(self.acqf, qKnowledgeGradient):
+            return self.acqf.evaluate(X=X)
+        else:
+            # NOTE: `AcquisitionFunction.__call__` calls `forward`,
+            # so below is equivalent to `self.acqf.forward(X=X)`.
+            return self.acqf(X=X)
 
     def compute_model_dependencies(
         self,
@@ -422,6 +431,7 @@ class Acquisition(Base):
         objective_thresholds: Optional[Tensor] = None,
         outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
         X_observed: Optional[Tensor] = None,
+        risk_measure: Optional[RiskMeasureMCObjective] = None,
     ) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
         return get_botorch_objective_and_transform(
             model=model,
@@ -429,4 +439,5 @@ class Acquisition(Base):
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
             X_observed=X_observed,
+            risk_measure=risk_measure,
         )

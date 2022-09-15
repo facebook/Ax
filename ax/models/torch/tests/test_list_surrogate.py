@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import numpy as np
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -15,6 +17,7 @@ from ax.models.torch.botorch_modular.surrogate import fit_botorch_model, Surroga
 from ax.models.torch.botorch_modular.utils import choose_model_class
 from ax.models.torch.tests.test_surrogate import SingleTaskGPWithDifferentConstructor
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.models import (
     SaasFullyBayesianMultiTaskGP,
@@ -25,7 +28,7 @@ from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from gpytorch.constraints import GreaterThan, Interval
@@ -44,8 +47,7 @@ RANK = "rank"
 
 
 class ListSurrogateTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = ExactMarginalLogLikelihood
         self.dtype = torch.float
@@ -100,8 +102,7 @@ class ListSurrogateTest(TestCase):
         self.bounds = [(0.0, 1.0), (1.0, 4.0)]
         self.feature_names = ["x1", "x2"]
 
-    # pyre-fixme[31]: Expression `type(None)` is not a valid type.
-    def check_ranks(self, c: ListSurrogate) -> type(None):
+    def check_ranks(self, c: ListSurrogate) -> None:
         self.assertIsInstance(c, ListSurrogate)
         self.assertIsInstance(c.model, ModelListGP)
         # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got
@@ -113,8 +114,7 @@ class ListSurrogateTest(TestCase):
                 self.submodel_options_per_outcome[self.outcomes[idx]][RANK],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_init(self):
+    def test_init(self) -> None:
         self.assertEqual(
             self.surrogate.botorch_submodel_class_per_outcome,
             self.botorch_submodel_class_per_outcome,
@@ -130,9 +130,9 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_construct_per_outcome_options(self, mock_MTGP_construct_inputs):
+    def test_construct_per_outcome_options(
+        self, mock_MTGP_construct_inputs: Mock
+    ) -> None:
         with self.assertRaisesRegex(ValueError, "No model class specified for"):
             self.surrogate.construct(
                 datasets=self.fixed_noise_training_data, metric_names=["new_metric"]
@@ -171,8 +171,7 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=MultiTaskGP.construct_inputs,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct_per_outcome_options_no_Yvar(self, _):
+    def test_construct_per_outcome_options_no_Yvar(self, _) -> None:
         surrogate = ListSurrogate(
             botorch_submodel_class=MultiTaskGP,
             mll_class=self.mll_class,
@@ -197,9 +196,9 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_construct_shared_shortcut_options(self, mock_construct_inputs):
+    def test_construct_shared_shortcut_options(
+        self, mock_construct_inputs: Mock
+    ) -> None:
         surrogate = ListSurrogate(
             botorch_submodel_class=self.botorch_submodel_class_per_outcome[
                 self.outcomes[0]
@@ -237,9 +236,9 @@ class ListSurrogateTest(TestCase):
         "construct_inputs",
         wraps=FixedNoiseMultiTaskGP.construct_inputs,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_construct_per_outcome_error_raises(self, mock_MTGP_construct_inputs):
+    def test_construct_per_outcome_error_raises(
+        self, mock_MTGP_construct_inputs: Mock
+    ) -> None:
         surrogate = ListSurrogate(
             botorch_submodel_class=self.botorch_submodel_class_per_outcome,
             mll_class=self.mll_class,
@@ -271,9 +270,13 @@ class ListSurrogateTest(TestCase):
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_fit(self, mock_fit_nuts, mock_fit_gpytorch, mock_MLL, mock_state_dict):
+    def test_fit(
+        self,
+        mock_fit_nuts: Mock,
+        mock_fit_gpytorch: Mock,
+        mock_MLL: Mock,
+        mock_state_dict: Mock,
+    ) -> None:
         default_class = self.botorch_submodel_class_per_outcome
         surrogates = [
             ListSurrogate(
@@ -348,8 +351,7 @@ class ListSurrogateTest(TestCase):
                 mll_class=self.mll_class,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_with_botorch_transforms(self):
+    def test_with_botorch_transforms(self) -> None:
         input_transforms = {"outcome_1": Normalize(d=3), "outcome_2": Normalize(d=3)}
         outcome_transforms = {
             "outcome_1": Standardize(m=1),
@@ -391,8 +393,7 @@ class ListSurrogateTest(TestCase):
             # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase...
             self.assertIs(models[i].input_transform, input_transforms[outcome])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_serialize_attributes_as_kwargs(self):
+    def test_serialize_attributes_as_kwargs(self) -> None:
         expected = self.surrogate.__dict__
         # The two attributes below don't need to be saved as part of state,
         # so we remove them from the expected dict.
@@ -409,8 +410,7 @@ class ListSurrogateTest(TestCase):
             expected.pop(attr_name)
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct_custom_model(self):
+    def test_construct_custom_model(self) -> None:
         noise_con1, noise_con2 = Interval(1e-6, 1e-1), GreaterThan(1e-4)
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGP,
@@ -453,3 +453,40 @@ class ListSurrogateTest(TestCase):
                 self.assertEqual(
                     m.likelihood.noise_covar.raw_noise_constraint, noise_con2
                 )
+
+    def test_w_robust_digest(self) -> None:
+        surrogate = ListSurrogate(
+            botorch_submodel_class=SingleTaskGP,
+        )
+        # Error handling.
+        with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
+            surrogate.construct(
+                datasets=self.supervised_training_data,
+                metric_names=self.outcomes,
+                robust_digest={"environmental_variables": ["a"]},
+            )
+        robust_digest = {
+            "sample_param_perturbations": lambda: np.zeros((2, 2)),
+            "environmental_variables": [],
+            "multiplicative": False,
+        }
+        surrogate.submodel_input_transforms = {self.outcomes[0]: Normalize(d=1)}
+        with self.assertRaisesRegex(NotImplementedError, "input transforms"):
+            surrogate.construct(
+                datasets=self.supervised_training_data,
+                metric_names=self.outcomes,
+                robust_digest=robust_digest,
+            )
+        # Input perturbation is constructed.
+        surrogate = ListSurrogate(
+            botorch_submodel_class=SingleTaskGP,
+        )
+        surrogate.construct(
+            datasets=self.supervised_training_data,
+            metric_names=self.outcomes,
+            robust_digest=robust_digest,
+        )
+        for m in surrogate.model.models:  # pyre-ignore
+            intf = checked_cast(InputPerturbation, m.input_transform)
+            self.assertIsInstance(intf, InputPerturbation)
+            self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))

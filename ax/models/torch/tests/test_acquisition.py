@@ -10,8 +10,9 @@ import dataclasses
 import itertools
 from contextlib import ExitStack
 from itertools import chain
-from typing import Any
+from typing import Any, Dict, Optional
 from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -30,6 +31,7 @@ from botorch.acquisition.input_constructors import (
     ACQF_INPUT_CONSTRUCTOR_REGISTRY,
     get_acqf_input_constructor,
 )
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
@@ -57,10 +59,9 @@ class DummyAcquisitionFunction(AcquisitionFunction):
 
     def __init__(self, **kwargs: Any) -> None:
         # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
-        super().__init__(model=None)
+        AcquisitionFunction.__init__(self, model=None)
 
-    # pyre-fixme[2]: Parameter must be annotated.
-    def __call__(self, X, **kwargs: Any) -> None:
+    def __call__(self, X: Tensor, **kwargs: Any) -> Tensor:
         return X.sum(dim=-1)
 
     # pyre-fixme[14]: `set_X_pending` overrides method defined in
@@ -74,9 +75,13 @@ class DummyAcquisitionFunction(AcquisitionFunction):
         pass
 
 
+class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradient):
+    def evaluate(self, X: Tensor, **kwargs: Any) -> Tensor:
+        return X.sum(dim=-1)
+
+
 class AcquisitionTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
         self.mock_input_constructor = mock.MagicMock(
             qNEI_input_constructor, side_effect=qNEI_input_constructor
@@ -84,6 +89,10 @@ class AcquisitionTest(TestCase):
         # Adding wrapping here to be able to count calls and inspect arguments.
         _register_acqf_input_constructor(
             acqf_cls=DummyAcquisitionFunction,
+            input_constructor=self.mock_input_constructor,
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=DummyOneShotAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
         tkwargs = {"dtype": torch.double}
@@ -149,11 +158,13 @@ class AcquisitionTest(TestCase):
             fixed_features=self.fixed_features,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def get_acquisition_function(self, fixed_features=None):
+    def get_acquisition_function(
+        self, fixed_features: Optional[Dict[int, float]] = None, one_shot: bool = False
+    ) -> Acquisition:
         return Acquisition(
-            botorch_acqf_class=self.botorch_acqf_class,
+            botorch_acqf_class=DummyOneShotAcquisitionFunction
+            if one_shot
+            else self.botorch_acqf_class,
             surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
@@ -162,8 +173,7 @@ class AcquisitionTest(TestCase):
             options=self.options,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def tearDown(self):
+    def tearDown(self) -> None:
         # Avoid polluting the registry for other tests.
         ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
@@ -183,20 +193,14 @@ class AcquisitionTest(TestCase):
         f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
         return_value=None,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_init(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_botorch_acqf_class,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_compute_model_deps,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_get_objective_and_transform,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_subset_model,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_get_X,
-    ):
+        mock_botorch_acqf_class: Mock,
+        mock_compute_model_deps: Mock,
+        mock_get_objective_and_transform: Mock,
+        mock_subset_model: Mock,
+        mock_get_X: Mock,
+    ) -> None:
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
             # pyre-fixme[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
@@ -271,9 +275,7 @@ class AcquisitionTest(TestCase):
             self.assertEqual(ckwargs[k], v)
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_optimize(self, mock_optimize_acqf):
+    def test_optimize(self, mock_optimize_acqf: Mock) -> None:
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         acquisition.optimize(
             n=3,
@@ -302,8 +304,7 @@ class AcquisitionTest(TestCase):
             torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_optimize_discrete(self):
+    def test_optimize_discrete(self) -> None:
         ssd1 = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
@@ -396,7 +397,7 @@ class AcquisitionTest(TestCase):
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
             inequality_constraints=[
-                [torch.tensor([0, 1], dtype=torch.int64), -torch.ones(2), 0]
+                (torch.tensor([0, 1], dtype=torch.int64), -torch.ones(2), 0)
             ],
         )
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
@@ -408,20 +409,18 @@ class AcquisitionTest(TestCase):
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
             inequality_constraints=[
-                [torch.tensor([0], dtype=torch.int64), -torch.ones(1), 0],
-                [torch.tensor([1], dtype=torch.int64), -torch.ones(1), 0],
+                (torch.tensor([0], dtype=torch.int64), -torch.ones(1), 0),
+                (torch.tensor([1], dtype=torch.int64), -torch.ones(1), 0),
             ],
         )
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
         self.assertTrue(torch.equal(expected, X_selected))
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search")
-    # pyre-fixme[3]: Return type must be annotated.
     def test_optimize_acqf_discrete_local_search(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_optimize_acqf_discrete_local_search,
-    ):
+        mock_optimize_acqf_discrete_local_search: Mock,
+    ) -> None:
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
@@ -462,9 +461,7 @@ class AcquisitionTest(TestCase):
         )
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_optimize_mixed(self, mock_optimize_acqf_mixed):
+    def test_optimize_mixed(self, mock_optimize_acqf_mixed: Mock) -> None:
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
@@ -499,23 +496,29 @@ class AcquisitionTest(TestCase):
         )
 
     @mock.patch(
+        f"{DummyOneShotAcquisitionFunction.__module__}."
+        "DummyOneShotAcquisitionFunction.evaluate",
+        return_value=None,
+    )
+    @mock.patch(
         f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__call__",
         return_value=None,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_evaluate(self, mock_call):
+    def test_evaluate(self, mock_call: Mock, mock_evaluate: Mock) -> None:
+        # Default acqf.
         acquisition = self.get_acquisition_function()
         acquisition.evaluate(X=self.X)
         mock_call.assert_called_with(X=self.X)
+        # One-shot acqf.
+        acquisition = self.get_acquisition_function(one_shot=True)
+        acquisition.evaluate(X=self.X)
+        mock_evaluate.assert_called_with(X=self.X)
 
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
-    # pyre-fixme[3]: Return type must be annotated.
     def test_init_moo(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_get_X,
-    ):
+        mock_get_X: Mock,
+    ) -> None:
         moo_training_data = [SupervisedDataset(X=self.X, Y=self.Y.repeat(1, 3))]
         moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
         moo_objective_thresholds = torch.tensor(

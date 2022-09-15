@@ -20,6 +20,7 @@ from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError
 from ax.modelbridge.modelbridge_utils import (
@@ -241,6 +242,22 @@ def get_observed_pareto_frontiers(
     return pfr_list
 
 
+def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
+    """Reduces a RobustSearchSpace to a SearchSpace.
+
+    This is a no-op for all other search spaces.
+    """
+    if isinstance(search_space, RobustSearchSpace):
+        return SearchSpace(
+            parameters=[p.clone() for p in search_space._parameters.values()],
+            parameter_constraints=[
+                pc.clone() for pc in search_space._parameter_constraints
+            ],
+        )
+    else:
+        return search_space
+
+
 def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModelBridge:
     """
     Constructs a minimal model for converting things to tensors.
@@ -261,7 +278,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModel
     # space to tensors.
     return TorchModelBridge(
         experiment=experiment,
-        search_space=experiment.search_space,
+        search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         model=TorchModel(),
         transforms=[Derelativize, SearchSpaceToChoice, OrderedChoiceEncode, IntToFloat],
