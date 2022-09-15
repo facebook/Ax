@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from enum import Enum
 from inspect import isfunction, signature
+
+from logging import Logger
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 import torch
@@ -76,9 +78,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
 from ax.utils.common.typeutils import checked_cast, not_none
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 Cont_X_trans: List[Type[Transform]] = [
     RemoveFixed,

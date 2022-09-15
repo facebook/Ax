@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Any, Callable, List, TypeVar
 
 from ax.storage.sqa_store.db import SQABase
@@ -23,12 +24,10 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.mapper import Mapper
 
-
 T = TypeVar("T")
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def listens_for_multiple(

@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Any, cast
 
 import pandas as pd
@@ -13,8 +14,7 @@ from ax.core.metric import Metric
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 try:
     from ax.runners.torchx import TORCHX_TRACKER_BASE

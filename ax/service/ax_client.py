@@ -8,6 +8,8 @@ import json
 import logging
 import warnings
 from functools import partial
+
+from logging import Logger
 from typing import (
     Any,
     Callable,
@@ -93,9 +95,7 @@ from ax.utils.common.typeutils import (
 )
 from botorch.utils.sampling import manual_seed
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")

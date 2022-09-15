@@ -5,7 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import time
-from logging import INFO
+
+from logging import INFO, Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.base_trial import BaseTrial
@@ -16,7 +17,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
-
 
 RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
 
@@ -54,8 +54,7 @@ except ModuleNotFoundError:  # pragma: no cover
 STORAGE_MINI_BATCH_SIZE = 50
 LOADING_MINI_BATCH_SIZE = 10000
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class WithDBSettingsBase:

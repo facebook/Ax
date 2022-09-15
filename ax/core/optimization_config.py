@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from itertools import groupby
+from logging import Logger
 from typing import Dict, List, Optional
 
 from ax.core.metric import Metric
@@ -20,9 +21,7 @@ from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 TRefPoint = List[ObjectiveThreshold]
 

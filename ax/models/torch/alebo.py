@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from collections import OrderedDict
+from logging import Logger
 from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
 
 import gpytorch
@@ -46,8 +47,7 @@ from scipy.optimize import approx_fprime
 from torch import Tensor
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class ALEBOKernel(Kernel):

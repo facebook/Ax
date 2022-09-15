@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from logging import Logger
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
@@ -26,8 +27,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class PowerTransformY(Transform):

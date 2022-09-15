@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 from dataclasses import replace as dataclass_replace
+
+from logging import Logger
 from typing import Dict, Optional, Set
 
 from ax.core.experiment import Experiment
@@ -16,9 +18,7 @@ from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.backend_simulator import BackendSimulator
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class AsyncSimulatedBackendScheduler(Scheduler):

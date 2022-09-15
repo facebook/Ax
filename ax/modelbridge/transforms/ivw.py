@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Dict, List
 
 import numpy as np
@@ -11,9 +12,7 @@ from ax.core.observation import ObservationData
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def ivw_metric_merge(

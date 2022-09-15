@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum
+
+from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type
 
 from ax.core.arm import Arm
@@ -60,9 +62,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast, not_none
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class Encoder:

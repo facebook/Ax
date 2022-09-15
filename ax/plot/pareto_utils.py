@@ -7,6 +7,7 @@
 import copy
 from copy import deepcopy
 from itertools import combinations
+from logging import Logger
 from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
@@ -39,14 +40,12 @@ from ax.utils.stats.statstools import relativize
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 
-
 # type aliases
 Mu = Dict[str, List[float]]
 Cov = Dict[str, Dict[str, List[float]]]
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def _extract_observed_pareto_2d(

@@ -6,6 +6,8 @@
 
 import enum
 from dataclasses import dataclass
+
+from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -52,8 +54,7 @@ from ax.utils.common.typeutils import (
     numpy_type_to_python_type,
 )
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
