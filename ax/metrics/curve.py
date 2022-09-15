@@ -12,6 +12,8 @@ Typically used to retrieve partial learning curves of ML training jobs.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+
+from logging import Logger
 from typing import Any, Dict, Iterable, Optional, Union
 
 import numpy as np
@@ -27,8 +29,7 @@ from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class AbstractCurveMetric(MapMetric, ABC):

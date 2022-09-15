@@ -9,6 +9,8 @@ from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
+
+from logging import Logger
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
 from ax.core.arm import Arm
@@ -33,9 +35,7 @@ from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

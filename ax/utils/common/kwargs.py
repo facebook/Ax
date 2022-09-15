@@ -5,14 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from inspect import Parameter, signature
+
+from logging import Logger
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
 from typeguard import check_type
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 TKwargs = Dict[str, Any]
 

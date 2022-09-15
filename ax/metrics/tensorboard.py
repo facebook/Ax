@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import logging
+
+from logging import Logger
 from typing import Dict, Iterable, List, NamedTuple, Union
 
 import pandas as pd
@@ -14,8 +16,7 @@ from ax.core.map_data import MapKeyInfo
 from ax.metrics.curve import AbstractCurveMetric
 from ax.utils.common.logger import get_logger
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 try:
     from tensorboard.backend.event_processing import (

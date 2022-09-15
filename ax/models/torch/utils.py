@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
+
+from logging import Logger
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Type
 
 import numpy as np
@@ -38,9 +40,7 @@ from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 NOISELESS_MODELS = {SingleTaskGP}

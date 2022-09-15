@@ -9,6 +9,7 @@ import warnings
 from abc import ABC
 from contextlib import ExitStack
 from itertools import product
+from logging import Logger
 from math import sqrt
 from typing import Dict, Type
 from unittest import mock
@@ -43,8 +44,7 @@ RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
 MCMC_PATH = "pyro.infer.mcmc.MCMC"
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def _get_dummy_mcmc_samples(

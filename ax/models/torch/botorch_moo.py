@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
@@ -47,8 +48,7 @@ from botorch.models.model import Model
 from torch import Tensor
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[

@@ -7,6 +7,8 @@
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
+
+from logging import Logger
 from typing import (
     Any,
     cast,
@@ -102,8 +104,7 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 TEST_SOBOL_SEED = 1234
 

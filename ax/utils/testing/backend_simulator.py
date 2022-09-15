@@ -8,14 +8,14 @@ import logging
 import random
 import time
 from dataclasses import dataclass
+
+from logging import Logger
 from typing import Dict, List, Optional
 
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.logger import get_logger
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 @dataclass

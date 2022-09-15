@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+from logging import Logger
 from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationData
@@ -23,8 +24,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 # TODO(jej): Add OptimizationConfig validation - can't transform outcome constraints.

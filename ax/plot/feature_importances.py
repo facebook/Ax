@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
@@ -16,9 +17,7 @@ from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger
 from plotly import subplots
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:

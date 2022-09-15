@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import inspect
+
+from logging import Logger
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set
 
 from ax.core import Trial
@@ -13,8 +15,7 @@ from ax.core.runner import Runner
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 try:

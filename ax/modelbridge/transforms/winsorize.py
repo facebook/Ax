@@ -6,6 +6,7 @@
 
 import warnings
 from dataclasses import dataclass
+from logging import Logger
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
@@ -33,8 +34,7 @@ if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 @dataclass

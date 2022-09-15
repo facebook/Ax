@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from functools import partial
+
+from logging import Logger
 from numbers import Number
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
@@ -18,8 +20,7 @@ from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 CVDiagnostics = Dict[str, Dict[str, float]]
 

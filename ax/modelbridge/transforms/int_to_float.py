@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
@@ -24,8 +25,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 DEFAULT_MAX_ROUND_ATTEMPTS = 10000

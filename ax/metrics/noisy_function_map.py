@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from logging import Logger
+
 from typing import Any, Dict, Iterable, Mapping, Optional
 
 import numpy as np
@@ -17,8 +19,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 class NoisyFunctionMapMetric(MapMetric):

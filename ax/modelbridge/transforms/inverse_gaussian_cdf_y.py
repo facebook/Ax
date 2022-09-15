@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationData
@@ -20,8 +21,7 @@ if TYPE_CHECKING:
     from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 # TODO(jej): Add OptimizationConfig validation - can't transform outcome constraints.

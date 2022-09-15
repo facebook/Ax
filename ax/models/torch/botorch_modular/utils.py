@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
+from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
@@ -36,10 +37,8 @@ from botorch.utils.transforms import is_fully_bayesian
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
 
-
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 def use_model_list(

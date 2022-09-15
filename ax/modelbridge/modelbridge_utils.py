@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
+
+from logging import Logger
 from typing import (
     Callable,
     Dict,
@@ -88,8 +90,7 @@ from botorch.utils.multi_objective.box_decompositions.dominated import (
 )
 from torch import Tensor
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:

@@ -7,6 +7,8 @@
 import numbers
 import warnings
 from collections import OrderedDict
+
+from logging import Logger
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -43,8 +45,7 @@ from ax.utils.common.typeutils import checked_cast_optional
 from ax.utils.stats.statstools import relativize
 from plotly import subplots
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # type aliases
 Traces = List[Dict[str, Any]]

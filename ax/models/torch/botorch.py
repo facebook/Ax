@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -40,8 +42,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.

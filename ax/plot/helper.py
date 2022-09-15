@@ -6,6 +6,8 @@
 
 import math
 from collections import Counter
+
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
@@ -20,9 +22,7 @@ from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
-
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # Typing alias
 RawData = List[Dict[str, Union[str, float]]]
