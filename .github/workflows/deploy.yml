@@ -87,5 +87,6 @@ jobs:
     - name: Deploy to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        user: drfreund
-        password: ${{ secrets.pypi_password }}
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+        verbose: true
