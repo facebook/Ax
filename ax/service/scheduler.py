@@ -78,6 +78,11 @@ GS_TYPE_MSG = "This optimization run uses a '{gs_name}' generation strategy."
 OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trials}
 trials attached to the underlying Ax experiment '{experiment_name}'.
 """
+FAILURE_EXCEEDED_MSG = (
+    "Failure rate exceeds the tolerated trial failure rate of {f_rate} (at least "
+    "{n_failed} out of first {n_ran} trials failed). Checks are triggered both at "
+    "the end of a optimization and if at least {min_failed} trials have failed."
+)
 
 
 # Wait time b/w reports will not exceed 15 mins.
@@ -95,7 +100,9 @@ class SchedulerInternalError(AxError):
 
 
 class FailureRateExceededError(AxError):
-    """Error that indicates the optimization was aborted due to excessive failure rate."""
+    """Error that indicates the optimization was aborted due to excessive
+    failure rate.
+    """
 
     pass
 
@@ -156,8 +163,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
     # results}. This is a mapping and not a list to allow for changing of
-    # some optimization messages throughout the course of the optimization (e.g. progress
-    # report of the optimization).
+    # some optimization messages throughout the course of the optimization
+    # (e.g. progress report of the optimization).
     markdown_messages: Dict[str, str]
 
     # Number of trials that existed on the scheduler's experiment before
@@ -684,8 +691,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Args:
             force_check: Indicates whether to force a failure-rate check
                 regardless of the number of trials that have been executed. If False
-                (default), the check will be skipped if the optimization has fewer than five
-                failed trials. If True, the check will be performed unless there
+                (default), the check will be skipped if the optimization has fewer than
+                five failed trials. If True, the check will be performed unless there
                 are 0 failures.
         """
         failed_idcs = self.experiment.trial_indices_by_status[TrialStatus.FAILED]
@@ -718,12 +725,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         if failure_rate_exceeded:
             raise FailureRateExceededError(
-                "Failure rate exceeds the tolerated trial failure rate of "
-                f"{self.options.tolerated_trial_failure_rate} (at least "
-                f"{num_failed_in_scheduler} out of first {num_ran_in_scheduler} trials "
-                "failed). Checks are triggered both at the end of a optimization and if "
-                f"at least {self.options.min_failed_trials_for_failure_rate_check} "
-                "trials have failed."
+                FAILURE_EXCEEDED_MSG.format(
+                    f_rate=self.options.tolerated_trial_failure_rate,
+                    n_failed=num_failed_in_scheduler,
+                    n_ran=num_ran_in_scheduler,
+                    min_failed=self.options.min_failed_trials_for_failure_rate_check,
+                )
             )
 
     def run_trials_and_yield_results(
@@ -1213,7 +1220,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         res = self.wait_for_completed_trials_and_report_results(
             idle_callback=idle_callback
         )
-        # raise an error if the failure rate exceeds tolerance at the end of the optimization
+        # Raise an error if the failure rate exceeds tolerance at the
+        # end of the optimization.
         self.error_if_failure_rate_exceeded(force_check=True)
         self._record_run_trials_status(
             num_preexisting_trials=num_preexisting_trials,
