@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 from ax.models.torch.botorch import BotorchModel
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual_multioutput import FixedNoiseLCEMGP, LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
@@ -92,5 +92,5 @@ class LCEMBO(BotorchModel):
         model = ModelListGP(*models)
         model.to(Xs[0])
         mll = SumMarginalLogLikelihood(model.likelihood, model)
-        fit_gpytorch_model(mll)
+        fit_gpytorch_mll(mll)
         return model

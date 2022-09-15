@@ -269,7 +269,7 @@ class ListSurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.ModelListGP.load_state_dict", return_value=None)
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
-    @patch(f"{UTILS_PATH}.fit_gpytorch_model")
+    @patch(f"{UTILS_PATH}.fit_gpytorch_mll")
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
@@ -287,7 +287,7 @@ class ListSurrogateTest(TestCase):
         for i, surrogate in enumerate(surrogates):
             # Checking that model is None before `fit` (and `construct`) calls.
             self.assertIsNone(surrogate._model)
-            # Should instantiate mll and `fit_gpytorch_model` when `state_dict`
+            # Should instantiate mll and `fit_gpytorch_mll` when `state_dict`
             # is `None`.
             surrogate.fit(
                 datasets=self.fixed_noise_training_data,

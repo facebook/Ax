@@ -36,7 +36,7 @@ GET_OBJ_PATH = (
     "get_weighted_mc_objective_and_objective_thresholds"
 )
 
-FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
+FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 
 
 # pyre-fixme[3]: Return type must be annotated.

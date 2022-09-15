@@ -34,7 +34,7 @@ from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarizat
 from botorch.utils.testing import MockModel, MockPosterior
 
 
-FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_model"
+FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 SAMPLE_SIMPLEX_UTIL_PATH = "ax.models.torch.utils.sample_simplex"
 SAMPLE_HYPERSPHERE_UTIL_PATH = "ax.models.torch.utils.sample_hypersphere"
 CHEBYSHEV_SCALARIZATION_PATH = (
