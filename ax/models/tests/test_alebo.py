@@ -27,6 +27,7 @@ from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import FixedNoiseDataset
+from linear_operator.operators import LinearOperator
 
 
 class ALEBOTest(TestCase):
@@ -54,6 +55,9 @@ class ALEBOTest(TestCase):
         x2 = torch.tensor([[1.0, 1.0], [0.0, 0.0]], dtype=torch.double)
 
         K = k.forward(x1, x2)
+        if type(K) == LinearOperator:
+            K = K.to_dense()
+
         Ktrue = torch.tensor(
             [[np.exp(-0.5 * 18), 1.0], [1.0, np.exp(-0.5 * 18)]], dtype=torch.double
         )
