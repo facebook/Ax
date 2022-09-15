@@ -5,7 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Tuple, Type
+from unittest.mock import MagicMock, Mock, patch
+
+import numpy as np
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -16,12 +19,13 @@ from ax.models.torch.botorch_modular.utils import fit_botorch_model
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.model import Model
-from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.datasets import SupervisedDataset
@@ -43,14 +47,12 @@ UTILS_PATH = f"{fit_botorch_model.__module__}"
 
 
 class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
-    # pyre-fixme[3]: Return type must be annotated.
-    def __init__(self, train_X: Tensor, train_Y: Tensor):
+    def __init__(self, train_X: Tensor, train_Y: Tensor) -> None:
         super().__init__(train_X=train_X, train_Y=train_Y)
 
 
 class SurrogateTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.device = torch.device("cpu")
         self.dtype = torch.float
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
@@ -82,9 +84,9 @@ class SurrogateTest(TestCase):
             fixed_features=self.fixed_features,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _get_surrogate(self, botorch_model_class):
+    def _get_surrogate(
+        self, botorch_model_class: Type[Model]
+    ) -> Tuple[Surrogate, Dict[str, Any]]:
         surrogate = Surrogate(
             botorch_model_class=botorch_model_class, mll_class=self.mll_class
         )
@@ -93,17 +95,14 @@ class SurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.Kernel")
     @patch(f"{CURRENT_PATH}.Likelihood")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_init(self, mock_Likelihood, mock_Kernel):
+    def test_init(self, mock_Likelihood: Mock, mock_Kernel: Mock) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             self.assertEqual(surrogate.botorch_model_class, botorch_model_class)
             self.assertEqual(surrogate.mll_class, self.mll_class)
 
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_mll_options(self, _):
+    def test_mll_options(self, _) -> None:
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
@@ -118,8 +117,7 @@ class SurrogateTest(TestCase):
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_botorch_transforms(self):
+    def test_botorch_transforms(self) -> None:
         # Successfully passing down the transforms
         input_transform = Normalize(d=self.Xs[0].shape[-1])
         outcome_transform = Standardize(m=self.Ys[0].shape[-1])
@@ -152,8 +150,7 @@ class SurrogateTest(TestCase):
                 refit=self.refit,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_model_property(self):
+    def test_model_property(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
@@ -161,8 +158,7 @@ class SurrogateTest(TestCase):
             ):
                 surrogate.model
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_training_data_property(self):
+    def test_training_data_property(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             with self.assertRaisesRegex(
@@ -171,8 +167,7 @@ class SurrogateTest(TestCase):
             ):
                 surrogate.training_data
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_dtype_property(self):
+    def test_dtype_property(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
@@ -181,8 +176,7 @@ class SurrogateTest(TestCase):
             )
             self.assertEqual(self.dtype, surrogate.dtype)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_device_property(self):
+    def test_device_property(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
@@ -191,8 +185,7 @@ class SurrogateTest(TestCase):
             )
             self.assertEqual(self.device, surrogate.device)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_from_botorch(self):
+    def test_from_botorch(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate_kwargs = botorch_model_class.construct_inputs(
                 self.training_data[0]
@@ -203,9 +196,7 @@ class SurrogateTest(TestCase):
 
     @patch(f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.__init__", return_value=None)
     @patch(f"{CURRENT_PATH}.SingleTaskGP.__init__", return_value=None)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_construct(self, mock_GP, mock_SAAS):
+    def test_construct(self, mock_GP: Mock, mock_SAAS: Mock) -> None:
         mock_GPs = [mock_SAAS, mock_GP]
         for i, botorch_model_class in enumerate(
             [SaasFullyBayesianSingleTaskGP, SingleTaskGP]
@@ -245,8 +236,7 @@ class SurrogateTest(TestCase):
                     training_data=self.training_data[0], some_option="some_value"
                 )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct_custom_model(self):
+    def test_construct_custom_model(self) -> None:
         # Test error for unsupported covar_module and likelihood.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
@@ -286,15 +276,14 @@ class SurrogateTest(TestCase):
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
-    # pyre-fixme[3]: Return type must be annotated.
     def test_fit(
         self,
-        mock_MLL,  # pyre-ignore[2]
-        mock_fit_gpytorch,  # pyre-ignore[2]
-        mock_fit_saas,  # pyre-ignore[2]
-        mock_state_dict_gpytorch,  # pyre-ignore[2]
-        mock_state_dict_saas,  # pyre-ignore[2]
-    ):
+        mock_MLL: Mock,
+        mock_fit_gpytorch: Mock,
+        mock_fit_saas: Mock,
+        mock_state_dict_gpytorch: Mock,
+        mock_state_dict_saas: Mock,
+    ) -> None:
         for mock_fit, mock_state_dict, botorch_model_class in zip(
             [mock_fit_saas, mock_fit_gpytorch],
             [mock_state_dict_saas, mock_state_dict_gpytorch],
@@ -317,13 +306,13 @@ class SurrogateTest(TestCase):
             # BoTorch `Model`.
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_inputs[0],
+                    surrogate.model.train_inputs[0],  # pyre-ignore
                     surrogate_kwargs.get("train_X"),
                 )
             )
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_targets,
+                    checked_cast(Tensor, surrogate.model.train_targets),
                     surrogate_kwargs.get("train_Y").squeeze(1),
                 )
             )
@@ -334,7 +323,7 @@ class SurrogateTest(TestCase):
             mock_fit.reset_mock()
             # Should `load_state_dict` when `state_dict` is not `None`
             # and `refit` is `False`.
-            state_dict = {"state_attribute": "value"}
+            state_dict = {"state_attribute": torch.zeros(1)}
             surrogate.fit(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
@@ -349,9 +338,7 @@ class SurrogateTest(TestCase):
             mock_MLL.reset_mock()
 
     @patch(f"{SURROGATE_PATH}.predict_from_model")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_predict(self, mock_predict):
+    def test_predict(self, mock_predict: Mock) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
@@ -361,8 +348,7 @@ class SurrogateTest(TestCase):
             surrogate.predict(X=self.Xs[0])
             mock_predict.assert_called_with(model=surrogate.model, X=self.Xs[0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_in_sample_point(self):
+    def test_best_in_sample_point(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
@@ -413,16 +399,12 @@ class SurrogateTest(TestCase):
         f"{SURROGATE_PATH}.pick_best_out_of_sample_point_acqf_class",
         return_value=(qSimpleRegret, {Keys.SAMPLER: SobolQMCNormalSampler}),
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_best_out_of_sample_point(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_best_point_util,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_acqf_optimize,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_acqf_init,
-    ):
+        mock_best_point_util: Mock,
+        mock_acqf_optimize: Mock,
+        mock_acqf_init: Mock,
+    ) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
@@ -462,15 +444,14 @@ class SurrogateTest(TestCase):
     @patch(f"{UTILS_PATH}.fit_fully_bayesian_model_nuts")
     @patch(f"{UTILS_PATH}.fit_gpytorch_model")
     @patch(f"{CURRENT_PATH}.ExactMarginalLogLikelihood")
-    # pyre-fixme[3]: Return type must be annotated.
     def test_update(
         self,
-        mock_MLL,  # pyre-fixme[2]
-        mock_fit_gpytorch,  # pyre-fixme[2]
-        mock_fit_saas,  # pyre-fixme[2]
-        mock_state_dict_gpytorch,  # pyre-fixme[2]
-        mock_state_dict_saas,  # pyre-fixme[2]
-    ):
+        mock_MLL: Mock,
+        mock_fit_gpytorch: Mock,
+        mock_fit_saas: Mock,
+        mock_state_dict_gpytorch: Mock,
+        mock_state_dict_saas: Mock,
+    ) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, surrogate_kwargs = self._get_surrogate(
                 botorch_model_class=botorch_model_class
@@ -487,7 +468,7 @@ class SurrogateTest(TestCase):
                     metric_names=self.metric_names,
                     search_space_digest=self.search_space_digest,
                     refit=self.refit,
-                    state_dict={"key": "val"},
+                    state_dict={"key": torch.zeros(1)},
                 )
                 mock_fit.assert_called_with(
                     datasets=self.training_data,
@@ -495,7 +476,7 @@ class SurrogateTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     candidate_metadata=None,
                     refit=self.refit,
-                    state_dict={"key": "val"},
+                    state_dict={"key": torch.zeros(1)},
                 )
 
             # Check that the training data is correctly passed through to the
@@ -511,17 +492,17 @@ class SurrogateTest(TestCase):
                 metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
                 refit=self.refit,
-                state_dict={"key": "val"},
+                state_dict={"key": torch.zeros(1)},
             )
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_inputs[0],
+                    surrogate.model.train_inputs[0],  # pyre-ignore
                     surrogate_kwargs.get("train_X"),
                 )
             )
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_targets,
+                    checked_cast(Tensor, surrogate.model.train_targets),
                     surrogate_kwargs.get("train_Y").squeeze(1),
                 )
             )
@@ -536,8 +517,7 @@ class SurrogateTest(TestCase):
                     refit=self.refit,
                 )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_serialize_attributes_as_kwargs(self):
+    def test_serialize_attributes_as_kwargs(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             expected = surrogate.__dict__
@@ -549,3 +529,36 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=SingleTaskGP)
             surrogate._constructed_manually = True
             surrogate._serialize_attributes_as_kwargs()
+
+    def test_w_robust_digest(self) -> None:
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGP,
+        )
+        # Error handling.
+        with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
+            surrogate.construct(
+                datasets=self.training_data,
+                robust_digest={"environmental_variables": ["a"]},
+            )
+        robust_digest = {
+            "sample_param_perturbations": lambda: np.zeros((2, 2)),
+            "environmental_variables": [],
+            "multiplicative": False,
+        }
+        surrogate.input_transform = Normalize(d=2)
+        with self.assertRaisesRegex(NotImplementedError, "input transforms"):
+            surrogate.construct(
+                datasets=self.training_data,
+                robust_digest=robust_digest,
+            )
+        # Input perturbation is constructed.
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGP,
+        )
+        surrogate.construct(
+            datasets=self.training_data,
+            robust_digest=robust_digest,
+        )
+        intf = checked_cast(InputPerturbation, surrogate.model.input_transform)
+        self.assertIsInstance(intf, InputPerturbation)
+        self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))

@@ -11,12 +11,13 @@ import inspect
 from logging import Logger
 from typing import Any, Dict, List, Optional, Type
 
+import torch
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.input import InputPerturbation, InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.kernels import Kernel
@@ -155,6 +156,36 @@ class ListSurrogate(Surrogate):
 
         self._training_data = datasets
 
+        # Construct input perturbation if doing robust optimization.
+        # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
+        # we use the same perturbations for each sub-model.
+        submodel_input_transforms = self.submodel_input_transforms.copy()
+        robust_digest: Optional[Dict[str, Any]] = kwargs.get("robust_digest", None)
+        if robust_digest is not None:
+            if len(robust_digest["environmental_variables"]):
+                # TODO[T131759269]: support env variables.
+                raise NotImplementedError(
+                    "Environmental variable support is not yet implemented."
+                )
+            samples = torch.as_tensor(
+                robust_digest["sample_param_perturbations"](),
+                dtype=self.dtype,
+                device=self.device,
+            )
+            perturbation = InputPerturbation(
+                perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
+            )
+
+            for m in metric_names:
+                if submodel_input_transforms.get(m) is not None:
+                    # TODO: Support mixing with user supplied transforms.
+                    raise NotImplementedError(
+                        "User supplied input transforms are not supported "
+                        "in robust optimization."
+                    )
+                else:
+                    submodel_input_transforms[m] = perturbation
+
         submodels = []
         for m, dataset in zip(metric_names, datasets):
             model_cls = self.botorch_submodel_class_per_outcome.get(
@@ -192,7 +223,7 @@ class ListSurrogate(Surrogate):
             likelihood_class = self.submodel_likelihood_class.get(m)
             likelihood_options = self.submodel_likelihood_options.get(m)
             outcome_transform = self.submodel_outcome_transforms.get(m)
-            input_transform = self.submodel_input_transforms.get(m)
+            input_transform = submodel_input_transforms.get(m)
 
             self._set_formatted_inputs(
                 formatted_model_inputs=formatted_model_inputs,

@@ -17,7 +17,10 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
-from ax.models.torch.botorch_modular.utils import fit_botorch_model
+from ax.models.torch.botorch_modular.utils import (
+    disable_one_to_many_transforms,
+    fit_botorch_model,
+)
 from ax.models.torch.utils import (
     _to_inequality_constraints,
     pick_best_out_of_sample_point_acqf_class,
@@ -31,7 +34,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.models.model import Model
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.input import InputPerturbation, InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import FixedNoiseDataset, RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
@@ -238,6 +241,7 @@ class Surrogate(Base):
             ],
             dataset=dataset,
             botorch_model_class_args=botorch_model_class_args,
+            robust_digest=kwargs.get("robust_digest", None),
         )
         # pyre-ignore [45]
         self._model = self.botorch_model_class(**formatted_model_inputs)
@@ -250,6 +254,7 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         botorch_model_class_args: Any,
+        robust_digest: Optional[Dict[str, Any]] = None,
     ) -> None:
         for input_name, input_class, input_options, input_object in inputs:
             if input_class is None and input_object is None:
@@ -270,6 +275,30 @@ class Surrogate(Base):
                 formatted_model_inputs[input_name] = input_class(**input_options)
             else:
                 formatted_model_inputs[input_name] = input_object
+
+        # Construct input perturbation if doing robust optimization.
+        if robust_digest is not None:
+            if len(robust_digest["environmental_variables"]):
+                # TODO[T131759269]: support env variables.
+                raise NotImplementedError(
+                    "Environmental variable support is not yet implemented."
+                )
+            samples = torch.as_tensor(
+                robust_digest["sample_param_perturbations"](),
+                dtype=self.dtype,
+                device=self.device,
+            )
+            perturbation = InputPerturbation(
+                perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
+            )
+            if formatted_model_inputs.get("input_transform") is not None:
+                # TODO: Support mixing with user supplied transforms.
+                raise NotImplementedError(
+                    "User supplied input transforms are not supported "
+                    "in robust optimization."
+                )
+            else:
+                formatted_model_inputs["input_transform"] = perturbation
 
     def fit(
         self,
@@ -342,7 +371,10 @@ class Surrogate(Base):
             Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
             Tensor: The predicted posterior covariance as a ``n x o x o``-dim tensor.
         """
-        return predict_from_model(model=self.model, X=X)
+        # This temporarily disables the one-to-many transforms to avoid perturbing
+        # the user supplied parameterization.
+        with disable_one_to_many_transforms(self.model):
+            return predict_from_model(model=self.model, X=X)
 
     def best_in_sample_point(
         self,
@@ -370,6 +402,7 @@ class Surrogate(Base):
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
+            risk_measure=torch_opt_config.risk_measure,
             options=options,
         )
         if best_point_and_observed_value is None:
@@ -401,6 +434,7 @@ class Surrogate(Base):
             outcome_constraints=torch_opt_config.outcome_constraints,
             seed_inner=checked_cast_optional(int, options.get(Keys.SEED_INNER, None)),
             qmc=checked_cast(bool, options.get(Keys.QMC, True)),
+            risk_measure=torch_opt_config.risk_measure,
         )
 
         # Avoiding circular import between `Surrogate` and `Acquisition`.

@@ -86,6 +86,7 @@ class BoTorchModel(TorchModel, Base):
     _surrogate: Optional[Surrogate]
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
     _search_space_digest: Optional[SearchSpaceDigest] = None
+    _supports_robust_optimization: bool = True
 
     def __init__(
         self,
@@ -350,6 +351,11 @@ class BoTorchModel(TorchModel, Base):
         # use it to predict the test point.
         surrogate_clone = self.surrogate.clone_reset()
         self._surrogate = surrogate_clone
+        # Remove the robust_digest since we do not want to use perturbations here.
+        search_space_digest = dataclasses.replace(
+            search_space_digest,
+            robust_digest=None,
+        )
 
         try:
             self.fit(
@@ -417,6 +423,11 @@ class BoTorchModel(TorchModel, Base):
             A BoTorch ``AcquisitionFunction`` instance.
         """
         if not self._botorch_acqf_class:
+            if torch_opt_config.risk_measure is not None:  # pragma: no cover
+                # TODO[T131759261]: Implement selection of acqf for robust opt.
+                # This will depend on the properties of the robust search space and
+                # the risk measure being used.
+                raise NotImplementedError
             self._botorch_acqf_class = choose_botorch_acqf_class(
                 pending_observations=torch_opt_config.pending_observations,
                 outcome_constraints=torch_opt_config.outcome_constraints,

@@ -42,6 +42,7 @@ from ax.modelbridge.modelbridge_utils import (
     extract_objective_weights,
     extract_outcome_constraints,
     extract_parameter_constraints,
+    extract_risk_measure,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
@@ -103,14 +104,12 @@ class TorchModelBridge(ModelBridge):
         fit_abandoned: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.dtype = torch.double if torch_dtype is None else torch_dtype
+        self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
         self.device = torch_device
         self._default_model_gen_options = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.is_moo_problem = False
+        self.is_moo_problem: bool = False
         if optimization_config or (experiment and experiment.optimization_config):
             optimization_config = not_none(
                 optimization_config or experiment.optimization_config
@@ -173,6 +172,10 @@ class TorchModelBridge(ModelBridge):
             pending_observations={},
             optimization_config=base_gen_args.optimization_config,
         )
+        if torch_opt_config.risk_measure is not None:  # pragma: no cover
+            raise UnsupportedError(
+                "`infer_objective_thresholds` does not support risk measures."
+            )
         # Infer objective thresholds.
         model = checked_cast(MultiObjectiveBotorchModel, self.model)
         obj_thresholds = infer_objective_thresholds(
@@ -608,10 +611,9 @@ class TorchModelBridge(ModelBridge):
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
         )
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observation_features(
         self, observation_features: List[ObservationFeatures]
-    ) -> Any:  # TODO(jej): Make return type parametric
+    ) -> Tensor:
         """Apply terminal transform to given observation features and return result
         as an N x D array of points.
         """
@@ -686,6 +688,19 @@ class TorchModelBridge(ModelBridge):
         rounding_func = self._array_callable_to_tensor_callable(
             transform_callback(self.parameters, self.transforms)
         )
+        risk_measure = (
+            optimization_config.risk_measure
+            if optimization_config is not None
+            else None
+        )
+        if risk_measure is not None:
+            if not not_none(self.model)._supports_robust_optimization:
+                raise UnsupportedError(
+                    f"{self.model.__class__.__name__} does not support robust "
+                    "optimization. Consider using modular BoTorch model instead."
+                )
+            else:
+                risk_measure = extract_risk_measure(risk_measure=risk_measure)
         torch_opt_config = TorchOptConfig(
             objective_weights=obj_w,
             outcome_constraints=out_c,
@@ -697,6 +712,7 @@ class TorchModelBridge(ModelBridge):
             rounding_func=rounding_func,
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
+            risk_measure=risk_measure,
         )
         return search_space_digest, torch_opt_config
 

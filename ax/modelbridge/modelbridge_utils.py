@@ -47,7 +47,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import (
@@ -128,9 +128,15 @@ def extract_risk_measure(risk_measure: RiskMeasure) -> RiskMeasureMCObjective:
         The corresponding `RiskMeasureMCObjective` object.
     """
     try:
-        return RISK_MEASURE_NAME_TO_CLASS[risk_measure.risk_measure](
+        risk_measure_class = RISK_MEASURE_NAME_TO_CLASS[risk_measure.risk_measure]
+        # Add dummy chebyshev weights to initialize MARS.
+        additional_options = (
+            {"chebyshev_weights": []} if risk_measure_class is MARS else {}
+        )
+        return risk_measure_class(
             # pyre-ignore Incompatible parameter type [6]
-            **risk_measure.options
+            **risk_measure.options,
+            **additional_options,
         )
     except (KeyError, RuntimeError, ValueError):
         raise UserInputError(
@@ -254,7 +260,7 @@ def extract_robust_digest(
     if not isinstance(search_space, RobustSearchSpace):
         return None
     dist_params = search_space._distributional_parameters
-    env_vars = search_space._environmental_variables
+    env_vars: Dict[str, Parameter] = search_space._environmental_variables
     pert_params = [p for p in dist_params if p not in env_vars]
     # Make sure all distributional parameters are in param_names.
     dist_idcs: Dict[str, int] = {}
@@ -264,9 +270,9 @@ def extract_robust_digest(
                 "All distributional parameters must be included in `param_names`."
             )
         dist_idcs[p_name] = param_names.index(p_name)
-    num_samples = search_space.num_samples
+    num_samples: int = search_space.num_samples
     if len(env_vars) > 0:
-        num_non_env_vars = len(param_names) - len(env_vars)
+        num_non_env_vars: int = len(param_names) - len(env_vars)
         env_idcs = {idx for p, idx in dist_idcs.items() if p in env_vars}
         if env_idcs != set(range(num_non_env_vars, len(param_names))):
             raise RuntimeError(
@@ -276,9 +282,6 @@ def extract_robust_digest(
         # NOTE: Extracting it from `param_names` in case the ordering is different.
         environmental_variables = param_names[num_non_env_vars:]
 
-        # pyre-fixme[53]: Captured variable `env_vars` is not annotated.
-        # pyre-fixme[53]: Captured variable `num_non_env_vars` is not annotated.
-        # pyre-fixme[53]: Captured variable `num_samples` is not annotated.
         def sample_environmental() -> np.ndarray:
             """Get samples from the environmental distributions.
 
@@ -302,11 +305,10 @@ def extract_robust_digest(
         environmental_variables = []
 
     if len(pert_params) > 0:
-        constructor = np.ones if search_space.multiplicative else np.zeros
+        constructor: Callable[[Tuple[int, int]], np.ndarray] = (
+            np.ones if search_space.multiplicative else np.zeros
+        )
 
-        # pyre-fixme[53]: Captured variable `constructor` is not annotated.
-        # pyre-fixme[53]: Captured variable `env_vars` is not annotated.
-        # pyre-fixme[53]: Captured variable `num_samples` is not annotated.
         def sample_param_perturbations() -> np.ndarray:
             """Get samples of the input perturbations.
 

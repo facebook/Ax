@@ -15,6 +15,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.base import Model as BaseModel
 from ax.models.types import TConfig
+from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
@@ -52,6 +53,7 @@ class TorchOptConfig:
         opt_config_metrics: A dictionary of metrics that are included in
             the optimization config.
         is_moo: A boolean denoting whether this is for an MOO problem.
+        risk_measure: An optional risk measure, used for robust optimization.
     """
 
     objective_weights: Tensor
@@ -64,6 +66,7 @@ class TorchOptConfig:
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None
     opt_config_metrics: Optional[Dict[str, Metric]] = None
     is_moo: bool = False
+    risk_measure: Optional[RiskMeasureMCObjective] = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,7 @@ class TorchModel(BaseModel):
 
     dtype: Optional[torch.dtype] = None
     device: Optional[torch.device] = None
+    _supports_robust_optimization: bool = False
 
     def fit(
         self,

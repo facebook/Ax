@@ -7,6 +7,7 @@
 from typing import Any, Dict, Optional
 
 from ax.core.search_space import SearchSpaceDigest
+from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
@@ -31,6 +32,10 @@ class MultiFidelityAcquisition(Acquisition):
         torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        if torch_opt_config.risk_measure is not None:  # pragma: no cover
+            raise UnsupportedError(
+                f"{self.__class__.__name__} does not support risk measures."
+            )
         target_fidelities = search_space_digest.target_fidelities
         if not target_fidelities:
             raise ValueError(  # pragma: no cover

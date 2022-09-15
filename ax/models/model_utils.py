@@ -18,6 +18,7 @@ from ax.core.types import TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
+from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 
 
 Tensoray = Union[torch.Tensor, np.ndarray]
@@ -234,6 +235,7 @@ def best_observed_point(
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    risk_measure: Optional[RiskMeasureMCObjective] = None,
     options: Optional[TConfig] = None,
 ) -> Optional[Tensoray]:
     """Select the best point that has been observed.
@@ -279,6 +281,7 @@ def best_observed_point(
             A x <= b.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
+        risk_measure: An optional risk measure for reporting best robust point.
         options: A config dictionary with settings described above.
 
     Returns:
@@ -294,6 +297,7 @@ def best_observed_point(
         outcome_constraints=outcome_constraints,
         linear_constraints=linear_constraints,
         fixed_features=fixed_features,
+        risk_measure=risk_measure,
         options=options,
     )
     return None if best_point_and_value is None else best_point_and_value[0]
@@ -307,6 +311,7 @@ def best_in_sample_point(
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    risk_measure: Optional[RiskMeasureMCObjective] = None,
     options: Optional[TConfig] = None,
 ) -> Optional[Tuple[Tensoray, float]]:
     """Select the best point that has been observed.
@@ -353,6 +358,7 @@ def best_in_sample_point(
             A x <= b.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
+        risk_measure: An optional risk measure for reporting best robust point.
         options: A config dictionary with settings described above.
 
     Returns:
@@ -360,6 +366,11 @@ def best_in_sample_point(
         - d-array of the best point,
         - utility at the best point.
     """
+    if risk_measure is not None:
+        # TODO[T131759268]: We need to apply the risk measure. Instead of doing obj_w @,
+        # we could use `get_botorch_objective_and_transform` to get the objective
+        # then apply it, though we also need to decide how to deal with constraints.
+        raise NotImplementedError  # pragma: no cover
     # Parse options
     if options is None:
         options = {}
