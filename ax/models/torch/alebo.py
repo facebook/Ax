@@ -41,6 +41,7 @@ from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import postprocess_rbf
 from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from linear_operator.operators import LinearOperator
 from scipy.optimize import approx_fprime
 from torch import Tensor
 
@@ -94,7 +95,7 @@ class ALEBOKernel(Kernel):
         diag: bool = False,
         last_dim_is_batch: bool = False,
         **params: Any,
-    ) -> Tensor:
+    ) -> Union[Tensor, LinearOperator]:
         """Compute kernel distance."""
         # Unpack Uvec into an upper triangular matrix U
         shapeU = self.Uvec.shape[:-1] + torch.Size([self.d, self.d])
