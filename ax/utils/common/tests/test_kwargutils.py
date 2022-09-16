@@ -5,32 +5,29 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import Callable, Dict
+from logging import Logger
+from typing import Callable, Dict, Optional
 from unittest.mock import patch
 
 from ax.utils.common.kwargs import validate_kwarg_typing, warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 
-# pyre-fixme[5]: Global expression must be annotated.
-logger = get_logger("ax.utils.common.kwargs")
+logger: Logger = get_logger("ax.utils.common.kwargs")
 
 
 class TestKwargUtils(TestCase):
     def test_validate_kwarg_typing(self) -> None:
-        # pyre-fixme[9]: arg2 has type `str`; used as `None`.
-        def typed_callable(arg1: int, arg2: str = None) -> None:
+        def typed_callable(arg1: int, arg2: Optional[str] = None) -> None:
             pass
 
         def typed_callable_with_dict(arg3: int, arg4: Dict[str, int]) -> None:
             pass
 
-        # pyre-fixme[9]: arg4 has type `str`; used as `None`.
-        def typed_callable_valid(arg3: int, arg4: str = None) -> None:
+        def typed_callable_valid(arg3: int, arg4: Optional[str] = None) -> None:
             pass
 
-        # pyre-fixme[9]: arg4 has type `str`; used as `None`.
-        def typed_callable_dup_keyword(arg2: int, arg4: str = None) -> None:
+        def typed_callable_dup_keyword(arg2: int, arg4: Optional[str] = None) -> None:
             pass
 
         def typed_callable_with_callable(
@@ -124,8 +121,7 @@ class TestWarnOnKwargs(TestCase):
     def test_it_warns_if_kwargs_are_passed(self) -> None:
         with patch.object(logger, "warning") as mock_warning:
 
-            # pyre-fixme[3]: Return type must be annotated.
-            def callable_arg():
+            def callable_arg() -> None:
                 return
 
             warn_on_kwargs(callable_with_kwargs=callable_arg, foo="")
