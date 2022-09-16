@@ -13,7 +13,7 @@ from ax.models.torch.botorch import BotorchModel
 from ax.models.torch_base import TorchModel
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual import SACGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -92,7 +92,7 @@ class SACBO(BotorchModel):
             Yvar = Yvars[i].clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
             gp_m = SACGP(X, Ys[i], Yvar, decomp_index)
             mll = ExactMarginalLogLikelihood(gp_m.likelihood, gp_m)
-            fit_gpytorch_model(mll)
+            fit_gpytorch_mll(mll)
             models.append(gp_m)
 
         if len(models) == 1:

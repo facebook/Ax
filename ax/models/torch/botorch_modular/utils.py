@@ -21,7 +21,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
-from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_model
+from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -273,7 +273,7 @@ def fit_botorch_model(
         elif isinstance(m, (GPyTorchModel, PairwiseGP)):
             mll_options = mll_options or {}
             mll = mll_class(likelihood=m.likelihood, model=m, **mll_options)
-            fit_gpytorch_model(mll)
+            fit_gpytorch_mll(mll)
         else:
             raise NotImplementedError(
                 f"Model of type {m.__class__.__name__} is currently not supported."
