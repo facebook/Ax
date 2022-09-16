@@ -29,12 +29,10 @@ def get_modelbridge() -> ModelBridge:
 
 
 class SensitivityAnanlysisTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.model = get_modelbridge().model.model
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDgsmGpMean(self):
+    def testDgsmGpMean(self) -> None:
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_mean = GpDGSMGpMean(self.model, bounds=bounds, num_mc_samples=10)
         gradients_measure = sensitivity_mean.gradient_measure()
@@ -62,8 +60,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 3]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 3]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDgsmGpSampling(self):
+    def testDgsmGpSampling(self) -> None:
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_sampling = GpDGSMGpSampling(
             self.model, bounds=bounds, num_mc_samples=10, num_gp_samples=10
@@ -99,8 +96,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 5]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 5]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSobolGpMean(self):
+    def testSobolGpMean(self) -> None:
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_mean = SobolSensitivityGPMean(
             self.model, num_mc_samples=10, bounds=bounds, second_order=True
@@ -140,8 +136,7 @@ class SensitivityAnanlysisTest(TestCase):
             total_order = sensitivity_mean.total_order_indices()
             second_order = sensitivity_mean.second_order_indices()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSobolGpSampling(self):
+    def testSobolGpSampling(self) -> None:
         bounds = torch.tensor([(0, 1) for _ in range(2)]).t()
         sensitivity_sampling = SobolSensitivityGPSampling(
             self.model,
@@ -190,8 +185,7 @@ class SensitivityAnanlysisTest(TestCase):
             total_order = sensitivity_sampling.total_order_indices()
             second_order = sensitivity_sampling.second_order_indices()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDerivativeGp(self):
+    def testDerivativeGp(self) -> None:
         test_x = torch.rand(2, 2)
         posterior = posterior_derivative(self.model, test_x, kernel_type="matern_l1")
         self.assertIsInstance(posterior, MultivariateNormal)

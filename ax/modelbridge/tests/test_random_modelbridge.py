@@ -22,8 +22,7 @@ from ax.utils.testing.core_stubs import get_small_discrete_search_space
 
 
 class RandomModelBridgeTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
         y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
@@ -140,8 +139,7 @@ class RandomModelBridgeTest(TestCase):
         self.assertIsNone(gen_args["linear_constraints"])
         self.assertIsNone(gen_args["fixed_features"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_deduplicate(self):
+    def test_deduplicate(self) -> None:
         sobol = RandomModelBridge(
             search_space=get_small_discrete_search_space(),
             model=SobolGenerator(deduplicate=True),

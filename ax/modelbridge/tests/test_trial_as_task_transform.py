@@ -17,8 +17,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TrialAsTaskTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -66,8 +65,7 @@ class TrialAsTaskTransformTest(TestCase):
             config={"trial_level_map": {}},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(
             self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
         )
@@ -92,8 +90,7 @@ class TrialAsTaskTransformTest(TestCase):
                 config={"trial_level_map": bm},
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
         obs_ft_trans1 = [
@@ -120,8 +117,7 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft4 = self.t3.untransform_observation_features(obs_ft4)
         self.assertEqual(obs_ft4, self.training_feats)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "TRIAL_PARAM"})
@@ -145,8 +141,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(set(p.values), {"u1", "u2"})
         self.assertTrue(p.is_task)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_robust_search_space(self):
+    def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()
         # Raises an error in __init__.
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):

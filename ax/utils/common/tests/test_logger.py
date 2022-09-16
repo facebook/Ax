@@ -16,12 +16,10 @@ BASE_LOGGER_NAME = f"ax.{__name__}"
 
 
 class LoggerTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.warning_string = "Test warning"
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLogger(self):
+    def testLogger(self) -> None:
         logger = get_logger(BASE_LOGGER_NAME + ".testLogger")
         # Verify it doesn't crash
         logger.warning(self.warning_string)
@@ -35,8 +33,7 @@ class LoggerTest(TestCase):
         # onto the python logger directly.
         patcher.stop()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLoggerWithFile(self):
+    def testLoggerWithFile(self) -> None:
         with NamedTemporaryFile() as tf:
             logger = get_logger(BASE_LOGGER_NAME + ".testLoggerWithFile")
             logger.addHandler(build_file_handler(tf.name))
@@ -46,8 +43,7 @@ class LoggerTest(TestCase):
             self.assertIn(self.warning_string, output)
             tf.close()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLoggerOutputNameWithFile(self):
+    def testLoggerOutputNameWithFile(self) -> None:
         with NamedTemporaryFile() as tf:
             logger = get_logger(BASE_LOGGER_NAME + ".testLoggerOutputNameWithFile")
             logger.addHandler(build_file_handler(tf.name))

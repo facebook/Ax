@@ -563,22 +563,18 @@ class BotorchModelTest(TestCase):
                 torch_opt_config=torch_opt_config,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchModel_cuda(self):
+    def test_BotorchModel_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_BotorchModel(cuda=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchModel_double(self):
+    def test_BotorchModel_double(self) -> None:
         self.test_BotorchModel(dtype=torch.double)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchModel_double_cuda(self):
+    def test_BotorchModel_double_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_BotorchModel(dtype=torch.double, cuda=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchModelOneOutcome(self):
+    def test_BotorchModelOneOutcome(self) -> None:
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -619,8 +615,7 @@ class BotorchModelTest(TestCase):
             else:
                 self.assertFalse(hasattr(model.model, "input_transform"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchModelConstraints(self):
+    def test_BotorchModelConstraints(self) -> None:
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -658,8 +653,7 @@ class BotorchModelTest(TestCase):
                 torch_opt_config=TorchOptConfig(objective_weights),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_botorchmodel_raises_when_no_data(self):
+    def test_botorchmodel_raises_when_no_data(self) -> None:
         _, _, _, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )

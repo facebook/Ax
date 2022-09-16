@@ -315,8 +315,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 )
                 self.assertTrue(predicted_hv >= 0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_hypervolume_cuda(self):
+    def test_hypervolume_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_hypervolume(cuda=True)
 
@@ -516,8 +515,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_status_quo_for_non_monolithic_data(self):
+    def test_status_quo_for_non_monolithic_data(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_status_quo=True)
         sobol_generator = get_sobol(
             search_space=exp.search_space,
@@ -541,8 +539,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `arm_name`.
         self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_point(self):
+    def test_best_point(self) -> None:
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )

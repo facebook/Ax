@@ -16,8 +16,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 # TODO (jej): Streamline testing for a simple acquisition function.
 class PosteriorMeanTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
         #  `Union[device, dtype]`.
@@ -39,8 +38,7 @@ class PosteriorMeanTest(TestCase):
             bounds=self.bounds,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_GetPosteriorMean(self):
+    def test_GetPosteriorMean(self) -> None:
 
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = BotorchModel(acqf_constructor=get_PosteriorMean)

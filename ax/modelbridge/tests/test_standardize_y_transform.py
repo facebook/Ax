@@ -20,8 +20,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class StandardizeYTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
@@ -46,8 +45,7 @@ class StandardizeYTransformTest(TestCase):
             observations=[obs1, obs2],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
@@ -56,8 +54,7 @@ class StandardizeYTransformTest(TestCase):
                 observations=[],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservations(self):
+    def testTransformObservations(self) -> None:
         obsd1_t = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, sqrt(3 / 4), -sqrt(3 / 4)]),
@@ -75,8 +72,7 @@ class StandardizeYTransformTest(TestCase):
         obsd2 = self.t._untransform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformOptimizationConfig(self):
+    def testTransformOptimizationConfig(self) -> None:
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")
         m3 = Metric(name="m3")

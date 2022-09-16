@@ -13,8 +13,7 @@ from botorch.test_functions.synthetic import Ackley
 
 
 class TestBenchmarkProblem(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_single_objective_from_botorch(self):
+    def test_single_objective_from_botorch(self) -> None:
         test_problem = Ackley()
         ackley_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
             test_problem=test_problem, num_trials=1
@@ -48,8 +47,7 @@ class TestBenchmarkProblem(TestCase):
         # Test optimum
         self.assertEqual(ackley_problem.optimal_value, test_problem._optimal_value)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_moo_from_botorch(self):
+    def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
         branin_currin_problem = (
             MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(

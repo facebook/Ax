@@ -16,15 +16,13 @@ class TestInstantiationtUtils(TestCase):
     """Testing the instantiation utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_parameter_type_validation(self):
+    def test_parameter_type_validation(self) -> None:
         with self.assertRaisesRegex(ValueError, "No AE parameter type"):
             # pyre-fixme[6]: For 1st param expected `Union[Type[bool], Type[float],
             #  Type[int], Type[str]]` but got `Type[list]`.
             InstantiationBase._get_parameter_type(list)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_constraint_from_str(self):
+    def test_constraint_from_str(self) -> None:
         with self.assertRaisesRegex(ValueError, "Bound for the constraint"):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 <= not_numerical_bound",
@@ -112,8 +110,7 @@ class TestInstantiationtUtils(TestCase):
                 {"x1": None, "x2": None, "x3": None},
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_objective_validation(self):
+    def test_objective_validation(self) -> None:
         with self.assertRaisesRegex(UnsupportedError, "Ambiguous objective definition"):
             InstantiationBase.make_experiment(
                 # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
@@ -125,8 +122,7 @@ class TestInstantiationtUtils(TestCase):
                 objectives={"branin": "minimize", "currin": "maximize"},
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_add_tracking_metrics(self):
+    def test_add_tracking_metrics(self) -> None:
         experiment = InstantiationBase.make_experiment(
             # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
             #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
@@ -149,8 +145,7 @@ class TestInstantiationtUtils(TestCase):
             {metric_name: Metric(name=metric_name) for metric_name in metrics_names},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_make_objectives(self):
+    def test_make_objectives(self) -> None:
         with self.assertRaisesRegex(ValueError, "specify 'minimize' or 'maximize'"):
             InstantiationBase.make_objectives({"branin": "unknown"})
         objectives = InstantiationBase.make_objectives(
@@ -161,8 +156,7 @@ class TestInstantiationtUtils(TestCase):
         currin_metric = [o.minimize for o in objectives if o.metric.name == "currin"]
         self.assertFalse(currin_metric[0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_make_optimization_config(self):
+    def test_make_optimization_config(self) -> None:
         objectives = {"branin": "minimize", "currin": "maximize"}
         objective_thresholds = ["branin <= 0", "currin >= 0"]
         with self.subTest("Single-objective optimizations with objective thresholds"):
@@ -206,8 +200,7 @@ class TestInstantiationtUtils(TestCase):
             )
             self.assertEqual(single_optimization_config.objective.metric.name, "branin")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_single_valued_choice_to_fixed_param_conversion(self):
+    def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
         representation = {
             "name": "test",
             "type": "choice",
@@ -221,8 +214,7 @@ class TestInstantiationtUtils(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `value`.
         self.assertEqual(output.value, 1.0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_hss(self):
+    def test_hss(self) -> None:
         parameter_dicts = [
             {
                 "name": "root",
@@ -262,8 +254,7 @@ class TestInstantiationtUtils(TestCase):
 
 
 class TestRawDataToEvaluation(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_raw_data_is_not_dict_of_dicts(self):
+    def test_raw_data_is_not_dict_of_dicts(self) -> None:
         with self.assertRaises(ValueError):
             InstantiationBase.raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
@@ -271,8 +262,7 @@ class TestRawDataToEvaluation(TestCase):
                 metric_names=["objective_a"],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_converts_to_floats_in_dict_and_leaves_tuples(self):
+    def test_it_converts_to_floats_in_dict_and_leaves_tuples(self) -> None:
         result = InstantiationBase.raw_data_to_evaluation(
             # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[Unio...
             raw_data={
@@ -289,8 +279,7 @@ class TestRawDataToEvaluation(TestCase):
         # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
         self.assertEqual(result["objective_c"], ("some", "tuple"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_dict_entries_must_be_int_float_or_tuple(self):
+    def test_dict_entries_must_be_int_float_or_tuple(self) -> None:
         with self.assertRaises(ValueError):
             InstantiationBase.raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
@@ -298,16 +287,14 @@ class TestRawDataToEvaluation(TestCase):
                 metric_names=["objective_a"],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_requires_a_dict_for_multi_objectives(self):
+    def test_it_requires_a_dict_for_multi_objectives(self) -> None:
         with self.assertRaises(ValueError):
             InstantiationBase.raw_data_to_evaluation(
                 raw_data=(6.0, None),
                 metric_names=["objective_a", "objective_b"],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_accepts_a_list_for_single_objectives(self):
+    def test_it_accepts_a_list_for_single_objectives(self) -> None:
         raw_data = [({"arm__0": {}}, {"objective_a": (1.4, None)})]
         result = InstantiationBase.raw_data_to_evaluation(
             # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[Unio...
@@ -316,8 +303,7 @@ class TestRawDataToEvaluation(TestCase):
         )
         self.assertEqual(raw_data, result)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_turns_a_tuple_into_a_dict(self):
+    def test_it_turns_a_tuple_into_a_dict(self) -> None:
         raw_data = (1.4, None)
         result = InstantiationBase.raw_data_to_evaluation(
             raw_data=raw_data,
@@ -326,8 +312,7 @@ class TestRawDataToEvaluation(TestCase):
         # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
         self.assertEqual(result["objective_a"], raw_data)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_turns_an_int_into_a_dict_of_tuple(self):
+    def test_it_turns_an_int_into_a_dict_of_tuple(self) -> None:
         result = InstantiationBase.raw_data_to_evaluation(
             raw_data=1,
             metric_names=["objective_a"],
@@ -335,8 +320,7 @@ class TestRawDataToEvaluation(TestCase):
         # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
         self.assertEqual(result["objective_a"], (1.0, None))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_turns_a_float_into_a_dict_of_tuple(self):
+    def test_it_turns_a_float_into_a_dict_of_tuple(self) -> None:
         result = InstantiationBase.raw_data_to_evaluation(
             raw_data=1.6,
             metric_names=["objective_a"],
@@ -344,8 +328,7 @@ class TestRawDataToEvaluation(TestCase):
         # pyre-fixme[16]: Item `float` of `Union[Dict[str, typing.Union[typing.Tuple[...
         self.assertEqual(result["objective_a"], (1.6, None))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_raises_for_unexpected_types(self):
+    def test_it_raises_for_unexpected_types(self) -> None:
         with self.assertRaises(ValueError):
             InstantiationBase.raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...

@@ -19,8 +19,7 @@ Objective(metric_name="m3", minimize=False)])
 
 
 class ObjectiveTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.metrics = {
             "m1": Metric(name="m1"),
             "m2": Metric(name="m2", lower_is_better=True),
@@ -43,8 +42,7 @@ class ObjectiveTest(TestCase):
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         with self.assertRaises(ValueError):
             ScalarizedObjective(
                 metrics=[self.metrics["m1"], self.metrics["m2"]], weights=[1.0]
@@ -67,9 +65,9 @@ class ObjectiveTest(TestCase):
             self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMultiObjective(self):
+    def testMultiObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
+            # pyre-fixme[7]: Expected `None` but got `Metric`.
             return self.multi_objective.metric
 
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
@@ -92,8 +90,7 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMultiObjectiveBackwardsCompatibility(self):
+    def testMultiObjectiveBackwardsCompatibility(self) -> None:
         multi_objective = MultiObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
         )
@@ -108,9 +105,9 @@ class ObjectiveTest(TestCase):
         minimizes = [obj.minimize for obj in multi_objective_min.objectives]
         self.assertEqual(minimizes, [True, False, True])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testScalarizedObjective(self):
+    def testScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
+            # pyre-fixme[7]: Expected `None` but got `Metric`.
             return self.scalarized_objective.metric
 
         self.assertEqual(

@@ -23,8 +23,7 @@ class DummyEnum(Enum):
 
 
 class SklearnMetricTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSklearnMetric(self):
+    def testSklearnMetric(self) -> None:
         # test not implemented dataset
         with self.assertRaises(NotImplementedError):
             SklearnMetric(

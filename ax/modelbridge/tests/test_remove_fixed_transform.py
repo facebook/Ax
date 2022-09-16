@@ -20,8 +20,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class RemoveFixedTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -38,12 +37,10 @@ class RemoveFixedTransformTest(TestCase):
             observations=[],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
         ]
@@ -65,14 +62,12 @@ class RemoveFixedTransformTest(TestCase):
         with self.assertRaises(ValueError):
             self.t.transform_observation_features(observation_features_invalid)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters.get("c"), None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         rss.add_parameter(
             FixedParameter("d", parameter_type=ParameterType.STRING, value="a"),

@@ -15,8 +15,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class TaskEncodeTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -41,12 +40,10 @@ class TaskEncodeTransformTest(TestCase):
             observations=[],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "b": 10.0, "c": "online"})
         ]
@@ -64,8 +61,7 @@ class TaskEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -98,8 +94,7 @@ class TaskEncodeTransformTest(TestCase):
                 observations=[],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # pyre-fixme[16]: `Parameter` has no attribute `_is_task`.
         rss.parameters["c"]._is_task = True

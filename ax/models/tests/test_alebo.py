@@ -30,8 +30,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class ALEBOTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testALEBOKernel(self):
+    def testALEBOKernel(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
@@ -60,8 +59,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.equal(K, Ktrue))
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testALEBOGP(self):
+    def testALEBOGP(self) -> None:
         # First non-batch
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
@@ -162,8 +160,7 @@ class ALEBOTest(TestCase):
                 map_sds[i]["covar_module.base_kernel.Uvec"].shape, torch.Size([3])
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAcq(self):
+    def testAcq(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
@@ -267,8 +264,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.allclose(Z, X[:, 0, :]))
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testALEBO(self):
+    def testALEBO(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )

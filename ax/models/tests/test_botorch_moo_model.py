@@ -85,12 +85,10 @@ def _get_torch_test_data(
 
 
 class BotorchMOOModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchMOOModel_double(self):
+    def test_BotorchMOOModel_double(self) -> None:
         self.test_BotorchMOOModel_with_random_scalarization(dtype=torch.double)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchMOOModel_cuda(self):
+    def test_BotorchMOOModel_cuda(self) -> None:
         if torch.cuda.is_available():
             for dtype in (torch.float, torch.double):
                 self.test_BotorchMOOModel_with_random_scalarization(
@@ -111,8 +109,7 @@ class BotorchMOOModelTest(TestCase):
                     dtype=dtype, cuda=True, use_qnehvi=True
                 )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_BotorchMOOModel_with_qnehvi(self):
+    def test_BotorchMOOModel_with_qnehvi(self) -> None:
         for dtype in (torch.float, torch.double):
             self.test_BotorchMOOModel_with_qehvi(dtype=dtype, use_qnehvi=True)
             self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(

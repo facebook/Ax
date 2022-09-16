@@ -14,8 +14,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class PercentileYTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([0.0, 0.0]),
@@ -61,13 +60,11 @@ class PercentileYTransformTest(TestCase):
             config={"winsorize": True},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         with self.assertRaises(DataRequiredError):
             PercentileY(search_space=None, observations=[])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservations(self):
+    def testTransformObservations(self) -> None:
         self.assertListEqual(self.t.percentiles["m1"], [0.0, 1.0, 2.0, 3.0])
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])
 
@@ -103,8 +100,7 @@ class PercentileYTransformTest(TestCase):
             msg=f"Unexpected covariance Result: {cov_results}. Expected all nans.",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationsWithWinsorization(self):
+    def testTransformObservationsWithWinsorization(self) -> None:
         self.assertListEqual(self.t.percentiles["m1"], [0.0, 1.0, 2.0, 3.0])
         self.assertListEqual(self.t.percentiles["m2"], [0.0, 5.0, 25.0, 125.0])
         transformed_obsd_mid = self.t_with_winsorization._transform_observation_data(

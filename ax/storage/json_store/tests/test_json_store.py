@@ -198,12 +198,10 @@ TEST_CASES = [
 
 
 class JSONStoreTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = get_experiment_with_batch_and_single_trial()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testJSONEncodeFailure(self):
+    def testJSONEncodeFailure(self) -> None:
         with self.assertRaises(JSONEncodeError):
             object_to_json(
                 obj=RuntimeError("foobar"),
@@ -211,8 +209,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testJSONDecodeFailure(self):
+    def testJSONDecodeFailure(self) -> None:
         self.assertRaises(
             JSONDecodeError,
             object_from_json,
@@ -228,8 +225,7 @@ class JSONStoreTest(TestCase):
             CORE_CLASS_DECODER_REGISTRY,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSaveAndLoad(self):
+    def testSaveAndLoad(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
             save_experiment(
                 self.experiment,
@@ -245,8 +241,7 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSaveValidation(self):
+    def testSaveValidation(self) -> None:
         with self.assertRaises(ValueError):
             save_experiment(
                 self.experiment.trials[0],
@@ -255,8 +250,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testValidateFilename(self):
+    def testValidateFilename(self) -> None:
         bad_filename = "test"
         self.assertRaises(
             ValueError,
@@ -267,8 +261,7 @@ class JSONStoreTest(TestCase):
             CORE_CLASS_ENCODER_REGISTRY,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecode(self):
+    def testEncodeDecode(self) -> None:
         for class_, fake_func in TEST_CASES:
             # Can't load trials from JSON, because a batch needs an experiment
             # in order to be initialized
@@ -315,8 +308,7 @@ class JSONStoreTest(TestCase):
                 msg=f"Error encoding/decoding {class_}.",
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecodeTorchTensor(self):
+    def testEncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
         )
@@ -339,8 +331,7 @@ class JSONStoreTest(TestCase):
         )
         self.assertTrue(torch.equal(x, x2))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDecodeGenerationStrategy(self):
+    def testDecodeGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy()
         experiment = get_branin_experiment()
         gs_json = object_to_json(
@@ -402,8 +393,7 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecodeNumpy(self):
+    def testEncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
         self.assertTrue(
             np.array_equal(
@@ -420,8 +410,7 @@ class JSONStoreTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRegistryAdditions(self):
+    def testRegistryAdditions(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -461,8 +450,7 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRegistryBundle(self):
+    def testRegistryBundle(self) -> None:
         class MyMetric(Metric):
             pass
 
@@ -493,12 +481,11 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeUnknownClassToDict(self):
+    def testEncodeUnknownClassToDict(self) -> None:
         # Cannot encode `UnknownClass` type because it is not registered in the
         # CLASS_ENCODER_REGISTRY.
         class UnknownClass:
-            def __init__(self):
+            def __init__(self) -> None:
                 pass
 
         with self.assertRaisesRegex(
@@ -523,16 +510,14 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDecodeUnknownClassFromJson(self):
+    def testDecodeUnknownClassFromJson(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
             "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBadStateDict(self):
+    def testBadStateDict(self) -> None:
         interval = get_interval()
         # pyre-fixme[6]: For 1st param expected `Type[typing.Any]` but got `Interval`.
         expected_json = botorch_component_to_dict(interval)

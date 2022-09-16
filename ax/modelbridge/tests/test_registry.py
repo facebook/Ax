@@ -48,8 +48,7 @@ from botorch.models.gp_regression import FixedNoiseGP
 
 class ModelRegistryTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_botorch_modular(self):
+    def test_botorch_modular(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
         gpei = Models.BOTORCH_MODULAR(
@@ -74,8 +73,7 @@ class ModelRegistryTest(TestCase):
         self.assertIsNotNone(gr.best_arm_predictions)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_sobol_GPEI(self):
+    def test_enum_sobol_GPEI(self) -> None:
         """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
@@ -142,8 +140,7 @@ class ModelRegistryTest(TestCase):
         )
         self.assertIsInstance(gpei, TorchModelBridge)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_model_kwargs(self):
+    def test_enum_model_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
         Models enum."""
         exp = get_branin_experiment()
@@ -155,8 +152,7 @@ class ModelRegistryTest(TestCase):
             sobol_run = sobol.gen(1)
             exp.new_batch_trial().add_generator_run(sobol_run).run()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_factorial(self):
+    def test_enum_factorial(self) -> None:
         """Tests factorial instantiation through the Models enum."""
         exp = get_factorial_experiment()
         factorial = Models.FACTORIAL(exp.search_space)
@@ -164,8 +160,7 @@ class ModelRegistryTest(TestCase):
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_empirical_bayes_thompson(self):
+    def test_enum_empirical_bayes_thompson(self) -> None:
         """Tests EB/TS instantiation through the Models enum."""
         exp = get_factorial_experiment()
         factorial = Models.FACTORIAL(exp.search_space)
@@ -181,8 +176,7 @@ class ModelRegistryTest(TestCase):
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_thompson(self):
+    def test_enum_thompson(self) -> None:
         """Tests TS instantiation through the Models enum."""
         exp = get_factorial_experiment()
         factorial = Models.FACTORIAL(exp.search_space)
@@ -193,8 +187,7 @@ class ModelRegistryTest(TestCase):
         thompson = Models.THOMPSON(experiment=exp, data=data)
         self.assertIsInstance(thompson.model, ThompsonSampler)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_enum_uniform(self):
+    def test_enum_uniform(self) -> None:
         """Tests uniform random instantiation through the Models enum."""
         exp = get_branin_experiment()
         uniform = Models.UNIFORM(exp.search_space)
@@ -202,8 +195,7 @@ class ModelRegistryTest(TestCase):
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_view_defaults(self):
+    def test_view_defaults(self) -> None:
         """Checks that kwargs are correctly constructed from default kwargs +
         standard kwargs."""
         self.assertEqual(
@@ -251,8 +243,7 @@ class ModelRegistryTest(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_model_from_generator_run(self):
+    def test_get_model_from_generator_run(self) -> None:
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
         """
@@ -315,8 +306,7 @@ class ModelRegistryTest(TestCase):
                 continue
             self.assertEqual(original, restored)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ModelSetups_do_not_share_kwargs(self):
+    def test_ModelSetups_do_not_share_kwargs(self) -> None:
         """Tests that none of the preset model and bridge combinations share a
         kwarg.
         """
@@ -329,8 +319,7 @@ class ModelRegistryTest(TestCase):
             self.assertEqual(model_args & bridge_args, set())
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ST_MTGP(self):
+    def test_ST_MTGP(self) -> None:
         """Tests single type MTGP instantiation."""
         # Test Single-type MTGP
         exp = get_branin_experiment()
@@ -375,8 +364,7 @@ class ModelRegistryTest(TestCase):
             )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ALEBO(self):
+    def test_ALEBO(self) -> None:
         """Tests Alebo fitting and generations"""
         experiment = get_branin_experiment(with_batch=True)
         B = np.array([[1.0, 2.0]])
@@ -400,8 +388,7 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(m.model, ALEBO)
         self.assertTrue(np.array_equal(m.model.B.numpy(), B))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ALEBO_Initializer(self):
+    def test_ALEBO_Initializer(self) -> None:
         """Tests Alebo Initializer generations"""
         experiment = get_branin_experiment(with_batch=True)
         B = np.array([[1.0, 2.0]])
@@ -417,8 +404,7 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(len(gr.arms), 2)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ST_MTGP_NEHVI(self):
+    def test_ST_MTGP_NEHVI(self) -> None:
         """Tests single type MTGP NEHVI instantiation."""
         multi_obj_exp = get_branin_experiment_with_multi_objective(
             with_batch=True,

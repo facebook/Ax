@@ -17,8 +17,7 @@ from botorch.test_functions import synthetic as botorch_synthetic
 
 
 class TestSyntheticFunctions(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_branin(self):
+    def test_branin(self) -> None:
         self.assertEqual(branin.name, "Branin")
         self.assertAlmostEqual(branin(1, 2), 21.62763539206238)
         self.assertAlmostEqual(branin(x1=1, x2=2), 21.62763539206238)
@@ -37,8 +36,7 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(ValueError, "Synthetic function call"):
             branin(np.array([[[1, 3]]]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_hartmann6(self):
+    def test_hartmann6(self) -> None:
         self.assertEqual(hartmann6.name, "Hartmann6")
         self.assertAlmostEqual(hartmann6(1, 2, 3, 4, 5, 6), 0.0)
         self.assertAlmostEqual(hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6), 0.0)
@@ -57,8 +55,7 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "Hartmann6 does not specify"):
             hartmann6.maximums
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_aug_hartmann6(self):
+    def test_aug_hartmann6(self) -> None:
         self.assertEqual(aug_hartmann6.name, "Aug_Hartmann6")
         self.assertAlmostEqual(aug_hartmann6(1, 2, 3, 4, 5, 6, 1), 0.0)
         self.assertAlmostEqual(
@@ -81,8 +78,7 @@ class TestSyntheticFunctions(TestCase):
         ):
             aug_hartmann6.maximums
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_aug_branin(self):
+    def test_aug_branin(self) -> None:
         self.assertEqual(aug_branin.name, "Aug_Branin")
         self.assertAlmostEqual(aug_branin(1, 2, 1), 21.62763539206238)
         self.assertAlmostEqual(aug_branin(x1=1, x2=2, x3=1), 21.62763539206238)
@@ -104,8 +100,7 @@ class TestSyntheticFunctions(TestCase):
         with self.assertRaisesRegex(ValueError, "Synthetic function call"):
             aug_branin(np.array([[[1, 3, 1]]]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_botorch_ackley(self):
+    def test_botorch_ackley(self) -> None:
         ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
         self.assertEqual(ackley.name, "FromBotorch_Ackley")
         self.assertAlmostEqual(ackley(1.0, 2.0), 5.422131717799505)

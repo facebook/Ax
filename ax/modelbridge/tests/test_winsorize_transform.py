@@ -35,8 +35,7 @@ from ax.utils.testing.core_stubs import get_optimization_config
 
 
 class WinsorizeTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, 0.0, 1.0]),
@@ -133,8 +132,7 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
         self.assertEqual(self.t1.cutoffs["m1"], (-float("inf"), 1.0))
@@ -166,8 +164,7 @@ class WinsorizeTransformTest(TestCase):
                 config={"optimization_config": 1234},
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservations(self):
+    def testTransformObservations(self) -> None:
         observation_data = self.t1._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -185,15 +182,13 @@ class WinsorizeTransformTest(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInitPercentileBounds(self):
+    def testInitPercentileBounds(self) -> None:
         self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
         self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
         self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
         self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationsPercentileBounds(self):
+    def testTransformObservationsPercentileBounds(self) -> None:
         observation_data = self.t3._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -211,8 +206,7 @@ class WinsorizeTransformTest(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationsDifferentLowerUpper(self):
+    def testTransformObservationsDifferentLowerUpper(self) -> None:
         observation_data = self.t5._transform_observation_data([deepcopy(self.obsd2)])[
             0
         ]
@@ -233,8 +227,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(self.t6.cutoffs["m2"], (0.0, float("inf")))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_optimization_config_default(self):
+    def test_optimization_config_default(self) -> None:
         # Specify the winsorization
         optimization_config = get_optimization_config()
         percentiles = get_default_transform_cutoffs(
@@ -251,14 +244,12 @@ class WinsorizeTransformTest(TestCase):
         ):
             get_default_transform_cutoffs(optimization_config=optimization_config)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_tukey_cutoffs(self):
+    def test_tukey_cutoffs(self) -> None:
         Y = np.array([-100, 0, 1, 2, 50])
         self.assertEqual(_get_tukey_cutoffs(Y=Y, lower=True), -3.0)
         self.assertEqual(_get_tukey_cutoffs(Y=Y, lower=False), 5.0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_winsorize_outcome_constraints(self):
+    def test_winsorize_outcome_constraints(self) -> None:
         metric_values = [-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]
         ma, mb = Metric(name="a"), Metric(name="b")
         outcome_constraint_leq = OutcomeConstraint(
@@ -306,8 +297,7 @@ class WinsorizeTransformTest(TestCase):
         )
         self.assertEqual(cutoffs, (-6.5, 13.5))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_winsorization_single_objective(self):
+    def test_winsorization_single_objective(self) -> None:
         metric_values = [-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
             # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
@@ -322,8 +312,7 @@ class WinsorizeTransformTest(TestCase):
         )
         self.assertEqual(cutoffs, (-6.5, float("inf")))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_winsorization_without_optimization_config(self):
+    def test_winsorization_without_optimization_config(self) -> None:
         means = np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50])
         obsd = ObservationData(
             metric_names=["m1"] * 10,
@@ -379,8 +368,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 13.5))
         self.assertEqual(transform.cutoffs["m2"], (0.0, float("inf")))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_winsorization_with_optimization_config(self):
+    def test_winsorization_with_optimization_config(self) -> None:
         obsd_1 = ObservationData(
             metric_names=["m1"] * 10,
             means=np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50]),

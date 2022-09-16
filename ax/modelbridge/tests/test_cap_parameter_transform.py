@@ -13,8 +13,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class CapParameterTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -26,8 +25,7 @@ class CapParameterTest(TestCase):
             ]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_transform_search_space(self):
+    def test_transform_search_space(self) -> None:
         t = CapParameter(
             search_space=self.search_space,
             observations=[],
@@ -44,8 +42,7 @@ class CapParameterTest(TestCase):
         with self.assertRaises(NotImplementedError):
             t2.transform_search_space(self.search_space)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
         t = CapParameter(

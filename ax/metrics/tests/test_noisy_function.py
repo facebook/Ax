@@ -12,8 +12,7 @@ from ax.utils.testing.core_stubs import get_trial
 
 
 class GenericNoisyFunctionMetricTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGenericNoisyFunctionMetric(self):
+    def testGenericNoisyFunctionMetric(self) -> None:
         # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def f(params):

@@ -26,8 +26,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class UtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.df = pd.DataFrame(
             [
                 {
@@ -110,14 +109,12 @@ class UtilsTest(TestCase):
             ],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_missing_metrics_by_name(self):
+    def test_get_missing_metrics_by_name(self) -> None:
         expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
         actual = get_missing_metrics_by_name(self.data, ["a", "b"])
         self.assertEqual(actual, expected)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_missing_metrics(self):
+    def test_get_missing_metrics(self) -> None:
         expected = MissingMetrics(
             {"a": {("0_1", 1)}},
             {"b": {("0_2", 1)}},
@@ -126,16 +123,14 @@ class UtilsTest(TestCase):
         actual = get_missing_metrics(self.data, self.optimization_config)
         self.assertEqual(actual, expected)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_feasible_objective(self):
+    def test_best_feasible_objective(self) -> None:
         bfo = best_feasible_objective(
             self.optimization_config,
             values={"a": np.array([1.0, 3.0, 2.0]), "b": np.array([0.0, -1.0, 0.0])},
         )
         self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_feasible_hypervolume(self):
+    def test_feasible_hypervolume(self) -> None:
         ma = Metric(name="a", lower_is_better=False)
         mb = Metric(name="b", lower_is_better=True)
         mc = Metric(name="c", lower_is_better=False)

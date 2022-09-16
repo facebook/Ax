@@ -16,8 +16,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class OneHotTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -73,13 +72,11 @@ class OneHotTransformTest(TestCase):
             parameters={"x": 2.2, "a": 2, "b": "b", "c": False, "d": 10.0}
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
         self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b", "c"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [self.observation_features]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -103,8 +100,7 @@ class OneHotTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRandomizedTransform(self):
+    def testRandomizedTransform(self) -> None:
         observation_features = [self.observation_features]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t2.transform_observation_features(obs_ft2)
@@ -112,8 +108,7 @@ class OneHotTransformTest(TestCase):
         obs_ft2 = self.t2.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -157,8 +152,7 @@ class OneHotTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
         t = OneHot(

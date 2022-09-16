@@ -29,8 +29,7 @@ class TestBestPointUtils(TestCase):
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_from_model_prediction(self):
+    def test_best_from_model_prediction(self) -> None:
         exp = get_branin_experiment()
 
         for _ in range(3):
@@ -98,8 +97,7 @@ class TestBestPointUtils(TestCase):
         # Assert the non-mocked method works correctly as well
         self.assertIsNotNone(get_best_parameters(exp, Models))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_raw_objective_point(self):
+    def test_best_raw_objective_point(self) -> None:
         exp = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
@@ -114,8 +112,7 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "No data has been logged"):
             get_best_raw_objective_point(exp, opt_conf)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_raw_objective_point_unsatisfiable(self):
+    def test_best_raw_objective_point_unsatisfiable(self) -> None:
         exp = get_branin_experiment()
         trial = exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
@@ -134,8 +131,7 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_raw_objective_point_unsatisfiable_relative(self):
+    def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_branin_experiment()
 
         # Optimization config with unsatisfiable constraint
@@ -175,8 +171,7 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_raw_objective_point_scalarized(self):
+    def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(metrics=[get_branin_metric()], minimize=False)
@@ -190,8 +185,7 @@ class TestBestPointUtils(TestCase):
         exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_raw_objective_point_scalarized_multi(self):
+    def test_best_raw_objective_point_scalarized_multi(self) -> None:
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(

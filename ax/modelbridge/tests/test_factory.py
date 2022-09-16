@@ -72,8 +72,7 @@ def get_multi_obj_exp_and_opt_config():
 
 class ModelBridgeFactoryTestSingleObjective(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_sobol_GPEI(self):
+    def test_sobol_GPEI(self) -> None:
         """Tests sobol + GPEI instantiation."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
@@ -98,8 +97,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         self.assertEqual(len(gpei_run.arms), 1)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MTGP(self):
+    def test_MTGP(self) -> None:
         """Tests MTGP instantiation."""
         # Test Multi-type MTGP
         exp = get_multi_type_experiment(add_trials=True)
@@ -136,8 +134,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
             get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_GPKG(self):
+    def test_GPKG(self) -> None:
         """Tests GPKG instantiation."""
         exp = get_branin_experiment(with_batch=True)
         with self.assertRaises(ValueError):
@@ -184,8 +181,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         self.assertIsInstance(gpkg_mf, TorchModelBridge)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_GPMES(self):
+    def test_GPMES(self) -> None:
         """Tests GPMES instantiation."""
         exp = get_branin_experiment(with_batch=True)
         with self.assertRaises(ValueError):
@@ -231,8 +227,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         gpmes_mf = get_GPMES(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpmes_mf, TorchModelBridge)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_model_kwargs(self):
+    def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()
         sobol = get_sobol(
@@ -246,8 +241,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
             # pyre-fixme[28]: Unexpected keyword argument `nonexistent`.
             get_sobol(search_space=exp.search_space, nonexistent=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_factorial(self):
+    def test_factorial(self) -> None:
         """Tests factorial instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
@@ -255,8 +249,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         factorial_run = factorial.gen(n=-1)
         self.assertEqual(len(factorial_run.arms), 24)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_empirical_bayes_thompson(self):
+    def test_empirical_bayes_thompson(self) -> None:
         """Tests EB/TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
@@ -272,8 +265,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         thompson_run = eb_thompson.gen(n=5)
         self.assertEqual(len(thompson_run.arms), 5)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_thompson(self):
+    def test_thompson(self) -> None:
         """Tests TS instantiation."""
         exp = get_factorial_experiment()
         factorial = get_factorial(exp.search_space)
@@ -284,8 +276,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         thompson = get_thompson(experiment=exp, data=data)
         self.assertIsInstance(thompson.model, ThompsonSampler)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_uniform(self):
+    def test_uniform(self) -> None:
         exp = get_branin_experiment()
         uniform = get_uniform(exp.search_space)
         self.assertIsInstance(uniform, RandomModelBridge)
@@ -315,8 +306,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         return multi_obj_exp
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO_RS(self):
+    def test_MOO_RS(self) -> None:
         self.test_single_objective_error(get_MOO_RS)
         multi_obj_exp = self.test_data_error_and_get_multi_obj_exp(get_MOO_RS)
         moo_rs = get_MOO_RS(experiment=multi_obj_exp, data=multi_obj_exp.fetch_data())
@@ -334,8 +324,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(len(moo_rs_run.arms), 2)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO_PAREGO(self):
+    def test_MOO_PAREGO(self) -> None:
         self.test_single_objective_error(get_MOO_PAREGO)
         multi_obj_exp = self.test_data_error_and_get_multi_obj_exp(get_MOO_PAREGO)
         moo_parego = get_MOO_PAREGO(
@@ -355,8 +344,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(len(moo_parego_run.arms), 2)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO_EHVI(self):
+    def test_MOO_EHVI(self) -> None:
         self.test_single_objective_error(get_MOO_EHVI)
         multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         # ValueError: MultiObjectiveOptimization requires non-empty data.
@@ -378,8 +366,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MTGP_PAREGO(self):
+    def test_MTGP_PAREGO(self) -> None:
         """Tests MTGP ParEGO instantiation."""
         self.test_single_objective_error(get_MTGP_PAREGO)
         multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
@@ -436,8 +423,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO_NEHVI(self):
+    def test_MOO_NEHVI(self) -> None:
         self.test_single_objective_error(get_MOO_NEHVI)
         multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         with self.assertRaises(ValueError):
@@ -458,8 +444,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(len(moo_ehvi_run.arms), 1)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO_with_more_outcomes_than_thresholds(self):
+    def test_MOO_with_more_outcomes_than_thresholds(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             has_optimization_config=False
         )
@@ -523,8 +508,7 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
                 self.assertEqual(len(obj_t), 2)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MTGP_NEHVI(self):
+    def test_MTGP_NEHVI(self) -> None:
         self.test_single_objective_error(get_MTGP_NEHVI)
         multi_obj_exp, optimization_config = get_multi_obj_exp_and_opt_config()
         with self.assertRaises(ValueError):

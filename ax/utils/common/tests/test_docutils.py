@@ -19,8 +19,7 @@ def has_no_doc():
 
 
 class TestDocUtils(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_transfer_doc(self):
+    def test_transfer_doc(self) -> None:
         @copy_doc(has_doc)
         # pyre-fixme[3]: Return type must be annotated.
         def inherits_doc():
@@ -28,8 +27,7 @@ class TestDocUtils(TestCase):
 
         self.assertEqual(inherits_doc.__doc__, "I have a docstring")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fail_when_already_has_doc(self):
+    def test_fail_when_already_has_doc(self) -> None:
         with self.assertRaises(ValueError):
 
             @copy_doc(has_doc)
@@ -38,8 +36,7 @@ class TestDocUtils(TestCase):
                 """I already have a doc string"""
                 pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fail_when_no_doc_to_copy(self):
+    def test_fail_when_no_doc_to_copy(self) -> None:
         with self.assertRaises(ValueError):
 
             @copy_doc(has_no_doc)

@@ -19,28 +19,23 @@ class DummyRunner(Runner):
 
 
 class RunnerTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.dummy_runner = DummyRunner()
         self.trials = [get_trial(), get_batch_trial()]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_runner_staging_required(self):
+    def test_base_runner_staging_required(self) -> None:
         self.assertFalse(self.dummy_runner.staging_required)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_runner_stop(self):
+    def test_base_runner_stop(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.dummy_runner.stop(trial=mock.Mock(), reason="")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_runner_clone(self):
+    def test_base_runner_clone(self) -> None:
         runner_clone = self.dummy_runner.clone()
         self.assertIsInstance(runner_clone, DummyRunner)
         self.assertEqual(runner_clone, self.dummy_runner)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_runner_run_multiple(self):
+    def test_base_runner_run_multiple(self) -> None:
         metadata = self.dummy_runner.run_multiple(trials=self.trials)
         self.assertEqual(
             metadata,
@@ -48,11 +43,9 @@ class RunnerTest(TestCase):
         )
         self.assertEqual({}, self.dummy_runner.run_multiple(trials=[]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_runner_poll_trial_status(self):
+    def test_base_runner_poll_trial_status(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.dummy_runner.poll_trial_status(trials=self.trials)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_poll_available_capacity(self):
+    def test_poll_available_capacity(self) -> None:
         self.assertEqual(self.dummy_runner.poll_available_capacity(), -1)

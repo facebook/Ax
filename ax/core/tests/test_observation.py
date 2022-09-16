@@ -29,8 +29,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class ObservationsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationFeatures(self):
+    def testObservationFeatures(self) -> None:
         t = np.datetime64("now")
         attrs = {
             "parameters": {"x": 0, "y": "a"},
@@ -81,8 +80,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obsf, obsf3)
         self.assertFalse(obsf == 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         # Test simple cloning.
         arm = Arm({"x": 0, "y": "a"})
         # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
@@ -96,16 +94,14 @@ class ObservationsTest(TestCase):
         obsf.parameters = {"x": 1, "y": "b"}
         self.assertEqual(obsf, clone_with_new_params)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationFeaturesFromArm(self):
+    def testObservationFeaturesFromArm(self) -> None:
         arm = Arm({"x": 0, "y": "a"})
         # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
         self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUpdateFeatures(self):
+    def testUpdateFeatures(self) -> None:
         parameters = {"x": 0, "y": "a"}
         new_parameters = {"z": "foo"}
 
@@ -137,8 +133,7 @@ class ObservationsTest(TestCase):
         self.assertEqual(obsf.start_time, pd.Timestamp("2005-02-25"))
         self.assertEqual(obsf.end_time, pd.Timestamp("2005-02-26"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationData(self):
+    def testObservationData(self) -> None:
         attrs = {
             "metric_names": ["a", "b"],
             "means": np.array([4.0, 5.0]),
@@ -165,8 +160,7 @@ class ObservationsTest(TestCase):
             {"a": {"a": 1.0, "b": 4.0}, "b": {"a": 3.0, "b": 6.0}},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationDataValidation(self):
+    def testObservationDataValidation(self) -> None:
         with self.assertRaises(ValueError):
             ObservationData(
                 metric_names=["a", "b"],
@@ -180,8 +174,7 @@ class ObservationsTest(TestCase):
                 covariance=np.array([1.0, 4.0]),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationDataEq(self):
+    def testObservationDataEq(self) -> None:
         od1 = ObservationData(
             metric_names=["a", "b"],
             means=np.array([4.0, 5.0]),
@@ -201,8 +194,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(od1, od3)
         self.assertFalse(od1 == 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservation(self):
+    def testObservation(self) -> None:
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
@@ -236,8 +228,7 @@ class ObservationsTest(TestCase):
         self.assertNotEqual(obs, obs3)
         self.assertNotEqual(obs, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsFromData(self):
+    def testObservationsFromData(self) -> None:
         truth = [
             {
                 "arm_name": "0_0",
@@ -312,8 +303,7 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsFromDataWithFidelities(self):
+    def testObservationsFromDataWithFidelities(self) -> None:
         truth = {
             0.5: {
                 "arm_name": "0_0",
@@ -391,8 +381,7 @@ class ObservationsTest(TestCase):
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsFromMapData(self):
+    def testObservationsFromMapData(self) -> None:
         truth = {
             0.5: {
                 "arm_name": "0_0",
@@ -481,8 +470,7 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsFromDataAbandoned(self):
+    def testObservationsFromDataAbandoned(self) -> None:
         truth = {
             0.5: {
                 "arm_name": "0_0",
@@ -589,8 +577,7 @@ class ObservationsTest(TestCase):
         )
         self.assertEqual(len(obs_with_abandoned), 4)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsFromDataWithSomeMissingTimes(self):
+    def testObservationsFromDataWithSomeMissingTimes(self) -> None:
         truth = [
             {
                 "arm_name": "0_0",
@@ -677,8 +664,7 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSeparateObservations(self):
+    def testSeparateObservations(self) -> None:
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
@@ -708,8 +694,7 @@ class ObservationsTest(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationsWithCandidateMetadata(self):
+    def testObservationsWithCandidateMetadata(self) -> None:
         SOME_METADATA_KEY = "metadatum"
         truth = [
             {

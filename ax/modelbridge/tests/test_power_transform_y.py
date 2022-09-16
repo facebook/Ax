@@ -37,8 +37,7 @@ def get_constraint(metric, bound, relative):
 
 
 class PowerTransformYTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([0.5, 0.9]),
@@ -64,8 +63,7 @@ class PowerTransformYTest(TestCase):
             for obsd in [self.obsd1, self.obsd2, self.obsd3, self.obsd_nan]
         ]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         shared_init_args = {
             "search_space": None,
             "observations": self.observations[:2],
@@ -100,8 +98,7 @@ class PowerTransformYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds[m], tuple)
             self.assertTrue(len(tf.inv_bounds[m]) == 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGetData(self):
+    def testGetData(self) -> None:
         for m in ["m1", "m2"]:
             # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got `str`.
             Ys = get_data([self.obsd1, self.obsd2, self.obsd3], m)
@@ -112,8 +109,7 @@ class PowerTransformYTest(TestCase):
             else:
                 self.assertEqual(Ys[m], [0.9, 0.4, 0.8])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testComputePowerTransform(self):
+    def testComputePowerTransform(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pts = _compute_power_transforms(Ys)
         self.assertEqual(pts["m2"].method, "yeo-johnson")
@@ -129,8 +125,7 @@ class PowerTransformYTest(TestCase):
         Y_np2 = pts["m2"].inverse_transform(Y_trans)
         self.assertAlmostEqual(np.max(np.abs(Y_np - Y_np2)), 0.0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testComputeInverseBounds(self):
+    def testComputeInverseBounds(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
@@ -155,8 +150,7 @@ class PowerTransformYTest(TestCase):
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
         self.assertTrue(not isnan(right) and isnan(left))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMatchCIWidth(self):
+    def testMatchCIWidth(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
@@ -186,8 +180,7 @@ class PowerTransformYTest(TestCase):
         self.assertTrue(isnan(new_mean_1) and isnan(new_var_1))
         self.assertTrue(isfinite(new_mean_2) and isfinite(new_var_2))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformAndUntransformOneMetric(self):
+    def testTransformAndUntransformOneMetric(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -217,8 +210,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformAndUntransformAllMetrics(self):
+    def testTransformAndUntransformAllMetrics(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -248,8 +240,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCompareToSklearn(self):
+    def testCompareToSklearn(self) -> None:
         # Make sure the transformed values agree with Sklearn
         observation_data = [self.obsd1, self.obsd2, self.obsd3]
 
@@ -266,8 +257,7 @@ class PowerTransformYTest(TestCase):
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformOptimizationConfig(self):
+    def testTransformOptimizationConfig(self) -> None:
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)

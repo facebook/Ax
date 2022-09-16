@@ -24,8 +24,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class DerelativizeTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         m = mock.patch.object(ModelBridge, "__abstractmethods__", frozenset())
         self.addCleanup(m.stop)
         m.start()

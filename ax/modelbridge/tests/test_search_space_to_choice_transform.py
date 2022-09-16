@@ -23,8 +23,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class SearchSpaceToChoiceTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -75,8 +74,7 @@ class SearchSpaceToChoiceTest(TestCase):
             config={"use_ordered": True},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(len(ss2.parameters), 1)
@@ -118,8 +116,7 @@ class SearchSpaceToChoiceTest(TestCase):
                 observations=[],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpaceWithFixedParam(self):
+    def testTransformSearchSpaceWithFixedParam(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t2.transform_search_space(ss2)
         self.assertEqual(len(ss2.parameters), 1)
@@ -130,16 +127,14 @@ class SearchSpaceToChoiceTest(TestCase):
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.transformed_features)
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.observation_features)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_robust_search_space(self):
+    def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()
         # Raises an error in __init__.
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):

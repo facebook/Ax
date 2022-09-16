@@ -21,8 +21,7 @@ from ax.utils.testing.core_stubs import get_branin_search_space
 
 
 class TensorboardCurveMetricTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_tensorboard_curve_metric(self):
+    def test_tensorboard_curve_metric(self) -> None:
         # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[2]: Parameter must be annotated.
         def mock_get_tb_from_posix(path):

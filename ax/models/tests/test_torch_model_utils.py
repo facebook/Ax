@@ -20,8 +20,7 @@ from torch import Tensor
 
 
 class TorchUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_is_noiseless(self):
+    def test_is_noiseless(self) -> None:
         x = torch.zeros(1, 1)
         y = torch.zeros(1, 1)
         se = torch.zeros(1, 1)
@@ -32,8 +31,7 @@ class TorchUtilsTest(TestCase):
         with self.assertRaises(ModelError):
             is_noiseless(ModelListGP())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testNormalizeIndices(self):
+    def testNormalizeIndices(self) -> None:
         indices = [0, 2]
         nlzd_indices = normalize_indices(indices, 3)
         self.assertEqual(nlzd_indices, indices)
@@ -47,8 +45,7 @@ class TorchUtilsTest(TestCase):
         with self.assertRaises(ValueError):
             nlzd_indices = normalize_indices([-4], 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSubsetModel(self):
+    def testSubsetModel(self) -> None:
         x = torch.zeros(1, 1)
         y = torch.rand(1, 2)
         obj_t = torch.rand(2)
@@ -150,8 +147,7 @@ class TorchUtilsTest(TestCase):
         with self.assertRaises(RuntimeError):
             subset_model(model, obj_weights)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGenerateSobolPoints(self):
+    def testGenerateSobolPoints(self) -> None:
         bounds = [(0.0, 1.0) for _ in range(3)]
         linear_constraints = (
             torch.tensor([[1, -1, 0]], dtype=torch.double),
@@ -171,8 +167,7 @@ class TorchUtilsTest(TestCase):
         self.assertEqual(len(gen_sobol), 100)
         self.assertIsInstance(gen_sobol, Tensor)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTensorCallableToArrayCallable(self):
+    def testTensorCallableToArrayCallable(self) -> None:
         def tensor_func(x: Tensor) -> Tensor:
             return np.exp(x)
 

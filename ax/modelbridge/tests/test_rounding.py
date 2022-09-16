@@ -13,12 +13,10 @@ from ax.utils.common.testutils import TestCase
 
 
 class RoundingTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testOneHotRound(self):
+    def testOneHotRound(self) -> None:
         self.assertTrue(
             np.allclose(
                 strict_onehot_round(np.array([0.1, 0.5, 0.3])), np.array([0, 1, 0])

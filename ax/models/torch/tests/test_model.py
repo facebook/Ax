@@ -60,8 +60,7 @@ ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1024)}
 
 
 class BoTorchModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.acquisition_class = Acquisition
@@ -139,8 +138,7 @@ class BoTorchModelTest(TestCase):
             objective_thresholds=self.moo_objective_thresholds,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_init(self):
+    def test_init(self) -> None:
         # Default model with no specifications.
         model = BoTorchModel()
         self.assertEqual(model.acquisition_class, Acquisition)
@@ -167,15 +165,13 @@ class BoTorchModelTest(TestCase):
         self.assertTrue(mdl2.refit_on_cv)
         self.assertFalse(mdl2.warm_start_refit)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_surrogate_property(self):
+    def test_surrogate_property(self) -> None:
         self.assertEqual(self.surrogate, self.model.surrogate)
         self.model._surrogate = None
         with self.assertRaisesRegex(ValueError, "Surrogate has not yet been set."):
             self.model.surrogate
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_botorch_acqf_class_property(self):
+    def test_botorch_acqf_class_property(self) -> None:
         self.assertEqual(self.botorch_acqf_class, self.model.botorch_acqf_class)
         self.model._botorch_acqf_class = None
         with self.assertRaisesRegex(
@@ -486,8 +482,7 @@ class BoTorchModelTest(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_best_point(self):
+    def test_best_point(self) -> None:
         self.model._surrogate = None
         self.model.fit(
             datasets=self.block_design_training_data,

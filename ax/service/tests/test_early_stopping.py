@@ -17,12 +17,10 @@ class TestEarlyStoppingUtils(TestCase):
     """Testing the early stopping utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.branin_experiment = get_branin_experiment()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_should_stop_trials_early(self):
+    def test_should_stop_trials_early(self) -> None:
         expected: Dict[int, Optional[str]] = {
             1: "Stopped due to testing.",
             3: "Stopped due to testing.",
@@ -35,8 +33,7 @@ class TestEarlyStoppingUtils(TestCase):
         )
         self.assertEqual(actual, expected)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_should_stop_trials_early_no_strategy(self):
+    def test_should_stop_trials_early_no_strategy(self) -> None:
         actual = early_stopping_utils.should_stop_trials_early(
             early_stopping_strategy=None,
             # pyre-fixme[6]: For 2nd param expected `Set[int]` but got `List[int]`.
