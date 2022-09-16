@@ -15,7 +15,7 @@ from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_mll
 from botorch.models.contextual import LCEAGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -60,7 +60,7 @@ def get_map_model(
         context_weight_dict=context_weight_dict,
     )
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
-    fit_gpytorch_model(mll)
+    fit_gpytorch_mll(mll)
     return model, mll
 
 

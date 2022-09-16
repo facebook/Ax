@@ -33,7 +33,7 @@ from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 
 
-FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_model"
+FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_mll"
 SAMPLE_SIMPLEX_UTIL_PATH = f"{sample_simplex.__module__}.sample_simplex"
 SAMPLE_HYPERSPHERE_UTIL_PATH = f"{sample_simplex.__module__}.sample_hypersphere"
 CHEBYSHEV_SCALARIZATION_PATH = (

@@ -18,7 +18,7 @@ from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjec
 from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_mll
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gpytorch import GPyTorchModel
@@ -174,7 +174,7 @@ def get_and_fit_model(
             mll = SumMarginalLogLikelihood(model.likelihood, model, mll_cls=mll_cls)
         else:
             mll = mll_cls(model.likelihood, model)
-        mll = fit_gpytorch_model(mll, bounds=bounds)
+        mll = fit_gpytorch_mll(mll, optimizer_kwargs={"bounds": bounds})
     return model
 
 

@@ -29,10 +29,10 @@ class REMBOStrategyTest(TestCase):
             torch.randn((2, 6), dtype=torch.double),
         ),
     )
-    @patch("ax.models.torch.botorch_defaults.fit_gpytorch_model", autospec=True)
+    @patch("ax.models.torch.botorch_defaults.fit_gpytorch_mll", autospec=True)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def test_REMBOStrategy(self, mock_fit_gpytorch_model, mock_optimize_acqf):
+    def test_REMBOStrategy(self, mock_fit_gpytorch_mll, mock_optimize_acqf):
         # Construct a high-D test experiment with multiple metrics
         hartmann_search_space = SearchSpace(
             parameters=[
@@ -88,7 +88,7 @@ class REMBOStrategyTest(TestCase):
         # Iterate until the first projection fits a GP
         for _ in range(4):
             exp.new_batch_trial(generator_run=gs.gen(experiment=exp, n=2)).run()
-            mock_fit_gpytorch_model.assert_not_called()
+            mock_fit_gpytorch_mll.assert_not_called()
 
         self.assertEqual(len(gs.arms_by_proj[0]), 4)
         self.assertEqual(len(gs.arms_by_proj[1]), 4)
@@ -105,11 +105,11 @@ class REMBOStrategyTest(TestCase):
 
             exp.new_batch_trial(generator_run=gs.gen(experiment=exp, n=2)).run()
             if i < 2:
-                mock_fit_gpytorch_model.assert_not_called()
+                mock_fit_gpytorch_mll.assert_not_called()
             else:
                 # After all proj. have > 4 arms' worth of data, GP can be fit.
                 self.assertFalse(any(len(x) < 4 for x in gs.arms_by_proj.values()))
-                mock_fit_gpytorch_model.assert_called()
+                mock_fit_gpytorch_mll.assert_called()
 
         self.assertTrue(len(gs.model_transitions) > 0)
         gs2 = gs.clone_reset()
