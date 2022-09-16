@@ -17,8 +17,7 @@ from scipy.special import expit, logit
 
 
 class LogitTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -64,12 +63,10 @@ class LogitTransformTest(TestCase):
             logit_scale=True,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"x"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 0.95, "a": 2, "b": "c"})
         ]
@@ -88,8 +85,7 @@ class LogitTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": x_true, "a": 2, "b": "c"})],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInvalidSettings(self):
+    def testInvalidSettings(self) -> None:
         with self.assertRaises(UserInputError) as cm:
             self._create_logit_parameter(lower=0.1, upper=0.9, log_scale=True)
         self.assertEqual("Can't use both log and logit.", str(cm.exception))
@@ -105,8 +101,7 @@ class LogitTransformTest(TestCase):
             self._create_logit_parameter(lower=0.5, upper=10.0)
         self.assertEqual(str_exc, str(cm.exception))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
@@ -123,8 +118,7 @@ class LogitTransformTest(TestCase):
         self.assertEqual(ss_target.parameters["x"].lower, logit(0.1))
         self.assertEqual(ss_target.parameters["x"].upper, logit(0.3))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space(use_discrete=True)
         # pyre-fixme[16]: `Parameter` has no attribute `set_logit_scale`.
         rss.parameters["y"].set_logit_scale(True)

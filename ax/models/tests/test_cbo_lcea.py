@@ -17,8 +17,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class LCEABOTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLCEABO(self):
+    def testLCEABO(self) -> None:
         train_X = torch.tensor(
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]
         )

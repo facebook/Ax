@@ -101,8 +101,7 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim3.num_failed, 1)
         self.assertEqual(sim3.num_completed, 0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_backend_simulator_internal_clock(self):
+    def test_backend_simulator_internal_clock(self) -> None:
         options = BackendSimulatorOptions(
             internal_clock=0.0, use_update_as_start_time=True, max_concurrency=2
         )

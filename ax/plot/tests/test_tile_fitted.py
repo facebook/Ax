@@ -55,8 +55,7 @@ def get_modelbridge(
 
 
 class TileFittedTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTileFitted(self):
+    def testTileFitted(self) -> None:
         model = get_modelbridge(status_quo_name=None)
 
         # Should throw if `status_quo_arm` is None and rel=True
@@ -116,8 +115,7 @@ class TileFittedTest(TestCase):
 
 
 class TileObservationsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTileObservations(self):
+    def testTileObservations(self) -> None:
         exp = get_experiment_with_data()
         exp.trials[0].run()
         exp.trials[0].mark_completed()

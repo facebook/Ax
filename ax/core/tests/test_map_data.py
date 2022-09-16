@@ -11,8 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class MapDataTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.df = pd.DataFrame(
             [
                 {
@@ -75,8 +74,7 @@ class MapDataTest(TestCase):
 
         self.mmd = MapData(df=self.df, map_key_infos=self.map_key_infos)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_map_key_info(self):
+    def test_map_key_info(self) -> None:
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
 
         # pyre-fixme[16]: `Iterable` has no attribute `__getitem__`.
@@ -84,22 +82,19 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_infos[0].default_value, 0)
         self.assertEqual(self.mmd.map_key_infos[0].value_type, int)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_init(self):
+    def test_init(self) -> None:
         empty = MapData()
         self.assertTrue(empty.map_df.empty)
 
         with self.assertRaisesRegex(ValueError, "map_key_infos may be `None` iff"):
             MapData(df=self.df, map_key_infos=None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_properties(self):
+    def test_properties(self) -> None:
         self.assertEqual(self.mmd.map_key_infos, self.map_key_infos)
         self.assertEqual(self.mmd.map_keys, ["epoch"])
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_combine(self):
+    def test_combine(self) -> None:
         mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
         self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
         self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)
@@ -183,8 +178,7 @@ class MapDataTest(TestCase):
             ).all()
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_from_map_evaluations(self):
+    def test_from_map_evaluations(self) -> None:
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             eval2 = (3.8, sem) if sem is not None else 3.8
@@ -214,8 +208,7 @@ class MapDataTest(TestCase):
                 trial_index=0,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_upcast(self):
+    def test_upcast(self) -> None:
         fresh = MapData(df=self.df, map_key_infos=self.map_key_infos)
         self.assertIsNone(fresh._memo_df)  # Assert df is not cached before first call
 
@@ -228,8 +221,7 @@ class MapDataTest(TestCase):
 
         self.assertIsNotNone(fresh._memo_df)  # Assert df is cached after first call
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_subsample(self):
+    def test_subsample(self) -> None:
         arm_names = ["0_0", "1_0", "2_0", "3_0"]
         max_epochs = [25, 50, 75, 100]
         metric_names = ["a", "b"]

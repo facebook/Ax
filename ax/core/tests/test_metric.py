@@ -13,17 +13,14 @@ METRIC_STRING = "Metric('m1')"
 
 
 class MetricTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric2)
@@ -31,8 +28,7 @@ class MetricTest(TestCase):
         metric3 = Metric(name="m1", lower_is_better=True)
         self.assertNotEqual(metric1, metric3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
 
@@ -42,8 +38,7 @@ class MetricTest(TestCase):
         metric3 = get_factorial_metric(name="factorial")
         self.assertEqual(metric3, metric3.clone())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSortable(self):
+    def testSortable(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m2", lower_is_better=False)
         self.assertTrue(metric1 < metric2)

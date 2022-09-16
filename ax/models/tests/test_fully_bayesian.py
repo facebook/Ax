@@ -694,8 +694,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             with self.assertRaises(RuntimeError):
                 unfit_model.feature_importances()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_saasbo_sample(self):
+    def test_saasbo_sample(self) -> None:
         for use_input_warping, gp_kernel in product([False, True], ["rbf", "matern"]):
             with torch.random.fork_rng():
                 torch.manual_seed(0)
@@ -728,8 +727,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                     self.assertNotIn("c0", samples)
                     self.assertNotIn("c1", samples)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_gp_kernels(self):
+    def test_gp_kernels(self) -> None:
         torch.manual_seed(0)
         X = torch.randn(3, 2)
         Y = torch.randn(3, 1)
@@ -746,22 +744,18 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 gp_kernel="some_kernel_we_dont_support",
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModel_cuda(self):
+    def test_FullyBayesianBotorchModel_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_FullyBayesianBotorchModel(cuda=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModel_double(self):
+    def test_FullyBayesianBotorchModel_double(self) -> None:
         self.test_FullyBayesianBotorchModel(dtype=torch.double)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModel_double_cuda(self):
+    def test_FullyBayesianBotorchModel_double_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_FullyBayesianBotorchModel(dtype=torch.double, cuda=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModelConstraints(self):
+    def test_FullyBayesianBotorchModelConstraints(self) -> None:
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -992,17 +986,14 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         #  has no attribute `assertFalse`.
                         self.assertFalse(hasattr(m, "input_transform"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModelPyro_float(self):
+    def test_FullyBayesianBotorchModelPyro_float(self) -> None:
         self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=False)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModelPyro_cuda_double(self):
+    def test_FullyBayesianBotorchModelPyro_cuda_double(self) -> None:
         if torch.cuda.is_available():
             self.test_FullyBayesianBotorchModelPyro(dtype=torch.double, cuda=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModelPyro_cuda_float(self):
+    def test_FullyBayesianBotorchModelPyro_cuda_float(self) -> None:
         if torch.cuda.is_available():
             self.test_FullyBayesianBotorchModelPyro(dtype=torch.float, cuda=True)
 
@@ -1012,8 +1003,7 @@ class SingleObjectiveFullyBayesianBotorchModelTest(
 ):
     model_cls = FullyBayesianBotorchModel
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_FullyBayesianBotorchModelOneOutcome(self):
+    def test_FullyBayesianBotorchModelOneOutcome(self) -> None:
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -1069,8 +1059,7 @@ class FullyBayesianMOOBotorchModelTest(TestCase, BaseFullyBayesianBotorchModelTe
 
 
 class TestKernels(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_matern_kernel(self):
+    def test_matern_kernel(self) -> None:
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
@@ -1114,8 +1103,7 @@ class TestKernels(TestCase):
             # pyre-fixme[6]: For 4th param expected `Tensor` but got `float`.
             matern_kernel(b, b, nu=0.0, lengthscale=2.0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_rbf_kernel(self):
+    def test_rbf_kernel(self) -> None:
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2

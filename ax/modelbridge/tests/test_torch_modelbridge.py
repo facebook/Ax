@@ -293,12 +293,10 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTorchModelBridge_float(self):
+    def testTorchModelBridge_float(self) -> None:
         self.testTorchModelBridge(dtype=torch.float)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTorchModelBridge_cuda(self):
+    def testTorchModelBridge_cuda(self) -> None:
         if torch.cuda.is_available():
             self.testTorchModelBridge(device=torch.device("cuda"))
 

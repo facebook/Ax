@@ -505,8 +505,7 @@ class TestManagedLoop(TestCase):
             )
             loop.run_trial()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_eval_function_with_wrong_parameter_count_generates_error(self):
+    def test_eval_function_with_wrong_parameter_count_generates_error(self) -> None:
         with self.assertRaises(UserInputError):
             loop = OptimizationLoop.with_evaluation_function(
                 parameters=[  # pyre-fixme[6]

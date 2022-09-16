@@ -15,8 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class MapUnitXTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.target_lb = MapUnitX.target_lb
         self.target_range = MapUnitX.target_range
         self.target_ub = self.target_lb + self.target_range
@@ -58,12 +57,10 @@ class MapUnitXTransformTest(TestCase):
             observations=self.observations,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.bounds, {"step_1": (0.0, 10.0), "step_2": (0.0, 20.0)})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         expected = [
@@ -87,8 +84,7 @@ class MapUnitXTransformTest(TestCase):
                         obsf.parameters[step], expected_obsf.parameters[step]
                     )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters, self.search_space.parameters)

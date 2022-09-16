@@ -10,16 +10,14 @@ from ax.utils.common.testutils import TestCase
 
 
 class HelperTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_extend_range(self):
+    def test_extend_range(self) -> None:
         with self.assertRaises(ValueError):
             extend_range(lower=1, upper=-1)
         self.assertEqual(extend_range(lower=-1, upper=1), (-1.2, 1.2))
         self.assertEqual(extend_range(lower=-1, upper=0, percent=30), (-1.3, 0.3))
         self.assertEqual(extend_range(lower=0, upper=1, percent=50), (-0.5, 1.5))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_arm_name_to_sort_key(self):
+    def test_arm_name_to_sort_key(self) -> None:
         arm_names = ["0_0", "1_10", "1_2", "10_0", "control"]
         sorted_names = sorted(arm_names, key=arm_name_to_sort_key, reverse=True)
         expected = ["control", "0_0", "1_2", "1_10", "10_0"]

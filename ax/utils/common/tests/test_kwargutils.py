@@ -17,8 +17,7 @@ logger = get_logger("ax.utils.common.kwargs")
 
 
 class TestKwargUtils(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_validate_kwarg_typing(self):
+    def test_validate_kwarg_typing(self) -> None:
         # pyre-fixme[9]: arg2 has type `str`; used as `None`.
         def typed_callable(arg1: int, arg2: str = None) -> None:
             pass
@@ -122,8 +121,7 @@ class TestKwargUtils(TestCase):
 
 
 class TestWarnOnKwargs(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_warns_if_kwargs_are_passed(self):
+    def test_it_warns_if_kwargs_are_passed(self) -> None:
         with patch.object(logger, "warning") as mock_warning:
 
             # pyre-fixme[3]: Return type must be annotated.
@@ -138,8 +136,7 @@ class TestWarnOnKwargs(TestCase):
                 callable_arg,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_it_does_not_warn_if_no_kwargs_are_passed(self):
+    def test_it_does_not_warn_if_no_kwargs_are_passed(self) -> None:
         with patch.object(logger, "warning") as mock_warning:
             warn_on_kwargs(callable_with_kwargs=lambda: None)
             mock_warning.assert_not_called()

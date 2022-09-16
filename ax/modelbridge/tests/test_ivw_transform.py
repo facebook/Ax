@@ -11,8 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class IVWTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testNoRepeats(self):
+    def testNoRepeats(self) -> None:
         obsd = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([1.0, 2.0]),
@@ -21,8 +20,7 @@ class IVWTransformTest(TestCase):
         obsd2 = ivw_metric_merge(obsd)
         self.assertEqual(obsd2, obsd)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMerge(self):
+    def testMerge(self) -> None:
         obsd = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
@@ -39,8 +37,7 @@ class IVWTransformTest(TestCase):
         discrep = np.max(np.abs(obsd2.covariance - cov_true))
         self.assertTrue(discrep < 1e-8)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testNoiselessMerge(self):
+    def testNoiselessMerge(self) -> None:
         # One noiseless
         obsd = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -67,8 +64,7 @@ class IVWTransformTest(TestCase):
         with self.assertRaises(ValueError):
             obsd2 = ivw_metric_merge(obsd, conflicting_noiseless="raise")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransform(self):
+    def testTransform(self) -> None:
         obsd1_0 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),

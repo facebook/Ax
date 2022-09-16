@@ -24,8 +24,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class MaxValueEntropySearchTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.training_data = [
             FixedNoiseDataset(
@@ -58,8 +57,7 @@ class MaxValueEntropySearchTest(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MaxValueEntropySearch(self):
+    def test_MaxValueEntropySearch(self) -> None:
         model = MaxValueEntropySearch()
         model.fit(
             # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
@@ -172,8 +170,7 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MaxValueEntropySearch_MultiFidelity(self):
+    def test_MaxValueEntropySearch_MultiFidelity(self) -> None:
         search_space_digest = dataclasses.replace(
             self.search_space_digest,
             fidelity_features=[-1],
@@ -284,8 +281,7 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_instantiate_MES(self):
+    def test_instantiate_MES(self) -> None:
 
         model = MaxValueEntropySearch()
         model.fit(

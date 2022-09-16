@@ -9,8 +9,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class BaseModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_model(self):
+    def test_base_model(self) -> None:
         model = Model()
         raw_state = {"foo": "bar", "two": 3.0}
         self.assertEqual(model.serialize_state(raw_state), raw_state)

@@ -26,8 +26,7 @@ from gpytorch.priors.prior import Prior
 
 
 class BotorchDefaultsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_model(self):
+    def test_get_model(self) -> None:
         x = torch.rand(2, 2)
         y = torch.rand(2, 1)
         var = torch.rand(2, 1)
@@ -204,8 +203,7 @@ class BotorchDefaultsTest(TestCase):
                 refit_model=False,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_acquisition_func(self):
+    def test_get_acquisition_func(self) -> None:
         x = torch.zeros(2, 2)
         y = torch.zeros(2, 1)
         unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
@@ -240,8 +238,7 @@ class BotorchDefaultsTest(TestCase):
                 X_observed=X_observed,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_warping_transform(self):
+    def test_get_warping_transform(self) -> None:
         warp_tf = get_warping_transform(d=4)
         self.assertIsInstance(warp_tf, Warp)
         self.assertEqual(warp_tf.indices.tolist(), list(range(4)))

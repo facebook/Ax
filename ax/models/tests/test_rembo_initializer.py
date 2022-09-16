@@ -10,8 +10,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class REMBOInitializerTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testREMBOInitializerModel(self):
+    def testREMBOInitializerModel(self) -> None:
         A = np.vstack((np.eye(2, 2), -(np.eye(2, 2))))
         # Test setting attributes
         # pyre-fixme[6]: For 2nd param expected `List[Tuple[float, float]]` but got
