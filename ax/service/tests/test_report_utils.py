@@ -48,8 +48,7 @@ TRUE_OBJECTIVE_MEAN = 2.3456
 
 
 class ReportUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_exp_to_df(self):
+    def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail
         exp = get_multi_type_experiment()
         with self.assertRaisesRegex(ValueError, "MultiTypeExperiment"):
@@ -131,8 +130,7 @@ class ReportUtilsTest(TestCase):
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_shortest_unique_suffix_dict(self):
+    def test_get_shortest_unique_suffix_dict(self) -> None:
         expected_output = {
             "abc.123": "abc.123",
             "asdf.abc.123": "asdf.abc.123",
@@ -147,8 +145,7 @@ class ReportUtilsTest(TestCase):
         self.assertDictEqual(expected_output, actual_output)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_standard_plots(self):
+    def test_get_standard_plots(self) -> None:
         exp = get_branin_experiment()
         self.assertEqual(
             len(

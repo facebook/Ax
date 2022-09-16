@@ -32,8 +32,7 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 class KnowledgeGradientTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
         self.dataset = FixedNoiseDataset(
             # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
@@ -69,8 +68,7 @@ class KnowledgeGradientTest(TestCase):
         )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_KnowledgeGradient(self):
+    def test_KnowledgeGradient(self) -> None:
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
@@ -190,8 +188,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_KnowledgeGradient_multifidelity(self):
+    def test_KnowledgeGradient_multifidelity(self) -> None:
         search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=self.bounds,
@@ -288,8 +285,7 @@ class KnowledgeGradientTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_KnowledgeGradient_helpers(self):
+    def test_KnowledgeGradient_helpers(self) -> None:
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],

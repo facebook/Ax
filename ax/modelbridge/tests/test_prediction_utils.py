@@ -16,8 +16,7 @@ from ax.utils.common.testutils import TestCase
 class TestPredictionUtils(TestCase):
     """Tests prediction utilities."""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_predict_at_point(self):
+    def test_predict_at_point(self) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
         ax_client.get_model_predictions()  # Ensures model is instantiated
@@ -33,8 +32,7 @@ class TestPredictionUtils(TestCase):
         self.assertEqual(len(y_hat), 1)
         self.assertEqual(len(se_hat), 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_predict_by_features(self):
+    def test_predict_by_features(self) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
         ax_client.get_model_predictions()  # Ensures model is instantiated

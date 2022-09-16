@@ -16,8 +16,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class IntRangeToChoiceTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter("a", lower=1, upper=5, parameter_type=ParameterType.INT),
@@ -32,12 +31,10 @@ class IntRangeToChoiceTransformTest(TestCase):
             observations=[],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [ObservationFeatures(parameters={"a": 2, "b": "b"})]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -45,16 +42,14 @@ class IntRangeToChoiceTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(isinstance(ss2.parameters["a"], ChoiceParameter))
         # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertTrue(ss2.parameters["a"].values, [1, 2, 3, 4, 5])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_robust_search_space(self):
+    def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
         t = IntRangeToChoice(

@@ -31,8 +31,7 @@ class MyBase(Base):
 
 
 class TestTestUtils(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_equal(self):
+    def test_equal(self) -> None:
         try:  # Check case where values aren't `Base` subclasses.
             self.assertEqual(1, 2)
         except AssertionError as err:
@@ -47,8 +46,7 @@ class TestTestUtils(TestCase):
             )
             self.assertIn(expected_suffix, str(err))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_raises_on(self):
+    def test_raises_on(self) -> None:
         with self.assertRaisesOn(RuntimeError, "raise e"):
             _f()
 
@@ -75,8 +73,7 @@ class TestTestUtils(TestCase):
         # pyre-fixme[16]: `None` has no attribute `lineno`.
         self.assertEqual(cm.lineno, F_FAILURE_LINENO)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_silence_warning_normal(self):
+    def test_silence_warning_normal(self) -> None:
         new_stderr = io.StringIO()
         old_err = sys.stderr
         try:
@@ -87,8 +84,7 @@ class TestTestUtils(TestCase):
             sys.stderr = old_err
         self.assertEqual(new_stderr.getvalue(), "")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_silence_warning(self):
+    def test_silence_warning(self) -> None:
         new_stderr = io.StringIO()
         old_err = sys.stderr
         with self.assertRaises(AssertionError):
@@ -101,8 +97,7 @@ class TestTestUtils(TestCase):
                 sys.stderr = old_err
         self.assertTrue(new_stderr.getvalue().startswith("A message\n"))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fail_deprecated(self):
+    def test_fail_deprecated(self) -> None:
         self.assertEqual(1, 1)
         with self.assertRaises(RuntimeError):
             self.assertEquals(1, 1)

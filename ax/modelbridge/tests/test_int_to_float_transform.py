@@ -17,8 +17,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class IntToFloatTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
             RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
@@ -47,12 +46,10 @@ class IntToFloatTransformTest(TestCase):
             config={"rounding": "randomized"},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a", "d"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})
         ]
@@ -93,8 +90,7 @@ class IntToFloatTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": 2.2, "a": 1, "b": "b", "d": 3})],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeaturesRandomized(self):
+    def testTransformObservationFeaturesRandomized(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 4})
         ]
@@ -109,15 +105,13 @@ class IntToFloatTransformTest(TestCase):
         obs_ft2 = self.t2.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRoundingWithConstrainedIntRanges(self):
+    def testRoundingWithConstrainedIntRanges(self) -> None:
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
@@ -146,8 +140,7 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRoundingWithImpossiblyConstrainedIntRanges(self):
+    def testRoundingWithImpossiblyConstrainedIntRanges(self) -> None:
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
@@ -176,8 +169,7 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
         t = IntToFloat(

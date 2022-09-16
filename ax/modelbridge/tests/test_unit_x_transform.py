@@ -24,8 +24,7 @@ class UnitXTransformTest(TestCase):
     expected_c_dicts = [{"x": -1.0, "y": 1.0}, {"x": -1.0, "a": 1.0}]
     expected_c_bounds = [0.0, 1.0]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.target_lb = self.transform_class.target_lb
         self.target_range = self.transform_class.target_range
         self.target_ub = self.target_lb + self.target_range
@@ -71,12 +70,10 @@ class UnitXTransformTest(TestCase):
             ]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.bounds, {"x": (1.0, 3.0), "y": (1.0, 2.0)})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2, "y": 2, "z": 2, "a": 2, "b": "b"})
         ]
@@ -108,8 +105,7 @@ class UnitXTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -145,8 +141,7 @@ class UnitXTransformTest(TestCase):
             self.search_space_with_target.parameters["x"].target_value, 1.0
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_robust_search_space_univariate(self):
+    def test_w_robust_search_space_univariate(self) -> None:
         # Check that if no transforms are needed, it is untouched.
         for multivariate in (True, False):
             rss = get_robust_search_space(
@@ -211,8 +206,7 @@ class UnitXTransformTest(TestCase):
         with self.assertRaisesRegex(UnsupportedError, "`loc` and `scale`"):
             t.transform_search_space(rss)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_robust_search_space_multivariate(self):
+    def test_w_robust_search_space_multivariate(self) -> None:
         # Error if trying to transform non-normal multivariate distributions.
         rss = get_robust_search_space(multivariate=True)
         rss.parameter_distributions[0].distribution_class = "multivariate_t"

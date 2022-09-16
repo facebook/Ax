@@ -31,8 +31,7 @@ from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
 
 
 class TestImprovementGlobalStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_base_cases(self):
+    def test_base_cases(self) -> None:
         exp = get_experiment_with_data()
         _ = exp.trials[0].mark_running(no_runner_required=True)
 
@@ -239,8 +238,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
 
         return exp
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_multi_objective(self):
+    def test_multi_objective(self) -> None:
 
         metric_values = [
             (0.15, 0.6, 0.1),
@@ -299,8 +297,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "0.1.",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_single_objective(self):
+    def test_single_objective(self) -> None:
 
         metric_values = [
             (0.1, 0.6, 0.1),  # feasible, best_objective_so_far = 0.1
@@ -326,8 +323,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "less than 0.1.",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_safety_check(self):
+    def test_safety_check(self) -> None:
         experiment = get_experiment()
         gss = ImprovementGlobalStoppingStrategy(min_trials=2, window_size=3)
 
@@ -338,8 +334,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "There are no completed trials yet.",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_constraint_satisfaction(self):
+    def test_constraint_satisfaction(self) -> None:
         metric_values = [
             (0.1, 0.6, 0.1),  # feasible
             (0.2, 0.1, 0.2),  # infeasible

@@ -11,24 +11,20 @@ from ax.utils.common.testutils import TestCase
 
 
 class RandomModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.random_model = RandomModel()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRandomModelGenSamples(self):
+    def testRandomModelGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_samples(n=1, tunable_d=1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRandomModelGenUnconstrained(self):
+    def testRandomModelGenUnconstrained(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_unconstrained(
                 n=1, d=2, tunable_feature_indices=np.array([])
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConvertEqualityConstraints(self):
+    def testConvertEqualityConstraints(self) -> None:
         fixed_features = {3: 0.7, 1: 0.5}
         d = 4
         # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Tensor, Tensor]]` into 2
@@ -42,8 +38,7 @@ class RandomModelTest(TestCase):
         self.assertEqual(C_comparison.any(), True)
         self.assertEqual(self.random_model._convert_equality_constraints(d, None), None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConvertInequalityConstraints(self):
+    def testConvertInequalityConstraints(self) -> None:
         A = np.array([[1, 2], [3, 4]])
         b = np.array([[5], [6]])
         # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Tensor, Tensor]]` into 2
@@ -57,8 +52,7 @@ class RandomModelTest(TestCase):
         self.assertEqual(b_comparison.any(), True)
         self.assertEqual(self.random_model._convert_inequality_constraints(None), None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConvertBounds(self):
+    def testConvertBounds(self) -> None:
         bounds = [(1, 2), (3, 4), (5, 6)]
         # pyre-fixme[6]: For 1st param expected `List[Tuple[float, float]]` but got
         #  `List[Tuple[int, int]]`.
@@ -71,8 +65,7 @@ class RandomModelTest(TestCase):
         #  `None`.
         self.assertEqual(self.random_model._convert_bounds(None), None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGetLastPoint(self):
+    def testGetLastPoint(self) -> None:
         generated_points = np.array([[1, 2, 3], [4, 5, 6]])
         RandomModelWithPoints = RandomModel(generated_points=generated_points)
         result = RandomModelWithPoints._get_last_point()

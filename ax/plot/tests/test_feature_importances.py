@@ -61,8 +61,7 @@ def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
 
 class FeatureImportancesTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFeatureImportances(self):
+    def testFeatureImportances(self) -> None:
         model = get_modelbridge()
         # Assert that each type of plot can be constructed successfully
         plot = plot_feature_importance_by_feature_plotly(model=model)

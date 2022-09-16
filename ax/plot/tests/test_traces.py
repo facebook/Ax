@@ -19,8 +19,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class TracesTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTraces(self):
+    def testTraces(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
         model = Models.BOTORCH(

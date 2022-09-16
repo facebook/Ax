@@ -34,8 +34,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestBaseEarlyStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_early_stopping_strategy(self):
+    def test_early_stopping_strategy(self) -> None:
         # can't instantiate abstract class
         with self.assertRaises(TypeError):
             # pyre-fixme[45]: Cannot instantiate abstract class
@@ -44,8 +43,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_training_data(self):
+    def test_get_training_data(self) -> None:
         class FakeStrategy(ModelBasedEarlyStoppingStrategy):
             def should_stop_trials_early(
                 self,
@@ -82,8 +80,7 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
 
 
 class TestPercentileEarlyStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_percentile_early_stopping_strategy_validation(self):
+    def test_percentile_early_stopping_strategy_validation(self) -> None:
         exp = get_branin_experiment()
 
         for i in range(5):
@@ -141,8 +138,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             early_stopping_strategy.true_objective_metric_name, "true_obj_metric"
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_percentile_early_stopping_strategy(self):
+    def test_percentile_early_stopping_strategy(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -242,8 +238,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(should_stop, {})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_percentile_early_stopping_strategy_non_objective_metric(self):
+    def test_percentile_early_stopping_strategy_non_objective_metric(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         map_metric = exp.optimization_config.objective.metric
@@ -372,8 +367,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 min_progression=0.1,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_early_stopping_with_unaligned_results(self):
+    def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
@@ -483,8 +477,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_threshold_early_stopping_strategy(self):
+    def test_threshold_early_stopping_strategy(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -558,8 +551,7 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
 
 
 class TestLogicalEarlyStoppingStrategy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_and_early_stopping_strategy(self):
+    def test_and_early_stopping_strategy(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -627,8 +619,7 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             else:
                 self.assertNotIn(idc, and_should_stop.keys())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_or_early_stopping_strategy(self):
+    def test_or_early_stopping_strategy(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(5):
             trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])

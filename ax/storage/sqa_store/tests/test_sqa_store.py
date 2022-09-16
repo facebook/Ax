@@ -106,8 +106,7 @@ GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_sear
 
 
 class SQAStoreTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         self.config = SQAConfig()
         self.encoder = Encoder(config=self.config)
@@ -118,22 +117,18 @@ class SQAStoreTest(TestCase):
             get_range_parameter2(),  # x
         ]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCreationOfTestDB(self):
+    def testCreationOfTestDB(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
         engine = get_engine()
         self.assertIsNotNone(engine)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDBConnectionWithoutForceInit(self):
+    def testDBConnectionWithoutForceInit(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConnectionToDBWithURL(self):
+    def testConnectionToDBWithURL(self) -> None:
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testConnectionToDBWithCreator(self):
+    def testConnectionToDBWithCreator(self) -> None:
         # pyre-fixme[3]: Return type must be annotated.
         def MockDBAPI():
             connection = Mock()
@@ -162,8 +157,7 @@ class SQAStoreTest(TestCase):
             self.assertTrue(engine.echo)
             self.assertEqual(engine.pool.size(), 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGeneratorRunTypeValidation(self):
+    def testGeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
         # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run_structs`.
         generator_run = experiment.trials[0].generator_run_structs[0].generator_run
@@ -180,8 +174,7 @@ class SQAStoreTest(TestCase):
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentSaveAndLoad(self):
+    def testExperimentSaveAndLoad(self) -> None:
         for exp in [
             self.experiment,
             get_experiment_with_map_data_type(),
@@ -194,8 +187,7 @@ class SQAStoreTest(TestCase):
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLoadExperimentTrialsInBatches(self):
+    def testLoadExperimentTrialsInBatches(self) -> None:
         print(self.experiment.trials)
         for _ in range(4):
             self.experiment.new_trial()
@@ -291,8 +283,7 @@ class SQAStoreTest(TestCase):
         exp.trials.get(1).generator_run._optimization_config = None
         self.assertEqual(loaded_experiment, exp)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMTExperimentSaveAndLoad(self):
+    def testMTExperimentSaveAndLoad(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
         loaded_experiment = load_experiment(experiment.name)
@@ -306,8 +297,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentNewTrial(self):
+    def testExperimentNewTrial(self) -> None:
         # Create a new trial without data
         save_experiment(self.experiment)
         trial = self.experiment.new_batch_trial()
@@ -324,16 +314,14 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentNewTrialValidation(self):
+    def testExperimentNewTrialValidation(self) -> None:
         trial = self.experiment.new_batch_trial()
 
         with self.assertRaises(ValueError):
             # must save experiment first
             save_or_update_trial(experiment=self.experiment, trial=trial)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentUpdateTrial(self):
+    def testExperimentUpdateTrial(self) -> None:
         save_experiment(self.experiment)
 
         trial = self.experiment.trials[0]
@@ -361,8 +349,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentSaveAndUpdateTrials(self):
+    def testExperimentSaveAndUpdateTrials(self) -> None:
         save_experiment(self.experiment)
 
         existing_trial = self.experiment.trials[0]
@@ -398,8 +385,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(exp.name)
         self.assertEqual(exp, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_trial_lifecycle_stage(self):
+    def test_trial_lifecycle_stage(self) -> None:
         save_experiment(self.experiment)
 
         existing_trial = self.experiment.trials[0]
@@ -423,8 +409,7 @@ class SQAStoreTest(TestCase):
             LifecycleStage.ITERATION,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSaveValidation(self):
+    def testSaveValidation(self) -> None:
         with self.assertRaises(ValueError):
             save_experiment(self.experiment.trials[0])
 
@@ -434,8 +419,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             save_experiment(experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecode(self):
+    def testEncodeDecode(self) -> None:
         for class_, fake_func, unbound_encode_func, unbound_decode_func in TEST_CASES:
             # Can't load trials from SQL, because a trial needs an experiment
             # in order to be initialized
@@ -476,8 +460,7 @@ class SQAStoreTest(TestCase):
                 msg=f"Error encoding/decoding {class_}.",
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeGeneratorRunReducedState(self):
+    def testEncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
         gr = gs.gen(exp)
@@ -500,8 +483,7 @@ class SQAStoreTest(TestCase):
 
         self.assertEqual(gr, gr_decoded_reduced_state)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentUpdates(self):
+    def testExperimentUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
@@ -519,8 +501,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentParameterUpdates(self):
+    def testExperimentParameterUpdates(self) -> None:
         experiment = get_experiment(with_status_quo=False)
         save_experiment(experiment)
         self.assertEqual(
@@ -566,8 +547,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentParameterConstraintUpdates(self):
+    def testExperimentParameterConstraintUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -612,8 +592,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentObjectiveUpdates(self):
+    def testExperimentObjectiveUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -644,8 +623,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentOutcomeConstraintUpdates(self):
+    def testExperimentOutcomeConstraintUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -703,8 +681,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentObjectiveThresholdUpdates(self):
+    def testExperimentObjectiveThresholdUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -762,13 +739,11 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFailedLoad(self):
+    def testFailedLoad(self) -> None:
         with self.assertRaises(ObjectNotFoundError):
             load_experiment("nonexistent_experiment")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentTrackingMetricUpdates(self):
+    def testExperimentTrackingMetricUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -803,8 +778,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentRunnerUpdates(self):
+    def testExperimentRunnerUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one runner on the batch
@@ -834,8 +808,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentTrialUpdates(self):
+    def testExperimentTrialUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQATrial).count(), 1)
@@ -863,8 +836,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentAbandonedArmUpdates(self):
+    def testExperimentAbandonedArmUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one arm is already abandoned
@@ -878,8 +850,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentGeneratorRunUpdates(self):
+    def testExperimentGeneratorRunUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one main generator run, one for the status quo
@@ -904,8 +875,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testParameterValidation(self):
+    def testParameterValidation(self) -> None:
         sqa_parameter = SQAParameter(
             domain_type=DomainType.RANGE,
             parameter_type=ParameterType.FLOAT,
@@ -936,8 +906,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testParameterDecodeFailure(self):
+    def testParameterDecodeFailure(self) -> None:
         parameter = get_fixed_parameter()
         sqa_parameter = self.encoder.parameter_to_sqa(parameter)
         # pyre-fixme[8]: Attribute has type `DomainType`; used as `int`.
@@ -945,8 +914,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_from_sqa(sqa_parameter)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testParameterConstraintValidation(self):
+    def testParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=0,
             constraint_dict={},
@@ -981,8 +949,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDecodeOrderParameterConstraintFailure(self):
+    def testDecodeOrderParameterConstraintFailure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
             # pyre-fixme[6]: For 1st param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -995,8 +962,7 @@ class SQAStoreTest(TestCase):
                 sqa_parameter, self.dummy_parameters
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDecodeSumParameterConstraintFailure(self):
+    def testDecodeSumParameterConstraintFailure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
             # pyre-fixme[6]: For 1st param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -1009,8 +975,7 @@ class SQAStoreTest(TestCase):
                 sqa_parameter, self.dummy_parameters
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMetricValidation(self):
+    def testMetricValidation(self) -> None:
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
@@ -1041,15 +1006,13 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_metric)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMetricEncodeFailure(self):
+    def testMetricEncodeFailure(self) -> None:
         metric = get_branin_metric()
         del metric.__dict__["param_names"]
         with self.assertRaises(AttributeError):
             self.encoder.metric_to_sqa(metric)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMetricDecodeFailure(self):
+    def testMetricDecodeFailure(self) -> None:
         metric = get_branin_metric()
         sqa_metric = self.encoder.metric_to_sqa(metric)
         # pyre-fixme[8]: Attribute has type `int`; used as `str`.
@@ -1068,8 +1031,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRunnerDecodeFailure(self):
+    def testRunnerDecodeFailure(self) -> None:
         runner = get_synthetic_runner()
         sqa_runner = self.encoder.runner_to_sqa(runner)
         # pyre-fixme[8]: Attribute has type `int`; used as `str`.
@@ -1077,8 +1039,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.runner_from_sqa(sqa_runner)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRunnerValidation(self):
+    def testRunnerValidation(self) -> None:
         sqa_runner = SQARunner(runner_type=CORE_RUNNER_REGISTRY[SyntheticRunner])
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -1102,16 +1063,14 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_runner)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTimestampUpdate(self):
+    def testTimestampUpdate(self) -> None:
         self.experiment.trials[0]._time_staged = datetime.now()
         save_experiment(self.experiment)
 
         # second save should not fail
         save_experiment(self.experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGetProperties(self):
+    def testGetProperties(self) -> None:
         # Extract default value.
         properties = serialize_init_args(object=Metric(name="foo"))
         self.assertEqual(
@@ -1127,8 +1086,7 @@ class SQAStoreTest(TestCase):
             {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRegistryAdditions(self):
+    def testRegistryAdditions(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -1164,8 +1122,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name, config=sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRegistryBundle(self):
+    def testRegistryBundle(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -1187,8 +1144,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name, config=bundle.sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecodeGenerationStrategy(self):
+    def testEncodeDecodeGenerationStrategy(self) -> None:
         # Cannot load generation strategy before it has been saved
         with self.assertRaises(ObjectNotFoundError):
             load_generation_strategy_by_id(gs_id=0)
@@ -1234,8 +1190,7 @@ class SQAStoreTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `_name`.
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecodeGenerationStrategyReducedState(self):
+    def testEncodeDecodeGenerationStrategyReducedState(self) -> None:
         """Try restoring the generation strategy using the experiment its attached to,
         passing the experiment object.
         """
@@ -1274,8 +1229,7 @@ class SQAStoreTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `_name`.
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self):
+    def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
         attached to, not passing the experiment object (it should then be loaded
         as part of generation strategy loading).
@@ -1330,8 +1284,7 @@ class SQAStoreTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `_name`.
         self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUpdateGenerationStrategy(self):
+    def testUpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         save_generation_strategy(generation_strategy=generation_strategy)
 
@@ -1382,8 +1335,7 @@ class SQAStoreTest(TestCase):
             loaded_generation_strategy._experiment.description,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGeneratorRunGenMetadata(self):
+    def testGeneratorRunGenMetadata(self) -> None:
         gen_metadata = {"hello": "world"}
         gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
         generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
@@ -1392,8 +1344,7 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUpdateGenerationStrategyIncrementally(self):
+    def testUpdateGenerationStrategyIncrementally(self) -> None:
         experiment = get_branin_experiment()
         generation_strategy = choose_generation_strategy(experiment.search_space)
         save_experiment(experiment=experiment)
@@ -1445,8 +1396,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._save_seen_trial_indices()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUpdateRunner(self):
+    def testUpdateRunner(self) -> None:
         experiment = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, ".* must be saved before"):
             update_runner_on_experiment(
@@ -1480,8 +1430,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment_name=experiment.name)
         self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentValidation(self):
+    def testExperimentValidation(self) -> None:
         exp = get_experiment()
         exp.name = "test1"
         save_experiment(exp)
@@ -1507,8 +1456,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaisesRegex(ValueError, ".* experiment already exists .*"):
             save_experiment(exp3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentSaveAndDelete(self):
+    def testExperimentSaveAndDelete(self) -> None:
         for exp in [
             self.experiment,
             get_experiment_with_map_data_type(),
@@ -1522,8 +1470,7 @@ class SQAStoreTest(TestCase):
             with self.assertRaises(ObjectNotFoundError):
                 load_experiment(exp_name)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGetImmutableSearchSpaceAndOptConfig(self):
+    def testGetImmutableSearchSpaceAndOptConfig(self) -> None:
         save_experiment(self.experiment)
         immutable = _get_experiment_immutable_opt_config_and_search_space(
             experiment_name=self.experiment.name, exp_sqa_class=SQAExperiment
@@ -1589,8 +1536,7 @@ class SQAStoreTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSetImmutableSearchSpaceAndOptConfig(self):
+    def testSetImmutableSearchSpaceAndOptConfig(self) -> None:
         experiment = get_experiment_with_batch_trial()
         self.assertFalse(experiment.immutable_search_space_and_opt_config)
         save_experiment(experiment)
@@ -1603,8 +1549,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRepeatedArmStorage(self):
+    def testRepeatedArmStorage(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAArm).count(), 4)
@@ -1621,8 +1566,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGeneratorRunValidatedFields(self):
+    def testGeneratorRunValidatedFields(self) -> None:
         # Set up an experiment with a generator run that will have modeling-related
         # fields that are not loaded on most generator runs during reduced-stat
         # experiment loading.

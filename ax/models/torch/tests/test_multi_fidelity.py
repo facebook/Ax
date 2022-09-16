@@ -30,8 +30,7 @@ MFKG_PATH = (
 
 
 class MultiFidelityAcquisitionTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])

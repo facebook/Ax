@@ -19,12 +19,10 @@ from ax.utils.common.testutils import TestCase
 
 
 class ModelUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBestObservedPoint(self):
+    def testBestObservedPoint(self) -> None:
         model = MagicMock()
 
         X1 = np.array(list(product(np.arange(0.0, 10.0), np.arange(0.0, 10.0))))
@@ -142,16 +140,14 @@ class ModelUtilsTest(TestCase):
                 options={"method": "feasible_threshold"},
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCheckDuplicate(self):
+    def testCheckDuplicate(self) -> None:
         duplicate_point = np.array([0, 1])
         not_duplicate_point = np.array([9, 9])
         points = np.array([[0, 1], [0, 2], [0, 1]])
         self.assertTrue(check_duplicate(duplicate_point, points))
         self.assertFalse(check_duplicate(not_duplicate_point, points))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMkDiscreteChoices(self):
+    def testMkDiscreteChoices(self) -> None:
         ssd1 = SearchSpaceDigest(
             feature_names=["a", "b"],
             bounds=[(0, 1), (0, 2)],
@@ -172,8 +168,7 @@ class ModelUtilsTest(TestCase):
         dc2_ff = mk_discrete_choices(ssd2, fixed_features={1: 0})
         self.assertEqual(dc2_ff, {1: [0], 2: [3, 4]})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEnumerateDiscreteCombinations(self):
+    def testEnumerateDiscreteCombinations(self) -> None:
         dc1 = {1: [0, 1, 2]}
         # pyre-fixme[6]: For 1st param expected `Dict[int, List[Union[float, int]]]`
         #  but got `Dict[int, List[int]]`.

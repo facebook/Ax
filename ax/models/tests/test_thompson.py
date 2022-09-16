@@ -12,8 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class ThompsonSamplerTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.Xs = [[[1, 1], [2, 2], [3, 3], [4, 4]]]  # 4 arms, each of dimensionality 2
         self.Ys = [[1, 2, 3, 4]]
         self.Yvars = [[1, 1, 1, 1]]
@@ -27,8 +26,7 @@ class ThompsonSamplerTest(TestCase):
         self.multiple_metrics_Ys = [[1, 2, 3, 4], [0, 0, 0, 1]]
         self.multiple_metrics_Yvars = [[1, 1, 1, 1], [1, 1, 1, 1]]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSampler(self):
+    def testThompsonSampler(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -59,8 +57,7 @@ class ThompsonSamplerTest(TestCase):
             self.assertAlmostEqual(weight, expected_weight, 1)
         self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerValidation(self):
+    def testThompsonSamplerValidation(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)
 
         # all Xs are not the same
@@ -116,8 +113,7 @@ class ThompsonSamplerTest(TestCase):
             #  float, int, str]]]` but got `List[List[int]]`.
             generator.gen(5, self.parameter_values, objective_weights=None)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerMinWeight(self):
+    def testThompsonSamplerMinWeight(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -147,8 +143,7 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerUniformWeights(self):
+    def testThompsonSamplerUniformWeights(self) -> None:
         generator = ThompsonSampler(min_weight=0.0, uniform_weights=True)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -176,8 +171,7 @@ class ThompsonSamplerTest(TestCase):
         for weight, expected_weight in zip(weights, [1.0, 1.0, 1.0]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerInfeasible(self):
+    def testThompsonSamplerInfeasible(self) -> None:
         generator = ThompsonSampler(min_weight=0.9)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -203,8 +197,7 @@ class ThompsonSamplerTest(TestCase):
                 objective_weights=np.ones(1),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerOutcomeConstraints(self):
+    def testThompsonSamplerOutcomeConstraints(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -240,8 +233,7 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.15)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerOutcomeConstraintsInfeasible(self):
+    def testThompsonSamplerOutcomeConstraintsInfeasible(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -268,8 +260,7 @@ class ThompsonSamplerTest(TestCase):
                 outcome_constraints=(np.array([[0, 1]]), np.array([[-10]])),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testThompsonSamplerPredict(self):
+    def testThompsonSamplerPredict(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,

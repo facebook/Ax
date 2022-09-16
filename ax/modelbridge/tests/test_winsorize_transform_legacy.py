@@ -15,8 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class WinsorizeTransformTestLegacy(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, 0.0, 1.0]),
@@ -105,8 +104,7 @@ class WinsorizeTransformTestLegacy(TestCase):
             },
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testPrintDeprecationWarning(self):
+    def testPrintDeprecationWarning(self) -> None:
         warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
@@ -122,8 +120,7 @@ class WinsorizeTransformTestLegacy(TestCase):
                 in [str(w.message) for w in ws]
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
         self.assertEqual(self.t1.cutoffs["m1"], (-float("inf"), 1.0))
@@ -133,8 +130,7 @@ class WinsorizeTransformTestLegacy(TestCase):
         with self.assertRaises(DataRequiredError):
             Winsorize(search_space=None, observations=[])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservations(self):
+    def testTransformObservations(self) -> None:
         observation_data = self.t1._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -152,15 +148,13 @@ class WinsorizeTransformTestLegacy(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInitPercentileBounds(self):
+    def testInitPercentileBounds(self) -> None:
         self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
         self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
         self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
         self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testValueError(self):
+    def testValueError(self) -> None:
         with self.assertRaises(ValueError):
             Winsorize(
                 search_space=None,
@@ -171,8 +165,7 @@ class WinsorizeTransformTestLegacy(TestCase):
                 },
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationsPercentileBounds(self):
+    def testTransformObservationsPercentileBounds(self) -> None:
         observation_data = self.t3._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -190,8 +183,7 @@ class WinsorizeTransformTestLegacy(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationsDifferentLowerUpper(self):
+    def testTransformObservationsDifferentLowerUpper(self) -> None:
         observation_data = self.t5._transform_observation_data([deepcopy(self.obsd2)])[
             0
         ]

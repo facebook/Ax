@@ -14,8 +14,7 @@ from scipy.stats._distn_infrastructure import rv_frozen
 
 
 class ParameterDistributionTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_parameter_distribution(self):
+    def test_parameter_distribution(self) -> None:
         dist = ParameterDistribution(
             parameters=["x1"],
             distribution_class="norm",

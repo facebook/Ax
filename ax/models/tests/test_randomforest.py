@@ -12,8 +12,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 
 class RandomForestTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRFModel(self):
+    def testRFModel(self) -> None:
         datasets = [
             FixedNoiseDataset(
                 X=torch.rand(10, 2), Y=torch.rand(10, 1), Yvar=torch.rand(10, 1)

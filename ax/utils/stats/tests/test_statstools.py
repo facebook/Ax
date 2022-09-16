@@ -16,8 +16,7 @@ from ax.utils.stats.statstools import (
 
 
 class InverseVarianceWeightingTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_bad_arg_ivw(self):
+    def test_bad_arg_ivw(self) -> None:
         with self.assertRaises(ValueError):
             inverse_variance_weight(
                 np.array([0]), np.array([1]), conflicting_noiseless="foo"
@@ -25,32 +24,28 @@ class InverseVarianceWeightingTest(TestCase):
         with self.assertRaises(ValueError):
             inverse_variance_weight(np.array([1, 2]), np.array([1]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_very_simple_ivw(self):
+    def test_very_simple_ivw(self) -> None:
         means = np.array([1, 1, 1])
         variances = np.array([1, 1, 1])
         new_mean, new_var = inverse_variance_weight(means, variances)
         self.assertEqual(new_mean, 1.0)
         self.assertEqual(new_var, 1 / 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_simple_ivw(self):
+    def test_simple_ivw(self) -> None:
         means = np.array([1, 2, 3])
         variances = np.array([1, 1, 1])
         new_mean, new_var = inverse_variance_weight(means, variances)
         self.assertEqual(new_mean, 2.0)
         self.assertEqual(new_var, 1 / 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_another_simple_ivw(self):
+    def test_another_simple_ivw(self) -> None:
         means = np.array([1, 3])
         variances = np.array([1, 3])
         new_mean, new_var = inverse_variance_weight(means, variances)
         self.assertEqual(new_mean, 1.5)
         self.assertEqual(new_var, 0.75)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_conflicting_noiseless_ivw(self):
+    def test_conflicting_noiseless_ivw(self) -> None:
         means = np.array([1, 2, 1])
         variances = np.array([0, 0, 1])
 
@@ -63,8 +58,7 @@ class InverseVarianceWeightingTest(TestCase):
 
 
 class MarginalEffectsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_marginal_effects(self):
+    def test_marginal_effects(self) -> None:
         df = pd.DataFrame(
             {
                 "mean": [1, 2, 3, 4],
@@ -79,8 +73,7 @@ class MarginalEffectsTest(TestCase):
 
 
 class RelativizeDataTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_relativize_data(self):
+    def test_relativize_data(self) -> None:
         data = Data(
             df=pd.DataFrame(
                 [

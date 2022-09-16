@@ -77,8 +77,7 @@ class TestModelbridgeUtils(TestCase):
             metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_pending_observation_features(self):
+    def test_get_pending_observation_features(self) -> None:
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.experiment))
         self.trial.mark_running(no_runner_required=True)
@@ -166,8 +165,7 @@ class TestModelbridgeUtils(TestCase):
                 },
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_pending_observation_features_hss(self):
+    def test_get_pending_observation_features_hss(self) -> None:
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.hss_exp))
         self.hss_trial.mark_running(no_runner_required=True)
@@ -307,8 +305,7 @@ class TestModelbridgeUtils(TestCase):
                 },
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_pending_observation_features_batch_trial(self):
+    def test_get_pending_observation_features_batch_trial(self) -> None:
         # Check the same functionality for batched trials.
         self.assertIsNone(get_pending_observation_features(self.experiment_2))
         self.batch_trial.mark_running(no_runner_required=True)
@@ -325,8 +322,7 @@ class TestModelbridgeUtils(TestCase):
             },
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_pending_observation_features_based_on_trial_status(self):
+    def test_get_pending_observation_features_based_on_trial_status(self) -> None:
         # Pending observations should be none if there aren't any as trial is
         # candidate.
         self.assertTrue(self.trial.status.is_candidate)
@@ -359,8 +355,7 @@ class TestModelbridgeUtils(TestCase):
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_pending_observation_features_based_on_trial_status_hss(self):
+    def test_get_pending_observation_features_based_on_trial_status_hss(self) -> None:
         self.assertTrue(self.hss_trial.status.is_candidate)
         self.assertIsNone(get_pending_status(self.hss_exp))
         self.hss_trial.mark_staged()
@@ -431,8 +426,7 @@ class TestModelbridgeUtils(TestCase):
             ),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pending_observations_as_array_list(self):
+    def test_pending_observations_as_array_list(self) -> None:
         # Mark a trial dispatched so that there are pending observations.
         self.trial.mark_running(no_runner_required=True)
         # If outcome names are respected, unlisted metrics should be filtered out.
@@ -485,8 +479,7 @@ class TestModelbridgeUtils(TestCase):
             [[], [["1", "foo", "True", "4"]]],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_extract_outcome_constraints(self):
+    def test_extract_outcome_constraints(self) -> None:
         outcomes = ["m1", "m2", "m3"]
         # pass no outcome constraints
         self.assertIsNone(extract_outcome_constraints([], outcomes))
@@ -516,8 +509,7 @@ class TestModelbridgeUtils(TestCase):
         self.assertEqual(res[1][0][0], 0)
         self.assertEqual(res[1][1][0], -1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_extract_objective_thresholds(self):
+    def test_extract_objective_thresholds(self) -> None:
         outcomes = ["m1", "m2", "m3", "m4"]
         objective = MultiObjective(
             objectives=[Objective(metric=Metric(name)) for name in outcomes[:3]]
@@ -599,8 +591,7 @@ class TestModelbridgeUtils(TestCase):
                 outcomes=outcomes,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testObservationDataToArray(self):
+    def testObservationDataToArray(self) -> None:
         outcomes = ["a", "b", "c"]
         obsd = ObservationData(
             metric_names=["c", "a", "b"],

@@ -33,8 +33,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class CrossValidationTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.training_data = [
             Observation(
                 # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
@@ -91,8 +90,7 @@ class CrossValidationTest(TestCase):
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
         ]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCrossValidate(self):
+    def testCrossValidate(self) -> None:
         # Prepare input and output data
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
@@ -172,8 +170,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCrossValidateByTrial(self):
+    def testCrossValidateByTrial(self) -> None:
         # With only 1 trial
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
@@ -215,8 +212,7 @@ class CrossValidationTest(TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].observed.features.trial_index, 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self):
+    def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self) -> None:
         exp = get_branin_experiment()
         sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
         with self.assertRaisesRegex(ValueError, "no training data"):
@@ -234,8 +230,7 @@ class CrossValidationTest(TestCase):
         with self.assertRaises(NotImplementedError):
             cross_validate(model=sobol)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testComputeDiagnostics(self):
+    def testComputeDiagnostics(self) -> None:
         # Construct CVResults
         result = []
         for i, obs in enumerate(self.training_data):
@@ -251,8 +246,7 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Log likelihood"]["a"], -50.09469266602336)
         self.assertAlmostEqual(diag["Log likelihood"]["b"], -25.82334285505847)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAssessModelFit(self):
+    def testAssessModelFit(self) -> None:
         # Construct diagnostics
         result = []
         for i, obs in enumerate(self.training_data):
@@ -280,8 +274,7 @@ class CrossValidationTest(TestCase):
         self.assertTrue("a" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
         self.assertTrue("b" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testHasGoodOptConfigModelFit(self):
+    def testHasGoodOptConfigModelFit(self) -> None:
         # Construct diagnostics
         result = []
         for i, obs in enumerate(self.training_data):
@@ -325,8 +318,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertFalse(has_good_fit)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSingleDiagnosticBestModelSelector_min_mean(self):
+    def testSingleDiagnosticBestModelSelector_min_mean(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=min,
@@ -334,8 +326,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSingleDiagnosticBestModelSelector_min_min(self):
+    def testSingleDiagnosticBestModelSelector_min_min(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=min,
@@ -343,8 +334,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSingleDiagnosticBestModelSelector_max_mean(self):
+    def testSingleDiagnosticBestModelSelector_max_mean(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=max,

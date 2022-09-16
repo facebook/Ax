@@ -11,8 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class FullFactorialGeneratorTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFullFactorial(self):
+    def testFullFactorial(self) -> None:
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(
@@ -26,8 +25,7 @@ class FullFactorialGeneratorTest(TestCase):
         self.assertEqual(generated_points, expected_points)
         self.assertEqual(weights, [1 for _ in range(len(expected_points))])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFullFactorialValidation(self):
+    def testFullFactorialValidation(self) -> None:
         # Raise error because cardinality exceeds max cardinality
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"], [True, False]]
@@ -53,8 +51,7 @@ class FullFactorialGeneratorTest(TestCase):
                 objective_weights=np.ones(1),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFullFactorialFixedFeatures(self):
+    def testFullFactorialFixedFeatures(self) -> None:
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(

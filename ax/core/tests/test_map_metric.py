@@ -12,17 +12,14 @@ METRIC_STRING = "MapMetric('m1')"
 
 
 class MapMetricTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         metric = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         metric2 = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric2)
@@ -30,13 +27,11 @@ class MapMetricTest(TestCase):
         metric3 = MapMetric(name="m1", lower_is_better=True)
         self.assertNotEqual(metric1, metric3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSortable(self):
+    def testSortable(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         metric2 = MapMetric(name="m2", lower_is_better=False)
         self.assertTrue(metric1 < metric2)

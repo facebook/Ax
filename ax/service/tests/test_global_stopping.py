@@ -54,8 +54,7 @@ class TestGlobalStoppingIntegration(TestCase):
         #  `Dict[str, Tuple[Union[float, ndarray], float]]`.
         return {"branin": (branin(x), 0.0)}
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_global_stopping_integration(self):
+    def test_global_stopping_integration(self) -> None:
         """
         Specifying a dummy global stopping strategy which stops
         the optimization after 3 trials are completed.
@@ -87,8 +86,7 @@ class TestGlobalStoppingIntegration(TestCase):
         parameters, trial_index = ax_client.get_next_trial(force=True)
         self.assertIsNotNone(parameters)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_min_trials(self):
+    def test_min_trials(self) -> None:
         """
         Tests the min_trials mechanism of the stopping strategy; that is,
         the stopping strategy should not take effect before min_trials trials

@@ -10,8 +10,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class ALEBOSobolTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testALEBOSobolModel(self):
+    def testALEBOSobolModel(self) -> None:
         B = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         Q = np.linalg.pinv(B) @ B
         # Test setting attributes

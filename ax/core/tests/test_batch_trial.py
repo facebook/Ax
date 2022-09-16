@@ -31,8 +31,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class BatchTrialTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = get_experiment()
         self.experiment.status_quo = None
         self.batch = self.experiment.new_batch_trial()
@@ -44,8 +43,7 @@ class BatchTrialTest(TestCase):
         self.weights = weights[1:]
         self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         self.assertNotEqual(self.batch, new_batch_trial)
 
@@ -53,8 +51,7 @@ class BatchTrialTest(TestCase):
         abandoned_arm_2 = get_abandoned_arm()
         self.assertEqual(abandoned_arm, abandoned_arm_2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBasicProperties(self):
+    def testBasicProperties(self) -> None:
         self.assertEqual(self.experiment, self.batch.experiment)
         self.assertEqual(self.batch.index, 0)
         self.assertEqual(self.batch.status, TrialStatus.CANDIDATE)
@@ -67,16 +64,14 @@ class BatchTrialTest(TestCase):
         # Test empty arms
         self.assertEqual(len(self.experiment.new_batch_trial().abandoned_arms), 0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUndefinedSetters(self):
+    def testUndefinedSetters(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.batch.arm_weights = get_arm_weights1()
 
         with self.assertRaises(NotImplementedError):
             self.batch.status = TrialStatus.RUNNING
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBasicSetter(self):
+    def testBasicSetter(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.assertIsNotNone(self.batch.runner)
 
@@ -87,8 +82,7 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             self.batch.trial_type = ""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAddArm(self):
+    def testAddArm(self) -> None:
         self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
@@ -102,8 +96,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAddGeneratorRun(self):
+    def testAddGeneratorRun(self) -> None:
         self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
@@ -122,8 +115,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInitWithGeneratorRun(self):
+    def testInitWithGeneratorRun(self) -> None:
         generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
         batch = self.experiment.new_batch_trial(generator_run=generator_run)
         batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
@@ -132,8 +124,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testStatusQuoOverlap(self):
+    def testStatusQuoOverlap(self) -> None:
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
@@ -155,8 +146,7 @@ class BatchTrialTest(TestCase):
             "status_quo_0",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testStatusQuo(self):
+    def testStatusQuo(self) -> None:
         tot_weight = sum(self.batch.weights)
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
@@ -194,8 +184,7 @@ class BatchTrialTest(TestCase):
                 Arm(new_sq.parameters, name="new_name"), 1
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testStatusQuoOptimizeForPower(self):
+    def testStatusQuoOptimizeForPower(self) -> None:
         self.experiment.status_quo = self.status_quo
         batch = self.experiment.new_batch_trial(optimize_for_power=True)
         self.assertEqual(batch._status_quo_weight_override, 1)
@@ -218,8 +207,7 @@ class BatchTrialTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testArmsByName(self):
+    def testArmsByName(self) -> None:
         # Initializes empty
         newbatch = self.experiment.new_batch_trial()
         self.assertEqual(newbatch.arms_by_name, {})
@@ -246,8 +234,7 @@ class BatchTrialTest(TestCase):
             {"0_0": self.batch.arms[0]},
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBatchLifecycle(self):
+    def testBatchLifecycle(self) -> None:
         # Check that state of trial statuses mapping on experiment: there should only be
         # one index, 0, among the `CANDIDATE` trials.
         trial_idcs_by_status = iter(self.experiment.trial_indices_by_status.values())
@@ -354,8 +341,7 @@ class BatchTrialTest(TestCase):
                 if status != TrialStatus.CANDIDATE
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAbandonBatchTrial(self):
+    def testAbandonBatchTrial(self) -> None:
         reason = "BatchTrial behaved poorly"
         self.batch.mark_abandoned(reason)
 
@@ -363,8 +349,7 @@ class BatchTrialTest(TestCase):
         self.assertIsNotNone(self.batch.time_completed)
         self.assertEqual(self.batch.abandoned_reason, reason)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFailedBatchTrial(self):
+    def testFailedBatchTrial(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.batch.run()
         self.batch.mark_failed()
@@ -372,8 +357,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
         self.assertIsNotNone(self.batch.time_completed)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEarlyStoppedBatchTrial(self):
+    def testEarlyStoppedBatchTrial(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.batch.run()
         self.batch.mark_early_stopped()
@@ -381,8 +365,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.EARLY_STOPPED)
         self.assertIsNotNone(self.batch.time_completed)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAbandonArm(self):
+    def testAbandonArm(self) -> None:
         arm = self.batch.arms[0]
         reason = "Bad arm"
         self.batch.mark_arm_abandoned(arm.name, reason)
@@ -400,16 +383,14 @@ class BatchTrialTest(TestCase):
                 Arm(parameters={"x": 3, "y": "fooz", "z": False})
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         new_batch_trial = self.batch.clone()
         self.assertEqual(len(new_batch_trial.generator_run_structs), 1)
         self.assertEqual(len(new_batch_trial.arms), 2)
         self.assertEqual(new_batch_trial.runner, self.batch.runner)
         self.assertEqual(new_batch_trial.trial_type, self.batch.trial_type)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRunner(self):
+    def testRunner(self) -> None:
         # Verify BatchTrial without runner will fail
         with self.assertRaises(ValueError):
             self.batch.run()
@@ -437,8 +418,7 @@ class BatchTrialTest(TestCase):
             self.assertEqual(b2.deployed_name, "test_1")
             self.assertEqual(b2.status, TrialStatus.STAGED)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testIsFactorial(self):
+    def testIsFactorial(self) -> None:
         self.assertFalse(self.batch.is_factorial)
 
         # Insufficient factors
@@ -470,8 +450,7 @@ class BatchTrialTest(TestCase):
         )
         self.assertTrue(new_batch_trial.is_factorial)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testNormalizedArmWeights(self):
+    def testNormalizedArmWeights(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         parameterizations = [
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
@@ -504,8 +483,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_arm_parameters, arm_parameters)
         self.assertTrue(np.allclose(list(arm_weights.values()), [0.67, 0.33]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testAddGeneratorRunValidation(self):
+    def testAddGeneratorRunValidation(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         new_arms = [
             Arm(name="0_1", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
@@ -515,8 +493,7 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             new_batch_trial.add_generator_run(gr)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSetStatusQuoAndOptimizePower(self):
+    def testSetStatusQuoAndOptimizePower(self) -> None:
         batch_trial = self.experiment.new_batch_trial()
         status_quo = Arm(
             name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
@@ -569,15 +546,13 @@ class BatchTrialTest(TestCase):
         # its weight comes from _status_quo_weight_override
         self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRepr(self):
+    def testRepr(self) -> None:
         self.assertEqual(
             str(self.batch),
             "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_TTL(self):
+    def test_TTL(self) -> None:
         # Verify that TLL is checked on execution of the `status` property.
         self.batch.ttl_seconds = 1
         self.batch.mark_running(no_runner_required=True)
@@ -606,8 +581,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_trial._status, TrialStatus.FAILED)
         self.assertIn(2, self.experiment.trial_indices_by_status[TrialStatus.FAILED])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_candidate_metadata_from_all_generator_runs(self):
+    def test_get_candidate_metadata_from_all_generator_runs(self) -> None:
         gr_1 = get_generator_run()
         gr_2 = get_generator_run2()
         self.batch.add_generator_run(gr_1)
@@ -661,8 +635,7 @@ class BatchTrialTest(TestCase):
                 self.batch._get_candidate_metadata(arm.name),
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSortable(self):
+    def testSortable(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         self.assertTrue(self.batch < new_batch_trial)
 

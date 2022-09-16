@@ -25,8 +25,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class DiscreteModelBridgeTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.parameters = [
             ChoiceParameter("x", ParameterType.FLOAT, values=[0, 1]),
             ChoiceParameter("y", ParameterType.STRING, values=["foo", "bar"]),
@@ -267,8 +266,7 @@ class DiscreteModelBridgeTest(TestCase):
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGetParameterValues(self):
+    def testGetParameterValues(self) -> None:
         parameter_values = _get_parameter_values(self.search_space, ["x", "y", "z"])
         self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True]])
         # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got

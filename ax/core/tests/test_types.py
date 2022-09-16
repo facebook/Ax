@@ -9,8 +9,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TypesTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.num_arms = 2
         mu = {"m1": [0.0, 0.5], "m2": [0.1, 0.6]}
         cov = {
@@ -19,8 +18,7 @@ class TypesTest(TestCase):
         }
         self.predict = (mu, cov)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMergeModelPredict(self):
+    def testMergeModelPredict(self) -> None:
         mu_append = {"m1": [0.6], "m2": [0.7]}
         cov_append = {
             "m1": {"m1": [0.0], "m2": [0.0]},
@@ -29,8 +27,7 @@ class TypesTest(TestCase):
         merged_predicts = merge_model_predict(self.predict, (mu_append, cov_append))
         self.assertEqual(len(merged_predicts[0]["m1"]), 3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMergeModelPredictFail(self):
+    def testMergeModelPredictFail(self) -> None:
         mu_append = {"m1": [0.6]}
         cov_append = {
             "m1": {"m1": [0.0], "m2": [0.0]},

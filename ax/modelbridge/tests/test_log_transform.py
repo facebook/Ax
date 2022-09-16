@@ -17,8 +17,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class LogTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -52,12 +51,10 @@ class LogTransformTest(TestCase):
             ]
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"x"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "c"})
         ]
@@ -71,8 +68,7 @@ class LogTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
@@ -88,8 +84,7 @@ class LogTransformTest(TestCase):
             self.search_space_with_target.parameters["x"].target_value, math.log10(3)
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space(lb=1.0, use_discrete=True)
         # pyre-fixme[16]: `Parameter` has no attribute `set_log_scale`.
         rss.parameters["y"].set_log_scale(True)

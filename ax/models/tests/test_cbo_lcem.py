@@ -15,8 +15,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 
 class LCEMBOTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testLCEMBO(self):
+    def testLCEMBO(self) -> None:
         d = 1
         train_x = torch.rand(10, d)
         train_y = torch.cos(train_x)

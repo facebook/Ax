@@ -8,8 +8,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestProblems(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_load_problems(self):
+    def test_load_problems(self) -> None:
 
         # Make sure problem construction succeeds
         for name in BENCHMARK_PROBLEM_REGISTRY.keys():

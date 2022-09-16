@@ -27,8 +27,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class LogYTransformTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, 1.0]),
@@ -60,8 +59,7 @@ class LogYTransformTest(TestCase):
             )
         ]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         shared_init_args = {
             "search_space": None,
             "observations": self.observations,
@@ -90,8 +88,7 @@ class LogYTransformTest(TestCase):
         # pyre-fixme[6]: For 2nd param expected `ndarray` but got `float`.
         self.assertEqual(tf._untransform(0.0, 0.1), match_ci_width(0.0, 0.1, np.exp))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservations(self):
+    def testTransformObservations(self) -> None:
         # test default transform
         obsd1_t = ObservationData(
             metric_names=["m1", "m2", "m3"],
@@ -133,8 +130,7 @@ class LogYTransformTest(TestCase):
         self.assertTrue(np.allclose(obsd1_[0].covariance, cov_expected))
         # TODO: match_ci_width test
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformOptimizationConfig(self):
+    def testTransformOptimizationConfig(self) -> None:
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
@@ -211,8 +207,7 @@ class LogYTransformTest(TestCase):
             str(cm.exception),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformOptimizationConfigMOO(self):
+    def testTransformOptimizationConfigMOO(self) -> None:
         m1 = Metric(name="m1", lower_is_better=False)
         m2 = Metric(name="m2", lower_is_better=True)
         mo = MultiObjective(
@@ -240,8 +235,7 @@ class LogYTransformTest(TestCase):
 
 
 class LogNormTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_lognorm_to_norm(self):
+    def test_lognorm_to_norm(self) -> None:
         mu_ln = np.ones(3)
         Cov_ln = np.diag(mu_ln * (np.exp(1) - 1))
         mu_n, Cov_n = lognorm_to_norm(mu_ln, Cov_ln)
@@ -256,8 +250,7 @@ class LogNormTest(TestCase):
         Cov_n2_expected = np.array([[1.0, 0.0, 0.5], [0.0, 1.0, 0.0], [0.5, 0.0, 1.0]])
         self.assertTrue(np.allclose(Cov_n2, Cov_n2_expected))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_norm_to_lognorm(self):
+    def test_norm_to_lognorm(self) -> None:
         mu_n = -0.5 * np.ones(3)
         Cov_n = np.eye(3)
         # pyre-fixme[6]: For 1st param expected `ndarray` but got `float`.

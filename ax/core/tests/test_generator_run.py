@@ -21,8 +21,7 @@ GENERATOR_RUN_STR_PLUS_1 = "GeneratorRun(3 arms, total weight 4.0)"
 
 
 class GeneratorRunTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.model_predictions = get_model_predictions()
         self.optimization_config = get_optimization_config()
         self.search_space = get_search_space()
@@ -47,8 +46,7 @@ class GeneratorRunTest(TestCase):
             model_predictions=self.model_predictions,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(
             # pyre-fixme[16]: Optional type has no attribute `outcome_constraints`.
             len(self.unweighted_run.optimization_config.outcome_constraints),
@@ -88,8 +86,7 @@ class GeneratorRunTest(TestCase):
                 },
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClone(self):
+    def testClone(self) -> None:
         weighted_run2 = self.weighted_run.clone()
         self.assertEqual(
             self.weighted_run.optimization_config, weighted_run2.optimization_config
@@ -97,8 +94,7 @@ class GeneratorRunTest(TestCase):
         weighted_run2.arms[0].name = "bogus_name"
         self.assertNotEqual(self.weighted_run.arms, weighted_run2.arms)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMergeDuplicateArm(self):
+    def testMergeDuplicateArm(self) -> None:
         arms = self.arms + [self.arms[0]]
         run = GeneratorRun(
             arms=arms,
@@ -108,15 +104,13 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(str(run), GENERATOR_RUN_STR_PLUS_1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testIndex(self):
+    def testIndex(self) -> None:
         self.assertIsNone(self.unweighted_run.index)
         self.unweighted_run.index = 1
         with self.assertRaises(ValueError):
             self.unweighted_run.index = 2
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testModelPredictions(self):
+    def testModelPredictions(self) -> None:
         self.assertEqual(self.unweighted_run.model_predictions, get_model_predictions())
         self.assertEqual(
             self.unweighted_run.model_predictions_by_arm,
@@ -133,8 +127,7 @@ class GeneratorRunTest(TestCase):
         self.assertIsNone(run_no_model_predictions.model_predictions)
         self.assertIsNone(run_no_model_predictions.model_predictions_by_arm)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         self.assertEqual(self.unweighted_run, self.unweighted_run)
 
         arms = [
@@ -148,13 +141,11 @@ class GeneratorRunTest(TestCase):
         )
         self.assertNotEqual(self.unweighted_run, unweighted_run_2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testParamDf(self):
+    def testParamDf(self) -> None:
         param_df = self.unweighted_run.param_df
         self.assertEqual(len(param_df), len(self.arms))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBestArm(self):
+    def testBestArm(self) -> None:
         generator_run = GeneratorRun(
             arms=self.arms,
             # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
@@ -169,8 +160,7 @@ class GeneratorRunTest(TestCase):
             (self.arms[0], ({"a": 1.0}, {"a": {"a": 2.0}})),
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGenMetadata(self):
+    def testGenMetadata(self) -> None:
         gm = {"hello": "world"}
         generator_run = GeneratorRun(
             arms=self.arms,
@@ -183,8 +173,7 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(generator_run.gen_metadata, gm)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSortable(self):
+    def testSortable(self) -> None:
         generator_run1 = GeneratorRun(
             arms=self.arms,
             # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got

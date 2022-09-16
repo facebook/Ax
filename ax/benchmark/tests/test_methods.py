@@ -10,8 +10,7 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 
 
 class TestMethods(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_mbm_acquisition(self):
+    def test_mbm_acquisition(self) -> None:
         method = get_sobol_botorch_modular_acquisition(
             acquisition_cls=qKnowledgeGradient,
             acquisition_options={"num_fantasies": 16},

@@ -51,8 +51,7 @@ DUMMY_ARM_NAME = "test_arm_name"
 
 
 class ExperimentTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = get_experiment()
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
@@ -71,8 +70,7 @@ class ExperimentTest(TestCase):
         batch_2.run()
         return exp
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentInit(self):
+    def testExperimentInit(self) -> None:
         self.assertEqual(self.experiment.name, "test")
         self.assertEqual(self.experiment.description, "test description")
         self.assertEqual(self.experiment.name, "test")
@@ -80,8 +78,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentName(self):
+    def testExperimentName(self) -> None:
         self.assertTrue(self.experiment.has_name)
         self.experiment.name = None
         self.assertFalse(self.experiment.has_name)
@@ -89,13 +86,11 @@ class ExperimentTest(TestCase):
             self.experiment.name
         self.experiment.name = "test"
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentType(self):
+    def testExperimentType(self) -> None:
         self.experiment.experiment_type = "test"
         self.assertEqual(self.experiment.experiment_type, "test")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEq(self):
+    def testEq(self) -> None:
         self.assertEqual(self.experiment, self.experiment)
 
         experiment2 = Experiment(
@@ -107,15 +102,13 @@ class ExperimentTest(TestCase):
         )
         self.assertNotEqual(self.experiment, experiment2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDBId(self):
+    def testDBId(self) -> None:
         self.assertIsNone(self.experiment.db_id)
         some_id = 123456789
         self.experiment.db_id = some_id
         self.assertEqual(self.experiment.db_id, some_id)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTrackingMetricsMerge(self):
+    def testTrackingMetricsMerge(self) -> None:
         # Tracking and optimization metrics should get merged
         # m1 is on optimization_config while m3 is not
         exp = Experiment(
@@ -127,8 +120,7 @@ class ExperimentTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `metrics`.
         self.assertEqual(len(exp.optimization_config.metrics) + 1, len(exp.metrics))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBasicBatchCreation(self):
+    def testBasicBatchCreation(self) -> None:
         batch = self.experiment.new_batch_trial()
         self.assertEqual(len(self.experiment.trials), 1)
         self.assertEqual(self.experiment.trials[0], batch)
@@ -142,19 +134,16 @@ class ExperimentTest(TestCase):
             new_exp = get_experiment()
             new_exp._attach_trial(batch)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRepr(self):
+    def testRepr(self) -> None:
         self.assertEqual("Experiment(test)", str(self.experiment))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testBasicProperties(self):
+    def testBasicProperties(self) -> None:
         self.assertEqual(self.experiment.status_quo, get_status_quo())
         self.assertEqual(self.experiment.search_space, get_search_space())
         self.assertEqual(self.experiment.optimization_config, get_optimization_config())
         self.assertEqual(self.experiment.is_test, True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testOnlyRangeParameterConstraints(self):
+    def testOnlyRangeParameterConstraints(self) -> None:
         self.assertEqual(0, 0)
         self.assertTrue(True)
 
@@ -228,8 +217,7 @@ class ExperimentTest(TestCase):
                 parameter_constraints=["x1 + x2 <= 1"],
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testMetricSetters(self):
+    def testMetricSetters(self) -> None:
         # Establish current metrics size
         self.assertEqual(
             len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
@@ -301,8 +289,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.remove_tracking_metric(metric_name="m5")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testSearchSpaceSetter(self):
+    def testSearchSpaceSetter(self) -> None:
         one_param_ss = SearchSpace(parameters=[get_search_space().parameters["w"]])
 
         # Verify all search space ok with no trials
@@ -329,8 +316,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.search_space = extra_param_ss
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testStatusQuoSetter(self):
+    def testStatusQuoSetter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters
         self.experiment.status_quo = None
         self.assertIsNone(self.experiment.status_quo)
@@ -401,8 +387,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             exp.status_quo = Arm(arms[0].parameters, name="new_name")
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRegisterArm(self):
+    def testRegisterArm(self) -> None:
         # Create a new arm, register on experiment
         parameters = self.experiment.status_quo.parameters
         parameters["w"] = 3.5
@@ -411,8 +396,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.arms_by_name[arm.name], arm)
         self.assertEqual(self.experiment.arms_by_signature[arm.signature], arm)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFetchAndStoreData(self):
+    def testFetchAndStoreData(self) -> None:
         n = 10
         exp = self._setupBraninExperiment(n)
         batch = exp.trials[0]
@@ -519,8 +503,7 @@ class ExperimentTest(TestCase):
             exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testOverwriteExistingData(self):
+    def testOverwriteExistingData(self) -> None:
         n = 10
         exp = self._setupBraninExperiment(n)
 
@@ -561,8 +544,7 @@ class ExperimentTest(TestCase):
             data.df["metric_name"] = "a"
             exp.attach_data(data, overwrite_existing_data=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmptyMetrics(self):
+    def testEmptyMetrics(self) -> None:
         empty_experiment = Experiment(
             name="test_experiment", search_space=get_search_space()
         )
@@ -580,8 +562,7 @@ class ExperimentTest(TestCase):
         batch.mark_completed()
         self.assertFalse(empty_experiment.fetch_data().df.empty)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testNumArmsNoDeduplication(self):
+    def testNumArmsNoDeduplication(self) -> None:
         exp = Experiment(name="test_experiment", search_space=get_search_space())
         arm = get_arm()
         exp.new_batch_trial().add_arm(arm)
@@ -591,8 +572,7 @@ class ExperimentTest(TestCase):
         trial.mark_arm_abandoned(trial.arms[0].name)
         self.assertEqual(exp.num_abandoned_arms, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentWithoutName(self):
+    def testExperimentWithoutName(self) -> None:
         exp = Experiment(
             search_space=get_branin_search_space(),
             tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
@@ -604,8 +584,7 @@ class ExperimentTest(TestCase):
         batch.run()
         self.assertEqual(batch.run_metadata, {"name": "0"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testExperimentRunner(self):
+    def testExperimentRunner(self) -> None:
         original_runner = SyntheticRunner()
         self.experiment.runner = original_runner
         batch = self.experiment.new_batch_trial()
@@ -640,8 +619,7 @@ class ExperimentTest(TestCase):
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFetchTrialsData(self):
+    def testFetchTrialsData(self) -> None:
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]
         batch_1 = exp.trials[1]
@@ -680,8 +658,7 @@ class ExperimentTest(TestCase):
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_immutable_search_space_and_opt_config(self):
+    def test_immutable_search_space_and_opt_config(self) -> None:
         mutable_exp = self._setupBraninExperiment(n=5)
         self.assertFalse(mutable_exp.immutable_search_space_and_opt_config)
         immutable_exp = Experiment(
@@ -710,8 +687,7 @@ class ExperimentTest(TestCase):
         )
         self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fetch_as_class(self):
+    def test_fetch_as_class(self) -> None:
         class MyMetric(Metric):
             @property
             def fetch_multi_group_by_metric(self) -> Type[Metric]:
@@ -776,8 +752,7 @@ class ExperimentTest(TestCase):
             # No new data should be attached to the experiment
             self.assertEqual(len(exp._data_by_trial), 2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testWarmStartFromOldExperiment(self):
+    def testWarmStartFromOldExperiment(self) -> None:
         # create old_experiment
         len_old_trials = 7
         i_failed_trial = 1
@@ -872,8 +847,7 @@ class ExperimentTest(TestCase):
             len(map_data_experiment.trials), len(old_experiment.trials) - 1
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_is_test_warning(self):
+    def test_is_test_warning(self) -> None:
         experiments_module = "ax.core.experiment"
         with self.subTest("it warns on construction for a test"):
             with self.assertLogs(experiments_module, level=logging.INFO) as logger:
@@ -921,8 +895,7 @@ class ExperimentTest(TestCase):
 
 
 class ExperimentWithMapDataTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = get_experiment_with_map_data_type()
 
     def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:
@@ -936,8 +909,7 @@ class ExperimentWithMapDataTest(TestCase):
         batch_2.run()
         return exp
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFetchDataWithMapData(self):
+    def testFetchDataWithMapData(self) -> None:
         evaluations = {
             "0_0": [
                 ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
@@ -976,8 +948,7 @@ class ExperimentWithMapDataTest(TestCase):
         actual_data = self.experiment.lookup_data()
         self.assertEqual(expected_data, actual_data)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testFetchTrialsData(self):
+    def testFetchTrialsData(self) -> None:
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]
         batch_1 = exp.trials[1]
@@ -1021,8 +992,7 @@ class ExperimentWithMapDataTest(TestCase):
             set(batch_0_data.df["arm_name"].values), {a.name for a in batch_0.arms}
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_is_moo_problem(self):
+    def test_is_moo_problem(self) -> None:
         exp = get_branin_experiment()
         self.assertFalse(exp.is_moo_problem)
         exp = get_branin_experiment_with_multi_objective()
@@ -1030,8 +1000,7 @@ class ExperimentWithMapDataTest(TestCase):
         exp._optimization_config = None
         self.assertFalse(exp.is_moo_problem)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testWarmStartMapData(self):
+    def testWarmStartMapData(self) -> None:
         # create old_experiment
         len_old_trials = 7
         i_failed_trial = 1

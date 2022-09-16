@@ -30,8 +30,7 @@ class BaseModelSpecTest(TestCase):
 
 class ModelSpecTest(BaseModelSpecTest):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct(self):
+    def test_construct(self) -> None:
         ms = ModelSpec(model_enum=Models.GPEI)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
@@ -40,8 +39,7 @@ class ModelSpecTest(BaseModelSpecTest):
         with self.assertRaises(NotImplementedError):
             ms.update(experiment=self.experiment, new_data=self.data)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_model_key(self):
+    def test_model_key(self) -> None:
         ms = ModelSpec(model_enum=Models.GPEI)
         self.assertEqual(ms.model_key, "GPEI")
 
@@ -113,8 +111,7 @@ class ModelSpecTest(BaseModelSpecTest):
         mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
         mock_diagnostics.assert_not_called()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_fixed_features(self):
+    def test_fixed_features(self) -> None:
         ms = ModelSpec(model_enum=Models.GPEI)
         self.assertIsNone(ms.fixed_features)
         new_features = ObservationFeatures(parameters={"a": 1.0})
@@ -125,8 +122,7 @@ class ModelSpecTest(BaseModelSpecTest):
 
 
 class FactoryFunctionModelSpecTest(BaseModelSpecTest):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_construct(self):
+    def test_construct(self) -> None:
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
@@ -135,7 +131,6 @@ class FactoryFunctionModelSpecTest(BaseModelSpecTest):
         with self.assertRaises(NotImplementedError):
             ms.update(experiment=self.experiment, new_data=self.data)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_model_key(self):
+    def test_model_key(self) -> None:
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)
         self.assertEqual(ms.model_key, "get_sobol")

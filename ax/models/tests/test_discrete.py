@@ -10,23 +10,19 @@ from ax.utils.common.testutils import TestCase
 
 
 class DiscreteModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         pass
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_discrete_model_get_state(self):
+    def test_discrete_model_get_state(self) -> None:
         discrete_model = DiscreteModel()
         self.assertEqual(discrete_model._get_state(), {})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_discrete_model_feature_importances(self):
+    def test_discrete_model_feature_importances(self) -> None:
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.feature_importances()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testDiscreteModelFit(self):
+    def testDiscreteModelFit(self) -> None:
         discrete_model = DiscreteModel()
         discrete_model.fit(
             Xs=[[[0]]],
@@ -36,22 +32,19 @@ class DiscreteModelTest(TestCase):
             outcome_names=[],
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testdiscreteModelPredict(self):
+    def testdiscreteModelPredict(self) -> None:
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.predict([[0]])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testdiscreteModelGen(self):
+    def testdiscreteModelGen(self) -> None:
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.gen(
                 n=1, parameter_values=[[0, 1]], objective_weights=np.array([1])
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testdiscreteModelCrossValidate(self):
+    def testdiscreteModelCrossValidate(self) -> None:
         discrete_model = DiscreteModel()
         with self.assertRaises(NotImplementedError):
             discrete_model.cross_validate(

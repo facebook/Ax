@@ -9,8 +9,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TransformUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_closest_lookup_dict(self):
+    def test_closest_lookup_dict(self) -> None:
         # test empty lookup
         d = ClosestLookupDict()
         with self.assertRaises(RuntimeError):

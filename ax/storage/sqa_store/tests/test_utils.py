@@ -26,12 +26,10 @@ class DummyClassWithBaseline(Base):
 
 
 class SQAStoreUtilsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCopyDBIDsBatchTrialExp(self):
+    def testCopyDBIDsBatchTrialExp(self) -> None:
         exp1 = get_experiment_with_batch_trial()
         save_experiment(exp1)
         exp2 = load_experiment(exp1.name)
@@ -47,8 +45,7 @@ class SQAStoreUtilsTest(TestCase):
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCopyDBIDsDataExp(self):
+    def testCopyDBIDsDataExp(self) -> None:
         exp1 = get_experiment_with_data()
         save_experiment(exp1)
         exp2 = load_experiment(exp1.name)
@@ -63,8 +60,7 @@ class SQAStoreUtilsTest(TestCase):
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testCopyDBIDsRepeatedArms(self):
+    def testCopyDBIDsRepeatedArms(self) -> None:
         exp = get_experiment_with_batch_trial()
         exp.trials[0]
         save_experiment(exp)
@@ -74,8 +70,7 @@ class SQAStoreUtilsTest(TestCase):
 
         self.assertNotEqual(exp.trials[0].arms[0].db_id, exp.trials[1].arms[0].db_id)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_copy_db_ids_none_search_space(self):
+    def test_copy_db_ids_none_search_space(self) -> None:
         exp1 = get_experiment_with_batch_trial()
         save_experiment(exp1)
         exp2 = load_experiment(exp1.name)
@@ -103,8 +98,7 @@ class SQAStoreUtilsTest(TestCase):
         exp2._search_space = None
         self.assertEqual(exp1, exp2)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_json_copy_db_ids(self):
+    def test_json_copy_db_ids(self) -> None:
         target_obj = DummyClassWithBaseline(
             baseline_workflow_inputs=[{1: 2, 3: 4}, {"a": "b", "c": "d"}],
             db_id=None,

@@ -19,8 +19,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 class ChoiceEncodeTransformTest(TestCase):
     t_class = ChoiceEncode
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(
@@ -68,12 +67,10 @@ class ChoiceEncodeTransformTest(TestCase):
             "d": 0,
         }
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformObservationFeatures(self):
+    def testTransformObservationFeatures(self) -> None:
         observation_features = self.observation_features
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -95,8 +92,7 @@ class ChoiceEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -134,8 +130,7 @@ class ChoiceEncodeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_w_parameter_distributions(self):
+    def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
         rss.parameters["c"]._is_ordered = True
@@ -176,8 +171,7 @@ class ChoiceEncodeTransformTest(TestCase):
 class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
     t_class = OrderedChoiceEncode
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         # expected parameters after transform
         self.expected_transformed_params = {
@@ -190,12 +184,10 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             "d": "r",
         }
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testInit(self):
+    def testInit(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testTransformSearchSpace(self):
+    def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 

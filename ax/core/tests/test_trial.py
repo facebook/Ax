@@ -32,20 +32,17 @@ TEST_DATA = Data(
 
 
 class TrialTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.experiment = get_experiment()
         self.trial = self.experiment.new_trial()
         self.arm = get_arms()[0]
         self.trial.add_arm(self.arm)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_eq(self):
+    def test_eq(self) -> None:
         new_trial = self.experiment.new_trial()
         self.assertNotEqual(self.trial, new_trial)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_basic_properties(self):
+    def test_basic_properties(self) -> None:
         self.assertEqual(self.experiment, self.trial.experiment)
         self.assertEqual(self.trial.index, 0)
         self.assertEqual(self.trial.status, TrialStatus.CANDIDATE)
@@ -69,8 +66,7 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.status.is_completed)
         self.assertTrue(self.trial.completed_successfully)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_adding_new_trials(self):
+    def test_adding_new_trials(self) -> None:
         new_arm = get_arms()[1]
         cand_metadata = {new_arm.signature: {"a": "b"}}
         new_trial = self.experiment.new_trial(
@@ -98,8 +94,7 @@ class TrialTest(TestCase):
             ValueError, new_trial._get_candidate_metadata, "this_is_not_an_arm"
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_add_trial_same_arm(self):
+    def test_add_trial_same_arm(self) -> None:
         # Check that adding new arm w/out name works correctly.
         new_trial1 = self.experiment.new_trial(
             generator_run=GeneratorRun(arms=[self.arm.clone(clear_name=True)])
@@ -119,16 +114,14 @@ class TrialTest(TestCase):
                 generator_run=GeneratorRun(arms=[arm_wrong_name])
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_abandonment(self):
+    def test_abandonment(self) -> None:
         self.assertFalse(self.trial.status.is_abandoned)
         self.trial.mark_abandoned(reason="testing")
         self.assertTrue(self.trial.status.is_abandoned)
         self.assertFalse(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_mark_as(self):
+    def test_mark_as(self) -> None:
         for terminal_status in (
             TrialStatus.ABANDONED,
             TrialStatus.FAILED,
@@ -163,8 +156,7 @@ class TrialTest(TestCase):
                 else:
                     self.assertFalse(self.trial.status.expecting_data)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_stop(self):
+    def test_stop(self) -> None:
         # test bad old status
         with self.assertRaisesRegex(ValueError, "Can only stop STAGED or RUNNING"):
             self.trial.stop(new_status=TrialStatus.ABANDONED)
@@ -213,8 +205,7 @@ class TrialTest(TestCase):
         with self.assertRaisesRegex(ValueError, "No data was retrieved for trial"):
             self.assertIsNone(self.trial.objective_mean)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testRepr(self):
+    def testRepr(self) -> None:
         repr_ = (
             "Trial(experiment_name='test', index=0, "
             "status=TrialStatus.CANDIDATE, arm=Arm(name='0_0', "
@@ -222,14 +213,12 @@ class TrialTest(TestCase):
         )
         self.assertEqual(str(self.trial), repr_)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_update_run_metadata(self):
+    def test_update_run_metadata(self) -> None:
         self.assertEqual(len(self.trial.run_metadata), 0)
         self.trial.update_run_metadata({"something": "new"})
         self.assertEqual(self.trial.run_metadata, {"something": "new"})
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_update_stop_metadata(self):
+    def test_update_stop_metadata(self) -> None:
         self.assertEqual(len(self.trial.stop_metadata), 0)
         self.trial.update_stop_metadata({"something": "new"})
         self.assertEqual(self.trial.stop_metadata, {"something": "new"})

@@ -17,8 +17,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 
 class REMBOTest(TestCase):
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def testREMBOModel(self):
+    def testREMBOModel(self) -> None:
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
         bounds_d = [(-2, 2), (-2, 2)]

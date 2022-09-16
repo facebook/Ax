@@ -12,8 +12,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class EmpiricalBayesThompsonSamplerTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.Xs = [
             [[1, 1], [2, 2], [3, 3], [4, 4]],
             [[1, 1], [2, 2], [3, 3], [4, 4]],
@@ -23,8 +22,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
         self.outcome_names = ["x", "y"]  # not used for regular EB
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmpiricalBayesThompsonSamplerFit(self):
+    def testEmpiricalBayesThompsonSamplerFit(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -55,8 +53,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             )
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmpiricalBayesThompsonSamplerGen(self):
+    def testEmpiricalBayesThompsonSamplerGen(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -98,8 +95,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             ):
                 self.assertAlmostEqual(weight, expected_weight, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmpiricalBayesThompsonSamplerWarning(self):
+    def testEmpiricalBayesThompsonSamplerWarning(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -129,8 +125,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmpiricalBayesThompsonSamplerValidation(self):
+    def testEmpiricalBayesThompsonSamplerValidation(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.01)
         with self.assertRaises(ValueError):
             generator.fit(
@@ -147,8 +142,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
                 outcome_names=self.outcome_names,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testEmpiricalBayesThompsonSamplerPredict(self):
+    def testEmpiricalBayesThompsonSamplerPredict(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,

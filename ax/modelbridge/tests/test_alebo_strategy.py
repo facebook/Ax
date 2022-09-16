@@ -20,8 +20,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class ALEBOStrategyTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_factory_functions(self):
+    def test_factory_functions(self) -> None:
         experiment = get_branin_experiment(with_batch=True)
         B = np.array([[1.0, 2.0]])
         m1 = get_ALEBOInitializer(search_space=experiment.search_space, B=B)
@@ -49,8 +48,7 @@ class ALEBOStrategyTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `B`.
         self.assertTrue(np.array_equal(m2.model.B.numpy(), B))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ALEBOStrategy(self):
+    def test_ALEBOStrategy(self) -> None:
         D = 20
         d = 3
         init_size = 5

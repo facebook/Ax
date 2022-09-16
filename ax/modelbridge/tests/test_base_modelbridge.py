@@ -475,8 +475,7 @@ class BaseModelBridgeTest(TestCase):
                 status_quo_name="1_1",
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testUnwrapObservationData(self):
+    def testUnwrapObservationData(self) -> None:
         observation_data = [get_observation1().data, get_observation2().data]
         f, cov = unwrap_observation_data(observation_data)
         self.assertEqual(f["a"], [2.0, 2.0])
@@ -492,8 +491,7 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def testGenArms(self):
+    def testGenArms(self) -> None:
         p1 = {"x": 0, "y": 1}
         p2 = {"x": 4, "y": 8}
         observation_features = [
@@ -654,8 +652,7 @@ class BaseModelBridgeTest(TestCase):
 
 
 class testClampObservationFeatures(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def testClampObservationFeaturesNearBounds(self):
+    def testClampObservationFeaturesNearBounds(self) -> None:
         cases = [
             (
                 ObservationFeatures(

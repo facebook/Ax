@@ -49,8 +49,7 @@ def dummy_predict(model, X):
 
 
 class FrontierEvaluatorTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def setUp(self):
+    def setUp(self) -> None:
         self.X = torch.tensor(
             [[1.0, 0.0], [1.0, 1.0], [1.0, 3.0], [2.0, 2.0], [3.0, 1.0]]
         )
@@ -83,8 +82,7 @@ class FrontierEvaluatorTest(TestCase):
             )
             _mock_fit_model.assert_called_once()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pareto_frontier_raise_error_when_missing_data(self):
+    def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
         with self.assertRaises(ValueError):
             pareto_frontier_evaluator(
                 model=self.model,
@@ -93,8 +91,7 @@ class FrontierEvaluatorTest(TestCase):
                 Yvar=self.Yvar,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pareto_frontier_evaluator_raw(self):
+    def test_pareto_frontier_evaluator_raw(self) -> None:
         Yvar = torch.diag_embed(self.Yvar)
         Y, cov, indx = pareto_frontier_evaluator(
             model=self.model,
@@ -149,8 +146,7 @@ class FrontierEvaluatorTest(TestCase):
         self.assertTrue(torch.equal(cov, torch.zeros(0, 3, 3)))
         self.assertTrue(torch.equal(torch.tensor([], dtype=torch.long), indx))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pareto_frontier_evaluator_predict(self):
+    def test_pareto_frontier_evaluator_predict(self) -> None:
         Y, cov, indx = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
@@ -163,8 +159,7 @@ class FrontierEvaluatorTest(TestCase):
         )
         self.assertTrue(torch.equal(torch.arange(2, 4), indx))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pareto_frontier_evaluator_with_outcome_constraints(self):
+    def test_pareto_frontier_evaluator_with_outcome_constraints(self) -> None:
         Y, cov, indx = pareto_frontier_evaluator(
             model=self.model,
             objective_weights=self.objective_weights,
@@ -181,8 +176,7 @@ class FrontierEvaluatorTest(TestCase):
 
 
 class BotorchMOODefaultsTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_EHVI_input_validation_errors(self):
+    def test_get_EHVI_input_validation_errors(self) -> None:
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
         mm = MockModel(MockPosterior())
@@ -195,8 +189,7 @@ class BotorchMOODefaultsTest(TestCase):
                 objective_thresholds=objective_thresholds,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_weighted_mc_objective_and_objective_thresholds(self):
+    def test_get_weighted_mc_objective_and_objective_thresholds(self) -> None:
         objective_weights = torch.tensor([0.0, 1.0, 0.0, 1.0])
         objective_thresholds = torch.arange(4, dtype=torch.float)
         (
@@ -210,8 +203,7 @@ class BotorchMOODefaultsTest(TestCase):
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_NEHVI_input_validation_errors(self):
+    def test_get_NEHVI_input_validation_errors(self) -> None:
         model = MultiObjectiveBotorchModel()
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
@@ -226,8 +218,7 @@ class BotorchMOODefaultsTest(TestCase):
                 objective_thresholds=objective_thresholds,
             )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_get_ehvi(self):
+    def test_get_ehvi(self) -> None:
         weights = torch.tensor([0.0, 1.0, 1.0])
         X_observed = torch.rand(4, 3)
         X_pending = torch.rand(1, 3)
@@ -620,7 +611,6 @@ class BotorchMOODefaultsTest(TestCase):
                 )
                 self.assertTrue(np.isnan(obj_thresholds[2].item()))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_infer_objective_thresholds_cuda(self):
+    def test_infer_objective_thresholds_cuda(self) -> None:
         if torch.cuda.is_available():
             self.test_infer_objective_thresholds(cuda=True)

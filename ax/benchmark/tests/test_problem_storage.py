@@ -13,8 +13,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestProblems(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    def tearDown(self):
+    def tearDown(self) -> None:
         mnist_dir_path = "data/MNIST/raw"
         files = glob.glob(mnist_dir_path + "/*")
         for f in files:
@@ -22,8 +21,7 @@ class TestProblems(TestCase):
         os.rmdir(mnist_dir_path)
         super().tearDown()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_torchvision_encode_decode(self):
+    def test_torchvision_encode_decode(self) -> None:
         original_object = PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name(
             name="MNIST", num_trials=50
         )
