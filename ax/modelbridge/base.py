@@ -627,6 +627,9 @@ class ModelBridge(ABC):
         model_gen_options: Optional[TConfig] = None,
     ) -> GeneratorRun:
         """
+        Generate new points from the underlying model according to
+        search_space, optimization_config and other parameters.
+
         Args:
             n: Number of points to generate
             search_space: Search space
@@ -638,6 +641,9 @@ class ModelBridge(ABC):
                 generation.
             model_gen_options: A config dictionary that is passed along to the
                 model.
+
+        Returns:
+            A GeneratorRun object that contains the generated points and other metadata.
         """
         t_gen_start = time.monotonic()
         # Get modifiable versions
