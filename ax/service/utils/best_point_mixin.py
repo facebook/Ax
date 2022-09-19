@@ -232,7 +232,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+    ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
         if not not_none(experiment.optimization_config).is_moo_problem:
             raise NotImplementedError(  # pragma: no cover
                 "Please use `get_best_parameters` for single-objective problems."

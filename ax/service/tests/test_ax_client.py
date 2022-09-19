@@ -8,7 +8,7 @@ import math
 import sys
 import time
 from math import ceil
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
@@ -58,6 +58,9 @@ from ax.utils.testing.modeling_stubs import get_observation1, get_observation1tr
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.utils.sampling import manual_seed
 
+if TYPE_CHECKING:
+    from ax.core.types import TTrialEvaluation
+
 
 RANDOM_SEED = 239
 
@@ -99,6 +102,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     minimize: bool = False,
     include_objective_thresholds: bool = True,
     random_seed: int = RANDOM_SEED,
+    outcome_constraints: Optional[List[str]] = None,
 ) -> Tuple[AxClient, BraninCurrin]:
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
@@ -128,6 +132,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
                 else None,
             ),
         },
+        outcome_constraints=outcome_constraints,
         choose_generation_strategy_kwargs={
             "num_initialization_trials": num_trials,
             "random_seed": random_seed,
@@ -136,13 +141,14 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     for _ in range(num_trials):
         parameterization, trial_index = ax_client.get_next_trial()
         x, y = parameterization.get("x"), parameterization.get("y")
-        ax_client.complete_trial(
-            trial_index,
-            raw_data={
-                "branin": float(branin_currin(torch.tensor([x, y]))[0]),
-                "currin": float(branin_currin(torch.tensor([x, y]))[1]),
-            },
-        )
+        branin = float(branin_currin(torch.tensor([x, y]))[0])
+        currin = float(branin_currin(torch.tensor([x, y]))[1])
+        raw_data: TTrialEvaluation = {
+            "branin": branin,
+            "currin": currin,
+            "c": branin + currin,
+        }
+        ax_client.complete_trial(trial_index, raw_data=raw_data)
     return ax_client, branin_currin
 
 
@@ -2160,15 +2166,16 @@ class TestAxClient(TestCase):
         wraps=observed_pareto,
     )
     @fast_botorch_optimize
-    def test_get_pareto_optimal_points(
+    def helper_test_get_pareto_optimal_points(
         self,
         # pyre-fixme[2]: Parameter must be annotated.
         mock_observed_pareto,
         # pyre-fixme[2]: Parameter must be annotated.
         mock_predicted_pareto,
+        outcome_constraints: Optional[List[str]] = None,
     ) -> None:
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
-            num_trials=20
+            num_trials=20, outcome_constraints=outcome_constraints
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
         ax_client.generation_strategy._fit_or_update_current_model(
@@ -2198,11 +2205,7 @@ class TestAxClient(TestCase):
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
         ):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(predicted_pareto), 3)
-        # pyre-fixme[16]: `Optional` has no attribute `keys`.
         self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
@@ -2213,41 +2216,51 @@ class TestAxClient(TestCase):
             mock_predicted_pareto.call_args[1].get("objective_thresholds")
         )
         # Observed Pareto values should be better than the reference point.
-        # pyre-fixme[16]: `Optional` has no attribute `values`.
         for obs in observed_pareto.values():
-            self.assertGreater(obs[1][0].get("branin"), branin_currin.ref_point[0])
-            self.assertGreater(obs[1][0].get("currin"), branin_currin.ref_point[1])
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
+            branin: float = obs[1][0]["branin"]
+            currin: float = obs[1][0]["currin"]
+            self.assertGreater(branin, branin_currin.ref_point[0].item())
+            self.assertGreater(currin, branin_currin.ref_point[1].item())
+            if outcome_constraints is not None:
+                self.assertEqual(branin + currin, obs[1][0]["c"])
+
         self.assertEqual(len(observed_pareto), 1)
         self.assertEqual(sorted(observed_pareto.keys()), [14])
         # Check that we did not specify objective threshold overrides (because we
         # did not have to infer them)
         self.assertIsNone(mock_observed_pareto.call_args[1].get("objective_thresholds"))
 
-    def test_get_pareto_optimal_points_from_sobol_step(self) -> None:
+    def test_get_pareto_optimal_points(self) -> None:
+        for outcome_constraints in [None, ["c <= 100.0"]]:
+            with self.subTest(outcome_constraints=outcome_constraints):
+                self.helper_test_get_pareto_optimal_points(
+                    outcome_constraints=outcome_constraints
+                )
+
+    def helper_test_get_pareto_optimal_points_from_sobol_step(
+        self, outcome_constraints: Optional[List[str]] = None
+    ) -> None:
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
-            num_trials=20
+            num_trials=20, outcome_constraints=outcome_constraints
         )
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "Sobol")
 
         with manual_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(predicted_pareto), 3)
-        # pyre-fixme[16]: `Optional` has no attribute `keys`.
         self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
         )
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertEqual(len(observed_pareto), 1)
         self.assertEqual(sorted(observed_pareto.keys()), [14])
+
+    def test_get_pareto_optimal_points_from_sobol_step(self) -> None:
+        for outcome_constraints in [None, ["c <= 100.0"]]:
+            with self.subTest(outcome_constraints=outcome_constraints):
+                self.helper_test_get_pareto_optimal_points_from_sobol_step(
+                    outcome_constraints=outcome_constraints
+                )
 
     @patch(
         f"{get_pareto_optimal_parameters.__module__}.predicted_pareto",
@@ -2283,9 +2296,6 @@ class TestAxClient(TestCase):
         )
         mock_predicted_pareto.reset_mock()
         mock_observed_pareto.assert_not_called()
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertGreater(len(predicted_pareto), 0)
 
         with manual_seed(seed=RANDOM_SEED):
@@ -2298,9 +2308,6 @@ class TestAxClient(TestCase):
             mock_observed_pareto.call_args[1].get("objective_thresholds")
         )
         mock_predicted_pareto.assert_not_called()
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[int,
-        #  Tuple[Dict[str, Union[None, bool, float, int, str]], Tuple[Dict[str, float],
-        #  Optional[Dict[str, Dict[str, float]]]]]]]`.
         self.assertGreater(len(observed_pareto), 0)
 
     @fast_botorch_optimize
