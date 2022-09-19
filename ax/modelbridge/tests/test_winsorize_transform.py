@@ -32,6 +32,7 @@ from ax.modelbridge.transforms.winsorize import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_optimization_config
+from typing_extensions import SupportsIndex
 
 
 class WinsorizeTransformTest(TestCase):
@@ -537,9 +538,8 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m3"], (-3.5, float("inf")))  # 1 - 1.5 * 3
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def get_transform(observation_data, config):
+def get_transform(observation_data, config) -> Winsorize:
     observations = [
         Observation(features=ObservationFeatures({}), data=obsd)
         for obsd in observation_data
@@ -557,8 +557,7 @@ def get_default_transform_cutoffs(
     optimization_config,
     # pyre-fixme[2]: Parameter must be annotated.
     winsorization_config=None,
-    # pyre-fixme[2]: Parameter must be annotated.
-    obs_data_len=6,
+    obs_data_len: SupportsIndex = 6,
 ):
     obsd = ObservationData(
         metric_names=["m1"] * obs_data_len,

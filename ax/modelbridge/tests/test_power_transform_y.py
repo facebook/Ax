@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from math import isfinite, isnan
+from typing import List
 
 import numpy as np
 from ax.core.metric import Metric
@@ -26,9 +27,8 @@ from ax.utils.common.testutils import TestCase
 from sklearn.preprocessing import PowerTransformer
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def get_constraint(metric, bound, relative):
+def get_constraint(metric, bound, relative) -> List[OutcomeConstraint]:
     return [
         OutcomeConstraint(
             metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative

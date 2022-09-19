@@ -698,12 +698,11 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
                 self.assertNotIn(idc, or_from_collection_should_stop.keys())
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def _evaluate_early_stopping_with_df(
     early_stopping_strategy: PercentileEarlyStoppingStrategy,
     experiment: Experiment,
     df: pd.DataFrame,
-):
+) -> Dict[int, Optional[str]]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
     metric_to_aligned_means, _ = align_partial_results(

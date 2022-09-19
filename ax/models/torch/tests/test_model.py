@@ -7,6 +7,7 @@
 import dataclasses
 import warnings
 from contextlib import ExitStack
+from typing import Dict
 from unittest import mock
 
 import numpy as np
@@ -40,23 +41,17 @@ from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-CURRENT_PATH = __name__
-# pyre-fixme[5]: Global expression must be annotated.
-MODEL_PATH = BoTorchModel.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-SURROGATE_PATH = Surrogate.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-UTILS_PATH = choose_model_class.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-ACQUISITION_PATH = Acquisition.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-LIST_SURROGATE_PATH = ListSurrogate.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-NEHVI_PATH = qNoisyExpectedHypervolumeImprovement.__module__
+CURRENT_PATH: str = __name__
+MODEL_PATH: str = BoTorchModel.__module__
+SURROGATE_PATH: str = Surrogate.__module__
+UTILS_PATH: str = choose_model_class.__module__
+ACQUISITION_PATH: str = Acquisition.__module__
+LIST_SURROGATE_PATH: str = ListSurrogate.__module__
+NEHVI_PATH: str = qNoisyExpectedHypervolumeImprovement.__module__
 
-# pyre-fixme[5]: Global expression must be annotated.
-ACQ_OPTIONS = {Keys.SAMPLER: SobolQMCNormalSampler(1024)}
+ACQ_OPTIONS: Dict[Keys, SobolQMCNormalSampler] = {
+    Keys.SAMPLER: SobolQMCNormalSampler(1024)
+}
 
 
 class BoTorchModelTest(TestCase):
@@ -70,6 +65,8 @@ class BoTorchModelTest(TestCase):
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             botorch_acqf_class=self.botorch_acqf_class,
+            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str,
+            #  typing.Any]]` but got `Dict[Keys, SobolQMCNormalSampler]`.
             acquisition_options=self.acquisition_options,
         )
 

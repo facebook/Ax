@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from contextlib import ExitStack
+from typing import Tuple
 from unittest import mock
 
 import numpy as np
@@ -25,6 +26,7 @@ from botorch.utils.datasets import FixedNoiseDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.sampling import manual_seed
 from botorch.utils.testing import MockModel, MockPosterior
+from torch._tensor import Tensor
 
 
 GET_ACQF_PATH = "ax.models.torch.botorch_moo_defaults.get_acquisition_function"
@@ -39,9 +41,8 @@ GET_OBJ_PATH = (
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 
 
-# pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def dummy_predict(model, X):
+def dummy_predict(model, X) -> Tuple[Tensor, Tensor]:
     # Add column to X that is a product of previous elements.
     mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
     cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])

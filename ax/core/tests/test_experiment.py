@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from typing import Type
+from typing import Dict, Type
 from unittest.mock import patch
 
 import pandas as pd
@@ -44,8 +44,7 @@ from ax.utils.testing.core_stubs import (
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
-# pyre-fixme[5]: Global expression must be annotated.
-DUMMY_RUN_METADATA = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
+DUMMY_RUN_METADATA: Dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 DUMMY_ARM_NAME = "test_arm_name"
 

@@ -65,8 +65,10 @@ TParameterRepresentation = Dict[
 ]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
-# pyre-fixme[5]: Global expression must be annotated.
-COMPARISON_OPS = {"<=": ComparisonOp.LEQ, ">=": ComparisonOp.GEQ}
+COMPARISON_OPS: Dict[str, ComparisonOp] = {
+    "<=": ComparisonOp.LEQ,
+    ">=": ComparisonOp.GEQ,
+}
 EXPECTED_KEYS_IN_PARAM_REPR = {
     "name",
     "type",

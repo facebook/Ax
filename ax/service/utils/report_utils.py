@@ -46,6 +46,7 @@ from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+from pandas.core.frame import DataFrame
 
 if TYPE_CHECKING:
     from ax.service.scheduler import Scheduler
@@ -395,13 +396,12 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
     return ", ".join(generation_methods) if generation_methods else "Unknown"
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
     data: Data,
     key_components: List[str],
     metrics: List[Metric],
-):
+) -> DataFrame:
     """Formats ``data.df`` and merges it with ``arms_df`` if all of the following are
     True:
         - ``data.df`` is not empty

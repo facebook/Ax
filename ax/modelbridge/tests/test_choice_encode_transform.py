@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
+from typing import Sized
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -224,8 +225,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
 
 
 # pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def normalize_values(values):
+def normalize_values(values: Sized):
     values = np.array(values, dtype=float)
     vmin, vmax = values.min(), values.max()
     if len(values) > 1:

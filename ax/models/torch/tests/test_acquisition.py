@@ -43,12 +43,9 @@ from botorch.utils.testing import MockPosterior
 from torch import Tensor
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-ACQUISITION_PATH = Acquisition.__module__
-# pyre-fixme[5]: Global expression must be annotated.
-CURRENT_PATH = __name__
-# pyre-fixme[5]: Global expression must be annotated.
-SURROGATE_PATH = Surrogate.__module__
+ACQUISITION_PATH: str = Acquisition.__module__
+CURRENT_PATH: str = __name__
+SURROGATE_PATH: str = Surrogate.__module__
 
 
 # Used to avoid going through BoTorch `Acquisition.__init__` which
