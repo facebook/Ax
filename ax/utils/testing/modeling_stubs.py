@@ -39,8 +39,7 @@ def get_observation_features() -> ObservationFeatures:
 
 def get_observation(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -57,8 +56,7 @@ def get_observation(
 
 def get_observation1(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -75,8 +73,7 @@ def get_observation1(
 
 def get_observation_status_quo0(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -94,8 +91,7 @@ def get_observation_status_quo0(
 
 def get_observation_status_quo1(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -113,8 +109,7 @@ def get_observation_status_quo1(
 
 def get_observation1trans(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -131,8 +126,7 @@ def get_observation1trans(
 
 def get_observation2(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(
@@ -149,8 +143,7 @@ def get_observation2(
 
 def get_observation2trans(
     first_metric_name: str = "a",
-    # pyre-fixme[2]: Parameter must be annotated.
-    second_metric_name="b",
+    second_metric_name: str = "b",
 ) -> Observation:
     return Observation(
         features=ObservationFeatures(

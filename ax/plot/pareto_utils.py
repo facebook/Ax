@@ -499,7 +499,6 @@ def _validate_outcome_constraints(
                 )
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def _build_new_optimization_config(
     # pyre-fixme[2]: Parameter must be annotated.
     weights,
@@ -509,7 +508,7 @@ def _build_new_optimization_config(
     secondary_objective,
     # pyre-fixme[2]: Parameter must be annotated.
     outcome_constraints=None,
-):
+) -> MultiObjectiveOptimizationConfig:
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],
         weights=weights,

@@ -62,12 +62,9 @@ def _get_optimizer_kwargs() -> Dict[str, int]:
 
 # pyre-fixme[3]: Return type must be annotated.
 def _get_torch_test_data(
-    # pyre-fixme[2]: Parameter must be annotated.
-    dtype=torch.float,
-    # pyre-fixme[2]: Parameter must be annotated.
-    cuda=False,
-    # pyre-fixme[2]: Parameter must be annotated.
-    constant_noise=True,
+    dtype: torch.dtype = torch.float,
+    cuda: bool = False,
+    constant_noise: bool = True,
     # pyre-fixme[2]: Parameter must be annotated.
     task_features=None,
 ):

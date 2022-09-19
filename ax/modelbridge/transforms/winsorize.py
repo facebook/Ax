@@ -64,8 +64,7 @@ class WinsorizationConfig:
 
 OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
 AUTO_WINS_QUANTILE = -1  # This shouldn't be in the [0, 1] range
-# pyre-fixme[5]: Global expression must be annotated.
-DEFAULT_CUTOFFS = (-float("inf"), float("inf"))
+DEFAULT_CUTOFFS: Tuple[float, float] = (-float("inf"), float("inf"))
 
 
 class Winsorize(Transform):

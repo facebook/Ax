@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,11 +26,15 @@ from ax.utils.common.typeutils import not_none
 
 TIME_COLS = {"start_time", "end_time"}
 
-# pyre-fixme[5]: Global expression must be annotated.
-OBS_COLS = {"arm_name", "trial_index", "random_split", "fidelities", *TIME_COLS}
+OBS_COLS: Set[str] = {
+    "arm_name",
+    "trial_index",
+    "random_split",
+    "fidelities",
+    *TIME_COLS,
+}
 
-# pyre-fixme[5]: Global expression must be annotated.
-OBS_KWARGS = {"trial_index", "random_split", *TIME_COLS}
+OBS_KWARGS: Set[str] = {"trial_index", "random_split", *TIME_COLS}
 
 
 class ObservationFeatures(Base):
