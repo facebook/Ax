@@ -5,12 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 from contextlib import ExitStack
+from typing import List, Optional
 from unittest.mock import patch
 
 import numpy as np
 import torch
+from ax.core.metric import Metric
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+)
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
@@ -55,8 +62,15 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         return_value=False,
     )
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_pareto_frontier(self, _):
+    def helper_test_pareto_frontier(
+        self, _, outcome_constraints: Optional[List[OutcomeConstraint]]
+    ) -> None:
+        """
+        Make sure Pareto-related functions run.
+
+        Data is generated manually; this does not check that the points are actually
+        Pareto-efficient or that everything works end-to-end.
+        """
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )
@@ -66,24 +80,25 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         metrics_dict = exp.optimization_config.metrics
         objective_thresholds = [
             ObjectiveThreshold(
-                metric=metrics_dict["branin_a"],
+                metric=metrics_dict[f"branin_{letter}"],
                 bound=0.0,
                 relative=False,
                 op=ComparisonOp.GEQ,
-            ),
-            ObjectiveThreshold(
-                metric=metrics_dict["branin_b"],
-                bound=0.0,
-                relative=False,
-                op=ComparisonOp.GEQ,
-            ),
+            )
+            for letter in "ab"
         ]
-        # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
-        exp.optimization_config = exp.optimization_config.clone_with_args(
-            objective_thresholds=objective_thresholds
-        )
+        # appease Pyre (this condition is True)
+        if isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig):
+            exp.optimization_config = exp.optimization_config.clone_with_args(
+                objective_thresholds=objective_thresholds,
+                outcome_constraints=outcome_constraints,
+            )
+
+        n_outcomes = 3 if outcome_constraints is not None else 2
         exp.attach_data(
-            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+            get_branin_data_multi_objective(
+                trial_indices=exp.trials.keys(), num_objectives=n_outcomes
+            ),
         )
         modelbridge = TorchModelBridge(
             search_space=exp.search_space,
@@ -125,23 +140,27 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
             ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
         ]
+        extra_outcome = ["branin_c"] if outcome_constraints is not None else []
         observation_data = [
             ObservationData(
-                metric_names=["branin_b", "branin_a"],
-                means=np.array([1.0, 2.0]),
-                covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+                metric_names=["branin_b", "branin_a"] + extra_outcome,
+                means=np.arange(1, 1 + n_outcomes),
+                covariance=np.eye(n_outcomes),
             ),
             ObservationData(
-                metric_names=["branin_a", "branin_b"],
-                means=np.array([3.0, 4.0]),
-                covariance=np.array([[1.0, 2.0], [3.0, 4.0]]),
+                metric_names=["branin_a", "branin_b"] + extra_outcome,
+                means=np.arange(3, 3 + n_outcomes),
+                covariance=np.eye(n_outcomes),
             ),
         ]
-        predicted_frontier = predicted_pareto_frontier(
-            modelbridge=modelbridge,
-            objective_thresholds=objective_thresholds,
-            observation_features=observation_features,
-        )
+        # appease Pyre (this condition is True)
+        if isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig):
+            predicted_frontier = predicted_pareto_frontier(
+                modelbridge=modelbridge,
+                objective_thresholds=objective_thresholds,
+                observation_features=observation_features,
+                optimization_config=exp.optimization_config,
+            )
         self.assertTrue(len(predicted_frontier) <= 2)
         self.assertIsNone(predicted_frontier[0].arm_name, None)
 
@@ -161,15 +180,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     torch.tensor([[1.0, 4.0], [4.0, 1.0]], dtype=torch.double),
                 )
             )
-            self.assertEqual(f.shape, (1, 2))
-            self.assertTrue(
-                torch.equal(obj_w, torch.tensor([1.0, 1.0], dtype=torch.double))
-            )
-            self.assertTrue(
-                # pyre-fixme[6]: For 1st param expected `Tensor` but got
-                #  `Optional[Tensor]`.
-                torch.equal(obj_t, torch.tensor([0.0, 0.0], dtype=torch.double))
-            )
+            self.assertEqual(f.shape, (1, n_outcomes))
+            self.assertTrue(torch.equal(obj_w[:2], torch.ones(2, dtype=torch.double)))
+            self.assertTrue(obj_t is not None)
+            # obj_t isn't None; this is just to appease Pyre
+            if obj_t is not None:
+                self.assertTrue(
+                    torch.equal(obj_t[:2], torch.tensor([0.0, 0.0], dtype=torch.double))
+                )
             observed_frontier2 = pareto_frontier(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
@@ -193,11 +211,26 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]], dtype=torch.double)
             self.assertTrue(
                 torch.equal(
-                    wrapped_frontier_evaluator.call_args[1]["Y"],
+                    wrapped_frontier_evaluator.call_args[1]["Y"][:, :2],
                     true_Y,
                 )
             )
-            self.assertTrue(torch.equal(f, true_Y[1:, :]))
+            self.assertTrue(torch.equal(f[:, :2], true_Y[1:, :]))
+
+    def test_pareto_frontier(self) -> None:
+        """
+        Run helper_test_pareto_frontier with and without outcome constraints.
+
+        The constraint won't come close to binding, so it shouldn't affect results.
+        """
+        constraint = OutcomeConstraint(
+            Metric(name="branin_c"), ComparisonOp.LEQ, bound=100.0, relative=False
+        )
+        for outcome_constraints in [None, [constraint]]:
+            with self.subTest(outcome_constraints=outcome_constraints):
+                self.helper_test_pareto_frontier(
+                    outcome_constraints=outcome_constraints
+                )
 
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
@@ -205,9 +238,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_hypervolume(self, _, cuda=False):
+    def test_hypervolume(self, _, cuda: bool = False) -> None:
         for num_objectives in (2, 3):
             exp = get_branin_experiment_with_multi_objective(
                 has_optimization_config=True,
@@ -326,9 +357,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         return_value=False,
     )
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_infer_objective_thresholds(self, _, cuda=False):
+    def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
         # lightweight test
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True,

@@ -1430,7 +1430,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+    ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,

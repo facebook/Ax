@@ -471,7 +471,7 @@ def get_pareto_optimal_parameters(
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
     use_model_predictions: bool = True,
-) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
     """Identifies the best parameterizations tried in the experiment so far,
     using model predictions if ``use_model_predictions`` is true and using
     observed values from the experiment otherwise. By default, uses model
@@ -497,8 +497,7 @@ def get_pareto_optimal_parameters(
             observed values.
 
     Returns:
-        ``None`` if it was not possible to extract the Pareto frontier,
-        otherwise a mapping from trial index to the tuple of:
+        A mapping from trial index to the tuple of:
         - the parameterization of the arm in that trial,
         - two-item tuple of metric means dictionary and covariance matrix
             (model-predicted if ``use_model_predictions=True`` and observed
@@ -521,11 +520,6 @@ def get_pareto_optimal_parameters(
     moo_optimization_config = checked_cast(
         MultiObjectiveOptimizationConfig, optimization_config
     )
-    if moo_optimization_config.outcome_constraints:
-        # TODO[drfreund]: Test this flow and remove error.
-        raise NotImplementedError(
-            "Support for outcome constraints is currently under development."
-        )
 
     # Use existing modelbridge if it supports MOO otherwise create a new MOO modelbridge
     # to use for Pareto frontier extraction.
