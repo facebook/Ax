@@ -55,6 +55,8 @@ class Data(Base, SerializationMixin):
         "fidelities": str,  # Dictionary stored as json
     }
 
+    _df: pd.DataFrame
+
     def __init__(
         self,
         df: Optional[pd.DataFrame] = None,
@@ -69,8 +71,7 @@ class Data(Base, SerializationMixin):
         """
         # Initialize with barebones DF.
         if df is None:
-            # pyre-fixme[4]: Attribute must be annotated.
-            self._df = pd.DataFrame(columns=self.required_columns())
+            self._df = pd.DataFrame(columns=list(self.required_columns()))
         else:
             columns = set(df.columns)
             missing_columns = self.required_columns() - columns
