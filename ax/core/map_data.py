@@ -83,6 +83,11 @@ class MapData(Data):
 
     DEDUPLICATE_BY_COLUMNS = ["arm_name", "metric_name"]
 
+    _map_df: pd.DataFrame
+
+    # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
+    _map_key_infos: List[MapKeyInfo]
+
     def __init__(
         self,
         df: Optional[pd.DataFrame] = None,
@@ -94,12 +99,11 @@ class MapData(Data):
             raise ValueError("map_key_infos may be `None` iff `df` is None.")
 
         # pyre-fixme[4]: Attribute must be annotated.
-        self._map_key_infos = map_key_infos or []
+        self._map_key_infos = list(map_key_infos) if map_key_infos is not None else []
 
         if df is None:  # If df is None create an empty dataframe with appropriate cols
-            # pyre-fixme[4]: Attribute must be annotated.
             self._map_df = pd.DataFrame(
-                columns=self.required_columns().union(self.map_keys)
+                columns=list(self.required_columns().union(self.map_keys))
             )
         else:
             columns = set(df.columns)
