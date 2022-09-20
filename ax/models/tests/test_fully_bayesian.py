@@ -1030,7 +1030,7 @@ class SingleObjectiveFullyBayesianBotorchModelTest(
                         FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
                         for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
                     ],
-                    metric_names=mns[0],
+                    metric_names=[mns[0]],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Sized
+from typing import List, Sized
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -224,8 +224,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             t.transform_search_space(ss3)
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def normalize_values(values: Sized):
+def normalize_values(values: Sized) -> List[float]:
     values = np.array(values, dtype=float)
     vmin, vmax = values.min(), values.max()
     if len(values) > 1:

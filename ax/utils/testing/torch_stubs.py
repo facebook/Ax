@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List, Optional, Tuple
 
 import torch
 
@@ -15,15 +15,21 @@ def get_optimizer_kwargs() -> Dict[str, int]:
     return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def get_torch_test_data(
     dtype: torch.dtype = torch.float,
     cuda: bool = False,
     constant_noise: bool = True,
-    # pyre-fixme[2]: Parameter must be annotated.
-    task_features=None,
+    task_features: Optional[List[int]] = None,
     offset: float = 0.0,
-):
+) -> Tuple[
+    List[torch.Tensor],
+    List[torch.Tensor],
+    List[torch.Tensor],
+    List[Tuple[float, float]],
+    List[int],
+    List[str],
+    List[str],
+]:
     tkwargs = {"device": torch.device("cuda" if cuda else "cpu"), "dtype": dtype}
     Xs = [
         torch.tensor(

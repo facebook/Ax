@@ -8,9 +8,11 @@ from unittest import mock
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
+from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.modelbridge.prediction_utils import predict_at_point, predict_by_features
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 
 
 class TestPredictionUtils(TestCase):
@@ -23,12 +25,9 @@ class TestPredictionUtils(TestCase):
 
         observation_features = ObservationFeatures(parameters={"x1": 0.3, "x2": 0.5})
         y_hat, se_hat = predict_at_point(
-            # pyre-fixme[6]: For 1st param expected `ModelBridge` but got
-            #  `Optional[ModelBridge]`.
-            model=ax_client.generation_strategy.model,
+            model=not_none(ax_client.generation_strategy.model),
             obsf=observation_features,
-            # pyre-fixme[6]: For 3rd param expected `Set[str]` but got `List[str]`.
-            metric_names=["test_metric1"],
+            metric_names={"test_metric1"},
         )
 
         self.assertEqual(len(y_hat), 1)
@@ -45,12 +44,9 @@ class TestPredictionUtils(TestCase):
             20: ObservationFeatures(parameters={"x1": 0.8, "x2": 0.5}),
         }
         predictions_map = predict_by_features(
-            # pyre-fixme[6]: For 1st param expected `ModelBridge` but got
-            #  `Optional[ModelBridge]`.
-            model=ax_client.generation_strategy.model,
+            model=not_none(ax_client.generation_strategy.model),
             label_to_feature_dict=observation_features_dict,
-            # pyre-fixme[6]: For 3rd param expected `Set[str]` but got `List[str]`.
-            metric_names=["test_metric1"],
+            metric_names={"test_metric1"},
         )
         self.assertEqual(len(predictions_map), 3)
 
@@ -121,16 +117,15 @@ def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
     return ax_client
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def _attach_completed_trials(ax_client) -> None:
+def _attach_completed_trials(ax_client: AxClient) -> None:
     # Attach completed trials
-    trial1 = {"x1": 0.1, "x2": 0.1}
+    trial1: TParameterization = {"x1": 0.1, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial1)
     ax_client.complete_trial(
         trial_index=trial_index, raw_data=_evaluate_test_metrics(parameters)
     )
 
-    trial2 = {"x1": 0.2, "x2": 0.1}
+    trial2: TParameterization = {"x1": 0.2, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial2)
     ax_client.complete_trial(
         trial_index=trial_index, raw_data=_evaluate_test_metrics(parameters)
@@ -138,8 +133,6 @@ def _attach_completed_trials(ax_client) -> None:
 
 
 # Test metric evaluation method
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def _evaluate_test_metrics(parameters):
+def _evaluate_test_metrics(parameters: TParameterization) -> TEvaluationOutcome:
     x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}

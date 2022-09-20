@@ -27,8 +27,9 @@ from ax.utils.common.testutils import TestCase
 from sklearn.preprocessing import PowerTransformer
 
 
-# pyre-fixme[2]: Parameter must be annotated.
-def get_constraint(metric, bound, relative) -> List[OutcomeConstraint]:
+def get_constraint(
+    metric: Metric, bound: float, relative: bool
+) -> List[OutcomeConstraint]:
     return [
         OutcomeConstraint(
             metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative
