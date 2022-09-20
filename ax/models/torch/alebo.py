@@ -103,7 +103,7 @@ class ALEBOKernel(Kernel):
         # Compute kernel distance
         z1 = torch.matmul(x1, U_t)
         z2 = torch.matmul(x2, U_t)
-        # pyre-fixme[7]: Expected `Tensor` but got `Union[LinearOperator, Tensor]`.
+
         return self.covar_dist(
             z1,
             z2,
