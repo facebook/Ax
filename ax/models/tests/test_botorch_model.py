@@ -49,7 +49,7 @@ class BotorchModelTest(TestCase):
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def test_fixed_rank_BotorchModel(self, dtype=torch.float, cuda=False):
-        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
@@ -82,7 +82,7 @@ class BotorchModelTest(TestCase):
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def test_fixed_prior_BotorchModel(self, dtype=torch.float, cuda=False):
-        Xs1, Ys1, Yvars1, bounds, _, fns, __package__ = get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
@@ -254,7 +254,8 @@ class BotorchModelTest(TestCase):
 
                 if not use_input_warping:
                     expected_train_inputs = expected_train_inputs.unsqueeze(0).expand(
-                        torch.Size([2]) + Xs1[0].shape
+                        torch.Size([2])
+                        + Xs1[0].shape  # pyre-fixme[58]: Unsupported operand
                     )
                     expected_train_targets = torch.cat(Ys1 + Ys2, dim=-1).permute(1, 0)
                 else:
@@ -512,7 +513,7 @@ class BotorchModelTest(TestCase):
                 Yvars=Yvars1,
                 task_features=[],
                 fidelity_features=[],
-                metric_names=mns[0],
+                metric_names=[mns[0]],
                 state_dict=true_state_dict,
                 refit_model=False,
             )
@@ -529,7 +530,7 @@ class BotorchModelTest(TestCase):
                 Yvars=Yvars1,
                 task_features=[],
                 fidelity_features=[],
-                metric_names=mns[0],
+                metric_names=[mns[0]],
                 state_dict=true_state_dict,
                 refit_model=True,
             )
