@@ -11,6 +11,7 @@ from botorch.models.model import Model
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
+from torch._tensor import Tensor
 
 
 class SobolSensitivity(object):
@@ -412,8 +413,7 @@ class SobolSensitivityGPMean(object):
         )
         self.sensitivity.evalute_function()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def first_order_indices(self):
+    def first_order_indices(self) -> Tensor:
         r"""Computes the first order Sobol indices:
 
         Returns:
@@ -504,8 +504,7 @@ class SobolSensitivityGPSampling(object):
         else:
             self.samples = posterior.sample(torch.Size([self.num_gp_samples]))
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def first_order_indices(self):
+    def first_order_indices(self) -> Tensor:
         r"""Computes the first order Sobol indices:
 
         Returns:
@@ -560,8 +559,7 @@ class SobolSensitivityGPSampling(object):
             )
             return first_order_idxs_mean_vargp_segp_varmc_segp
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def total_order_indices(self):
+    def total_order_indices(self) -> Tensor:
         r"""Computes the total Sobol indices:
 
         Returns:
@@ -612,8 +610,7 @@ class SobolSensitivityGPSampling(object):
             )
             return total_order_idxs_mean_vargp_segp_varmc_segp
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def second_order_indices(self):
+    def second_order_indices(self) -> Tensor:
         r"""Computes the Second order Sobol indices:
 
         Returns:
