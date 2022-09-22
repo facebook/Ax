@@ -95,7 +95,9 @@ class TestBenchmark(TestCase):
     @fast_botorch_optimize
     def test_timeout(self) -> None:
         problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-            test_problem=Branin(), num_trials=1000  # Unachievable num_trials
+            test_problem_class=Branin,
+            test_problem_kwargs={},
+            num_trials=1000,  # Unachievable num_trials
         )
 
         generation_strategy = GenerationStrategy(
