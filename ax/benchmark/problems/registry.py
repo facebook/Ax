@@ -27,20 +27,32 @@ class BenchmarkProblemRegistryEntry:
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Ackley(), "num_trials": 50},
+        factory_kwargs={
+            "test_problem_class": Ackley,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
     ),
     "branin": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Branin(), "num_trials": 30},
+        factory_kwargs={
+            "test_problem_class": Branin,
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+        },
     ),
     "branin_currin": BenchmarkProblemRegistryEntry(
         factory_fn=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
-        factory_kwargs={"test_problem": BraninCurrin(), "num_trials": 30},
+        factory_kwargs={
+            "test_problem_class": BraninCurrin,
+            "test_problem_kwargs": {},
+            "num_trials": 30,
+        },
     ),
     "branin_currin30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem=BraninCurrin(), num_trials=100
+                test_problem_class=BraninCurrin, test_problem_kwargs={}, num_trials=100
             ),
             total_dimensionality=n,
         ),
@@ -48,12 +60,18 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hartmann6": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Hartmann(dim=6), "num_trials": 50},
+        factory_kwargs={
+            "test_problem_class": Hartmann,
+            "test_problem_kwargs": {"dim": 6},
+            "num_trials": 50,
+        },
     ),
     "hartmann30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n: embed_higher_dimension(
             problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-                test_problem=Hartmann(dim=6), num_trials=100
+                test_problem_class=Hartmann,
+                test_problem_kwargs={"dim": 6},
+                num_trials=100,
             ),
             total_dimensionality=n,
         ),
@@ -73,7 +91,11 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "powell": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
-        factory_kwargs={"test_problem": Powell(), "num_trials": 50},
+        factory_kwargs={
+            "test_problem_class": Powell,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+        },
     ),
 }
 

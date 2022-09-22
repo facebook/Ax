@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import importlib
-from typing import Any, Dict, Iterable, Set
+from typing import Any, Dict, Iterable, Optional, Set, Type
 
 import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -25,8 +25,22 @@ class BotorchTestProblemRunner(Runner):
     recomputation per metric.
     """
 
-    def __init__(self, test_problem: BaseTestProblem) -> None:
-        self.test_problem = test_problem
+    test_problem: BaseTestProblem
+
+    _test_problem_class: Type[BaseTestProblem]
+    _test_problem_kwargs: Optional[Dict[str, Any]]
+
+    def __init__(
+        self,
+        test_problem_class: Type[BaseTestProblem],
+        test_problem_kwargs: Dict[str, Any],
+    ) -> None:
+
+        self._test_problem_class = test_problem_class
+        self._test_problem_kwargs = test_problem_kwargs
+
+        # pyre-fixme [45]: Invalid class instantiation
+        self.test_problem = test_problem_class(**test_problem_kwargs)
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
@@ -61,7 +75,7 @@ class BotorchTestProblemRunner(Runner):
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+    # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
@@ -69,8 +83,9 @@ class BotorchTestProblemRunner(Runner):
         runner = checked_cast(BotorchTestProblemRunner, obj)
 
         return {
-            "test_problem_module": runner.test_problem.__module__,
-            "test_problem_class_name": runner.test_problem.__class__.__name__,
+            "test_problem_module": runner._test_problem_class.__module__,
+            "test_problem_class_name": runner._test_problem_class.__name__,
+            "test_problem_kwargs": runner._test_problem_kwargs,
         }
 
     @classmethod
@@ -78,6 +93,10 @@ class BotorchTestProblemRunner(Runner):
         """Given a dictionary, deserialize the properties needed to initialize the
         runner. Used for storage.
         """
+
         module = importlib.import_module(args["test_problem_module"])
 
-        return {"test_problem": getattr(module, args["test_problem_class_name"])()}
+        return {
+            "test_problem_class": getattr(module, args["test_problem_class_name"]),
+            "test_problem_kwargs": args["test_problem_kwargs"],
+        }

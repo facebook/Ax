@@ -5,7 +5,7 @@
 
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, Dict, List, Type
 
 from ax.core.metric import Metric
 
@@ -47,12 +47,18 @@ class BenchmarkProblem(Base):
 
     @classmethod
     def from_botorch(
-        cls, test_problem: BaseTestProblem, num_trials: int
+        cls,
+        test_problem_class: Type[BaseTestProblem],
+        test_problem_kwargs: Dict[str, Any],
+        num_trials: int,
     ) -> "BenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
         """
+
+        # pyre-fixme [45]: Invalid class instantiation
+        test_problem = test_problem_class(**test_problem_kwargs)
 
         search_space = SearchSpace(
             parameters=[
@@ -80,7 +86,10 @@ class BenchmarkProblem(Base):
             name=f"{test_problem.__class__.__name__}",
             search_space=search_space,
             optimization_config=optimization_config,
-            runner=BotorchTestProblemRunner(test_problem=test_problem),
+            runner=BotorchTestProblemRunner(
+                test_problem_class=test_problem_class,
+                test_problem_kwargs=test_problem_kwargs,
+            ),
             num_trials=num_trials,
         )
 
@@ -101,15 +110,23 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
 
     @classmethod
     def from_botorch_synthetic(
-        cls, test_problem: SyntheticTestFunction, num_trials: int
+        cls,
+        test_problem_class: Type[SyntheticTestFunction],
+        test_problem_kwargs: Dict[str, Any],
+        num_trials: int,
     ) -> "SingleObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         and retrieved by the Metric.
         """
 
+        # pyre-fixme [45]: Invalid class instantiation
+        test_problem = test_problem_class(**test_problem_kwargs)
+
         problem = BenchmarkProblem.from_botorch(
-            test_problem=test_problem, num_trials=num_trials
+            test_problem_class=test_problem_class,
+            test_problem_kwargs=test_problem_kwargs,
+            num_trials=num_trials,
         )
 
         return cls(
@@ -147,7 +164,8 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     @classmethod
     def from_botorch_multi_objective(
         cls,
-        test_problem: MultiObjectiveTestProblem,
+        test_problem_class: Type[MultiObjectiveTestProblem],
+        test_problem_kwargs: Dict[str, Any],
         num_trials: int,
     ) -> "MultiObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
@@ -155,8 +173,13 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         once per trial and each Metric will retrieve its own result by index.
         """
 
+        # pyre-fixme [45]: Invalid class instantiation
+        test_problem = test_problem_class(**test_problem_kwargs)
+
         problem = BenchmarkProblem.from_botorch(
-            test_problem=test_problem, num_trials=num_trials
+            test_problem_class=test_problem_class,
+            test_problem_kwargs=test_problem_kwargs,
+            num_trials=num_trials,
         )
 
         metrics = [
