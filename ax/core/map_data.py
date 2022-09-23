@@ -84,6 +84,7 @@ class MapData(Data):
     DEDUPLICATE_BY_COLUMNS = ["arm_name", "metric_name"]
 
     _map_df: pd.DataFrame
+    _memo_df: Optional[pd.DataFrame]
 
     # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
     _map_key_infos: List[MapKeyInfo]
@@ -131,7 +132,6 @@ class MapData(Data):
 
         self.description = description
 
-        # pyre-fixme[4]: Attribute must be annotated.
         self._memo_df = None
 
     def __eq__(self, o: MapData) -> bool:
@@ -141,8 +141,7 @@ class MapData(Data):
         return mkis_match and dfs_match
 
     @property
-    # pyre-fixme[3]: Return type must be annotated.
-    def true_df(self):
+    def true_df(self) -> pd.DataFrame:
         return self.map_df
 
     @property
