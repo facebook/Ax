@@ -585,6 +585,48 @@ def get_experiment_with_observations(
     return exp
 
 
+def get_high_dimensional_branin_experiment() -> Experiment:
+    search_space = SearchSpace(
+        # pyre-fixme[6]: In call `SearchSpace.__init__`, for 1st parameter `parameters`
+        # expected `List[Parameter]` but got `List[RangeParameter]`.
+        parameters=[
+            RangeParameter(
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=-5.0,
+                upper=10.0,
+            )
+            for i in range(25)
+        ]
+        + [
+            RangeParameter(
+                name=f"x{i + 25}",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=15.0,
+            )
+            for i in range(25)
+        ],
+    )
+
+    optimization_config = OptimizationConfig(
+        objective=Objective(
+            metric=BraninMetric(
+                name="objective",
+                param_names=["x19", "x44"],
+            ),
+            minimize=True,
+        )
+    )
+
+    return Experiment(
+        name="high_dimensional_branin_experiment",
+        search_space=search_space,
+        optimization_config=optimization_config,
+        runner=SyntheticRunner(),
+    )
+
+
 ##############################
 # Search Spaces
 ##############################

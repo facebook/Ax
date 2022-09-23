@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import namedtuple
+from logging import WARN
 from typing import List
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
+    _get_objective_v_param_plots,
     _get_shortest_unique_suffix_dict,
     exp_to_df,
     Experiment,
@@ -24,6 +26,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -216,3 +219,18 @@ class ReportUtilsTest(TestCase):
                 model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
                 true_objective_metric_name="not_present",
             )
+
+    @fast_botorch_optimize
+    def test_skip_contour_high_dimensional(self) -> None:
+        exp = get_high_dimensional_branin_experiment()
+        # Initial Sobol points
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        for _ in range(1):
+            exp.new_trial(sobol.gen(1)).run()
+        model = Models.GPEI(
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            _get_objective_v_param_plots(experiment=exp, model=model)
+            self.assertIn("Contour plotting skipped", log.output[0])
