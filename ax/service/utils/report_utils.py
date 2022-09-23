@@ -135,6 +135,7 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
+    max_range_params_contour: int = 10,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
 
@@ -152,7 +153,7 @@ def _get_objective_v_param_plots(
             model=model,
         )
     ]
-    if len(range_params) > 1:
+    if len(range_params) > 1 and len(range_params) <= max_range_params_contour:
         # contour plots
         try:
             with gpytorch.settings.max_eager_kernel_size(float("inf")):
@@ -167,6 +168,22 @@ def _get_objective_v_param_plots(
         # https://github.com/cornellius-gp/gpytorch/issues/1853
         except RuntimeError as e:
             logger.warning(f"Contour plotting failed with error: {e}.")
+    elif len(range_params) > max_range_params_contour:
+        warning_msg = (
+            "Contour plotting skipped since there are more than "
+            f"<br>`max_range_params_contour = {max_range_params_contour}` range "
+            "params. <br>Users can plot individual contour plots with the <br>python "
+            "function ax.plot.contour.plot_contour_plotly."
+        )
+        logger.warning(warning_msg)
+        # TODO: return a warning here then convert to a plot/message/etc. downstream.
+        warning_plot = (
+            go.Figure()
+            .add_annotation(text=warning_msg, showarrow=False, font={"size": 20})
+            .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
+            .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
+        )
+        output_plots.append(warning_plot)
     return output_plots
 
 
