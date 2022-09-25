@@ -127,8 +127,7 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     @property
-    # pyre-fixme[3]: Return type must be annotated.
-    def parameters_with_map_keys(self):
+    def parameters_with_map_keys(self) -> List[str]:
         return self.parameters + self._map_key_features
 
     def _predict(
