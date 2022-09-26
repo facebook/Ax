@@ -371,6 +371,10 @@ class SearchSpace(Base):
             "parameter_constraints=" + repr(self._parameter_constraints) + ")"
         )
 
+    def __hash__(self) -> int:
+        """Make the class hashable to support grouping of GeneratorRuns."""
+        return hash(repr(self))
+
 
 class HierarchicalSearchSpace(SearchSpace):
     def __init__(
