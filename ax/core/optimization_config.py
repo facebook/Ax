@@ -229,6 +229,10 @@ class OptimizationConfig(Base):
             end_repr = ", risk_measure=" + repr(self.risk_measure) + ")"
         return base_repr + end_repr
 
+    def __hash__(self) -> int:
+        """Make the class hashable to support grouping of GeneratorRuns."""
+        return hash(repr(self))
+
 
 class MultiObjectiveOptimizationConfig(OptimizationConfig):
     """An optimization configuration for multi-objective optimization,
