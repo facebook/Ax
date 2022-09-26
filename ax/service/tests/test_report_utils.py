@@ -233,4 +233,11 @@ class ReportUtilsTest(TestCase):
         )
         with self.assertLogs(logger="ax", level=WARN) as log:
             _get_objective_v_param_plots(experiment=exp, model=model)
-            self.assertIn("Contour plotting skipped", log.output[0])
+            self.assertEqual(len(log.output), 1)
+            self.assertIn("Skipping creation of 2450 contour plots", log.output[0])
+            _get_objective_v_param_plots(
+                experiment=exp, model=model, max_num_slice_plots=10
+            )
+            # Adds two more warnings.
+            self.assertEqual(len(log.output), 3)
+            self.assertIn("Skipping creation of 50 slice plots", log.output[1])
