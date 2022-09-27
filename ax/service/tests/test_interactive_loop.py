@@ -12,7 +12,7 @@ from logging import WARN
 import numpy as np
 from ax.core.types import TEvaluationOutcome
 from ax.service.ax_client import AxClient, TParameterization
-from ax.service.interactive_loop import optimize_with_client
+from ax.service.interactive_loop import interactive_optimize_with_client
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import hartmann6
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -49,7 +49,7 @@ class TestInteractiveLoop(TestCase):
             minimize=True,
         )
 
-        optimize_with_client(
+        interactive_optimize_with_client(
             ax_client=ax_client,
             num_trials=15,
             candidate_queue_maxsize=3,
@@ -90,7 +90,7 @@ class TestInteractiveLoop(TestCase):
         ax_client.generation_strategy._steps[0].max_parallelism = 1
 
         with self.assertLogs(logger="ax", level=WARN) as logger:
-            optimize_with_client(
+            interactive_optimize_with_client(
                 ax_client=ax_client,
                 num_trials=3,
                 candidate_queue_maxsize=3,
