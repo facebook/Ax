@@ -24,6 +24,14 @@ Managed Loop
     :undoc-members:
     :show-inheritance:
 
+Interactive Loop
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.service.interactive_loop
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Scheduler
 ~~~~~~~~~~
