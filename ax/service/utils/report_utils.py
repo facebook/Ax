@@ -135,7 +135,8 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    max_range_params_contour: int = 10,
+    max_num_slice_plots: int = 100,
+    max_num_contour_plots: int = 100,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
 
@@ -147,13 +148,30 @@ def _get_objective_v_param_plots(
             "`RangeParameter`. Returning an empty list."
         )
         return []
-    # parameter slice plot
-    output_plots = [
-        interact_slice_plotly(
-            model=model,
+    num_range_params = len(range_params)
+    num_metrics = len(experiment.metrics)
+    num_slice_plots = num_range_params * num_metrics
+    output_plots = []
+    if num_slice_plots <= max_num_slice_plots:
+        # parameter slice plot
+        output_plots += [
+            interact_slice_plotly(
+                model=model,
+            )
+        ]
+    else:
+        warning_msg = (
+            f"Skipping creation of {num_slice_plots} slice plots since that "
+            f"exceeds <br>`max_num_slice_plots = {max_num_slice_plots}`."
+            "<br>Users can plot individual slice plots with the <br>python "
+            "function ax.plot.slice.plot_slice_plotly."
         )
-    ]
-    if len(range_params) > 1 and len(range_params) <= max_range_params_contour:
+        # TODO: return a warning here then convert to a plot/message/etc. downstream.
+        warning_plot = _warn_and_create_warning_plot(warning_msg=warning_msg)
+        output_plots.append(warning_plot)
+
+    num_contour_plots = num_range_params * (num_range_params - 1) * num_metrics
+    if num_range_params > 1 and num_contour_plots <= max_num_contour_plots:
         # contour plots
         try:
             with gpytorch.settings.max_eager_kernel_size(float("inf")):
@@ -168,21 +186,15 @@ def _get_objective_v_param_plots(
         # https://github.com/cornellius-gp/gpytorch/issues/1853
         except RuntimeError as e:
             logger.warning(f"Contour plotting failed with error: {e}.")
-    elif len(range_params) > max_range_params_contour:
+    elif num_contour_plots > max_num_contour_plots:
         warning_msg = (
-            "Contour plotting skipped since there are more than "
-            f"<br>`max_range_params_contour = {max_range_params_contour}` range "
-            "params. <br>Users can plot individual contour plots with the <br>python "
+            f"Skipping creation of {num_contour_plots} contour plots since that "
+            f"exceeds <br>`max_num_contour_plots = {max_num_contour_plots}`."
+            "<br>Users can plot individual contour plots with the <br>python "
             "function ax.plot.contour.plot_contour_plotly."
         )
-        logger.warning(warning_msg)
         # TODO: return a warning here then convert to a plot/message/etc. downstream.
-        warning_plot = (
-            go.Figure()
-            .add_annotation(text=warning_msg, showarrow=False, font={"size": 20})
-            .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
-            .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
-        )
+        warning_plot = _warn_and_create_warning_plot(warning_msg=warning_msg)
         output_plots.append(warning_plot)
     return output_plots
 
@@ -696,3 +708,13 @@ def get_figure_and_callback(
         fig.update(data=new_fig._data, layout=new_fig._layout, overwrite=True)
 
     return fig, _update_fig_in_place
+
+
+def _warn_and_create_warning_plot(warning_msg: str) -> go.Figure:
+    logger.warning(warning_msg)
+    return (
+        go.Figure()
+        .add_annotation(text=warning_msg, showarrow=False, font={"size": 20})
+        .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
+        .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
+    )
