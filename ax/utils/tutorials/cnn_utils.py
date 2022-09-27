@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+from torch._tensor import Tensor
 from torch.utils.data import DataLoader, Dataset, Subset
 
 
@@ -21,16 +22,13 @@ class CNN(nn.Module):
     Convolutional Neural Network.
     """
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(1, 20, kernel_size=5, stride=1)
         self.fc1 = nn.Linear(8 * 8 * 20, 64)
         self.fc2 = nn.Linear(64, 10)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 3, 3)
         x = x.view(-1, 8 * 8 * 20)
