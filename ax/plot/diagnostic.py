@@ -86,6 +86,7 @@ def _obs_vs_pred_dropdown_plot(
     show_context: bool = False,
     xlabel: str = "Actual Outcome",
     ylabel: str = "Predicted Outcome",
+    autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Plot a dropdown plot of observed vs. predicted values from a model.
 
@@ -96,11 +97,12 @@ def _obs_vs_pred_dropdown_plot(
         show_context: Show context on hover.
         xlabel: Label for x-axis.
         ylabel: Label for y-axis.
-
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest.
     """
     traces = []
     metric_dropdown = []
-
+    layout_axis_range = []
     if rel and data.status_quo_name is not None:
         if show_context:
             raise ValueError(
@@ -123,6 +125,19 @@ def _obs_vs_pred_dropdown_plot(
             if se_raw is not None
             else [0.0] * len(y_raw)
         )
+
+        if autoset_axis_limits:
+            y_raw_np = np.array(y_raw)
+            q1 = np.percentile(y_raw_np, q=25, interpolation="lower").min()
+            q3 = np.percentile(y_raw_np, q=75, interpolation="higher").max()
+            y_lower = q1 - 1.5 * (q3 - q1)
+            y_upper = q3 + 1.5 * (q3 - q1)
+            y_raw_np = y_raw_np.clip(y_lower, y_upper).tolist()
+            layout_axis_range.append(
+                _get_min_max_with_errors(y_raw_np, y_hat, se_raw, se_hat)
+            )
+        else:
+            layout_axis_range.append(None)
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
         traces.append(
@@ -149,7 +164,17 @@ def _obs_vs_pred_dropdown_plot(
 
         # on dropdown change, restyle
         metric_dropdown.append(
-            {"args": ["visible", is_visible], "label": metric, "method": "restyle"}
+            {
+                "args": [
+                    {"visible": is_visible},
+                    {
+                        "xaxis.range": layout_axis_range[-1],
+                        "yaxis.range": layout_axis_range[-1],
+                    },
+                ],
+                "label": metric,
+                "method": "update",
+            }
         )
 
     updatemenus = [
@@ -208,6 +233,7 @@ def _obs_vs_pred_dropdown_plot(
             }
         ],
         xaxis={
+            "range": layout_axis_range[0],
             "title": xlabel,
             "zeroline": False,
             "mirror": True,
@@ -215,6 +241,7 @@ def _obs_vs_pred_dropdown_plot(
             "linewidth": 0.5,
         },
         yaxis={
+            "range": layout_axis_range[0],
             "title": ylabel,
             "zeroline": False,
             "mirror": True,
@@ -445,6 +472,7 @@ def interact_cross_validation_plotly(
     show_context: bool = True,
     caption: str = "",
     label_dict: Optional[Dict[str, str]] = None,
+    autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
@@ -455,11 +483,18 @@ def interact_cross_validation_plotly(
         cv_results: cross-validation results.
         show_context: if True, show context on hover.
         label_dict: optional map from real metric names to shortened names
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest.
 
     Returns a plotly.graph_objects.Figure
     """
     data = _get_cv_plot_data(cv_results, label_dict=label_dict)
-    fig = _obs_vs_pred_dropdown_plot(data=data, rel=False, show_context=show_context)
+    fig = _obs_vs_pred_dropdown_plot(
+        data=data,
+        rel=False,
+        show_context=show_context,
+        autoset_axis_limits=autoset_axis_limits,
+    )
     current_bmargin = fig["layout"]["margin"].b or 90
     caption_height = 100 * (len(caption) > 0)
     fig["layout"]["margin"].b = current_bmargin + caption_height
@@ -472,7 +507,9 @@ def interact_cross_validation_plotly(
 def interact_cross_validation(
     cv_results: List[CVResult],
     show_context: bool = True,
+    caption: str = "",
     label_dict: Optional[Dict[str, str]] = None,
+    autoset_axis_limits: bool = True,
 ) -> AxPlotConfig:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
 
@@ -483,6 +520,8 @@ def interact_cross_validation(
         cv_results: cross-validation results.
         show_context: if True, show context on hover.
         label_dict: optional map from real metric names to shortened names
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest.
 
     Returns an AxPlotConfig
     """
@@ -490,7 +529,9 @@ def interact_cross_validation(
         data=interact_cross_validation_plotly(
             cv_results=cv_results,
             show_context=show_context,
+            caption=caption,
             label_dict=label_dict,
+            autoset_axis_limits=autoset_axis_limits,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )

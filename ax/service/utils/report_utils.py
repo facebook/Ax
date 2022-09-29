@@ -59,9 +59,8 @@ FEATURE_IMPORTANCE_CAPTION = (
     "relatively low importance may still be important to tune."
 )
 CROSS_VALIDATION_CAPTION = (
-    '<b>NOTE:</b> Models that <a href="https://en.wikipedia.org/wiki/Winsorizing">'
-    "winsorize</a> may appear to plateau<br>far from the optimum. Remove outliers "
-    "using the<br>zoom tool before judging the fit."
+    "<b>NOTE:</b> We have tried out best to only plot the region of interest.<br>"
+    "This may hide outliers. You can autoscale the axes to see all trials."
 )
 
 
