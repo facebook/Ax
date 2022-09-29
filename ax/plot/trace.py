@@ -206,6 +206,7 @@ def optimization_trace_single_method_plotly(
     optimization_direction: Optional[str] = "passthrough",
     plot_trial_points: bool = False,
     trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Plots an optimization trace with mean and 2 SEMs
 
@@ -231,6 +232,8 @@ def optimization_trace_single_method_plotly(
             supplied in y (default False for backward compatibility)
         trial_points_color: tuple of 3 int values representing an RGB color for
             plotting trial points. Defaults to light purple.
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest.
     Returns:
         go.Figure: plot of the optimization trace with IQR
     """
@@ -303,8 +306,24 @@ def optimization_trace_single_method_plotly(
         yaxis={"title": ylabel},
         xaxis={"title": "Iteration"},
     )
+    if autoset_axis_limits and optimization_direction in ["minimize", "maximize"]:
+        q1 = np.percentile(y, q=25, interpolation="lower").min()
+        q2_min = np.percentile(y, q=50, interpolation="linear").min()
+        q2_max = np.percentile(y, q=50, interpolation="linear").max()
+        q3 = np.percentile(y, q=75, interpolation="higher").max()
+        if optimization_direction == "minimize":
+            y_lower = y.min()
+            y_upper = q2_max + 1.5 * (q2_max - q1)
+        else:
+            y_lower = q2_min - 1.5 * (q3 - q2_min)
+            y_upper = y.max()
+        y_padding = 0.1 * (y_upper - y_lower)
+        y_lower, y_upper = y_lower - y_padding, y_upper + y_padding
+        layout_yaxis_range = [y_lower, y_upper]
+    else:
+        layout_yaxis_range = None
 
-    return go.Figure(layout=layout, data=data)
+    return go.Figure(layout=layout, data=data, layout_yaxis_range=layout_yaxis_range)
 
 
 def optimization_trace_single_method(
@@ -320,6 +339,7 @@ def optimization_trace_single_method(
     optimization_direction: Optional[str] = "passthrough",
     plot_trial_points: bool = False,
     trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    autoset_axis_limits: bool = True,
 ) -> AxPlotConfig:
     """Plots an optimization trace with mean and 2 SEMs
 
@@ -345,6 +365,8 @@ def optimization_trace_single_method(
             supplied in y (default False for backward compatibility)
         trial_points_color: tuple of 3 int values representing an RGB color for
             plotting trial points. Defaults to light purple.
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest.
     Returns:
         AxPlotConfig: plot of the optimization trace with IQR
     """
@@ -362,6 +384,7 @@ def optimization_trace_single_method(
             optimization_direction=optimization_direction,
             plot_trial_points=plot_trial_points,
             trial_points_color=trial_points_color,
+            autoset_axis_limits=autoset_axis_limits,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
