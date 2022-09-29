@@ -299,7 +299,8 @@ class TestInfereReferencePointFromExperiment(TestCase):
         obj_w_shuffled = torch.tensor([1.0, -1.0], dtype=torch.float64)
         obj_t_shuffled = torch.tensor([-torch.inf, torch.inf], dtype=torch.float64)
 
-        # Test the function with these shuffled output for `get_pareto_frontier_and_configs`.
+        # Test the function with these shuffled output for
+        # `get_pareto_frontier_and_configs`.
         with patch(
             "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
             return_value=(
