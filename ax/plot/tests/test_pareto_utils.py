@@ -5,10 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import copy
+from unittest.mock import patch
 
 import numpy as np
+import torch
 from ax.core.data import Data
 from ax.core.objective import MultiObjective, Objective
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
@@ -246,5 +249,71 @@ class TestInfereReferencePointFromExperiment(TestCase):
             # be [-0.35, 0.35].
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
+            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
+            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
+
+    def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
+        # Generating an experiment with given data.
+        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+        experiment = get_experiment_with_observations(
+            observations=observations,
+            minimize=True,
+            scalarized=False,
+            constrained=False,
+        )
+
+        # Constructing fake outputs for `get_pareto_frontier_and_configs` so that
+        # the order of metrics `m1`, `m2` are reversed.
+        frontier_observations_shuffled = [
+            Observation(
+                features=ObservationFeatures(parameters={"x": 0.0, "y": 0.0}),
+                data=ObservationData(
+                    metric_names=["m2", "m1"],
+                    means=np.array([1.0, -1.0]),
+                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                ),
+            ),
+            Observation(
+                features=ObservationFeatures(parameters={"x": 0.1, "y": 0.1}),
+                data=ObservationData(
+                    metric_names=["m2", "m1"],
+                    means=np.array([2.0, -0.5]),
+                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                ),
+            ),
+            Observation(
+                features=ObservationFeatures(parameters={"x": 0.2, "y": 0.2}),
+                data=ObservationData(
+                    metric_names=["m2", "m1"],
+                    means=np.array([0.5, -2.0]),
+                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                ),
+            ),
+        ]
+        f_shuffled = torch.tensor(
+            [[1.0000, -1.0000], [2.0000, -0.5000], [0.5000, -2.0000]],
+            dtype=torch.float64,
+        )
+        obj_w_shuffled = torch.tensor([1.0, -1.0], dtype=torch.float64)
+        obj_t_shuffled = torch.tensor([-torch.inf, torch.inf], dtype=torch.float64)
+
+        # Test the function with these shuffled output for `get_pareto_frontier_and_configs`.
+        with patch(
+            "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
+            return_value=(
+                frontier_observations_shuffled,
+                f_shuffled,
+                obj_w_shuffled,
+                obj_t_shuffled,
+            ),
+        ):
+            inferred_reference_point = infer_reference_point_from_experiment(experiment)
+
+            self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
+            self.assertEqual(inferred_reference_point[0].bound, -0.35)
+            self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+            self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
+            self.assertEqual(inferred_reference_point[1].bound, 0.35)
+            self.assertEqual(inferred_reference_point[1].metric.name, "m2")
