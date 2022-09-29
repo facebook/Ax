@@ -19,7 +19,11 @@ from ax.core.metric import Metric
 from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+)
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError
@@ -546,21 +550,38 @@ def infer_reference_point_from_experiment(
     )
     obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=mb_reference)
 
-    # Turning all the objectives to be maximized.
-    multiplier = []
-    for objective in experiment.optimization_config.objective.objectives:  # pyre-ignore
-        multiplier.append(-1 if objective.minimize else +1)
+    # Since objectives could have arbitrary orders in objective_thresholds and
+    # further down the road `get_pareto_frontier_and_configs` arbitrarily changes the
+    # orders of the objectives, we fix the objective orders here based on the
+    # observation_data and maintain it throughout the flow.
+    objective_orders = obs_data[0].metric_names
 
-    # A dummy reference point so that all observed points are considered when
-    # calculating the Pareto front.
+    # Defining a dummy reference point so that all observed points are considered
+    # when calculating the Pareto front. Also, defining a multiplier to turn all
+    # the objectives to be maximized. Note that the multiplier at this point
+    # contains 0 for outcome_constraint metrics, but this will be dropped later.
     dummy_rp = copy.deepcopy(
         experiment.optimization_config.objective_thresholds  # pyre-ignore
     )
-    for i in range(len(dummy_rp)):
-        dummy_rp[i].bound = -1 * multiplier[i] * np.inf
+    multiplier = [0] * len(objective_orders)
+    for ot in dummy_rp:
+        # In the following, we find the index of the objective in
+        # `objective_orders`. If there is an objective that does not exist
+        # in `obs_data`, a ValueError is raised.
+        try:
+            objective_index = objective_orders.index(ot.metric.name)
+        except ValueError:
+            raise ValueError(f"Metric {ot.metric.name} does not exist in `obs_data`.")
+
+        if ot.op == ComparisonOp.LEQ:
+            ot.bound = np.inf
+            multiplier[objective_index] = -1
+        else:
+            ot.bound = -np.inf
+            multiplier[objective_index] = 1
 
     # Finding the pareto frontier
-    frontier_observations, f, obj_w, obj_t = get_pareto_frontier_and_configs(
+    frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
         modelbridge=mb_reference,
         observation_features=obs_feats,
         observation_data=obs_data,
@@ -568,23 +589,37 @@ def infer_reference_point_from_experiment(
         use_model_predictions=False,
     )
 
+    # Need to reshuffle columns of `f` and `obj_w` to be consistent
+    # with objective_orders.
+    order = [
+        objective_orders.index(metric_name)
+        for metric_name in frontier_observations[0].data.metric_names
+    ]
+    f = f[:, order]
+    obj_w = obj_w[order]
+
+    # Dropping the columns related to outcome constraints.
+    f = f[:, obj_w.nonzero().view(-1)]
+    multiplier = torch.tensor(multiplier, dtype=f.dtype, device=f.device)[
+        obj_w.nonzero().view(-1)
+    ]
+
     # Transforming all the objectives to be maximized.
-    f_transformed = (
-        torch.tensor(multiplier, dtype=f.dtype, device=f.device)
-        * f[:, obj_w.nonzero().view(-1)]
-    )
+    f_transformed = multiplier * f
 
     # Finding nadir point.
     rp_raw = infer_reference_point(f_transformed)
 
     # Un-transforming the reference point.
-    rp = torch.tensor(multiplier, dtype=f.dtype, device=f.device) * rp_raw
+    rp = multiplier * rp_raw
 
     # Constructing the objective thresholds.
     nadir_objective_thresholds = copy.deepcopy(
         experiment.optimization_config.objective_thresholds
     )
-    for i, obj_threshold in enumerate(nadir_objective_thresholds):
-        obj_threshold.bound = rp[i].item()
+    for obj_threshold in nadir_objective_thresholds:
+        obj_threshold.bound = rp[
+            objective_orders.index(obj_threshold.metric.name)
+        ].item()
 
     return nadir_objective_thresholds
