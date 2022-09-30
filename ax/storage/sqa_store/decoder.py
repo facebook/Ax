@@ -490,212 +490,41 @@ class Decoder:
                 parameters=parameters, parameter_constraints=parameter_constraints
             )
 
-    def metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
-        """Convert SQLAlchemy Metric to Ax Metric"""
-        if metric_sqa.metric_type not in self.config.reverse_metric_registry:
-            raise SQADecodeError(
-                f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
-                f"is an invalid type. "
-                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
-            )
-        metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
-
-        args = dict(
-            object_from_json(
-                metric_sqa.properties,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-            or {}
-        )
-        args["name"] = metric_sqa.name
-        args["lower_is_better"] = metric_sqa.lower_is_better
-        try:
-            args = metric_class.deserialize_init_args(args=args)
-            metric = metric_class(**args)
-            metric.db_id = metric_sqa.id
-            return metric
-        except ValueError as err:
-            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
-
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
     ) -> Union[Metric, Objective, OutcomeConstraint, RiskMeasure]:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
-        metric = self.metric_from_sqa_util(metric_sqa)
+        metric = self._metric_from_sqa_util(metric_sqa)
 
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
         elif metric_sqa.intent == MetricIntent.OBJECTIVE:
-            if metric_sqa.minimize is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to Objective because minimize is None."
-                )
-            if metric_sqa.scalarized_objective_weight is not None:
-                raise SQADecodeError(  # pragma: no cover
-                    "The metric corresponding to regular objective does not \
-                    have weight attribute"
-                )
-            return Objective(metric=metric, minimize=metric_sqa.minimize)
+            return self._objective_from_sqa(metric=metric, metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.MULTI_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual
             # metrics in MultiObjective
-            try:
-                metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
-            except DetachedInstanceError:
-                metrics_sqa_children = _get_scalarized_objective_children_metrics(
-                    metric_id=metric_sqa.id, decoder=self
-                )
-
-            if metrics_sqa_children is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to MultiObjective \
-                    because the parent metric has no children metrics."
-                )
-
-            # Extracting metric and weight for each child
-            objectives = [
-                Objective(
-                    metric=self.metric_from_sqa_util(metric_sqa),
-                    minimize=metric_sqa.minimize,
-                )
-                for metric_sqa in metrics_sqa_children
-            ]
-
-            multi_objective = MultiObjective(objectives=objectives)
-            multi_objective.db_id = metric_sqa.id
-            return multi_objective
+            return self._multi_objective_from_sqa(parent_metric_sqa=metric_sqa)
         elif (
             metric_sqa.intent == MetricIntent.SCALARIZED_OBJECTIVE
         ):  # metric_sqa is a parent whose children are individual
             # metrics in Scalarized Objective
-            if metric_sqa.minimize is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to Scalarized Objective \
-                    because minimize is None."
-                )
-
-            try:
-                metrics_sqa_children = metric_sqa.scalarized_objective_children_metrics
-            except DetachedInstanceError:
-                metrics_sqa_children = _get_scalarized_objective_children_metrics(
-                    metric_id=metric_sqa.id, decoder=self
-                )
-
-            if metrics_sqa_children is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to Scalarized Objective \
-                    because the parent metric has no children metrics."
-                )
-
-            # Extracting metric and weight for each child
-            metrics, weights = zip(
-                *[
-                    (
-                        self.metric_from_sqa_util(child),
-                        child.scalarized_objective_weight,
-                    )
-                    for child in metrics_sqa_children
-                ]
-            )
-            scalarized_objective = ScalarizedObjective(
-                metrics=list(metrics),
-                weights=list(weights),
-                minimize=not_none(metric_sqa.minimize),
-            )
-            scalarized_objective.db_id = metric_sqa.id
-            return scalarized_objective
+            return self._scalarized_objective_from_sqa(parent_metric_sqa=metric_sqa)
         elif metric_sqa.intent == MetricIntent.OUTCOME_CONSTRAINT:
-            if (
-                metric_sqa.bound is None
-                or metric_sqa.op is None
-                or metric_sqa.relative is None
-            ):
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to OutcomeConstraint because "
-                    "bound, op, or relative is None."
-                )
-            return OutcomeConstraint(
-                metric=metric,
-                bound=metric_sqa.bound,
-                op=metric_sqa.op,
-                relative=metric_sqa.relative,
+            return self._outcome_constraint_from_sqa(
+                metric=metric, metric_sqa=metric_sqa
             )
         elif metric_sqa.intent == MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT:
-            if (
-                metric_sqa.bound is None
-                or metric_sqa.op is None
-                or metric_sqa.relative is None
-            ):
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to Scalarized OutcomeConstraint because "
-                    "bound, op, or relative is None."
-                )
-
-            try:
-                metrics_sqa_children = (
-                    metric_sqa.scalarized_outcome_constraint_children_metrics
-                )
-            except DetachedInstanceError:
-                metrics_sqa_children = (
-                    _get_scalarized_outcome_constraint_children_metrics(
-                        metric_id=metric_sqa.id, decoder=self
-                    )
-                )
-
-            if metrics_sqa_children is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to Scalarized OutcomeConstraint \
-                    because the parent metric has no children metrics."
-                )
-
-            # Extracting metric and weight for each child
-            metrics, weights = zip(
-                *[
-                    (
-                        self.metric_from_sqa_util(child),
-                        child.scalarized_outcome_constraint_weight,
-                    )
-                    for child in metrics_sqa_children
-                ]
+            return self._scalarized_outcome_constraint_from_sqa(
+                metric=metric, metric_sqa=metric_sqa
             )
-            scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
-                metrics=list(metrics),
-                weights=list(weights),
-                bound=not_none(metric_sqa.bound),
-                op=not_none(metric_sqa.op),
-                relative=not_none(metric_sqa.relative),
-            )
-            scalarized_outcome_constraint.db_id = metric_sqa.id
-            return scalarized_outcome_constraint
         elif metric_sqa.intent == MetricIntent.OBJECTIVE_THRESHOLD:
-            if metric_sqa.bound is None or metric_sqa.relative is None:
-                raise SQADecodeError(  # pragma: no cover
-                    "Cannot decode SQAMetric to ObjectiveThreshold because "
-                    "bound, op, or relative is None."
-                )
-            ot = ObjectiveThreshold(
-                metric=metric,
-                bound=metric_sqa.bound,
-                relative=metric_sqa.relative,
-                op=metric_sqa.op,
+            return self._objective_threshold_from_sqa(
+                metric=metric, metric_sqa=metric_sqa
             )
-            # ObjectiveThreshold constructor clones the passed-in metric, which means
-            # the db id gets lost and so we need to reset it
-            ot.metric._db_id = metric.db_id
-            return ot
         elif metric_sqa.intent == MetricIntent.RISK_MEASURE:
-            rm = RiskMeasure(
-                **object_from_json(
-                    metric_sqa.properties,
-                    decoder_registry=self.config.json_decoder_registry,
-                    class_decoder_registry=self.config.json_class_decoder_registry,
-                )
-            )
-            rm._db_id = metric.db_id
-            return rm
+            return self._risk_measure_from_sqa(metric=metric, metric_sqa=metric_sqa)
         else:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.intent} "
@@ -1122,6 +951,214 @@ class Decoder:
 
         dat.db_id = data_sqa.id
         return dat
+
+    def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
+        """Convert SQLAlchemy Metric to Ax Metric"""
+        if metric_sqa.metric_type not in self.config.reverse_metric_registry:
+            raise SQADecodeError(
+                f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
+                f"is an invalid type. "
+                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
+            )
+        metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
+
+        args = dict(
+            object_from_json(
+                metric_sqa.properties,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
+            or {}
+        )
+        args["name"] = metric_sqa.name
+        args["lower_is_better"] = metric_sqa.lower_is_better
+        try:
+            args = metric_class.deserialize_init_args(args=args)
+            metric = metric_class(**args)
+            metric.db_id = metric_sqa.id
+            return metric
+        except ValueError as err:
+            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
+
+    def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
+        if metric_sqa.minimize is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to Objective because minimize is None."
+            )
+        if metric_sqa.scalarized_objective_weight is not None:
+            raise SQADecodeError(  # pragma: no cover
+                f"The metric {metric.name} corresponding to regular objective does not "
+                "have weight attribute"
+            )
+        return Objective(metric=metric, minimize=metric_sqa.minimize)
+
+    def _multi_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
+        try:
+            metrics_sqa_children = (
+                parent_metric_sqa.scalarized_objective_children_metrics
+            )
+        except DetachedInstanceError:
+            metrics_sqa_children = _get_scalarized_objective_children_metrics(
+                metric_id=parent_metric_sqa.id, decoder=self
+            )
+
+        if metrics_sqa_children is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to MultiObjective \
+                because the parent metric has no children metrics."
+            )
+
+        # Extracting metric and weight for each child
+        objectives = [
+            Objective(
+                metric=self._metric_from_sqa_util(parent_metric_sqa),
+                minimize=parent_metric_sqa.minimize,
+            )
+            for parent_metric_sqa in metrics_sqa_children
+        ]
+
+        multi_objective = MultiObjective(objectives=objectives)
+        multi_objective.db_id = parent_metric_sqa.id
+        return multi_objective
+
+    def _scalarized_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
+        if parent_metric_sqa.minimize is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to Scalarized Objective "
+                "because minimize is None."
+            )
+
+        try:
+            metrics_sqa_children = (
+                parent_metric_sqa.scalarized_objective_children_metrics
+            )
+        except DetachedInstanceError:
+            metrics_sqa_children = _get_scalarized_objective_children_metrics(
+                metric_id=parent_metric_sqa.id, decoder=self
+            )
+
+        if metrics_sqa_children is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to Scalarized Objective \
+                because the parent metric has no children metrics."
+            )
+
+        # Extracting metric and weight for each child
+        metrics, weights = zip(
+            *[
+                (
+                    self._metric_from_sqa_util(child),
+                    child.scalarized_objective_weight,
+                )
+                for child in metrics_sqa_children
+            ]
+        )
+        scalarized_objective = ScalarizedObjective(
+            metrics=list(metrics),
+            weights=list(weights),
+            minimize=not_none(parent_metric_sqa.minimize),
+        )
+        scalarized_objective.db_id = parent_metric_sqa.id
+        return scalarized_objective
+
+    def _outcome_constraint_from_sqa(
+        self, metric: Metric, metric_sqa: SQAMetric
+    ) -> OutcomeConstraint:
+        if (
+            metric_sqa.bound is None
+            or metric_sqa.op is None
+            or metric_sqa.relative is None
+        ):
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to OutcomeConstraint because "
+                "bound, op, or relative is None."
+            )
+        return OutcomeConstraint(
+            metric=metric,
+            bound=metric_sqa.bound,
+            op=metric_sqa.op,
+            relative=metric_sqa.relative,
+        )
+
+    def _scalarized_outcome_constraint_from_sqa(
+        self, metric: Metric, metric_sqa: SQAMetric
+    ) -> ScalarizedOutcomeConstraint:
+        if (
+            metric_sqa.bound is None
+            or metric_sqa.op is None
+            or metric_sqa.relative is None
+        ):
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to Scalarized OutcomeConstraint because "
+                "bound, op, or relative is None."
+            )
+
+        try:
+            metrics_sqa_children = (
+                metric_sqa.scalarized_outcome_constraint_children_metrics
+            )
+        except DetachedInstanceError:
+            metrics_sqa_children = _get_scalarized_outcome_constraint_children_metrics(
+                metric_id=metric_sqa.id, decoder=self
+            )
+
+        if metrics_sqa_children is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to Scalarized OutcomeConstraint \
+                because the parent metric has no children metrics."
+            )
+
+        # Extracting metric and weight for each child
+        metrics, weights = zip(
+            *[
+                (
+                    self._metric_from_sqa_util(child),
+                    child.scalarized_outcome_constraint_weight,
+                )
+                for child in metrics_sqa_children
+            ]
+        )
+        scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
+            metrics=list(metrics),
+            weights=list(weights),
+            bound=not_none(metric_sqa.bound),
+            op=not_none(metric_sqa.op),
+            relative=not_none(metric_sqa.relative),
+        )
+        scalarized_outcome_constraint.db_id = metric_sqa.id
+        return scalarized_outcome_constraint
+
+    def _objective_threshold_from_sqa(
+        self, metric: Metric, metric_sqa: SQAMetric
+    ) -> ObjectiveThreshold:
+        if metric_sqa.bound is None or metric_sqa.relative is None:
+            raise SQADecodeError(  # pragma: no cover
+                "Cannot decode SQAMetric to ObjectiveThreshold because "
+                "bound, op, or relative is None."
+            )
+        ot = ObjectiveThreshold(
+            metric=metric,
+            bound=metric_sqa.bound,
+            relative=metric_sqa.relative,
+            op=metric_sqa.op,
+        )
+        # ObjectiveThreshold constructor clones the passed-in metric, which means
+        # the db id gets lost and so we need to reset it
+        ot.metric._db_id = metric.db_id
+        return ot
+
+    def _risk_measure_from_sqa(
+        self, metric: Metric, metric_sqa: SQAMetric
+    ) -> RiskMeasure:
+        rm = RiskMeasure(
+            **object_from_json(
+                metric_sqa.properties,
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
+            )
+        )
+        rm._db_id = metric.db_id
+        return rm
 
 
 def _get_scalarized_objective_children_metrics(
