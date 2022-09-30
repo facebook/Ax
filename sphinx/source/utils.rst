@@ -75,6 +75,14 @@ Logger
     :undoc-members:
     :show-inheritance:
 
+Result
+~~~~~~
+
+.. automodule:: ax.utils.common.result
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
