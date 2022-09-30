@@ -126,20 +126,32 @@ def _obs_vs_pred_dropdown_plot(
             else [0.0] * len(y_raw)
         )
 
+        min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         if autoset_axis_limits:
             y_raw_np = np.array(y_raw)
-            q1 = np.percentile(y_raw_np, q=25, interpolation="lower").min()
-            q3 = np.percentile(y_raw_np, q=75, interpolation="higher").max()
+            q1 = np.nanpercentile(y_raw_np, q=25, interpolation="lower").min()
+            q3 = np.nanpercentile(y_raw_np, q=75, interpolation="higher").max()
             y_lower = q1 - 1.5 * (q3 - q1)
             y_upper = q3 + 1.5 * (q3 - q1)
             y_raw_np = y_raw_np.clip(y_lower, y_upper).tolist()
-            layout_axis_range.append(
-                _get_min_max_with_errors(y_raw_np, y_hat, se_raw, se_hat)
+            min_robust, max_robust = _get_min_max_with_errors(
+                y_raw_np, y_hat, se_raw, se_hat
+            )
+            # Add some padding
+            y_padding = 0.1 * (max_robust - min_robust)
+            min_robust = min_robust - y_padding
+            max_robust = max_robust + y_padding
+            # Use the min/max of the limits
+            layout_axis_range.append([max(min_robust, min_), min(max_robust, max_)])
+            traces.append(
+                _diagonal_trace(
+                    min(min_robust, min_), max(max_robust, max_), visible=(i == 0)
+                )
             )
         else:
             layout_axis_range.append(None)
-        min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
-        traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
+            traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
+
         traces.append(
             _error_scatter_trace(
                 arms=list(data.in_sample.values()),
