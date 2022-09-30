@@ -90,3 +90,73 @@ class IntRangeToChoiceTransformTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
+
+    def test_num_choices(self) -> None:
+        parameters = {
+            "a": RangeParameter(
+                "a", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+            ),
+            "b": RangeParameter(
+                "b", lower=1, upper=2, parameter_type=ParameterType.INT
+            ),
+            "c": ChoiceParameter(
+                "c", parameter_type=ParameterType.STRING, values=["x1", "x2", "x3"]
+            ),
+            "d": RangeParameter(
+                "d", lower=1, upper=9, parameter_type=ParameterType.INT
+            ),
+            "e": RangeParameter(
+                "e", lower=3, upper=5, parameter_type=ParameterType.INT
+            ),
+        }
+        search_space = SearchSpace(parameters=parameters.values())  # pyre-ignore[6]
+
+        # Don't specify max_choices (should be set to inf)
+        t = IntRangeToChoice(search_space=search_space)
+        new_search_space = t.transform_search_space(search_space=search_space)
+        self.assertEqual(len(new_search_space.parameters), len(parameters))
+        self.assertEqual(t.max_choices, float("inf"))
+        self.assertEqual(new_search_space.parameters["a"], parameters["a"])
+        self.assertEqual(
+            new_search_space.parameters["b"],
+            ChoiceParameter(
+                "b", values=[1, 2], is_ordered=True, parameter_type=ParameterType.INT
+            ),
+        )
+        self.assertEqual(new_search_space.parameters["c"], parameters["c"])
+        self.assertEqual(
+            new_search_space.parameters["d"],
+            ChoiceParameter(
+                "d",
+                values=list(range(1, 10)),  # pyre-ignore
+                is_ordered=True,
+                parameter_type=ParameterType.INT,
+            ),
+        )
+        self.assertEqual(
+            new_search_space.parameters["e"],
+            ChoiceParameter(
+                "e", values=[3, 4, 5], is_ordered=True, parameter_type=ParameterType.INT
+            ),
+        )
+
+        # Set max_choices so parameter d isn't transformed
+        t = IntRangeToChoice(search_space=search_space, config={"max_choices": 5})
+        new_search_space = t.transform_search_space(search_space=search_space)
+        self.assertEqual(len(new_search_space.parameters), len(parameters))
+        self.assertEqual(t.max_choices, 5)
+        self.assertEqual(new_search_space.parameters["a"], parameters["a"])
+        self.assertEqual(
+            new_search_space.parameters["b"],
+            ChoiceParameter(
+                "b", values=[1, 2], is_ordered=True, parameter_type=ParameterType.INT
+            ),
+        )
+        self.assertEqual(new_search_space.parameters["c"], parameters["c"])
+        self.assertEqual(new_search_space.parameters["d"], parameters["d"])
+        self.assertEqual(
+            new_search_space.parameters["e"],
+            ChoiceParameter(
+                "e", values=[3, 4, 5], is_ordered=True, parameter_type=ParameterType.INT
+            ),
+        )

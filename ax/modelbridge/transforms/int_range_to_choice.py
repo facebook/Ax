@@ -32,19 +32,27 @@ class IntRangeToChoice(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         assert search_space is not None, "IntRangeToChoice requires search space"
+        config = config or {}
+        self.max_choices: float = config.get("max_choices", float("inf"))  # pyre-ignore
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name
             for p_name, p in search_space.parameters.items()
-            if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
+            if isinstance(p, RangeParameter)
+            and p.parameter_type == ParameterType.INT
+            and p.upper - p.lower + 1 <= self.max_choices
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         transformed_parameters: Dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
-            if p_name in self.transform_parameters and isinstance(p, RangeParameter):
-                # pyre-fixme[6]: Expected `int` for 1st param but got `float`.
-                values = list(range(p.lower, p.upper + 1))
+            if (
+                p_name in self.transform_parameters
+                and isinstance(p, RangeParameter)
+                and p.parameter_type == ParameterType.INT
+                and p.upper - p.lower + 1 <= self.max_choices
+            ):
+                values = list(range(p.lower, p.upper + 1))  # pyre-ignore
                 target_value = (
                     None
                     if p.target_value is None
@@ -53,12 +61,7 @@ class IntRangeToChoice(Transform):
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
                     parameter_type=p.parameter_type,
-                    # Expected `List[Optional[typing.Union[bool, float, str]]]` for
-                    # 4th parameter `values` to call
-                    # `ax.core.parameter.ChoiceParameter.__init__` but got
-                    # `List[int]`.
-                    # pyre-fixme[6]:
-                    values=values,
+                    values=values,  # pyre-fixme[6]
                     is_ordered=True,
                     is_fidelity=p.is_fidelity,
                     target_value=target_value,
