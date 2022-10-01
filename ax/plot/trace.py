@@ -234,6 +234,7 @@ def optimization_trace_single_method_plotly(
             plotting trial points. Defaults to light purple.
         autoset_axis_limits: Automatically try to set the limit for each axis to focus
             on the region of interest.
+
     Returns:
         go.Figure: plot of the optimization trace with IQR
     """
@@ -367,6 +368,7 @@ def optimization_trace_single_method(
             plotting trial points. Defaults to light purple.
         autoset_axis_limits: Automatically try to set the limit for each axis to focus
             on the region of interest.
+
     Returns:
         AxPlotConfig: plot of the optimization trace with IQR
     """
