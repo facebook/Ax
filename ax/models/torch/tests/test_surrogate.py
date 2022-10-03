@@ -65,7 +65,8 @@ class SurrogateTest(TestCase):
             bounds=self.bounds,
             target_fidelities={1: 1.0},
         )
-        self.metric_names = ["y"]
+        self.metric_names = ["x_y"]
+        self.original_metric_names = ["x", "y"]
         self.fixed_features = {1: 2.0}
         self.refit = True
         self.objective_weights = torch.tensor(
@@ -319,6 +320,19 @@ class SurrogateTest(TestCase):
             )
             mock_state_dict.assert_not_called()
             mock_fit.assert_called_once()
+            mock_state_dict.reset_mock()
+            mock_MLL.reset_mock()
+            mock_fit.reset_mock()
+            # Check that the optional original_metric_names arg propagates
+            # through surrogate._outcomes.
+            surrogate.fit(
+                datasets=self.training_data,
+                metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
+                refit=self.refit,
+                original_metric_names=self.original_metric_names,
+            )
+            self.assertEqual(surrogate._outcomes, self.original_metric_names)
             mock_state_dict.reset_mock()
             mock_MLL.reset_mock()
             mock_fit.reset_mock()

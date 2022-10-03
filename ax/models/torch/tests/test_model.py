@@ -203,6 +203,7 @@ class BoTorchModelTest(TestCase):
             candidate_metadata=self.candidate_metadata,
             state_dict=None,
             refit=True,
+            original_metric_names=self.metric_names,
         )
         # ensure that error is raised when len(metric_names) != len(datasets)
         with self.assertRaisesRegex(
