@@ -171,7 +171,7 @@ class BoTorchModel(TorchModel, Base):
                 metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
-
+        original_metric_names = deepcopy(metric_names)
         if len(datasets) > 1 and not isinstance(self.surrogate, ListSurrogate):
             # Note: If the datasets do not confirm to a block design then this
             # will filter the data and drop observations to make sure that it does.
@@ -189,6 +189,7 @@ class BoTorchModel(TorchModel, Base):
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
+            original_metric_names=original_metric_names,
         )
 
     @copy_doc(TorchModel.update)

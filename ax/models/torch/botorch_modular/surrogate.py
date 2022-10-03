@@ -308,6 +308,7 @@ class Surrogate(Base):
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
+        original_metric_names: Optional[List[str]] = None,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
@@ -338,6 +339,13 @@ class Surrogate(Base):
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
+            # TODO: we should refactor the fit() API to get rid of the metric_names
+            # and the concatenation hack that comes with it in BoTorchModel.fit()
+            # by attaching the individual metric_name to each dataset directly.
+            original_metric_names: sometimes the original list of metric_names
+                got tranformed into a different format before being passed down
+                into fit(). This arg preserves the original metric_names before
+                the transformation.
         """
         if self._constructed_manually:
             logger.debug(
@@ -351,7 +359,11 @@ class Surrogate(Base):
                 metric_names=metric_names,
                 **dataclasses.asdict(search_space_digest),
             )
-            self._outcomes = metric_names
+            self._outcomes = (
+                original_metric_names
+                if original_metric_names is not None
+                else metric_names
+            )
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
 
