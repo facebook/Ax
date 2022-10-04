@@ -6,6 +6,7 @@
 
 
 import numpy as np
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.random.uniform import UniformGenerator
 from ax.utils.common.testutils import TestCase
 
@@ -25,7 +26,9 @@ class UniformGeneratorTest(TestCase):
     def testUniformGeneratorAllTunable(self) -> None:
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
-        generated_points, weights = generator.gen(n=3, bounds=bounds)
+        generated_points, weights = generator.gen(
+            n=3, bounds=bounds, rounding_func=lambda x: x
+        )
 
         expected_points = np.array(
             [
@@ -42,8 +45,19 @@ class UniformGeneratorTest(TestCase):
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         n = 3
+        with self.assertRaises(SearchSpaceExhausted):
+            generator.gen(
+                n=3,
+                bounds=bounds,
+                fixed_features={0: 1, 1: 2},
+                rounding_func=lambda x: x,
+            )
+        generator = UniformGenerator(seed=0, deduplicate=False)
         generated_points, _ = generator.gen(
-            n=3, bounds=bounds, fixed_features={0: 1, 1: 2}
+            n=3,
+            bounds=bounds,
+            fixed_features={0: 1, 1: 2},
+            rounding_func=lambda x: x,
         )
         expected_points = np.tile(np.array([[1, 2]]), (n, 1))
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
@@ -66,7 +80,10 @@ class UniformGeneratorTest(TestCase):
         )
         for i in range(n):
             generated_points, weights = generator.gen(
-                n=1, bounds=bounds, fixed_features={fixed_param_index: 1}
+                n=1,
+                bounds=bounds,
+                fixed_features={fixed_param_index: 1},
+                rounding_func=lambda x: x,
             )
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
@@ -88,7 +105,10 @@ class UniformGeneratorTest(TestCase):
         )
         for i in range(n):
             generated_points, weights = generator.gen(
-                n=1, bounds=bounds, fixed_features={fixed_param_index: 1}
+                n=1,
+                bounds=bounds,
+                fixed_features={fixed_param_index: 1},
+                rounding_func=lambda x: x,
             )
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
@@ -107,6 +127,7 @@ class UniformGeneratorTest(TestCase):
                 np.array([0, 0, 0]),
             ),
             fixed_features={fixed_param_index: 0.5},
+            rounding_func=lambda x: x,
         )
 
         expected_points = np.array(
@@ -133,6 +154,7 @@ class UniformGeneratorTest(TestCase):
                 np.array([1, 1]),
             ),
             fixed_features={fixed_param_index: 1},
+            rounding_func=lambda x: x,
         )
         expected_points = np.array(
             [
@@ -147,4 +169,6 @@ class UniformGeneratorTest(TestCase):
     def testUniformGeneratorBadBounds(self) -> None:
         generator = UniformGenerator()
         with self.assertRaises(ValueError):
-            generated_points, weights = generator.gen(n=1, bounds=[(-1, 1)])
+            generated_points, weights = generator.gen(
+                n=1, bounds=[(-1, 1)], rounding_func=lambda x: x
+            )
