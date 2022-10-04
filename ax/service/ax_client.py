@@ -434,6 +434,51 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "optimization config not set because it was missing objectives"
             )
 
+    def set_search_space(
+        self,
+        parameters: List[
+            Dict[str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]],
+        ],
+        parameter_constraints: Optional[List[str]] = None,
+    ) -> None:
+        """Sets the search space on the experiment and saves.
+        This is expected to fail on base AxClient as experiment will have
+        immutable search space and optimization config set to True by default
+
+        Args:
+            parameters: List of dictionaries representing parameters in the
+                experiment search space.
+                Required elements in the dictionaries are:
+                1. "name" (name of parameter, string),
+                2. "type" (type of parameter: "range", "fixed", or "choice", string),
+                and one of the following:
+                3a. "bounds" for range parameters (list of two values, lower bound
+                first),
+                3b. "values" for choice parameters (list of values), or
+                3c. "value" for fixed parameters (single value).
+                Optional elements are:
+                1. "log_scale" (for float-valued range parameters, bool),
+                2. "value_type" (to specify type that values of this parameter should
+                take; expects "float", "int", "bool" or "str"),
+                3. "is_fidelity" (bool) and "target_value" (float) for fidelity
+                parameters,
+                4. "is_ordered" (bool) for choice parameters, and
+                5. "is_task" (bool) for task parameters.
+                6. "digits" (int) for float-valued range parameters.
+            parameter_constraints: List of string representation of parameter
+                constraints, such as "x3 >= x4" or "-x3 + 2*x4 - 3.5*x5 >= 2". For
+                the latter constraints, any number of arguments is accepted, and
+                acceptable operators are "<=" and ">=". Note that parameter
+                constraints may only be placed on range parameters, not choice
+                parameters or fixed parameters.
+        """
+        self.experiment.search_space = self.make_search_space(
+            parameters=parameters, parameter_constraints=parameter_constraints
+        )
+        self._save_experiment_to_db_if_possible(
+            experiment=self.experiment,
+        )
+
     @retry_on_exception(
         logger=logger,
         exception_types=(RuntimeError,),

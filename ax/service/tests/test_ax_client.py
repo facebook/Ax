@@ -24,6 +24,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import (
@@ -946,6 +947,81 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.metric_definitions["obj_m2"]["properties"],
             metric_definitions["obj_m2"]["properties"],
+        )
+
+    def test_set_search_space(self) -> None:
+        """Test basic experiment creation."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
+            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
+            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
+            #  List[int], List[str], bool, int, str]]]`.
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                    "value_type": "float",
+                    "log_scale": True,
+                    "digits": 6,
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        ax_client.set_search_space(
+            parameters=[  # pyre-ignore[6]
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.1, 0.2],
+                    "value_type": "float",
+                    "digits": 6,
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [1, 2],
+                    "value_type": "int",
+                },
+            ],
+            parameter_constraints=["x1 <= x2"],
+        )
+        param_x1 = RangeParameter(
+            name="x1",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.1,
+            upper=0.2,
+            log_scale=False,
+            digits=6,
+        )
+        param_x2 = RangeParameter(
+            name="x2", parameter_type=ParameterType.INT, lower=1, upper=2
+        )
+        self.assertEqual(
+            ax_client.experiment.search_space.parameters["x1"],
+            param_x1,
+        )
+        self.assertEqual(
+            ax_client.experiment.search_space.parameters["x2"],
+            param_x2,
+        )
+        self.assertEqual(
+            ax_client.experiment.search_space.parameter_constraints,
+            [
+                OrderConstraint(
+                    lower_parameter=param_x1,
+                    upper_parameter=param_x2,
+                )
+            ],
         )
 
     def test_it_does_not_accept_both_legacy_and_new_objective_params(self) -> None:
