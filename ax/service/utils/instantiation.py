@@ -634,8 +634,11 @@ class InstantiationBase:
     def make_search_space(
         cls,
         parameters: List[TParameterRepresentation],
-        parameter_constraints: List[str],
+        parameter_constraints: Optional[List[str]],
     ) -> SearchSpace:
+        parameter_constraints = (
+            parameter_constraints if parameter_constraints is not None else []
+        )
         typed_parameters = [cls.parameter_from_json(p) for p in parameters]
         is_hss = any(p.is_hierarchical for p in typed_parameters)
         search_space_cls = HierarchicalSearchSpace if is_hss else SearchSpace
@@ -856,7 +859,7 @@ class InstantiationBase:
         return Experiment(
             name=name,
             description=description,
-            search_space=cls.make_search_space(parameters, parameter_constraints or []),
+            search_space=cls.make_search_space(parameters, parameter_constraints),
             optimization_config=optimization_config,
             status_quo=status_quo_arm,
             experiment_type=experiment_type,
