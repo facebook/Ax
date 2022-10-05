@@ -5,17 +5,16 @@
 
 from __future__ import annotations
 
-import functools
 from copy import deepcopy
 from importlib import import_module
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from scipy.stats._distn_infrastructure import rv_generic
 
 if TYPE_CHECKING:
     from ax.core.search_space import RobustSearchSpace
+    from scipy.stats.distributions import rv_frozen  # pyre-ignore [21]
 
 TDistribution = str
 TParamName = str
@@ -52,15 +51,37 @@ class ParameterDistribution(SortableBase):
         """
         super().__init__()
         self.parameters = parameters
-        self.distribution_class = distribution_class
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.distribution_parameters = distribution_parameters or {}
+        self._distribution_class = distribution_class
+        self._distribution_parameters: Dict[str, Any] = distribution_parameters or {}
         self.multiplicative = multiplicative
+        self._distribution: Optional[rv_frozen] = None  # pyre-ignore [11]
 
     @property
-    @functools.lru_cache()
-    def distribution(self) -> rv_generic:
-        """Get the distribution object."""
+    def distribution_class(self) -> TDistribution:
+        r"""The name of the scipy distribution class."""
+        return self._distribution_class
+
+    @distribution_class.setter
+    def distribution_class(self, new_class: TDistribution) -> None:
+        r"""Update the distribution class and delete the cached distribution object."""
+        self._distribution = None
+        self._distribution_class = new_class
+
+    @property
+    def distribution_parameters(self) -> Dict[str, Any]:
+        r"""The parameters of the distribution."""
+        return self._distribution_parameters
+
+    @distribution_parameters.setter
+    def distribution_parameters(self, new_parameters: Dict[str, Any]) -> None:
+        r"""Update the distribution parameters and delete the cached
+        distribution object.
+        """
+        self._distribution = None
+        self._distribution_parameters = new_parameters
+
+    def _construct_distribution_object(self) -> None:
+        r"""Constructs the scipy distribution object."""
         stats = import_module("scipy.stats")
         try:
             dist_class = getattr(stats, self.distribution_class)
@@ -70,7 +91,14 @@ class ParameterDistribution(SortableBase):
                 f"{self.distribution_class}. Make sure that the "
                 "`distribution_class` is importable from `scipy.stats`."
             )
-        return dist_class(**self.distribution_parameters)
+        self._distribution = dist_class(**self.distribution_parameters)
+
+    @property
+    def distribution(self) -> rv_frozen:
+        """Get the distribution object."""
+        if self._distribution is None:
+            self._construct_distribution_object()
+        return self._distribution
 
     def is_environmental(self, search_space: RobustSearchSpace) -> bool:
         r"""Check if the parameters are environmental variables of the given

@@ -22,22 +22,31 @@ class ParameterDistributionTest(TestCase):
             multiplicative=True,
         )
         self.assertTrue(dist.multiplicative)
+        self.assertIsNone(dist._distribution)
         dist_obj = dist.distribution
         self.assertEqual(dist.parameters, ["x1"])
         self.assertIsInstance(dist_obj, rv_frozen)
-        # pyre-fixme[16]: `rv_generic` has no attribute `dist`.
         self.assertIsInstance(dist_obj.dist, norm_gen)
-        # pyre-fixme[16]: `rv_generic` has no attribute `kwds`.
         dist_kwds = dist_obj.kwds
         self.assertEqual(dist_kwds["loc"], 0.0)
         self.assertEqual(dist_kwds["scale"], 1.0)
+
+        # Update the dist class.
+        self.assertIsNotNone(dist._distribution)
+        dist.distribution_class = "cauchy"
+        self.assertIsNone(dist._distribution)
+        # Update the parameters.
+        dist.distribution  # Re-construct the distribution.
+        self.assertIsNotNone(dist._distribution)
+        dist.distribution_parameters = {"loc": 0.1, "scale": 0.5}
+        self.assertIsNone(dist._distribution)
 
         # Test repr.
         expected_repr = (
             "ParameterDistribution("
             "parameters=['x1'], "
-            "distribution_class=norm, "
-            "distribution_parameters={'loc': 0.0, 'scale': 1.0}, "
+            "distribution_class=cauchy, "
+            "distribution_parameters={'loc': 0.1, 'scale': 0.5}, "
             "multiplicative=True)"
         )
         self.assertEqual(str(dist), expected_repr)
