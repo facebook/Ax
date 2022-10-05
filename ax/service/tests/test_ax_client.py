@@ -64,6 +64,10 @@ if TYPE_CHECKING:
 
 
 RANDOM_SEED = 239
+DUMMY_RUN_METADATA = {
+    "TEST_KEY": "TEST_VALUE",
+    "abc": {123: 456},
+}
 
 
 def run_trials_using_recommended_parallelism(
@@ -1635,7 +1639,9 @@ class TestAxClient(TestCase):
             ],
             minimize=True,
         )
-        params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
+        params, idx = ax_client.attach_trial(
+            parameters={"x": 0.0, "y": 1.0}, run_metadata=DUMMY_RUN_METADATA
+        )
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)

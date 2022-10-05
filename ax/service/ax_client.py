@@ -818,7 +818,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
     def attach_trial(
-        self, parameters: TParameterization, ttl_seconds: Optional[int] = None
+        self,
+        parameters: TParameterization,
+        ttl_seconds: Optional[int] = None,
+        run_metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -855,6 +858,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             "Attached custom parameterization "
             f"{round_floats_for_logging(item=parameters)} as trial {trial.index}."
         )
+        if run_metadata is not None:
+            trial.update_run_metadata(metadata=run_metadata)
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
