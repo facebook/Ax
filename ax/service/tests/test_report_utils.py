@@ -50,6 +50,31 @@ TRUE_OBJECTIVE_MEAN = 2.3456
 
 
 class ReportUtilsTest(TestCase):
+    @patch(
+        "ax.service.utils.report_utils._merge_results_if_no_duplicates",
+        autospec=True,
+        return_value=pd.DataFrame(
+            [
+                # Trial indexes are out-of-order.
+                {"arm_name": "a", "trial_index": 1},
+                {"arm_name": "b", "trial_index": 2},
+                {"arm_name": "c", "trial_index": 0},
+            ]
+        ),
+    )
+    def test_exp_to_df_ordering(self, _) -> None:
+        """
+        This test verifies that the returned data frame indexes are
+        in the same order as trial index. It mocks _merge_results_if_no_duplicates
+        to verify just the ordering of items in the final data frame.
+        """
+        exp = get_branin_experiment(with_trial=True)
+        df = exp_to_df(exp)
+        # Check that all 3 rows are in order
+        self.assertEqual(len(df), 3)
+        for idx, row in df.iterrows():
+            self.assertEqual(row["trial_index"], idx)
+
     def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail
         exp = get_multi_type_experiment()

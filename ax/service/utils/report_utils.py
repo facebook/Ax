@@ -607,7 +607,8 @@ def exp_to_df(
         metrics=metrics or list(exp.metrics.values()),
     )
 
-    return not_none(not_none(exp_df).sort_values(["trial_index"]))
+    exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
+    return exp_df.reset_index(drop=True)
 
 
 def _pareto_frontier_scatter_2d_plotly(
