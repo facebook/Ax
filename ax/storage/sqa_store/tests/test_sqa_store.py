@@ -211,10 +211,9 @@ class SQAStoreTest(TestCase):
         f"{Decoder.__module__}.Decoder.experiment_from_sqa",
         side_effect=Decoder(SQAConfig()).experiment_from_sqa,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def testExperimentSaveAndLoadReducedState(
         self, _mock_exp_from_sqa, _mock_trial_from_sqa, _mock_gr_from_sqa
-    ):
+    ) -> None:
         # 1. No abandoned arms + no trials case, reduced state should be the
         # same as non-reduced state.
         exp = get_experiment_with_multi_objective()
@@ -250,18 +249,18 @@ class SQAStoreTest(TestCase):
         # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
         # scramble, generated_points, fallback_to_sample_polytope)
         # and the rest of model-state info on generator run to have values too.
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[str,
-        #  typing.Any]]`.
-        self.assertEqual(len(gr._model_kwargs), 6)
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[str,
-        #  typing.Any]]`.
-        self.assertEqual(len(gr._bridge_kwargs), 7)
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[str,
-        #  typing.Any]]`.
-        self.assertEqual(len(gr._model_state_after_gen), 1)
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Dict[str,
-        #  typing.Any]]`.
-        self.assertEqual(len(gr._gen_metadata), 0)
+        mkw = gr._model_kwargs
+        self.assertIsNotNone(mkw)
+        self.assertEqual(len(mkw), 6)
+        bkw = gr._bridge_kwargs
+        self.assertIsNotNone(bkw)
+        self.assertEqual(len(bkw), 7)
+        ms = gr._model_state_after_gen
+        self.assertIsNotNone(ms)
+        self.assertEqual(len(ms), 2)
+        gm = gr._gen_metadata
+        self.assertIsNotNone(gm)
+        self.assertEqual(len(gm), 0)
         self.assertIsNotNone(gr._search_space, gr.optimization_config)
         exp.new_trial(generator_run=gr)
         save_experiment(exp)

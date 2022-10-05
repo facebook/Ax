@@ -203,7 +203,7 @@ class ModelRegistryTest(TestCase):
             (
                 {
                     "seed": None,
-                    "deduplicate": False,
+                    "deduplicate": True,
                     "init_position": 0,
                     "scramble": True,
                     "generated_points": None,

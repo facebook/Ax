@@ -47,7 +47,7 @@ class ALEBOInitializer(UniformGenerator):
         self.Q = np.linalg.pinv(B) @ B  # Projects down to B and then back up
         self.nsamp = nsamp
         self.init_bound = init_bound
-        super().__init__(seed=seed)
+        super().__init__(seed=seed, deduplicate=False)
 
     @copy_doc(UniformGenerator.gen)
     def gen(

@@ -35,7 +35,7 @@ class REMBOInitializer(UniformGenerator):
         self.A = A
         # pyre-fixme[4]: Attribute must be annotated.
         self.X_d_gen = []  # Store points in low-d space generated here
-        super().__init__(seed=seed)
+        super().__init__(seed=seed, deduplicate=False)
 
     def project_up(self, X: np.ndarray) -> np.ndarray:
         """Project to high-dimensional space."""

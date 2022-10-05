@@ -292,14 +292,24 @@ class TestGenerationStrategy(TestCase):
                 self.mock_torch_model_bridge.assert_called()
             else:
                 self.assertEqual(g._model_key, "Sobol")
+                mkw = g._model_kwargs
+                self.assertIsNotNone(mkw)
+                if i > 0:
+                    # Generated points are randomized, so checking that they're there.
+                    self.assertIsNotNone(mkw.get("generated_points"))
+                else:
+                    # This is the first GR, there should be no generated points yet.
+                    self.assertIsNone(mkw.get("generated_points"))
+                # Remove the randomized generated points to compare the rest.
+                mkw = mkw.copy()
+                del mkw["generated_points"]
                 self.assertEqual(
-                    g._model_kwargs,
+                    mkw,
                     {
                         "seed": None,
-                        "deduplicate": False,
+                        "deduplicate": True,
                         "init_position": i,
                         "scramble": True,
-                        "generated_points": None,
                         "fallback_to_sample_polytope": False,
                     },
                 )
@@ -315,7 +325,14 @@ class TestGenerationStrategy(TestCase):
                         "fit_abandoned": False,
                     },
                 )
-                self.assertEqual(g._model_state_after_gen, {"init_position": i + 1})
+                ms = g._model_state_after_gen
+                self.assertIsNotNone(ms)
+                # Generated points are randomized, so just checking that they are there.
+                self.assertIn("generated_points", ms)
+                # Remove the randomized generated points to compare the rest.
+                ms = ms.copy()
+                del ms["generated_points"]
+                self.assertEqual(ms, {"init_position": i + 1})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
             g = self.sobol_GPEI_GS.gen(exp)
@@ -612,7 +629,8 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(
                     model=Models.SOBOL,
                     num_trials=-1,
-                    model_kwargs=self.step_model_kwargs,
+                    # Disable model-level deduplication.
+                    model_kwargs={"deduplicate": False},
                     should_deduplicate=True,
                 ),
             ],

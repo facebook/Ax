@@ -22,7 +22,7 @@ class UniformGenerator(RandomModel):
 
     """
 
-    def __init__(self, deduplicate: bool = False, seed: Optional[int] = None) -> None:
+    def __init__(self, deduplicate: bool = True, seed: Optional[int] = None) -> None:
         super().__init__(deduplicate=deduplicate, seed=seed)
         self._rs = np.random.RandomState(seed=seed)
 

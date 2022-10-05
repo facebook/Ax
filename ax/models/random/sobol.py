@@ -39,7 +39,7 @@ class SobolGenerator(RandomModel):
     def __init__(
         self,
         seed: Optional[int] = None,
-        deduplicate: bool = False,
+        deduplicate: bool = True,
         init_position: int = 0,
         scramble: bool = True,
         generated_points: Optional[np.ndarray] = None,
