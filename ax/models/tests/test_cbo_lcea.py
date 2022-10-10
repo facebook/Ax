@@ -22,7 +22,7 @@ class LCEABOTest(TestCase):
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]])
-        train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
+        train_Yvar = 0.1 * torch.ones(3, 1)
         training_data = [FixedNoiseDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)]
 
         # Test setting attributes
