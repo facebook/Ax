@@ -17,6 +17,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -244,7 +245,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def create_experiment(
         self,
         parameters: List[
-            Dict[str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]],
+            Dict[str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]]
         ],
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -437,7 +438,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def set_search_space(
         self,
         parameters: List[
-            Dict[str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]],
+            Dict[str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]]
         ],
         parameter_constraints: Optional[List[str]] = None,
     ) -> None:

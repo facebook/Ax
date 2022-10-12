@@ -8,7 +8,7 @@ import enum
 from dataclasses import dataclass
 
 from logging import Logger
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, cast, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -61,7 +61,7 @@ logger: Logger = get_logger(__name__)
 
 
 TParameterRepresentation = Dict[
-    str, Union[TParamValue, List[TParamValue], Dict[str, List[str]]]
+    str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]
 ]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}

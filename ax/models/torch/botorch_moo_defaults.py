@@ -297,7 +297,7 @@ def scipy_optimizer_list(
 
 
 def pareto_frontier_evaluator(
-    model: TorchModel,
+    model: Optional[TorchModel],
     objective_weights: Tensor,
     objective_thresholds: Optional[Tensor] = None,
     X: Optional[Tensor] = None,
@@ -333,8 +333,10 @@ def pareto_frontier_evaluator(
             cov[j, m1, m2] is Cov[m1@j, m2@j].
         - A `j` tensor of the index of each frontier point in the input Y.
     """
+    # TODO: better input validation, making more explicit whether we are using
+    # model predictions or not
     if X is not None:
-        Y, Yvar = model.predict(X)
+        Y, Yvar = not_none(model).predict(X)
         # model.predict returns cpu tensors
         Y = Y.to(X.device)
         Yvar = Yvar.to(X.device)

@@ -92,10 +92,6 @@ class TestManagedLoop(TestCase):
     def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -124,10 +120,6 @@ class TestManagedLoop(TestCase):
     def test_branin_with_active_parameter_constraints(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -158,10 +150,6 @@ class TestManagedLoop(TestCase):
     @fast_botorch_optimize
     def test_branin_without_objective_name(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -184,10 +172,6 @@ class TestManagedLoop(TestCase):
     @fast_botorch_optimize
     def test_branin_with_unknown_sem(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -214,10 +198,6 @@ class TestManagedLoop(TestCase):
         batch_branin = Mock(side_effect=_branin_evaluation_function)
 
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -263,7 +243,7 @@ class TestManagedLoop(TestCase):
     def test_optimize(self) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
@@ -293,7 +273,7 @@ class TestManagedLoop(TestCase):
     def test_optimize_with_predictions(self, _) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
@@ -319,7 +299,7 @@ class TestManagedLoop(TestCase):
     def test_optimize_unknown_sem(self) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
@@ -345,7 +325,7 @@ class TestManagedLoop(TestCase):
     def test_optimize_propagates_random_seed(self) -> None:
         """Tests optimization as a single call."""
         _, _, _, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
@@ -363,7 +343,7 @@ class TestManagedLoop(TestCase):
     def test_optimize_search_space_exhausted(self) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "choice", "values": [1, 2]},
                 {"name": "x2", "type": "choice", "values": [1, 2]},
             ],
@@ -393,10 +373,6 @@ class TestManagedLoop(TestCase):
             name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -423,7 +399,7 @@ class TestManagedLoop(TestCase):
         candidate generation.
         """
         best, vals, exp, model = optimize(
-            parameters=[  # pyre-fixme[6]
+            parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
@@ -461,10 +437,6 @@ class TestManagedLoop(TestCase):
             name="Sobol", steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)]
         )
         loop = OptimizationLoop.with_evaluation_function(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], bool,
-            #  str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -493,7 +465,7 @@ class TestManagedLoop(TestCase):
             UserInputError, "Invalid number of arms per trial: 0"
         ):
             loop = OptimizationLoop.with_evaluation_function(
-                parameters=[  # pyre-fixme[6]
+                parameters=[
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                     {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
                 ],
@@ -510,7 +482,7 @@ class TestManagedLoop(TestCase):
     def test_eval_function_with_wrong_parameter_count_generates_error(self) -> None:
         with self.assertRaises(UserInputError):
             loop = OptimizationLoop.with_evaluation_function(
-                parameters=[  # pyre-fixme[6]
+                parameters=[
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                     {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
                 ],

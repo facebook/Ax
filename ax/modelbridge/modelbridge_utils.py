@@ -61,8 +61,8 @@ from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.models.torch.frontier_utils import (
-    get_default_frontier_evaluator,
     get_weighted_mc_objective_and_objective_thresholds,
 )
 from ax.utils.common.logger import get_logger
@@ -884,9 +884,7 @@ def get_pareto_frontier_and_configs(
         pending_observations=None,
         final_transform=array_to_tensor,
     )
-    frontier_evaluator = get_default_frontier_evaluator()
-    # pyre-ignore[28]: Unexpected keyword `modelbridge` to anonymous call
-    f, cov, indx = frontier_evaluator(
+    f, cov, indx = pareto_frontier_evaluator(
         model=modelbridge.model,
         X=X,
         Y=Y,

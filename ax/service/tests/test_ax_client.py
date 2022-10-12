@@ -112,9 +112,6 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
     ax_client.create_experiment(
-        # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
-        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {"name": "x", "type": "range", "bounds": [0.0, 1.0]},
             {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -166,9 +163,6 @@ def get_branin_optimization(
     )
     ax_client.create_experiment(
         name="test_experiment",
-        # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
-        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
             {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -186,7 +180,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -218,7 +212,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -239,7 +233,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -258,7 +252,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -320,7 +314,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -354,7 +348,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -479,7 +473,7 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -520,9 +514,6 @@ class TestAxClient(TestCase):
         )
         ax_client.create_experiment(
             name="unique_test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -559,7 +550,7 @@ class TestAxClient(TestCase):
         """Test that Sobol+MOO is used if no GenerationStrategy is provided."""
         ax_client = AxClient()
         ax_client.create_experiment(
-            parameters=[  # pyre-fixme[6]: expected union that should include
+            parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
@@ -630,10 +621,6 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
-            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -765,10 +752,6 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
-            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -841,9 +824,6 @@ class TestAxClient(TestCase):
         }
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -906,9 +886,6 @@ class TestAxClient(TestCase):
         }
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -958,10 +935,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
-            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -982,7 +955,7 @@ class TestAxClient(TestCase):
             immutable_search_space_and_opt_config=False,
         )
         ax_client.set_search_space(
-            parameters=[  # pyre-ignore[6]
+            parameters=[
                 {
                     "name": "x1",
                     "type": "range",
@@ -1133,10 +1106,6 @@ class TestAxClient(TestCase):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
-            #  List[int], List[str], bool, int, str]]]`.
             parameters=[
                 {
                     "name": "x",
@@ -1311,9 +1280,6 @@ class TestAxClient(TestCase):
     def test_raw_data_format(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1336,9 +1302,6 @@ class TestAxClient(TestCase):
     def test_raw_data_format_with_map_results(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1370,9 +1333,6 @@ class TestAxClient(TestCase):
         # generating.
         ax_client = AxClient(enforce_sequential_optimization=False)
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1389,9 +1349,6 @@ class TestAxClient(TestCase):
     def test_update_running_trial_with_intermediate_data(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1420,9 +1377,6 @@ class TestAxClient(TestCase):
 
         no_intermediate_data_ax_client = AxClient()
         no_intermediate_data_ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
@@ -1526,9 +1480,6 @@ class TestAxClient(TestCase):
     def test_ttl_trial(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1557,9 +1508,6 @@ class TestAxClient(TestCase):
         start_time = current_timestamp_in_millis()
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1581,9 +1529,6 @@ class TestAxClient(TestCase):
     def test_fail_on_batch(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1606,9 +1551,6 @@ class TestAxClient(TestCase):
     def test_log_failure(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1630,9 +1572,6 @@ class TestAxClient(TestCase):
     def test_attach_trial_and_get_trial_parameters(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1658,9 +1597,6 @@ class TestAxClient(TestCase):
     def test_attach_trial_ttl_seconds(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1693,9 +1629,6 @@ class TestAxClient(TestCase):
     def test_attach_trial_numpy(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1713,10 +1646,6 @@ class TestAxClient(TestCase):
         with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="test_experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1732,9 +1661,6 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
             ax_client.get_max_parallelism()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1752,9 +1678,6 @@ class TestAxClient(TestCase):
         # still be raised.
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1801,9 +1724,6 @@ class TestAxClient(TestCase):
             ax_client.get_contour_plot()
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1838,9 +1758,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient(db_settings=db_settings)
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1871,10 +1788,6 @@ class TestAxClient(TestCase):
             # Overwriting existing experiment.
             ax_client.create_experiment(
                 name="test_experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1887,10 +1800,6 @@ class TestAxClient(TestCase):
             # experiments stored in the DB.
             ax_client.create_experiment(
                 name="test_experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[{"name": "x", "type": "range", "bounds": [-5.0, 10.0]}],
                 overwrite_existing_experiment=True,
             )
@@ -1902,9 +1811,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1924,10 +1830,6 @@ class TestAxClient(TestCase):
             # Overwriting existing experiment.
             ax_client.create_experiment(
                 name="test_experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1937,9 +1839,6 @@ class TestAxClient(TestCase):
         # Overwriting existing experiment with overwrite flag.
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [0.0, 15.0]},
@@ -1962,9 +1861,6 @@ class TestAxClient(TestCase):
     def test_fixed_random_seed_reproducibility(self) -> None:
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -1981,9 +1877,6 @@ class TestAxClient(TestCase):
         ]
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2001,9 +1894,6 @@ class TestAxClient(TestCase):
     def test_init_position_saved(self) -> None:
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2036,9 +1926,6 @@ class TestAxClient(TestCase):
     def test_unnamed_experiment_snapshot(self) -> None:
         ax_client = AxClient(random_seed=RANDOM_SEED)
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2155,9 +2042,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2185,9 +2069,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2223,9 +2104,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2419,10 +2297,6 @@ class TestAxClient(TestCase):
     def test_with_hss(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float],
-            #  List[int], List[str], Dict[str, List[str]], str]]]`.
             parameters=[
                 {
                     "name": "model",
@@ -2492,9 +2366,6 @@ class TestAxClient(TestCase):
             early_stopping_strategy=DummyEarlyStoppingStrategy(expected)
         )
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2508,9 +2379,6 @@ class TestAxClient(TestCase):
     def test_stop_trial_early(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2525,9 +2393,6 @@ class TestAxClient(TestCase):
     def test_max_parallelism_exception_when_early_stopping(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2563,10 +2428,6 @@ class TestAxClient(TestCase):
         ax_client = AxClient(early_stopping_strategy=DummyEarlyStoppingStrategy())
         with self.assertRaisesRegex(ValueError, ".*`support_intermediate_data=True`.*"):
             ax_client.create_experiment(
-                # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-                #  List[Union[None, bool, float, int, str]], Dict[str, List[str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
@@ -2610,9 +2471,6 @@ def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
     ax_client.create_experiment(
         name="test_experiment",
         choose_generation_strategy_kwargs={"num_initialization_trials": 0},
-        # pyre-fixme[6]: For 3rd param expected `List[Dict[str, Union[None,
-        #  List[Union[None, bool, float, int, str]], Dict[str, List[str]], bool, float,
-        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {
                 "name": "x1",

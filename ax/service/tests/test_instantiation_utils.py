@@ -124,9 +124,6 @@ class TestInstantiationtUtils(TestCase):
 
     def test_add_tracking_metrics(self) -> None:
         experiment = InstantiationBase.make_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[int], str]]]`.
             parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
             tracking_metric_names=None,
         )
@@ -134,9 +131,6 @@ class TestInstantiationtUtils(TestCase):
 
         metrics_names = ["metric_1", "metric_2"]
         experiment = InstantiationBase.make_experiment(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[int], str]]]`.
             parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
             tracking_metric_names=metrics_names,
         )

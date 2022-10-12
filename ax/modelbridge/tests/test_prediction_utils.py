@@ -95,9 +95,6 @@ def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
     ax_client.create_experiment(
         name="test_experiment",
         choose_generation_strategy_kwargs={"num_initialization_trials": 0},
-        # pyre-fixme[6]: For 3rd param expected `List[Dict[str, Union[None,
-        #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool, float,
-        #  int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
         parameters=[
             {
                 "name": "x1",
