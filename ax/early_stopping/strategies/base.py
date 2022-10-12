@@ -25,6 +25,7 @@ from ax.modelbridge.modelbridge_utils import (
 
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.map_unit_x import MapUnitX
 
 from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
@@ -175,13 +176,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             for map_key in map_keys:
                 values = map_df[map_key].astype(float)
                 map_df[map_key] = values / values.abs().max()
-
-            data = MapData(
-                df=map_df,
-                map_key_infos=data.map_key_infos,
-                description=data.description,
-            )
-        return data
+        return MapData(
+            df=map_df,
+            map_key_infos=data.map_key_infos,
+            description=data.description,
+        )
 
     @staticmethod
     def _log_and_return_trial_ignored(
@@ -371,6 +370,80 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
     a helper function for processing MapData into arrays."""
 
+    def __init__(
+        self,
+        metric_names: Optional[Iterable[str]] = None,
+        seconds_between_polls: int = 300,
+        min_progression: Optional[float] = None,
+        min_curves: Optional[int] = None,
+        trial_indices_to_ignore: Optional[List[int]] = None,
+        true_objective_metric_name: Optional[str] = None,
+        normalize_progressions: bool = False,
+        min_progression_modeling: Optional[float] = None,
+    ) -> None:
+        """A ModelBasedEarlyStoppingStrategy class.
+
+        Args:
+            metric_names: The names of the metrics the strategy will interact with.
+                If no metric names are provided the objective metric is assumed.
+            seconds_between_polls: How often to poll the early stopping metric to
+                evaluate whether or not the trial should be early stopped.
+            min_progression: Only stop trials if the latest progression value
+                (e.g. timestamp, epochs, training data used) is greater than this
+                threshold. Prevents stopping prematurely before enough data is gathered
+                to make a decision.
+            min_curves: There must be `min_curves` number of completed trials and
+                `min_curves` number of trials with curve data to make a stopping
+                decision (i.e., even if there are enough completed trials but not all
+                of them are correctly returning data, then do not apply early stopping).
+            trial_indices_to_ignore: Trial indices that should not be early stopped.
+            true_objective_metric_name: The actual objective to be optimized; used in
+                situations where early stopping uses a proxy objective (such as training
+                loss instead of eval loss) for stopping decisions.
+            normalize_progressions: Normalizes the progression column of the MapData df
+                by dividing by the max. If the values were originally in [0, `prog_max`]
+                (as we would expect), the transformed values will be in [0, 1]. Useful
+                for inferring the max progression and allows `min_progression` to be
+                specified in the transformed space. IMPORTANT: Typically, `min_curves`
+                should be > 0 to ensure that at least one trial has completed and that
+                we have a reliable approximation for `prog_max`.
+            min_progression_modeling: If set, this will exclude progressions that are
+                below this threshold from being used or modeling. Useful when early data
+                is not reliable or excessively noisy.
+        """
+        super().__init__(
+            metric_names=metric_names,
+            seconds_between_polls=seconds_between_polls,
+            min_progression=min_progression,
+            min_curves=min_curves,
+            trial_indices_to_ignore=trial_indices_to_ignore,
+            true_objective_metric_name=true_objective_metric_name,
+            normalize_progressions=normalize_progressions,
+        )
+        self.min_progression_modeling = min_progression_modeling
+
+    def _check_validity_and_get_data(
+        self, experiment: Experiment, metric_names: List[str]
+    ) -> Optional[MapData]:
+        """Validity checks and returns the `MapData` used for early stopping that
+        is associated with `metric_names`. This function also handles normalizing
+        progressions.
+        """
+        map_data = super()._check_validity_and_get_data(
+            experiment=experiment, metric_names=metric_names
+        )
+        if map_data is not None and self.min_progression_modeling is not None:
+            map_df = map_data.map_df
+            map_df = map_df[
+                map_df[map_data.map_keys[0]] >= self.min_progression_modeling
+            ]
+            map_data = MapData(
+                df=map_df,
+                map_key_infos=map_data.map_key_infos,
+                description=map_data.description,
+            )
+        return map_data
+
     def get_training_data(
         self,
         experiment: Experiment,
@@ -400,7 +473,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 map_key=map_data.map_keys[0],
                 limit_total_rows=max_training_size,
             )
-
         if outcomes is None:
             # default to the default objective
             metric_name, _ = self._default_objective_and_direction(
@@ -448,7 +520,7 @@ def get_transform_helper_model(
     Returns: A torch modelbridge.
     """
     if transforms is None:
-        transforms = Cont_X_trans + Y_trans
+        transforms = Cont_X_trans + [MapUnitX] + Y_trans
     return MapTorchModelBridge(
         experiment=experiment,
         search_space=experiment.search_space,
