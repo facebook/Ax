@@ -48,7 +48,7 @@ from ax.utils.testing.modeling_stubs import transform_1, transform_2
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
 PARETO_FRONTIER_EVALUATOR_PATH = (
-    f"{pareto_frontier_evaluator.__module__}.pareto_frontier_evaluator"
+    f"{get_pareto_frontier_and_configs.__module__}.pareto_frontier_evaluator"
 )
 STUBS_PATH: str = get_branin_experiment_with_multi_objective.__module__
 
@@ -110,16 +110,14 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            # pyre-fixme[16]: Optional type has no attribute `frontier_evaluator`.
-            # pyre-fixme[16]: `TorchModel` has no attribute `frontier_evaluator`.
-            modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
             observed_frontier = observed_pareto_frontier(
                 modelbridge=modelbridge, objective_thresholds=objective_thresholds
             )
-            wrapped_frontier_evaluator.assert_called_once()
-            self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
-            self.assertEqual(1, len(observed_frontier))
-            self.assertEqual(observed_frontier[0].arm_name, "0_0")
+
+        wrapped_frontier_evaluator.assert_called_once()
+        self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
+        self.assertEqual(1, len(observed_frontier))
+        self.assertEqual(observed_frontier[0].arm_name, "0_0")
 
         with self.assertRaises(ValueError):
             predicted_pareto_frontier(
@@ -172,28 +170,28 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 observation_features=observation_features,
                 observation_data=observation_data,
             )
-            wrapped_frontier_evaluator.assert_called_once()
+        wrapped_frontier_evaluator.assert_called_once()
+        self.assertTrue(
+            torch.equal(
+                wrapped_frontier_evaluator.call_args[1]["X"],
+                torch.tensor([[1.0, 4.0], [4.0, 1.0]], dtype=torch.double),
+            )
+        )
+        self.assertEqual(f.shape, (1, n_outcomes))
+        self.assertTrue(torch.equal(obj_w[:2], torch.ones(2, dtype=torch.double)))
+        self.assertTrue(obj_t is not None)
+        # obj_t isn't None; this is just to appease Pyre
+        if obj_t is not None:
             self.assertTrue(
-                torch.equal(
-                    wrapped_frontier_evaluator.call_args[1]["X"],
-                    torch.tensor([[1.0, 4.0], [4.0, 1.0]], dtype=torch.double),
-                )
+                torch.equal(obj_t[:2], torch.tensor([0.0, 0.0], dtype=torch.double))
             )
-            self.assertEqual(f.shape, (1, n_outcomes))
-            self.assertTrue(torch.equal(obj_w[:2], torch.ones(2, dtype=torch.double)))
-            self.assertTrue(obj_t is not None)
-            # obj_t isn't None; this is just to appease Pyre
-            if obj_t is not None:
-                self.assertTrue(
-                    torch.equal(obj_t[:2], torch.tensor([0.0, 0.0], dtype=torch.double))
-                )
-            observed_frontier2 = pareto_frontier(
-                modelbridge=modelbridge,
-                objective_thresholds=objective_thresholds,
-                observation_features=observation_features,
-                observation_data=observation_data,
-            )
-            self.assertEqual(observed_frontier, observed_frontier2)
+        observed_frontier2 = pareto_frontier(
+            modelbridge=modelbridge,
+            objective_thresholds=objective_thresholds,
+            observation_features=observation_features,
+            observation_data=observation_data,
+        )
+        self.assertEqual(observed_frontier, observed_frontier2)
 
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
@@ -205,16 +203,16 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 observation_data=observation_data,
                 use_model_predictions=False,
             )
-            wrapped_frontier_evaluator.assert_called_once()
-            self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
-            true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]], dtype=torch.double)
-            self.assertTrue(
-                torch.equal(
-                    wrapped_frontier_evaluator.call_args[1]["Y"][:, :2],
-                    true_Y,
-                )
+        wrapped_frontier_evaluator.assert_called_once()
+        self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
+        true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]], dtype=torch.double)
+        self.assertTrue(
+            torch.equal(
+                wrapped_frontier_evaluator.call_args[1]["Y"][:, :2],
+                true_Y,
             )
-            self.assertTrue(torch.equal(f[:, :2], true_Y[1:, :]))
+        )
+        self.assertTrue(torch.equal(f[:, :2], true_Y[1:, :]))
 
     def test_pareto_frontier(self) -> None:
         """
@@ -292,31 +290,28 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             with patch(
                 PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
             ) as wrapped_frontier_evaluator:
-                # pyre-fixme[16]: Optional type has no attribute `frontier_evaluator`.
-                # pyre-fixme[16]: `TorchModel` has no attribute `frontier_evaluator`.
-                modelbridge.model.frontier_evaluator = wrapped_frontier_evaluator
                 hv = observed_hypervolume(
                     modelbridge=modelbridge, objective_thresholds=objective_thresholds
                 )
-                expected_hv = 20 if num_objectives == 2 else 60  # 5 * 4 (* 3)
-                wrapped_frontier_evaluator.assert_called_once()
+            expected_hv = 20 if num_objectives == 2 else 60  # 5 * 4 (* 3)
+            wrapped_frontier_evaluator.assert_called_once()
+            self.assertEqual(expected_hv, hv)
+            if num_objectives == 3:
+                # Test selected_metrics
+                hv = observed_hypervolume(
+                    modelbridge=modelbridge,
+                    objective_thresholds=objective_thresholds,
+                    selected_metrics=["branin_a", "branin_c"],
+                )
+                expected_hv = 15  # (5 - 0) * (5 - 2)
                 self.assertEqual(expected_hv, hv)
-                if num_objectives == 3:
-                    # Test selected_metrics
+                # test that non-objective outcome raises value error
+                with self.assertRaises(ValueError):
                     hv = observed_hypervolume(
                         modelbridge=modelbridge,
                         objective_thresholds=objective_thresholds,
-                        selected_metrics=["branin_a", "branin_c"],
+                        selected_metrics=["tracking"],
                     )
-                    expected_hv = 15  # (5 - 0) * (5 - 2)
-                    self.assertEqual(expected_hv, hv)
-                    # test that non-objective outcome raises value error
-                    with self.assertRaises(ValueError):
-                        hv = observed_hypervolume(
-                            modelbridge=modelbridge,
-                            objective_thresholds=objective_thresholds,
-                            selected_metrics=["tracking"],
-                        )
 
             with self.assertRaises(ValueError):
                 predicted_hypervolume(

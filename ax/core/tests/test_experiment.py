@@ -151,9 +151,6 @@ class ExperimentTest(TestCase):
         # Create an experiment with valid parameter constraints
         ax_client.create_experiment(
             name="experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x1",
@@ -175,10 +172,6 @@ class ExperimentTest(TestCase):
         with self.assertRaises(UnsupportedError):
             ax_client.create_experiment(
                 name="experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  Dict[str, List[str]], List[Union[None, bool, float, int, str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  str]]]`.
                 parameters=[
                     {
                         "name": "x1",
@@ -200,10 +193,6 @@ class ExperimentTest(TestCase):
         with self.assertRaises(UnsupportedError):
             ax_client.create_experiment(
                 name="experiment",
-                # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-                #  Dict[str, List[str]], List[Union[None, bool, float, int, str]],
-                #  bool, float, int, str]]]` but got `List[Dict[str, Union[List[float],
-                #  float, str]]]`.
                 parameters=[
                     {"name": "x1", "type": "fixed", "value": 0.0},
                     {

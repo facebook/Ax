@@ -27,9 +27,6 @@ class TestGlobalStoppingIntegration(TestCase):
         ax_client = AxClient(global_stopping_strategy=global_stopping_strategy)
         ax_client.create_experiment(
             name="branin_test_experiment",
-            # pyre-fixme[6]: For 2nd param expected `List[Dict[str, Union[None,
-            #  Dict[str, List[str]], List[Union[None, bool, float, int, str]], bool,
-            #  float, int, str]]]` but got `List[Dict[str, Union[List[float], str]]]`.
             parameters=[
                 {
                     "name": "x1",
