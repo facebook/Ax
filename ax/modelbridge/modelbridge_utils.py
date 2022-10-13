@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
@@ -31,12 +33,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
-from ax.core.observation import (
-    Observation,
-    ObservationData,
-    ObservationFeatures,
-    recombine_observations,
-)
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -58,7 +55,7 @@ from ax.core.search_space import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
@@ -774,7 +771,7 @@ def get_pareto_frontier_and_configs(
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
-    transform_outcomes_and_configs: bool = True,
+    transform_outcomes_and_configs: Optional[bool] = None,
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
     """Helper that applies transforms and calls ``frontier_evaluator``.
 
@@ -796,7 +793,8 @@ def get_pareto_frontier_and_configs(
             ``observation_features`` to compute Pareto front. If ``False``,
             will use ``observation_data`` directly to compute Pareto front, ignoring
             ``observation_features``.
-        transform_outcomes_and_configs: If ``True``, will transform the optimization
+        transform_outcomes_and_configs: Deprecated and must be ``False`` if provided.
+            Previously, if ``True``, would transform the optimization
             config, observation features and observation data, before calling
             ``frontier_evaluator``, then will untransform all of the above before
             returning the observations.
@@ -809,6 +807,28 @@ def get_pareto_frontier_and_configs(
           - obj_t: m tensor of objective thresholds corresponding to Y, or None if no
             objective thresholds used.
     """
+    if transform_outcomes_and_configs is None:
+        warnings.warn(
+            "FYI: The default behavior of `get_pareto_frontier_and_configs` when "
+            "`transform_outcomes_and_configs` is not specified has changed. Previously,"
+            " the default was `transform_outcomes_and_configs=True`; now this argument "
+            "is deprecated and behavior is as if "
+            "`transform_outcomes_and_configs=False`. You did not specify "
+            "`transform_outcomes_and_configs`, so this warning requires no action."
+        )
+    elif transform_outcomes_and_configs:
+        raise UnsupportedError(
+            "`transform_outcomes_and_configs=True` is no longer supported, and the "
+            "`transform_outcomes_and_configs` argument is deprecated. Please do not "
+            "specify this argument."
+        )
+    else:
+        warnings.warn(
+            "You passed `transform_outcomes_and_configs=False`. Specifying "
+            "`transform_outcomes_and_configs` at all is deprecated because `False` is "
+            "now the only allowed behavior. In the future, this will become an error.",
+            DeprecationWarning,
+        )
 
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
     X, Y, Yvar = None, None, None
@@ -817,16 +837,9 @@ def get_pareto_frontier_and_configs(
             modelbridge.transform_observation_features(observation_features)
         )
     if observation_data is not None:
-        if transform_outcomes_and_configs:
-            observations = recombine_observations(
-                observation_features=observation_features,
-                observation_data=observation_data,
-            )
-            _, Y, Yvar = modelbridge.transform_observations(observations)
-        else:
-            Y, Yvar = observation_data_to_array(
-                outcomes=modelbridge.outcomes, observation_data=observation_data
-            )
+        Y, Yvar = observation_data_to_array(
+            outcomes=modelbridge.outcomes, observation_data=observation_data
+        )
         Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
         arm_names = [None] * len(observation_features)
@@ -843,25 +856,20 @@ def get_pareto_frontier_and_configs(
 
     # Transform optimization config.
     fixed_features = ObservationFeatures(parameters={})
-    if transform_outcomes_and_configs:
-        optimization_config = modelbridge.transform_optimization_config(
-            optimization_config=optimization_config,
-            fixed_features=fixed_features,
-        )
-    else:
-        # de-relativize outcome constraints and objective thresholds
-        observations = modelbridge.get_training_data()
-        tf = Derelativize(
-            search_space=modelbridge.model_space.clone(),
-            observations=observations,
-            config={"use_raw_status_quo": True},
-        )
-        # pyre-ignore [9]
-        optimization_config = tf.transform_optimization_config(
-            optimization_config=optimization_config.clone(),
-            modelbridge=modelbridge,
-            fixed_features=fixed_features,
-        )
+
+    # de-relativize outcome constraints and objective thresholds
+    observations = modelbridge.get_training_data()
+    tf = Derelativize(
+        search_space=modelbridge.model_space.clone(),
+        observations=observations,
+        config={"use_raw_status_quo": True},
+    )
+    # pyre-ignore [9]
+    optimization_config = tf.transform_optimization_config(
+        optimization_config=optimization_config.clone(),
+        modelbridge=modelbridge,
+        fixed_features=fixed_features,
+    )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weights(
         objective=optimization_config.objective, outcomes=modelbridge.outcomes
@@ -961,7 +969,6 @@ def pareto_frontier(
         optimization_config=optimization_config,
         arm_names=arm_names,
         use_model_predictions=use_model_predictions,
-        transform_outcomes_and_configs=False,
     )[0]
 
 
@@ -1084,7 +1091,6 @@ def hypervolume(
         objective_thresholds=objective_thresholds,
         optimization_config=optimization_config,
         use_model_predictions=use_model_predictions,
-        transform_outcomes_and_configs=False,
     )
     if obj_t is None:
         raise ValueError(  # pragma: no cover

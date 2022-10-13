@@ -19,6 +19,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
 )
 from ax.core.parameter_constraint import ParameterConstraint
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
     get_pareto_frontier_and_configs,
@@ -37,6 +38,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
@@ -205,7 +207,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         wrapped_frontier_evaluator.assert_called_once()
         self.assertIsNone(wrapped_frontier_evaluator.call_args[1]["X"])
-        true_Y = torch.tensor([[9.0, 4.0], [16.0, 25.0]], dtype=torch.double)
+        true_Y = torch.tensor([[2.0, 1.0], [3.0, 4.0]], dtype=torch.double)
         self.assertTrue(
             torch.equal(
                 wrapped_frontier_evaluator.call_args[1]["Y"][:, :2],
@@ -228,6 +230,82 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 self.helper_test_pareto_frontier(
                     outcome_constraints=outcome_constraints
                 )
+
+    @fast_botorch_optimize
+    def test_get_pareto_frontier_and_configs_transform_deprecation(self) -> None:
+
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True, with_batch=True
+        )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+        metrics_dict = not_none(exp.optimization_config).metrics
+        objective_thresholds = [
+            ObjectiveThreshold(
+                metric=metrics_dict[f"branin_{letter}"],
+                bound=0.0,
+                relative=False,
+                op=ComparisonOp.GEQ,
+            )
+            for letter in "ab"
+        ]
+        # appease Pyre (this condition is True)
+        if isinstance(exp.optimization_config, MultiObjectiveOptimizationConfig):
+            exp.optimization_config = exp.optimization_config.clone_with_args(
+                objective_thresholds=objective_thresholds,
+            )
+
+        exp.attach_data(
+            get_branin_data_multi_objective(
+                trial_indices=exp.trials.keys(), num_objectives=2
+            ),
+        )
+        modelbridge = TorchModelBridge(
+            experiment=exp,
+            search_space=exp.search_space,
+            data=exp.fetch_data(),
+            model=MultiObjectiveBotorchModel(),
+            transforms=[],
+        )
+        observation_features = [
+            ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
+            ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
+        ]
+
+        with self.assertWarns(
+            Warning,
+            msg="FYI: The default behavior of `get_pareto_frontier_and_configs` when "
+            "`transform_outcomes_and_configs` is not specified has changed. Previously,"
+            " the default was `transform_outcomes_and_configs=True`; now this argument "
+            "is deprecated and behavior is as if "
+            "`transform_outcomes_and_configs=False`. You did not specify "
+            "`transform_outcomes_and_configs`, so this warning requires no action.",
+        ):
+            res = get_pareto_frontier_and_configs(
+                modelbridge=modelbridge,
+                observation_features=observation_features,
+            )
+            self.assertEqual(len(res), 4)
+
+        with self.assertRaises(UnsupportedError):
+            get_pareto_frontier_and_configs(
+                modelbridge=modelbridge,
+                observation_features=observation_features,
+                transform_outcomes_and_configs=True,
+            )
+
+        with self.assertWarns(
+            DeprecationWarning,
+            msg="You passed `transform_outcomes_and_configs=False`. Specifying "
+            "`transform_outcomes_and_configs` at all is deprecated because `False` is "
+            "now the only allowed behavior. In the future, this will become an error.",
+        ):
+            res = get_pareto_frontier_and_configs(
+                modelbridge=modelbridge,
+                observation_features=observation_features,
+                transform_outcomes_and_configs=False,
+            )
+            self.assertEqual(len(res), 4)
 
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will
