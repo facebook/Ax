@@ -267,6 +267,22 @@ def get_branin_experiment_with_timestamp_map_metric(
     return exp
 
 
+def get_test_map_data_experiment(
+    num_trials: int, num_fetches: int, num_complete: int
+) -> Experiment:
+    experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+    for i in range(num_trials):
+        trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
+        trial.run()
+    for _ in range(num_fetches):
+        # each time we call fetch, we grab another timestamp
+        experiment.fetch_data()
+    for i in range(num_complete):
+        experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
+    experiment.attach_data(data=experiment.fetch_data())
+    return experiment
+
+
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:

@@ -66,6 +66,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         metric_names: Optional[Iterable[str]] = None,
         seconds_between_polls: int = 300,
         min_progression: Optional[float] = None,
+        max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
         true_objective_metric_name: Optional[str] = None,
@@ -82,6 +83,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
                 to make a decision.
+            max_progression: Do not stop trials that have passed `max_progression`.
+                Useful if we prefer finishing a trial that are already near completion.
             min_curves: There must be `min_curves` number of completed trials and
                 `min_curves` number of trials with curve data to make a stopping
                 decision (i.e., even if there are enough completed trials but not all
@@ -103,6 +106,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.metric_names = metric_names
         self.seconds_between_polls = seconds_between_polls
         self.min_progression = min_progression
+        self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
         self.true_objective_metric_name = true_objective_metric_name
@@ -206,25 +210,22 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return False, "No data available to make an early stopping decision."
 
     @staticmethod
-    def _log_and_return_min_progression(
+    def _log_and_return_progression_range(
         logger: logging.Logger,
-        trial_index: Optional[int],
+        trial_index: int,
         trial_last_progression: float,
-        min_progression: float,
+        min_progression: Optional[float],
+        max_progression: Optional[float],
     ) -> Tuple[bool, str]:
         """Helper function for logging/constructing a reason when min progression
         is not yet reached."""
         reason = (
-            f"Most recent progression ({trial_last_progression}) is less than "
-            "the specified minimum progression for early stopping "
-            f"({min_progression}). "
+            f"Most recent progression ({trial_last_progression}) falls out of the "
+            f"min/max_progression range ({min_progression}, {max_progression})."
         )
-        if trial_index is not None:
-            logger.info(
-                f"Trial {trial_index}'s m{reason[1:]} Not early stopping this trial."
-            )
-        else:
-            logger.info("Not early stopping any trials.")
+        logger.info(
+            f"Trial {trial_index}'s m{reason[1:]} Not early stopping this trial."
+        )
         return False, reason
 
     @staticmethod
@@ -303,11 +304,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             f"Last progression of any candidate for trial stopping is {any_last_prog}."
         )
         if self.min_progression is not None and any_last_prog < self.min_progression:
-            self._log_and_return_min_progression(
-                logger=logger,
-                trial_index=None,
-                trial_last_progression=any_last_prog,
-                min_progression=not_none(self.min_progression),
+            logger.info(
+                f"No trials have reached {self.min_progression}. "
+                "Not stopping any trials."
             )
             return False
         return True
@@ -324,6 +323,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             1. Check for ignored indices based on `self.trial_indices_to_ignore`
             2. Check that `df` contains data for the trial `trial_index`
             3. Check that the trial has reached `self.min_progression`
+            4. Check that the trial hasn't surpassed `self.max_progression`
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
         checks pass)."""
@@ -341,15 +341,24 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         if df_trial.empty:
             return self._log_and_return_no_data(logger=logger, trial_index=trial_index)
 
-        # check for min progression
+        # check for min/max progression
         trial_last_prog = df_trial[map_key].max()
         logger.info(f"Last progression of Trial {trial_index} is {trial_last_prog}.")
         if self.min_progression is not None and trial_last_prog < self.min_progression:
-            return self._log_and_return_min_progression(
+            return self._log_and_return_progression_range(
                 logger=logger,
                 trial_index=trial_index,
                 trial_last_progression=trial_last_prog,
-                min_progression=not_none(self.min_progression),
+                min_progression=self.min_progression,
+                max_progression=self.max_progression,
+            )
+        if self.max_progression is not None and trial_last_prog > self.max_progression:
+            return self._log_and_return_progression_range(
+                logger=logger,
+                trial_index=trial_index,
+                trial_last_progression=trial_last_prog,
+                min_progression=self.min_progression,
+                max_progression=self.max_progression,
             )
         return True, None
 
@@ -375,6 +384,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         metric_names: Optional[Iterable[str]] = None,
         seconds_between_polls: int = 300,
         min_progression: Optional[float] = None,
+        max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
         true_objective_metric_name: Optional[str] = None,
@@ -392,6 +402,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
                 to make a decision.
+            max_progression: Do not stop trials that have passed `max_progression`.
+                Useful if we prefer finishing a trial that are already near completion.
             min_curves: There must be `min_curves` number of completed trials and
                 `min_curves` number of trials with curve data to make a stopping
                 decision (i.e., even if there are enough completed trials but not all
@@ -415,6 +427,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             metric_names=metric_names,
             seconds_between_polls=seconds_between_polls,
             min_progression=min_progression,
+            max_progression=max_progression,
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
             true_objective_metric_name=true_objective_metric_name,
