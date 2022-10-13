@@ -197,6 +197,7 @@ def plot_contour_plotly(
     ytype = "log" if y_is_log else "linear"
 
     layout = {
+        "title": metric_name,
         "annotations": [
             {
                 "font": {"size": 14},
@@ -754,6 +755,7 @@ def interact_contour_plotly(
     ytype = "log" if is_log_dict[yvar] else "linear"
 
     layout = {
+        "title": metric_name,
         "annotations": [
             {
                 "font": {"size": 14},
