@@ -37,7 +37,7 @@ from ax.core.parameter_constraint import (
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
-from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -287,7 +287,13 @@ class Decoder:
         if parameter_sqa.domain_type == DomainType.RANGE:
             if parameter_sqa.lower is None or parameter_sqa.upper is None:
                 raise SQADecodeError(  # pragma: no cover
-                    "`lower` and `upper` must be set for RangeParameter."
+                    "`lower` and `upper` must be set for RangeParameter; one or both "
+                    f"not found on parameter {parameter_sqa.name}."
+                )
+            if parameter_sqa.dependents is not None:
+                raise SQADecodeError(
+                    "`dependents` unexpectedly non-null on range parameter "
+                    f"{parameter_sqa.name}."
                 )
             parameter = RangeParameter(
                 name=parameter_sqa.name,
@@ -302,7 +308,8 @@ class Decoder:
         elif parameter_sqa.domain_type == DomainType.CHOICE:
             if parameter_sqa.choice_values is None:
                 raise SQADecodeError(  # pragma: no cover
-                    "`values` must be set for ChoiceParameter."
+                    "`values` must be set for ChoiceParameter; not found on"
+                    f" parameter {parameter_sqa.name}."
                 )
             parameter = ChoiceParameter(
                 name=parameter_sqa.name,
@@ -311,8 +318,8 @@ class Decoder:
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
                 is_ordered=parameter_sqa.is_ordered,
-                # pyre-fixme[6]: Expected `bool` for 7th param but got `Optional[bool]`.
-                is_task=parameter_sqa.is_task,
+                is_task=bool(parameter_sqa.is_task),
+                dependents=parameter_sqa.dependents,
             )
         elif parameter_sqa.domain_type == DomainType.FIXED:
             # Don't throw an error if parameter_sqa.fixed_value is None;
@@ -323,6 +330,7 @@ class Decoder:
                 value=parameter_sqa.fixed_value,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
+                dependents=parameter_sqa.dependents,
             )
         else:
             raise SQADecodeError(
@@ -484,6 +492,10 @@ class Decoder:
                 num_samples=num_samples,
                 environmental_variables=environmental_variables,
                 parameter_constraints=parameter_constraints,
+            )
+        elif any(p.is_hierarchical for p in parameters):
+            return HierarchicalSearchSpace(
+                parameters=parameters, parameter_constraints=parameter_constraints
             )
         else:
             return SearchSpace(

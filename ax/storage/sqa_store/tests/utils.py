@@ -25,6 +25,7 @@ from ax.utils.testing.core_stubs import (
     get_generator_run,
     get_generator_run2,
     get_hartmann_metric,
+    get_hierarchical_search_space_experiment,
     get_metric,
     get_objective,
     get_order_constraint,
@@ -119,6 +120,12 @@ TEST_CASES = [
     (
         "Experiment",
         get_experiment_with_map_data,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
+        "Experiment",
+        get_hierarchical_search_space_experiment,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
     ),

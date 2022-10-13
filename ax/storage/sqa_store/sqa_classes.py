@@ -93,6 +93,8 @@ class SQAParameter(Base):
     is_ordered: Optional[bool] = Column(Boolean)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
     is_task: Optional[bool] = Column(Boolean)
+    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
+    dependents: Optional[Dict[TParamValue, List[str]]] = Column(JSONEncodedObject)
 
     # Attributes for Fixed Parameters
     # pyre-fixme[8]: Attribute has type `Union[None, bool, float, int, str]`; used

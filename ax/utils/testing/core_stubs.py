@@ -525,6 +525,8 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
 
 def get_hierarchical_search_space_experiment() -> Experiment:
     return Experiment(
+        name="test_experiment_hss",
+        description="test experiment with hierarchical search space",
         search_space=get_hierarchical_search_space(),
         optimization_config=get_optimization_config(),
     )
