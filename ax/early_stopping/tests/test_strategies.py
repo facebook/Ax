@@ -30,6 +30,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
+    get_test_map_data_experiment,
 )
 
 
@@ -40,6 +41,56 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             # pyre-fixme[45]: Cannot instantiate abstract class
             #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
+
+    def test_is_eligible(self) -> None:
+        class FakeStrategy(BaseEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: Set[int],
+                experiment: Experiment,
+                **kwargs: Dict[str, Any],
+            ) -> Dict[int, Optional[str]]:
+                return {}
+
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        es_strategy = FakeStrategy(min_progression=3, max_progression=5)
+        map_data = es_strategy._check_validity_and_get_data(
+            experiment,
+            metric_names=[
+                es_strategy._default_objective_and_direction(experiment=experiment)[0]
+            ],
+        )
+        map_data = checked_cast(MapData, map_data)
+        self.assertTrue(
+            es_strategy.is_eligible(
+                trial_index=0,
+                experiment=experiment,
+                df=map_data.map_df,
+                map_key=map_data.map_keys[0],
+            )[0]
+        )
+
+        es_strategy = FakeStrategy(min_progression=5)
+        self.assertFalse(
+            es_strategy.is_eligible(
+                trial_index=0,
+                experiment=experiment,
+                df=map_data.map_df,
+                map_key=map_data.map_keys[0],
+            )[0]
+        )
+
+        es_strategy = FakeStrategy(min_progression=2, max_progression=3)
+        self.assertFalse(
+            es_strategy.is_eligible(
+                trial_index=0,
+                experiment=experiment,
+                df=map_data.map_df,
+                map_key=map_data.map_keys[0],
+            )[0]
+        )
 
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
@@ -53,19 +104,9 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
             ) -> Dict[int, Optional[str]]:
                 return {}
 
-        experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(3):
-            trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(2):
-            # each time we call fetch, we grab another timestamp
-            experiment.fetch_data()
-
-        for i in range(3):
-            experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
-
-        experiment.attach_data(data=experiment.fetch_data())
+        experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=2, num_complete=3
+        )
         training_data = FakeStrategy().get_training_data(
             experiment,
             # pyre-fixme[6]: For 2nd param expected `MapData` but got `Data`.
@@ -139,23 +180,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
 
     def test_percentile_early_stopping_strategy(self) -> None:
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for i in range(5):
-            # only mark the first 4 complete
-            trial = exp.trials[i]
-            if i < 4:
-                trial.mark_as(status=TrialStatus.COMPLETED)
-
-        exp.attach_data(data=exp.fetch_data())
-
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=4)
         """
         Data looks like this:
         arm_name metric_name        mean  sem  trial_index  timestamp
@@ -239,28 +264,11 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
     def test_percentile_early_stopping_strategy_non_objective_metric(self) -> None:
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=4)
         # pyre-fixme[16]: `Optional` has no attribute `objective`.
         map_metric = exp.optimization_config.objective.metric
         exp._optimization_config = None
         exp.add_tracking_metric(map_metric)
-
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for i in range(5):
-            # only mark the first 4 complete
-            trial = exp.trials[i]
-            if i < 4:
-                trial.mark_as(status=TrialStatus.COMPLETED)
-
-        exp.attach_data(data=exp.fetch_data())
-
         """
         Data looks like this:
         arm_name metric_name        mean  sem  trial_index  timestamp
@@ -369,18 +377,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
     def test_early_stopping_with_unaligned_results(self) -> None:
         # test case 1
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for trial in exp.trials.values():
-            trial.mark_as(status=TrialStatus.COMPLETED)
-
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
         data = checked_cast(MapData, exp.fetch_data())
@@ -420,17 +417,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {0, 1, 3})
 
         # test case 2, where trial 3 has only 1 data point
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for trial in exp.trials.values():
-            trial.mark_as(status=TrialStatus.COMPLETED)
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
 
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
@@ -478,20 +465,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
     def test_threshold_early_stopping_strategy(self) -> None:
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for trial in exp.trials.values():
-            trial.mark_as(status=TrialStatus.COMPLETED)
-
-        exp.attach_data(data=exp.fetch_data())
-
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
         arm_name metric_name        mean  sem  trial_index  timestamp
@@ -552,20 +526,7 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
 
 class TestLogicalEarlyStoppingStrategy(TestCase):
     def test_and_early_stopping_strategy(self) -> None:
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for trial in exp.trials.values():
-            trial.mark_as(status=TrialStatus.COMPLETED)
-
-        exp.attach_data(data=exp.fetch_data())
-
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
         arm_name metric_name        mean  sem  trial_index  timestamp
@@ -620,20 +581,7 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
                 self.assertNotIn(idc, and_should_stop.keys())
 
     def test_or_early_stopping_strategy(self) -> None:
-        exp = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
-        for i in range(5):
-            trial = exp.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
-            trial.run()
-
-        for _ in range(3):
-            # each time we call fetch, we grab another timestamp
-            exp.fetch_data()
-
-        for trial in exp.trials.values():
-            trial.mark_as(status=TrialStatus.COMPLETED)
-
-        exp.attach_data(data=exp.fetch_data())
-
+        exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=5)
         """
         Data looks like this:
         arm_name metric_name        mean  sem  trial_index  timestamp

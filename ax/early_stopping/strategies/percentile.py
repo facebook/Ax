@@ -29,6 +29,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         seconds_between_polls: int = 300,
         percentile_threshold: float = 50.0,
         min_progression: Optional[float] = 10,
+        max_progression: Optional[float] = None,
         min_curves: Optional[int] = 5,
         trial_indices_to_ignore: Optional[List[int]] = None,
         true_objective_metric_name: Optional[str] = None,
@@ -52,6 +53,8 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 (e.g. timestamp, epochs, training data used) is greater than this
                 threshold. Prevents stopping prematurely before enough data is gathered
                 to make a decision.
+            max_progression: Do not stop trials that have passed `max_progression`.
+                Useful if we prefer finishing a trial that are already near completion.
             min_curves: There must be `min_curves` number of completed trials and
                 `min_curves` number of trials with curve data to make a stopping
                 decision (i.e., even if there are enough completed trials but not all
@@ -73,6 +76,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             seconds_between_polls=seconds_between_polls,
             trial_indices_to_ignore=trial_indices_to_ignore,
             min_progression=min_progression,
+            max_progression=max_progression,
             min_curves=min_curves,
             true_objective_metric_name=true_objective_metric_name,
             normalize_progressions=normalize_progressions,
