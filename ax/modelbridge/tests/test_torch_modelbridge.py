@@ -44,9 +44,8 @@ class TorchModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testTorchModelBridge(self, mock_init, dtype=None, device=None):
+    def testTorchModelBridge(self, mock_init, dtype=None, device=None) -> None:
         ma = TorchModelBridge(
             # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
@@ -270,6 +269,11 @@ class TorchModelBridgeTest(TestCase):
         self.assertTrue(torch.equal(model_cv_args["X_test"], X_test))
         self.assertEqual(model_cv_args["search_space_digest"], ssd)
         self.assertEqual(cv_obs_data, [cv_obs_data_expected])
+
+        # Transform observations
+        # This functionality is likely to be deprecated (T134940274)
+        # so this is not a thorough test.
+        ma.transform_observations(observations)
 
         # Transform observation features
         obsf = [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})]
