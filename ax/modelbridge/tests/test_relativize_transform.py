@@ -128,15 +128,14 @@ class RelativizeDataTest(TestCase):
         st.floats(min_value=-10.0, max_value=10.0),
         st.floats(min_value=0, max_value=10.0),
     )
-    @settings(max_examples=1000)
-    # pyre-fixme[3]: Return type must be annotated.
+    @settings(max_examples=1000, deadline=None)
     def test_transform_status_quos_always_zero(
         self,
         sq_mean: float,
         sq_sem: float,
         mean: float,
         sem: float,
-    ):
+    ) -> None:
         assume(abs(sq_mean) >= 1e-10)
         assume(abs(sq_mean) != sq_sem)
 
