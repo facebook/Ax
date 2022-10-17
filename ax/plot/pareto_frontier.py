@@ -105,7 +105,11 @@ def scatter_plot_with_pareto_frontier_plotly(
     ]
     # No Pareto frontier is drawn if none is provided, or if the frontier consists of
     # a single point and no reference points are provided.
-    if Y_pareto is None or (len(Y_pareto) == 1 and reference_point is None):
+    if (
+        Y_pareto is None
+        or len(Y_pareto) == 0
+        or (len(Y_pareto) == 1 and reference_point is None)
+    ):
         # `Y_pareto` input was not specified
         range_x = extend_range(lower=min(Y[:, 0]), upper=max(Y[:, 0]))
         range_y = extend_range(lower=min(Y[:, 1]), upper=max(Y[:, 1]))
