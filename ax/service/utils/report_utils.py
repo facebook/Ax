@@ -682,6 +682,8 @@ def _pareto_frontier_scatter_2d_plotly(
         else None
     )
 
+    hovertext = [f"Arm name: {arm_name}" for arm_name in df["arm_name"]]
+
     return scatter_plot_with_pareto_frontier_plotly(
         Y=Y,
         Y_pareto=Y_pareto,
@@ -689,6 +691,7 @@ def _pareto_frontier_scatter_2d_plotly(
         metric_y=metric_names[1],
         reference_point=reference_point,
         minimize=minimize,
+        hovertext=hovertext,
     )
 
 
