@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import itertools
 from collections import namedtuple
 from logging import WARN
 from typing import List
@@ -11,10 +12,14 @@ from unittest.mock import patch
 
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
+    _get_metric_name_pairs,
     _get_objective_v_param_plots,
     _get_shortest_unique_suffix_dict,
     exp_to_df,
@@ -266,3 +271,28 @@ class ReportUtilsTest(TestCase):
             # Adds two more warnings.
             self.assertEqual(len(log.output), 3)
             self.assertIn("Skipping creation of 50 slice plots", log.output[1])
+
+    def test_get_metric_name_pairs(self) -> None:
+        exp = get_branin_experiment(with_trial=True)
+        exp._optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric("m0")),
+                    Objective(metric=Metric("m1")),
+                    Objective(metric=Metric("m2")),
+                    Objective(metric=Metric("m3")),
+                    Objective(metric=Metric("m4")),
+                ]
+            )
+        )
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            metric_name_pairs = _get_metric_name_pairs(experiment=exp)
+            self.assertEqual(len(log.output), 1)
+            self.assertIn(
+                "Creating pairwise Pareto plots for the first `use_n_metrics",
+                log.output[0],
+            )
+        self.assertListEqual(
+            list(metric_name_pairs),
+            list(itertools.combinations([f"m{i}" for i in range(4)], 2)),
+        )
