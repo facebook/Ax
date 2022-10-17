@@ -600,26 +600,31 @@ def infer_reference_point_from_experiment(
 
     # Dropping the columns related to outcome constraints.
     f = f[:, obj_w.nonzero().view(-1)]
-    multiplier = torch.tensor(multiplier, dtype=f.dtype, device=f.device)[
-        obj_w.nonzero().view(-1)
-    ]
+    multiplier_tensor = torch.tensor(multiplier, dtype=f.dtype, device=f.device)
+    multiplier_nonzero = multiplier_tensor[obj_w.nonzero().view(-1)]
 
     # Transforming all the objectives to be maximized.
-    f_transformed = multiplier * f
+    f_transformed = multiplier_nonzero * f
 
     # Finding nadir point.
     rp_raw = infer_reference_point(f_transformed)
 
     # Un-transforming the reference point.
-    rp = multiplier * rp_raw
+    rp = multiplier_nonzero * rp_raw
+
+    # Removing the non-objective metrics form the order.
+    objective_orders_reduced = [
+        x for (i, x) in enumerate(objective_orders) if multiplier[i] != 0
+    ]
 
     # Constructing the objective thresholds.
     nadir_objective_thresholds = copy.deepcopy(
         experiment.optimization_config.objective_thresholds
     )
+
     for obj_threshold in nadir_objective_thresholds:
         obj_threshold.bound = rp[
-            objective_orders.index(obj_threshold.metric.name)
+            objective_orders_reduced.index(obj_threshold.metric.name)
         ].item()
 
     return nadir_objective_thresholds
