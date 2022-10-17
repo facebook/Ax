@@ -256,48 +256,59 @@ class TestInfereReferencePointFromExperiment(TestCase):
 
     def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
         # Generating an experiment with given data.
-        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+        observations = [
+            [-1.0, 1.0, 0.1],
+            [-0.5, 2.0, 0.2],
+            [-2.0, 0.5, 0.3],
+            [-0.1, 0.1, 0.4],
+        ]
         experiment = get_experiment_with_observations(
             observations=observations,
             minimize=True,
             scalarized=False,
-            constrained=False,
+            constrained=True,
         )
 
         # Constructing fake outputs for `get_pareto_frontier_and_configs` so that
-        # the order of metrics `m1`, `m2` are reversed.
+        # the order of metrics `m1`, `m2` and `m3` are reversed.
         frontier_observations_shuffled = [
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.0, "y": 0.0}),
                 data=ObservationData(
-                    metric_names=["m2", "m1"],
-                    means=np.array([1.0, -1.0]),
-                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                    metric_names=["m3", "m2", "m1"],
+                    means=np.array([0.1, 1.0, -1.0]),
+                    covariance=np.diag(np.full(3, float("nan"))),
                 ),
             ),
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.1, "y": 0.1}),
                 data=ObservationData(
-                    metric_names=["m2", "m1"],
-                    means=np.array([2.0, -0.5]),
-                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                    metric_names=["m3", "m2", "m1"],
+                    means=np.array([0.2, 2.0, -0.5]),
+                    covariance=np.diag(np.full(3, float("nan"))),
                 ),
             ),
             Observation(
                 features=ObservationFeatures(parameters={"x": 0.2, "y": 0.2}),
                 data=ObservationData(
-                    metric_names=["m2", "m1"],
-                    means=np.array([0.5, -2.0]),
-                    covariance=np.array([[np.nan, 0.0], [0.0, np.nan]]),
+                    metric_names=["m3", "m2", "m1"],
+                    means=np.array([0.3, 0.5, -2.0]),
+                    covariance=np.diag(np.full(3, float("nan"))),
                 ),
             ),
         ]
         f_shuffled = torch.tensor(
-            [[1.0000, -1.0000], [2.0000, -0.5000], [0.5000, -2.0000]],
+            [
+                [0.1000, 1.0000, -1.0000],
+                [0.2000, 2.0000, -0.5000],
+                [0.3000, 0.5000, -2.0000],
+            ],
             dtype=torch.float64,
         )
-        obj_w_shuffled = torch.tensor([1.0, -1.0], dtype=torch.float64)
-        obj_t_shuffled = torch.tensor([-torch.inf, torch.inf], dtype=torch.float64)
+        obj_w_shuffled = torch.tensor([0.0, 1.0, -1.0], dtype=torch.float64)
+        obj_t_shuffled = torch.tensor(
+            [-torch.inf, -torch.inf, torch.inf], dtype=torch.float64
+        )
 
         # Test the function with these shuffled output for
         # `get_pareto_frontier_and_configs`.
