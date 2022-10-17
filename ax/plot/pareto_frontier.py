@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import plotly.graph_objs as go
@@ -54,6 +54,7 @@ def scatter_plot_with_pareto_frontier_plotly(
     metric_y: Optional[str],
     reference_point: Optional[Tuple[float, float]],
     minimize: Optional[Union[bool, Tuple[bool, bool]]] = True,
+    hovertext: Optional[Iterable[str]] = None,
 ) -> go.Figure:
     """Plots a scatter of all points in ``Y`` for ``metric_x`` and ``metric_y``
     with a reference point and Pareto frontier from ``Y_pareto``.
@@ -98,6 +99,8 @@ def scatter_plot_with_pareto_frontier_plotly(
                 },
             },
             name="Experimental points",
+            hovertemplate="%{text}",
+            text=hovertext,
         )
     ]
     # No Pareto frontier is drawn if none is provided, or if the frontier consists of
