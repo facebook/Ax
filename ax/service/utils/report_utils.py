@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import itertools
 import logging
 from collections import defaultdict
 from logging import Logger
@@ -29,8 +30,9 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
+from ax.exceptions.core import UserInputError
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
@@ -38,6 +40,7 @@ from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
 from ax.plot.pareto_frontier import (
     _pareto_frontier_plot_input_processing,
+    _validate_experiment_and_get_optimization_config,
     scatter_plot_with_pareto_frontier_plotly,
 )
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
@@ -45,7 +48,7 @@ from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
 
 if TYPE_CHECKING:
@@ -89,7 +92,7 @@ def _get_objective_trace_plot(
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
         # TODO: implement `_get_hypervolume_trace()`
-        return [_pareto_frontier_scatter_2d_plotly(experiment=experiment)]
+        return _pairwise_pareto_plotly_scatter(experiment=experiment)
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
@@ -609,6 +612,49 @@ def exp_to_df(
 
     exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
     return exp_df.reset_index(drop=True)
+
+
+def _pairwise_pareto_plotly_scatter(
+    experiment: Experiment,
+    metric_names: Optional[Tuple[str, str]] = None,
+    reference_point: Optional[Tuple[float, float]] = None,
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+) -> Iterable[go.Figure]:
+    metric_name_pairs = _get_metric_name_pairs(experiment=experiment)
+    return [
+        _pareto_frontier_scatter_2d_plotly(
+            experiment=experiment,
+            metric_names=metric_name_pair,
+        )
+        for metric_name_pair in metric_name_pairs
+    ]
+
+
+def _get_metric_name_pairs(
+    experiment: Experiment, use_first_n_metrics: int = 4
+) -> Iterable[Tuple[str, str]]:
+    optimization_config = _validate_experiment_and_get_optimization_config(
+        experiment=experiment
+    )
+    if not_none(optimization_config).is_moo_problem:
+        multi_objective = checked_cast(
+            MultiObjective, not_none(optimization_config).objective
+        )
+        metric_names = [obj.metric.name for obj in multi_objective.objectives]
+        if len(metric_names) > use_first_n_metrics:
+            logger.warning(
+                f"Got `metric_names = {metric_names}` of length {len(metric_names)}. "
+                f"Creating pairwise Pareto plots for the first `use_n_metrics = "
+                f"{use_first_n_metrics}` of these and disregarding the remainder."
+            )
+            metric_names = metric_names[:use_first_n_metrics]
+        metric_name_pairs = itertools.combinations(metric_names, 2)
+        return metric_name_pairs
+    raise UserInputError(
+        "Inference of `metric_names` failed. Expected `MultiObjective` but "
+        f"got {not_none(optimization_config).objective}. Please provide an experiment "
+        "with a MultiObjective `optimization_config`."
+    )
 
 
 def _pareto_frontier_scatter_2d_plotly(
