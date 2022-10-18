@@ -77,8 +77,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         for trial in exp.trials.values():
             trial.mark_running(no_runner_required=True).mark_completed()
-        # pyre-fixme[16]: Optional type has no attribute `metrics`.
-        metrics_dict = exp.optimization_config.metrics
+        metrics_dict = not_none(exp.optimization_config).metrics
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=metrics_dict[f"branin_{letter}"],
@@ -137,7 +136,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
 
         observation_features = [
             ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
-            ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
+            # magic number to ensure the model makes one non-negative
+            # prediction, so there is a point within the thresholds
+            ObservationFeatures(parameters={"x1": -2.0, "x2": 6.3}),
         ]
         extra_outcome = ["branin_c"] if outcome_constraints is not None else []
         observation_data = [
@@ -171,27 +172,24 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
                 observation_data=observation_data,
+                use_model_predictions=False,
             )
+
         wrapped_frontier_evaluator.assert_called_once()
-        self.assertTrue(
-            torch.equal(
-                wrapped_frontier_evaluator.call_args[1]["X"],
-                torch.tensor([[1.0, 4.0], [4.0, 1.0]], dtype=torch.double),
-            )
-        )
         self.assertEqual(f.shape, (1, n_outcomes))
         self.assertTrue(torch.equal(obj_w[:2], torch.ones(2, dtype=torch.double)))
         self.assertTrue(obj_t is not None)
-        # obj_t isn't None; this is just to appease Pyre
-        if obj_t is not None:
-            self.assertTrue(
-                torch.equal(obj_t[:2], torch.tensor([0.0, 0.0], dtype=torch.double))
+        self.assertTrue(
+            torch.equal(
+                not_none(obj_t)[:2], torch.tensor([0.0, 0.0], dtype=torch.double)
             )
+        )
         observed_frontier2 = pareto_frontier(
             modelbridge=modelbridge,
             objective_thresholds=objective_thresholds,
             observation_features=observation_features,
             observation_data=observation_data,
+            use_model_predictions=False,
         )
         self.assertEqual(observed_frontier, observed_frontier2)
 
@@ -232,7 +230,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 )
 
     @fast_botorch_optimize
-    def test_get_pareto_frontier_and_configs_transform_deprecation(self) -> None:
+    def test_get_pareto_frontier_and_configs_input_validation(self) -> None:
 
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
@@ -306,6 +304,24 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 transform_outcomes_and_configs=False,
             )
             self.assertEqual(len(res), 4)
+
+        with self.assertWarns(
+            Warning,
+            msg="You provided `observation_data` when `use_model_predictions` is True; "
+            "`observation_data` will not be used.",
+        ):
+            res = get_pareto_frontier_and_configs(
+                modelbridge,
+                observation_features=observation_features,
+                use_model_predictions=True,
+                observation_data=[],
+            )
+            self.assertEqual(len(res), 4)
+
+        with self.assertRaises(ValueError):
+            get_pareto_frontier_and_configs(
+                modelbridge, observation_features=[], use_model_predictions=False
+            )
 
     @patch(
         # Mocking `BraninMetric` as not available while running, so it will

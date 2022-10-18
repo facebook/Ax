@@ -829,18 +829,29 @@ def get_pareto_frontier_and_configs(
             "now the only allowed behavior. In the future, this will become an error.",
             DeprecationWarning,
         )
+    # Input validation
+    if use_model_predictions:
+        if observation_data is not None:
+            warnings.warn(
+                "You provided `observation_data` when `use_model_predictions` is True; "
+                "`observation_data` will not be used."
+            )
+    else:
+        if observation_data is None:
+            raise ValueError(
+                "`observation_data` must not be None when `use_model_predictions` is "
+                "True."
+            )
 
     array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
-    X, Y, Yvar = None, None, None
     if use_model_predictions:
-        X = array_to_tensor(
-            modelbridge.transform_observation_features(observation_features)
+        observation_data = modelbridge._predict_observation_data(
+            observation_features=observation_features
         )
-    if observation_data is not None:
-        Y, Yvar = observation_data_to_array(
-            outcomes=modelbridge.outcomes, observation_data=observation_data
-        )
-        Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
+    Y, Yvar = observation_data_to_array(
+        outcomes=modelbridge.outcomes, observation_data=not_none(observation_data)
+    )
+    Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
         arm_names = [None] * len(observation_features)
 
@@ -893,8 +904,8 @@ def get_pareto_frontier_and_configs(
         final_transform=array_to_tensor,
     )
     f, cov, indx = pareto_frontier_evaluator(
-        model=modelbridge.model,
-        X=X,
+        model=None,
+        X=None,
         Y=Y,
         Yvar=Yvar,
         objective_thresholds=obj_t,
@@ -917,17 +928,6 @@ def get_pareto_frontier_and_configs(
             )
         )
 
-    if use_model_predictions:
-        # Untransform observations
-        for t in reversed(list(modelbridge.transforms.values())):
-            frontier_observations = t.untransform_observations(
-                frontier_observations,
-            )
-        # reconstruct tensor representation of untransformed predictions
-        Y_arr, _ = observation_data_to_array(
-            outcomes=modelbridge.outcomes, observation_data=frontier_observation_data
-        )
-        f = _array_to_tensor(Y_arr)
     return frontier_observations, f, obj_w.cpu(), obj_t.cpu()
 
 

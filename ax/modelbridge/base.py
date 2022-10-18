@@ -491,6 +491,32 @@ class ModelBridge(ABC):
                 observation_data.append(observation.data)
         return observation_data
 
+    def _predict_observation_data(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[ObservationData]:
+        """
+        Like 'predict' method, but returns results as a list of ObservationData
+
+        Predictions are made for all outcomes.
+        If an out-of-design observation can successfully be transformed,
+        the predicted value will be returned.
+        Othwerise, we will attempt to find that observation in the training data
+        and return the raw value.
+
+        Args:
+            observation_features: observation features
+
+        Returns:
+            List of `ObservationData`
+        """
+        # Predict in single batch.
+        try:
+            observation_data = self._batch_predict(observation_features)
+        # Predict one by one.
+        except (TypeError, ValueError):
+            observation_data = self._single_predict(observation_features)
+        return observation_data
+
     def predict(self, observation_features: List[ObservationFeatures]) -> TModelPredict:
         """Make model predictions (mean and covariance) for the given
         observation features.
@@ -512,12 +538,9 @@ class ModelBridge(ABC):
             - Nested dictionary with cov['metric1']['metric2'] a list of
               cov(metric1@x, metric2@x) for x in observation_features.
         """
-        # Predict in single batch.
-        try:
-            observation_data = self._batch_predict(observation_features)
-        # Predict one by one.
-        except (TypeError, ValueError):
-            observation_data = self._single_predict(observation_features)
+        observation_data = self._predict_observation_data(
+            observation_features=observation_features
+        )
         f, cov = unwrap_observation_data(observation_data)
         return f, cov
 
