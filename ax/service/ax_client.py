@@ -1456,7 +1456,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """
         return {
             m.serialize_init_args(m)["name"]: {
-                k: v for k, v in m.serialize_init_args(m).items() if k != "name"
+                "metric_class": m.__class__,
+                **{k: v for k, v in m.serialize_init_args(m).items() if k != "name"},
             }
             for m in self.experiment.metrics.values()
         }
