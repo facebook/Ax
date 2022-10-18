@@ -338,8 +338,6 @@ class KnowledgeGradientTest(TestCase):
             X_pending=self.X_dummy,
         )
         self.assertIsNone(acq_function.inner_sampler)
-        # pyre-fixme[6]: For 1st param expected `Tensor` but got `Union[Tensor,
-        #  Module]`.
         self.assertTrue(torch.equal(acq_function.X_pending, self.X_dummy))
 
         # test _get_best_point_acqf
