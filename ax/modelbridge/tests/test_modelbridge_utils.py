@@ -4,6 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import dataclass
+from typing import List, Union
+
 import numpy as np
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
@@ -14,6 +17,7 @@ from ax.core.search_space import RobustSearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.modelbridge_utils import (
+    _array_to_tensor,
     extract_risk_measure,
     extract_robust_digest,
     feasible_hypervolume,
@@ -26,6 +30,24 @@ from botorch.acquisition.risk_measures import VaR
 
 
 class TestModelBridgeUtils(TestCase):
+    def test__array_to_tensor(self) -> None:
+        from ax.modelbridge import ModelBridge
+
+        @dataclass
+        class MockModelbridge(ModelBridge):
+            def _array_to_tensor(self, array: Union[np.ndarray, List[float]]):
+                return _array_to_tensor(array=array)
+
+        mock_modelbridge = MockModelbridge()
+        arr = [0.0]
+        res = _array_to_tensor(array=arr)
+        self.assertEqual(len(res.size()), 1)
+        self.assertEqual(res.size()[0], 1)
+
+        res = _array_to_tensor(array=arr, modelbridge=mock_modelbridge)
+        self.assertEqual(len(res.size()), 1)
+        self.assertEqual(res.size()[0], 1)
+
     def test_extract_risk_measure(self) -> None:
         rm = RiskMeasure(
             risk_measure="VaR",

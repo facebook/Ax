@@ -7,8 +7,9 @@
 import math
 import sys
 import time
+from itertools import product
 from math import ceil
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
@@ -17,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
@@ -26,7 +28,7 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.core.types import ComparisonOp
+from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization, TParamValue
 from ax.exceptions.core import (
     DataRequiredError,
     OptimizationComplete,
@@ -111,6 +113,11 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 ) -> Tuple[AxClient, BraninCurrin]:
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
+    tracking_metric_names = (
+        [elt.split(" ")[0] for elt in outcome_constraints]
+        if outcome_constraints is not None
+        else None
+    )
     ax_client.create_experiment(
         parameters=[
             {"name": "x", "type": "range", "bounds": [0.0, 1.0]},
@@ -118,7 +125,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
         ],
         objectives={
             "branin": ObjectiveProperties(
-                minimize=False,
+                minimize=minimize,
                 # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
                 #  `Optional[Tensor]`.
                 threshold=branin_currin.ref_point[0]
@@ -126,7 +133,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
                 else None,
             ),
             "currin": ObjectiveProperties(
-                minimize=False,
+                minimize=minimize,
                 # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
                 #  `Optional[Tensor]`.
                 threshold=branin_currin.ref_point[1]
@@ -139,17 +146,16 @@ def get_branin_currin_optimization_with_N_sobol_trials(
             "num_initialization_trials": num_trials,
             "random_seed": random_seed,
         },
+        tracking_metric_names=tracking_metric_names,
     )
     for _ in range(num_trials):
         parameterization, trial_index = ax_client.get_next_trial()
         x, y = parameterization.get("x"), parameterization.get("y")
         branin = float(branin_currin(torch.tensor([x, y]))[0])
         currin = float(branin_currin(torch.tensor([x, y]))[1])
-        raw_data: TTrialEvaluation = {
-            "branin": branin,
-            "currin": currin,
-            "c": branin + currin,
-        }
+        raw_data: TTrialEvaluation = {"branin": branin, "currin": currin}
+        if tracking_metric_names is not None:
+            raw_data["c"] = branin + currin
         ax_client.complete_trial(trial_index, raw_data=raw_data)
     return ax_client, branin_currin
 
@@ -169,6 +175,76 @@ def get_branin_optimization(
         ],
         objectives={"branin": ObjectiveProperties(minimize=True)},
     )
+    return ax_client
+
+
+y_values_for_simple_discrete_moo_problem: List[List[float]] = [
+    [10.0, 12.0, 11.0],
+    [11.0, 10.0, 11.0],
+    [12.0, 11.0, 10.0],
+]
+
+
+def get_client_with_simple_discrete_moo_problem(
+    minimize: bool,
+    use_y0_threshold: bool,
+    use_y2_constraint: bool,
+) -> AxClient:
+
+    gs = GenerationStrategy(
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_trials=3),
+            GenerationStep(model=Models.MOO, num_trials=-1),
+        ]
+    )
+
+    ax_client = AxClient(generation_strategy=gs)
+    y1 = ObjectiveProperties(
+        minimize=minimize,
+        threshold=(-10.5 if minimize else 10.5) if use_y0_threshold else None,
+    )
+    y2 = ObjectiveProperties(
+        minimize=minimize, threshold=0 if use_y0_threshold else None
+    )
+    outcome_constraint = (
+        ["y2 <= -10.5" if minimize else "y2 >= 10.5"] if use_y2_constraint else None
+    )
+    ax_client.create_experiment(
+        name="test_experiment",
+        parameters=[
+            {
+                "name": "x",
+                "type": "range",
+                # x can only be 0, 1, or 2
+                "value_type": "int",
+                "bounds": [0, 2],
+            }
+        ],
+        objectives={"y0": y1, "y1": y2},
+        tracking_metric_names=["y2"],
+        outcome_constraints=outcome_constraint,
+    )
+    for _ in range(3):
+        parameterization, trial_index = ax_client.get_next_trial()
+        x = parameterization["x"]
+        metrics = y_values_for_simple_discrete_moo_problem[x]
+        if minimize:
+            metrics = [-m for m in metrics]
+        y0, y1, y2 = metrics
+        raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
+        # pyre-fixme [6]: In call `AxClient.complete_trial`, for 2nd parameter
+        #  `raw_data`
+        #  expected `Union[Dict[str, Union[Tuple[Union[float, floating, integer],
+        #  Union[None, float, floating, integer]], float, floating, integer]],
+        #  List[Tuple[Dict[str, Union[None, bool, float, int, str]], Dict[str,
+        #  Union[Tuple[Union[float, floating, integer], Union[None, float, floating,
+        #  integer]], float, floating, integer]]]], List[Tuple[Dict[str, Hashable],
+        #  Dict[str, Union[Tuple[Union[float, floating, integer], Union[None, float,
+        #  floating, integer]], float, floating, integer]]]], Tuple[Union[float,
+        #  floating,
+        #  integer], Union[None, float, floating, integer]], float, floating, integer]`
+        #  but got `Dict[str, Tuple[float, float]]`.
+        ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
     return ax_client
 
 
@@ -2154,6 +2230,11 @@ class TestAxClient(TestCase):
         ):
             ax_client.get_best_trial()
 
+        # Via inspect of ax_client.experiment.lookup_data().df, we can see that
+        # the only trial generating data within the thresholds is 14
+        # So that's the only one that can be on the Pareto frontier.
+        solution = 14
+
         # Check model-predicted Pareto frontier using model on GS.
         # NOTE: model predictions are very poor due to `fast_botorch_optimize`.
         # This overwrites the `predict` call to return the original observations,
@@ -2165,8 +2246,9 @@ class TestAxClient(TestCase):
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
         ):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
-        self.assertEqual(len(predicted_pareto), 3)
-        self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
+        # Since we're just using actual values as predicted, the solution should
+        # be the same as in the observed case.
+        self.assertEqual(sorted(predicted_pareto.keys()), [solution])
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
         )
@@ -2184,8 +2266,7 @@ class TestAxClient(TestCase):
             if outcome_constraints is not None:
                 self.assertEqual(branin + currin, obs[1][0]["c"])
 
-        self.assertEqual(len(observed_pareto), 1)
-        self.assertEqual(sorted(observed_pareto.keys()), [14])
+        self.assertEqual(sorted(observed_pareto.keys()), [solution])
         # Check that we did not specify objective threshold overrides (because we
         # did not have to infer them)
         self.assertIsNone(mock_observed_pareto.call_args[1].get("objective_thresholds"))
@@ -2198,29 +2279,83 @@ class TestAxClient(TestCase):
                 )
 
     def helper_test_get_pareto_optimal_points_from_sobol_step(
-        self, outcome_constraints: Optional[List[str]] = None
+        self, minimize: bool, outcome_constraints: Optional[List[str]] = None
     ) -> None:
-        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
-            num_trials=20, outcome_constraints=outcome_constraints
+        ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
+            num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "Sobol")
 
+        cfg = not_none(ax_client.experiment.optimization_config)
+        assert isinstance(cfg, MultiObjectiveOptimizationConfig)
+        thresholds = np.array([t.bound for t in cfg.objective_thresholds])
+
         with manual_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
-        self.assertEqual(len(predicted_pareto), 3)
-        self.assertEqual(sorted(predicted_pareto.keys()), [11, 12, 14])
+
+        # For the predicted frontier, we don't know the solution a priori, so let's
+        # check it
+        for _, (point, _) in predicted_pareto.values():
+            values = np.array([point["branin"], point["currin"]])
+            within_threshold = (
+                (thresholds > values) if minimize else (thresholds < values)
+            )
+            self.assertTrue(within_threshold.all())
+            # ensure that predictions are in the original, not transformed, space
+            self.assertTrue((values > 0).all() if minimize else (values < 0).all())
+
+        # Answer known by inspection, see
+        # `test_get_pareto_optimal_points_objective_threshold_inference`,
+        # which has the same data
+
+        # predicted_pareto is in format
+        # {trial_index -> (parameterization, (means, covariances))}
+
+        frontier_means = [elt[1][0] for elt in predicted_pareto.values()]
+        frontier_means_arr = np.array(
+            [[elt["branin"], elt["currin"]] for elt in frontier_means]
+        )
+
+        for point in frontier_means_arr:
+            improvement = (
+                point - frontier_means_arr if minimize else frontier_means_arr - point
+            )
+            has_dominating_points = (improvement > 0).all(1).any()
+            self.assertFalse(has_dominating_points)
+            within_threshold = (
+                (point < thresholds) if minimize else (point > thresholds)
+            )
+            self.assertTrue(within_threshold.all())
+
         observed_pareto = ax_client.get_pareto_optimal_parameters(
             use_model_predictions=False
         )
         self.assertEqual(len(observed_pareto), 1)
-        self.assertEqual(sorted(observed_pareto.keys()), [14])
+        idx_of_frontier_point = 14
+        self.assertEqual(next(iter(observed_pareto.keys())), idx_of_frontier_point)
+
+        # Check that the data in the frontier matches the observed data
+        # (it should be in the original, un-transformed space)
+        input_data = (
+            ax_client.experiment.fetch_trials_data([idx_of_frontier_point])
+            .df["mean"]
+            .values
+        )
+        pareto_y = observed_pareto[idx_of_frontier_point][1][0]
+        pareto_y_list = [pareto_y["branin"], pareto_y["currin"]]
+        if "c" in pareto_y.keys():
+            pareto_y_list.append(pareto_y["c"])
+        self.assertTrue((input_data == pareto_y_list).all())
 
     def test_get_pareto_optimal_points_from_sobol_step(self) -> None:
         for outcome_constraints in [None, ["c <= 100.0"]]:
-            with self.subTest(outcome_constraints=outcome_constraints):
-                self.helper_test_get_pareto_optimal_points_from_sobol_step(
-                    outcome_constraints=outcome_constraints
-                )
+            for minimize in [False, True]:
+                with self.subTest(
+                    outcome_constraints=outcome_constraints, minimize=minimize
+                ):
+                    self.helper_test_get_pareto_optimal_points_from_sobol_step(
+                        minimize=minimize, outcome_constraints=outcome_constraints
+                    )
 
     @patch(
         f"{get_pareto_optimal_parameters.__module__}.predicted_pareto",
@@ -2238,7 +2373,7 @@ class TestAxClient(TestCase):
         # pyre-fixme[2]: Parameter must be annotated.
         mock_predicted_pareto,
     ) -> None:
-        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
+        ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
@@ -2270,12 +2405,116 @@ class TestAxClient(TestCase):
         mock_predicted_pareto.assert_not_called()
         self.assertGreater(len(observed_pareto), 0)
 
+    def test_get_pareto_optimal_parameters_simple(self) -> None:
+        """
+        Construct a simple Pareto problem with just three known points.
+
+        y-points (y0, y1, y2) are [(10, 12, 11), (11, 10, 11), (12, 11, 10)], with
+        x-points [0, 1, 2], respectively. y1 and y2 are objectives and y3 is an
+        additional metric. Points are not centered on zero to ensure that transforms
+        will not affect the results.
+
+        Solutions:
+        - With no objectives or constraints, frontier is {0, 2} (since 2 dominates 1).
+        - 2 dominates 1, unless 2 violates a threshold or constraint
+        - use_y0_threshold eliminates 0
+        - use_y2_constraint eliminates 2
+        - 'minimize' shouldn't affect the solution since it reverses everything
+        """
+
+        def _get_parameterizations_from_pareto_frontier(
+            pareto: Dict[int, Tuple[TParameterization, TModelPredictArm]]
+        ) -> Set[TParamValue]:
+            return {tup[0]["x"] for tup in pareto.values()}
+
+        # minimize doesn't affect solution
+        def get_solution(use_y0_threshold: bool, use_y2_constraint: bool) -> Set[int]:
+            if use_y0_threshold:
+                if use_y2_constraint:
+                    return {1}
+                return {2}
+            if use_y2_constraint:
+                return {0, 1}
+            return {0, 2}
+
+        for minimize, use_y0_threshold, use_y2_constraint in product(
+            [False, True], [False, True], [False, True]
+        ):
+            with self.subTest(
+                minimize=minimize,
+                use_y0_threshold=use_y0_threshold,
+                use_y2_constraint=use_y2_constraint,
+            ):
+                ax_client = get_client_with_simple_discrete_moo_problem(
+                    minimize=minimize,
+                    use_y0_threshold=use_y0_threshold,
+                    use_y2_constraint=use_y2_constraint,
+                )
+
+                pareto_obs = ax_client.get_pareto_optimal_parameters(
+                    use_model_predictions=False
+                )
+                sol = get_solution(
+                    use_y0_threshold=use_y0_threshold,
+                    use_y2_constraint=use_y2_constraint,
+                )
+
+                self.assertSetEqual(
+                    sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+                )
+                pareto_mod = ax_client.get_pareto_optimal_parameters(
+                    use_model_predictions=True
+                )
+                # since this is a noise-free problem, using predicted values shouldn't
+                # change the answer
+                self.assertEqual(len(sol), len(pareto_mod))
+                self.assertSetEqual(
+                    sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+                )
+
+                # take another step. This will change the generation strategy from
+                # Sobol to MOO. Shouldn't affect results since we already had data
+                # on all 3 points.
+                parameterization, trial_index = ax_client.get_next_trial()
+                x = parameterization["x"]
+
+                metrics = y_values_for_simple_discrete_moo_problem[x]
+                if minimize:
+                    metrics = [-m for m in metrics]
+                y0, y1, y2 = metrics
+                raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
+
+                # pyre-fixme [6]: In call `AxClient.complete_trial`, for 2nd parameter
+                #  `raw_data` expected `Union[Dict[str, Union[Tuple[Union[float,
+                #  floating, integer], Union[None, float, floating, integer]], float,
+                #  floating, integer]], List[Tuple[Dict[str, Union[None, bool, float,
+                #  int, str]], Dict[str, Union[Tuple[Union[float, floating, integer],
+                #  Union[None, float, floating, integer]], float, floating, integer]]]],
+                #  List[Tuple[Dict[str, Hashable], Dict[str, Union[Tuple[Union[float,
+                #  floating, integer], Union[None, float, floating, integer]], float,
+                #  floating, integer]]]], Tuple[Union[float, floating, integer],
+                #  Union[None, float, floating, integer]], float, floating, integer]`
+                #  but got `Dict[str, Tuple[float, float]]`.
+                ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+
+                # Check frontier again
+                pareto_obs = ax_client.get_pareto_optimal_parameters(
+                    use_model_predictions=True
+                )
+                self.assertSetEqual(
+                    sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+                )
+                pareto_mod = ax_client.get_pareto_optimal_parameters(
+                    use_model_predictions=True
+                )
+                self.assertSetEqual(
+                    sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+                )
+
     @fast_botorch_optimize
     def test_get_hypervolume(self) -> None:
         # First check that hypervolume gets returned for observed data
-        ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
-            num_trials=20
-        )
+        ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(num_trials=20)
         self.assertGreaterEqual(
             ax_client.get_hypervolume(use_model_predictions=False), 0
         )
@@ -2285,7 +2524,7 @@ class TestAxClient(TestCase):
             ax_client.get_hypervolume(use_model_predictions=True)
 
         # Run one more trial and check predicted hypervolume gets returned
-        parameterization, trial_index = ax_client.get_next_trial()
+        _, trial_index = ax_client.get_next_trial()
         ax_client.complete_trial(
             trial_index,
             raw_data={"branin": 0, "currin": 0},
