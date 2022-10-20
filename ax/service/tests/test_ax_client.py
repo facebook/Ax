@@ -2347,15 +2347,32 @@ class TestAxClient(TestCase):
             pareto_y_list.append(pareto_y["c"])
         self.assertTrue((input_data == pareto_y_list).all())
 
-    def test_get_pareto_optimal_points_from_sobol_step(self) -> None:
-        for outcome_constraints in [None, ["c <= 100.0"]]:
-            for minimize in [False, True]:
-                with self.subTest(
-                    outcome_constraints=outcome_constraints, minimize=minimize
-                ):
-                    self.helper_test_get_pareto_optimal_points_from_sobol_step(
-                        minimize=minimize, outcome_constraints=outcome_constraints
-                    )
+    # Part 1/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
+    @fast_botorch_optimize
+    def test_get_pareto_optimal_points_from_sobol_step_no_constraint(self) -> None:
+        outcome_constraints = None
+        for minimize in [False, True]:
+            self.helper_test_get_pareto_optimal_points_from_sobol_step(
+                minimize=minimize, outcome_constraints=outcome_constraints
+            )
+
+    # Part 2/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
+    @fast_botorch_optimize
+    def test_get_pareto_optimal_points_from_sobol_step_with_constraint_minimize_true(
+        self,
+    ) -> None:
+        self.helper_test_get_pareto_optimal_points_from_sobol_step(
+            minimize=True, outcome_constraints=["c <= 100.0"]
+        )
+
+    # Part 3/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
+    @fast_botorch_optimize
+    def test_get_pareto_optimal_points_from_sobol_step_with_constraint_minimize_false(
+        self,
+    ) -> None:
+        self.helper_test_get_pareto_optimal_points_from_sobol_step(
+            minimize=False, outcome_constraints=["c <= 100.0"]
+        )
 
     @patch(
         f"{get_pareto_optimal_parameters.__module__}.predicted_pareto",
@@ -2405,7 +2422,33 @@ class TestAxClient(TestCase):
         mock_predicted_pareto.assert_not_called()
         self.assertGreater(len(observed_pareto), 0)
 
-    def test_get_pareto_optimal_parameters_simple(self) -> None:
+    # Part 1/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    def test_get_pareto_optimal_parameters_simple_with_minimize_false(self) -> None:
+        minimize = False
+        for use_y0_threshold, use_y2_constraint in product(
+            [False, True], [False, True]
+        ):
+            self.helper_test_get_pareto_optimal_parameters_simple(
+                minimize=minimize,
+                use_y0_threshold=use_y0_threshold,
+                use_y2_constraint=use_y2_constraint,
+            )
+
+    # Part 2/2 of tests run by helper_test_get_pareto_optimal_parameters_simple
+    def test_get_pareto_optimal_parameters_simple_with_minimize_true(self) -> None:
+        minimize = True
+        for use_y0_threshold, use_y2_constraint in product(
+            [False, True], [False, True]
+        ):
+            self.helper_test_get_pareto_optimal_parameters_simple(
+                minimize=minimize,
+                use_y0_threshold=use_y0_threshold,
+                use_y2_constraint=use_y2_constraint,
+            )
+
+    def helper_test_get_pareto_optimal_parameters_simple(
+        self, minimize: bool, use_y0_threshold: bool, use_y2_constraint: bool
+    ) -> None:
         """
         Construct a simple Pareto problem with just three known points.
 
@@ -2437,79 +2480,60 @@ class TestAxClient(TestCase):
                 return {0, 1}
             return {0, 2}
 
-        for minimize, use_y0_threshold, use_y2_constraint in product(
-            [False, True], [False, True], [False, True]
-        ):
-            with self.subTest(
+            ax_client = get_client_with_simple_discrete_moo_problem(
                 minimize=minimize,
                 use_y0_threshold=use_y0_threshold,
                 use_y2_constraint=use_y2_constraint,
-            ):
-                ax_client = get_client_with_simple_discrete_moo_problem(
-                    minimize=minimize,
-                    use_y0_threshold=use_y0_threshold,
-                    use_y2_constraint=use_y2_constraint,
-                )
+            )
 
-                pareto_obs = ax_client.get_pareto_optimal_parameters(
-                    use_model_predictions=False
-                )
-                sol = get_solution(
-                    use_y0_threshold=use_y0_threshold,
-                    use_y2_constraint=use_y2_constraint,
-                )
+            pareto_obs = ax_client.get_pareto_optimal_parameters(
+                use_model_predictions=False
+            )
+            sol = get_solution(
+                use_y0_threshold=use_y0_threshold,
+                use_y2_constraint=use_y2_constraint,
+            )
 
-                self.assertSetEqual(
-                    sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-                )
-                pareto_mod = ax_client.get_pareto_optimal_parameters(
-                    use_model_predictions=True
-                )
-                # since this is a noise-free problem, using predicted values shouldn't
-                # change the answer
-                self.assertEqual(len(sol), len(pareto_mod))
-                self.assertSetEqual(
-                    sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-                )
+            self.assertSetEqual(
+                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+            )
+            pareto_mod = ax_client.get_pareto_optimal_parameters(
+                use_model_predictions=True
+            )
+            # since this is a noise-free problem, using predicted values shouldn't
+            # change the answer
+            self.assertEqual(len(sol), len(pareto_mod))
+            self.assertSetEqual(
+                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+            )
 
-                # take another step. This will change the generation strategy from
-                # Sobol to MOO. Shouldn't affect results since we already had data
-                # on all 3 points.
-                parameterization, trial_index = ax_client.get_next_trial()
-                x = parameterization["x"]
+            # take another step. This will change the generation strategy from
+            # Sobol to MOO. Shouldn't affect results since we already had data
+            # on all 3 points.
+            parameterization, trial_index = ax_client.get_next_trial()
+            x = parameterization["x"]
 
-                metrics = y_values_for_simple_discrete_moo_problem[x]
-                if minimize:
-                    metrics = [-m for m in metrics]
-                y0, y1, y2 = metrics
-                raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
+            metrics = y_values_for_simple_discrete_moo_problem[x]
+            if minimize:
+                metrics = [-m for m in metrics]
+            y0, y1, y2 = metrics
+            raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
 
-                # pyre-fixme [6]: In call `AxClient.complete_trial`, for 2nd parameter
-                #  `raw_data` expected `Union[Dict[str, Union[Tuple[Union[float,
-                #  floating, integer], Union[None, float, floating, integer]], float,
-                #  floating, integer]], List[Tuple[Dict[str, Union[None, bool, float,
-                #  int, str]], Dict[str, Union[Tuple[Union[float, floating, integer],
-                #  Union[None, float, floating, integer]], float, floating, integer]]]],
-                #  List[Tuple[Dict[str, Hashable], Dict[str, Union[Tuple[Union[float,
-                #  floating, integer], Union[None, float, floating, integer]], float,
-                #  floating, integer]]]], Tuple[Union[float, floating, integer],
-                #  Union[None, float, floating, integer]], float, floating, integer]`
-                #  but got `Dict[str, Tuple[float, float]]`.
-                ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+            ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
 
-                # Check frontier again
-                pareto_obs = ax_client.get_pareto_optimal_parameters(
-                    use_model_predictions=True
-                )
-                self.assertSetEqual(
-                    sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-                )
-                pareto_mod = ax_client.get_pareto_optimal_parameters(
-                    use_model_predictions=True
-                )
-                self.assertSetEqual(
-                    sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-                )
+            # Check frontier again
+            pareto_obs = ax_client.get_pareto_optimal_parameters(
+                use_model_predictions=True
+            )
+            self.assertSetEqual(
+                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+            )
+            pareto_mod = ax_client.get_pareto_optimal_parameters(
+                use_model_predictions=True
+            )
+            self.assertSetEqual(
+                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+            )
 
     @fast_botorch_optimize
     def test_get_hypervolume(self) -> None:
