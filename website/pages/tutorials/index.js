@@ -126,6 +126,16 @@ class TutorialHome extends React.Component {
                 synthetic Branin-Currin test function.
               </li>
             </ul>
+            <ul>
+              <li>
+                <a href="early_stopping.html">
+                  Trial-Level Early Stopping
+                </a>
+                &nbsp; shows how to use trial-level early stopping on an ML
+                training job to save resources and iterate faster.
+              </li>
+            </ul>
+
             {/* <ul>
               <li>
                 <a href="benchmarking_suite_example.html">Benchmarking Suite</a>
