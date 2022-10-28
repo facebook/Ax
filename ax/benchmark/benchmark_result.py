@@ -11,6 +11,7 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
+from ax.utils.common.typeutils import not_none
 from numpy import nanmean, nanquantile, ndarray
 from pandas import DataFrame
 from scipy.stats import sem
@@ -67,6 +68,28 @@ class BenchmarkResult(Base):
                 np.arange(optimization_trace.shape[0]),
             )
         return optimization_trace_by_progression
+
+    def progression_trace(self) -> ndarray:
+        """Computes progressions used as a function of trials and
+        also the total progression across all trials."""
+        experiment = self.experiment
+        optimization_config = not_none(experiment.optimization_config)
+        objective = optimization_config.objective.metric.name
+        map_data = experiment.lookup_data()
+        if not isinstance(map_data, MapData):
+            raise ValueError("`get_trace_by_progression` requires MapData.")
+        map_df = map_data.map_df
+
+        # assume the first map_key is progression
+        map_key = map_data.map_keys[0]
+
+        map_df = map_df[map_df["metric_name"] == objective]
+        map_df = map_df.sort_values(by=["trial_index", map_key])
+        map_df = map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+        return map_df[map_key].to_numpy()
+
+    def total_progression(self) -> float:
+        return self.progression_trace().sum()
 
 
 @dataclass(frozen=True, eq=False)
@@ -129,12 +152,11 @@ class AggregatedBenchmarkResult(Base):
     def optimization_trace_by_progression(
         self, final_progression_only: bool = False
     ) -> DataFrame:
-        results = self.results
         trace_by_progression_results = [
             res.optimization_trace_by_progression(
                 final_progression_only=final_progression_only
             )
-            for res in results
+            for res in self.results
         ]
         step_data = zip(
             *(res[0] for res in trace_by_progression_results),
@@ -146,6 +168,20 @@ class AggregatedBenchmarkResult(Base):
             progressions=progressions,
         )
         return DataFrame(stats)
+
+    def progression_trace(self) -> DataFrame:
+        progression_traces = zip(*(res.progression_trace() for res in self.results))
+        stats = _get_stats(
+            step_data=progression_traces, percentiles=PERCENTILES, progressions=None
+        )
+        return DataFrame(stats)
+
+    def total_progression(self) -> List[float]:
+        total_progressions = [res.total_progression() for res in self.results]
+        return [
+            nanmean(total_progressions),
+            sem(total_progressions, ddof=1, nan_policy="propagate"),
+        ]
 
 
 def _get_stats(

@@ -478,18 +478,28 @@ class BestPointMixin(metaclass=ABCMeta):
         # assume the first map_key is progression
         map_key = map_data.map_keys[0]
 
-        # `df` is similar to `map_data.df` but retains the map_key columns
         map_df = map_df[map_df["metric_name"] == objective]
-        if final_progression_only:
-            map_df = map_df.sort_values(by=["trial_index", map_key])
-        else:
-            map_df = map_df.sort_values(
-                by=["trial_index", "mean"], ascending=not minimize
-            )
-        df = map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+        map_df = map_df.sort_values(by=["trial_index", map_key])
+        df = (
+            map_df.drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
+            if final_progression_only
+            else map_df
+        )
 
-        # progressions[i] is the cumulative progressions in Trials 0,1,...,i
-        progressions = df[map_key].cumsum().to_numpy()
+        # compute cumulative steps
+        prev_steps_df = map_df.drop_duplicates(
+            MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
+        )[["trial_index", map_key]].copy()
+
+        # shift the cumsum by one so that we count cumulative steps not including
+        # the current trial
+        prev_steps_df[map_key] = (
+            prev_steps_df[map_key].cumsum().shift(periods=1).fillna(0)
+        )
+        prev_steps_df = prev_steps_df.rename(columns={map_key: "prev_steps"})
+        df = df.merge(prev_steps_df, on=["trial_index"])
+        df["cumulative_steps"] = df[map_key] + df["prev_steps"]
+        progressions = df["cumulative_steps"].to_numpy()
 
         if bins is None:
             # this assumes that there is at least one completed trial that
@@ -509,10 +519,6 @@ class BestPointMixin(metaclass=ABCMeta):
         best_observed_idcs = np.maximum.accumulate(
             np.argmax(np.expand_dims(progressions, axis=1) >= bins, axis=0)
         )
-
-        # obj_vals[i] is the best objective value after Trials 0,1,...,i
-        obj_vals = BestPointMixin.get_trace(
-            experiment=experiment, optimization_config=optimization_config
-        )
-        best_observed = np.array(obj_vals)[best_observed_idcs]
+        obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
+        best_observed = obj_vals[best_observed_idcs]
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()
