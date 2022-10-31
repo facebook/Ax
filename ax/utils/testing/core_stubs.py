@@ -538,7 +538,7 @@ def get_experiment_with_observations(
     scalarized: bool = False,
     constrained: bool = False,
 ) -> Experiment:
-    multi_objective = len(observations[0]) > 1
+    multi_objective = (len(observations[0]) - constrained) > 1
     if multi_objective:
         metrics = [
             Metric(name="m1", lower_is_better=minimize),
@@ -569,11 +569,21 @@ def get_experiment_with_observations(
                 else None,
             )
     else:
-        if scalarized or constrained:  # pragma: no cover
+        if scalarized:  # pragma: no cover
             raise NotImplementedError
-        optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="m1"), minimize=minimize)
-        )
+        objective = Objective(metric=Metric(name="m1"), minimize=minimize)
+        if constrained:
+            constraint = OutcomeConstraint(
+                metric=Metric(name="m2"),
+                op=ComparisonOp.GEQ,
+                bound=0.0,
+                relative=False,
+            )
+            optimization_config = OptimizationConfig(
+                objective=objective, outcome_constraints=[constraint]
+            )
+        else:
+            optimization_config = OptimizationConfig(objective=objective)
     exp = Experiment(
         search_space=get_search_space_for_range_values(min=0.0, max=1.0),
         optimization_config=optimization_config,
