@@ -20,7 +20,12 @@ from ax.service.utils.best_point import (
     get_best_raw_objective_point,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
+from ax.utils.common.typeutils import not_none
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_metric,
+    get_experiment_with_observations,
+)
 from ax.utils.testing.mock import fast_botorch_optimize
 
 
@@ -111,6 +116,17 @@ class TestBestPointUtils(TestCase):
         opt_conf.objective.metric._name = "not_branin"
         with self.assertRaisesRegex(ValueError, "No data has been logged"):
             get_best_raw_objective_point(exp, opt_conf)
+
+        # Test constraints work as expected.
+        observations = [[1.0, 2.0], [3.0, 4.0], [5.0, -6.0]]
+        exp = get_experiment_with_observations(
+            observations=observations,
+            constrained=True,
+            minimize=False,
+        )
+        _, best_prediction = not_none(get_best_parameters(exp, Models))
+        best_metrics = not_none(best_prediction)[0]
+        self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
     def test_best_raw_objective_point_unsatisfiable(self) -> None:
         exp = get_branin_experiment()
