@@ -25,6 +25,13 @@ logger: Logger = get_logger(__name__)
 
 TRefPoint = List[ObjectiveThreshold]
 
+# Sentinels for default arguments when None is a valid input
+_NO_OUTCOME_CONSTRAINTS = [
+    OutcomeConstraint(Metric("", lower_is_better=True), ComparisonOp.GEQ, 0)
+]
+_NO_OBJECTIVE_THRESHOLDS = [ObjectiveThreshold(Metric("", lower_is_better=True), 0)]
+_NO_RISK_MEASURE = RiskMeasure("", {})
+
 
 class OptimizationConfig(Base):
     """An optimization configuration, which comprises an objective,
@@ -68,15 +75,22 @@ class OptimizationConfig(Base):
     def clone_with_args(
         self,
         objective: Optional[Objective] = None,
-        outcome_constraints: Optional[List[OutcomeConstraint]] = None,
-        risk_measure: Optional[RiskMeasure] = None,
+        outcome_constraints: Optional[
+            List[OutcomeConstraint]
+        ] = _NO_OUTCOME_CONSTRAINTS,
+        risk_measure: Optional[RiskMeasure] = _NO_RISK_MEASURE,
     ) -> "OptimizationConfig":
         """Make a copy of this optimization config."""
-        objective = objective or self.objective.clone()
-        outcome_constraints = outcome_constraints or [
-            constraint.clone() for constraint in self.outcome_constraints
-        ]
-        risk_measure = risk_measure or self.risk_measure
+        objective = self.objective.clone() if objective is None else objective
+        outcome_constraints = (
+            [constraint.clone() for constraint in self.outcome_constraints]
+            if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
+            else outcome_constraints
+        )
+        risk_measure = (
+            self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
+        )
+
         return OptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
@@ -284,19 +298,30 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     def clone_with_args(
         self,
         objective: Optional[Objective] = None,
-        outcome_constraints: Optional[List[OutcomeConstraint]] = None,
-        objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
-        risk_measure: Optional[RiskMeasure] = None,
+        outcome_constraints: Optional[
+            List[OutcomeConstraint]
+        ] = _NO_OUTCOME_CONSTRAINTS,
+        objective_thresholds: Optional[
+            List[ObjectiveThreshold]
+        ] = _NO_OBJECTIVE_THRESHOLDS,
+        risk_measure: Optional[RiskMeasure] = _NO_RISK_MEASURE,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
-        objective = objective or self.objective.clone()
-        outcome_constraints = outcome_constraints or [
-            constraint.clone() for constraint in self.outcome_constraints
-        ]
-        objective_thresholds = objective_thresholds or [
-            ot.clone() for ot in self.objective_thresholds
-        ]
-        risk_measure = risk_measure or self.risk_measure
+        objective = self.objective.clone() if objective is None else objective
+        outcome_constraints = (
+            [constraint.clone() for constraint in self.outcome_constraints]
+            if outcome_constraints is _NO_OUTCOME_CONSTRAINTS
+            else outcome_constraints
+        )
+        objective_thresholds = (
+            [ot.clone() for ot in self.objective_thresholds]
+            if objective_thresholds is _NO_OBJECTIVE_THRESHOLDS
+            else objective_thresholds
+        )
+        risk_measure = (
+            self.risk_measure if risk_measure is _NO_RISK_MEASURE else risk_measure
+        )
+
         return MultiObjectiveOptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
