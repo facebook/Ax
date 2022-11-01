@@ -6,6 +6,7 @@
 
 from ax.core.map_metric import MapMetric
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_map_data
 
 
 METRIC_STRING = "MapMetric('m1')"
@@ -35,3 +36,21 @@ class MapMetricTest(TestCase):
         metric1 = MapMetric(name="m1", lower_is_better=False)
         metric2 = MapMetric(name="m2", lower_is_better=False)
         self.assertTrue(metric1 < metric2)
+
+    def testWrapUnwrap(self) -> None:
+        data = get_map_data()
+
+        trial_multi = MapMetric._unwrap_trial_data_multi(
+            results=MapMetric._wrap_trial_data_multi(data=data)
+        )
+        self.assertEqual(trial_multi, data)
+
+        experiment = MapMetric._unwrap_experiment_data(
+            results=MapMetric._wrap_experiment_data(data=data)
+        )
+        self.assertEqual(experiment, data)
+
+        experiment_multi = MapMetric._unwrap_experiment_data_multi(
+            results=MapMetric._wrap_experiment_data_multi(data=data)
+        )
+        self.assertEqual(experiment_multi, data)

@@ -6,16 +6,37 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional, Tuple, Type, TYPE_CHECKING
+from dataclasses import dataclass
+
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    TYPE_CHECKING,
+)
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
+from ax.utils.common.result import Err, Ok, Result
 from ax.utils.common.serialization import SerializationMixin
-from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:  # pragma: no cover
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
+
+
+@dataclass(frozen=True)
+class MetricFetchE:
+    message: str
+    exception: Optional[Exception]
+
+
+MetricFetchResult = Result[Data, MetricFetchE]
 
 
 class Metric(SortableBase, SerializationMixin):
@@ -84,7 +105,9 @@ class Metric(SortableBase, SerializationMixin):
         """
         return self.__class__
 
-    def fetch_trial_data(self, trial: core.base_trial.BaseTrial, **kwargs: Any) -> Data:
+    def fetch_trial_data(
+        self, trial: core.base_trial.BaseTrial, **kwargs: Any
+    ) -> MetricFetchResult:
         """Fetch data for one trial."""
         raise NotImplementedError(
             f"Metric {self.name} does not implement data-fetching logic."
@@ -92,36 +115,33 @@ class Metric(SortableBase, SerializationMixin):
 
     def fetch_experiment_data(
         self, experiment: core.experiment.Experiment, **kwargs: Any
-    ) -> Data:
+    ) -> Dict[int, MetricFetchResult]:
         """Fetch this metric's data for an experiment.
 
-        Default behavior is to fetch data from all trials expecting data
-        and concatenate the results.
+        Returns Dict of trial_index => Result
         """
-        return self.data_constructor.from_multiple_data(
-            [
-                checked_cast(
-                    self.data_constructor, self.fetch_trial_data(trial, **kwargs)
-                )
-                if trial.status.expecting_data
-                else self.data_constructor()
-                for trial in experiment.trials.values()
-            ],
-        )
+
+        return {
+            trial.index: self.fetch_trial_data(trial=trial, **kwargs)
+            for trial in experiment.trials.values()
+            if trial.status.expecting_data
+        }
 
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> Data:
+    ) -> Dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial.
 
+        Returns Dict of metric_name => Result
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
-        dat = cls.data_constructor.from_multiple_data(
-            [metric.fetch_trial_data(trial, **kwargs) for metric in metrics]
-        )
-        return dat
+
+        return {
+            metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
+            for metric in metrics
+        }
 
     @classmethod
     def fetch_experiment_data_multi(
@@ -130,12 +150,22 @@ class Metric(SortableBase, SerializationMixin):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Data:
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment.
 
+        Returns Dict of trial_index => (metric_name => Result)
         Default behavior calls `fetch_trial_data_multi` for each trial.
         Subclasses should override to batch data computation across trials + metrics.
         """
+
+        return {
+            trial.index: cls.fetch_trial_data_multi(
+                trial=trial, metrics=metrics, **kwargs
+            )
+            for trial in (trials if trials is not None else experiment.trials.values())
+            if trial.status.expecting_data
+        }
+
         return cls.data_constructor.from_multiple_data(
             [
                 cls.fetch_trial_data_multi(trial, metrics, **kwargs)
@@ -152,7 +182,7 @@ class Metric(SortableBase, SerializationMixin):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Tuple[Data, bool]:
+    ) -> Tuple[Dict[int, Dict[str, MetricFetchResult]], bool]:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
         depending on whether they are available while running. Return a tuple
         containing the data, along with a boolean that will be True if new
@@ -186,9 +216,9 @@ class Metric(SortableBase, SerializationMixin):
             completed_trials = [t for t in trials if t.status.is_completed]
 
         if not completed_trials:
-            return cls.data_constructor(), False
+            return {}, False
 
-        trials_data = []
+        trials_results = {}
         contains_new_data = False
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
@@ -200,7 +230,9 @@ class Metric(SortableBase, SerializationMixin):
             if not metrics_to_fetch:
                 # If all needed data fetched from cache, no need to fetch any other data
                 # for trial.
-                trials_data.append(cached_trial_data)
+                trials_results[trial.index] = cls._wrap_trial_data_multi(
+                    data=cached_trial_data
+                )
                 continue
 
             try:
@@ -209,21 +241,26 @@ class Metric(SortableBase, SerializationMixin):
                     metrics=metrics_to_fetch,
                     trials=[trial],
                     **kwargs,
-                )
+                )[trial.index]
                 contains_new_data = True
             except NotImplementedError:
                 # Metric does not implement fetching logic and only uses lookup.
-                fetched_trial_data = cls.data_constructor()
+                fetched_trial_data = {}
 
-            final_data = cls.data_constructor.from_multiple_data(
-                [cached_trial_data, fetched_trial_data]
-            )
+            trials_results[trial.index] = {
+                **cls._wrap_trial_data_multi(data=cached_trial_data),
+                **fetched_trial_data,
+            }
 
-            trials_data.append(final_data)
         return (
-            cls.data_constructor.from_multiple_data(
-                trials_data, subset_metrics=[m.name for m in metrics]
-            ),
+            {
+                trial_index: {
+                    metric_name: results
+                    for metric_name, results in results_by_metric_name.items()
+                    if metric_name in [metric.name for metric in metrics]
+                }
+                for trial_index, results_by_metric_name in trials_results.items()
+            },
             contains_new_data,
         )
 
@@ -242,3 +279,120 @@ class Metric(SortableBase, SerializationMixin):
     @property
     def _unique_id(self) -> str:
         return str(self)
+
+    @classmethod
+    def _unwrap_experiment_data(cls, results: Mapping[int, MetricFetchResult]) -> Data:
+        oks: List[Ok[Data, MetricFetchE]] = [
+            result for result in results.values() if isinstance(result, Ok)
+        ]
+        if len(oks) < len(results):
+            errs: List[Err[Data, MetricFetchE]] = [
+                result for result in results.values() if isinstance(result, Err)
+            ]
+
+            # TODO[mpolson64] Raise all errors in a group via PEP 654
+            exceptions = [
+                err.err.exception or Exception(err.err.message) for err in errs
+            ]
+            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+
+        data = [ok.ok for ok in oks]
+        return (
+            cls.data_constructor.from_multiple_data(data=data)
+            if len(data) > 0
+            else cls.data_constructor()
+        )
+
+    @classmethod
+    def _unwrap_trial_data_multi(cls, results: Mapping[str, MetricFetchResult]) -> Data:
+        oks: List[Ok[Data, MetricFetchE]] = [
+            result for result in results.values() if isinstance(result, Ok)
+        ]
+        if len(oks) < len(results):
+            errs: List[Err[Data, MetricFetchE]] = [
+                result for result in results.values() if isinstance(result, Err)
+            ]
+
+            # TODO[mpolson64] Raise all errors in a group via PEP 654
+            exceptions = [
+                err.err.exception or Exception(err.err.message) for err in errs
+            ]
+            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+
+        data = [ok.ok for ok in oks]
+        return (
+            cls.data_constructor.from_multiple_data(data=data)
+            if len(data) > 0
+            else cls.data_constructor()
+        )
+
+    @classmethod
+    def _unwrap_experiment_data_multi(
+        cls,
+        results: Mapping[int, Mapping[str, MetricFetchResult]],
+    ) -> Data:
+        flattened = [
+            result for sublist in results.values() for result in sublist.values()
+        ]
+        oks: List[Ok[Data, MetricFetchE]] = [
+            result for result in flattened if isinstance(result, Ok)
+        ]
+        if len(oks) < len(flattened):
+            errs: List[Err[Data, MetricFetchE]] = [
+                result for result in flattened if isinstance(result, Err)
+            ]
+
+            # TODO[mpolson64] Raise all errors in a group via PEP 654
+            exceptions = [
+                err.err.exception or Exception(err.err.message) for err in errs
+            ]
+            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+
+        data = [ok.ok for ok in oks]
+        return (
+            cls.data_constructor.from_multiple_data(data=data)
+            if len(data) > 0
+            else cls.data_constructor()
+        )
+
+    @classmethod
+    def _wrap_experiment_data(cls, data: Data) -> Dict[int, MetricFetchResult]:
+        return {
+            trial_index: Ok(
+                value=Data(
+                    df=data.true_df.loc[data.true_df["trial_index"] == trial_index]
+                )
+            )
+            for trial_index in data.true_df["trial_index"]
+        }
+
+    @classmethod
+    def _wrap_trial_data_multi(cls, data: Data) -> Dict[str, MetricFetchResult]:
+        return {
+            metric_name: Ok(
+                value=Data(
+                    df=data.true_df.loc[data.true_df["metric_name"] == metric_name]
+                )
+            )
+            for metric_name in data.true_df["metric_name"]
+        }
+
+    @classmethod
+    def _wrap_experiment_data_multi(
+        cls, data: Data
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        # pyre-fixme[7]
+        return {
+            trial_index: {
+                metric_name: Ok(
+                    value=Data(
+                        df=data.true_df.loc[
+                            (data.true_df["trial_index"] == trial_index)
+                            & (data.true_df["metric_name"] == metric_name)
+                        ]
+                    )
+                )
+                for metric_name in data.true_df["metric_name"]
+            }
+            for trial_index in data.true_df["trial_index"]
+        }
