@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
 
-from typing import Any, Callable, cast, Generic, NoReturn, Optional, TypeVar
+from typing import Any, Callable, cast, Generic, NoReturn, Optional, TypeVar, Union
 
 
 T = TypeVar("T", covariant=True)
@@ -31,16 +31,16 @@ class Result(Generic[T, E], ABC):
     def is_err(self) -> bool:
         pass
 
-    @abstractmethod
+    @abstractproperty
     def ok(self) -> Optional[T]:
         pass
 
-    @abstractmethod
+    @abstractproperty
     def err(self) -> Optional[E]:
         pass
 
     @abstractproperty
-    def value(self) -> T:
+    def value(self) -> Union[T, E]:
         pass
 
     @abstractmethod
@@ -121,7 +121,7 @@ class Result(Generic[T, E], ABC):
         pass
 
 
-class Ok(Result[T, E]):
+class Ok(Generic[T, E], Result[T, E]):
     """
     Contains the success value.
     """
@@ -147,9 +147,11 @@ class Ok(Result[T, E]):
     def is_err(self) -> bool:
         return False
 
+    @property
     def ok(self) -> T:
         return self._value
 
+    @property
     def err(self) -> None:
         return None
 
@@ -182,7 +184,7 @@ class Ok(Result[T, E]):
         return self._value
 
 
-class Err(Result[T, E]):
+class Err(Generic[T, E], Result[T, E]):
     """
     Contains the error value.
     """
@@ -206,10 +208,11 @@ class Err(Result[T, E]):
     def is_err(self) -> bool:
         return True
 
+    @property
     def ok(self) -> None:
-
         return None
 
+    @property
     def err(self) -> E:
         return self._value
 

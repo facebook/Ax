@@ -391,11 +391,13 @@ class ExperimentTest(TestCase):
         batch.mark_completed()
 
         # Test fetch data
-        batch_data = batch.fetch_data()
+        batch_data = Metric._unwrap_trial_data_multi(results=batch.fetch_data())
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
-        exp_data2 = exp.metrics["b"].fetch_experiment_data(exp)
+        exp_data2 = Metric._unwrap_experiment_data(
+            results=exp.metrics["b"].fetch_experiment_data(exp)
+        )
         self.assertEqual(len(exp_data2.df), 4 * n)
         self.assertEqual(len(exp_data.df), 4 * n)
         self.assertEqual(len(exp.arms_by_name), 4 * n)
@@ -468,7 +470,9 @@ class ExperimentTest(TestCase):
 
         # Verify we don't get the data if the trial is abandoned
         batch._status = TrialStatus.ABANDONED
-        self.assertEqual(len(batch.fetch_data().df), 0)
+        self.assertEqual(
+            len(Metric._unwrap_trial_data_multi(results=batch.fetch_data()).df), 0
+        )
         self.assertEqual(len(exp.fetch_data().df), 3 * n)
 
         # Verify we do get the stored data if there are an unimplemented metrics.
@@ -479,9 +483,13 @@ class ExperimentTest(TestCase):
         exp.add_tracking_metric(Metric(name="b"))  # Add unimplemented metric.
         batch._status = TrialStatus.COMPLETED
         # Data should be getting looked up now.
-        self.assertEqual(batch.fetch_data(), exp.lookup_data_for_ts(t1))
+        self.assertEqual(batch.fetch_data()["b"].ok, exp.lookup_data_for_ts(t1))
         self.assertEqual(exp.fetch_data(), exp.lookup_data_for_ts(t1))
-        metrics_in_data = set(batch.fetch_data().df["metric_name"].values)
+        metrics_in_data = set(
+            Metric._unwrap_trial_data_multi(results=batch.fetch_data())
+            .df["metric_name"]
+            .values
+        )
         # Data for metric "z" should no longer be present since we removed it.
         self.assertEqual(metrics_in_data, {"b"})
 
