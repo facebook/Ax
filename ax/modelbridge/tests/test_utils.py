@@ -126,15 +126,17 @@ class TestModelbridgeUtils(TestCase):
         with patch.object(
             self.batch_trial,
             "fetch_data",
-            return_value=Data.from_evaluations(
-                {
-                    self.batch_trial.arms[0].name: {
-                        "m1": (1, 0),
-                        "m2": (1, 0),
-                        "tracking": (1, 0),
-                    }
-                },
-                trial_index=self.trial.index,
+            return_value=Metric._wrap_trial_data_multi(
+                data=Data.from_evaluations(
+                    {
+                        self.batch_trial.arms[0].name: {
+                            "m1": (1, 0),
+                            "m2": (1, 0),
+                            "tracking": (1, 0),
+                        }
+                    },
+                    trial_index=self.trial.index,
+                ),
             ),
         ):
             self.assertEqual(
@@ -151,9 +153,17 @@ class TestModelbridgeUtils(TestCase):
         with patch.object(
             self.trial,
             "fetch_data",
-            return_value=Data.from_evaluations(
-                {self.trial.arm.name: {"m1": (1, 0), "m2": (1, 0), "tracking": (1, 0)}},
-                trial_index=self.trial.index,
+            return_value=Metric._wrap_trial_data_multi(
+                data=Data.from_evaluations(
+                    {
+                        self.trial.arm.name: {
+                            "m1": (1, 0),
+                            "m2": (1, 0),
+                            "tracking": (1, 0),
+                        }
+                    },
+                    trial_index=self.trial.index,
+                ),
             ),
         ):
             self.assertEqual(
@@ -244,14 +254,16 @@ class TestModelbridgeUtils(TestCase):
         with patch.object(
             hss_batch_trial,
             "fetch_data",
-            return_value=Data.from_evaluations(
-                {
-                    hss_batch_trial.arms[0].name: {
-                        "m1": (1, 0),
-                        "m2": (1, 0),
-                    }
-                },
-                trial_index=hss_batch_trial.index,
+            return_value=Metric._wrap_trial_data_multi(
+                data=Data.from_evaluations(
+                    {
+                        hss_batch_trial.arms[0].name: {
+                            "m1": (1, 0),
+                            "m2": (1, 0),
+                        }
+                    },
+                    trial_index=hss_batch_trial.index,
+                ),
             ),
         ):
             pending = get_pending_observation_features(
@@ -287,14 +299,16 @@ class TestModelbridgeUtils(TestCase):
         with patch.object(
             hss_batch_trial,
             "fetch_data",
-            return_value=Data.from_evaluations(
-                {
-                    hss_batch_trial.arms[0].name: {
-                        "m1": (1, 0),
-                        "m2": (1, 0),
-                    }
-                },
-                trial_index=hss_batch_trial.index,
+            return_value=Metric._wrap_trial_data_multi(
+                data=Data.from_evaluations(
+                    {
+                        hss_batch_trial.arms[0].name: {
+                            "m1": (1, 0),
+                            "m2": (1, 0),
+                        }
+                    },
+                    trial_index=hss_batch_trial.index,
+                ),
             ),
         ):
             self.assertEqual(

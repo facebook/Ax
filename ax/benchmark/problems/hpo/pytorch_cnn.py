@@ -10,7 +10,7 @@ import torch
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
@@ -18,6 +18,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.result import Err, Ok
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
@@ -93,23 +94,31 @@ class PyTorchCNNMetric(Metric):
     def __init__(self) -> None:
         super().__init__(name="accuracy")
 
-    # pyre-fixme[2]: Parameter must be annotated.
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> Data:
-        accuracy = [
-            trial.run_metadata["accuracy"][name]
-            for name, arm in trial.arms_by_name.items()
-        ]
-        df = pd.DataFrame(
-            {
-                "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                "metric_name": self.name,
-                "mean": accuracy,
-                "sem": 0,
-                "trial_index": trial.index,
-            }
-        )
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
+            accuracy = [
+                trial.run_metadata["accuracy"][name]
+                for name, arm in trial.arms_by_name.items()
+            ]
+            df = pd.DataFrame(
+                {
+                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
+                    "metric_name": self.name,
+                    "mean": accuracy,
+                    "sem": 0,
+                    "trial_index": trial.index,
+                }
+            )
 
-        return Data(df=df)
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                value=MetricFetchE(
+                    message=f"Failed to fetch {self.name} for trial {trial}",
+                    exception=e,
+                )
+            )
 
 
 class PyTorchCNNRunner(Runner):

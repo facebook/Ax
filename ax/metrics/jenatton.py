@@ -8,7 +8,8 @@ from typing import Any, Optional
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
 
 
@@ -42,17 +43,23 @@ class JenattonMetric(Metric):
             else:
                 return not_none(x7) ** 2 + 0.4 + not_none(r9)
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
-        # pyre-ignore [6]
-        mean = [self._f(**arm.parameters) for _, arm in trial.arms_by_name.items()]
-        df = pd.DataFrame(
-            {
-                "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                "metric_name": self.name,
-                "mean": mean,
-                "sem": 0,
-                "trial_index": trial.index,
-            }
-        )
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
+            # pyre-ignore [6]
+            mean = [self._f(**arm.parameters) for _, arm in trial.arms_by_name.items()]
+            df = pd.DataFrame(
+                {
+                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
+                    "metric_name": self.name,
+                    "mean": mean,
+                    "sem": 0,
+                    "trial_index": trial.index,
+                }
+            )
 
-        return Data(df=df)
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )

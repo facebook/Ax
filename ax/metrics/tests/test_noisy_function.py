@@ -24,7 +24,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
             f=f,
         )
         trial = get_trial()
-        df = metric.fetch_trial_data(trial).df
+        df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         # pyre-fixme[16]: Optional type has no attribute `parameters`.
@@ -38,12 +38,12 @@ class GenericNoisyFunctionMetricTest(TestCase):
             noise_sd=1.0,
         )
         trial = get_trial()
-        df = metric.fetch_trial_data(trial).df
+        df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         self.assertNotEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
         self.assertEqual(df["sem"].tolist(), [1.0])
-        df = metric.fetch_trial_data(trial, noisy=False).df
+        df = metric.fetch_trial_data(trial, noisy=False).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
@@ -56,7 +56,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
             noise_sd=None,
         )
         trial = get_trial()
-        df = metric.fetch_trial_data(trial).df
+        df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])

@@ -19,14 +19,14 @@ from typing import Any, Dict, Iterable, Optional, Union
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchResult
 from ax.core.trial import Trial
 from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.logger import get_logger
+from ax.utils.common.result import Ok
 from ax.utils.common.typeutils import checked_cast
 
 logger: Logger = get_logger(__name__)
@@ -69,18 +69,20 @@ class AbstractCurveMetric(MapMetric, ABC):
     def is_available_while_running(cls) -> bool:
         return True
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         """Fetch data for one trial."""
-        return self.fetch_trial_data_multi(trial=trial, metrics=[self], **kwargs)
+        return self.fetch_trial_data_multi(trial=trial, metrics=[self], **kwargs)[
+            self.name
+        ]
 
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> Data:
+    ) -> Dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial."""
         return cls.fetch_experiment_data_multi(
             experiment=trial.experiment, metrics=metrics, trials=[trial], **kwargs
-        )
+        )[trial.index]
 
     @classmethod
     def fetch_experiment_data_multi(
@@ -89,7 +91,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Data:
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment."""
         if trials is None:
             trials = list(experiment.trials.values())
@@ -102,12 +104,27 @@ class AbstractCurveMetric(MapMetric, ABC):
         trial_idx_to_id = cls.get_ids_from_trials(trials=trials)
         if len(trial_idx_to_id) == 0:
             logger.debug("Could not get ids from trials. Returning empty data.")
-            return MapData(map_key_infos=[cls.MAP_KEY])
+            # TODO[mpolson64] Do we want to return Errs here?
+            return {
+                trial.index: {
+                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
+                    for metric in metrics
+                }
+                for trial in (trials if trials is not None else [])
+            }
 
         all_curve_series = cls.get_curves_from_ids(ids=trial_idx_to_id.values())
         if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
             logger.debug("Could not get curves from ids. Returning empty data.")
-            return MapData(map_key_infos=[cls.MAP_KEY])
+            # TODO[mpolson64] Do we want to return Errs here?
+            logger.debug("Could not get ids from trials. Returning empty data.")
+            return {
+                trial.index: {
+                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
+                    for metric in metrics
+                }
+                for trial in (trials if trials is not None else [])
+            }
 
         df = cls.get_df_from_curve_series(
             experiment=experiment,
@@ -115,6 +132,34 @@ class AbstractCurveMetric(MapMetric, ABC):
             metrics=metrics,
             trial_idx_to_id=trial_idx_to_id,
         )
+
+        if df is None:
+            return {
+                trial.index: {
+                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
+                    for metric in metrics
+                }
+                for trial in (trials if trials is not None else [])
+            }
+
+        return {
+            trial.index: {
+                metric.name: Ok(
+                    value=MapData(
+                        df=(
+                            df.loc[
+                                (df["metric_name"] == metric.name)
+                                & (df["trial_index"] == trial.index)
+                            ]
+                        ),
+                        map_key_infos=[cls.MAP_KEY],
+                    )
+                )
+                for metric in metrics
+            }
+            for trial in (trials if trials is not None else [])
+        }
+
         return MapData(df=df, map_key_infos=[cls.MAP_KEY])
 
     @classmethod

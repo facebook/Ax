@@ -79,7 +79,7 @@ class ChemistryMetricTest(TestCase):
                 trial._generator_run = GeneratorRun(
                     arms=[Arm(name="0_0", parameters=params)]
                 )
-                df = metric.fetch_trial_data(trial).df
+                df = metric.fetch_trial_data(trial).unwrap().df
                 self.assertEqual(mock_read_csv.call_count, 1)
                 self.assertEqual(df["mean"].values[0], obj)
                 self.assertTrue(np.isnan(df["sem"].values[0]))
@@ -91,5 +91,5 @@ class ChemistryMetricTest(TestCase):
                 metric = ChemistryMetric(
                     name="test_metric", problem_type=problem_type, noiseless=True
                 )
-                df = metric.fetch_trial_data(trial).df
+                df = metric.fetch_trial_data(trial).unwrap().df
                 self.assertEqual(df["sem"].values[0], 0.0)

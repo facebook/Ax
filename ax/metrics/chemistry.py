@@ -40,8 +40,9 @@ from zipfile import ZipFile
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.types import TParameterization, TParamValue
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
 
 
@@ -82,7 +83,7 @@ class ChemistryMetric(Metric):
     Args:
         name: The name of the metric.
         noiseless: If True, consider observations noiseless, otherwise
-            assume unknown Gaussian observation noise.
+        sume unknown Gaussian observation noise.
         problem_type: The problem type.
 
     Attributes:
@@ -110,22 +111,28 @@ class ChemistryMetric(Metric):
             lower_is_better=not_none(self.lower_is_better),
         )
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
-        noise_sd = 0.0 if self.noiseless else float("nan")
-        data = _get_data(self.problem_type)
-        arm_names = []
-        mean = []
-        for name, arm in trial.arms_by_name.items():
-            arm_names.append(name)
-            val = data.evaluate(params=arm.parameters)
-            mean.append(val)
-        df = pd.DataFrame(
-            {
-                "arm_name": arm_names,
-                "metric_name": self.name,
-                "mean": mean,
-                "sem": noise_sd,
-                "trial_index": trial.index,
-            }
-        )
-        return Data(df=df)
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
+            noise_sd = 0.0 if self.noiseless else float("nan")
+            data = _get_data(self.problem_type)
+            arm_names = []
+            mean = []
+            for name, arm in trial.arms_by_name.items():
+                arm_names.append(name)
+                val = data.evaluate(params=arm.parameters)
+                mean.append(val)
+            df = pd.DataFrame(
+                {
+                    "arm_name": arm_names,
+                    "metric_name": self.name,
+                    "mean": mean,
+                    "sem": noise_sd,
+                    "trial_index": trial.index,
+                }
+            )
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )

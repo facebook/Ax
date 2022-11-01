@@ -12,7 +12,7 @@ import torch
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -22,6 +22,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.result import Err, Ok
 from botorch.utils.datasets import SupervisedDataset
 
 
@@ -71,22 +72,30 @@ class SurrogateMetric(Metric):
         super().__init__(name="prediction")
 
     # pyre-fixme[2]: Parameter must be annotated.
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> Data:
-        prediction = [
-            trial.run_metadata["prediction"][name]
-            for name, arm in trial.arms_by_name.items()
-        ]
-        df = pd.DataFrame(
-            {
-                "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                "metric_name": self.name,
-                "mean": prediction,
-                "sem": np.nan,
-                "trial_index": trial.index,
-            }
-        )
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> MetricFetchResult:
+        try:
+            prediction = [
+                trial.run_metadata["prediction"][name]
+                for name, arm in trial.arms_by_name.items()
+            ]
+            df = pd.DataFrame(
+                {
+                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
+                    "metric_name": self.name,
+                    "mean": prediction,
+                    "sem": np.nan,
+                    "trial_index": trial.index,
+                }
+            )
 
-        return Data(df=df)
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(
+                    message=f"Failed to predict for trial {trial}", exception=e
+                )
+            )
 
 
 class SurrogateRunner(Runner):

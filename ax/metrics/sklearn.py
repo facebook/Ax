@@ -17,7 +17,8 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import checked_cast
 from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -126,27 +127,33 @@ class SklearnMetric(Metric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> Data:
-        arm_names = []
-        means = []
-        sems = []
-        for name, arm in trial.arms_by_name.items():
-            arm_names.append(name)
-            # TODO: Consider parallelizing evaluation of large batches
-            # (e.g. via ProcessPoolExecutor)
-            mean, sem = self.train_eval(arm=arm)
-            means.append(mean)
-            sems.append(sem)
-        df = pd.DataFrame(
-            {
-                "arm_name": arm_names,
-                "metric_name": self._name,
-                "mean": means,
-                "sem": sems,
-                "trial_index": trial.index,
-            }
-        )
-        return Data(df=df)
+    ) -> MetricFetchResult:
+        try:
+            arm_names = []
+            means = []
+            sems = []
+            for name, arm in trial.arms_by_name.items():
+                arm_names.append(name)
+                # TODO: Consider parallelizing evaluation of large batches
+                # (e.g. via ProcessPoolExecutor)
+                mean, sem = self.train_eval(arm=arm)
+                means.append(mean)
+                sems.append(sem)
+            df = pd.DataFrame(
+                {
+                    "arm_name": arm_names,
+                    "metric_name": self._name,
+                    "mean": means,
+                    "sem": sems,
+                    "trial_index": trial.index,
+                }
+            )
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )
 
     def train_eval(self, arm: Arm) -> Tuple[float, float]:
         """Train and evaluate model.

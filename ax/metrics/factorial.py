@@ -11,8 +11,9 @@ import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.types import TParameterization, TParamValue
+from ax.utils.common.result import Err, Ok
 from ax.utils.stats.statstools import agresti_coull_sem
 
 
@@ -51,36 +52,44 @@ class FactorialMetric(Metric):
         # fabricated from parameterizations.
         return True
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
-        if not isinstance(trial, BatchTrial):
-            raise ValueError("Factorial metric can only fetch data for batch trials.")
-        if not trial.status.expecting_data:
-            raise ValueError("Can only fetch data if trial is expecting data.")
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
+            if not isinstance(trial, BatchTrial):
+                raise ValueError(
+                    "Factorial metric can only fetch data for batch trials."
+                )
+            if not trial.status.expecting_data:
+                raise ValueError("Can only fetch data if trial is expecting data.")
 
-        data = []
-        normalized_arm_weights = trial.normalized_arm_weights()
-        for name, arm in trial.arms_by_name.items():
-            weight = normalized_arm_weights[arm]
-            mean, sem = evaluation_function(
-                parameterization=arm.parameters,
-                weight=weight,
-                coefficients=self.coefficients,
-                batch_size=self.batch_size,
-                noise_var=self.noise_var,
+            data = []
+            normalized_arm_weights = trial.normalized_arm_weights()
+            for name, arm in trial.arms_by_name.items():
+                weight = normalized_arm_weights[arm]
+                mean, sem = evaluation_function(
+                    parameterization=arm.parameters,
+                    weight=weight,
+                    coefficients=self.coefficients,
+                    batch_size=self.batch_size,
+                    noise_var=self.noise_var,
+                )
+                n = np.random.binomial(self.batch_size, weight)
+                data.append(
+                    {
+                        "arm_name": name,
+                        "metric_name": self.name,
+                        "mean": mean,
+                        "sem": sem,
+                        "trial_index": trial.index,
+                        "n": n,
+                        "frac_nonnull": mean,
+                    }
+                )
+            return Ok(value=Data(df=pd.DataFrame(data)))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
             )
-            n = np.random.binomial(self.batch_size, weight)
-            data.append(
-                {
-                    "arm_name": name,
-                    "metric_name": self.name,
-                    "mean": mean,
-                    "sem": sem,
-                    "trial_index": trial.index,
-                    "n": n,
-                    "frac_nonnull": mean,
-                }
-            )
-        return Data(df=pd.DataFrame(data))
 
 
 def evaluation_function(

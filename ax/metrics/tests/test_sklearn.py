@@ -78,7 +78,7 @@ class SklearnMetricTest(TestCase):
                 #  float, int, str]]` but got `Dict[str, float]`.
                 arms=[Arm(name="0_0", parameters=params)]
             )
-            df = metric.fetch_trial_data(trial).df
+            df = metric.fetch_trial_data(trial).unwrap().df
             mock_load_digits.assert_called_once()
             mock_cv.assert_called_once()
             cargs, ckwargs = mock_cv.call_args
@@ -98,13 +98,13 @@ class SklearnMetricTest(TestCase):
 
             # test observed noise
             metric = SklearnMetric(name="test_metric", observed_noise=True)
-            df = metric.fetch_trial_data(trial).df
+            df = metric.fetch_trial_data(trial).unwrap().df
             self.assertEqual(
                 df["sem"].values[0], cv_scores.std() / sqrt(cv_scores.shape[0])
             )
             # test num_folds
             mock_cv.reset_mock()
             metric = SklearnMetric(name="test_metric", num_folds=10)
-            df = metric.fetch_trial_data(trial).df
+            df = metric.fetch_trial_data(trial).unwrap().df
             _, ckwargs = mock_cv.call_args
             self.assertEqual(ckwargs["cv"], 10)

@@ -14,8 +14,10 @@ import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
-from ax.core.map_metric import MapMetric
+from ax.core.map_metric import MapMetric, MapMetricFetchResult
+from ax.core.metric import MetricFetchE
 from ax.utils.common.logger import get_logger
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
 
@@ -84,27 +86,33 @@ class NoisyFunctionMapMetric(MapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
-        res = [
-            self.f(np.fromiter(arm.parameters.values(), dtype=float))
-            for arm in trial.arms
-        ]
+    ) -> MapMetricFetchResult:
+        try:
+            res = [
+                self.f(np.fromiter(arm.parameters.values(), dtype=float))
+                for arm in trial.arms
+            ]
 
-        df = pd.DataFrame(
-            {
-                "arm_name": [arm.name for arm in trial.arms],
-                "metric_name": self.name,
-                "sem": self.noise_sd if noisy else 0.0,
-                "trial_index": trial.index,
-                "mean": [item["mean"] for item in res],
-                **{
-                    mki.key: [item[mki.key] for item in res]
-                    for mki in self.map_key_infos
-                },
-            }
-        )
+            df = pd.DataFrame(
+                {
+                    "arm_name": [arm.name for arm in trial.arms],
+                    "metric_name": self.name,
+                    "sem": self.noise_sd if noisy else 0.0,
+                    "trial_index": trial.index,
+                    "mean": [item["mean"] for item in res],
+                    **{
+                        mki.key: [item[mki.key] for item in res]
+                        for mki in self.map_key_infos
+                    },
+                }
+            )
 
-        return MapData(df=df, map_key_infos=self.map_key_infos)
+            return Ok(value=MapData(df=df, map_key_infos=self.map_key_infos))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )
 
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         """The deterministic function that produces the metric outcomes."""
