@@ -7,7 +7,7 @@
 from typing import Any, List
 
 from ax.core.base_trial import BaseTrial
-from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetricFetchResult
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 
 
@@ -17,7 +17,7 @@ class BackendSimulatorTimestampMapMetric(NoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
+    ) -> MapMetricFetchResult:
         """Fetch data for one trial."""
         backend_simulator = trial.experiment.runner.simulator  # pyre-ignore[16]
         sim_trial = backend_simulator.get_sim_trial_by_index(trial.index)

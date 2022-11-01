@@ -12,8 +12,9 @@ import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.types import TParameterization
+from ax.utils.common.result import Err, Ok
 
 
 class NoisyFunctionMetric(Metric):
@@ -62,31 +63,38 @@ class NoisyFunctionMetric(Metric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> Data:
-        noise_sd = self.noise_sd if noisy else 0.0
-        arm_names = []
-        mean = []
-        for name, arm in trial.arms_by_name.items():
-            arm_names.append(name)
-            val = self._evaluate(params=arm.parameters)
-            if noise_sd:
-                val = val + noise_sd * np.random.randn()
-            mean.append(val)
-        # indicate unknown noise level in data
-        if noise_sd is None:
-            noise_sd = float("nan")
-        df = pd.DataFrame(
-            {
-                "arm_name": arm_names,
-                "metric_name": self.name,
-                "mean": mean,
-                "sem": noise_sd,
-                "trial_index": trial.index,
-                "n": 10000 / len(arm_names),
-                "frac_nonnull": mean,
-            }
-        )
-        return Data(df=df)
+    ) -> MetricFetchResult:
+        try:
+            noise_sd = self.noise_sd if noisy else 0.0
+            arm_names = []
+            mean = []
+            for name, arm in trial.arms_by_name.items():
+                arm_names.append(name)
+                val = self._evaluate(params=arm.parameters)
+                if noise_sd:
+                    val = val + noise_sd * np.random.randn()
+                mean.append(val)
+            # indicate unknown noise level in data
+            if noise_sd is None:
+                noise_sd = float("nan")
+            df = pd.DataFrame(
+                {
+                    "arm_name": arm_names,
+                    "metric_name": self.name,
+                    "mean": mean,
+                    "sem": noise_sd,
+                    "trial_index": trial.index,
+                    "n": 10000 / len(arm_names),
+                    "frac_nonnull": mean,
+                }
+            )
+
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )
 
     def _evaluate(self, params: TParameterization) -> float:
         x = np.array([params[p] for p in self.param_names])

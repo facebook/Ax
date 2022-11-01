@@ -5,37 +5,30 @@
 # LICENSE file in the root directory of this source tree.
 
 import itertools
-from typing import Dict
 from unittest.mock import patch
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.metric import MetricFetchResult
 from ax.core.runner import Runner
-from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_arms, get_experiment, get_objective
 
 
-TEST_DATA: Dict[str, MetricFetchResult] = {
-    get_objective().metric.name: Ok(
-        value=Data(
-            df=pd.DataFrame(
-                [
-                    {
-                        "arm_name": "0_0",
-                        "metric_name": get_objective().metric.name,
-                        "mean": 1.0,
-                        "sem": 2.0,
-                        "trial_index": 0,
-                    }
-                ]
-            )
-        )
+TEST_DATA = Data(
+    df=pd.DataFrame(
+        [
+            {
+                "arm_name": "0_0",
+                "metric_name": get_objective().metric.name,
+                "mean": 1.0,
+                "sem": 2.0,
+                "trial_index": 0,
+            }
+        ]
     )
-}
+)
 
 
 class TrialTest(TestCase):
@@ -205,8 +198,7 @@ class TrialTest(TestCase):
         self.assertEqual(self.trial.objective_mean, 1.0)
 
     @patch(
-        f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
-        return_value={"m1": Ok(Data())},
+        f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data", return_value=Data()
     )
     # pyre-fixme[3]: Return type must be annotated.
     def test_objective_mean_empty_df(self, _mock):

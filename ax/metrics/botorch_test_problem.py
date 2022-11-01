@@ -8,7 +8,8 @@ from typing import Any, Optional
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.utils.common.result import Err, Ok
 
 
 class BotorchTestProblemMetric(Metric):
@@ -23,28 +24,35 @@ class BotorchTestProblemMetric(Metric):
         self.noise_sd = noise_sd
         self.index = index
 
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
-        # run_metadata["Ys"] can be either a list of results or a single float
-        mean = (
-            [
-                trial.run_metadata["Ys"][name][self.index]
-                for name, arm in trial.arms_by_name.items()
-            ]
-            if self.index is not None
-            else [
-                trial.run_metadata["Ys"][name]
-                for name, arm in trial.arms_by_name.items()
-            ]
-        )
-        df = pd.DataFrame(
-            {
-                "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                "metric_name": self.name,
-                "mean": mean,
-                # If no noise_std is returned then Botorch evaluated the true function
-                "sem": self.noise_sd,
-                "trial_index": trial.index,
-            }
-        )
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
+            # run_metadata["Ys"] can be either a list of results or a single float
+            mean = (
+                [
+                    trial.run_metadata["Ys"][name][self.index]
+                    for name, arm in trial.arms_by_name.items()
+                ]
+                if self.index is not None
+                else [
+                    trial.run_metadata["Ys"][name]
+                    for name, arm in trial.arms_by_name.items()
+                ]
+            )
+            df = pd.DataFrame(
+                {
+                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
+                    "metric_name": self.name,
+                    "mean": mean,
+                    # If no noise_std is returned then Botorch evaluated the true
+                    # function
+                    "sem": self.noise_sd,
+                    "trial_index": trial.index,
+                }
+            )
 
-        return Data(df=df)
+            return Ok(value=Data(df=df))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )

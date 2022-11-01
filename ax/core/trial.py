@@ -202,11 +202,10 @@ class Trial(BaseTrial):
         latest data available for the metric for the trial.
         """
 
-        fetch_result = self.lookup_data()[metric_name]
+        fetch_result = self.lookup_data()
 
         try:
-            # TODO[mpolson64] Decide how to handle this more elegantly
-            df = fetch_result.unwrap().df
+            df = fetch_result.df
             return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]
         except IndexError:  # pragma: no cover
             raise ValueError(f"Metric {metric_name} not yet in data for trial.")

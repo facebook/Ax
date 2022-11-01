@@ -422,6 +422,8 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         # manually "unalign" timestamps to simulate real-world scenario
         # where each curve reports results at different steps
         data = checked_cast(MapData, exp.fetch_data())
+        data.map_df.sort_values(by=["metric_name", "arm_name"], inplace=True)
+        data.map_df.reset_index(drop=True, inplace=True)
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
         data.map_df.loc[

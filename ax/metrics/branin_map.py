@@ -15,7 +15,10 @@ import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_metric import MapMetricFetchResult
+from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 
@@ -75,37 +78,46 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
-        if self._trial_index_to_timestamp[trial.index] == 0 or trial.status.is_running:
-            self._trial_index_to_timestamp[trial.index] += 1
+    ) -> MapMetricFetchResult:
+        try:
+            if (
+                self._trial_index_to_timestamp[trial.index] == 0
+                or trial.status.is_running
+            ):
+                self._trial_index_to_timestamp[trial.index] += 1
 
-        datas = []
-        for timestamp in range(self._trial_index_to_timestamp[trial.index]):
-            res = [
-                self.f(
-                    np.fromiter(arm.parameters.values(), dtype=float),
-                    timestamp=timestamp,
+            datas = []
+            for timestamp in range(self._trial_index_to_timestamp[trial.index]):
+                res = [
+                    self.f(
+                        np.fromiter(arm.parameters.values(), dtype=float),
+                        timestamp=timestamp,
+                    )
+                    for arm in trial.arms
+                ]
+
+                df = pd.DataFrame(
+                    {
+                        "arm_name": [arm.name for arm in trial.arms],
+                        "metric_name": self.name,
+                        "sem": self.noise_sd if noisy else 0.0,
+                        "trial_index": trial.index,
+                        "mean": [item["mean"] for item in res],
+                        **{
+                            mki.key: [item[mki.key] for item in res]
+                            for mki in self.map_key_infos
+                        },
+                    }
                 )
-                for arm in trial.arms
-            ]
 
-            df = pd.DataFrame(
-                {
-                    "arm_name": [arm.name for arm in trial.arms],
-                    "metric_name": self.name,
-                    "sem": self.noise_sd if noisy else 0.0,
-                    "trial_index": trial.index,
-                    "mean": [item["mean"] for item in res],
-                    **{
-                        mki.key: [item[mki.key] for item in res]
-                        for mki in self.map_key_infos
-                    },
-                }
+                datas.append(MapData(df=df, map_key_infos=self.map_key_infos))
+
+            return Ok(value=MapData.from_multiple_map_data(datas))
+
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
             )
-
-            datas.append(MapData(df=df, map_key_infos=self.map_key_infos))
-
-        return MapData.from_multiple_map_data(datas)
 
     def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
@@ -140,7 +152,7 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
 
     def fetch_trial_data(
         self, trial: BaseTrial, noisy: bool = True, **kwargs: Any
-    ) -> MapData:
+    ) -> MapMetricFetchResult:
         self.index = -1
 
         return super().fetch_trial_data(

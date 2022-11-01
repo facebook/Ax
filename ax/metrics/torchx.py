@@ -10,8 +10,9 @@ import pandas as pd
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.logger import get_logger
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
 
 logger: Logger = get_logger(__name__)
@@ -20,25 +21,34 @@ try:
     from ax.runners.torchx import TORCHX_TRACKER_BASE
     from torchx.runtime.tracking import FsspecResultTracker
 
-    class TorchXMetric(Metric):
-        """
-        Fetches AppMetric (the observation returned by the trial job/app) via the
-        ``torchx.tracking`` module. Assumes that the app used the tracker in the
-        following manner:
 
-        .. code-block:: python
+except ImportError:
+    logger.warning(
+        "torchx package not found. If you would like to use TorchXMetric, please "
+        "install torchx."
+    )
+    pass
 
-        tracker = torchx.runtime.tracking.FsspecResultTracker(tracker_base)
-        tracker[str(trial_index)] = {metric_name: value}
 
-        # -- or --
-        tracker[str(trial_index)] = {"metric_name/mean": mean_value,
-                                    "metric_name/sem": sem_value}
+class TorchXMetric(Metric):
+    """
+    Fetches AppMetric (the observation returned by the trial job/app) via the
+    ``torchx.tracking`` module. Assumes that the app used the tracker in the
+    following manner:
 
-        """
+    .. code-block:: python
 
-        def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> Data:
+    tracker = torchx.runtime.tracking.FsspecResultTracker(tracker_base)
+    tracker[str(trial_index)] = {metric_name: value}
 
+    # -- or --
+    tracker[str(trial_index)] = {"metric_name/mean": mean_value,
+                                "metric_name/sem": sem_value}
+
+    """
+
+    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
+        try:
             tracker_base = trial.run_metadata[TORCHX_TRACKER_BASE]
             tracker = FsspecResultTracker(tracker_base)
             res = tracker[trial.index]
@@ -64,11 +74,9 @@ try:
                 "mean": mean,
                 "sem": sem,
             }
-            return Data(df=pd.DataFrame.from_records([df_dict]))
+            return Ok(value=Data(df=pd.DataFrame.from_records([df_dict])))
 
-except ImportError:
-    logger.warning(
-        "torchx package not found. If you would like to use TorchXMetric, please "
-        "install torchx."
-    )
-    pass
+        except Exception as e:
+            return Err(
+                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
+            )
