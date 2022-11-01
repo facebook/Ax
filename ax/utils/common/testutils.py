@@ -144,6 +144,7 @@ def _build_comparison_str(
     second: T_AX_BASE_OR_ATTR_DICT,
     level: int = 0,
     values_in_suffix: str = "",
+    skip_db_id_check: bool = False,
 ) -> str:
     """Recursively build a comparison string for classes that extend Ax `Base`
     or two dictionaries (dictionaries are passed in in the recursive case).
@@ -173,6 +174,12 @@ def _build_comparison_str(
                         Fields with different values in i):
 
                             * db_id: ... != ...
+
+    NOTE: If ``skip_db_id_check`` is ``True``, will exclude the ``db_id`` attributes
+    from the equality check. Useful for ensuring that all attributes of an object are
+    equal except the ids, with which one or both of them are saved to the database
+    (e.g. if confirming an object before it was saved, to the version reloaded
+    from the DB).
     """
 
     def _unequal_str(first: Any, second: Any) -> str:  # pyre-ignore[2]
@@ -188,6 +195,7 @@ def _build_comparison_str(
         one_dict=first.__dict__ if isinstance(first, Base) else first,
         other_dict=second.__dict__ if isinstance(second, Base) else second,
         fast_return=False,
+        skip_db_id_check=skip_db_id_check,
     )
     if level == 0:
         msg += f"{_unequal_str(first=first, second=second)}\n"
@@ -210,6 +218,7 @@ def _build_comparison_str(
                 second=second,
                 level=level + 1,
                 values_in_suffix=f" in {bul}",
+                skip_db_id_check=skip_db_id_check,
             )
         elif isinstance(first, list) and isinstance(second, list):
             # To compare lists recursively via same function, making them into dicts
@@ -219,6 +228,7 @@ def _build_comparison_str(
                 second=dict(zip([str(x) for x in range(len(second))], second)),
                 level=level + 1,
                 values_in_suffix=f" in {bul}",
+                skip_db_id_check=skip_db_id_check,
             )
     return msg
 
@@ -314,17 +324,41 @@ class TestCase(unittest.TestCase):
             super().assertEqual(first=first, second=second, msg=msg)
 
     def assertAxBaseEqual(
-        self, first: Base, second: Base, msg: Optional[str] = None
+        self,
+        first: Base,
+        second: Base,
+        msg: Optional[str] = None,
+        skip_db_id_check: bool = False,
     ) -> None:
+        """Check that two Ax objects that subclass ``Base`` are equal or raise
+        assertion error otherwise.
+
+        Args:
+            first: ``Base``-subclassing object to compare to ``second``.
+            second: ``Base``-subclassing object to compare to ``first``.
+            msg: Message to put into the assertion error raised on inequality; if not
+                specified, a default message is used.
+            skip_db_id_check: If ``True``, will exclude the ``db_id`` attributes from
+                the equality check. Useful for ensuring that all attributes of an object
+                are equal except the ids, with which one or both of them are saved to
+                the database (e.g. if confirming an object before it was saved, to the
+                 version reloaded from the DB).
+        """
         self.assertIsInstance(
             first, Base, "First argument is not a subclass of Ax `Base`."
         )
         self.assertIsInstance(
             second, Base, "Second argument is not a subclass of Ax `Base`."
         )
-        if first != second:
+        if (
+            first._eq_skip_db_id_check(other=second)
+            if skip_db_id_check
+            else first != second
+        ):
             raise self.failureException(
-                _build_comparison_str(first=first, second=second)
+                _build_comparison_str(
+                    first=first, second=second, skip_db_id_check=skip_db_id_check
+                ),
             )
 
     def assertRaisesOn(

@@ -33,6 +33,12 @@ class Base:
             one_dict=self.__dict__, other_dict=other.__dict__
         )
 
+    @equality_typechecker
+    def _eq_skip_db_id_check(self, other: Base) -> bool:
+        return object_attribute_dicts_equal(
+            one_dict=self.__dict__, other_dict=other.__dict__, skip_db_id_check=True
+        )
+
 
 class SortableBase(Base, metaclass=abc.ABCMeta):
     """Extension to the base class that also provides an inequality check."""
