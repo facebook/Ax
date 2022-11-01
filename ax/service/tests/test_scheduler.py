@@ -1124,3 +1124,53 @@ class TestAxScheduler(TestCase):
         scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
         self.assertEqual(len(scheduler.experiment.trials[0].arms), 2)
+
+    def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
+        self,
+    ) -> None:
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
+            scheduler = Scheduler(
+                experiment=get_branin_experiment_with_timestamp_map_metric(),
+                generation_strategy=self.two_sobol_steps_GS,
+                options=SchedulerOptions(),
+            )
+            scheduler.run_n_trials(max_trials=1)
+
+            self.assertTrue(
+                any(
+                    "Failed to fetch branin for trial 0" in warning
+                    for warning in lg.output
+                )
+            )
+            self.assertEqual(
+                scheduler.experiment.trials[0].status, TrialStatus.COMPLETED
+            )
+
+    def test_fetch_and_process_trials_data_results_failed_objective(self) -> None:
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.f", side_effect=Exception("yikes!")
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ), self.assertLogs(
+            logger="ax.service.scheduler"
+        ) as lg:
+            scheduler = Scheduler(
+                experiment=get_branin_experiment(),
+                generation_strategy=self.two_sobol_steps_GS,
+                options=SchedulerOptions(),
+            )
+
+            # This trial will fail
+            with self.assertRaises(FailureRateExceededError):
+                scheduler.run_n_trials(max_trials=1)
+
+            self.assertTrue(
+                any(
+                    "Failed to fetch branin for trial 0" in warning
+                    for warning in lg.output
+                )
+            )
+            self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
