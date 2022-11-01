@@ -12,9 +12,8 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
-from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata
 from ax.utils.common.base import SortableBase
@@ -464,7 +463,9 @@ class BaseTrial(ABC, SortableBase):
             self.mark_completed()
         return self
 
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(
+        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
+    ) -> Dict[str, MetricFetchResult]:
         """Fetch data for this trial for all metrics on experiment.
 
         Args:
@@ -482,7 +483,7 @@ class BaseTrial(ABC, SortableBase):
 
     def lookup_data(
         self,
-    ) -> Data:
+    ) -> Dict[str, MetricFetchResult]:
         """Lookup cached data on experiment for this trial.
 
         Returns:
@@ -490,9 +491,11 @@ class BaseTrial(ABC, SortableBase):
             associated with the trial. If merging, all data for trial, merged.
 
         """
-        return self.experiment.lookup_data_for_trial(
-            trial_index=self.index,
-        )[0]
+        return Metric._wrap_trial_data_multi(
+            data=self.experiment.lookup_data_for_trial(
+                trial_index=self.index,
+            )[0]
+        )
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the

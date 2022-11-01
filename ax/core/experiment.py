@@ -12,7 +12,7 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime
 from enum import Enum
 from functools import reduce
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -22,7 +22,7 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.runner import Runner
@@ -33,6 +33,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -436,6 +437,79 @@ class Experiment(Base):
             metrics_by_class[metric.fetch_multi_group_by_metric].append(metric)
         return metrics_by_class
 
+    def fetch_data_results(
+        self,
+        metrics: Optional[List[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
+        **kwargs: Any,
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        """Fetches data for all trials on this experiment and for either the
+        specified metrics or all metrics currently on the experiment, if `metrics`
+        argument is not specified.
+
+        If a metric fetch fails, the Exception will be captured in the
+        MetricFetchResult along with a message.
+
+        NOTE: For metrics that are not available while trial is running, the data
+        may be retrieved from cache on the experiment. Data is cached on the experiment
+        via calls to `experiment.attach_data` and whether a given metric class is
+        available while trial is running is determined by the boolean returned from its
+        `is_available_while_running` class method.
+
+        Args:
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            A nested Dictionary from trial_index => metric_name => result
+        """
+
+        return self._lookup_or_fetch_trials_results(
+            trials=list(self.trials.values()),
+            metrics=metrics,
+            combine_with_last_data=combine_with_last_data,
+            overwrite_existing_data=overwrite_existing_data,
+            **kwargs,
+        )
+
+    def fetch_trials_data_results(
+        self,
+        trial_indices: Iterable[int],
+        metrics: Optional[List[Metric]] = None,
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
+        **kwargs: Any,
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        """Fetches data for specific trials on the experiment.
+
+        If a metric fetch fails, the Exception will be captured in the
+        MetricFetchResult along with a message.
+
+        NOTE: For metrics that are not available while trial is running, the data
+        may be retrieved from cache on the experiment. Data is cached on the experiment
+        via calls to `experiment.attach_data` and whether a given metric class is
+        available while trial is running is determined by the boolean returned from its
+        `is_available_while_running` class method.
+
+        Args:
+            trial_indices: Indices of trials, for which to fetch data.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            A nested Dictionary from trial_index => metric_name => result
+        """
+        return self._lookup_or_fetch_trials_results(
+            trials=self.get_trials_by_indices(trial_indices=trial_indices),
+            metrics=metrics,
+            combine_with_last_data=combine_with_last_data,
+            overwrite_existing_data=overwrite_existing_data,
+            **kwargs,
+        )
+
     def fetch_data(
         self,
         metrics: Optional[List[Metric]] = None,
@@ -461,12 +535,21 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
-        return self._lookup_or_fetch_trials_data(
+
+        results = self._lookup_or_fetch_trials_results(
             trials=list(self.trials.values()),
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
             overwrite_existing_data=overwrite_existing_data,
             **kwargs,
+        )
+
+        base_metric_cls = (
+            MapMetric if self.default_data_constructor == MapData else Metric
+        )
+
+        return base_metric_cls._unwrap_experiment_data_multi(
+            results=results,
         )
 
     def fetch_trials_data(
@@ -494,7 +577,8 @@ class Experiment(Base):
         Returns:
             Data for the specific trials on the experiment.
         """
-        return self._lookup_or_fetch_trials_data(
+
+        results = self._lookup_or_fetch_trials_results(
             trials=self.get_trials_by_indices(trial_indices=trial_indices),
             metrics=metrics,
             combine_with_last_data=combine_with_last_data,
@@ -502,55 +586,83 @@ class Experiment(Base):
             **kwargs,
         )
 
-    def _lookup_or_fetch_trials_data(
+        base_metric_cls = (
+            MapMetric if self.default_data_constructor == MapData else Metric
+        )
+        return base_metric_cls._unwrap_experiment_data_multi(
+            results=results,
+        )
+
+    def _lookup_or_fetch_trials_results(
         self,
         trials: List[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
-    ) -> Data:
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
                 "this experiment, and none were passed in to `fetch_data`."
             )
         if not any(t.status.expecting_data for t in trials):
-            logger.info("No trials are in a state expecting data. Returning empty data")
-            return self.default_data_constructor()
+            logger.info("No trials are in a state expecting data.")
+            return {}
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
-        data_list = []
+
+        results: Dict[int, Dict[str, MetricFetchResult]] = {}
         contains_new_data = False
+
         for metric_cls in metrics_by_class:
             (
-                metric_data,
-                metric_data_contains_new_data,
+                new_fetch_results,
+                new_results_contains_new_data,
             ) = metric_cls.lookup_or_fetch_experiment_data_multi(
                 experiment=self,
                 metrics=metrics_by_class[metric_cls],
                 trials=trials,
                 **kwargs,
             )
-            contains_new_data = contains_new_data or metric_data_contains_new_data
-            data_list.append(metric_data)
-        data = self.default_data_constructor.from_multiple_data(data=data_list)
-        if contains_new_data and not data.df.empty:
-            self.attach_data(
-                data=data,
+            contains_new_data = contains_new_data or new_results_contains_new_data
+
+            # Merge in results
+            results = {
+                trial.index: {
+                    **(
+                        new_fetch_results[trial.index]
+                        if trial.index in new_fetch_results
+                        else {}
+                    ),
+                    **(results[trial.index] if trial.index in results else {}),
+                }
+                for trial in trials
+            }
+
+        if contains_new_data:
+            self.attach_fetch_results(
+                results=results,
                 combine_with_last_data=combine_with_last_data,
                 overwrite_existing_data=overwrite_existing_data,
             )
-        return data
+
+        return results
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
         self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Data:
+    ) -> Dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
-        return self._lookup_or_fetch_trials_data(
+
+        trial_data = self._lookup_or_fetch_trials_results(
             trials=[trial], metrics=metrics, **kwargs
         )
+
+        if trial_index in trial_data:
+            return trial_data[trial_index]
+
+        return {}
 
     def attach_data(
         self,
@@ -663,6 +775,54 @@ class Experiment(Base):
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
+
+    def attach_fetch_results(
+        self,
+        results: Mapping[int, Mapping[str, MetricFetchResult]],
+        combine_with_last_data: bool = False,
+        overwrite_existing_data: bool = False,
+    ) -> Optional[int]:
+        """
+        UNSAFE: Prefer to use attach_data directly instead.
+
+        Attach fetched data results to the Experiment so they will not have to be
+        fetched again. Returns the timestamp from attachment, which is used as a
+        dict key for _data_by_trial.
+
+        NOTE: Any Errs in the results passed in will silently be dropped! This will
+        cause the Experiment to fail to find them in the _data_by_trial cache and
+        attempt to refetch at fetch time. If this is not your intended behavior you
+        MUST resolve your results first and use attach_data directly instead.
+        """
+
+        flattened = [
+            result for sublist in results.values() for result in sublist.values()
+        ]
+
+        oks: List[Ok[Data, MetricFetchE]] = [
+            result for result in flattened if isinstance(result, Ok)
+        ]
+
+        for result in flattened:
+            if isinstance(result, Err):
+                logger.error(
+                    "Discovered Metric fetching Err while attaching data "
+                    f"{result.err}. "
+                    "Ignoring for now -- will retry query on next call to fetch."
+                )
+
+        data = self.default_data_constructor.from_multiple_data(
+            data=[ok.ok for ok in oks]
+        )
+
+        if data.df.empty:
+            return None
+
+        return self.attach_data(
+            data=data,
+            combine_with_last_data=combine_with_last_data,
+            overwrite_existing_data=overwrite_existing_data,
+        )
 
     def lookup_data_for_ts(self, timestamp: int) -> Data:
         """Collect data for all trials stored at this timestamp.
