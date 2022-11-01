@@ -92,7 +92,7 @@ def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
 
 
 def object_attribute_dicts_equal(
-    one_dict: Dict[str, Any], other_dict: Dict[str, Any]
+    one_dict: Dict[str, Any], other_dict: Dict[str, Any], skip_db_id_check: bool = False
 ) -> bool:
     """Utility to check if all items in attribute dicts of two Ax objects
     are the same.
@@ -100,9 +100,18 @@ def object_attribute_dicts_equal(
 
     NOTE: Special-cases some Ax object attributes, like "_experiment" or
     "_model", where full equality is hard to check.
+
+    Args:
+        one_dict: First object's attribute dict (``obj.__dict__``).
+        other_dict: Second object's attribute dict (``obj.__dict__``).
+        skip_db_id_check: If ``True``, will exclude the ``db_id`` attributes from the
+            equality check. Useful for ensuring that all attributes of an object are
+            equal except the ids, with which one or both of them are saved to the
+            database (e.g. if confirming an object before it was saved, to the version
+            reloaded from the DB).
     """
     unequal_type, unequal_value = object_attribute_dicts_find_unequal_fields(
-        one_dict=one_dict, other_dict=other_dict
+        one_dict=one_dict, other_dict=other_dict, skip_db_id_check=skip_db_id_check
     )
     return not bool(unequal_type or unequal_value)
 
@@ -118,11 +127,16 @@ def object_attribute_dicts_find_unequal_fields(
     are unequal.
 
     Args:
-        one_dict: First object's attribute dict (`obj.__dict__`).
-        other_dict: Second object's attribute dict (`obj.__dict__`).
+        one_dict: First object's attribute dict (``obj.__dict__``).
+        other_dict: Second object's attribute dict (``obj.__dict__``).
         fast_return: Boolean representing whether to return as soon as a
             single unequal attribute was found or to iterate over all attributes
             and collect all unequal ones.
+        skip_db_id_check: If ``True``, will exclude the ``db_id`` attributes from the
+            equality check. Useful for ensuring that all attributes of an object are
+            equal except the ids, with which one or both of them are saved to the
+            database (e.g. if confirming an object before it was saved, to the version
+            reloaded from the DB).
 
     Returns:
         Two dictionaries:
