@@ -803,12 +803,12 @@ class Decoder:
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
         try:
-            args = runner_class.deserialize_init_args(
-                args=dict(runner_sqa.properties or {})
-            )
-            args.update(runner_kwargs or {})
+            args = {
+                **dict(runner_sqa.properties or {}),
+                **(runner_kwargs or {}),
+            }
             # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
-            runner = runner_class(**args)
+            runner = runner_class(**runner_class.deserialize_init_args(args=args))
             runner.db_id = runner_sqa.id
             return runner
         except ValueError as err:
