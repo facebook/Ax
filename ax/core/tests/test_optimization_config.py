@@ -7,6 +7,7 @@
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
+    _NO_RISK_MEASURE,
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
@@ -223,6 +224,43 @@ class OptimizationConfigTest(TestCase):
             risk_measure=self.single_output_risk_measure,
         )
         self.assertEqual(config1, config1.clone())
+
+    def testCloneWithArgs(self) -> None:
+        config1 = OptimizationConfig(
+            objective=self.objective,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.single_output_risk_measure,
+        )
+        config2 = OptimizationConfig(
+            objective=self.objective,
+        )
+        config3 = OptimizationConfig(
+            objective=self.objective, risk_measure=_NO_RISK_MEASURE.clone()
+        )
+
+        # Empty args produce exact clone
+        self.assertEqual(
+            config1.clone_with_args(),
+            config1,
+        )
+
+        # None args not treated as default
+        self.assertEqual(
+            config1.clone_with_args(
+                outcome_constraints=None,
+                risk_measure=None,
+            ),
+            config2,
+        )
+
+        # Arguments that has same value with default won't be treated as default
+        self.assertEqual(
+            config1.clone_with_args(
+                outcome_constraints=None,
+                risk_measure=config3.risk_measure,
+            ),
+            config3,
+        )
 
 
 class MultiObjectiveOptimizationConfigTest(TestCase):
@@ -469,17 +507,40 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def testCloneWithArgs(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective_just_m2,
-            outcome_constraints=[self.m1_constraint],
+            objective=self.multi_objective,
+            objective_thresholds=self.objective_thresholds,
+            outcome_constraints=self.outcome_constraints,
+            risk_measure=self.multi_output_risk_measure,
         )
         config2 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective_just_m2,
-            objective_thresholds=[self.objective_thresholds[1]],
-            outcome_constraints=[self.m1_constraint],
+            objective=self.multi_objective,
         )
+        config3 = MultiObjectiveOptimizationConfig(
+            objective=self.multi_objective, risk_measure=_NO_RISK_MEASURE.clone()
+        )
+
+        # Empty args produce exact clone
+        self.assertEqual(
+            config1.clone_with_args(),
+            config1,
+        )
+
+        # None args not treated as default
         self.assertEqual(
             config1.clone_with_args(
-                objective_thresholds=[self.objective_thresholds[1]]
+                outcome_constraints=None,
+                objective_thresholds=None,
+                risk_measure=None,
             ),
             config2,
+        )
+
+        # Arguments that has same value with default won't be treated as default
+        self.assertEqual(
+            config1.clone_with_args(
+                outcome_constraints=None,
+                objective_thresholds=None,
+                risk_measure=config3.risk_measure,
+            ),
+            config3,
         )
