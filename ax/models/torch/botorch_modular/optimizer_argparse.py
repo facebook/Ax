@@ -49,12 +49,15 @@ def _argparse_base(
     acqf: MaybeType[AcquisitionFunction],
     num_restarts: int = 40,
     raw_samples: int = 1024,
+    init_batch_limit: int = 32,
+    batch_limit: int = 5,
     optimizer_options: Optional[Dict[str, Any]] = None,
     **ignore: Any,
 ) -> Dict[str, Any]:
     return {
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,
+        "options": {"init_batch_limit": init_batch_limit, "batch_limit": batch_limit},
         **(optimizer_options or {}),
     }
 
@@ -63,15 +66,19 @@ def _argparse_base(
 def _argparse_ehvi(
     acqf: MaybeType[qExpectedHypervolumeImprovement],
     sequential: bool = True,
-    init_batch_limit: int = 128,
+    init_batch_limit: int = 32,
     batch_limit: int = 5,
     optimizer_options: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     return {
-        **_argparse_base(acqf, **kwargs),
+        **_argparse_base(
+            acqf=acqf,
+            init_batch_limit=init_batch_limit,
+            batch_limit=batch_limit,
+            **kwargs,
+        ),
         "sequential": sequential,
-        "options": {"init_batch_limit": init_batch_limit, "batch_limit": batch_limit},
         **(optimizer_options or {}),
     }
 

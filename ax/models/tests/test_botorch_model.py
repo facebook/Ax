@@ -6,6 +6,7 @@
 
 import dataclasses
 from itertools import chain, product
+from typing import Any, Dict
 from unittest import mock
 
 import torch
@@ -46,9 +47,9 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 
 class BotorchModelTest(TestCase):
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_fixed_rank_BotorchModel(self, dtype=torch.float, cuda=False):
+    def test_fixed_rank_BotorchModel(
+        self, dtype: torch.dtype = torch.float, cuda: bool = False
+    ) -> None:
         Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
@@ -79,9 +80,9 @@ class BotorchModelTest(TestCase):
         self.assertEqual(model_list[0]._rank, 2)
         self.assertEqual(model_list[1]._rank, 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_fixed_prior_BotorchModel(self, dtype=torch.float, cuda=False):
+    def test_fixed_prior_BotorchModel(
+        self, dtype: torch.dtype = torch.float, cuda: bool = False
+    ) -> None:
         Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
@@ -95,22 +96,7 @@ class BotorchModelTest(TestCase):
                 "eta": 0.6,
             }
         }
-        # pyre-fixme[6]: For 1st param expected `(TorchModel, List[Tuple[float, float...
-        # pyre-fixme[6]: For 1st param expected `(AcquisitionFunction, Tensor, int, O...
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor) -> Tuple[Tensor,
-        #  Tensor]` but got `Dict[str, Union[Type[LKJCovariancePrior], float,
-        #  GammaPrior]]`.
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor,
-        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any) ->
-        #  AcquisitionFunction` but got `Dict[str, Union[Type[LKJCovariancePrior],
-        #  float, GammaPrior]]`.
-        # pyre-fixme[6]: For 1st param expected `(List[Tensor], List[Tensor],
-        #  List[Tensor], List[int], List[int], List[str], Optional[Dict[str, Tensor]],
-        #  Any) -> Model` but got `Dict[str, Union[Type[LKJCovariancePrior], float,
-        #  GammaPrior]]`.
-        # pyre-fixme[6]: For 1st param expected `bool` but got `Dict[str,
-        #  Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
-        model = BotorchModel(**kwargs)
+        model = BotorchModel(**kwargs)  # pyre-ignore [6]
         datasets = [
             FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
             FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
@@ -148,9 +134,9 @@ class BotorchModelTest(TestCase):
             )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_BotorchModel(self, dtype=torch.float, cuda=False):
+    def test_BotorchModel(
+        self, dtype: torch.dtype = torch.float, cuda: bool = False
+    ) -> None:
         Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
@@ -278,7 +264,7 @@ class BotorchModelTest(TestCase):
                 self.assertIsInstance(m.likelihood, _GaussianLikelihoodBase)
 
             # Check infeasible cost can be computed on the model
-            tkwargs = {
+            tkwargs: Dict[str, Any] = {
                 "device": torch.device("cuda" if cuda else "cpu"),
                 "dtype": dtype,
             }
@@ -358,7 +344,12 @@ class BotorchModelTest(TestCase):
                 self.assertTrue(
                     torch.equal(gen_results.weights, torch.ones(n, dtype=dtype))
                 )
-
+            self.assertEqual(
+                mock_optimize_acqf.call_args.kwargs["options"]["init_batch_limit"], 32
+            )
+            self.assertEqual(
+                mock_optimize_acqf.call_args.kwargs["options"]["batch_limit"], 5
+            )
             torch_opt_config = TorchOptConfig(
                 objective_weights=objective_weights,
                 fixed_features=fixed_features,

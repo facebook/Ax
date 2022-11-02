@@ -6,7 +6,7 @@
 
 import dataclasses
 from contextlib import ExitStack
-from typing import Dict
+from typing import Any, Dict
 from unittest import mock
 
 import ax.models.torch.botorch_moo_defaults as botorch_moo_defaults
@@ -28,6 +28,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
+from botorch.optim.optimize import optimize_acqf_list
 from botorch.utils.datasets import FixedNoiseDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
@@ -114,15 +115,12 @@ class BotorchMOOModelTest(TestCase):
             )
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_random_scalarization(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-    ):
-        tkwargs = {
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+    ) -> None:
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -236,15 +234,12 @@ class BotorchMOOModelTest(TestCase):
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_chebyshev_scalarization(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-    ):
-        tkwargs = {
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+    ) -> None:
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -288,32 +283,35 @@ class BotorchMOOModelTest(TestCase):
         )
         with mock.patch(
             CHEBYSHEV_SCALARIZATION_PATH, wraps=get_chebyshev_scalarization
-        ) as _mock_chebyshev_scalarization:
+        ) as _mock_chebyshev_scalarization, mock.patch(
+            "ax.models.torch.botorch_moo_defaults.optimize_acqf_list",
+            wraps=optimize_acqf_list,
+        ) as mock_optimize:
             model.gen(
                 n,
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
-            # get_chebyshev_scalarization should be called once for generated candidate.
-            self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
+        # get_chebyshev_scalarization should be called once for generated candidate.
+        self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
+        self.assertEqual(
+            mock_optimize.call_args.kwargs["options"]["init_batch_limit"], 32
+        )
+        self.assertEqual(mock_optimize.call_args.kwargs["options"]["batch_limit"], 1)
 
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_qehvi(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-        # pyre-fixme[2]: Parameter must be annotated.
-        use_qnehvi=False,
-    ):
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+        use_qnehvi: bool = False,
+    ) -> None:
         if use_qnehvi:
             acqf_constructor = get_NEHVI
             partitioning_path = NEHVI_PARTITIONING_PATH
         else:
             acqf_constructor = get_EHVI
             partitioning_path = EHVI_PARTITIONING_PATH
-        tkwargs = {
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -577,15 +575,12 @@ class BotorchMOOModelTest(TestCase):
             self.assertTrue(np.isnan(obj_t[2]))
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_random_scalarization_and_outcome_constraints(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-    ):
-        tkwargs = {
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+    ) -> None:
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -643,15 +638,12 @@ class BotorchMOOModelTest(TestCase):
             self.assertEqual(n, _mock_sample_simplex.call_count)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_chebyshev_scalarization_and_outcome_constraints(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-    ):
-        tkwargs = {
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+    ) -> None:
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": torch.float,
         }
@@ -667,17 +659,7 @@ class BotorchMOOModelTest(TestCase):
         ]
 
         n = 2
-        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
-        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
@@ -698,19 +680,7 @@ class BotorchMOOModelTest(TestCase):
         torch_opt_config = TorchOptConfig(
             objective_weights=objective_weights,
             outcome_constraints=(
-                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-                #  `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
-                #  but got `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `bool` but got
-                #  `Union[device, dtype]`.
                 torch.tensor([[1.0, 1.0]], **tkwargs),
-                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-                #  `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
-                #  but got `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `bool` but got
-                #  `Union[device, dtype]`.
                 torch.tensor([[10.0]], **tkwargs),
             ),
             model_gen_options={
@@ -731,18 +701,14 @@ class BotorchMOOModelTest(TestCase):
             self.assertEqual(n, _mock_chebyshev_scalarization.call_count)
 
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
     def test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        dtype=torch.float,
-        # pyre-fixme[2]: Parameter must be annotated.
-        cuda=False,
-        # pyre-fixme[2]: Parameter must be annotated.
-        use_qnehvi=False,
-    ):
+        dtype: torch.dtype = torch.float,
+        cuda: bool = False,
+        use_qnehvi: bool = False,
+    ) -> None:
         acqf_constructor = get_NEHVI if use_qnehvi else get_EHVI
-        tkwargs = {
+        tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
