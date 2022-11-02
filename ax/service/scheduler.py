@@ -30,7 +30,7 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchResult
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -1118,7 +1118,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 f"Fetching data for trials: {idcs} because some metrics "
                 "on experiment are available while trials are running."
             )
-            self._fetch_trials_data(
+            self._fetch_and_process_trials_data_results(
                 trial_indices=running_trial_indices,
                 overwrite_existing_data=True,
             )
@@ -1164,7 +1164,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 # fetch it during candidate generation.
                 idcs = make_indices_str(indices=newly_completed)
                 self.logger.info(f"Fetching data for trials: {idcs}.")
-                self._fetch_trials_data(trial_indices=newly_completed)
+                self._fetch_and_process_trials_data_results(
+                    trial_indices=newly_completed
+                )
 
             updated_trials.extend(trials)
 
@@ -1599,3 +1601,75 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self.experiment.fetch_trials_data(
             trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
         )
+
+    def _fetch_and_process_trials_data_results(
+        self, trial_indices: Iterable[int], overwrite_existing_data: bool = False
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        """
+        Fetches results from experiment and modifies trial statuses depending on
+        success or failure.
+        """
+
+        results = self.experiment.fetch_trials_data_results(
+            trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
+        )
+
+        for trial_index, results_by_metric_name in results.items():
+            for metric_name, result in results_by_metric_name.items():
+                # If the fetch call succeded continue.
+                if result.is_ok():
+                    continue
+
+                metric_fetch_e = result.unwrap_err()
+
+                # Log the Err so the user is aware that something has failed, even if
+                # we do not do anything
+                self.logger.warning(
+                    f"Failed to fetch {metric_name} for trial {trial_index}, found "
+                    f"{metric_fetch_e}."
+                )
+
+                # If the metric is available while running just continue (we can try
+                # again later).
+                metric = self.experiment.metrics[metric_name]
+                status = self.experiment.trials[trial_index].status
+                if (
+                    metric.is_available_while_running()
+                    and status == TrialStatus.RUNNING
+                ):
+                    self.logger.info(
+                        f"Because {metric_name} is available_while_running and "
+                        f"trial {trial_index} is still RUNNING continuing the "
+                        "experiment and retrying on next poll..."
+                    )
+                    continue
+
+                # If the fetch failure was for a metric in the optimization config (an
+                # objective or constraint) the trial as failed
+                optimization_config = self.experiment.optimization_config
+                if (
+                    optimization_config is not None
+                    and metric_name in optimization_config.metrics.keys()
+                ):
+                    status = self._mark_err_trial_status(
+                        trial=self.experiment.trials[trial_index],
+                        metric_name=metric_name,
+                        reason=metric_fetch_e.message,
+                    )
+                    self.logger.warning(
+                        f"Because {metric_name} is an objective, marking trial "
+                        f"{trial_index} as {status}."
+                    )
+                    continue
+
+                continue
+
+        return results
+
+    def _mark_err_trial_status(
+        self,
+        trial: BaseTrial,
+        metric_name: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        trial.mark_failed(unsafe=True)
