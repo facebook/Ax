@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from logging import Logger
 
 from typing import (
     Any,
@@ -22,6 +23,7 @@ from typing import (
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
+from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result
 from ax.utils.common.serialization import SerializationMixin
 
@@ -37,6 +39,8 @@ class MetricFetchE:
 
 
 MetricFetchResult = Result[Data, MetricFetchE]
+
+logger: Logger = get_logger(__name__)
 
 
 class Metric(SortableBase, SerializationMixin):
@@ -307,25 +311,52 @@ class Metric(SortableBase, SerializationMixin):
         )
 
     @classmethod
-    def _unwrap_trial_data_multi(cls, results: Mapping[str, MetricFetchResult]) -> Data:
+    def _unwrap_trial_data_multi(
+        cls,
+        results: Mapping[str, MetricFetchResult],
+        # TODO[mpolson64] Add critical_metric_names to other unwrap methods
+        critical_metric_names: Optional[Iterable[str]] = None,
+    ) -> Data:
         oks: List[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
         if len(oks) < len(results):
-            errs: List[Err[Data, MetricFetchE]] = [
-                result for result in results.values() if isinstance(result, Err)
+            # If no critical_metric_names supplied all metrics to be treated as
+            # critical
+            critical_metric_names = critical_metric_names or results.keys()
+
+            # Noncritical Errs should be brought to the user's attention via warnings
+            # but not raise an Exception
+            noncritical_errs: List[Err[Data, MetricFetchE]] = [
+                result
+                for metric_name, result in results.items()
+                if isinstance(result, Err) and metric_name in critical_metric_names
             ]
 
-            # TODO[mpolson64] Raise all errors in a group via PEP 654
-            exceptions = [
-                err.err.exception
-                if err.err.exception is not None
-                else Exception(err.err.message)
-                for err in errs
+            for err in noncritical_errs:
+                logger.warning(
+                    f"Err encountered while unwrapping MetricFetchResults: {err.err}. "
+                    "Metric is not marked critical, ignoring for now."
+                )
+
+            critical_errs: List[Err[Data, MetricFetchE]] = [
+                result
+                for metric_name, result in results.items()
+                if isinstance(result, Err) and metric_name in critical_metric_names
             ]
-            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+
+            if len(critical_errs) > 0:
+                # TODO[mpolson64] Raise all errors in a group via PEP 654
+                exceptions = [
+                    err.err.exception
+                    if err.err.exception is not None
+                    else Exception(err.err.message)
+                    for err in critical_errs
+                ]
+                raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
 
         data = [ok.ok for ok in oks]
+
         return (
             cls.data_constructor.from_multiple_data(data=data)
             if len(data) > 0
