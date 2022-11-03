@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 from ax.core.metric import Metric
@@ -19,6 +20,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.discrete import _get_parameter_values, DiscreteModelBridge
 from ax.models.discrete_base import DiscreteModel
 from ax.utils.common.testutils import TestCase
@@ -73,9 +75,7 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testFit(self, mock_init):
+    def test_fit(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         ma._training_data = self.observations
@@ -108,9 +108,7 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testPredict(self, mock_init):
+    def test_predict(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
@@ -132,9 +130,7 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testGen(self, mock_init):
+    def test_gen(self, mock_init: Mock) -> None:
         # Test with constraints
         optimization_config = OptimizationConfig(
             objective=Objective(Metric("a"), minimize=True),
@@ -144,6 +140,11 @@ class DiscreteModelBridgeTest(TestCase):
         )
         # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
+        # Test validation.
+        with self.assertRaisesRegex(UserInputError, "positive integer or -1."):
+            ma._validate_gen_inputs(n=0)
+        ma._validate_gen_inputs(n=-1)
+        # Test rest of gen.
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
         model.gen.return_value = ([[0.0, 2.0, 3.0], [1.0, 1.0, 3.0]], [1.0, 2.0], {})
         ma.model = model
@@ -226,9 +227,7 @@ class DiscreteModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.discrete.DiscreteModelBridge.__init__", return_value=None
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testCrossValidate(self, mock_init):
+    def test_cross_validate(self, mock_init: Mock) -> None:
         # pyre-fixme[20]: Argument `model` expected.
         ma = DiscreteModelBridge()
         model = mock.MagicMock(DiscreteModel, autospec=True, instance=True)
@@ -266,7 +265,7 @@ class DiscreteModelBridgeTest(TestCase):
         for i, od in enumerate(observation_data):
             self.assertEqual(od, self.observation_data[i])
 
-    def testGetParameterValues(self) -> None:
+    def test_get_parameter_values(self) -> None:
         parameter_values = _get_parameter_values(self.search_space, ["x", "y", "z"])
         self.assertEqual(parameter_values, [[0.0, 1.0], ["foo", "bar"], [True]])
         # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got

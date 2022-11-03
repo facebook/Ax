@@ -16,6 +16,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import array_to_observation_data
 from ax.modelbridge.torch import (
@@ -87,6 +88,25 @@ class DiscreteModelBridge(ModelBridge):
         f, cov = self.model.predict(X=X)
         # Convert arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
+
+    def _validate_gen_inputs(
+        self,
+        n: int,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+        model_gen_options: Optional[TConfig] = None,
+    ) -> None:
+        """Validate inputs to `ModelBridge.gen`.
+
+        Currently, this is only used to ensure that `n` is a positive integer or -1.
+        """
+        if n < 1 and n != -1:
+            raise UserInputError(
+                f"Attempted to generate n={n} points. Number of points to generate "
+                "must be either a positive integer or -1."
+            )
 
     def _gen(
         self,
