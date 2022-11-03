@@ -620,6 +620,11 @@ def generation_step_from_json(
         ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
+        completion_criteria=object_from_json(
+            generation_step_json.pop("completion_criteria")
+        )
+        if "completion_criteria" in generation_step_json.keys()
+        else [],
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         use_update=generation_step_json.pop("use_update", False),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),

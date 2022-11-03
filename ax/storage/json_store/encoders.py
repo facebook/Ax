@@ -39,6 +39,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
@@ -398,6 +399,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
         "model": generation_step.model,
         "num_trials": generation_step.num_trials,
         "min_trials_observed": generation_step.min_trials_observed,
+        "completion_criteria": generation_step.completion_criteria,
         "max_parallelism": generation_step.max_parallelism,
         "use_update": generation_step.use_update,
         "enforce_num_trials": generation_step.enforce_num_trials,
@@ -431,6 +433,13 @@ def generation_strategy_to_dict(
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,
     }
+
+
+def completion_criterion_to_dict(criterion: CompletionCriterion) -> Dict[str, Any]:
+    """Convert Ax CompletionCriterion to a dictionary."""
+    properties = criterion.serialize_init_args(obj=criterion)
+    properties["__type"] = criterion.__class__.__name__
+    return properties
 
 
 def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:
