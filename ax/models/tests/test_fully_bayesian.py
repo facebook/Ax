@@ -907,7 +907,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 # check NUTS.__init__ arguments
                 _mock_nuts.assert_called_with(
                     single_task_pyro_model,
-                    jit_compile=True,
+                    jit_compile=False,
                     full_mass=True,
                     ignore_jit_warnings=True,
                     max_tree_depth=1,

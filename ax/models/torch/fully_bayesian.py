@@ -388,6 +388,7 @@ def run_inference(
     verbose: bool = False,
     task_feature: Optional[int] = None,
     rank: Optional[int] = None,
+    jit_compile: bool = False,
 ) -> Dict[str, Tensor]:
     start = time.time()
     try:
@@ -400,7 +401,7 @@ def run_inference(
         raise RuntimeError("Cannot call run_inference without pyro installed!")
     kernel = NUTS(
         pyro_model,
-        jit_compile=True,
+        jit_compile=jit_compile,
         full_mass=True,
         ignore_jit_warnings=True,
         max_tree_depth=max_tree_depth,
