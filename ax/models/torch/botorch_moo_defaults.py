@@ -283,6 +283,10 @@ def scipy_optimizer_list(
     # use SLSQP by default for small problems since it yields faster wall times
     if "method" not in kwargs:
         kwargs["method"] = "SLSQP"
+    if "init_batch_limit" not in kwargs:
+        kwargs["init_batch_limit"] = 32
+    if "batch_limit" not in kwargs:
+        kwargs["batch_limit"] = 5
     X, expected_acquisition_value = optimize_acqf_list(
         acq_function_list=acq_function_list,
         bounds=bounds,

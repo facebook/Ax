@@ -84,6 +84,7 @@ class OptimizerArgparseTest(TestCase):
         user_options = {"foo": "bar", "num_restarts": 651}
         inner_options = {"init_batch_limit": 23, "batch_limit": 67}
         generic_options = _argparse_base(None, optimizer_options=user_options)
+        generic_options.pop("options")
         for acqf in (
             qExpectedHypervolumeImprovement,
             qNoisyExpectedHypervolumeImprovement,
@@ -97,6 +98,18 @@ class OptimizerArgparseTest(TestCase):
                 )
                 self.assertEqual(options.pop("sequential"), False)
                 self.assertEqual(options.pop("options"), inner_options)
+                self.assertEqual(options, generic_options)
+
+                # Defaults
+                options = optimizer_argparse(
+                    acqf,
+                    sequential=False,
+                    optimizer_options=user_options,
+                )
+                self.assertEqual(options.pop("sequential"), False)
+                self.assertEqual(
+                    options.pop("options"), {"init_batch_limit": 32, "batch_limit": 5}
+                )
                 self.assertEqual(options, generic_options)
 
     def test_kg(self) -> None:

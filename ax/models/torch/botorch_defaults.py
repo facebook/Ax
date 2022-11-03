@@ -341,6 +341,10 @@ def scipy_optimizer(
         sequential = False
     else:
         sequential = True
+    if "init_batch_limit" not in kwargs:
+        kwargs["init_batch_limit"] = 32
+    if "batch_limit" not in kwargs:
+        kwargs["batch_limit"] = 5
     X, expected_acquisition_value = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds,

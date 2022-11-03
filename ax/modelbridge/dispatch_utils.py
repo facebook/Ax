@@ -98,9 +98,6 @@ def _make_botorch_step(
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
         model_kwargs.update({"disable_progbar": disable_progbar})
-    model_gen_kwargs = None
-    if is_saasbo(model):
-        model_gen_kwargs = {"optimizer_kwargs": {"init_batch_limit": 128}}
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -111,7 +108,6 @@ def _make_botorch_step(
         # `model_kwargs` should default to `None` if empty
         model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
-        model_gen_kwargs=model_gen_kwargs,
     )
 
 

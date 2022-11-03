@@ -192,12 +192,6 @@ class TestDispatchUtils(TestCase):
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_fullybayesian._steps[1].model.value, "FullyBayesian")
             self.assertTrue(sobol_fullybayesian._steps[1].model_kwargs["verbose"])
-            self.assertDictEqual(
-                # pyre-fixme[6]: For 1st param expected `Mapping[typing.Any,
-                #  object]` but got `Optional[Dict[str, typing.Any]]`.
-                sobol_fullybayesian._steps[1].model_gen_kwargs,
-                {"optimizer_kwargs": {"init_batch_limit": 128}},
-            )
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -219,12 +213,6 @@ class TestDispatchUtils(TestCase):
                 "FullyBayesianMOO",
             )
             self.assertTrue(sobol_fullybayesianmoo._steps[1].model_kwargs["verbose"])
-            self.assertDictEqual(
-                # pyre-fixme[6]: For 1st param expected `Mapping[typing.Any,
-                #  object]` but got `Optional[Dict[str, typing.Any]]`.
-                sobol_fullybayesian._steps[1].model_gen_kwargs,
-                {"optimizer_kwargs": {"init_batch_limit": 128}},
-            )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
                 search_space=get_large_ordinal_search_space(
