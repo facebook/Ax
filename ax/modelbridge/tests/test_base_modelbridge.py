@@ -6,6 +6,7 @@
 
 import warnings
 from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import (
     clamp_observation_features,
     gen_arms,
@@ -69,9 +71,9 @@ class BaseModelBridgeTest(TestCase):
         return_value=([Arm(parameters={})], None),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testModelBridge(self, mock_fit, mock_gen_arms, mock_observations_from_data):
+    def test_ModelBridge(
+        self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
+    ) -> None:
         # Test that on init transforms are stored and applied in the correct order
         transforms = [transform_1, transform_2]
         exp = get_experiment_for_value()
@@ -155,6 +157,9 @@ class BaseModelBridgeTest(TestCase):
         modelbridge._set_kwargs_to_save(
             model_key="TestModel", model_kwargs={}, bridge_kwargs={}
         )
+        # Test input error when generating 0 candidates.
+        with self.assertRaisesRegex(UserInputError, "Attempted to generate"):
+            modelbridge.gen(n=0)
         gr = modelbridge.gen(
             n=1,
             search_space=get_search_space_for_value(),
@@ -258,8 +263,7 @@ class BaseModelBridgeTest(TestCase):
         autospec=True,
         return_value=([get_observation1(), get_observation2()]),
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_ood_gen(self, _):
+    def test_ood_gen(self, _) -> None:
         # Test fit_out_of_design by returning OOD candidats
         exp = get_experiment_for_value()
         ss = SearchSpace([RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0)])

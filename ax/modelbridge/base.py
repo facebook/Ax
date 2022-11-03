@@ -29,6 +29,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
@@ -640,6 +641,25 @@ class ModelBridge(ABC):
             fixed_features=fixed_features,
         )
 
+    def _validate_gen_inputs(
+        self,
+        n: int,
+        search_space: Optional[SearchSpace] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
+        model_gen_options: Optional[TConfig] = None,
+    ) -> None:
+        """Validate inputs to `ModelBridge.gen`.
+
+        Currently, this is only used to ensure that `n` is a positive integer.
+        """
+        if n < 1:
+            raise UserInputError(
+                f"Attempted to generate n={n} points. Number of points to generate "
+                "must be a positive integer."
+            )
+
     def gen(
         self,
         n: int,
@@ -668,6 +688,14 @@ class ModelBridge(ABC):
         Returns:
             A GeneratorRun object that contains the generated points and other metadata.
         """
+        self._validate_gen_inputs(
+            n=n,
+            search_space=search_space,
+            optimization_config=optimization_config,
+            pending_observations=pending_observations,
+            fixed_features=fixed_features,
+            model_gen_options=model_gen_options,
+        )
         t_gen_start = time.monotonic()
         # Get modifiable versions
         if search_space is None:
