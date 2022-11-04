@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from ax.core.data import Data  # Perhaps need to use `AbstractDataFrameData`?
 from ax.core.experiment import Experiment
@@ -17,6 +17,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
@@ -250,6 +251,8 @@ class GenerationStep(GenerationNode, SortableBase):
         model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
             step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
             the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
+        completion_criteria: List of CompletionCriterion. All `is_met` must evaluate
+            True for the GenerationStrategy to move on to the next Step
         index: Index of this generation step, for use internally in `Generation
             Strategy`. Do not assign as it will be reassigned when instantiating
             `GenerationStrategy` with a list of its steps.
@@ -275,6 +278,7 @@ class GenerationStep(GenerationNode, SortableBase):
     model_gen_kwargs: Optional[Dict[str, Any]] = None
 
     # Optional specifications for use in generation strategy:
+    completion_criteria: Sequence[CompletionCriterion] = field(default_factory=list)
     min_trials_observed: int = 0
     max_parallelism: Optional[int] = None
     use_update: bool = False

@@ -14,6 +14,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.completion_criterion import MinimumPreferenceOccurances
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
@@ -162,7 +163,9 @@ def get_observation2trans(
 
 
 def get_generation_strategy(
-    with_experiment: bool = False, with_callable_model_kwarg: bool = True
+    with_experiment: bool = False,
+    with_callable_model_kwarg: bool = True,
+    with_completion_criteria: int = 0,
 ) -> GenerationStrategy:
     gs = choose_generation_strategy(
         search_space=get_search_space(), should_deduplicate=True
@@ -174,6 +177,12 @@ def get_generation_strategy(
         # pyre-ignore[16]: testing hack to test serialization of callable kwargs
         # in generation steps.
         gs._steps[0].model_kwargs["model_constructor"] = fake_func
+
+    if with_completion_criteria > 0:
+        gs._steps[0].num_trials = -1
+        gs._steps[0].completion_criteria = [
+            MinimumPreferenceOccurances(metric_name="m1", threshold=3)
+        ] * with_completion_criteria
     return gs
 
 

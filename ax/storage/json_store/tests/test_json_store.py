@@ -142,6 +142,12 @@ TEST_CASES = [
     ("FixedParameter", get_fixed_parameter),
     ("GammaPrior", get_gamma_prior),
     ("GenerationStrategy", partial(get_generation_strategy, with_experiment=True)),
+    (
+        "GenerationStrategy",
+        partial(
+            get_generation_strategy, with_experiment=True, with_completion_criteria=3
+        ),
+    ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),

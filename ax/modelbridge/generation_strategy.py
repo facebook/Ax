@@ -84,14 +84,15 @@ class GenerationStrategy(Base):
         self._uses_registered_models = True
         self._generator_runs = []
         for idx, step in enumerate(self._steps):
-            if step.num_trials == -1:
+            if step.num_trials == -1 and len(step.completion_criteria) < 1:
                 if idx < len(self._steps) - 1:
                     raise UserInputError(  # pragma: no cover
                         "Only last step in generation strategy can have `num_trials` "
                         "set to -1 to indicate that the model in the step should "
-                        "be used to generate new trials indefinitely."
+                        "be used to generate new trials indefinitely unless "
+                        "completion critera present."
                     )
-            elif step.num_trials < 1:  # pragma: no cover
+            elif step.num_trials < 1 and step.num_trials != -1:  # pragma: no cover
                 raise UserInputError(
                     "`num_trials` must be positive or -1 (indicating unlimited) "
                     "for all generation steps."
@@ -592,7 +593,22 @@ class GenerationStrategy(Base):
             Whether generation strategy moved to the next step.
         """
         to_gen, to_complete = self._num_trials_to_gen_and_complete_in_curr_step()
-        if to_gen == to_complete == -1:  # Unlimited trials, never moving to next step.
+        if to_gen == to_complete == -1:  # Unlimited trials, check completion_criteria
+            if len(self._curr.completion_criteria) > 0 and all(
+                [
+                    criterion.is_met(experiment=self.experiment)
+                    for criterion in self._curr.completion_criteria
+                ]
+            ):
+                if len(self._steps) == self._curr.index + 1:
+                    raise GenerationStrategyCompleted(
+                        f"Generation strategy {self} generated all the trials as "
+                        "specified in its steps."
+                    )
+                self._curr = self._steps[self._curr.index + 1]
+                self._model = None
+                return True
+
             return False
 
         enforcing_num_trials = self._curr.enforce_num_trials
