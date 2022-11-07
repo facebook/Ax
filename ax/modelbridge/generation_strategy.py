@@ -601,7 +601,7 @@ class GenerationStrategy(Base):
                 ]
             ):
                 if len(self._steps) == self._curr.index + 1:
-                    raise GenerationStrategyCompleted(
+                    raise GenerationStrategyCompleted(  # pragma: no cover
                         f"Generation strategy {self} generated all the trials as "
                         "specified in its steps."
                     )
