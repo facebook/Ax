@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import inspect
+from copy import deepcopy
 
 from logging import Logger
 from typing import Any, Dict, List, Optional, Type
@@ -49,16 +50,22 @@ class ListSurrogate(Surrogate):
             ``submodel_outions_per_outcome[submodel_outcome]`` (individual).
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         mll_options: Dictionary of options / kwargs for the MLL.
-        submodel_outcome_transforms: A dictionary mapping each outcome to a
-            BoTorch outcome transform. Gets passed down to the BoTorch ``Model``s.
+        submodel_outcome_transforms: An outcome transform that will be used
+            by all outcomes. Gets passed down to the BoTorch ``Model``s.
             To use multiple outcome transforms on a submodel, chain them
             together using ``ChainedOutcomeTransform``.
-        submodel_input_transforms: A dictionary mapping each outcome to a
-            BoTorch input transform. Gets passed down to the BoTorch ``Model``.
+        submodel_input_transforms: An input transform that will be used
+            by all outcomes. Gets passed down to the BoTorch ``Model``.
             If sharing a single ``InputTransform`` object across submodels is
             preferred, pass in a dictionary where each outcome key references the
             same ``InputTransform`` object. To use multiple input transfroms on
             a submodel, chain them together using ``ChainedInputTransform``.
+        submodel_covar_module_class: A covar module that will be used by all outcomes.
+        submodel_covar_module_options: Options for a BoTorch covar module or options
+            that will be used by all outcomes.
+        submodel_likelihood_class: A likelihood that will be used by all outcomes.
+        submodel_likelihood_options: Options for a BoTorch likelihood or options that
+            will be used by all outcomes.
     """
 
     botorch_submodel_class_per_outcome: Dict[str, Type[Model]]
@@ -67,12 +74,12 @@ class ListSurrogate(Surrogate):
     submodel_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
     mll_options: Dict[str, Any]
-    submodel_outcome_transforms: Dict[str, OutcomeTransform]
-    submodel_input_transforms: Dict[str, InputTransform]
-    submodel_covar_module_class: Dict[str, Type[Kernel]]
-    submodel_covar_module_options: Dict[str, Dict[str, Any]]
-    submodel_likelihood_class: Dict[str, Type[Likelihood]]
-    submodel_likelihood_options: Dict[str, Dict[str, Any]]
+    submodel_outcome_transforms: Optional[OutcomeTransform]
+    submodel_input_transforms: Optional[InputTransform]
+    submodel_covar_module_class: Optional[Type[Kernel]]
+    submodel_covar_module_options: Dict[str, Any]
+    submodel_likelihood_class: Optional[Type[Likelihood]]
+    submodel_likelihood_options: Dict[str, Any]
     _model: Optional[Model] = None
     # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
     # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
@@ -87,12 +94,12 @@ class ListSurrogate(Surrogate):
         submodel_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
-        submodel_outcome_transforms: Optional[Dict[str, OutcomeTransform]] = None,
-        submodel_input_transforms: Optional[Dict[str, InputTransform]] = None,
-        submodel_covar_module_class: Optional[Dict[str, Type[Kernel]]] = None,
-        submodel_covar_module_options: Optional[Dict[str, Dict[str, Any]]] = None,
-        submodel_likelihood_class: Optional[Dict[str, Type[Likelihood]]] = None,
-        submodel_likelihood_options: Optional[Dict[str, Dict[str, Any]]] = None,
+        submodel_outcome_transforms: Optional[OutcomeTransform] = None,
+        submodel_input_transforms: Optional[InputTransform] = None,
+        submodel_covar_module_class: Optional[Type[Kernel]] = None,
+        submodel_covar_module_options: Optional[Dict[str, Any]] = None,
+        submodel_likelihood_class: Optional[Type[Likelihood]] = None,
+        submodel_likelihood_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         if not bool(botorch_submodel_class_per_outcome) ^ bool(botorch_submodel_class):
             raise ValueError(  # pragma: no cover
@@ -106,11 +113,11 @@ class ListSurrogate(Surrogate):
         self.botorch_submodel_class = botorch_submodel_class
         self.submodel_options_per_outcome = submodel_options_per_outcome or {}
         self.submodel_options = submodel_options or {}
-        self.submodel_outcome_transforms = submodel_outcome_transforms or {}
-        self.submodel_input_transforms = submodel_input_transforms or {}
-        self.submodel_covar_module_class = submodel_covar_module_class or {}
+        self.submodel_outcome_transforms = submodel_outcome_transforms
+        self.submodel_input_transforms = submodel_input_transforms
+        self.submodel_covar_module_class = submodel_covar_module_class
         self.submodel_covar_module_options = submodel_covar_module_options or {}
-        self.submodel_likelihood_class = submodel_likelihood_class or {}
+        self.submodel_likelihood_class = submodel_likelihood_class
         self.submodel_likelihood_options = submodel_likelihood_options or {}
         super().__init__(
             botorch_model_class=ModelListGP,
@@ -159,7 +166,6 @@ class ListSurrogate(Surrogate):
         # Construct input perturbation if doing robust optimization.
         # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
         # we use the same perturbations for each sub-model.
-        submodel_input_transforms = self.submodel_input_transforms.copy()
         robust_digest: Optional[Dict[str, Any]] = kwargs.get("robust_digest", None)
         if robust_digest is not None:
             if len(robust_digest["environmental_variables"]):
@@ -176,15 +182,15 @@ class ListSurrogate(Surrogate):
                 perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
             )
 
-            for m in metric_names:
-                if submodel_input_transforms.get(m) is not None:
-                    # TODO: Support mixing with user supplied transforms.
-                    raise NotImplementedError(
-                        "User supplied input transforms are not supported "
-                        "in robust optimization."
-                    )
-                else:
-                    submodel_input_transforms[m] = perturbation
+            if self.submodel_input_transforms is not None:
+                # TODO: Support mixing with user supplied transforms.
+                raise NotImplementedError(
+                    "User supplied input transforms are not supported "
+                    "in robust optimization."
+                )
+            submodel_input_transforms = perturbation
+        else:
+            submodel_input_transforms = self.submodel_input_transforms
 
         submodels = []
         for m, dataset in zip(metric_names, datasets):
@@ -218,20 +224,33 @@ class ListSurrogate(Surrogate):
             # way to filter the arguments. See the comment in `Surrogate.construct`
             # regarding potential use of a `ModelFactory` in the future.
             model_cls_args = inspect.getfullargspec(model_cls).args
-            covar_module_class = self.submodel_covar_module_class.get(m)
-            covar_module_options = self.submodel_covar_module_options.get(m)
-            likelihood_class = self.submodel_likelihood_class.get(m)
-            likelihood_options = self.submodel_likelihood_options.get(m)
-            outcome_transform = self.submodel_outcome_transforms.get(m)
-            input_transform = submodel_input_transforms.get(m)
-
             self._set_formatted_inputs(
                 formatted_model_inputs=formatted_model_inputs,
                 inputs=[
-                    ["covar_module", covar_module_class, covar_module_options, None],
-                    ["likelihood", likelihood_class, likelihood_options, None],
-                    ["outcome_transform", None, None, outcome_transform],
-                    ["input_transform", None, None, input_transform],
+                    [
+                        "covar_module",
+                        self.submodel_covar_module_class,
+                        self.submodel_covar_module_options,
+                        None,
+                    ],
+                    [
+                        "likelihood",
+                        self.submodel_likelihood_class,
+                        self.submodel_likelihood_options,
+                        None,
+                    ],
+                    [
+                        "outcome_transform",
+                        None,
+                        None,
+                        deepcopy(self.submodel_outcome_transforms),
+                    ],
+                    [
+                        "input_transform",
+                        None,
+                        None,
+                        deepcopy(submodel_input_transforms),
+                    ],
                 ],
                 dataset=dataset,
                 botorch_model_class_args=model_cls_args,

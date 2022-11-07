@@ -4,10 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 from unittest.mock import Mock, patch
 
 import numpy as np
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UserInputError
@@ -37,7 +37,8 @@ from gpytorch.likelihoods import (  # noqa: F401
     GaussianLikelihood,
     Likelihood,  # noqa: F401
 )
-from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
+from gpytorch.mlls import ExactMarginalLogLikelihood
+
 
 SURROGATE_PATH = f"{Surrogate.__module__}"
 UTILS_PATH = f"{choose_model_class.__module__}"
@@ -58,6 +59,9 @@ class ListSurrogateTest(TestCase):
         Xs1, Ys1, Yvars1, bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
+        # Change the inputs/outputs a bit so the data isn't identical
+        Xs1[0] *= 2
+        Ys1[0] += 1
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
@@ -352,19 +356,12 @@ class ListSurrogateTest(TestCase):
             )
 
     def test_with_botorch_transforms(self) -> None:
-        input_transforms = {"outcome_1": Normalize(d=3), "outcome_2": Normalize(d=3)}
-        outcome_transforms = {
-            "outcome_1": Standardize(m=1),
-            "outcome_2": Standardize(m=1),
-        }
+        input_transforms = Normalize(d=3)
+        outcome_transforms = Standardize(m=1)
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGPWithDifferentConstructor,
             mll_class=ExactMarginalLogLikelihood,
-            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
-            #  OutcomeTransform]]` but got `Dict[str, Standardize]`.
             submodel_outcome_transforms=outcome_transforms,
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str,
-            #  InputTransform]]` but got `Dict[str, Normalize]`.
             submodel_input_transforms=input_transforms,
         )
         with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
@@ -375,23 +372,34 @@ class ListSurrogateTest(TestCase):
         surrogate = ListSurrogate(
             botorch_submodel_class=SingleTaskGP,
             mll_class=ExactMarginalLogLikelihood,
-            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
-            #  OutcomeTransform]]` but got `Dict[str, Standardize]`.
             submodel_outcome_transforms=outcome_transforms,
-            # pyre-fixme[6]: For 4th param expected `Optional[Dict[str,
-            #  InputTransform]]` but got `Dict[str, Normalize]`.
             submodel_input_transforms=input_transforms,
         )
         surrogate.construct(
             datasets=self.supervised_training_data,
             metric_names=self.outcomes,
         )
-        models = surrogate.model.models
-        for i, outcome in enumerate(("outcome_1", "outcome_2")):
-            # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase...
-            self.assertIs(models[i].outcome_transform, outcome_transforms[outcome])
-            # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase...
-            self.assertIs(models[i].input_transform, input_transforms[outcome])
+        # pyre-ignore [9]
+        models: torch.nn.modules.container.ModuleList = surrogate.model.models
+        for i in range(2):
+            self.assertIsInstance(models[i].outcome_transform, Standardize)
+            self.assertIsInstance(models[i].input_transform, Normalize)
+        self.assertEqual(models[0].outcome_transform.means.item(), 4.5)
+        self.assertEqual(models[1].outcome_transform.means.item(), 3.5)
+        self.assertAlmostEqual(
+            models[0].outcome_transform.stdvs.item(), 1 / math.sqrt(2)
+        )
+        self.assertAlmostEqual(
+            models[1].outcome_transform.stdvs.item(), 1 / math.sqrt(2)
+        )
+        self.assertTrue(
+            torch.all(
+                torch.isclose(
+                    models[0].input_transform.bounds,
+                    2 * models[1].input_transform.bounds,  # pyre-ignore
+                )
+            )
+        )
 
     def test_serialize_attributes_as_kwargs(self) -> None:
         expected = self.surrogate.__dict__
@@ -411,48 +419,64 @@ class ListSurrogateTest(TestCase):
         self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)
 
     def test_construct_custom_model(self) -> None:
-        noise_con1, noise_con2 = Interval(1e-6, 1e-1), GreaterThan(1e-4)
-        surrogate = ListSurrogate(
-            botorch_submodel_class=SingleTaskGP,
-            mll_class=LeaveOneOutPseudoLikelihood,
-            submodel_covar_module_class={
-                "outcome_1": RBFKernel,
-                "outcome_2": MaternKernel,
-            },
-            submodel_covar_module_options={
-                "outcome_1": {"ard_num_dims": 1},
-                "outcome_2": {"ard_num_dims": 3},
-            },
-            submodel_likelihood_class={
-                "outcome_1": GaussianLikelihood,
-                "outcome_2": GaussianLikelihood,
-            },
-            submodel_likelihood_options={
-                "outcome_1": {"noise_constraint": noise_con1},
-                "outcome_2": {"noise_constraint": noise_con2},
-            },
-        )
-        surrogate.construct(
-            datasets=self.supervised_training_data,
-            metric_names=self.outcomes,
-        )
-        # pyre-fixme[16]: Optional type has no attribute `models`.
-        self.assertEqual(len(surrogate._model.models), 2)
-        self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
-        for i, m in enumerate(surrogate._model.models):
-            self.assertEqual(type(m.likelihood), GaussianLikelihood)
-            if i == 0:
-                self.assertEqual(type(m.covar_module), RBFKernel)
-                self.assertEqual(m.covar_module.ard_num_dims, 1)
-                self.assertEqual(
-                    m.likelihood.noise_covar.raw_noise_constraint, noise_con1
-                )
-            else:
+        noise_constraint = Interval(1e-4, 10.0)
+        for submodel_covar_module_options, submodel_likelihood_options in [
+            [{"ard_num_dims": 3}, {"noise_constraint": noise_constraint}],
+            [{}, {}],
+        ]:
+            surrogate = ListSurrogate(
+                botorch_submodel_class=SingleTaskGP,
+                mll_class=ExactMarginalLogLikelihood,
+                submodel_covar_module_class=MaternKernel,
+                submodel_covar_module_options=submodel_covar_module_options,
+                submodel_likelihood_class=GaussianLikelihood,
+                submodel_likelihood_options=submodel_likelihood_options,
+                submodel_input_transforms=Normalize(d=3),
+                submodel_outcome_transforms=Standardize(m=1),
+            )
+            surrogate.construct(
+                datasets=self.supervised_training_data,
+                metric_names=self.outcomes,
+            )
+            # pyre-fixme[16]: Optional type has no attribute `models`.
+            self.assertEqual(len(surrogate._model.models), 2)
+            self.assertEqual(surrogate.mll_class, ExactMarginalLogLikelihood)
+            # Make sure we properly copied the transforms
+            self.assertNotEqual(
+                id(surrogate._model.models[0].input_transform),
+                id(surrogate._model.models[1].input_transform),
+            )
+            self.assertNotEqual(
+                id(surrogate._model.models[0].outcome_transform),
+                id(surrogate._model.models[1].outcome_transform),
+            )
+
+            for m in surrogate._model.models:
+                self.assertEqual(type(m.likelihood), GaussianLikelihood)
                 self.assertEqual(type(m.covar_module), MaternKernel)
-                self.assertEqual(m.covar_module.ard_num_dims, 3)
-                self.assertEqual(
-                    m.likelihood.noise_covar.raw_noise_constraint, noise_con2
-                )
+                if submodel_covar_module_options:
+                    self.assertEqual(m.covar_module.ard_num_dims, 3)
+                else:
+                    self.assertEqual(m.covar_module.ard_num_dims, None)
+                if submodel_likelihood_options:
+                    self.assertEqual(
+                        type(m.likelihood.noise_covar.raw_noise_constraint), Interval
+                    )
+                    self.assertEqual(
+                        m.likelihood.noise_covar.raw_noise_constraint.lower_bound,
+                        noise_constraint.lower_bound,
+                    )
+                    self.assertEqual(
+                        m.likelihood.noise_covar.raw_noise_constraint.upper_bound,
+                        noise_constraint.upper_bound,
+                    )
+                else:
+                    self.assertEqual(
+                        type(m.likelihood.noise_covar.raw_noise_constraint), GreaterThan
+                    )
+                    self.assertEqual(
+                        m.likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-4
+                    )
 
     def test_w_robust_digest(self) -> None:
         surrogate = ListSurrogate(
@@ -470,7 +494,7 @@ class ListSurrogateTest(TestCase):
             "environmental_variables": [],
             "multiplicative": False,
         }
-        surrogate.submodel_input_transforms = {self.outcomes[0]: Normalize(d=1)}
+        surrogate.submodel_input_transforms = Normalize(d=1)
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.construct(
                 datasets=self.supervised_training_data,
