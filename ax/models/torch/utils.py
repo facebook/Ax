@@ -205,8 +205,8 @@ def _generate_sobol_points(
 
     if linear_constraints is not None:
         linear_constraints_array = (
-            linear_constraints[0].detach().numpy(),
-            linear_constraints[1].detach().numpy(),
+            linear_constraints[0].detach().cpu().numpy(),
+            linear_constraints[1].detach().cpu().numpy(),
         )
 
     array_rounding_func = None
@@ -342,7 +342,7 @@ def tensor_callable_to_array_callable(
     """transfer a tensor callable to an array callable"""
 
     def array_func(x: np.ndarray) -> np.ndarray:
-        return tensor_func(torch.from_numpy(x).to(device)).detach().numpy()
+        return tensor_func(torch.from_numpy(x).to(device)).detach().cpu().numpy()
 
     return array_func
 
