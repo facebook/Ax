@@ -29,7 +29,6 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
             kwargs["options"] = {}
 
         kwargs["options"]["maxiter"] = 1
-
         return minimize(*args, **kwargs)
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -58,7 +57,7 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         mock_fit = es.enter_context(
             mock.patch(
-                "botorch.optim.fit.minimize",
+                "botorch.optim.core.minimize",
                 wraps=one_iteration_minimize,
             )
         )
