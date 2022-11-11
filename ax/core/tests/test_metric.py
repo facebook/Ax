@@ -77,3 +77,25 @@ class MetricTest(TestCase):
 
         with self.assertRaisesRegex(Exception, "panic"):
             Metric._unwrap_trial_data_multi(results={"foo": err})
+
+    def testMetricFetchE(self) -> None:
+        def foo() -> bool:
+            raise ValueError("bad value")
+
+        def bar() -> bool:
+            return foo()
+
+        exception = None
+        try:
+            bar()
+        except Exception as e:
+            print(e)
+            exception = e
+
+        metric_fetch_e = MetricFetchE(message="foo", exception=exception)
+
+        self.assertEqual(metric_fetch_e.message, "foo")
+
+        self.assertIn("in foo", metric_fetch_e.__repr__())
+        self.assertIn("in bar", metric_fetch_e.__repr__())
+        self.assertIn("ValueError: bad value", metric_fetch_e.__repr__())

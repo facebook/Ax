@@ -30,7 +30,7 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric, MetricFetchResult
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -1654,7 +1654,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     status = self._mark_err_trial_status(
                         trial=self.experiment.trials[trial_index],
                         metric_name=metric_name,
-                        reason=metric_fetch_e.message,
+                        metric_fetch_e=metric_fetch_e,
                     )
                     self.logger.warning(
                         f"Because {metric_name} is an objective, marking trial "
@@ -1670,6 +1670,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         trial: BaseTrial,
         metric_name: Optional[str] = None,
-        reason: Optional[str] = None,
+        metric_fetch_e: Optional[MetricFetchE] = None,
     ) -> None:
         trial.mark_failed(unsafe=True)
