@@ -823,6 +823,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         parameters: TParameterization,
         ttl_seconds: Optional[int] = None,
         run_metadata: Optional[Dict[str, Any]] = None,
+        arm_name: Optional[str] = None,
     ) -> Tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
@@ -852,7 +853,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ).metadata
 
         trial = self.experiment.new_trial(ttl_seconds=ttl_seconds).add_arm(
-            Arm(parameters=parameters), candidate_metadata=candidate_metadata
+            Arm(parameters=parameters, name=arm_name),
+            candidate_metadata=candidate_metadata,
         )
         trial.mark_running(no_runner_required=True)
         logger.info(

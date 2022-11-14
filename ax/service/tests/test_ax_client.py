@@ -70,6 +70,7 @@ DUMMY_RUN_METADATA = {
     "TEST_KEY": "TEST_VALUE",
     "abc": {123: 456},
 }
+ARM_NAME = "test_arm_name"
 
 
 def run_trials_using_recommended_parallelism(
@@ -1661,13 +1662,18 @@ class TestAxClient(TestCase):
             minimize=True,
         )
         params, idx = ax_client.attach_trial(
-            parameters={"x": 0.0, "y": 1.0}, run_metadata=DUMMY_RUN_METADATA
+            parameters={"x": 0.0, "y": 1.0},
+            run_metadata=DUMMY_RUN_METADATA,
+            arm_name=ARM_NAME,
         )
         ax_client.complete_trial(trial_index=idx, raw_data=5)
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(ax_client.get_best_parameters()[0], params)
         self.assertEqual(
             ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
+        )
+        self.assertEqual(
+            not_none(ax_client.get_trial(trial_index=idx).arm).name, ARM_NAME
         )
         with self.assertRaises(KeyError):
             ax_client.get_trial_parameters(
