@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+import traceback
+
 from dataclasses import dataclass
+from functools import reduce
 from logging import Logger
 
 from typing import (
@@ -36,6 +39,26 @@ if TYPE_CHECKING:  # pragma: no cover
 class MetricFetchE:
     message: str
     exception: Optional[Exception]
+
+    def __repr__(self) -> str:
+        if self.exception is None:
+            return f'MetricFetchE(message="{self.message}")'
+
+        return (
+            f'MetricFetchE(message="{self.message}", exception={self.exception})\n'
+            f"with Traceback:\n {self.tb_str()}"
+        )
+
+    def tb_str(self) -> Optional[str]:
+        if self.exception is None:
+            return None
+
+        return reduce(
+            lambda left, right: left + right,
+            traceback.format_exception(
+                None, self.exception, self.exception.__traceback__
+            ),
+        )
 
 
 MetricFetchResult = Result[Data, MetricFetchE]
