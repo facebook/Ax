@@ -817,6 +817,12 @@ class TestAxClient(TestCase):
         with self.subTest("objective_names"):
             self.assertEqual(ax_client.objective_names, ["test_objective"])
 
+        with self.subTest("metric_names"):
+            self.assertEqual(
+                ax_client.metric_names,
+                {"test_objective", "some_metric", "test_tracking_metric"},
+            )
+
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(
