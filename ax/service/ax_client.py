@@ -1462,6 +1462,11 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             for m in self.experiment.metrics.values()
         }
 
+    @property
+    def metric_names(self) -> Set[str]:
+        """Returns the names of all metrics on the attached experiment."""
+        return set(self.experiment.metrics)
+
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
         self,
@@ -1750,7 +1755,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         evaluations, data = self.data_and_evaluations_from_raw_data(
             raw_data=raw_data_by_arm,
-            metric_names=self.objective_names,
+            metric_names=list(self.metric_names),
             trial_index=trial.index,
             sample_sizes=sample_sizes or {},
             start_time=(
