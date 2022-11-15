@@ -128,6 +128,12 @@ class ObjectNotFoundError(AxError, ValueError):
     pass
 
 
+class ExperimentNotFoundError(ObjectNotFoundError):
+    """Raised when an experiment is not found in the database."""
+
+    pass
+
+
 class SearchSpaceExhausted(OptimizationComplete):
     """Raised when using an algorithm that deduplicates points and no more
     new points can be sampled from the search space."""
