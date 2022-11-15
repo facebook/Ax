@@ -944,6 +944,22 @@ class ExperimentWithMapDataTest(TestCase):
         actual_data = self.experiment.lookup_data()
         self.assertEqual(expected_data, actual_data)
 
+    def testFetchDataWithMixedData(self) -> None:
+        with patch(
+            f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
+            return_value=False,
+        ):
+            exp = self._setupBraninExperiment(n=5)
+            [exp.trials[i].mark_completed() for i in range(len(exp.trials))]
+
+            # Fill cache with MapData
+            map_data = exp.fetch_data(metrics=[exp.metrics["branin_map"]])
+
+            # Fetch other metrics and merge Data into the cached MapData
+            full_data = exp.fetch_data()
+
+            self.assertEqual(len(full_data.true_df), len(map_data.true_df) + 20)
+
     def testFetchTrialsData(self) -> None:
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]

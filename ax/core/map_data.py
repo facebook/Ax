@@ -15,6 +15,7 @@ from ax.core.data import Data
 from ax.core.types import TMapTrialEvaluation
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
+from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
@@ -273,6 +274,20 @@ class MapData(Data):
         )
 
         return self._memo_df
+
+    @copy_doc(Data.filter)
+    def filter(
+        self,
+        trial_indices: Optional[Iterable[int]] = None,
+        metric_names: Optional[Iterable[str]] = None,
+    ) -> MapData:
+
+        return MapData(
+            df=self._filter_df(
+                df=self.map_df, trial_indices=trial_indices, metric_names=metric_names
+            ),
+            map_key_infos=self.map_key_infos,
+        )
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
