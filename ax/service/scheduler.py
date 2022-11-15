@@ -688,6 +688,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
         """Checks if the failure rate (set in scheduler options) has been exceeded.
 
+        NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
+
         Args:
             force_check: Indicates whether to force a failure-rate check
                 regardless of the number of trials that have been executed. If False
@@ -695,22 +697,24 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 five failed trials. If True, the check will be performed unless there
                 are 0 failures.
         """
-        failed_idcs = self.experiment.trial_indices_by_status[TrialStatus.FAILED]
+        bad_idcs = (
+            self.experiment.trial_indices_by_status[TrialStatus.FAILED]
+            | self.experiment.trial_indices_by_status[TrialStatus.ABANDONED]
+        )
         # We only count failed trials with indices that came after the preexisting
         # trials on experiment before scheduler use.
-        num_failed_in_scheduler = sum(
-            1 for f in failed_idcs if f >= self._num_preexisting_trials
+        num_bad_in_scheduler = sum(
+            1 for f in bad_idcs if f >= self._num_preexisting_trials
         )
 
         # skip check if 0 failures
-        if num_failed_in_scheduler == 0:
+        if num_bad_in_scheduler == 0:
             return
 
         # skip check if fewer than min_failed_trials_for_failure_rate_check failures
         # unless force_check is True
         if (
-            num_failed_in_scheduler
-            < self.options.min_failed_trials_for_failure_rate_check
+            num_bad_in_scheduler < self.options.min_failed_trials_for_failure_rate_check
             and not force_check
         ):
             return
@@ -720,14 +724,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
         failure_rate_exceeded = (
-            num_failed_in_scheduler / num_ran_in_scheduler
+            num_bad_in_scheduler / num_ran_in_scheduler
         ) > self.options.tolerated_trial_failure_rate
 
         if failure_rate_exceeded:
             raise FailureRateExceededError(
                 FAILURE_EXCEEDED_MSG.format(
                     f_rate=self.options.tolerated_trial_failure_rate,
-                    n_failed=num_failed_in_scheduler,
+                    n_failed=num_bad_in_scheduler,
                     n_ran=num_ran_in_scheduler,
                     min_failed=self.options.min_failed_trials_for_failure_rate_check,
                 )
