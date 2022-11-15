@@ -83,7 +83,9 @@ class TestScheduler(Scheduler):
 
     # pyre-fixme[15]: `report_results` overrides method defined in `Scheduler`
     #  inconsistently.
-    def report_results(self) -> Tuple[bool, Dict[str, Set[int]]]:
+    def report_results(
+        self, force_refit: bool = False
+    ) -> Tuple[bool, Dict[str, Set[int]]]:
         # pyre-fixme[7]: Expected `Tuple[bool, Dict[str, Set[int]]]` but got
         #  `Dict[str, Set[int]]`.
         return {

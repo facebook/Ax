@@ -467,11 +467,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             use_model_predictions=use_model_predictions,
         )
 
-    def report_results(self) -> Dict[str, Any]:
+    def report_results(self, force_refit: bool = False) -> Dict[str, Any]:
         """Optional user-defined function for reporting intermediate
         and final optimization results (e.g. make some API call, write to some
         other db). This function is called whenever new results are available during
         the optimization.
+
+        Args:
+            force_refit: Whether to force the implementation of this method to
+                refit the model on generation strategy before using it to produce
+                results to report (e.g. if using model to visualize data).
 
         Returns:
             An optional dictionary with any relevant data about optimization.
@@ -565,6 +570,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def wait_for_completed_trials_and_report_results(
         self,
         idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        force_refit: bool = False,
     ) -> Dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
         backoff, and process the results. Stop once at least one successful
@@ -583,6 +589,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
                 helper function for generating a callback that will update a Plotly
                 figure.
+            force_refit: Whether to force a refit of the model during report_results.
 
         Returns:
             Results of the optimization so far, represented as a
@@ -646,7 +653,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         if idle_callback is not None:
             idle_callback(self)
-        return self.report_results()
+        return self.report_results(force_refit=force_refit)
 
     def should_consider_optimization_complete(self) -> Tuple[bool, str]:
         """Whether this scheduler should consider this optimization complete and not
@@ -848,7 +855,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
 
-            yield self.wait_for_completed_trials_and_report_results(idle_callback)
+            yield self.wait_for_completed_trials_and_report_results(
+                idle_callback, force_refit=True
+            )
 
         yield self._complete_optimization(
             num_preexisting_trials=n_existing, idle_callback=idle_callback
@@ -1211,7 +1220,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             num_preexisting_trials=num_preexisting_trials,
             status=RunTrialsStatus.ABORTED,
         )
-        return self.report_results()
+        return self.report_results(force_refit=True)
 
     def _complete_optimization(
         self,
@@ -1224,7 +1233,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         self._record_optimization_complete_message()
         res = self.wait_for_completed_trials_and_report_results(
-            idle_callback=idle_callback
+            idle_callback=idle_callback, force_refit=True
         )
         # Raise an error if the failure rate exceeds tolerance at the
         # end of the optimization.
