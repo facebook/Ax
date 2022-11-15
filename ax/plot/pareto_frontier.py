@@ -61,7 +61,7 @@ def scatter_plot_with_pareto_frontier_plotly(
 
     Points in the scatter are colored in a gradient representing their trial index,
     with metric_x on x-axis and metric_y on y-axis. Reference point is represented
-    as a star and Pareto frontier –– as a line. The frontier connects to the reference
+    as a star and Pareto frontier –– as a line. The frontier connects to the reference
     point via projection lines.
 
     NOTE: Both metrics should have the same minimization setting, passed as `minimize`.
@@ -848,12 +848,13 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
             for objective_threshold in objective_thresholds
         }
         missing_metric_names = set(metric_names) - set(constraint_metric_names)
-        if len(objective_thresholds) != len(metric_names) or missing_metric_names:
+        if missing_metric_names:
             warnings.warn(
                 "For automatic inference of reference point, expected one "
                 "`objective_threshold` for each metric in `metric_names`: "
-                f"{metric_names}. Got {len(objective_thresholds)}: "
-                f"{objective_thresholds}. Please specify `reference_point` or provide "
+                f"{metric_names}. Missing {missing_metric_names}. Got "
+                f"{len(objective_thresholds)}: {objective_thresholds}. "
+                "Please specify `reference_point` or provide "
                 "an experiment whose `optimization_config` contains one "
                 "objective threshold for each metric. Returning an empty list."
             )
