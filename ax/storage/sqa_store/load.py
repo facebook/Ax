@@ -10,7 +10,7 @@ from typing import Any, cast, Dict, List, Optional, Type
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
-from ax.exceptions.core import ObjectNotFoundError
+from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
@@ -136,7 +136,7 @@ def _get_experiment_sqa(
         sqa_experiment = query.one_or_none()
 
     if sqa_experiment is None:
-        raise ObjectNotFoundError(f"Experiment '{experiment_name}' not found.")
+        raise ExperimentNotFoundError(f"Experiment '{experiment_name}' not found.")
 
     sqa_trials = _get_trials_sqa(
         experiment_id=sqa_experiment.id,
@@ -248,7 +248,7 @@ def _get_experiment_immutable_opt_config_and_search_space(
             .one_or_none()
         )
         if sqa_experiment_properties is None:
-            raise ObjectNotFoundError(f"Experiment '{experiment_name}' not found.")
+            raise ExperimentNotFoundError(f"Experiment '{experiment_name}' not found.")
 
     sqa_experiment_properties = sqa_experiment_properties[0] or {}
     return sqa_experiment_properties.get(
