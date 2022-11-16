@@ -54,6 +54,18 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(
                 sobol_gpei._steps[1].model_kwargs, {"torch_device": device}
             )
+        with self.subTest("max initialization trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                max_initialization_trials=2,
+            )
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol_gpei._steps[0].model.value, "Sobol")
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
+            # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
+            #  ModelRegistryBase]` has no attribute `value`.
+            self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
