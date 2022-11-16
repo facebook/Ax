@@ -227,6 +227,7 @@ def choose_generation_strategy(
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
+    max_initialization_trials: Optional[int] = None,
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
@@ -271,6 +272,9 @@ def choose_generation_strategy(
             known in advance.
         num_initialization_trials: Specific number of initialization trials, if wanted.
             Typically, initialization trials are generated quasi-randomly.
+        max_initialization_trials: If ``num_initialization_trials`` unspecified, it
+            will be determined automatically. This arg provides a cap on that
+            automatically determined number.
         max_parallelism_cap: Integer cap on parallelism in this generation strategy.
             If specified, ``max_parallelism`` setting in each generation step will be
             set to the minimum of the default setting for that step and the value of
@@ -370,6 +374,10 @@ def choose_generation_strategy(
             else:  # 1-arm trials.
                 num_initialization_trials = max(
                     5, 2 * len(search_space.tunable_parameters)
+                )
+            if max_initialization_trials is not None:
+                num_initialization_trials = min(
+                    num_initialization_trials, max_initialization_trials
                 )
 
         # `verbose` and `disable_progbar` defaults and overrides
