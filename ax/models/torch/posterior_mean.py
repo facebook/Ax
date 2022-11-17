@@ -8,11 +8,13 @@
 from typing import Any, Optional, Tuple
 
 import torch
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model
+from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.utils import (
     get_objective_weights_transform,
     get_outcome_constraint_transforms,
@@ -57,7 +59,7 @@ def get_PosteriorMean(
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
         with torch.no_grad():
-            Y = model.posterior(X_observed).mean
+            Y = checked_cast(GPyTorchPosterior, model.posterior(X_observed)).mean
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)

@@ -37,7 +37,7 @@ from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputO
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
 
@@ -50,7 +50,7 @@ LIST_SURROGATE_PATH: str = ListSurrogate.__module__
 NEHVI_PATH: str = qNoisyExpectedHypervolumeImprovement.__module__
 
 ACQ_OPTIONS: Dict[Keys, SobolQMCNormalSampler] = {
-    Keys.SAMPLER: SobolQMCNormalSampler(1024)
+    Keys.SAMPLER: SobolQMCNormalSampler(sample_shape=torch.Size([1024]))
 }
 
 

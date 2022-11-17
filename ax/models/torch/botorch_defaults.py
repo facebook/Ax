@@ -253,7 +253,7 @@ def _get_acquisition_func(
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
         with torch.no_grad():
-            Y = model.posterior(X_observed).mean
+            Y = model.posterior(X_observed).mean  # pyre-ignore [16]
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)

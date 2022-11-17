@@ -19,7 +19,7 @@ from botorch.acquisition.max_value_entropy_search import (
 )
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
-from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset
 
 

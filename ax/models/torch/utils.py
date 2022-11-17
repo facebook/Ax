@@ -43,7 +43,9 @@ from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
 from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
-from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
+from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.posteriors.posterior_list import PosteriorList
+from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
@@ -576,7 +578,9 @@ def pick_best_out_of_sample_point_acqf_class(
         acqf_class = qSimpleRegret
         sampler_class = SobolQMCNormalSampler if qmc else IIDNormalSampler
         acqf_options = {
-            Keys.SAMPLER.value: sampler_class(num_samples=mc_samples, seed=seed_inner)
+            Keys.SAMPLER.value: sampler_class(
+                sample_shape=torch.Size([mc_samples]), seed=seed_inner
+            )
         }
 
     return cast(Type[AcquisitionFunction], acqf_class), acqf_options
@@ -603,9 +607,13 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
         if isinstance(posterior, FullyBayesianPosterior):
             mean = posterior.mixture_mean.cpu().detach()
             var = posterior.mixture_variance.cpu().detach().clamp_min(0)
-        else:
+        elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
             mean = posterior.mean.cpu().detach()
             var = posterior.variance.cpu().detach().clamp_min(0)
+        else:  # pragma: no cover
+            raise UnsupportedError(
+                "Non-Gaussian posteriors are currently not supported."
+            )
     cov = torch.diag_embed(var)
     return mean, cov
 

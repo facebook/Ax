@@ -36,7 +36,7 @@ from botorch.models.cost import AffineFidelityCostModel
 from botorch.models.model import Model
 from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.optim.optimize import optimize_acqf
-from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
+from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from torch import Tensor
 
 
@@ -286,9 +286,13 @@ def _instantiate_KG(
     acquisition function depending on whether `target_fidelities` is defined.
     """
     sampler_cls = SobolQMCNormalSampler if qmc else IIDNormalSampler
-    fantasy_sampler = sampler_cls(num_samples=n_fantasies, seed=seed_outer)
+    fantasy_sampler = sampler_cls(
+        sample_shape=torch.Size([n_fantasies]), seed=seed_outer
+    )
     if isinstance(objective, MCAcquisitionObjective):
-        inner_sampler = sampler_cls(num_samples=mc_samples, seed=seed_inner)
+        inner_sampler = sampler_cls(
+            sample_shape=torch.Size([mc_samples]), seed=seed_inner
+        )
     else:
         inner_sampler = None
     if target_fidelities:

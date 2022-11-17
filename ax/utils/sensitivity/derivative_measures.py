@@ -10,8 +10,9 @@ import torch
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from botorch.models.model import Model
+from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.posteriors.posterior import Posterior
-from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
@@ -88,11 +89,13 @@ class GpDGSMGpMean(object):
             )
         else:
             self.input_mc_samples.requires_grad = True
-            posterior = model.posterior(self.input_mc_samples)
+            posterior = checked_cast(
+                GPyTorchPosterior, model.posterior(self.input_mc_samples)
+            )
         self._compute_gradient_quantities(posterior, Y_scale)
 
     def _compute_gradient_quantities(
-        self, posterior: Union[Posterior, MultivariateNormal], Y_scale: float
+        self, posterior: Union[GPyTorchPosterior, MultivariateNormal], Y_scale: float
     ) -> None:
         if self.derivative_gp:
             self.mean_gradients = checked_cast(torch.Tensor, posterior.mean) * Y_scale
@@ -261,7 +264,9 @@ class GpDGSMGpSampling(GpDGSMGpMean):
         self, posterior: Union[Posterior, MultivariateNormal], Y_scale: float
     ) -> None:
         if self.gp_sample_qmc:
-            sampler = SobolQMCNormalSampler(num_samples=self.num_gp_samples, seed=0)
+            sampler = SobolQMCNormalSampler(
+                sample_shape=torch.Size([self.num_gp_samples]), seed=0
+            )
             samples = sampler(posterior)
         else:
             samples = posterior.rsample(torch.Size([self.num_gp_samples]))
