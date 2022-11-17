@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+from functools import reduce
 from hashlib import md5
 from typing import Any, Dict, Iterable, Optional, Set, Type
 
@@ -225,6 +226,48 @@ class Data(Base, SerializationMixin):
         this object.
         """
         return set() if self.df.empty else set(self.df["metric_name"].values)
+
+    def filter(
+        self,
+        trial_indices: Optional[Iterable[int]] = None,
+        metric_names: Optional[Iterable[str]] = None,
+    ) -> Data:
+        """Construct a new Data object with the subset of rows corresponding to the
+        provided trial indices AND metric names. If either trial_indices or
+        metric_names are not provided, that dimension will not be filtered.
+        """
+
+        return Data(
+            df=self._filter_df(
+                df=self.df, trial_indices=trial_indices, metric_names=metric_names
+            )
+        )
+
+    @staticmethod
+    def _filter_df(
+        df: pd.DataFrame,
+        trial_indices: Optional[Iterable[int]] = None,
+        metric_names: Optional[Iterable[str]] = None,
+    ) -> pd.DataFrame:
+        trial_indices_mask = (
+            reduce(
+                lambda left, right: left | right,
+                [df["trial_index"] == trial_index for trial_index in trial_indices],
+            )
+            if trial_indices is not None
+            else pd.Series([True] * len(df))
+        )
+
+        metric_names_mask = (
+            reduce(
+                lambda left, right: left | right,
+                [df["metric_name"] == metric_name for metric_name in metric_names],
+            )
+            if metric_names is not None
+            else pd.Series([True] * len(df))
+        )
+
+        return df.loc[trial_indices_mask & metric_names_mask]
 
     def get_filtered_results(self, **filters: Dict[str, Any]) -> pd.DataFrame:
         """Return filtered subset of data.

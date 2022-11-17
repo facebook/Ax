@@ -421,22 +421,14 @@ class Metric(SortableBase, SerializationMixin):
     @classmethod
     def _wrap_experiment_data(cls, data: Data) -> Dict[int, MetricFetchResult]:
         return {
-            trial_index: Ok(
-                value=Data(
-                    df=data.true_df.loc[data.true_df["trial_index"] == trial_index]
-                )
-            )
+            trial_index: Ok(value=data.filter(trial_indices=[trial_index]))
             for trial_index in data.true_df["trial_index"]
         }
 
     @classmethod
     def _wrap_trial_data_multi(cls, data: Data) -> Dict[str, MetricFetchResult]:
         return {
-            metric_name: Ok(
-                value=Data(
-                    df=data.true_df.loc[data.true_df["metric_name"] == metric_name]
-                )
-            )
+            metric_name: Ok(value=data.filter(metric_names=[metric_name]))
             for metric_name in data.true_df["metric_name"]
         }
 
@@ -448,11 +440,8 @@ class Metric(SortableBase, SerializationMixin):
         return {
             trial_index: {
                 metric_name: Ok(
-                    value=Data(
-                        df=data.true_df.loc[
-                            (data.true_df["trial_index"] == trial_index)
-                            & (data.true_df["metric_name"] == metric_name)
-                        ]
+                    value=data.filter(
+                        trial_indices=[trial_index], metric_names=[metric_name]
                     )
                 )
                 for metric_name in data.true_df["metric_name"]
