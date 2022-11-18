@@ -65,10 +65,12 @@ from ax.models.torch.fully_bayesian_model_utils import (
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import AcquisitionFunction
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.posteriors.gpytorch import GPyTorchPosterior
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -97,7 +99,7 @@ def predict_from_model_mcmc(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     """
     with torch.no_grad():
         # compute the batch (independent posterior over the inputs)
-        posterior = model.posterior(X.unsqueeze(-3))
+        posterior = checked_cast(GPyTorchPosterior, model.posterior(X.unsqueeze(-3)))
     # the mean and variance both have shape: n x num_samples x m (after squeezing)
     mean = posterior.mean.cpu().detach()
     # TODO: Allow Posterior to (optionally) return the full covariance matrix

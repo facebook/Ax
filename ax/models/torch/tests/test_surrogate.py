@@ -27,7 +27,7 @@ from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.model import Model
 from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
-from botorch.sampling.samplers import SobolQMCNormalSampler
+from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import Interval
 from gpytorch.kernels import Kernel, RBFKernel, ScaleKernel  # noqa: F401

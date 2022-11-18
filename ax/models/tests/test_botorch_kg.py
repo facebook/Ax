@@ -23,7 +23,7 @@ from botorch.acquisition.objective import (
 )
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
-from botorch.sampling.samplers import IIDNormalSampler, SobolQMCNormalSampler
+from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset
 
 

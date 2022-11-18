@@ -29,6 +29,7 @@ from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf_list
+from botorch.sampling.normal import IIDNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
@@ -446,6 +447,12 @@ class BotorchMOOModelTest(TestCase):
                 metric_names=["y1", "y2", "dummy_metric"],
                 search_space_digest=search_space_digest,
             )
+            es.enter_context(
+                mock.patch(
+                    "ax.models.torch.botorch_moo_defaults.checked_cast",
+                    wraps=lambda x, y: y,
+                )
+            )
             _mock_model_infer_objective_thresholds = es.enter_context(
                 mock.patch(
                     "ax.models.torch.botorch_moo.infer_objective_thresholds",
@@ -490,6 +497,12 @@ class BotorchMOOModelTest(TestCase):
                     model.model,
                     "subset_output",
                     return_value=subset_mock_model,
+                )
+            )
+            es.enter_context(
+                mock.patch(
+                    "botorch.acquisition.utils.get_sampler",
+                    return_value=IIDNormalSampler(sample_shape=torch.Size([2])),
                 )
             )
             outcome_constraints = (

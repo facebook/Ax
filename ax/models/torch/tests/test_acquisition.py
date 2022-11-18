@@ -513,10 +513,15 @@ class AcquisitionTest(TestCase):
         acquisition.evaluate(X=self.X)
         mock_evaluate.assert_called_with(X=self.X)
 
+    @mock.patch(  # pyre-ignore
+        "ax.models.torch.botorch_moo_defaults.checked_cast",
+        wraps=lambda x, y: y,
+    )
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     def test_init_moo(
         self,
         mock_get_X: Mock,
+        _,
     ) -> None:
         moo_training_data = [SupervisedDataset(X=self.X, Y=self.Y.repeat(1, 3))]
         moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
