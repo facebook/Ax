@@ -323,7 +323,7 @@ def interact_slice_plotly(
 
     # Populate `pbuttons`, which allows the user to select 1D slices of parameter
     # space with the chosen parameter on the x-axis.
-    range_parameters = get_range_parameters(model)
+    range_parameters = get_range_parameters(model, min_num_values=5)
     param_names = [parameter.name for parameter in range_parameters]
     pbuttons = []
     init_traces = []

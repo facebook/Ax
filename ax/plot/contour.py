@@ -374,7 +374,7 @@ def interact_contour_plotly(
             slice_values = {}
         slice_values["TRIAL_PARAM"] = str(trial_index)
 
-    range_parameters = get_range_parameters(model)
+    range_parameters = get_range_parameters(model, min_num_values=5)
     plot_data, _, _ = get_plot_data(
         model, generator_runs_dict or {}, {metric_name}, fixed_features=fixed_features
     )
