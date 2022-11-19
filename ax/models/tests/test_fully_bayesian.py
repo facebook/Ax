@@ -11,7 +11,7 @@ from contextlib import ExitStack
 from itertools import product
 from logging import Logger
 from math import sqrt
-from typing import Dict, Type
+from typing import Any, Dict, Type
 from unittest import mock
 
 import torch
@@ -54,79 +54,20 @@ def _get_dummy_mcmc_samples(
     device: torch.device,
     perturb_sd: float = 1e-6,
 ) -> Dict[str, torch.Tensor]:
-    tkwargs = {"dtype": dtype, "device": device}
+    tkwargs: Dict[str, Any] = {"dtype": dtype, "device": device}
     dummy_sample_list = []
     for i in range(num_outputs):
         dummy_samples = {
             # use real MAP values with tiny perturbations
             # so that the generation code below has feasible in-sample
             # points
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
-            #  dtype]`.
             "lengthscale": (i + 1) * torch.tensor([[1 / 3, 1 / 3, 1 / 3]], **tkwargs)
-            # pyre-fixme[6]: For 4th param expected `Optional[Sequence[Union[None,
-            #  ellipsis, str]]]` but got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 4th param expected `Optional[bool]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 4th param expected `Optional[Generator]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 4th param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 4th param expected `Optional[layout]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 4th param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, 1, 3, **tkwargs),
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
-            #  dtype]`.
             "outputscale": (i + 1) * torch.tensor(2.3436, **tkwargs)
-            # pyre-fixme[6]: For 2nd param expected `Optional[Sequence[Union[None,
-            #  ellipsis, str]]]` but got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[bool]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[Generator]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[layout]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, **tkwargs),
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
-            #  dtype]`.
             "mean": (i + 1) * torch.tensor([3.5000], **tkwargs)
-            # pyre-fixme[6]: For 2nd param expected `Optional[Sequence[Union[None,
-            #  ellipsis, str]]]` but got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[bool]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[Generator]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[layout]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
             + perturb_sd * torch.randn(num_samples, **tkwargs),
         }
-        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
         dummy_samples["kernel_tausq"] = (i + 1) * torch.tensor(0.5, **tkwargs)
         dummy_samples["_kernel_inv_length_sq"] = (
             # pyre-fixme[6]: For 2nd param expected `Tensor` but got `float`.
@@ -147,9 +88,9 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 class BaseFullyBayesianBotorchModelTest(ABC):
     model_cls: Type[FullyBayesianBotorchModel]
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_FullyBayesianBotorchModel(self, dtype=torch.float, cuda=False):
+    def test_FullyBayesianBotorchModel(
+        self, dtype: torch.dtype = torch.float, cuda: bool = False
+    ) -> None:
         # test deprecation warning
         warnings.resetwarnings()  # this is necessary for building in mode/opt
         warnings.simplefilter("always", append=True)
@@ -191,7 +132,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 self.assertTrue(model.use_input_warping)
             # Test ModelListGP
             # make training data different for each output
-            tkwargs = {"dtype": dtype, "device": Xs1[0].device}
+            tkwargs: Dict[str, Any] = {"dtype": dtype, "device": Xs1[0].device}
             dummy_samples_list = _get_dummy_mcmc_samples(
                 num_samples=4, num_outputs=2, **tkwargs
             )
