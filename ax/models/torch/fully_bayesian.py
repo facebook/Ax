@@ -34,7 +34,6 @@ from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
-import pyro  # @manual=//third-party-source/native/pyro:pyro
 import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
@@ -67,6 +66,7 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import AcquisitionFunction
+from botorch.models.fully_bayesian import _psd_safe_pyro_mvn_sample
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -234,12 +234,10 @@ def single_task_pyro_model(
     # add noise
     k = outputscale * k + noise * torch.eye(X.shape[0], dtype=X.dtype, device=X.device)
 
-    pyro.sample(
-        "Y",
-        pyro.distributions.MultivariateNormal(  # pyre-ignore [16]
-            loc=mean.view(-1).expand(X.shape[0]),
-            covariance_matrix=k,
-        ),
+    _psd_safe_pyro_mvn_sample(
+        name="Y",
+        loc=mean.view(-1).expand(X.shape[0]),
+        covariance_matrix=k,
         obs=Y,
     )
 
