@@ -527,6 +527,9 @@ class Experiment(Base):
         available while trial is running is determined by the boolean returned from its
         `is_available_while_running` class method.
 
+        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        lose rows) if Experiment.default_data_type is misconfigured!
+
         Args:
             metrics: If provided, fetch data for these metrics instead of the ones
                 defined on the experiment.
@@ -567,6 +570,9 @@ class Experiment(Base):
         via calls to `experiment.attach_data` and whetner a given metric class is
         available while trial is running is determined by the boolean returned from its
         `is_available_while_running` class method.
+
+        NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        lose rows) if Experiment.default_data_type is misconfigured!
 
         Args:
             trial_indices: Indices of trials, for which to fetch data.

@@ -361,9 +361,7 @@ def compute_posterior_pareto_frontier(
     if not data:
         try:
             data = (
-                Metric._unwrap_trial_data_multi(
-                    results=experiment.trials[trial_index].fetch_data()
-                )
+                experiment.trials[trial_index].fetch_data()
                 if trial_index
                 else experiment.fetch_data()
             )

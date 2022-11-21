@@ -5,13 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 import itertools
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
+from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_arms, get_experiment, get_objective
 
@@ -204,6 +205,19 @@ class TrialTest(TestCase):
     def test_objective_mean_empty_df(self, _mock):
         with self.assertRaisesRegex(ValueError, "not yet in data for trial."):
             self.assertIsNone(self.trial.objective_mean)
+
+    @patch(
+        f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
+        return_value={get_objective().metric.name: Ok(TEST_DATA)},
+    )
+    def test_fetch_data_result(self, mock: Mock) -> None:
+        metric_name = get_objective().metric.name
+        results = self.experiment.trials[0].fetch_data_results()
+
+        self.assertTrue(results[metric_name].is_ok())
+        self.assertEqual(
+            results[metric_name].ok, self.experiment.trials[0].fetch_data()
+        )
 
     def testRepr(self) -> None:
         repr_ = (

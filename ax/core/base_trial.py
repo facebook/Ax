@@ -14,6 +14,8 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata
@@ -464,10 +466,30 @@ class BaseTrial(ABC, SortableBase):
             self.mark_completed()
         return self
 
-    def fetch_data(
+    def fetch_data_results(
         self, metrics: Optional[List[Metric]] = None, **kwargs: Any
     ) -> Dict[str, MetricFetchResult]:
+        """Fetch data results for this trial for all metrics on experiment.
+
+        Args:
+            trial_index: The index of the trial to fetch data for.
+            metrics: If provided, fetch data for these metrics instead of the ones
+                defined on the experiment.
+            kwargs: keyword args to pass to underlying metrics' fetch data functions.
+
+        Returns:
+            MetricFetchResults for this trial.
+        """
+
+        return self.experiment._fetch_trial_data(
+            trial_index=self.index, metrics=metrics, **kwargs
+        )
+
+    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
         """Fetch data for this trial for all metrics on experiment.
+
+        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        # lose rows)if some if Experiment.default_data_type is misconfigured!
 
         Args:
             trial_index: The index of the trial to fetch data for.
@@ -478,8 +500,12 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             Data for this trial.
         """
-        return self.experiment._fetch_trial_data(
-            trial_index=self.index, metrics=metrics, **kwargs
+        base_metric_cls = (
+            MapMetric if self.experiment.default_data_constructor == MapData else Metric
+        )
+
+        return base_metric_cls._unwrap_trial_data_multi(
+            results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
 
     def lookup_data(
