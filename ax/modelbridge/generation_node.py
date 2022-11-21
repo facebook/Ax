@@ -293,6 +293,17 @@ class GenerationStep(GenerationNode, SortableBase):
     index: int = -1  # Index of this step, set internally.
 
     def __post_init__(self) -> None:
+        if (
+            self.enforce_num_trials
+            and (self.num_trials >= 0)
+            and (self.min_trials_observed > self.num_trials)
+        ):
+            raise UserInputError(
+                "`GenerationStep` received `min_trials_observed > num_trials` "
+                f"(`min_trials_observed = {self.min_trials_observed}`, `num_trials = "
+                f"{self.num_trials}`), making completion of this step impossible. "
+                "Please alter inputs so that `min_trials_observed <= num_trials`."
+            )
         if not isinstance(self.model, ModelRegistryBase):
             if not callable(self.model):
                 raise UserInputError(  # pragma: no cover
