@@ -1107,8 +1107,8 @@ class Experiment(Base):
             copy_run_metadata_keys: A list of keys denoting which items to copy over
                 from each trial's run_metadata.
             trial_statuses_to_copy: All trials with a status in this list will be
-                copied. By default, copies all ``COMPLETED``, ``ABANDONED``, and
-                ``EARLY_STOPPED`` trials.
+                copied. By default, copies all ``RUNNING``, ``COMPLETED``,
+                ``ABANDONED``, and ``EARLY_STOPPED`` trials.
 
         Returns:
             List of trials successfully copied from old_experiment to this one
