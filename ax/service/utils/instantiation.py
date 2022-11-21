@@ -93,6 +93,28 @@ class MetricObjective(enum.Enum):
 
 @dataclass
 class ObjectiveProperties:
+    r"""Class that holds properties of objective functions. Can be used to define an
+    the `objectives` argument of ax_client.create_experiment, e.g.:
+
+        ax_client.create_experiment(
+            name="moo_experiment",
+            parameters=[...],
+            objectives={
+                # `threshold` arguments are optional
+                "a": ObjectiveProperties(minimize=False, threshold=ref_point[0]),
+                "b": ObjectiveProperties(minimize=False, threshold=ref_point[1]),
+            },
+        )
+
+    Args:
+        - minimize: Boolean indicating whether the objective is to be minimized
+            or maximized.
+        - threshold: Optional `float` representing the smallest objective value
+            (resp. largest if minimize=True) that is considered valuable in the context
+            of multi-objective optimization. In BoTorch and in the literature, this is
+            also known as an element of the reference point vector that defines the
+            hyper-volume of the Pareto front.
+    """
     minimize: bool
     threshold: Optional[float] = None
 
