@@ -11,7 +11,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -376,9 +375,7 @@ class SQAStoreTest(TestCase):
         save_experiment(exp)
         generator_run = Models.SOBOL(search_space=exp.search_space).gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
-        exp.attach_data(
-            MapMetric._unwrap_trial_data_multi(results=trial.run().fetch_data())
-        )
+        exp.attach_data(trial.run().fetch_data())
         save_or_update_trials(
             experiment=exp,
             trials=[trial],

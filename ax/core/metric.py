@@ -309,6 +309,10 @@ class Metric(SortableBase, SerializationMixin):
 
     @classmethod
     def _unwrap_experiment_data(cls, results: Mapping[int, MetricFetchResult]) -> Data:
+        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        # lose rows)if some MetricFetchResults contain Data not of type
+        # `cls.data_constructor`
+
         oks: List[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
@@ -340,6 +344,10 @@ class Metric(SortableBase, SerializationMixin):
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
         critical_metric_names: Optional[Iterable[str]] = None,
     ) -> Data:
+        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        # lose rows)if some MetricFetchResults contain Data not of type
+        # `cls.data_constructor`
+
         oks: List[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
@@ -391,6 +399,10 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         results: Mapping[int, Mapping[str, MetricFetchResult]],
     ) -> Data:
+        # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
+        # lose rows)if some MetricFetchResults contain Data not of type
+        # `cls.data_constructor`
+
         flattened = [
             result for sublist in results.values() for result in sublist.values()
         ]

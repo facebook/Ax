@@ -194,9 +194,7 @@ class MultiTypeExperiment(Experiment):
     ) -> Data:
         return self.default_data_constructor.from_multiple_data(
             [
-                Metric._unwrap_trial_data_multi(
-                    results=trial.fetch_data(**kwargs, metrics=metrics)
-                )
+                trial.fetch_data(**kwargs, metrics=metrics)
                 if trial.status.expecting_data
                 else Data()
                 for trial in self.trials.values()
