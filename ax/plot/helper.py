@@ -13,7 +13,13 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import Observation, ObservationFeatures
-from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    Parameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.prediction_utils import predict_at_point
@@ -391,20 +397,45 @@ def get_range_parameter(model: ModelBridge, param_name: str) -> RangeParameter:
     return range_param
 
 
-def get_range_parameters(model: ModelBridge) -> List[RangeParameter]:
+def get_range_parameters_from_list(
+    parameters: List[Parameter], min_num_values: int = 0
+) -> List[RangeParameter]:
     """
     Get a list of range parameters from a model.
 
     Args:
-        model: The model.
+        parameters: List of parameters
+        min_num_values: Minimum number of values
 
     Returns: List of RangeParameters.
     """
     return [
         parameter
-        for parameter in model.model_space.parameters.values()
+        for parameter in parameters
         if isinstance(parameter, RangeParameter)
+        and (
+            parameter.parameter_type == ParameterType.FLOAT
+            or parameter.upper - parameter.lower + 1 >= min_num_values
+        )
     ]
+
+
+def get_range_parameters(
+    model: ModelBridge, min_num_values: int = 0
+) -> List[RangeParameter]:
+    """
+    Get a list of range parameters from a model.
+
+    Args:
+        model: The model.
+        min_num_values: Minimum number of values
+
+    Returns: List of RangeParameters.
+    """
+    return get_range_parameters_from_list(
+        parameters=list(model.model_space.parameters.values()),
+        min_num_values=min_num_values,
+    )
 
 
 def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarray:
