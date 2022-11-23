@@ -435,6 +435,34 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "optimization config not set because it was missing objectives"
             )
 
+    def add_tracking_metrics(
+        self,
+        metric_names: List[str],
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> None:
+        """Add a list of new metrics to the experiment.
+
+        If any of the metrics are already defined on the experiment,
+        we raise an error and don't add any of them to the experiment
+
+        Args:
+            metric_names: Names of metrics to be added.
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
+        """
+        self.experiment.add_tracking_metrics(
+            metrics=[
+                self._make_metric(
+                    name=metric_name, metric_definitions=metric_definitions
+                )
+                for metric_name in metric_names
+            ]
+        )
+
+    @copy_doc(Experiment.remove_tracking_metric)
+    def remove_tracking_metric(self, metric_name: str) -> None:
+        self.experiment.remove_tracking_metric(metric_name=metric_name)
+
     def set_search_space(
         self,
         parameters: List[
