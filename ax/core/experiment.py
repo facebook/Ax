@@ -324,8 +324,7 @@ class Experiment(Base):
             self._default_data_type = DataType.MAP_DATA
 
     @property
-    # pyre-fixme[24]: Generic type `OrderedDict` expects 2 type parameters.
-    def data_by_trial(self) -> Dict[int, OrderedDict]:
+    def data_by_trial(self) -> Dict[int, OrderedDict[int, Data]]:
         """Data stored on the experiment, indexed by trial index and storage time.
 
         First key is trial index and second key is storage time in milliseconds.
