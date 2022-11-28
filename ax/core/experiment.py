@@ -1158,6 +1158,12 @@ class Experiment(Base):
                 f"Warm start from Experiment: `{old_experiment._name}`, "
                 f"trial: `{trial.index}`"
             )
+            # Associates a generation_model_key to the new trial.
+            generation_model_key = trial._properties.get("generation_model_key")
+            if generation_model_key is None and trial.generator_run is not None:
+                generation_model_key = trial.generator_run._model_key or "Manual"
+            new_trial._properties["generation_model_key"] = generation_model_key
+
             if copy_run_metadata_keys is not None:
                 for run_metadata_field in copy_run_metadata_keys:
                     new_trial.update_run_metadata(
