@@ -416,11 +416,16 @@ def _merge_trials_dict_with_df(
 
 
 def _get_generation_method_str(trial: BaseTrial) -> str:
+    trial_generation_property = trial._properties.get("generation_model_key")
+    if trial_generation_property is not None:
+        return trial_generation_property
+
     generation_methods = {
         not_none(generator_run._model_key)
         for generator_run in trial.generator_runs
         if generator_run._model_key is not None
     }
+
     # add "Manual" if any generator_runs are manual
     if any(
         generator_run.generator_run_type == GeneratorRunType.MANUAL.name
