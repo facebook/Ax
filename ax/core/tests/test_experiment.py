@@ -20,6 +20,7 @@ from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
+from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
@@ -1051,6 +1052,9 @@ class ExperimentWithMapDataTest(TestCase):
             )
             self.assertRegex(
                 trial._properties["source"], "Warm start.*Experiment.*trial"
+            )
+            self.assertEqual(
+                trial._properties["generation_model_key"], Models.SOBOL.value
             )
             self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
