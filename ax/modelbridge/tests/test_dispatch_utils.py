@@ -11,6 +11,7 @@ import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.dispatch_utils import (
+    calculate_num_initialization_trials,
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
@@ -558,3 +559,65 @@ class TestDispatchUtils(TestCase):
         exp = get_experiment()
         gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)
         self.assertEqual(gs._experiment, exp)
+
+    def test_calculate_num_initialization_trials(self) -> None:
+
+        with self.subTest("one trial for batch trials"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=2,
+                    num_trials=None,
+                    use_batch_trials=True,
+                ),
+                1,
+            )
+
+        with self.subTest("num_trials is unset, small exp"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=2,
+                    num_trials=None,
+                    use_batch_trials=False,
+                ),
+                5,
+            )
+
+        with self.subTest("num_trials is unset, large exp"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=10,
+                    num_trials=None,
+                    use_batch_trials=False,
+                ),
+                20,
+            )
+
+        with self.subTest("many trials"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=10,
+                    num_trials=200,
+                    use_batch_trials=False,
+                ),
+                20,
+            )
+
+        with self.subTest("limited trials"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=10,
+                    num_trials=50,
+                    use_batch_trials=False,
+                ),
+                10,
+            )
+
+        with self.subTest("few trials"):
+            self.assertEqual(
+                calculate_num_initialization_trials(
+                    num_tunable_parameters=10,
+                    num_trials=10,
+                    use_batch_trials=False,
+                ),
+                5,
+            )
