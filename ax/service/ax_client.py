@@ -509,13 +509,13 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # Check if the global stopping strategy suggests to stop the optimization.
         # This is needed only if there is actually a stopping strategy specified,
         # and if this function is not forced to generate a new trial.
-        if self._global_stopping_strategy and (not force):
-            # The strategy itslef will check if enough trials have already been
+        if self.global_stopping_strategy and (not force):
+            # The strategy itself will check if enough trials have already been
             # completed.
             (
                 stop_optimization,
                 global_stopping_message,
-            ) = self._global_stopping_strategy.should_stop_optimization(
+            ) = self.global_stopping_strategy.should_stop_optimization(
                 experiment=self.experiment
             )
             if stop_optimization:
@@ -1468,6 +1468,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def metric_names(self) -> Set[str]:
         """Returns the names of all metrics on the attached experiment."""
         return set(self.experiment.metrics)
+
+    @property
+    def global_stopping_strategy(self) -> Optional[BaseGlobalStoppingStrategy]:
+        """The global stopping strategy used on the experiment."""
+        return self._global_stopping_strategy
+
+    @global_stopping_strategy.setter
+    def global_stopping_strategy(self, gss: BaseGlobalStoppingStrategy) -> None:
+        """Update the global stopping strategy."""
+        self._global_stopping_strategy = gss
 
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
