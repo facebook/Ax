@@ -560,6 +560,25 @@ class TestDispatchUtils(TestCase):
         gs = choose_generation_strategy(search_space=exp.search_space, experiment=exp)
         self.assertEqual(gs._experiment, exp)
 
+    def test_setting_num_completed_initialization_trials(self) -> None:
+        default_initialization_num_trials = 5
+        sobol_gpei = choose_generation_strategy(search_space=get_branin_search_space())
+
+        self.assertEqual(
+            sobol_gpei._steps[0].num_trials, default_initialization_num_trials
+        )
+
+        num_completed_initialization_trials = 2
+        sobol_gpei = choose_generation_strategy(
+            search_space=get_branin_search_space(),
+            num_completed_initialization_trials=num_completed_initialization_trials,
+        )
+
+        self.assertEqual(
+            sobol_gpei._steps[0].num_trials,
+            default_initialization_num_trials - num_completed_initialization_trials,
+        )
+
     def test_calculate_num_initialization_trials(self) -> None:
 
         with self.subTest("one trial for batch trials"):
