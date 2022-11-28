@@ -214,6 +214,27 @@ def _suggest_gp_model(
     return None
 
 
+def calculate_num_initialization_trials(
+    num_tunable_parameters: int,
+    num_trials: Optional[int],
+    use_batch_trials: bool,
+) -> int:
+    """
+    Applies rules from high to low priority
+     - 1 for batch trials.
+     - At least 5
+     - At most 1/5th of num_trials.
+     - Twice the number of tunable parameters
+    """
+    if use_batch_trials:  # Batched trials.
+        return 1
+
+    ret = 2 * num_tunable_parameters
+    if num_trials is not None:
+        ret = min(ret, not_none(num_trials) // 5)
+    return max(ret, 5)
+
+
 def choose_generation_strategy(
     search_space: SearchSpace,
     *,
@@ -362,24 +383,15 @@ def choose_generation_strategy(
 
         # If number of initialization trials is not specified, estimate it.
         if num_initialization_trials is None:
-            if use_batch_trials:  # Batched trials.
-                num_initialization_trials = 1
-            elif num_trials is not None:  # 1-arm trials with specified `num_trials`.
-                num_initialization_trials = max(
-                    5,
-                    min(
-                        not_none(num_trials) // 5,
-                        2 * len(search_space.tunable_parameters),
-                    ),
-                )
-            else:  # 1-arm trials.
-                num_initialization_trials = max(
-                    5, 2 * len(search_space.tunable_parameters)
-                )
-            if max_initialization_trials is not None:
-                num_initialization_trials = min(
-                    num_initialization_trials, max_initialization_trials
-                )
+            num_initialization_trials = calculate_num_initialization_trials(
+                num_tunable_parameters=len(search_space.tunable_parameters),
+                num_trials=num_trials,
+                use_batch_trials=use_batch_trials,
+            )
+        if max_initialization_trials is not None:
+            num_initialization_trials = min(
+                num_initialization_trials, max_initialization_trials
+            )
 
         # `verbose` and `disable_progbar` defaults and overrides
         model_is_saasbo = is_saasbo(suggested_model)
