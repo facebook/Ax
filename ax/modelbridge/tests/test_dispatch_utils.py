@@ -6,6 +6,7 @@
 
 import logging
 import warnings
+from typing import Any, cast, Dict, List, Type
 
 import torch
 from ax.core.objective import MultiObjective
@@ -14,7 +15,9 @@ from ax.modelbridge.dispatch_utils import (
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
-from ax.modelbridge.transforms.winsorize import WinsorizationConfig
+from ax.modelbridge.factory import Cont_X_trans, Y_trans
+from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.winsorize import WinsorizationConfig, Winsorize
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
@@ -24,6 +27,10 @@ from ax.utils.testing.core_stubs import (
     get_factorial_search_space,
     get_large_factorial_search_space,
     get_large_ordinal_search_space,
+)
+
+EXPECTED_TRANSFORMS: List[Type[Transform]] = (
+    [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans
 )
 
 
@@ -44,16 +51,19 @@ class TestDispatchUtils(TestCase):
             # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(sobol_gpei._steps[1].model.value, "GPEI")
-            self.assertEqual(sobol_gpei._steps[1].model_kwargs, {"torch_device": None})
+            expected_model_kwargs: Dict[str, Any] = {
+                "torch_device": None,
+                "transforms": EXPECTED_TRANSFORMS,
+            }
+            self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
                 verbose=True,
                 torch_device=device,
             )
-            self.assertEqual(
-                sobol_gpei._steps[1].model_kwargs, {"torch_device": device}
-            )
+            expected_model_kwargs["torch_device"] = device
+            self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("max initialization trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -85,14 +95,10 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(
                 # pyre-fixme[16]: Optional type has no attribute `keys`.
                 list(model_kwargs.keys()),
-                ["torch_device", "transforms", "transform_configs"],
+                ["torch_device", "transforms"],
             )
             # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
             self.assertGreater(len(model_kwargs["transforms"]), 0)
-            transform_config_dict = {
-                "Winsorize": {"optimization_config": optimization_config}
-            }
-            self.assertEqual(model_kwargs["transform_configs"], transform_config_dict)
         with self.subTest("Sobol (we can try every option)"):
             sobol = choose_generation_strategy(
                 search_space=get_factorial_search_space(), num_trials=1000
@@ -149,7 +155,11 @@ class TestDispatchUtils(TestCase):
             # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed._steps[1].model.value, "BO_MIXED")
-            self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
+            expected_model_kwargs = {
+                "torch_device": None,
+                "transforms": EXPECTED_TRANSFORMS,
+            }
+            self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
             ss = get_branin_search_space(with_choice_parameter=True)
             # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
@@ -162,7 +172,11 @@ class TestDispatchUtils(TestCase):
             # pyre-fixme[16]: Item `Callable` of `Union[(...) -> ModelBridge,
             #  ModelRegistryBase]` has no attribute `value`.
             self.assertEqual(bo_mixed_2._steps[1].model.value, "BO_MIXED")
-            self.assertEqual(bo_mixed._steps[1].model_kwargs, {"torch_device": None})
+            expected_model_kwargs = {
+                "torch_device": None,
+                "transforms": EXPECTED_TRANSFORMS,
+            }
+            self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
             search_space = get_branin_search_space(with_choice_parameter=True)
             search_space.parameters["x2"]._is_ordered = False
@@ -182,13 +196,9 @@ class TestDispatchUtils(TestCase):
             model_kwargs = moo_mixed._steps[1].model_kwargs
             self.assertEqual(
                 list(model_kwargs.keys()),
-                ["torch_device", "transforms", "transform_configs"],
+                ["torch_device", "transforms"],
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
-            transform_config_dict = {
-                "Winsorize": {"optimization_config": optimization_config}
-            }
-            self.assertEqual(model_kwargs["transform_configs"], transform_config_dict)
         with self.subTest("SAASBO"):
             sobol_fullybayesian = choose_generation_strategy(
                 search_space=get_branin_search_space(),
