@@ -1172,14 +1172,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # 6. Fetch data for newly completed trials
             if status.is_completed:
                 newly_completed = trial_idcs - prev_completed_trial_idcs
-                # Fetch the data for newly completed trials; this will cache the data
-                # for all metrics. By pre-caching the data now, we remove the need to
-                # fetch it during candidate generation.
-                idcs = make_indices_str(indices=newly_completed)
-                self.logger.info(f"Fetching data for trials: {idcs}.")
-                self._fetch_and_process_trials_data_results(
-                    trial_indices=newly_completed
-                )
+                self._process_completed_trials(newly_completed=newly_completed)
 
             updated_trials.extend(trials)
 
@@ -1192,6 +1185,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             trials=updated_trials,
         )
         return updated_any_trial
+
+    def _process_completed_trials(self, newly_completed: Set[int]) -> None:
+        # Fetch the data for newly completed trials; this will cache the data
+        # for all metrics. By pre-caching the data now, we remove the need to
+        # fetch it during candidate generation.
+        idcs = make_indices_str(indices=newly_completed)
+        self.logger.info(f"Fetching data for trials: {idcs}.")
+        self._fetch_and_process_trials_data_results(trial_indices=newly_completed)
 
     def should_stop_trials_early(
         self, trial_indices: Set[int]
