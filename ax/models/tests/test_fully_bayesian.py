@@ -38,7 +38,7 @@ from botorch.utils import get_objective_weights_transform
 from botorch.utils.datasets import FixedNoiseDataset
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 
-from pyro.infer.mcmc import MCMC, NUTS  # @manual=//third-party-source/native/pyro:pyro
+from pyro.infer.mcmc import MCMC, NUTS  # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
 
 RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"

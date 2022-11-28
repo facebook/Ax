@@ -392,10 +392,10 @@ def run_inference(
 ) -> Dict[str, Tensor]:
     start = time.time()
     try:
-        # @manual=//third-party-source/native/pyro:pyro
+        # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
         from pyro.infer.mcmc import MCMC, NUTS
 
-        # @manual=//third-party-source/native/pyro:pyro
+        # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
         from pyro.infer.mcmc.util import print_summary
     except ImportError:  # pragma: no cover
         raise RuntimeError("Cannot call run_inference without pyro installed!")
