@@ -27,7 +27,7 @@ from typing import (
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.result import Err, Ok, Result
+from ax.utils.common.result import Err, Ok, Result, UnwrapError
 from ax.utils.common.serialization import SerializationMixin
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -328,7 +328,10 @@ class Metric(SortableBase, SerializationMixin):
                 else Exception(err.err.message)
                 for err in errs
             ]
-            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+
+            raise UnwrapError(errs) from (
+                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            )
 
         data = [ok.ok for ok in oks]
         return (
@@ -384,7 +387,9 @@ class Metric(SortableBase, SerializationMixin):
                     else Exception(err.err.message)
                     for err in critical_errs
                 ]
-                raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+                raise UnwrapError(critical_errs) from (
+                    exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+                )
 
         data = [ok.ok for ok in oks]
 
@@ -421,7 +426,9 @@ class Metric(SortableBase, SerializationMixin):
                 else Exception(err.err.message)
                 for err in errs
             ]
-            raise exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            raise UnwrapError(errs) from (
+                exceptions[0] if len(exceptions) == 1 else Exception(exceptions)
+            )
 
         data = [ok.ok for ok in oks]
         return (
