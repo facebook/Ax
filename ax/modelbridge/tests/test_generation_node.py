@@ -7,6 +7,7 @@
 from unittest.mock import patch
 
 from ax.core.observation import ObservationFeatures
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.cross_validation import (
     DiagnosticCriterion,
     MetricAggregation,
@@ -155,20 +156,16 @@ class TestGenerationNode(TestCase):
 
 class TestGenerationStep(TestCase):
     def setUp(self) -> None:
-        self.model_kwargs = ({"init_position": 5},)
+        self.model_kwargs = {"init_position": 5}
         self.sobol_generation_step = GenerationStep(
             model=Models.SOBOL,
             num_trials=5,
-            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str,
-            #  typing.Any]]` but got `Tuple[Dict[str, int]]`.
             model_kwargs=self.model_kwargs,
         )
         self.model_spec = ModelSpec(
             # pyre-fixme[6]: For 1st param expected `ModelRegistryBase` but got
             #  `Union[typing.Callable[..., ModelBridge], ModelRegistryBase]`.
             model_enum=self.sobol_generation_step.model,
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str,
-            #  typing.Any]]` but got `Tuple[Dict[str, int]]`.
             model_kwargs=self.model_kwargs,
             model_gen_kwargs=None,
         )
@@ -178,6 +175,15 @@ class TestGenerationStep(TestCase):
             self.sobol_generation_step.model_specs,
             [self.model_spec],
         )
+
+    def test_min_trials_observed(self) -> None:
+        with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):
+            GenerationStep(
+                model=Models.SOBOL,
+                num_trials=5,
+                min_trials_observed=10,
+                model_kwargs=self.model_kwargs,
+            )
 
     def test_init_factory_function(self) -> None:
         generation_step = GenerationStep(model=get_sobol, num_trials=-1)
