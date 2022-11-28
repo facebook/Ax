@@ -83,6 +83,13 @@ class TestGlobalStoppingIntegration(TestCase):
         parameters, trial_index = ax_client.get_next_trial(force=True)
         self.assertIsNotNone(parameters)
 
+        # Test the property & setter.
+        self.assertIs(ax_client.global_stopping_strategy, global_stopping_strategy)
+        new_gss = DummyGlobalStoppingStrategy(min_trials=5, trial_to_stop=5)
+        ax_client.global_stopping_strategy = new_gss
+        self.assertIs(ax_client.global_stopping_strategy, new_gss)
+        self.assertIs(ax_client._global_stopping_strategy, new_gss)
+
     def test_min_trials(self) -> None:
         """
         Tests the min_trials mechanism of the stopping strategy; that is,
