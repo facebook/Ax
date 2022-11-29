@@ -37,6 +37,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @dataclass(frozen=True)
 class MetricFetchE:
+    # NOTE/TODO[mpolson64]: This could probably be generalized to a
+    # `PythonExceptionE` class in the future. Let's do our best to avoid
+    # reinventing the wheel in the next `Result` use case in Ax.
+
     message: str
     exception: Optional[Exception]
 
