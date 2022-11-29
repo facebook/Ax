@@ -62,7 +62,6 @@ def _make_sobol_step(
 
 def _make_botorch_step(
     num_trials: int = -1,
-    optimization_config: Optional[OptimizationConfig] = None,
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
@@ -80,20 +79,16 @@ def _make_botorch_step(
 
     winsorization_transform_config = _get_winsorization_transform_config(
         winsorization_config=winsorization_config,
-        optimization_config=optimization_config,
         no_winsorization=no_winsorization,
     )
 
     model_kwargs = model_kwargs or {}
-    if winsorization_transform_config is not None:
-        model_kwargs.update(
-            {
-                "transforms": [cast(Type[Transform], Winsorize)]
-                + Cont_X_trans
-                + Y_trans,
-                "transform_configs": {"Winsorize": winsorization_transform_config},
-            }
-        )
+    if not no_winsorization:
+        transforms = [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans
+        model_kwargs.update({"transforms": transforms})
+        if winsorization_transform_config is not None:
+            transform_configs = {"Winsorize": winsorization_transform_config}
+            model_kwargs.update({"transform_configs": transform_configs})
     if verbose is not None:
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
@@ -319,8 +314,11 @@ def choose_generation_strategy(
         experiment: If specified, ``_experiment`` attribute of the generation strategy
             will be set to this experiment (useful for associating a generation
             strategy with a given experiment before it's first used to ``gen`` with
-            that experiment).
+            that experiment). Can also provide `optimization_config` if it is not
+            provided as an arg to this function.
     """
+    if optimization_config is None and experiment is not None:
+        optimization_config = experiment.optimization_config
     suggested_model = _suggest_gp_model(
         search_space=search_space,
         num_trials=num_trials,
@@ -412,7 +410,6 @@ def choose_generation_strategy(
         steps.append(
             _make_botorch_step(
                 model=suggested_model,
-                optimization_config=optimization_config,
                 winsorization_config=winsorization_config,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
@@ -454,22 +451,19 @@ def _get_winsorization_transform_config(
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ],
-    optimization_config: Optional[OptimizationConfig],
     no_winsorization: bool,
 ) -> Optional[TConfig]:
-    if no_winsorization or not (winsorization_config or optimization_config):
+    if no_winsorization:
         if winsorization_config is not None:
             warnings.warn(
                 "`no_winsorization = True` but `winsorization_config` has been set. "
                 "Not winsorizing."
             )
         return None
-    transform_config = {}
-    if winsorization_config:
-        transform_config["winsorization_config"] = winsorization_config
-    if optimization_config:
-        transform_config["optimization_config"] = optimization_config
-    return transform_config
+    if winsorization_config is None:
+        return None
+    # pyre-ignore[7]: Incompatible return type.
+    return {"winsorization_config": winsorization_config}
 
 
 def is_saasbo(model: Models) -> bool:

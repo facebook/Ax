@@ -74,9 +74,6 @@ class Winsorize(Transform):
         ``WinsorizationConfig``, which, if provided will be used for all metrics; or
         a mapping ``Dict[str, WinsorizationConfig]`` between each metric name and its
         ``WinsorizationConfig``.
-    - ``"optimization_config"``, which can be used to determine default winsorization
-        settings if ``"winsorization_config"`` does not provide them for a given
-        metric.
     For example,
     ``{"winsorization_config": WinsorizationConfig(lower_quantile_margin=0.3)}``
     will specify the same 30% winsorization from below for all metrics, whereas
@@ -115,11 +112,22 @@ class Winsorize(Transform):
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`Winsorize` transform requires non-empty data.")
-        if config is None:
+        optimization_config = modelbridge._optimization_config if modelbridge else None
+        if config is not None and config.get("optimization_config") is not None:
+            warnings.warn(
+                "Winsorization received an out-of-date `transform_config`, containing "
+                'the key `"optimization_config"`. Please update the config according '
+                "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`.",
+                DeprecationWarning,
+            )
+        if config is None and optimization_config is None:
             raise ValueError(
                 "Transform config for `Winsorize` transform must be specified and "
-                "non-empty when using winsorization."
+                "non-empty when using winsorization, or a modelbridge containing an "
+                "optimization_config must be provided."
             )
+        if config is None:
+            config = {}
         observation_data = [obs.data for obs in observations]
         all_metric_values = get_data(observation_data=observation_data)
 
@@ -138,15 +146,6 @@ class Winsorize(Transform):
 
         # Get winsorization and optimization configs
         winsorization_config = config.get("winsorization_config", {})
-        opt_config = config.get("optimization_config", {})
-        if "optimization_config" in config:
-            if not isinstance(opt_config, OptimizationConfig):
-                raise UserInputError(
-                    "Expected `optimization_config` of type `OptimizationConfig` but "
-                    f"got type `{type(opt_config)}."
-                )
-            opt_config = checked_cast(OptimizationConfig, opt_config)
-
         # pyre-fixme[4]: Attribute must be annotated.
         self.cutoffs = {}
         for metric_name, metric_values in all_metric_values.items():
@@ -160,8 +159,8 @@ class Winsorize(Transform):
                 self.cutoffs[metric_name] = _get_cutoffs_from_transform_config(
                     metric_name=metric_name,
                     metric_values=metric_values,
-                    winsorization_config=winsorization_config,  # pyre-ignore[6]
-                    optimization_config=opt_config,  # pyre-ignore[6]
+                    winsorization_config=winsorization_config,
+                    optimization_config=optimization_config,
                 )
 
     def _transform_observation_data(

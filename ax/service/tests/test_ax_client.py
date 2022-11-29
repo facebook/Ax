@@ -1847,8 +1847,6 @@ class TestAxClient(TestCase):
         # up-to-date experiment data. Do adding trial #4 to the seen completed
         # trials of pre-storage GS to check their equality otherwise.
         gs._seen_trial_indices_by_status[TrialStatus.COMPLETED].add(4)
-        # Resolves _db_id field between these classes
-        _resolve_db_id(ax_client.generation_strategy, gs)
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -2701,17 +2699,6 @@ class TestAxClient(TestCase):
         gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
-
-
-# pyre-fixme[2]: Parameter must be annotated.
-def _resolve_db_id(gs_to_resolve, source_gs) -> None:
-    gs_to_resolve._steps[1].model_kwargs["transform_configs"]["Winsorize"][
-        "optimization_config"
-    ].objective.metric._db_id = (
-        source_gs._steps[1]
-        .model_kwargs["transform_configs"]["Winsorize"]["optimization_config"]
-        .objective.metric._db_id
-    )
 
 
 # Utility functions for testing get_model_predictions without calling
