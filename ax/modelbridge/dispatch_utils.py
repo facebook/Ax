@@ -244,6 +244,7 @@ def choose_generation_strategy(
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
+    num_completed_initialization_trials: int = 0,
     max_initialization_trials: Optional[int] = None,
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
@@ -292,6 +293,10 @@ def choose_generation_strategy(
         max_initialization_trials: If ``num_initialization_trials`` unspecified, it
             will be determined automatically. This arg provides a cap on that
             automatically determined number.
+        num_completed_initialization_trials: The final calculated number of
+            initialization trials is reduced by this number. This is useful when
+            warm-starting an experiment, to specify what number of completed trials
+            can be used to satisfy the initialization_trial requirement.
         max_parallelism_cap: Integer cap on parallelism in this generation strategy.
             If specified, ``max_parallelism`` setting in each generation step will be
             set to the minimum of the default setting for that step and the value of
@@ -380,17 +385,36 @@ def choose_generation_strategy(
             )
 
         # If number of initialization trials is not specified, estimate it.
+        logger.info(
+            "Calculating the number of remaining initialization trials based on "
+            f"num_initialization_trials={num_initialization_trials} "
+            f"max_initialization_trials={max_initialization_trials} "
+            f"num_tunable_parameters={len(search_space.tunable_parameters)} "
+            f"num_trials={num_trials} "
+            f"use_batch_trials={use_batch_trials}"
+        )
         if num_initialization_trials is None:
             num_initialization_trials = calculate_num_initialization_trials(
                 num_tunable_parameters=len(search_space.tunable_parameters),
                 num_trials=num_trials,
                 use_batch_trials=use_batch_trials,
             )
+            logger.info(
+                f"calculated num_initialization_trials={num_initialization_trials}"
+            )
         if max_initialization_trials is not None:
             num_initialization_trials = min(
                 num_initialization_trials, max_initialization_trials
             )
-
+        num_remaining_initialization_trials = max(
+            0, num_initialization_trials - max(0, num_completed_initialization_trials)
+        )
+        logger.info(
+            "num_completed_initialization_trials="
+            f"{num_completed_initialization_trials} "
+            f"num_remaining_initialization_trials={num_remaining_initialization_trials}"
+        )
+        steps = []
         # `verbose` and `disable_progbar` defaults and overrides
         model_is_saasbo = is_saasbo(suggested_model)
         if verbose is None and model_is_saasbo:
@@ -408,12 +432,11 @@ def choose_generation_strategy(
             disable_progbar = None
 
         # Create `generation_strategy`, adding first Sobol step
-        # if `num_initialization_trials` is > 0.
-        steps = []
-        if num_initialization_trials is None or num_initialization_trials > 0:
+        # if `num_remaining_initialization_trials` is > 0.
+        if num_remaining_initialization_trials > 0:
             steps.append(
                 _make_sobol_step(
-                    num_trials=num_initialization_trials,
+                    num_trials=num_remaining_initialization_trials,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
                     max_parallelism=sobol_parallelism,
@@ -435,8 +458,8 @@ def choose_generation_strategy(
         gs = GenerationStrategy(steps=steps)
         logger.info(
             f"Using Bayesian Optimization generation strategy: {gs}. Iterations after"
-            f" {num_initialization_trials} will take longer to generate due to "
-            " model-fitting."
+            f" {num_remaining_initialization_trials} will take longer to generate due"
+            " to model-fitting."
         )
     else:  # `no_bayesian_optimization` is True or we could not suggest BO model
         if verbose is not None:
