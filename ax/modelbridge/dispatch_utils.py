@@ -211,6 +211,7 @@ def _suggest_gp_model(
 
 def choose_generation_strategy(
     search_space: SearchSpace,
+    *,
     use_batch_trials: bool = False,
     enforce_sequential_optimization: bool = True,
     random_seed: Optional[int] = None,
