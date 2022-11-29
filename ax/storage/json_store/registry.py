@@ -79,11 +79,11 @@ from ax.modelbridge.completion_criterion import (
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType

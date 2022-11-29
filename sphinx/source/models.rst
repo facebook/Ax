@@ -51,6 +51,14 @@ ax.models.types
     :undoc-members:
     :show-inheritance:
 
+ax.models.winsorization\_config module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.winsorization_config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Discrete Models
 ----------------

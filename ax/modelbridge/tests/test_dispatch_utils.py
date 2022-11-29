@@ -6,7 +6,7 @@
 
 import logging
 import warnings
-from typing import Any, cast, Dict, List, Type
+from typing import Any, Dict
 
 import torch
 from ax.core.objective import MultiObjective
@@ -18,8 +18,8 @@ from ax.modelbridge.dispatch_utils import (
 )
 from ax.modelbridge.factory import Cont_X_trans, Y_trans
 from ax.modelbridge.registry import Models
-from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import WinsorizationConfig, Winsorize
+from ax.modelbridge.transforms.winsorize import Winsorize
+from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
@@ -31,15 +31,16 @@ from ax.utils.testing.core_stubs import (
     get_large_ordinal_search_space,
 )
 
-EXPECTED_TRANSFORMS: List[Type[Transform]] = (
-    [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans
-)
-
 
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
     def test_choose_generation_strategy(self) -> None:
+        expected_transforms = [Winsorize] + Cont_X_trans + Y_trans
+        expected_transform_configs = {
+            "Winsorize": {"derelativize_with_raw_sq": False},
+            "Derelativize": {"use_raw_status_quo": False},
+        }
         with self.subTest("GPEI"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space()
@@ -49,7 +50,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
             expected_model_kwargs: Dict[str, Any] = {
                 "torch_device": None,
-                "transforms": EXPECTED_TRANSFORMS,
+                "transforms": expected_transforms,
+                "transform_configs": expected_transform_configs,
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
@@ -82,7 +84,7 @@ class TestDispatchUtils(TestCase):
             model_kwargs = not_none(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 list(model_kwargs.keys()),
-                ["torch_device", "transforms"],
+                ["torch_device", "transforms", "transform_configs"],
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("Sobol (we can try every option)"):
@@ -132,7 +134,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[1].model, Models.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": EXPECTED_TRANSFORMS,
+                "transforms": expected_transforms,
+                "transform_configs": expected_transform_configs,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
@@ -145,7 +148,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[1].model, Models.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": EXPECTED_TRANSFORMS,
+                "transforms": expected_transforms,
+                "transform_configs": expected_transform_configs,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -163,7 +167,7 @@ class TestDispatchUtils(TestCase):
             model_kwargs = not_none(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 list(model_kwargs.keys()),
-                ["torch_device", "transforms"],
+                ["torch_device", "transforms", "transform_configs"],
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
@@ -377,10 +381,40 @@ class TestDispatchUtils(TestCase):
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
         )
+        tc = not_none(winsorized._steps[1].model_kwargs).get("transform_configs")
+        self.assertIn("Winsorize", tc)
+        self.assertDictEqual(
+            tc["Winsorize"],
+            {
+                "winsorization_config": WinsorizationConfig(
+                    lower_quantile_margin=0.0,
+                    upper_quantile_margin=2,
+                    lower_boundary=None,
+                    upper_boundary=None,
+                )
+            },
+        )
+        self.assertIn("Derelativize", tc)
+        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": False})
+
+        winsorized = choose_generation_strategy(
+            search_space=get_branin_search_space(),
+            derelativize_with_raw_sq=True,
+        )
+        tc = not_none(winsorized._steps[1].model_kwargs).get("transform_configs")
         self.assertIn(
             "Winsorize",
-            not_none(winsorized._steps[1].model_kwargs).get("transform_configs"),
+            tc,
         )
+        self.assertDictEqual(
+            tc["Winsorize"],
+            {"derelativize_with_raw_sq": True},
+        )
+        self.assertIn(
+            "Derelativize",
+            tc,
+        )
+        self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
 
     def test_no_winzorization_wins(self) -> None:
         with warnings.catch_warnings(record=True) as w:

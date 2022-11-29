@@ -34,9 +34,9 @@ from ax.modelbridge.factory import (
 )
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.winsorize import WinsorizationConfig
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
