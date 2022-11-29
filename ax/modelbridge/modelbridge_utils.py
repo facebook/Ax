@@ -57,13 +57,14 @@ from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.utils import derelativize_optimization_config_with_raw_sq
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.models.torch.frontier_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
+    checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
     not_none,
@@ -866,20 +867,17 @@ def get_pareto_frontier_and_configs(
     )
 
     # Transform optimization config.
-    fixed_features = ObservationFeatures(parameters={})
 
     # de-relativize outcome constraints and objective thresholds
     observations = modelbridge.get_training_data()
-    tf = Derelativize(
-        search_space=modelbridge.model_space.clone(),
-        observations=observations,
-        config={"use_raw_status_quo": True},
-    )
-    # pyre-ignore [9]
-    optimization_config = tf.transform_optimization_config(
-        optimization_config=optimization_config.clone(),
-        modelbridge=modelbridge,
-        fixed_features=fixed_features,
+
+    optimization_config = checked_cast(
+        MultiObjectiveOptimizationConfig,
+        derelativize_optimization_config_with_raw_sq(
+            optimization_config=optimization_config,
+            modelbridge=modelbridge,
+            observations=observations,
+        ),
     )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weights(

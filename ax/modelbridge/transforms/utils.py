@@ -9,14 +9,21 @@ from __future__ import annotations
 from collections import defaultdict
 from math import isnan
 from numbers import Number
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
-from ax.core.observation import ObservationData
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
+from ax.modelbridge.transforms.derelativize import Derelativize
 from scipy.stats import norm
+
+
+if TYPE_CHECKING:
+    # import as module to make sphinx-autodoc-typehints happy
+    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
@@ -125,3 +132,21 @@ def construct_new_search_space(
         new_kwargs["parameter_distributions"] = search_space.parameter_distributions
         new_kwargs["num_samples"] = search_space.num_samples
     return search_space.__class__(**new_kwargs)
+
+
+def derelativize_optimization_config_with_raw_sq(
+    optimization_config: OptimizationConfig,
+    modelbridge: "modelbridge_module.base.ModelBridge",
+    observations: Optional[List[Observation]],
+) -> OptimizationConfig:
+    """Derelativize optimization_config using raw status-quo values"""
+    tf = Derelativize(
+        search_space=modelbridge.model_space.clone(),
+        observations=observations,
+        config={"use_raw_status_quo": True},
+    )
+    return tf.transform_optimization_config(
+        optimization_config=optimization_config.clone(),
+        modelbridge=modelbridge,
+        fixed_features=ObservationFeatures(parameters={}),
+    )
