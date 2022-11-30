@@ -15,7 +15,7 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.utils import (
     ClosestLookupDict,
-    derelativize_optimization_config_with_raw_sq,
+    derelativize_optimization_config_with_raw_status_quo,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_multi_objective_optimization_config
@@ -57,7 +57,7 @@ class TransformUtilsTest(TestCase):
         autospec=True,
         return_value=(OBSERVATION_DATA),
     )
-    def test_derelativize_optimization_config_with_raw_sq(self, _) -> None:
+    def test_derelativize_optimization_config_with_raw_status_quo(self, _) -> None:
         optimization_config = get_multi_objective_optimization_config()
         dummy_search_space = SearchSpace(
             parameters=[
@@ -74,7 +74,7 @@ class TransformUtilsTest(TestCase):
             optimization_config=optimization_config,
             status_quo_name="1_1",
         )
-        new_opt_config = derelativize_optimization_config_with_raw_sq(
+        new_opt_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,
             modelbridge=modelbridge,
             observations=OBSERVATION_DATA,

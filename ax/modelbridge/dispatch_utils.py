@@ -75,17 +75,19 @@ def _make_botorch_step(
     should_deduplicate: bool = False,
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
-    derelativize_with_raw_sq: bool = False,
+    derelativize_with_raw_status_quo: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
 
     winsorization_transform_config = _get_winsorization_transform_config(
         winsorization_config=winsorization_config,
         no_winsorization=no_winsorization,
-        derelativize_with_raw_sq=derelativize_with_raw_sq,
+        derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
     )
 
-    derelativization_transform_config = {"use_raw_status_quo": derelativize_with_raw_sq}
+    derelativization_transform_config = {
+        "use_raw_status_quo": derelativize_with_raw_status_quo
+    }
 
     model_kwargs = model_kwargs or {}
     if not no_winsorization:
@@ -250,7 +252,7 @@ def choose_generation_strategy(
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ] = None,
-    derelativize_with_raw_sq: bool = False,
+    derelativize_with_raw_status_quo: bool = False,
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
@@ -294,8 +296,8 @@ def choose_generation_strategy(
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
             `lower_quantile_margin` when maximizing.
-        derelativize_with_raw_sq: Whether to derelativize using the raw status quo
-            values in any transforms. This argument is primarily to allow automatic
+        derelativize_with_raw_status_quo: Whether to derelativize using the raw status
+            quo values in any transforms. This argument is primarily to allow automatic
             Winsorization when relative constraints are present. Note: automatic
             Winsorization will fail if this is set to `False` (or unset) and there
             are relative constraints present.
@@ -462,7 +464,7 @@ def choose_generation_strategy(
             _make_botorch_step(
                 model=suggested_model,
                 winsorization_config=winsorization_config,
-                derelativize_with_raw_sq=derelativize_with_raw_sq,
+                derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs={"torch_device": torch_device},
@@ -503,7 +505,7 @@ def _get_winsorization_transform_config(
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ],
-    derelativize_with_raw_sq: bool,
+    derelativize_with_raw_status_quo: bool,
     no_winsorization: bool,
 ) -> Optional[TConfig]:
     if no_winsorization:
@@ -515,7 +517,7 @@ def _get_winsorization_transform_config(
         return None
     if winsorization_config:
         return {"winsorization_config": winsorization_config}
-    return {"derelativize_with_raw_sq": derelativize_with_raw_sq}
+    return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
 
 
 def is_saasbo(model: Models) -> bool:
