@@ -17,8 +17,9 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.winsorize import WinsorizationConfig, Winsorize
+from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.types import TConfig
+from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -74,21 +75,29 @@ def _make_botorch_step(
     should_deduplicate: bool = False,
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
+    derelativize_with_raw_sq: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
 
     winsorization_transform_config = _get_winsorization_transform_config(
         winsorization_config=winsorization_config,
         no_winsorization=no_winsorization,
+        derelativize_with_raw_sq=derelativize_with_raw_sq,
     )
+
+    derelativization_transform_config = {"use_raw_status_quo": derelativize_with_raw_sq}
 
     model_kwargs = model_kwargs or {}
     if not no_winsorization:
         transforms = [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans
         model_kwargs.update({"transforms": transforms})
         if winsorization_transform_config is not None:
-            transform_configs = {"Winsorize": winsorization_transform_config}
+            transform_configs = {
+                "Winsorize": winsorization_transform_config,
+                "Derelativize": derelativization_transform_config,
+            }
             model_kwargs.update({"transform_configs": transform_configs})
+
     if verbose is not None:
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
@@ -241,6 +250,7 @@ def choose_generation_strategy(
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ] = None,
+    derelativize_with_raw_sq: bool = False,
     no_bayesian_optimization: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
@@ -284,6 +294,11 @@ def choose_generation_strategy(
         winsorization_config: Explicit winsorization settings, if winsorizing. Usually
             only `upper_quantile_margin` is set when minimizing, and only
             `lower_quantile_margin` when maximizing.
+        derelativize_with_raw_sq: Whether to derelativize using the raw status quo
+            values in any transforms. This argument is primarily to allow automatic
+            Winsorization when relative constraints are present. Note: automatic
+            Winsorization will fail if this is set to `False` (or unset) and there
+            are relative constraints present.
         no_bayesian_optimization: If True, Bayesian optimization generation
             strategy will not be suggested and quasi-random strategy will be used.
         num_trials: Total number of trials in the optimization, if
@@ -447,6 +462,7 @@ def choose_generation_strategy(
             _make_botorch_step(
                 model=suggested_model,
                 winsorization_config=winsorization_config,
+                derelativize_with_raw_sq=derelativize_with_raw_sq,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
                 model_kwargs={"torch_device": torch_device},
@@ -487,6 +503,7 @@ def _get_winsorization_transform_config(
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
     ],
+    derelativize_with_raw_sq: bool,
     no_winsorization: bool,
 ) -> Optional[TConfig]:
     if no_winsorization:
@@ -496,10 +513,9 @@ def _get_winsorization_transform_config(
                 "Not winsorizing."
             )
         return None
-    if winsorization_config is None:
-        return None
-    # pyre-ignore[7]: Incompatible return type.
-    return {"winsorization_config": winsorization_config}
+    if winsorization_config:
+        return {"winsorization_config": winsorization_config}
+    return {"derelativize_with_raw_sq": derelativize_with_raw_sq}
 
 
 def is_saasbo(model: Models) -> bool:

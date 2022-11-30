@@ -34,9 +34,9 @@ from ax.modelbridge.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_single_objective,
     _get_tukey_cutoffs,
     AUTO_WINS_QUANTILE,
-    WinsorizationConfig,
     Winsorize,
 )
+from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_optimization_config
 from typing_extensions import SupportsIndex
@@ -81,21 +81,21 @@ class WinsorizeTransformTest(TestCase):
         self.t = Winsorize(
             search_space=None,
             observations=deepcopy(self.observations),
-            config={  # pyre-ignore
+            config={
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.2)
             },
         )
         self.t1 = Winsorize(
             search_space=None,
             observations=deepcopy(self.observations),
-            config={  # pyre-ignore
+            config={
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.8)
             },
         )
         self.t2 = Winsorize(
             search_space=None,
             observations=deepcopy(self.observations),
-            config={  # pyre-ignore
+            config={
                 "winsorization_config": WinsorizationConfig(lower_quantile_margin=0.2)
             },
         )
@@ -453,7 +453,9 @@ class WinsorizeTransformTest(TestCase):
         )
         with self.assertRaisesRegex(
             UnsupportedError,
-            "Automatic winsorization doesn't support relative outcome constraints",
+            "Automatic winsorization doesn't support relative outcome constraints "
+            "or objective thresholds when `derelativize_with_raw_sq` is not set to "
+            "`True`.",
         ):
             get_transform(
                 observation_data=deepcopy(all_obsd),

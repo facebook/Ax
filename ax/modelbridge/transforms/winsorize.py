@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from dataclasses import dataclass
 from logging import Logger
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
@@ -29,7 +28,7 @@ from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_sq,
     get_data,
 )
-from ax.models.types import TConfig
+from ax.models.types import TConfig, WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
@@ -38,31 +37,6 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
 
 logger: Logger = get_logger(__name__)
-
-
-@dataclass
-class WinsorizationConfig:
-    """Dataclass for storing Winsorization configuration parameters
-
-    Attributes:
-    lower_quantile_margin: Winsorization will increase any metric value below this
-        quantile to this quantile's value.
-    upper_quantile_margin: Winsorization will decrease any metric value above this
-        quantile to this quantile's value. NOTE: this quantile will be inverted before
-        any operations, e.g., a value of 0.2 will decrease values above the 80th
-        percentile to the value of the 80th percentile.
-    lower_boundary: If this value is lesser than the metric value corresponding to
-        ``lower_quantile_margin``, set metric values below ``lower_boundary`` to
-        ``lower_boundary`` and leave larger values unaffected.
-    upper_boundary: If this value is greater than the metric value corresponding to
-        ``upper_quantile_margin``, set metric values above ``upper_boundary`` to
-        ``upper_boundary`` and leave smaller values unaffected.
-    """
-
-    lower_quantile_margin: float = 0.0
-    upper_quantile_margin: float = 0.0
-    lower_boundary: Optional[float] = None
-    upper_boundary: Optional[float] = None
 
 
 OLD_KEYS = ["winsorization_lower", "winsorization_upper", "percentile_bounds"]
@@ -80,7 +54,7 @@ class Winsorize(Transform):
     - ``"derelativize_with_raw_sq"``, indicating whether to use the raw status-quo
         value for any derelativization. Note this defaults to ``False``, which is
         unsupported and simply fails if derelativization is necessary. The user must
-        specify ``derelativize_using_raw_sq = True`` in order for derelativization to
+        specify ``derelativize_with_raw_sq = True`` in order for derelativization to
         succeed. Note that this must match the `use_raw_status_quo` value in the
         ``Derelativize`` config if used.
     For example,

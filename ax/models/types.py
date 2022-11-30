@@ -7,11 +7,19 @@
 from typing import Any, Dict, Union
 
 from ax.core.optimization_config import OptimizationConfig
+from ax.models.winsorization_config import WinsorizationConfig
 from botorch.acquisition import AcquisitionFunction
 
 TConfig = Dict[
     str,
     Union[
-        int, float, str, AcquisitionFunction, Dict[str, Any], OptimizationConfig, None
+        int,
+        float,
+        str,
+        AcquisitionFunction,
+        Dict[str, Any],
+        OptimizationConfig,
+        WinsorizationConfig,
+        None,
     ],
 ]
