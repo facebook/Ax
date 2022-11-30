@@ -170,6 +170,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
     _num_preexisting_trials: int
+    # Number of trials that have been marked either FAILED or ABANDONED due to
+    # MetricFetchE being encountered during _fetch_and_process_trials_data_results
+    _num_trials_bad_due_to_err: int = 0
     # Timestamp of last optimization start time (milliseconds since Unix epoch);
     # recorded in each `run_n_trials`.
     _latest_optimization_start_timestamp: Optional[int] = None
@@ -735,6 +738,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         ) > self.options.tolerated_trial_failure_rate
 
         if failure_rate_exceeded:
+            if self._num_trials_bad_due_to_err > num_bad_in_scheduler / 2:
+                self.logger.warn(
+                    "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
+                    "which was primarily caused by failure to fetch metrics. Please "
+                    "check if anything could cause your metrics to be flakey or "
+                    "broken."
+                )
+
             raise FailureRateExceededError(
                 FAILURE_EXCEEDED_MSG.format(
                     f_rate=self.options.tolerated_trial_failure_rate,
@@ -1651,9 +1662,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     and status == TrialStatus.RUNNING
                 ):
                     self.logger.info(
-                        f"Because {metric_name} is available_while_running and "
-                        f"trial {trial_index} is still RUNNING continuing the "
-                        "experiment and retrying on next poll..."
+                        f"MetricFetchE INFO: Because {metric_name} is "
+                        f"available_while_running and trial {trial_index} is still "
+                        "RUNNING continuing the experiment and retrying on next "
+                        "poll..."
                     )
                     continue
 
@@ -1670,11 +1682,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         metric_fetch_e=metric_fetch_e,
                     )
                     self.logger.warning(
-                        f"Because {metric_name} is an objective, marking trial "
-                        f"{trial_index} as {status}."
+                        f"MetricFetchE INFO: Because {metric_name} is an objective, "
+                        f"marking trial {trial_index} as {status}."
                     )
+                    self._num_trials_bad_due_to_err += 1
                     continue
 
+                self.logger.info(
+                    "MetricFetchE INFO: Continuing optimization even though "
+                    "MetricFetchE encountered."
+                )
                 continue
 
         return results
