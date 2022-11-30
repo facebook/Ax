@@ -825,7 +825,6 @@ class TestAxClient(TestCase):
             )
 
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
-        """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
@@ -952,14 +951,7 @@ class TestAxClient(TestCase):
             )
 
     def test_set_optimization_config_with_metric_definitions(self) -> None:
-        """Test basic experiment creation."""
-        ax_client = AxClient(
-            GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
-            )
-        )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
-            ax_client.experiment
+        ax_client = AxClient()
 
         metric_definitions = {
             "obj_m1": {"properties": {"m1_opt": "m1_val"}},
@@ -1012,6 +1004,46 @@ class TestAxClient(TestCase):
             ax_client.metric_definitions["obj_m2"]["properties"],
             metric_definitions["obj_m2"]["properties"],
         )
+
+    def test_add_and_remove_tracking_metrics(self) -> None:
+        ax_client = AxClient()
+
+        metric_definitions = {
+            "tm1": {"properties": {"m1_opt": "m1_val"}},
+        }
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+            ],
+            is_test=True,
+        )
+        with self.subTest("add tracking metrics with definitions"):
+            ax_client.add_tracking_metrics(
+                # one with a definition, one without
+                metric_names=[
+                    "tm1",
+                    "tm2",
+                ],
+                metric_definitions=metric_definitions,
+            )
+            tracking_metrics = ax_client.experiment.tracking_metrics
+            self.assertEqual(len(tracking_metrics), 2)
+            self.assertEqual(tracking_metrics[0].name, "tm1")
+            self.assertEqual(tracking_metrics[0].properties, {"m1_opt": "m1_val"})
+            self.assertEqual(tracking_metrics[1].name, "tm2")
+            self.assertEqual(tracking_metrics[1].properties, {})
+
+        with self.subTest("remove tracking metric"):
+            ax_client.remove_tracking_metric(metric_name="tm2")
+            tracking_metrics = ax_client.experiment.tracking_metrics
+            self.assertEqual(len(tracking_metrics), 1)
+            self.assertEqual(tracking_metrics[0].name, "tm1")
+            self.assertEqual(tracking_metrics[0].properties, {"m1_opt": "m1_val"})
 
     def test_set_search_space(self) -> None:
         """Test basic experiment creation."""
