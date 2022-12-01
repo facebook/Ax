@@ -35,6 +35,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ax import core  # noqa F401
 
 
+logger: Logger = get_logger(__name__)
+
+
 @dataclass(frozen=True)
 class MetricFetchE:
     # NOTE/TODO[mpolson64]: This could probably be generalized to a
@@ -43,6 +46,9 @@ class MetricFetchE:
 
     message: str
     exception: Optional[Exception]
+
+    def __post_init__(self) -> None:
+        logger.info(msg=f"MetricFetchE INFO: Initialized {self}")
 
     def __repr__(self) -> str:
         if self.exception is None:
@@ -66,8 +72,6 @@ class MetricFetchE:
 
 
 MetricFetchResult = Result[Data, MetricFetchE]
-
-logger: Logger = get_logger(__name__)
 
 
 class Metric(SortableBase, SerializationMixin):
