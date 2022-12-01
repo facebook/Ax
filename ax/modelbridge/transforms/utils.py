@@ -134,7 +134,7 @@ def construct_new_search_space(
     return search_space.__class__(**new_kwargs)
 
 
-def derelativize_optimization_config_with_raw_sq(
+def derelativize_optimization_config_with_raw_status_quo(
     optimization_config: OptimizationConfig,
     modelbridge: "modelbridge_module.base.ModelBridge",
     observations: Optional[List[Observation]],

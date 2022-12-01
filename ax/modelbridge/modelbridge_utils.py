@@ -57,7 +57,9 @@ from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.utils import derelativize_optimization_config_with_raw_sq
+from ax.modelbridge.transforms.utils import (
+    derelativize_optimization_config_with_raw_status_quo,
+)
 from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
 from ax.models.torch.frontier_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
@@ -873,7 +875,7 @@ def get_pareto_frontier_and_configs(
 
     optimization_config = checked_cast(
         MultiObjectiveOptimizationConfig,
-        derelativize_optimization_config_with_raw_sq(
+        derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,
             modelbridge=modelbridge,
             observations=observations,

@@ -38,7 +38,7 @@ class TestDispatchUtils(TestCase):
     def test_choose_generation_strategy(self) -> None:
         expected_transforms = [Winsorize] + Cont_X_trans + Y_trans
         expected_transform_configs = {
-            "Winsorize": {"derelativize_with_raw_sq": False},
+            "Winsorize": {"derelativize_with_raw_status_quo": False},
             "Derelativize": {"use_raw_status_quo": False},
         }
         with self.subTest("GPEI"):
@@ -399,7 +399,7 @@ class TestDispatchUtils(TestCase):
 
         winsorized = choose_generation_strategy(
             search_space=get_branin_search_space(),
-            derelativize_with_raw_sq=True,
+            derelativize_with_raw_status_quo=True,
         )
         tc = not_none(winsorized._steps[1].model_kwargs).get("transform_configs")
         self.assertIn(
@@ -408,7 +408,7 @@ class TestDispatchUtils(TestCase):
         )
         self.assertDictEqual(
             tc["Winsorize"],
-            {"derelativize_with_raw_sq": True},
+            {"derelativize_with_raw_status_quo": True},
         )
         self.assertIn(
             "Derelativize",

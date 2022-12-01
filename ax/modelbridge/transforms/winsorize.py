@@ -25,7 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
-    derelativize_optimization_config_with_raw_sq,
+    derelativize_optimization_config_with_raw_status_quo,
     get_data,
 )
 from ax.models.types import TConfig, WinsorizationConfig
@@ -51,12 +51,12 @@ class Winsorize(Transform):
         ``WinsorizationConfig``, which, if provided will be used for all metrics; or
         a mapping ``Dict[str, WinsorizationConfig]`` between each metric name and its
         ``WinsorizationConfig``.
-    - ``"derelativize_with_raw_sq"``, indicating whether to use the raw status-quo
-        value for any derelativization. Note this defaults to ``False``, which is
-        unsupported and simply fails if derelativization is necessary. The user must
-        specify ``derelativize_with_raw_sq = True`` in order for derelativization to
-        succeed. Note that this must match the `use_raw_status_quo` value in the
-        ``Derelativize`` config if used.
+    - ``"derelativize_with_raw_status_quo"``, indicating whether to use the raw
+        status-quo value for any derelativization. Note this defaults to ``False``,
+        which is unsupported and simply fails if derelativization is necessary. The
+        user must specify ``derelativize_with_raw_status_quo = True`` in order for
+        derelativization to succeed. Note that this must match the `use_raw_status_quo`
+        value in the ``Derelativize`` config if used.
     For example,
     ``{"winsorization_config": WinsorizationConfig(lower_quantile_margin=0.3)}``
     will specify the same 30% winsorization from below for all metrics, whereas
@@ -211,10 +211,10 @@ def _get_cutoffs(
         if not use_raw_sq:
             raise UnsupportedError(
                 "Automatic winsorization doesn't support relative outcome constraints "
-                "or objective thresholds when `derelativize_with_raw_sq` is not set "
-                "to `True`."
+                "or objective thresholds when `derelativize_with_raw_status_quo` is "
+                "not set to `True`."
             )
-        optimization_config = derelativize_optimization_config_with_raw_sq(
+        optimization_config = derelativize_optimization_config_with_raw_status_quo(
             optimization_config=optimization_config,
             modelbridge=modelbridge,
             observations=observations,
@@ -478,9 +478,9 @@ def _get_cutoffs_from_legacy_transform_config(
 
 
 def _get_and_validate_use_raw_sq(config: TConfig) -> bool:
-    use_raw_sq = config.get("derelativize_with_raw_sq", False)
+    use_raw_sq = config.get("derelativize_with_raw_status_quo", False)
     if isinstance(use_raw_sq, bool):
         return use_raw_sq
     raise UserInputError(
-        f"`derelativize_with_raw_sq` must be a boolean. Got {use_raw_sq}."
+        f"`derelativize_with_raw_status_quo` must be a boolean. Got {use_raw_sq}."
     )
