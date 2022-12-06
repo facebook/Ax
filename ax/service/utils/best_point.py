@@ -616,20 +616,21 @@ def _get_best_row_for_single_objective(
     )
 
 
-def _filter_feasible_rows(
+def _is_row_feasible(
     df: pd.DataFrame,
     optimization_config: OptimizationConfig,
     status_quo: Optional[Arm],
-) -> pd.DataFrame:
-    """Filter out arms that do not satisfy outcome constraints
+) -> pd.Series:
+    """Return a series of boolean values indicating whether arms satisfy outcome
+    constraints or not.
 
-    Looks at all arm data collected and removes rows corresponding to arms in
+    Looks at all arm data collected and returns False for rows corresponding to arms in
     which one or more of their associated metrics' 95% confidence interval
     falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
-    bound is not satisfied).
+    bound is not satisfied), else True.
     """
     if len(optimization_config.outcome_constraints) < 1:
-        return df
+        return pd.Series([True] * len(df))
 
     name = df["metric_name"]
 
@@ -707,12 +708,34 @@ def _filter_feasible_rows(
         if rel_df is None
         else rel_df[~mask]["arm_name"].tolist()
     )
-    feasible = df.loc[df["arm_name"].apply(lambda x: x not in bad_arm_names)]
+    return checked_cast(
+        pd.Series, df["arm_name"].apply(lambda x: x not in bad_arm_names)
+    )
+
+
+def _filter_feasible_rows(
+    df: pd.DataFrame,
+    optimization_config: OptimizationConfig,
+    status_quo: Optional[Arm],
+) -> pd.DataFrame:
+    """Filter out arms that do not satisfy outcome constraints
+
+    Looks at all arm data collected and removes rows corresponding to arms in
+    which one or more of their associated metrics' 95% confidence interval
+    falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
+    bound is not satisfied).
+    """
+
+    feasible = df.loc[
+        _is_row_feasible(
+            df=df, optimization_config=optimization_config, status_quo=status_quo
+        )
+    ]
 
     if feasible.empty:
         raise ValueError(
             "No points satisfied all outcome constraints within 95 percent"
-            + "confidence interval"
+            "confidence interval."
         )
 
     return feasible

@@ -24,6 +24,7 @@ from ax.service.utils.report_utils import (
     _get_shortest_unique_suffix_dict,
     exp_to_df,
     Experiment,
+    FEASIBLE_COL_NAME,
     get_standard_plots,
 )
 from ax.utils.common.testutils import TestCase
@@ -31,6 +32,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_experiment_with_observations,
     get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
 )
@@ -161,6 +163,23 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
+        # infeasible arm has `is_feasible = False`.
+        observations = [[1.0, 2.0, 3.0], [4.0, 5.0, -6.0], [7.0, 8.0, 9.0]]
+        exp = get_experiment_with_observations(
+            observations=observations,
+            constrained=True,
+        )
+        df = exp_to_df(exp)
+        self.assertListEqual(list(df[FEASIBLE_COL_NAME]), [True, False, True])
+
+        # all rows infeasible.
+        observations = [[1.0, 2.0, -3.0], [4.0, 5.0, -6.0], [7.0, 8.0, -9.0]]
+        exp = get_experiment_with_observations(
+            observations=observations,
+            constrained=True,
+        )
+        df = exp_to_df(exp)
+        self.assertListEqual(list(df[FEASIBLE_COL_NAME]), [False, False, False])
 
     def test_get_shortest_unique_suffix_dict(self) -> None:
         expected_output = {
