@@ -843,6 +843,13 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
         objective_thresholds = checked_cast(
             MultiObjectiveOptimizationConfig, optimization_config
         ).objective_thresholds
+        if any(
+            ot.relative for ot in objective_thresholds if ot.metric.name in metric_names
+        ):
+            raise NotImplementedError(
+                "Pareto plotting not supported for experiments with relative objective "
+                "thresholds."
+            )
         constraint_metric_names = {
             objective_threshold.metric.name
             for objective_threshold in objective_thresholds

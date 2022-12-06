@@ -209,6 +209,19 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            plots = get_standard_plots(
+                experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
+            )
+            self.assertEqual(len(log.output), 1)
+            self.assertIn(
+                "Pareto plotting not supported for experiments with relative objective "
+                "thresholds.",
+                log.output[0],
+            )
+        self.assertEqual(len(plots), 6)
+        for ot in exp.optimization_config._objective_thresholds:
+            ot.relative = False
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
