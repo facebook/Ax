@@ -48,6 +48,7 @@ from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
+from ax.service.utils.best_point import _is_row_feasible
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
@@ -66,6 +67,7 @@ CROSS_VALIDATION_CAPTION = (
     "<b>NOTE:</b> We have tried out best to only plot the region of interest.<br>"
     "This may hide outliers. You can autoscale the axes to see all trials."
 )
+FEASIBLE_COL_NAME = "is_feasible"
 
 
 def _get_hypervolume_trace() -> None:
@@ -437,7 +439,7 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
 
 def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
-    data: Data,
+    results: pd.DataFrame,
     key_components: List[str],
     metrics: List[Metric],
 ) -> DataFrame:
@@ -448,8 +450,6 @@ def _merge_results_if_no_duplicates(
         - after any formatting, ``data.df`` contains no duplicates of the column
             ``results_key_col``
     """
-    results = data.df
-
     if len(results.index) == 0:
         logger.info(
             f"No results present for the specified metrics `{metrics}`. "
@@ -481,7 +481,10 @@ def _merge_results_if_no_duplicates(
     ).reset_index()
 
     # dedupe results by key_components
-    metadata = results[key_components + [results_key_col]].drop_duplicates()
+    metadata_cols = key_components + [results_key_col]
+    if FEASIBLE_COL_NAME in results.columns:
+        metadata_cols.append(FEASIBLE_COL_NAME)
+    metadata = results[metadata_cols].drop_duplicates()
     metrics_df = pd.merge(metric_vals, metadata, on=results_key_col)
     # drop synthetic key column
     metrics_df = metrics_df.drop(results_key_col, axis=1)
@@ -545,9 +548,25 @@ def exp_to_df(
             for arm in trial.arms
         ]
     )
-    # Fetch results; in case arms_df is empty, return empty results (legacy behavior)
+    # Fetch results.
     data = exp.lookup_data()
     results = data.df
+
+    # Add `FEASIBLE_COL_NAME` column according to constraints if any.
+    if (
+        exp.optimization_config is not None
+        and len(not_none(exp.optimization_config).all_constraints) > 0
+    ):
+        try:
+            results[FEASIBLE_COL_NAME] = _is_row_feasible(
+                df=results,
+                optimization_config=not_none(exp.optimization_config),
+                status_quo=exp.status_quo,
+            )
+        except ValueError as e:
+            logger.warning(e)
+
+    # If arms_df is empty, return empty results (legacy behavior)
     if len(arms_df.index) == 0:
         if len(results.index) != 0:
             raise ValueError(
@@ -613,7 +632,7 @@ def exp_to_df(
             )
     exp_df = _merge_results_if_no_duplicates(
         arms_df=arms_df,
-        data=data,
+        results=results,
         key_components=key_components,
         metrics=metrics or list(exp.metrics.values()),
     )
