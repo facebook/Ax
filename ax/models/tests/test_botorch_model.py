@@ -91,6 +91,10 @@ class BotorchModelTest(TestCase):
         )
         kwargs = {
             "prior": {
+                "covar_module_prior": {
+                    "lengthscale_prior": GammaPrior(6.0, 3.0),
+                    "outputscale_prior": GammaPrior(3.0, 12.0),
+                },
                 "type": LKJCovariancePrior,
                 "sd_prior": GammaPrior(2.0, 0.44),
                 "eta": 0.6,
@@ -118,6 +122,22 @@ class BotorchModelTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `models`.
         model_list = model.model.models
         for i in range(1):
+            self.assertEqual(
+                model_list[i].covar_module.base_kernel.lengthscale_prior.concentration,
+                6.0,
+            )
+            self.assertEqual(
+                model_list[i].covar_module.base_kernel.lengthscale_prior.rate,
+                3.0,
+            )
+            self.assertEqual(
+                model_list[i].covar_module.outputscale_prior.concentration,
+                3.0,
+            )
+            self.assertEqual(
+                model_list[i].covar_module.outputscale_prior.rate,
+                12.0,
+            )
             self.assertIsInstance(
                 model_list[i].task_covar_module.IndexKernelPrior, LKJCovariancePrior
             )

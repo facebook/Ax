@@ -134,6 +134,14 @@ class BotorchModel(TorchModel):
             data using the `update` method.
         warm_start_refitting: If True, start model refitting from previous
             model parameters in order to speed up the fitting process.
+        prior: A optinal dictionary that contains the specification of GP model prior.
+            Currently, the keys include:
+            - covar_module_prior: prior on covariance matrix e.g.
+                {"lengthscale_prior": GammaPrior(3.0, 6.0)}.
+            - type: type of prior on task covariance matrix e.g.`LKJCovariancePrior`.
+            - sd_prior: A scalar prior over nonnegative numbers, which is used for the
+                default LKJCovariancePrior task_covar_prior.
+            - eta: The eta parameter on the default LKJ task_covar_prior.
 
 
     Call signatures:
@@ -256,6 +264,7 @@ class BotorchModel(TorchModel):
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
+        prior: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -270,6 +279,7 @@ class BotorchModel(TorchModel):
         self.warm_start_refitting = warm_start_refitting
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
+        self.prior = prior
         self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []
@@ -310,6 +320,7 @@ class BotorchModel(TorchModel):
             metric_names=self.metric_names,
             use_input_warping=self.use_input_warping,
             use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
+            prior=self.prior,
             **self._kwargs,
         )
 

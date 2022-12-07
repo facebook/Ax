@@ -208,6 +208,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         warm_start_refitting: bool = False,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
+        prior: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -223,6 +224,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.warm_start_refitting = warm_start_refitting
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
+        self.prior = prior
         self.model: Optional[Model] = None
         self.Xs = []
         self.Ys = []

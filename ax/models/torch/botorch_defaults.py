@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
@@ -32,9 +33,12 @@ from botorch.utils import (
     get_outcome_constraint_transforms,
 )
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
+from gpytorch.kernels import MaternKernel, ScaleKernel
+from gpytorch.kernels.kernel import Kernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
+from gpytorch.priors import Prior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from torch import Tensor
@@ -54,6 +58,7 @@ def get_and_fit_model(
     refit_model: bool = True,
     use_input_warping: bool = False,
     use_loocv_pseudo_likelihood: bool = False,
+    prior: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch GPyTorchModel using the given data.
@@ -71,6 +76,14 @@ def get_and_fit_model(
         state_dict: If provided, will set model parameters to this state
             dictionary. Otherwise, will fit the model.
         refit_model: Flag for refitting model.
+        prior: Optional[Dict]. A dictionary that contains the specification of
+            GP model prior. Currently, the keys include:
+            - covar_module_prior: prior on covariance matrix e.g.
+                {"lengthscale_prior": GammaPrior(3.0, 6.0)}.
+            - type: type of prior on task covariance matrix e.g.`LKJCovariancePrior`.
+            - sd_prior: A scalar prior over nonnegative numbers, which is used for the
+                default LKJCovariancePrior task_covar_prior.
+            - eta: The eta parameter on the default LKJ task_covar_prior.
 
     Returns:
         A fitted GPyTorchModel.
@@ -109,6 +122,7 @@ def get_and_fit_model(
                 task_feature=task_feature,
                 fidelity_features=fidelity_features,
                 use_input_warping=use_input_warping,
+                prior=deepcopy(prior),
                 **kwargs,
             )
         elif all(torch.equal(Xs[0], X) for X in Xs[1:]) and not use_input_warping:
@@ -122,6 +136,7 @@ def get_and_fit_model(
                 Yvar=Yvar,
                 task_feature=task_feature,
                 fidelity_features=fidelity_features,
+                prior=deepcopy(prior),
                 **kwargs,
             )
     # TODO: Is this equivalent an "else:" here?
@@ -130,7 +145,12 @@ def get_and_fit_model(
         if task_feature is None:
             models = [
                 _get_model(
-                    X=X, Y=Y, Yvar=Yvar, use_input_warping=use_input_warping, **kwargs
+                    X=X,
+                    Y=Y,
+                    Yvar=Yvar,
+                    use_input_warping=use_input_warping,
+                    prior=deepcopy(prior),
+                    **kwargs,
                 )
                 for X, Y, Yvar in zip(Xs, Ys, Yvars)
             ]
@@ -155,6 +175,7 @@ def get_and_fit_model(
                     task_feature=task_feature,
                     rank=mtgp_rank,
                     use_input_warping=use_input_warping,
+                    prior=deepcopy(prior),
                     **kwargs,
                 )
                 for X, Y, Yvar, mtgp_rank in zip(Xs, Ys, Yvars, mtgp_rank_list)
@@ -523,6 +544,8 @@ def _get_model(
     task_feature: Optional[int] = None,
     fidelity_features: Optional[List[int]] = None,
     use_input_warping: bool = False,
+    covar_module: Optional[Kernel] = None,
+    prior: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
     """Instantiate a model of type depending on the input data.
@@ -534,6 +557,15 @@ def _get_model(
         task_feature: The index of the column pertaining to the task feature
             (if present).
         fidelity_features: List of columns of X that are fidelity parameters.
+        covar_module: Optional. A data kernel of GP model.
+        prior: Optional[Dict]. A dictionary that contains the specification of
+            GP model prior. Currently, the keys include:
+            - covar_module_prior: prior on covariance matrix e.g.
+                {"lengthscale_prior": GammaPrior(3.0, 6.0)}.
+            - type: type of prior on task covariance matrix e.g.`LKJCovariancePrior`.
+            - sd_prior: A scalar prior over nonnegative numbers, which is used for the
+                default LKJCovariancePrior task_covar_prior.
+            - eta: The eta parameter on the default LKJ task_covar_prior.
 
     Returns:
         A GPyTorchModel (unfitted).
@@ -542,6 +574,7 @@ def _get_model(
     is_nan = torch.isnan(Yvar)
     any_nan_Yvar = torch.any(is_nan)
     all_nan_Yvar = torch.all(is_nan)
+    batch_shape = _get_batch_shape(X, Y)
     if any_nan_Yvar and not all_nan_Yvar:
         if task_feature:
             # TODO (jej): Replace with inferred noise before making perf judgements.
@@ -555,7 +588,7 @@ def _get_model(
         warp_tf = get_warping_transform(
             d=X.shape[-1],
             task_feature=task_feature,
-            batch_shape=X.shape[:-2],
+            batch_shape=batch_shape,
         )
     else:
         warp_tf = None
@@ -564,6 +597,17 @@ def _get_model(
     if len(fidelity_features) == 0:
         # only pass linear_truncated arg if there are fidelities
         kwargs = {k: v for k, v in kwargs.items() if k != "linear_truncated"}
+    # construct kernel based on customized prior if covar_module is None
+    prior_dict = prior or {}
+    covar_module_prior_dict = prior_dict.pop("covar_module_prior", None)
+    if (covar_module_prior_dict is not None) and (covar_module is None):
+        covar_module = _get_customized_covar_module(
+            covar_module_prior_dict=covar_module_prior_dict,
+            ard_num_dims=X.shape[-1],
+            batch_shape=batch_shape,
+            task_feature=task_feature,
+        )
+
     if len(fidelity_features) > 0:
         if task_feature:
             raise NotImplementedError(  # pragma: no cover
@@ -578,18 +622,28 @@ def _get_model(
             **kwargs,
         )
     elif task_feature is None and all_nan_Yvar:
-        gp = SingleTaskGP(train_X=X, train_Y=Y, input_transform=warp_tf, **kwargs)
+        gp = SingleTaskGP(
+            train_X=X,
+            train_Y=Y,
+            covar_module=covar_module,
+            input_transform=warp_tf,
+            **kwargs,
+        )
     elif task_feature is None:
         gp = FixedNoiseGP(
-            train_X=X, train_Y=Y, train_Yvar=Yvar, input_transform=warp_tf, **kwargs
+            train_X=X,
+            train_Y=Y,
+            train_Yvar=Yvar,
+            covar_module=covar_module,
+            input_transform=warp_tf,
+            **kwargs,
         )
     else:
         # instantiate multitask GP
         all_tasks, _, _ = MultiTaskGP.get_all_tasks(X, task_feature)
         num_tasks = len(all_tasks)
-        prior_dict = kwargs.get("prior")
-        prior = None
-        if prior_dict is not None:
+        task_covar_prior = None
+        if len(prior_dict) > 0:
             prior_type = prior_dict.get("type", None)
             if issubclass(prior_type, LKJCovariancePrior):
                 sd_prior = prior_dict.get("sd_prior", GammaPrior(1.0, 0.15))
@@ -597,7 +651,7 @@ def _get_model(
                 eta = prior_dict.get("eta", 0.5)
                 if not isinstance(eta, float) and not isinstance(eta, int):
                     raise ValueError(f"eta must be a real number, your eta was {eta}")
-                prior = LKJCovariancePrior(num_tasks, eta, sd_prior)
+                task_covar_prior = LKJCovariancePrior(num_tasks, eta, sd_prior)
 
             else:
                 raise NotImplementedError(
@@ -610,8 +664,9 @@ def _get_model(
                 train_X=X,
                 train_Y=Y,
                 task_feature=task_feature,
+                covar_module=covar_module,
                 rank=kwargs.get("rank"),
-                task_covar_prior=prior,
+                task_covar_prior=task_covar_prior,
                 input_transform=warp_tf,
             )
         else:
@@ -620,11 +675,63 @@ def _get_model(
                 train_Y=Y,
                 train_Yvar=Yvar,
                 task_feature=task_feature,
+                covar_module=covar_module,
                 rank=kwargs.get("rank"),
-                task_covar_prior=prior,
+                task_covar_prior=task_covar_prior,
                 input_transform=warp_tf,
             )
     return gp
+
+
+def _get_customized_covar_module(
+    covar_module_prior_dict: Dict[str, Prior],
+    ard_num_dims: int,
+    batch_shape: torch.Size,
+    task_feature: Optional[int] = None,
+) -> Kernel:
+    """Construct a GP kernel based on customized prior dict.
+
+    Args:
+        covar_module_prior_dict: Dict. The keys are the names of the prior and values
+            are the priors. e.g. {"lengthscale_prior": GammaPrior(3.0, 6.0)}.
+        ard_num_dims: The dimension of the input, including task features
+        batch_shape: The batch_shape of the model
+        task_feature: The index of the task feature
+    """
+    # TODO: add more checks of covar_module_prior_dict
+    if task_feature is not None:
+        ard_num_dims -= 1
+    return ScaleKernel(
+        MaternKernel(
+            nu=2.5,
+            ard_num_dims=ard_num_dims,
+            batch_shape=batch_shape,
+            lengthscale_prior=covar_module_prior_dict.get(
+                "lengthscale_prior", GammaPrior(3.0, 6.0)
+            ),
+        ),
+        batch_shape=batch_shape,
+        outputscale_prior=covar_module_prior_dict.get(
+            "outputscale_prior", GammaPrior(2.0, 0.15)
+        ),
+    )
+
+
+def _get_batch_shape(X: Tensor, Y: Tensor) -> torch.Size:
+    """Obtain the output-augmented batch shape of GP model.
+
+    Args:
+        X: A `(input_batch_shape) x n x d` tensor of input features.
+        Y: A `n x m` tensor of input observations.
+
+    Returns:
+        The output-augmented batch shape: `input_batch_shape x (m)`
+    """
+    batch_shape = X.shape[:-2]
+    num_outputs = Y.shape[-1]
+    if num_outputs > 1:
+        batch_shape += torch.Size([num_outputs])  # pyre-ignore
+    return batch_shape  # pyre-ignore
 
 
 def get_warping_transform(
