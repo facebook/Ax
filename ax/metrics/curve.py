@@ -117,7 +117,6 @@ class AbstractCurveMetric(MapMetric, ABC):
         if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
             logger.debug("Could not get curves from ids. Returning empty data.")
             # TODO[mpolson64] Do we want to return Errs here?
-            logger.debug("Could not get ids from trials. Returning empty data.")
             return {
                 trial.index: {
                     metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
