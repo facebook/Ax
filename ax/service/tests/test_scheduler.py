@@ -1175,4 +1175,11 @@ class TestAxScheduler(TestCase):
                     for warning in lg.output
                 )
             )
+            self.assertTrue(
+                any(
+                    "Because branin is an objective, marking trial 0 as "
+                    "TrialStatus.FAILED" in warning
+                    for warning in lg.output
+                )
+            )
             self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
