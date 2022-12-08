@@ -10,6 +10,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import GpDGSMGpMean, GpDGSMGpSampling
 from ax.utils.sensitivity.sobol_measures import (
+    ProbitLinkMean,
     SobolSensitivityGPMean,
     SobolSensitivityGPSampling,
 )
@@ -127,6 +128,17 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(first_order.shape, torch.Size([2, 3]))
         self.assertEqual(total_order.shape, torch.Size([2, 3]))
         self.assertEqual(second_order.shape, torch.Size([1, 3]))
+
+        sensitivity_mean_bootstrap = SobolSensitivityGPMean(
+            self.model,
+            num_mc_samples=10,
+            bounds=bounds,
+            second_order=True,
+            num_bootstrap_samples=10,
+            link_function=ProbitLinkMean,
+        )
+        first_order = sensitivity_mean_bootstrap.first_order_indices()
+        self.assertEqual(first_order.shape, torch.Size([2, 3]))
 
         with self.assertRaises(ValueError):
             sensitivity_mean = SobolSensitivityGPMean(
