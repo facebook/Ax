@@ -1639,6 +1639,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
         )
 
+        bad_trial_indices = {}
+
         for trial_index, results_by_metric_name in results.items():
             for metric_name, result in results_by_metric_name.items():
                 # If the fetch call succeded continue.
@@ -1686,7 +1688,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         f"MetricFetchE INFO: Because {metric_name} is an objective, "
                         f"marking trial {trial_index} as {status}."
                     )
+
+                    bad_trial_indices += trial_index
                     self._num_trials_bad_due_to_err += 1
+
                     continue
 
                 self.logger.info(
@@ -1694,6 +1699,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "MetricFetchE encountered."
                 )
                 continue
+
+        # Remove data for trials marked as bad. This is important because some aspects
+        # of modeling assume block design and will fail if some metrics are present on
+        # a trial but others are not.
+        for trial_index in bad_trial_indices:
+            del self.experiment.data_by_trial[trial_index]
 
         return results
 
