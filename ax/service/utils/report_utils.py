@@ -64,7 +64,7 @@ FEATURE_IMPORTANCE_CAPTION = (
     "relatively low importance may still be important to tune."
 )
 CROSS_VALIDATION_CAPTION = (
-    "<b>NOTE:</b> We have tried out best to only plot the region of interest.<br>"
+    "<b>NOTE:</b> We have tried our best to only plot the region of interest.<br>"
     "This may hide outliers. You can autoscale the axes to see all trials."
 )
 FEASIBLE_COL_NAME = "is_feasible"
