@@ -366,6 +366,15 @@ class SobolSensitivity(object):
                 )
 
 
+def GaussianLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
+    return mean
+
+
+def ProbitLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
+    a = mean / torch.sqrt(1 + var)
+    return torch.distributions.Normal(0, 1).cdf(a)
+
+
 class SobolSensitivityGPMean(object):
     def __init__(
         self,
@@ -375,6 +384,9 @@ class SobolSensitivityGPMean(object):
         second_order: bool = False,
         input_qmc: bool = False,
         num_bootstrap_samples: int = 1,
+        link_function: Callable[
+            [torch.Tensor, torch.Tensor], torch.Tensor
+        ] = GaussianLinkMean,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -400,7 +412,9 @@ class SobolSensitivityGPMean(object):
         self.num_mc_samples = num_mc_samples
 
         def input_function(x: Tensor) -> Tensor:
-            return checked_cast(GPyTorchPosterior, self.model.posterior(x)).mean
+            with torch.no_grad():
+                p = checked_cast(GPyTorchPosterior, self.model.posterior(x))
+            return link_function(p.mean, p.variance)
 
         self.sensitivity = SobolSensitivity(
             dim=self.dim,
