@@ -8,6 +8,7 @@
 
 import logging
 import os
+import re
 from functools import wraps
 from typing import Any, Callable, Iterable, List, TypeVar
 
@@ -30,7 +31,9 @@ class AxOutputNameFilter(logging.Filter):
         return True
 
 
-def get_logger(name: str, level: int = DEFAULT_LOG_LEVEL) -> logging.Logger:
+def get_logger(
+    name: str, level: int = DEFAULT_LOG_LEVEL, force_name: bool = False
+) -> logging.Logger:
     """Get an Axlogger.
 
     To set a human-readable "output_name" that appears in logger outputs,
@@ -43,10 +46,20 @@ def get_logger(name: str, level: int = DEFAULT_LOG_LEVEL) -> logging.Logger:
 
     Args:
         name: The name of the logger.
+        level: The level at which to actually log.  Logs
+            below this level of importance will be discarded
+        force_name: If set to false and the module specified
+            is not ultimately a descendent of the `ax` module
+            specified by `name`, "ax." will be prepended to `name`
 
     Returns:
         The logging.Logger object.
     """
+    # because handlers are attached to the "ax" module
+    if not force_name and not re.search(
+        r"^{ax_root}(\.|$)".format(ax_root=AX_ROOT_LOGGER_NAME), name
+    ):
+        name = f"{AX_ROOT_LOGGER_NAME}.{name}"
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addFilter(AxOutputNameFilter())
