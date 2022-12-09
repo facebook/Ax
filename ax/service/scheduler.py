@@ -1702,5 +1702,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         trial: BaseTrial,
         metric_name: Optional[str] = None,
         metric_fetch_e: Optional[MetricFetchE] = None,
-    ) -> None:
+    ) -> TrialStatus:
         trial.mark_failed(unsafe=True)
+
+        return TrialStatus.FAILED
