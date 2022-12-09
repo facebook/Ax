@@ -514,8 +514,8 @@ class AcquisitionTest(TestCase):
         mock_evaluate.assert_called_with(X=self.X)
 
     @mock.patch(  # pyre-ignore
-        "ax.models.torch.botorch_moo_defaults.checked_cast",
-        wraps=lambda x, y: y,
+        "ax.models.torch.botorch_moo_defaults._check_posterior_type",
+        wraps=lambda y: y,
     )
     @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
     def test_init_moo(

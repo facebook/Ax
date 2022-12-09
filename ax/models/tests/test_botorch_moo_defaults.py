@@ -220,8 +220,8 @@ class BotorchMOODefaultsTest(TestCase):
             )
 
     @mock.patch(  # pyre-ignore
-        "ax.models.torch.botorch_moo_defaults.checked_cast",
-        wraps=lambda x, y: y,
+        "ax.models.torch.botorch_moo_defaults._check_posterior_type",
+        wraps=lambda y: y,
     )
     def test_get_ehvi(self, _) -> None:
         weights = torch.tensor([0.0, 1.0, 1.0])
@@ -269,8 +269,8 @@ class BotorchMOODefaultsTest(TestCase):
 
     # test infer objective thresholds alone
     @mock.patch(  # pyre-ignore
-        "ax.models.torch.botorch_moo_defaults.checked_cast",
-        wraps=lambda x, y: y,
+        "ax.models.torch.botorch_moo_defaults._check_posterior_type",
+        wraps=lambda y: y,
     )
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
         for dtype in (torch.float, torch.double):

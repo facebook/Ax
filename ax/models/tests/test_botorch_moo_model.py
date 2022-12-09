@@ -449,8 +449,8 @@ class BotorchMOOModelTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    "ax.models.torch.botorch_moo_defaults.checked_cast",
-                    wraps=lambda x, y: y,
+                    "ax.models.torch.botorch_moo_defaults._check_posterior_type",
+                    wraps=lambda y: y,
                 )
             )
             _mock_model_infer_objective_thresholds = es.enter_context(
