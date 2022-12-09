@@ -53,3 +53,24 @@ class LoggerTest(TestCase):
             self.assertIn("my_output_name", output)
             self.assertIn(self.warning_string, output)
             tf.close()
+
+    def test_it_prepends_ax(self) -> None:
+        with self.subTest("ax"):
+            logger = get_logger("ax")
+            self.assertEqual(logger.name, "ax")
+
+        with self.subTest("ax.common"):
+            logger = get_logger("ax.common")
+            self.assertEqual(logger.name, "ax.common")
+
+        with self.subTest("axtremely"):
+            logger = get_logger("axtremely")
+            self.assertEqual(logger.name, "ax.axtremely")
+
+        with self.subTest("botorch"):
+            logger = get_logger("botorch")
+            self.assertEqual(logger.name, "ax.botorch")
+
+        with self.subTest("force_name"):
+            logger = get_logger("axtremely", force_name=True)
+            self.assertEqual(logger.name, "axtremely")
