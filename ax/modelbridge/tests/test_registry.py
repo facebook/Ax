@@ -44,6 +44,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import FixedNoiseGP
+from gpytorch.priors.torch_priors import GammaPrior
 
 
 class ModelRegistryTest(TestCase):
@@ -118,6 +119,7 @@ class ModelRegistryTest(TestCase):
                 "warm_start_refitting": True,
                 "use_input_warping": False,
                 "use_loocv_pseudo_likelihood": False,
+                "prior": None,
             },
         )
         self.assertEqual(
@@ -135,10 +137,18 @@ class ModelRegistryTest(TestCase):
                 "default_model_gen_options": None,
             },
         )
+        prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
         gpei = Models.GPEI(
-            experiment=exp, data=exp.fetch_data(), search_space=exp.search_space
+            experiment=exp,
+            data=exp.fetch_data(),
+            search_space=exp.search_space,
+            prior=prior_kwargs,
         )
         self.assertIsInstance(gpei, TorchModelBridge)
+        self.assertEqual(
+            gpei._model_kwargs["prior"],  # pyre-ignore
+            prior_kwargs,
+        )
 
     def test_enum_model_kwargs(self) -> None:
         """Tests that kwargs are passed correctly when instantiating through the
