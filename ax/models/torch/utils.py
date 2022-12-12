@@ -41,7 +41,8 @@ from botorch.acquisition.objective import (
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP, SingleTaskGP
-from botorch.models.model import Model
+from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel
+from botorch.models.model import Model, ModelList
 from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.posteriors.posterior_list import PosteriorList
@@ -299,8 +300,22 @@ def subset_model(
             "Model size inconsistency. Tryting to subset a model with "
             f"{model.num_outputs} outputs to {len(idcs)} outputs"
         )
+
+    # BatchedMultiOutputGPyTorchModel.subset_output behaves differently from
+    # ModelList.subset_output. Historically this function implicitly assumed
+    # the behavior of `BatchedMultiOutputGPyTorchModel` and would error if
+    # provided a `ModelList`.
     try:
-        model = model.subset_output(idcs=idcs)
+        if isinstance(model, ModelList) and not isinstance(
+            model, BatchedMultiOutputGPyTorchModel
+        ):
+            # pyre-fixme[6]: In call
+            # `BatchedMultiOutputGPyTorchModel.subset_output`, for 1st positional
+            # only parameter expected `BatchedMultiOutputGPyTorchModel` but got
+            # `Model`.
+            model = BatchedMultiOutputGPyTorchModel.subset_output(model, idcs)
+        else:
+            model = model.subset_output(idcs=idcs)
         objective_weights = objective_weights[nonzero]
         if outcome_constraints is not None:
             A, b = outcome_constraints
