@@ -1647,6 +1647,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
                 metric_fetch_e = result.unwrap_err()
 
+                self._report_metric_fetch_e(
+                    trial=self.experiment.trials[trial_index],
+                    metric_name=metric_name,
+                    metric_fetch_e=metric_fetch_e,
+                )
+
                 # Log the Err so the user is aware that something has failed, even if
                 # we do not do anything
                 self.logger.warning(
@@ -1696,6 +1702,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 continue
 
         return results
+
+    def _report_metric_fetch_e(
+        self,
+        trial: BaseTrial,
+        metric_name: str,
+        metric_fetch_e: MetricFetchE,
+    ) -> None:
+        pass
 
     def _mark_err_trial_status(
         self,
