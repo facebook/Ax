@@ -1152,7 +1152,11 @@ class Experiment(Base):
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
             new_trial = self.new_trial()
-            add_arm_and_maybe_clear_name(new_trial=new_trial, old_trial=trial)
+            add_arm_and_prevent_naming_collision(
+                new_trial=new_trial,
+                old_trial=trial,
+                old_experiment_name=old_experiment._name,
+            )
             new_trial.mark_running(no_runner_required=True)
             new_trial._properties["source"] = (
                 f"Warm start from Experiment: `{old_experiment._name}`, "
@@ -1299,14 +1303,22 @@ class Experiment(Base):
         return trial_type is None
 
 
-def add_arm_and_maybe_clear_name(new_trial: Trial, old_trial: Trial) -> None:
-    # Clear name only if it matches auto-generated format.
+def add_arm_and_prevent_naming_collision(
+    new_trial: Trial, old_trial: Trial, old_experiment_name: Optional[str] = None
+) -> None:
+    # Add all of an old trial's arms to a new trial. Rename any arm with auto-generated
+    # naming format to prevent naming collisions during warm-start. If an old
+    # experiment name is provided, append that to the original arm name. Else, clear
+    # the arm name. Preserves all names not matching the automatic naming format.
+    # experiment is not named, clear the arm's name.
     # `arm_index` is 0 since all trials are single-armed.
-    clear_name = bool(
-        not_none(old_trial.arm).name == old_trial._get_default_name(arm_index=0)
-    )
-    if clear_name:
-        new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=True))
+    old_arm_name = not_none(old_trial.arm).name
+    has_default_name = bool(old_arm_name == old_trial._get_default_name(arm_index=0))
+    if has_default_name:
+        new_arm = not_none(old_trial.arm).clone(clear_name=True)
+        if old_experiment_name is not None:
+            new_arm.name = f"{old_arm_name}_{old_experiment_name}"
+        new_trial.add_arm(new_arm)
     else:
         try:
             new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=False))

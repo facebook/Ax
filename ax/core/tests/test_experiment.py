@@ -791,19 +791,28 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
-        for _, trial in new_experiment.trials.items():
+        for idx, trial in new_experiment.trials.items():
             # skip failed trial
             i_old_trial += i_old_trial == i_failed_trial
+            # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
+            old_arm = old_experiment.trials[i_old_trial].arm
             self.assertEqual(
-                # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
                 trial.arm.parameters,
-                old_experiment.trials[i_old_trial].arm.parameters,
+                old_arm.parameters,
             )
             self.assertRegex(
                 trial._properties["source"], "Warm start.*Experiment.*trial"
             )
             self.assertDictEqual(trial.run_metadata, DUMMY_RUN_METADATA)
             i_old_trial += 1
+
+            # Check naming logic.
+            if idx == 0:
+                self.assertEqual(trial.arm.name, DUMMY_ARM_NAME)
+            else:
+                self.assertEqual(
+                    trial.arm.name, f"{old_arm.name}_{old_experiment.name}"
+                )
 
         # Check that the data was attached for correct trials
         old_df = old_experiment.fetch_data().df
@@ -814,9 +823,6 @@ class ExperimentTest(TestCase):
             old_df.drop(["arm_name", "trial_index"], axis=1),
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
-
-        # Check name-preserving logic.
-        self.assertEqual(new_experiment.trials[0].arm.name, DUMMY_ARM_NAME)
 
         # check that all non-failed/abandoned trials are copied to new_experiment
         new_experiment = get_branin_experiment()
