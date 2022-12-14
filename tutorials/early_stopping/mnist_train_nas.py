@@ -15,7 +15,7 @@ from pytorch_lightning import LightningModule, loggers as pl_loggers, Trainer
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from torchmetrics.functional.classification.accuracy import accuracy
+from torchmetrics.functional.classification.accuracy import multiclass_accuracy
 from torchvision import transforms
 from torchvision.datasets import MNIST
 
@@ -113,7 +113,7 @@ class MnistModel(LightningModule):
         logits = self(x)
         loss = F.nll_loss(logits, y)
         preds = torch.argmax(logits, dim=1)
-        acc = accuracy(preds, y)
+        acc = multiclass_accuracy(preds, y, num_classes=self.num_classes)
         self.log("val_acc", acc, prog_bar=False)
         return loss
 
