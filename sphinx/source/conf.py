@@ -254,7 +254,7 @@ set_type_checking_flag = True
 # class (with same table) multiple times through autodocs
 # Also mock Pandas to avoid circular imports due to TYPE_CHECKING = True
 autodoc_mock_imports = [
-    "sqlalchemy.ext.declarative",
+    "sqlalchemy",
     "pandas",
     "__test_modules__",
 ]
