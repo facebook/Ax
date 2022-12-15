@@ -103,15 +103,14 @@ class ALEBOKernel(Kernel):
         z1 = torch.matmul(x1, U_t)
         z2 = torch.matmul(x2, U_t)
 
-        return self.covar_dist(
+        diff = self.covar_dist(
             z1,
             z2,
             square_dist=True,
             diag=diag,
-            dist_postprocess_func=postprocess_rbf,
-            postprocess=True,
             **params,
         )
+        return postprocess_rbf(diff)
 
 
 class ALEBOGP(FixedNoiseGP):
