@@ -41,7 +41,6 @@ def copy_doc(src: Callable[..., Any]) -> Callable[[_T], _T]:
     # when docstrings are copied to keep things nice and simple
 
     if src.__doc__ is None:
-        # pyre-fixme[16]: `_T` has no attribute `__qualname__`.
         raise ValueError(f"{src.__qualname__} has no docstring to copy")
 
     def copy_doc(dst: _T) -> _T:
