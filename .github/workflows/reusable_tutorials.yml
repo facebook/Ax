@@ -1,0 +1,23 @@
+name: Reusable Tutorials Workflow
+
+on:
+  workflow_call:
+
+jobs:
+
+  build-tutorials-with-pinned-botorch:
+    name: Tutorials with pinned BoTorch
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.8"
+    - name: Install dependencies
+      run: |
+        # will install the version of Botorch that is pinned in setup.py
+        pip install -e ".[tutorial]"
+    - name: Build tutorials
+      run: |
+        python scripts/make_tutorials.py -w $(pwd) -e
