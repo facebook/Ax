@@ -172,7 +172,7 @@ def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None
             mcmc_samples["noise"]
             .detach()
             .clone()
-            .view(model.likelihood.noise_covar.noise.shape)  # pyre-ignore
+            .view(model.likelihood.noise_covar.noise.shape)
             .clamp_min(MIN_INFERRED_NOISE_LEVEL)
         )
     model.covar_module.base_kernel.lengthscale = (
