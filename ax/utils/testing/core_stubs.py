@@ -554,7 +554,14 @@ def get_experiment_with_observations(
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(metrics=metrics),
                 objective_thresholds=[
-                    ObjectiveThreshold(metric=metrics[i], bound=0.0, relative=False)
+                    ObjectiveThreshold(
+                        metric=metrics[i],
+                        bound=0.0,
+                        relative=False,
+                        op=ComparisonOp.LEQ
+                        if metrics[i].lower_is_better
+                        else ComparisonOp.GEQ,
+                    )
                     for i in [0, 1]
                 ],
                 outcome_constraints=[

@@ -38,16 +38,16 @@ class TestBestPointMixin(TestCase):
 
         # Multi objective.
         exp = get_experiment_with_observations(
-            observations=[[1, 1], [1, 2], [3, 3], [2, 4], [2, 1]],
+            observations=[[1, 1], [-1, 100], [1, 2], [3, 3], [2, 4], [2, 1]],
         )
-        self.assertEqual(get_trace(exp), [1, 2, 9, 11, 11])
+        self.assertEqual(get_trace(exp), [1, 1, 2, 9, 11, 11])
 
         # W/ constraints.
         exp = get_experiment_with_observations(
-            observations=[[1, 1, 1], [1, 2, -1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
+            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
             constrained=True,
         )
-        self.assertEqual(get_trace(exp), [1, 1, 1, 8, 8])
+        self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
 
         # W/ first objective being minimized.
         exp = get_experiment_with_observations(

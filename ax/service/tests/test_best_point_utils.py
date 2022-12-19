@@ -73,7 +73,7 @@ class TestBestPointUtils(TestCase):
                 )
             ),
         ) as mock_model_best_point, self.assertLogs(
-            logger="ax.service.utils.best_point", level="WARN"
+            logger=best_point_logger, level="WARN"
         ) as lg:
             # Test bad model fit causes function to resort back to raw data
             with patch(
@@ -124,7 +124,7 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point(exp, opt_conf)
 
         # Test constraints work as expected.
-        observations = [[1.0, 2.0], [3.0, 4.0], [5.0, -6.0]]
+        observations = [[1.0, 2.0], [3.0, 4.0], [-5.0, -6.0]]
         exp = get_experiment_with_observations(
             observations=observations,
             constrained=True,
@@ -174,7 +174,7 @@ class TestBestPointUtils(TestCase):
         trial.mark_completed()
         exp.fetch_data()
 
-        with self.assertLogs(logger="ax.service.utils.best_point", level="WARN") as lg:
+        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
             get_best_raw_objective_point(exp, opt_conf)
             self.assertTrue(
                 any("No status quo provided" in warning for warning in lg.output),
