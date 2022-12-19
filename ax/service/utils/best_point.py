@@ -7,7 +7,7 @@
 from functools import reduce
 
 from logging import Logger
-from typing import Dict, Iterable, Optional, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Tuple, Type
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -16,6 +16,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.observation import Observation
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -24,6 +25,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
     compute_diagnostics,
@@ -40,6 +42,10 @@ from ax.modelbridge.registry import (
     Models,
 )
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.utils import (
+    derelativize_optimization_config_with_raw_status_quo,
+)
+from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.stats.statstools import relativize_data
@@ -750,3 +756,43 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     df_metric_arms_sems = df[name_mask]["sem"]
 
     return ((df_metric_arms_sems == 0) | df_metric_arms_sems == NaN).all()
+
+
+def _derel_opt_config_wrapper(
+    optimization_config: OptimizationConfig,
+    modelbridge: Optional[ModelBridge] = None,
+    experiment: Optional[Experiment] = None,
+    observations: Optional[List[Observation]] = None,
+) -> OptimizationConfig:
+    """Derelativize optimization_config using raw status-quo values"""
+
+    # If optimization_config is already derelativized, return a copy.
+    if not any(oc.relative for oc in optimization_config.all_constraints):
+        return optimization_config.clone()
+
+    if modelbridge is None and experiment is None:
+        raise ValueError(
+            "Must specify ModelBridge or Experiment when calling "
+            "`_derel_opt_config_wrapper`."
+        )
+    elif not modelbridge:
+        modelbridge = get_tensor_converter_model(
+            experiment=not_none(experiment),
+            data=not_none(experiment).lookup_data(),
+        )
+    else:  # Both modelbridge and experiment specified.
+        logger.warning(
+            "ModelBridge and Experiment provided to `_derel_opt_config_wrapper`. "
+            "Ignoring the latter."
+        )
+    if not modelbridge.status_quo:
+        raise ValueError(
+            "`modelbridge` must have status quo if specified. If `modelbridge` is "
+            "unspecified, `experiment` must have a status quo."
+        )
+    observations = observations or modelbridge.get_training_data()
+    return derelativize_optimization_config_with_raw_status_quo(
+        optimization_config=optimization_config,
+        modelbridge=modelbridge,
+        observations=observations,
+    )
