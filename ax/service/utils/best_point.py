@@ -635,8 +635,8 @@ def _is_row_feasible(
     falls outside of any outcome constraint's bounds (i.e. we are 95% sure the
     bound is not satisfied), else True.
     """
-    if len(optimization_config.outcome_constraints) < 1:
-        return pd.Series([True] * len(df))
+    if len(optimization_config.all_constraints) < 1:
+        return pd.Series([True] * len(df), index=df.index)
 
     name = df["metric_name"]
 
@@ -652,7 +652,7 @@ def _is_row_feasible(
     rel_lower_bound = None
     rel_upper_bound = None
     if status_quo is not None and any(
-        oc.relative for oc in optimization_config.outcome_constraints
+        oc.relative for oc in optimization_config.all_constraints
     ):
         # relativize_data expects all arms to come from the same trial, we need to
         # format the data as if it was.
@@ -707,7 +707,7 @@ def _is_row_feasible(
 
     mask = reduce(
         lambda left, right: left & right,
-        map(oc_mask, optimization_config.outcome_constraints),
+        map(oc_mask, optimization_config.all_constraints),
     )
     bad_arm_names = (
         df[~mask]["arm_name"].tolist()
