@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -15,9 +15,12 @@ from ax.core.types import ComparisonOp
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
+from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils.best_point import (
+    _derel_opt_config_wrapper,
     get_best_parameters,
     get_best_raw_objective_point,
+    logger as best_point_logger,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
@@ -27,6 +30,9 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+
+best_point_module: str = _derel_opt_config_wrapper.__module__
+DUMMY_OPTIMIZATION_CONFIG = "test_optimization_config"
 
 
 class TestBestPointUtils(TestCase):
@@ -218,3 +224,111 @@ class TestBestPointUtils(TestCase):
         ).run()
         exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
+
+    @patch(
+        f"{best_point_module}.derelativize_optimization_config_with_raw_status_quo",
+        return_value=DUMMY_OPTIMIZATION_CONFIG,
+    )
+    def test_derel_opt_config_wrapper(self, mock_derelativize: MagicMock) -> None:
+        # No change to optimization config without relative constraints/thresholds.
+        exp = get_experiment_with_observations(
+            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
+            constrained=True,
+        )
+        input_optimization_config = not_none(exp.optimization_config)
+        optimization_config = _derel_opt_config_wrapper(
+            optimization_config=input_optimization_config
+        )
+        self.assertEqual(input_optimization_config, optimization_config)
+
+        # Add relative constraints.
+        for constraint in input_optimization_config.all_constraints:
+            constraint.relative = True
+
+        # Check errors.
+        with self.assertRaisesRegex(
+            ValueError,
+            "Must specify ModelBridge or Experiment when calling "
+            "`_derel_opt_config_wrapper`.",
+        ):
+            _derel_opt_config_wrapper(optimization_config=input_optimization_config)
+        with self.assertRaisesRegex(
+            ValueError,
+            "`modelbridge` must have status quo if specified. If `modelbridge` is "
+            "unspecified, `experiment` must have a status quo.",
+        ):
+            _derel_opt_config_wrapper(
+                optimization_config=input_optimization_config, experiment=exp
+            )
+
+        # Set status quo.
+        exp.status_quo = exp.trials[0].arms[0]
+
+        # ModelBridges will have specific addresses and so must be self-same to
+        # pass equality checks.
+        test_modelbridge_1 = get_tensor_converter_model(
+            experiment=not_none(exp),
+            data=not_none(exp).lookup_data(),
+        )
+        test_observations_1 = test_modelbridge_1.get_training_data()
+        returned_value = _derel_opt_config_wrapper(
+            optimization_config=input_optimization_config,
+            modelbridge=test_modelbridge_1,
+            observations=test_observations_1,
+        )
+        mock_derelativize.assert_called_with(
+            optimization_config=input_optimization_config,
+            modelbridge=test_modelbridge_1,
+            observations=test_observations_1,
+        )
+        with patch(
+            f"{best_point_module}.get_tensor_converter_model",
+            return_value=test_modelbridge_1,
+        ), patch(
+            f"{best_point_module}.ModelBridge.get_training_data",
+            return_value=test_observations_1,
+        ):
+            returned_value = _derel_opt_config_wrapper(
+                optimization_config=input_optimization_config, experiment=exp
+            )
+        self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
+        mock_derelativize.assert_called_with(
+            optimization_config=input_optimization_config,
+            modelbridge=test_modelbridge_1,
+            observations=test_observations_1,
+        )
+
+        # Observations and ModelBridge are not constructed from other inputs when
+        # provided.
+        test_modelbridge_2 = get_tensor_converter_model(
+            experiment=not_none(exp),
+            data=not_none(exp).lookup_data(),
+        )
+        test_observations_2 = test_modelbridge_2.get_training_data()
+        with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
+            f"{best_point_module}.get_tensor_converter_model",
+            return_value=test_modelbridge_2,
+        ), patch(
+            f"{best_point_module}.ModelBridge.get_training_data",
+            return_value=test_observations_2,
+        ):
+            returned_value = _derel_opt_config_wrapper(
+                optimization_config=input_optimization_config,
+                experiment=exp,
+                modelbridge=test_modelbridge_1,
+                observations=test_observations_1,
+            )
+            self.assertTrue(
+                any(
+                    "ModelBridge and Experiment provided to "
+                    "`_derel_opt_config_wrapper`. Ignoring the latter." in warning
+                    for warning in lg.output
+                ),
+                msg=lg.output,
+            )
+        self.assertEqual(returned_value, DUMMY_OPTIMIZATION_CONFIG)
+        mock_derelativize.assert_called_with(
+            optimization_config=input_optimization_config,
+            modelbridge=test_modelbridge_1,
+            observations=test_observations_1,
+        )
