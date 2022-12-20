@@ -75,6 +75,14 @@ Logger
     :undoc-members:
     :show-inheritance:
 
+Mock Torch
+~~~~~~~~~~
+
+.. automodule:: ax.utils.common.mock
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Result
 ~~~~~~
 

@@ -5,12 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import cast, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import numpy as np
 
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -25,6 +28,7 @@ from ax.modelbridge.generation_strategy import (
     GenerationStrategy,
     MaxParallelismReachedException,
 )
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
@@ -32,12 +36,16 @@ from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Cont_X_trans, MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.random.sobol import SobolGenerator
+from ax.utils.common.equality import same_elements
+from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
     get_choice_parameter,
     get_data,
+    get_experiment_with_multi_objective,
     get_hierarchical_search_space_experiment,
 )
 
@@ -382,11 +390,9 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(len(sobol_generation_strategy._generator_runs), i)
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument
-    #  `ax.utils.testing.core_stubs.get_data()` to decorator factory
-    #  `unittest.mock.patch`.
+    # `ax.utils.testing.core_stubs.get_data()` to decorator `unittest.mock.patch`.
     @patch(f"{Experiment.__module__}.Experiment.fetch_data", return_value=get_data())
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_factorial_thompson_strategy(self, _):
+    def test_factorial_thompson_strategy(self, _: MagicMock) -> None:
         exp = get_branin_experiment()
         factorial_thompson_generation_strategy = GenerationStrategy(
             steps=[
@@ -543,9 +549,9 @@ class TestGenerationStrategy(TestCase):
 
     @patch(f"{RandomModelBridge.__module__}.RandomModelBridge.update")
     @patch(f"{Experiment.__module__}.Experiment.lookup_data")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_use_update(self, mock_lookup_data, mock_update):
+    def test_use_update(
+        self, mock_lookup_data: MagicMock, mock_update: MagicMock
+    ) -> None:
         exp = get_branin_experiment()
         sobol_gs_with_update = GenerationStrategy(
             steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, use_update=True)]
@@ -772,6 +778,86 @@ class TestGenerationStrategy(TestCase):
                     include_sq=False,
                 )
             )
+
+    def test_gen_multiple(self) -> None:
+        exp = get_experiment_with_multi_objective()
+        sobol_GPEI_gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ]
+        )
+        with mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+            original_method=ModelSpec.gen,
+        ) as model_spec_gen_mock, mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.fit",
+            original_method=ModelSpec.fit,
+        ) as model_spec_fit_mock:
+            # Generate first four Sobol GRs (one more to gen after that if
+            # first four become trials.
+            grs = sobol_GPEI_gs._gen_multiple(experiment=exp, num_generator_runs=3)
+            self.assertEqual(len(grs), 3)
+            # We should only fit once; refitting for each `gen` would be
+            # wasteful as there is no new data.
+            model_spec_fit_mock.assert_called_once()
+            self.assertEqual(model_spec_gen_mock.call_count, 3)
+            pending_in_each_gen = enumerate(
+                args_and_kwargs.kwargs.get("pending_observations")
+                for args_and_kwargs in model_spec_gen_mock.call_args_list
+            )
+            for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+                exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
+                if idx > 0:
+                    prev_gr = grs[idx - 1]
+                    for arm in prev_gr.arms:
+                        for m in pending:
+                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+            model_spec_gen_mock.reset_mock()
+
+            # Check case with pending features initially specified; we should get two
+            # GRs now (remaining in Sobol step) even though we requested 3.
+            original_pending = not_none(get_pending(experiment=exp))
+            first_3_trials_obs_feats = [
+                ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
+                for idx, trial in exp.trials.items()
+                for a in trial.arms
+            ]
+            for m in original_pending:
+                self.assertTrue(
+                    same_elements(original_pending[m], first_3_trials_obs_feats)
+                )
+
+            grs = sobol_GPEI_gs._gen_multiple(
+                experiment=exp,
+                num_generator_runs=3,
+                pending_observations=get_pending(experiment=exp),
+            )
+            self.assertEqual(len(grs), 2)
+
+            pending_in_each_gen = enumerate(
+                args_and_kwargs[1].get("pending_observations")
+                for args_and_kwargs in model_spec_gen_mock.call_args_list
+            )
+            for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+                exp.new_trial(generator_run=gr).mark_running(no_runner_required=True)
+                if idx > 0:
+                    prev_gr = grs[idx - 1]
+                    for arm in prev_gr.arms:
+                        for m in pending:
+                            # In this case, we should see both the originally-pending
+                            # and the new arms as pending observation features.
+                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+                            for p in original_pending[m]:
+                                self.assertIn(p, pending[m])
 
     # ------------- Testing helpers (put tests above this line) -------------
 
