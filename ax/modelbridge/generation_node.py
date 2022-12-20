@@ -9,13 +9,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from ax.core.data import Data  # Perhaps need to use `AbstractDataFrameData`?
+from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
+
+from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
@@ -32,6 +35,12 @@ models, so exactly one `ModelSpec` must be specified when using
 `GenerationNode._pick_fitted_model_to_gen_from` (usually called
 by `GenerationNode.gen`.
 """
+MAX_GEN_DRAWS = 5
+MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
+    f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
+    "generate a unique parameterization. This indicates that the search space has "
+    "likely been fully explored, or that the sweep has converged."
+)
 
 
 class GenerationNode:
@@ -40,12 +49,14 @@ class GenerationNode:
     """
 
     model_specs: List[ModelSpec]
+    should_deduplicate: bool
     _model_spec_to_gen_from: Optional[ModelSpec] = None
 
     def __init__(
         self,
         model_specs: List[ModelSpec],
         best_model_selector: Optional[BestModelSelector] = None,
+        should_deduplicate: bool = False,
     ) -> None:
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
         # and `_pick_fitted_model_to_gen_from` methods, we validate the
@@ -54,6 +65,7 @@ class GenerationNode:
         # method to bypass that validation.
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
+        self.should_deduplicate = should_deduplicate
 
     @property
     def model_spec_to_gen_from(self) -> ModelSpec:
@@ -142,6 +154,9 @@ class GenerationNode:
         self,
         n: Optional[int] = None,
         pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
+        arms_by_signature_for_deduplication: Optional[Dict[str, Arm]] = None,
+        **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
         ``self._pick_fitted_model_to_gen_from``) and generates candidates
@@ -156,6 +171,9 @@ class GenerationNode:
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
+            max_gen_draws_for_deduplication: TODO
+            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
+                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
 
         NOTE: Models must have been fit prior to calling ``gen``.
         NOTE: Some underlying models may ignore the ``n`` argument and produce a
@@ -163,17 +181,37 @@ class GenerationNode:
             a generator run with number of arms (that can differ from ``n``).
         """
         model_spec = self.model_spec_to_gen_from
-        return model_spec.gen(
-            # If `n` is not specified, ensure that the `None` value does not
-            # override the one set in `model_spec.model_gen_kwargs`.
-            n=model_spec.model_gen_kwargs.get("n")
-            if n is None and model_spec.model_gen_kwargs
-            else n,
-            # For `pending_observations`, prefer the input to this function, as
-            # `pending_observations` are dynamic throughout the experiment and thus
-            # unlikely to be specified in `model_spec.model_gen_kwargs`.
-            pending_observations=pending_observations,
-        )
+        should_generate_run = True
+        generator_run = None
+        n_gen_draws = 0
+        # Keep generating until each of `generator_run.arms` is not a duplicate
+        # of a previous arm, if `should_deduplicate is True`
+        while should_generate_run:
+            if n_gen_draws > max_gen_draws_for_deduplication:
+                raise GenerationStrategyRepeatedPoints(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
+            generator_run = model_spec.gen(
+                # If `n` is not specified, ensure that the `None` value does not
+                # override the one set in `model_spec.model_gen_kwargs`.
+                n=model_spec.model_gen_kwargs.get("n")
+                if n is None and model_spec.model_gen_kwargs
+                else n,
+                # For `pending_observations`, prefer the input to this function, as
+                # `pending_observations` are dynamic throughout the experiment and thus
+                # unlikely to be specified in `model_spec.model_gen_kwargs`.
+                pending_observations=pending_observations,
+                **model_gen_kwargs,
+            )
+
+            should_generate_run = (
+                self.should_deduplicate
+                and arms_by_signature_for_deduplication
+                and any(
+                    arm.signature in arms_by_signature_for_deduplication
+                    for arm in generator_run.arms
+                )
+            )
+            n_gen_draws += 1
+        return not_none(generator_run)
 
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
         """Select one model to generate from among the fitted models on this
@@ -322,7 +360,9 @@ class GenerationStep(GenerationNode, SortableBase):
                 model_kwargs=self.model_kwargs,
                 model_gen_kwargs=self.model_gen_kwargs,
             )
-        super().__init__(model_specs=[model_spec])
+        super().__init__(
+            model_specs=[model_spec], should_deduplicate=self.should_deduplicate
+        )
 
     @property
     def model_spec(self) -> ModelSpec:
@@ -335,3 +375,20 @@ class GenerationStep(GenerationNode, SortableBase):
     @property
     def _unique_id(self) -> str:
         return str(self.index)
+
+    def gen(
+        self,
+        n: Optional[int] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
+        arms_by_signature_for_deduplication: Optional[Dict[str, Arm]] = None,
+        **model_gen_kwargs: Any,
+    ) -> GeneratorRun:
+        gr = super().gen(
+            n=n,
+            pending_observations=pending_observations,
+            max_gen_draws_for_deduplication=max_gen_draws_for_deduplication,
+            arms_by_signature_for_deduplication=arms_by_signature_for_deduplication,
+        )
+        gr._generation_step_index = self.index
+        return gr

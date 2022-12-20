@@ -13,7 +13,6 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import pandas as pd
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -22,11 +21,11 @@ from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
-    GenerationStrategyRepeatedPoints,
     MaxParallelismReachedException,
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
+from ax.modelbridge.modelbridge_utils import extend_pending_observations
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -420,7 +419,7 @@ class GenerationStrategy(Base):
         data: Optional[Data] = None,
         n: int = 1,
         pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
-        **kwargs: Any,
+        **model_gen_kwargs: Any,
     ) -> List[GeneratorRun]:
         """Produce multiple generator runs at once, to be made into multiple
         trials on the experiment.
@@ -452,6 +451,9 @@ class GenerationStrategy(Base):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
+            model_gen_kwargs: Keyword arguments that are passed through to
+                ``GenerationStep.gen``, which will pass them through to
+                ``ModelSpec.gen``, which will pass them to ``ModelBridge.gen``.
         """
         self.experiment = experiment
         self._maybe_move_to_next_step()
@@ -471,20 +473,16 @@ class GenerationStrategy(Base):
             )
 
         generator_runs = []
+        pending_observations = deepcopy(pending_observations) or {}
         for _ in range(num_generator_runs):
             try:
-                generator_run = _gen_from_generation_step(
-                    generation_step=self._curr,
-                    input_max_gen_draws=MAX_GEN_DRAWS,
+                generator_run = self._curr.gen(
                     n=n,
                     pending_observations=pending_observations,
-                    model_gen_kwargs=kwargs,
-                    should_deduplicate=self._curr.should_deduplicate,
-                    arms_by_signature=self.experiment.arms_by_signature,
+                    arms_by_signature_for_deduplication=experiment.arms_by_signature,
+                    **model_gen_kwargs,
                 )
-                generator_run._generation_step_index = self._curr.index
-                self._generator_runs.append(generator_run)
-                generator_runs.append(generator_run)
+
             except DataRequiredError as err:
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
@@ -493,6 +491,17 @@ class GenerationStrategy(Base):
                     raise  # pragma: no cover
                 logger.debug(f"Model required more data: {err}.")  # pragma: no cover
                 break  # pragma: no cover
+
+            self._generator_runs.append(generator_run)
+            generator_runs.append(generator_run)
+
+            # Extend the `pending_observation` with newly generated point(s)
+            # to avoid repeating them.
+            extend_pending_observations(
+                experiment=experiment,
+                pending_observations=pending_observations,
+                generator_run=generator_run,
+            )
 
         return generator_runs
 
@@ -826,42 +835,3 @@ class GenerationStrategy(Base):
                 "Updating completed trials with new data is not yet supported for "
                 "generation strategies that leverage `model.update` functionality."
             )
-
-
-def _gen_from_generation_step(
-    input_max_gen_draws: int,
-    generation_step: GenerationStep,
-    n: int,
-    pending_observations: Optional[Dict[str, List[ObservationFeatures]]],
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    model_gen_kwargs: Any,
-    should_deduplicate: bool,
-    arms_by_signature: Dict[str, Arm],
-) -> GeneratorRun:
-    """Produces a ``GeneratorRun`` with ``n`` arms using the provided ``model``. if
-    ``should_deduplicate is True``, these arms are deduplicated against previous arms
-    using rejection sampling before returning. If more than ``input_max_gen_draws``
-    samples are generated during deduplication, this function produces a
-    ``GenerationStrategyRepeatedPoints`` exception.
-    """
-    # TODO[drfreund]: Consider moving dedulication to generation step itself.
-    # NOTE: Might need to revisit the behavior of deduplication when
-    # generating multi-arm generator runs (to be made into batch trials).
-    should_generate_run = True
-    generator_run = None
-    n_gen_draws = 0
-    # Keep generating until each of `generator_run.arms` is not a duplicate
-    # of a previous arm, if `should_deduplicate is True`
-    while should_generate_run:
-        if n_gen_draws > input_max_gen_draws:
-            raise GenerationStrategyRepeatedPoints(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
-        generator_run = generation_step.gen(
-            n=n,
-            pending_observations=pending_observations,
-            **model_gen_kwargs,
-        )
-        should_generate_run = should_deduplicate and any(
-            arm.signature in arms_by_signature for arm in generator_run.arms
-        )
-        n_gen_draws += 1
-    return not_none(generator_run)

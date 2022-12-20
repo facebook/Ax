@@ -32,6 +32,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
@@ -764,6 +765,22 @@ def get_pending_observation_features_based_on_trial_status(
                 )
 
     return dict(pending_features) if any(x for x in pending_features.values()) else None
+
+
+def extend_pending_observations(
+    experiment: Experiment,
+    pending_observations: Dict[str, List[ObservationFeatures]],
+    generator_run: GeneratorRun,
+) -> None:
+    """Extend given pending observations dict (from metric name to observations
+    that are pending for that metric), with arms in a given generator run.
+    """
+    for m in experiment.metrics:
+        if m not in pending_observations:
+            pending_observations[m] = []
+        pending_observations[m].extend(
+            ObservationFeatures.from_arm(a) for a in generator_run.arms
+        )
 
 
 def get_pareto_frontier_and_configs(
