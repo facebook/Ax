@@ -6,6 +6,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import torch
+
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import ScalarizedObjective
@@ -130,6 +132,15 @@ class TestBestPointUtils(TestCase):
             constrained=True,
             minimize=False,
         )
+        _, best_prediction = not_none(get_best_parameters(exp, Models))
+        best_metrics = not_none(best_prediction)[0]
+        self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
+
+        # Tensor bounds are accepted.
+        constraint = not_none(exp.optimization_config).all_constraints[0]
+        # pyre-fixme[8]: Attribute `bound` declared in class `OutcomeConstraint`
+        # has type `float` but is used as type `Tensor`.
+        constraint.bound = torch.tensor(constraint.bound)
         _, best_prediction = not_none(get_best_parameters(exp, Models))
         best_metrics = not_none(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
