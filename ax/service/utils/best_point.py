@@ -701,9 +701,9 @@ def _is_row_feasible(
         # Return True if metrics are different, or whether the confidence
         # interval is entirely not within the bound
         if oc.op == ComparisonOp.GEQ:
-            return ~name_match_mask | (observed_upper_bound > oc.bound)
+            return ~name_match_mask | (observed_upper_bound > float(oc.bound))
         else:
-            return ~name_match_mask | (observed_lower_bound < oc.bound)
+            return ~name_match_mask | (observed_lower_bound < float(oc.bound))
 
     mask = reduce(
         lambda left, right: left & right,
