@@ -1093,6 +1093,7 @@ class Experiment(Base):
         old_experiment: Experiment,
         copy_run_metadata_keys: Optional[List[str]] = None,
         trial_statuses_to_copy: Optional[List[TrialStatus]] = None,
+        search_space_check_membership_raise_error: bool = True,
     ) -> List[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
         This function checks that the parameters of each trial are members of the
@@ -1108,6 +1109,9 @@ class Experiment(Base):
             trial_statuses_to_copy: All trials with a status in this list will be
                 copied. By default, copies all ``RUNNING``, ``COMPLETED``,
                 ``ABANDONED``, and ``EARLY_STOPPED`` trials.
+            search_space_check_membership_raise_error: Whether to raise an exception
+                if the warm started trials being imported fall outside of the
+                defined search space.
 
         Returns:
             List of trials successfully copied from old_experiment to this one
@@ -1147,7 +1151,8 @@ class Experiment(Base):
                     "Only experiments with 1-arm trials currently supported."
                 )
             self.search_space.check_membership(
-                not_none(trial.arm).parameters, raise_error=True
+                not_none(trial.arm).parameters,
+                raise_error=search_space_check_membership_raise_error,
             )
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
             # Set trial index and arm name to their values in new trial.
