@@ -151,21 +151,41 @@ class DataTest(TestCase):
         with self.assertRaises(ValueError):
             Data(df=pd.DataFrame([data_entry2]))
 
-    def testFromEvaluations(self) -> None:
+    def testFromEvaluationsIsoFormat(self) -> None:
+        now = pd.Timestamp.now()
+        day = now.day
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             data = Data.from_evaluations(
                 evaluations={"0_1": {"b": eval1}},
                 trial_index=0,
                 sample_sizes={"0_1": 2},
-                start_time=current_timestamp_in_millis(),
-                end_time=current_timestamp_in_millis(),
+                start_time=now.isoformat(),
+                end_time=now.isoformat(),
             )
             self.assertEqual(data.df["sem"].isnull()[0], sem is None)
             self.assertEqual(len(data.df), 1)
             self.assertNotEqual(data, Data(self.df))
-            self.assertIn("start_time", data.df)
-            self.assertIn("end_time", data.df)
+            self.assertEqual(data.df["start_time"][0].day, day)
+            self.assertEqual(data.df["end_time"][0].day, day)
+
+    def testFromEvaluationsMillisecondFormat(self) -> None:
+        now_ms = current_timestamp_in_millis()
+        day = pd.Timestamp(now_ms, unit="ms").day
+        for sem in (0.5, None):
+            eval1 = (3.7, sem) if sem is not None else 3.7
+            data = Data.from_evaluations(
+                evaluations={"0_1": {"b": eval1}},
+                trial_index=0,
+                sample_sizes={"0_1": 2},
+                start_time=now_ms,
+                end_time=now_ms,
+            )
+            self.assertEqual(data.df["sem"].isnull()[0], sem is None)
+            self.assertEqual(len(data.df), 1)
+            self.assertNotEqual(data, Data(self.df))
+            self.assertEqual(data.df["start_time"][0].day, day)
+            self.assertEqual(data.df["end_time"][0].day, day)
 
     def testFromFidelityEvaluations(self) -> None:
         for sem in (0.5, None):

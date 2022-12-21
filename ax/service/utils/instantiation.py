@@ -895,8 +895,6 @@ class InstantiationBase:
     def raw_data_to_evaluation(
         raw_data: TEvaluationOutcome,
         metric_names: List[str],
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
     ) -> TEvaluationOutcome:
         """Format the trial evaluation data to a standard `TTrialEvaluation`
         (mapping from metric names to a tuple of mean and SEM) representation, or
@@ -945,8 +943,8 @@ class InstantiationBase:
         metric_names: List[str],
         trial_index: int,
         sample_sizes: Dict[str, int],
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
+        start_time: Optional[Union[int, str]] = None,
+        end_time: Optional[Union[int, str]] = None,
     ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
         """Transforms evaluations into Ax Data.
 
@@ -961,16 +959,18 @@ class InstantiationBase:
             sample_sizes: Number of samples collected for each arm, may be empty
                 if unavailable.
             start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
+                data, in milliseconds or iso format.  Milliseconds will eventually be
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
             end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
+                data, in milliseconds or iso format.  Milliseconds will eventually be
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
         """
         evaluations = {
             arm_name: cls.raw_data_to_evaluation(
                 raw_data=raw_data[arm_name],
                 metric_names=metric_names,
-                start_time=start_time,
-                end_time=end_time,
             )
             for arm_name in raw_data
         }

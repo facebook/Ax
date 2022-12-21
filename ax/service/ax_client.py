@@ -88,12 +88,7 @@ from ax.storage.json_store.registry import (
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import (
-    checked_cast,
-    checked_cast_complex,
-    checked_cast_optional,
-    not_none,
-)
+from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
 from botorch.utils.sampling import manual_seed
 
 logger: Logger = get_logger(__name__)
@@ -1792,22 +1787,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 a batched trial or a 1-arm trial.
         """
         raw_data_by_arm = self._raw_data_by_arm(trial=trial, raw_data=raw_data)
+        metadata = metadata if metadata is not None else {}
 
         evaluations, data = self.data_and_evaluations_from_raw_data(
             raw_data=raw_data_by_arm,
             metric_names=list(self.metric_names),
             trial_index=trial.index,
             sample_sizes=sample_sizes or {},
-            start_time=(
-                checked_cast_optional(int, metadata.get("start_time"))
-                if metadata is not None
-                else None
-            ),
-            end_time=(
-                checked_cast_optional(int, metadata.get("end_time"))
-                if metadata is not None
-                else None
-            ),
+            start_time=metadata.get("start_time"),
+            end_time=metadata.get("end_time"),
         )
         return evaluations, data
 

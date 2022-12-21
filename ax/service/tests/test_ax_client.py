@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -39,6 +40,7 @@ from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -53,7 +55,6 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -1555,6 +1556,50 @@ class TestAxClient(TestCase):
         self.assertEqual(best_trial_values[0], {"branin": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
 
+    def test_trial_completion_with_metadata_with_iso_times(self) -> None:
+        ax_client = get_branin_optimization()
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx,
+            raw_data={"branin": (0, 0.0)},
+            metadata={
+                "start_time": "2020-01-01",
+                "end_time": "2020-01-05 00:00:00",
+            },
+        )
+        with patch.object(
+            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+        ) as mock_fit:
+            ax_client.get_next_trial()
+            mock_fit.assert_called_once()
+            features = mock_fit.call_args_list[0][1]["observations"][0].features
+            # we're asserting it's actually created real Timestamp objects
+            # for the observation features
+            self.assertEqual(features.start_time.day, 1)
+            self.assertEqual(features.end_time.day, 5)
+
+    def test_trial_completion_with_metadata_milisecond_times(self) -> None:
+        ax_client = get_branin_optimization()
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx,
+            raw_data={"branin": (0, 0.0)},
+            metadata={
+                "start_time": int(pd.Timestamp("2020-01-01").timestamp() * 1000),
+                "end_time": int(pd.Timestamp("2020-01-05").timestamp() * 1000),
+            },
+        )
+        with patch.object(
+            RandomModelBridge, "_fit", autospec=True, side_effect=RandomModelBridge._fit
+        ) as mock_fit:
+            ax_client.get_next_trial()
+            mock_fit.assert_called_once()
+            features = mock_fit.call_args_list[0][1]["observations"][0].features
+            # we're asserting it's actually created real Timestamp objects
+            # for the observation features
+            self.assertEqual(features.start_time.day, 1)
+            self.assertEqual(features.end_time.day, 5)
+
     def test_abandon_trial(self) -> None:
         ax_client = get_branin_optimization()
 
@@ -1598,7 +1643,7 @@ class TestAxClient(TestCase):
         self.assertEqual(ax_client.get_best_parameters()[0], params2)
 
     def test_start_and_end_time_in_trial_completion(self) -> None:
-        start_time = current_timestamp_in_millis()
+        start_time = pd.Timestamp.now().isoformat()
         ax_client = AxClient()
         ax_client.create_experiment(
             parameters=[
@@ -1613,7 +1658,7 @@ class TestAxClient(TestCase):
             raw_data=1.0,
             metadata={
                 "start_time": start_time,
-                "end_time": current_timestamp_in_millis(),
+                "end_time": pd.Timestamp.now().isoformat(),
             },
         )
         dat = ax_client.experiment.fetch_data().df
