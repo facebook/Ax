@@ -17,13 +17,10 @@ Key terms used:
 
 """
 
-from contextlib import ExitStack
 from functools import partial
 from itertools import product
 from time import time
 from typing import Any, Iterable, List
-
-import gpytorch
 
 import numpy as np
 
@@ -39,8 +36,6 @@ from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
-
-MAX_EAGER_KERNEL_SIZE = 4096
 
 
 def benchmark_replication(
@@ -70,19 +65,8 @@ def benchmark_replication(
         generation_strategy=method.generation_strategy.clone_reset(),
         options=method.scheduler_options,
     )
-    # Set the seed and turn of all the GPyTorch tricks to prevent
-    # issues with large evaluation budgets.
-    with ExitStack() as es:
-        es.enter_context(manual_seed(seed=seed))
-        es.enter_context(gpytorch.settings.max_eager_kernel_size(MAX_EAGER_KERNEL_SIZE))
-        es.enter_context(
-            gpytorch.settings.fast_computations(
-                log_prob=False,
-                covar_root_decomposition=False,
-                solves=False,
-            )
-        )
-        es.enter_context(gpytorch.settings.cholesky_max_tries(6))
+
+    with manual_seed(seed=seed):
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
     optimization_trace = np.array(
