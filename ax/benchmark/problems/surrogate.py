@@ -17,7 +17,6 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 
 from ax.utils.common.base import Base
@@ -113,14 +112,6 @@ class SurrogateRunner(Runner):
 
         self.results: Dict[int, float] = {}
         self.statuses: Dict[int, TrialStatus] = {}
-
-        surrogate.fit(
-            datasets=datasets,
-            metric_names=["objective"],
-            search_space_digest=extract_search_space_digest(
-                search_space=search_space, param_names=[*search_space.parameters.keys()]
-            ),
-        )
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         self.statuses[trial.index] = TrialStatus.COMPLETED
