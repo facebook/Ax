@@ -209,7 +209,7 @@ def single_task_pyro_model(
     mean = pyro_sample_mean(**tkwargs)
     if torch.isnan(Yvar).all():
         # infer noise level
-        noise = pyro_sample_noise(**tkwargs)
+        noise = MIN_OBSERVED_NOISE_LEVEL + pyro_sample_noise(**tkwargs)
     else:
         noise = Yvar.clamp_min(MIN_OBSERVED_NOISE_LEVEL)
     # pyre-fixme[6]: For 2nd param expected `float` but got `Union[device, dtype]`.
