@@ -12,7 +12,6 @@ import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.core.observation import ObservationFeatures, separate_observations
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -20,11 +19,9 @@ from ax.core.optimization_config import (
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
-    _array_to_tensor,
     extract_objective_thresholds,
     extract_objective_weights,
     extract_outcome_constraints,
-    observation_data_to_array,
     observed_hypervolume,
     predicted_hypervolume,
     validate_and_apply_final_transform,
@@ -38,6 +35,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
+from ax.service.utils.best_point import extract_Y_from_data
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 
@@ -324,43 +322,40 @@ class BestPointMixin(metaclass=ABCMeta):
         Returns:
             A list of observed hypervolumes or best values.
         """
-        data = experiment.lookup_data()
-        if len(data.df) == 0:
-            return []
-        # Use a minimal model to help parse the data.
-        modelbridge = get_tensor_converter_model(
-            experiment=experiment,
-            data=data,
-        )
-        observations = modelbridge.get_training_data()
-        obs_features, obs_data = separate_observations(observations)
-        array_to_tensor = partial(_array_to_tensor, modelbridge=modelbridge)
-        Y, _ = observation_data_to_array(
-            outcomes=modelbridge.outcomes, observation_data=obs_data
-        )
-        Y = array_to_tensor(Y)
-
-        tf = Derelativize(
-            search_space=modelbridge.model_space.clone(),
-            observations=observations,
-            config={"use_raw_status_quo": True},
-        )
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
+        # Get the names of the metrics in optimization config.
+        metric_names = set(optimization_config.objective.metric_names)
+        for cons in optimization_config.outcome_constraints:
+            metric_names.update({cons.metric.name})
+        metric_names = list(metric_names)
+        # Convert data into a tensor.
+        Y = extract_Y_from_data(experiment=experiment, metric_names=metric_names)
+        if Y.numel() == 0:
+            return []
+
+        # Derelativize the optimization config.
+        tf = Derelativize(
+            search_space=None, observations=None, config={"use_raw_status_quo": True}
+        )
         optimization_config = tf.transform_optimization_config(
             optimization_config=optimization_config.clone(),
-            modelbridge=modelbridge,
-            fixed_features=ObservationFeatures({}),
+            # pyre-ignore -- experiment works here since we only need the status quo.
+            modelbridge=experiment,
+            fixed_features=None,
         )
 
         # Extract weights, constraints, and objective_thresholds.
         objective_weights = extract_objective_weights(
-            objective=optimization_config.objective, outcomes=modelbridge.outcomes
+            objective=optimization_config.objective, outcomes=metric_names
         )
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
-            outcomes=modelbridge.outcomes,
+            outcomes=metric_names,
+        )
+        to_tensor = partial(
+            torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
         )
         if optimization_config.is_moo_problem:
             objective_thresholds = extract_objective_thresholds(
@@ -368,9 +363,9 @@ class BestPointMixin(metaclass=ABCMeta):
                     MultiObjectiveOptimizationConfig, optimization_config
                 ).objective_thresholds,
                 objective=optimization_config.objective,
-                outcomes=modelbridge.outcomes,
+                outcomes=metric_names,
             )
-            objective_thresholds = array_to_tensor(objective_thresholds)
+            objective_thresholds = to_tensor(not_none(objective_thresholds))
         else:
             objective_thresholds = None
         (
@@ -384,7 +379,7 @@ class BestPointMixin(metaclass=ABCMeta):
             outcome_constraints=outcome_constraints,
             linear_constraints=None,
             pending_observations=None,
-            final_transform=array_to_tensor,
+            final_transform=to_tensor,
         )
         # Get weighted tensor objectives.
         if optimization_config.is_moo_problem:
