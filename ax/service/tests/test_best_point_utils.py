@@ -4,22 +4,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import random
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import torch
-
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils.best_point import (
     _derel_opt_config_wrapper,
+    extract_Y_from_data,
     get_best_parameters,
     get_best_raw_objective_point,
     logger as best_point_logger,
@@ -30,6 +35,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_experiment_with_observations,
+    get_sobol,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
 
@@ -343,3 +349,95 @@ class TestBestPointUtils(TestCase):
             modelbridge=test_modelbridge_1,
             observations=test_observations_1,
         )
+
+    def test_extract_Y_from_data(self) -> None:
+        experiment = get_branin_experiment()
+        sobol_generator = get_sobol(search_space=experiment.search_space)
+        for i in range(20):
+            sobol_run = sobol_generator.gen(n=1)
+            trial = experiment.new_trial(generator_run=sobol_run).mark_running(
+                no_runner_required=True
+            )
+            if i in [3, 8, 10]:
+                trial.mark_early_stopped()
+            else:
+                trial.mark_completed()
+
+        df_dicts = []
+        for trial_idx in range(20):
+            for metric_name in ["foo", "bar"]:
+                df_dicts.append(
+                    {
+                        "trial_index": trial_idx,
+                        "metric_name": metric_name,
+                        "arm_name": f"{trial_idx}_0",
+                        "mean": float(trial_idx)
+                        if metric_name == "foo"
+                        else trial_idx + 5.0,
+                        "sem": 0.0,
+                    }
+                )
+        df_0 = df_dicts[:2]
+        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
+
+        expected_Y = torch.stack(
+            [
+                torch.arange(20, dtype=torch.double),
+                torch.arange(5, 25, dtype=torch.double),
+            ],
+            dim=-1,
+        )
+        Y = extract_Y_from_data(
+            experiment=experiment,
+            metric_names=["foo", "bar"],
+        )
+        self.assertTrue(torch.allclose(Y, expected_Y))
+        # Check that it respects ordering of metric names.
+        Y = extract_Y_from_data(
+            experiment=experiment,
+            metric_names=["bar", "foo"],
+        )
+        self.assertTrue(torch.allclose(Y, expected_Y[:, [1, 0]]))
+        # Extract partial metrics.
+        Y = extract_Y_from_data(experiment=experiment, metric_names=["bar"])
+        self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
+        # Works with messed up ordering of data.
+        random.shuffle(df_dicts)
+        experiment._data_by_trial = {}
+        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
+        Y = extract_Y_from_data(
+            experiment=experiment,
+            metric_names=["foo", "bar"],
+        )
+        self.assertTrue(torch.allclose(Y, expected_Y))
+
+        # Check that it skips trials that are not completed.
+        experiment.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        experiment.trials[1].mark_abandoned(unsafe=True)
+        Y = extract_Y_from_data(
+            experiment=experiment,
+            metric_names=["foo", "bar"],
+        )
+        self.assertTrue(torch.allclose(Y, expected_Y[2:]))
+
+        # Error with missing data.
+        with self.assertRaisesRegex(
+            UserInputError, "single data point for each metric"
+        ):
+            extract_Y_from_data(
+                experiment=experiment,
+                metric_names=["foo", "bar"],
+                data=Data(df=pd.DataFrame.from_records(df_dicts[1:])),
+            )
+
+        # Check that it errors with BatchTrial.
+        experiment = get_branin_experiment()
+        BatchTrial(experiment=experiment, index=0).mark_running(
+            no_runner_required=True
+        ).mark_completed()
+        with self.assertRaisesRegex(UnsupportedError, "BatchTrials are not supported."):
+            extract_Y_from_data(
+                experiment=experiment,
+                metric_names=["foo", "bar"],
+                data=Data(df=pd.DataFrame.from_records(df_0)),
+            )

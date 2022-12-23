@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from collections import defaultdict
 from functools import reduce
 
 from logging import Logger
 from typing import Dict, Iterable, List, Optional, Tuple, Type
 
+import numpy as np
 import pandas as pd
+import torch
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -50,6 +54,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.stats.statstools import relativize_data
 from numpy import NaN
+from torch import Tensor
 
 logger: Logger = get_logger(__name__)
 
@@ -796,3 +801,53 @@ def _derel_opt_config_wrapper(
         modelbridge=modelbridge,
         observations=observations,
     )
+
+
+def extract_Y_from_data(
+    experiment: Experiment,
+    metric_names: List[str],
+    data: Optional[Data] = None,
+) -> Tensor:
+    r"""Converts the experiment observation data into a tensor.
+
+    NOTE: This assumes block design for observations. It will
+    error out if any trial is missing data for any of the given
+    metrics or if the data is missing the `trial_index`.
+
+    Args:
+        experiment: The experiment to extract the data from.
+        metric_names: List of metric names to extract data for.
+        data: An optional `Data` object to use instead of the
+            experiment data. Note that the experiment must have
+            a corresponding COMPLETED or EARLY_STOPPED trial for
+            each `trial_index` in the `data`.
+
+    Returns:
+        A tensor of observed metrics.
+    """
+    df = data.df if data is not None else experiment.lookup_data().df
+    if len(df) == 0:
+        return torch.empty(0, len(metric_names), dtype=torch.double)
+    trial_indices = np.sort(np.unique(df["trial_index"].values))
+    Y_lists_dict = defaultdict(list)
+    data_by_trial = df.groupby("trial_index")
+    for trial_idx in trial_indices:
+        trial = experiment.trials[trial_idx]
+        if trial.status not in [TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]:
+            # Skip trials that are not completed or early stopped.
+            continue
+        if isinstance(trial, BatchTrial):
+            raise UnsupportedError("BatchTrials are not supported.")
+        trial_data = data_by_trial.get_group(trial_idx)
+        try:
+            for m in metric_names:
+                Y_lists_dict[m].append(
+                    float(trial_data.loc[trial_data["metric_name"] == m, "mean"])
+                )
+        except (KeyError, TypeError):
+            raise UserInputError(
+                "Expected each trial to have a single data point for each metric."
+                f"Got {trial_data} for trial {trial_idx}."
+            )
+
+    return torch.tensor([Y_lists_dict[m] for m in metric_names], dtype=torch.double).T
