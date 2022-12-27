@@ -134,8 +134,10 @@ class GeneratorRun(SortableBase):
                 rather than to reproduce the conditions, in which this generator
                 run was created.
             generation_step_index: Optional index of the generation step that produced
-                this generator run. Applicable only if the genetator run was created
-                via a generation strategy.
+                this generator run. Applicable only if the generator run was created
+                via a generation strategy (in which case this index should reflect the
+                index of generation step in a generation strategy) or a standalone
+                generation step (in which case this index should be ``-1``).
             candidate_metadata_by_arm_signature: Optional dictionary of arm signatures
                 to model-produced candidate metadata that corresponds to that arm in
                 this generator run.
@@ -193,8 +195,14 @@ class GeneratorRun(SortableBase):
                 )
         self._candidate_metadata_by_arm_signature = candidate_metadata_by_arm_signature
 
-        # Validate that generation step index is non-negative.
-        assert generation_step_index is None or generation_step_index >= 0
+        # Validate that generation step index is either not set (not from generation
+        # strategy or ste), is non-negative (from generation step) or is -1 (from a
+        # standalone generation step that was not a part of a generation strategy).
+        assert (
+            generation_step_index is None  # Not generation strategy/step
+            or generation_step_index == -1  # Standalone generation step
+            or generation_step_index >= 0  # Generation strategy
+        )
         self._generation_step_index = generation_step_index
 
     @property
