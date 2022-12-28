@@ -183,7 +183,7 @@ def object_attribute_dicts_find_unequal_fields(
                 list(one_val.values()), list(other_val.values())
             )
         elif isinstance(one_val, np.ndarray):
-            equal = np.array_equal(one_val, other_val)
+            equal = np.array_equal(one_val, other_val, equal_nan=True)
         elif isinstance(one_val, datetime):
             equal = datetime_equals(one_val, other_val)
         elif isinstance(one_val, float):

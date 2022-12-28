@@ -6,11 +6,13 @@
 
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 from ax.utils.common.equality import (
     dataframe_equals,
     datetime_equals,
     equality_typechecker,
+    object_attribute_dicts_find_unequal_fields,
     same_elements,
 )
 from ax.utils.common.testutils import TestCase
@@ -46,3 +48,27 @@ class EqualityTest(TestCase):
         self.assertTrue(dataframe_equals(pd.DataFrame(), pd.DataFrame()))
         self.assertTrue(dataframe_equals(pd1, pd2))
         self.assertFalse(dataframe_equals(pd1, pd3))
+
+    def test_numpy_equals(self) -> None:
+        # Simple check.
+        np_0 = {"cov": np.array([[0.1, 0.0], [0.0, 0.1]])}
+        np_1 = {"cov": np.array([[0.1, 0.0], [0.0, 0.1]])}
+        self.assertEqual(
+            object_attribute_dicts_find_unequal_fields(np_0, np_1), ({}, {})
+        )
+        # Unequal.
+        np_1 = {"cov": np.array([[0.1, 0.0], [0.1, 0.1]])}
+        self.assertEqual(
+            object_attribute_dicts_find_unequal_fields(np_0, np_1),
+            ({}, {"cov": (np_0["cov"], np_1["cov"])}),
+        )
+        # With NaNs.
+        np_1 = {"cov": np.array([[0.1, float("nan")], [float("nan"), 0.1]])}
+        self.assertEqual(
+            object_attribute_dicts_find_unequal_fields(np_0, np_1),
+            ({}, {"cov": (np_0["cov"], np_1["cov"])}),
+        )
+        np_0 = {"cov": np.array([[0.1, float("nan")], [float("nan"), 0.1]])}
+        self.assertEqual(
+            object_attribute_dicts_find_unequal_fields(np_0, np_1), ({}, {})
+        )
