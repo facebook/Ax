@@ -45,7 +45,7 @@ class TorchModelBridgeTest(TestCase):
         return_value=None,
     )
     # pyre-fixme[2]: Parameter must be annotated.
-    def testTorchModelBridge(self, mock_init, dtype=None, device=None) -> None:
+    def test_TorchModelBridge(self, mock_init, dtype=None, device=None) -> None:
         ma = TorchModelBridge(
             # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
             experiment=None,
@@ -63,6 +63,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(ma.dtype, dtype)
         self.assertEqual(ma.device, device)
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
+        self.assertIsNone(ma._last_observations)
         tkwargs = {"dtype": dtype, "device": device}
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
@@ -120,6 +121,18 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(model_fit_args["metric_names"], ["y1", "y2"])
         self.assertEqual(model_fit_args["search_space_digest"], ssd)
         self.assertIsNone(model_fit_args["candidate_metadata"])
+        self.assertEqual(ma._last_observations, observations)
+
+        with mock.patch(f"{TorchModelBridge.__module__}.logger.info") as mock_logger:
+            ma._fit(
+                model=model,
+                search_space=search_space,
+                observations=observations,
+            )
+        mock_logger.assert_called_once_with(
+            "The observations are identical to the last set of observations "
+            "used to fit the model. Skipping model fitting."
+        )
 
         # Test `_update`
         with mock.patch(
@@ -297,12 +310,12 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
-    def testTorchModelBridge_float(self) -> None:
-        self.testTorchModelBridge(dtype=torch.float)
+    def test_TorchModelBridge_float(self) -> None:
+        self.test_TorchModelBridge(dtype=torch.float)
 
-    def testTorchModelBridge_cuda(self) -> None:
+    def test_TorchModelBridge_cuda(self) -> None:
         if torch.cuda.is_available():
-            self.testTorchModelBridge(device=torch.device("cuda"))
+            self.test_TorchModelBridge(device=torch.device("cuda"))
 
     @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
     @mock.patch(f"{ModelBridge.__module__}.ModelBridge.__init__")
