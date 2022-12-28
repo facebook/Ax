@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
@@ -59,10 +60,12 @@ from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from torch import Tensor
 
+logger: Logger = get_logger(__name__)
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
@@ -86,6 +89,7 @@ class TorchModelBridge(ModelBridge):
     outcomes: List[str]
     parameters: List[str]
     _default_model_gen_options: TConfig
+    _last_observations: Optional[List[Observation]] = None
 
     def __init__(
         self,
@@ -475,6 +479,13 @@ class TorchModelBridge(ModelBridge):
         observations: List[Observation],
         parameters: Optional[List[str]] = None,
     ) -> None:  # pragma: no cover
+        if self.model is not None and observations == self._last_observations:
+            logger.info(
+                "The observations are identical to the last set of observations "
+                "used to fit the model. Skipping model fitting."
+            )
+            return
+        self._last_observations = observations
         self.parameters = list(search_space.parameters.keys())
         if parameters is None:
             parameters = self.parameters
