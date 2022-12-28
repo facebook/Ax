@@ -104,6 +104,11 @@ def _make_botorch_step(
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
         model_kwargs.update({"disable_progbar": disable_progbar})
+    if is_saasbo(model):
+        logger.info(
+            "Setting `use_update=True` for SAASBO models. This will avoid "
+            " model re-fitting when there are no new completed trials."
+        )
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -111,6 +116,7 @@ def _make_botorch_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
+        use_update=is_saasbo(model),
         # `model_kwargs` should default to `None` if empty
         model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
