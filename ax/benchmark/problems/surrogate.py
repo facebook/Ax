@@ -5,8 +5,6 @@
 
 from typing import Any, Dict, Iterable, List, Set
 
-import numpy as np
-
 import pandas as pd
 import torch
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
@@ -45,6 +43,7 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         minimize: bool,
         optimal_value: float,
         num_trials: int,
+        infer_noise: bool = True,
     ) -> "SurrogateBenchmarkProblem":
         return SurrogateBenchmarkProblem(
             name=name,
@@ -63,12 +62,14 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             ),
             optimal_value=optimal_value,
             num_trials=num_trials,
+            infer_noise=infer_noise,
         )
 
 
 class SurrogateMetric(Metric):
-    def __init__(self) -> None:
+    def __init__(self, infer_noise: bool = True) -> None:
         super().__init__(name="prediction")
+        self.infer_noise = infer_noise
 
     # pyre-fixme[2]: Parameter must be annotated.
     def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> MetricFetchResult:
@@ -82,7 +83,7 @@ class SurrogateMetric(Metric):
                     "arm_name": [name for name, _ in trial.arms_by_name.items()],
                     "metric_name": self.name,
                     "mean": prediction,
-                    "sem": np.nan,
+                    "sem": None if self.infer_noise else 0,
                     "trial_index": trial.index,
                 }
             )

@@ -17,8 +17,10 @@ class JenattonMetric(Metric):
     def __init__(
         self,
         name: str = "jenatton",
+        infer_noise: bool = True,
     ) -> None:
         super().__init__(name=name)
+        self.infer_noise = infer_noise
 
     @staticmethod
     def _f(
@@ -52,7 +54,7 @@ class JenattonMetric(Metric):
                     "arm_name": [name for name, _ in trial.arms_by_name.items()],
                     "metric_name": self.name,
                     "mean": mean,
-                    "sem": 0,
+                    "sem": None if self.infer_noise else 0,
                     "trial_index": trial.index,
                 }
             )

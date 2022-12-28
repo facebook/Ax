@@ -575,6 +575,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
         "__type": problem.__class__.__name__,
         "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
         "num_trials": problem.num_trials,
+        "infer_noise": problem.infer_noise,
     }
 
 

@@ -25,7 +25,10 @@ except ModuleNotFoundError:
 class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
     @classmethod
     def from_dataset_name(
-        cls, name: str, num_trials: int
+        cls,
+        name: str,
+        num_trials: int,
+        infer_noise: bool = True,
     ) -> "PyTorchCNNTorchvisionBenchmarkProblem":
         if name not in _REGISTRY:
             raise UserInputError(
@@ -49,7 +52,11 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
         )
 
         problem = cls.from_datasets(
-            name=name, num_trials=num_trials, train_set=train_set, test_set=test_set
+            name=name,
+            num_trials=num_trials,
+            train_set=train_set,
+            test_set=test_set,
+            infer_noise=infer_noise,
         )
         runner = PyTorchCNNTorchvisionRunner(
             name=name, train_set=train_set, test_set=test_set
@@ -61,6 +68,7 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
             optimization_config=problem.optimization_config,
             runner=runner,
             num_trials=num_trials,
+            infer_noise=infer_noise,
             optimal_value=problem.optimal_value,
         )
 
