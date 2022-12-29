@@ -19,7 +19,9 @@ class BotorchTestProblemMetric(Metric):
     proper value from the resulting tensor given its index.
     """
 
-    def __init__(self, name: str, noise_sd: float, index: Optional[int] = None) -> None:
+    def __init__(
+        self, name: str, noise_sd: Optional[float] = None, index: Optional[int] = None
+    ) -> None:
         super().__init__(name=name)
         self.noise_sd = noise_sd
         self.index = index

@@ -43,6 +43,7 @@ class BenchmarkProblem(Base):
     optimization_config: OptimizationConfig
     runner: Runner
     num_trials: int
+    infer_noise: bool
     tracking_metrics: List[Metric] = field(default_factory=list)
 
     @classmethod
@@ -51,6 +52,7 @@ class BenchmarkProblem(Base):
         test_problem_class: Type[BaseTestProblem],
         test_problem_kwargs: Dict[str, Any],
         num_trials: int,
+        infer_noise: bool = True,
     ) -> "BenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
@@ -76,7 +78,7 @@ class BenchmarkProblem(Base):
             objective=Objective(
                 metric=BotorchTestProblemMetric(
                     name=f"{test_problem.__class__.__name__}",
-                    noise_sd=(test_problem.noise_std or 0),
+                    noise_sd=None if infer_noise else (test_problem.noise_std or 0),
                 ),
                 minimize=True,
             )
@@ -91,6 +93,7 @@ class BenchmarkProblem(Base):
                 test_problem_kwargs=test_problem_kwargs,
             ),
             num_trials=num_trials,
+            infer_noise=infer_noise,
         )
 
 
@@ -102,10 +105,8 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
 
     optimal_value: float = field()
 
-    # pyre-fixme[2]: Parameter must be annotated.
-    def __init__(self, optimal_value: float, **kwargs) -> None:
+    def __init__(self, optimal_value: float, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
         object.__setattr__(self, "optimal_value", optimal_value)
 
     @classmethod
@@ -114,6 +115,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         test_problem_class: Type[SyntheticTestFunction],
         test_problem_kwargs: Dict[str, Any],
         num_trials: int,
+        infer_noise: bool = True,
     ) -> "SingleObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
@@ -127,6 +129,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
             num_trials=num_trials,
+            infer_noise=infer_noise,
         )
 
         return cls(
@@ -135,6 +138,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=problem.optimization_config,
             runner=problem.runner,
             num_trials=num_trials,
+            infer_noise=infer_noise,
             optimal_value=test_problem.optimal_value,
         )
 
@@ -153,11 +157,9 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         self,
         maximum_hypervolume: float,
         reference_point: List[float],
-        # pyre-fixme[2]: Parameter must be annotated.
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-
         object.__setattr__(self, "maximum_hypervolume", maximum_hypervolume)
         object.__setattr__(self, "reference_point", reference_point)
 
@@ -167,6 +169,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         test_problem_class: Type[MultiObjectiveTestProblem],
         test_problem_kwargs: Dict[str, Any],
         num_trials: int,
+        infer_noise: bool = True,
     ) -> "MultiObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
@@ -180,12 +183,13 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
             num_trials=num_trials,
+            infer_noise=infer_noise,
         )
 
         metrics = [
             BotorchTestProblemMetric(
                 name=f"{test_problem.__class__.__name__}_{i}",
-                noise_sd=(test_problem.noise_std or 0),
+                noise_sd=None if infer_noise else (test_problem.noise_std or 0),
                 index=i,
             )
             for i in range(test_problem.num_objectives)
@@ -218,6 +222,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=optimization_config,
             runner=problem.runner,
             num_trials=num_trials,
+            infer_noise=infer_noise,
             maximum_hypervolume=test_problem.max_hv,
             reference_point=test_problem._ref_point,
         )

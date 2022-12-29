@@ -14,6 +14,7 @@ from ax.runners.synthetic import SyntheticRunner
 
 def get_jenatton_benchmark_problem(
     num_trials: int = 50,
+    infer_noise: bool = True,
 ) -> SingleObjectiveBenchmarkProblem:
     search_space = HierarchicalSearchSpace(
         parameters=[
@@ -54,7 +55,9 @@ def get_jenatton_benchmark_problem(
     )
 
     optimization_config = OptimizationConfig(
-        objective=Objective(metric=JenattonMetric(), minimize=True)
+        objective=Objective(
+            metric=JenattonMetric(infer_noise=infer_noise), minimize=True
+        )
     )
 
     return SingleObjectiveBenchmarkProblem(
@@ -63,5 +66,6 @@ def get_jenatton_benchmark_problem(
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
         num_trials=num_trials,
+        infer_noise=infer_noise,
         optimal_value=0.1,
     )

@@ -205,7 +205,9 @@ def object_from_json(
             )
         elif _class == TorchvisionBenchmarkProblem:
             return TorchvisionBenchmarkProblem.from_dataset_name(  # pragma: no cover
-                name=object_json["name"], num_trials=object_json["num_trials"]
+                name=object_json["name"],
+                num_trials=object_json["num_trials"],
+                infer_noise=object_json["infer_noise"],
             )
         elif issubclass(_class, SerializationMixin):
             return _class(**_class.deserialize_init_args(args=object_json))

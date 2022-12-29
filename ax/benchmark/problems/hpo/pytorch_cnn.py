@@ -36,7 +36,12 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
 
     @classmethod
     def from_datasets(
-        cls, name: str, num_trials: int, train_set: Dataset, test_set: Dataset
+        cls,
+        name: str,
+        num_trials: int,
+        train_set: Dataset,
+        test_set: Dataset,
+        infer_noise: bool = True,
     ) -> "PyTorchCNNBenchmarkProblem":
         optimal_value = 1
 
@@ -73,7 +78,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         )
         optimization_config = OptimizationConfig(
             objective=Objective(
-                metric=PyTorchCNNMetric(),
+                metric=PyTorchCNNMetric(infer_noise=infer_noise),
                 minimize=False,
             )
         )
@@ -87,12 +92,14 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             optimization_config=optimization_config,
             runner=runner,
             num_trials=num_trials,
+            infer_noise=infer_noise,
         )
 
 
 class PyTorchCNNMetric(Metric):
-    def __init__(self) -> None:
+    def __init__(self, infer_noise: bool = True) -> None:
         super().__init__(name="accuracy")
+        self.infer_noise = infer_noise
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         try:
@@ -105,7 +112,7 @@ class PyTorchCNNMetric(Metric):
                     "arm_name": [name for name, _ in trial.arms_by_name.items()],
                     "metric_name": self.name,
                     "mean": accuracy,
-                    "sem": 0,
+                    "sem": None if self.infer_noise else 0,
                     "trial_index": trial.index,
                 }
             )

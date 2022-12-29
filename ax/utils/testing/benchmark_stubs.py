@@ -19,7 +19,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 
@@ -66,7 +66,7 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                     model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                     model_kwargs={
-                        "surrogate": Surrogate(FixedNoiseGP),
+                        "surrogate": Surrogate(SingleTaskGP),
                         "botorch_acqf_class": qNoisyExpectedImprovement,
                     },
                     model_gen_kwargs={
