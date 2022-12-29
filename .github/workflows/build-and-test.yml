@@ -24,6 +24,7 @@ jobs:
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
+        ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
@@ -76,6 +77,7 @@ jobs:
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
+        ALLOW_LATEST_GPYTORCH_LINOP: true
       run: |
         # use latest Botorch
         pip install git+https://github.com/cornellius-gp/gpytorch.git
