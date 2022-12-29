@@ -11,30 +11,16 @@ jobs:
   tests-and-coverage:
 
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        botorch: ['latest', 'pinned']
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: "3.8"
-    - name: Install dependencies (latest Botorch)
-      env:
-        ALLOW_BOTORCH_LATEST: true
-      run: |
-        # use latest Botorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[unittest]"
-      if: matrix.botorch == 'latest'
     - name: Install dependencies (pinned Botorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
         pip install -e ".[unittest]"
-      if: matrix.botorch == 'pinned'
     - name: Import Ax
       run: |
         python scripts/import_ax.py
