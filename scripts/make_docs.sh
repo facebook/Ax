@@ -77,7 +77,11 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "--------------------------------------------"
   cd ..
   mkdir -p "website/pages/api/"
-
+  
+  echo "--------------------------------------------"
+  echo "Running parse_sphinx script"
+  echo "--------------------------------------------"
+  
   cwd=$(pwd)
   python3 scripts/parse_sphinx.py -i "${cwd}/sphinx/build/html/" -o "${cwd}/website/pages/api/"
 
@@ -85,6 +89,10 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   DOCUSAURUS_JS_DIR='website/static/js/'
 
   mkdir -p $DOCUSAURUS_JS_DIR
+  
+  echo "--------------------------------------------"
+  echo "Moving Sphinx files"
+  echo "--------------------------------------------"
 
   # move JS files from /sphinx/build/html/_static/*:
   cp "${SPHINX_JS_DIR}documentation_options.js" "${DOCUSAURUS_JS_DIR}documentation_options.js"
@@ -94,6 +102,10 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
 
   # searchindex.js is not static util
   cp "sphinx/build/html/searchindex.js" "${DOCUSAURUS_JS_DIR}searchindex.js"
+  
+  echo "--------------------------------------------"
+  echo "Moving Sphinx module sources"
+  echo "--------------------------------------------"
 
   # copy module sources
   cp -r "sphinx/build/html/_sources/" "website/static/_sphinx-sources/"
