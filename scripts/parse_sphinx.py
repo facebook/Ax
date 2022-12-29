@@ -14,8 +14,6 @@ js_scripts = """
 <script type="text/javascript" id="documentation_options" data-url_root="./"
 src="/js/documentation_options.js">
 </script>
-<script type="text/javascript" src="/js/jquery.js"></script>
-<script type="text/javascript" src="/js/underscore.js"></script>
 <script type="text/javascript" src="/js/doctools.js"></script>
 <script type="text/javascript" src="/js/language_data.js"></script>
 <script type="text/javascript" src="/js/searchtools.js"></script>
