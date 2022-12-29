@@ -4,9 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# Exit if any error occurs
-set -e
-
 usage() {
   echo "Usage: $0 [-b] [-o] [-r] [-t] [-k kernel_name]"
   echo ""
@@ -88,8 +85,6 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
 
   # move JS files from /sphinx/build/html/_static/*:
   cp "${SPHINX_JS_DIR}documentation_options.js" "${DOCUSAURUS_JS_DIR}documentation_options.js"
-  cp "${SPHINX_JS_DIR}jquery.js" "${DOCUSAURUS_JS_DIR}jquery.js"
-  cp "${SPHINX_JS_DIR}underscore.js" "${DOCUSAURUS_JS_DIR}underscore.js"
   cp "${SPHINX_JS_DIR}doctools.js" "${DOCUSAURUS_JS_DIR}doctools.js"
   cp "${SPHINX_JS_DIR}language_data.js" "${DOCUSAURUS_JS_DIR}language_data.js"
   cp "${SPHINX_JS_DIR}searchtools.js" "${DOCUSAURUS_JS_DIR}searchtools.js"
