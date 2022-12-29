@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from functools import reduce
 from hashlib import md5
-from typing import Any, Dict, Iterable, Optional, Set, Type
+from typing import Any, Dict, Iterable, Optional, Set, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -317,8 +317,8 @@ class Data(Base, SerializationMixin):
         evaluations: Dict[str, TTrialEvaluation],
         trial_index: int,
         sample_sizes: Optional[Dict[str, int]] = None,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
+        start_time: Optional[Union[int, str]] = None,
+        end_time: Optional[Union[int, str]] = None,
     ) -> Data:
         """
         Convert dict of evaluations to Ax data object.
@@ -330,9 +330,13 @@ class Data(Base, SerializationMixin):
             trial_index: Trial index to which this data belongs.
             sample_sizes: Number of samples collected for each arm.
             start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
+                data, in milliseconds or iso format.  Milliseconds will be automatically
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
             end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
+                data, in milliseconds or iso format.  Milliseconds will be automatically
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
 
         Returns:
             Ax Data object.
@@ -349,6 +353,11 @@ class Data(Base, SerializationMixin):
             for metric_name, value in evaluation.items()
         ]
         if start_time is not None or end_time is not None:
+            if isinstance(start_time, int):
+                start_time = _ms_epoch_to_isoformat(start_time)
+            if isinstance(end_time, int):
+                end_time = _ms_epoch_to_isoformat(end_time)
+
             for record in records:
                 record.update({"start_time": start_time, "end_time": end_time})
         if sample_sizes:
@@ -440,6 +449,10 @@ def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> D
             data.df["metric_name"].apply(lambda n: n not in excluded_metric_names)
         ].copy()
     )
+
+
+def _ms_epoch_to_isoformat(epoch: int) -> str:
+    return pd.Timestamp(epoch, unit="ms").isoformat()
 
 
 def custom_data_class(
