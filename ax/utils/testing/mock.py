@@ -58,7 +58,7 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         mock_fit = es.enter_context(
             mock.patch(
-                "botorch.optim.core.minimize",
+                "botorch.optim.core.minimize_with_timeout",
                 wraps=one_iteration_minimize,
             )
         )
