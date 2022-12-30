@@ -8,11 +8,12 @@ from functools import wraps
 from typing import Callable, Generator
 from unittest import mock
 
+from botorch.generation.gen import minimize_with_timeout
+
 from botorch.optim.initializers import (
     gen_batch_initial_conditions,
     gen_one_shot_kg_initial_conditions,
 )
-from scipy.optimize import minimize
 
 
 @contextmanager
@@ -29,7 +30,7 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
             kwargs["options"] = {}
 
         kwargs["options"]["maxiter"] = 1
-        return minimize(*args, **kwargs)
+        return minimize_with_timeout(*args, **kwargs)
 
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
@@ -50,7 +51,7 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
     with ExitStack() as es:
         mock_generation = es.enter_context(
             mock.patch(
-                "botorch.generation.gen.minimize",
+                "botorch.generation.gen.minimize_with_timeout",
                 wraps=one_iteration_minimize,
             )
         )
