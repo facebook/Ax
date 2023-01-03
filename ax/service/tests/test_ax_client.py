@@ -9,6 +9,7 @@ import sys
 import time
 from itertools import product
 from math import ceil
+from random import random
 from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from unittest.mock import patch
 
@@ -17,6 +18,7 @@ import pandas as pd
 import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -29,6 +31,7 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization, TParamValue
 from ax.exceptions.core import (
     DataRequiredError,
