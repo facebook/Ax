@@ -13,6 +13,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.utils import (
     _get_shared_rows,
+    _tensor_difference,
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
@@ -267,6 +268,17 @@ class BoTorchModelUtilsTest(TestCase):
                 datasets=self.supervised_datasets, botorch_model_class=MultiTaskGP
             )
         )
+
+    def test_tensor_difference(self) -> None:
+        n, m = 3, 2
+        A = torch.arange(n * m).reshape(n, m)
+        B = torch.cat((A[: n - 1], torch.randn(2, m)), dim=0)
+        # permute B
+        B = B[torch.randperm(len(B))]
+
+        C = _tensor_difference(A=A, B=B)
+
+        self.assertEqual(C.size(dim=0), 2)
 
 
 class ConvertToBlockDesignTest(TestCase):
