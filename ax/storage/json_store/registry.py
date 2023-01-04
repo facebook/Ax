@@ -80,7 +80,6 @@ from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
@@ -166,7 +165,6 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Hartmann6Metric: metric_to_dict,
     Interval: botorch_component_to_dict,
     JenattonMetric: metric_to_dict,
-    ListSurrogate: surrogate_to_dict,
     L2NormMetric: metric_to_dict,
     MapData: map_data_to_dict,
     MapKeyInfo: map_key_info_to_dict,
@@ -264,7 +262,8 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "Interval": Interval,
     "JenattonMetric": JenattonMetric,
-    "ListSurrogate": ListSurrogate,
+    # TODO[mpolson64]: Decode ListSurrogate into Surrogate
+    # "ListSurrogate": ListSurrogate,
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
     "MapMetric": MapMetric,
