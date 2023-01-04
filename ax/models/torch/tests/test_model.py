@@ -9,6 +9,7 @@ import warnings
 from contextlib import ExitStack
 from typing import Dict
 from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -36,7 +37,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
-from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.model import ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 
@@ -46,7 +47,6 @@ MODEL_PATH: str = BoTorchModel.__module__
 SURROGATE_PATH: str = Surrogate.__module__
 UTILS_PATH: str = choose_model_class.__module__
 ACQUISITION_PATH: str = Acquisition.__module__
-LIST_SURROGATE_PATH: str = ListSurrogate.__module__
 NEHVI_PATH: str = qNoisyExpectedHypervolumeImprovement.__module__
 
 ACQ_OPTIONS: Dict[Keys, SobolQMCNormalSampler] = {
@@ -176,12 +176,9 @@ class BoTorchModelTest(TestCase):
         ):
             self.model.botorch_acqf_class
 
-    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit")
-    @mock.patch(f"{MODEL_PATH}.choose_model_class", return_value=SingleTaskGP)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_fit(self, mock_choose_model_class, mock_fit):
-        # If surrogate is not yet set, initialize it with dispatcher functions.
+    @mock.patch(f"{SURROGATE_PATH}.choose_model_class", return_value=SingleTaskGP)
+    @mock.patch(f"{SURROGATE_PATH}.use_model_list", return_value=False)
+    def test_construct(self, _: Mock, mock_choose_model_class: Mock) -> None:
         self.model._surrogate = None
         self.model.fit(
             datasets=self.block_design_training_data,
@@ -194,26 +191,7 @@ class BoTorchModelTest(TestCase):
             datasets=self.block_design_training_data,
             search_space_digest=self.mf_search_space_digest,
         )
-        # Since we want to refit on updates but not warm start refit, we clear the
-        # state dict.
-        mock_fit.assert_called_with(
-            datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
-            candidate_metadata=self.candidate_metadata,
-            state_dict=None,
-            refit=True,
-            original_metric_names=self.metric_names,
-        )
-        # ensure that error is raised when len(metric_names) != len(datasets)
-        with self.assertRaisesRegex(
-            ValueError, "Length of datasets and metric_names must match"
-        ):
-            self.model.fit(
-                datasets=self.block_design_training_data,
-                metric_names=self.metric_names * 2,
-                search_space_digest=self.mf_search_space_digest,
-            )
+
         # Ensure proper error is raised when mixing data w/ and w/o variance
         ds1, ds2 = self.non_block_design_training_data
         with self.assertRaisesRegex(
@@ -244,10 +222,39 @@ class BoTorchModelTest(TestCase):
             )
         )
 
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit")
+    def test_fit(self, mock_fit: Mock) -> None:
+        # If surrogate is not yet set, initialize it with dispatcher functions.
+        self.model._surrogate = None
+        self.model.fit(
+            datasets=self.block_design_training_data,
+            metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
+            candidate_metadata=self.candidate_metadata,
+        )
+
+        # Since we want to refit on updates but not warm start refit, we clear the
+        # state dict.
+        mock_fit.assert_called_with(
+            datasets=self.block_design_training_data,
+            metric_names=self.metric_names,
+            search_space_digest=self.mf_search_space_digest,
+            candidate_metadata=self.candidate_metadata,
+            state_dict=None,
+            refit=True,
+        )
+        # ensure that error is raised when len(metric_names) != len(datasets)
+        with self.assertRaisesRegex(
+            ValueError, "Length of datasets and metric_names must match"
+        ):
+            self.model.fit(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names * 2,
+                search_space_digest=self.mf_search_space_digest,
+            )
+
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_update(self, mock_update):
+    def test_update(self, mock_update: Mock) -> None:
         # test assertion that model needs to be fit first
         empty_model = BoTorchModel()
         with self.assertRaisesRegex(
@@ -323,16 +330,12 @@ class BoTorchModelTest(TestCase):
                 )
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.predict")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_predict(self, mock_predict):
+    def test_predict(self, mock_predict: Mock) -> None:
         self.model.predict(X=self.X_test)
         mock_predict.assert_called_with(X=self.X_test)
 
     @mock.patch(f"{MODEL_PATH}.BoTorchModel.fit")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_cross_validate(self, mock_fit):
+    def test_cross_validate(self, mock_fit: Mock) -> None:
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
@@ -410,20 +413,14 @@ class BoTorchModelTest(TestCase):
     @mock.patch(
         f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qExpectedImprovement
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_gen(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_choose_botorch_acqf_class,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_inequality_constraints,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_rounding,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_acquisition,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_construct_options,
-    ):
+        mock_choose_botorch_acqf_class: Mock,
+        mock_inequality_constraints: Mock,
+        mock_rounding: Mock,
+        mock_acquisition: Mock,
+        mock_construct_options: Mock,
+    ) -> None:
         mock_acquisition.return_value.optimize.return_value = (
             torch.tensor([1.0]),
             torch.tensor([2.0]),
@@ -514,9 +511,9 @@ class BoTorchModelTest(TestCase):
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
     )
     @mock.patch(f"{CURRENT_PATH}.Acquisition", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_evaluate_acquisition_function(self, mock_ei, _mock_construct_options):
+    def test_evaluate_acquisition_function(
+        self, mock_ei: Mock, _mock_construct_options: Mock
+    ) -> None:
         model = BoTorchModel(
             surrogate=self.surrogate,
             acquisition_class=Acquisition,
@@ -540,11 +537,9 @@ class BoTorchModelTest(TestCase):
         # instance of that class, we use `mock_ei.return_value.evaluate`
         mock_ei.return_value.evaluate.assert_called()
 
-    @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.__init__", return_value=None)
-    @mock.patch(f"{LIST_SURROGATE_PATH}.ListSurrogate.fit", return_value=None)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_surrogate_options_propagation(self, _, mock_init):
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.__init__", return_value=None)
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)
+    def test_surrogate_options_propagation(self, _: Mock, mock_init: Mock) -> None:
         model = BoTorchModel(surrogate_options={"some_option": "some_value"})
         model.fit(
             datasets=self.non_block_design_training_data,
@@ -553,10 +548,6 @@ class BoTorchModelTest(TestCase):
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
-            botorch_submodel_class_per_outcome={
-                outcome: FixedNoiseMultiFidelityGP
-                for outcome in self.metric_names_for_list_surrogate
-            },
             some_option="some_value",
         )
 
@@ -565,8 +556,7 @@ class BoTorchModelTest(TestCase):
         # Dummy candidates and acquisition function value.
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_list_surrogate_choice(self, _):  # , mock_extract_training_data):
+    def test_model_list_choice(self, _) -> None:  # , mock_extract_training_data):
         model = BoTorchModel()
         model.fit(
             datasets=self.non_block_design_training_data,
@@ -574,9 +564,8 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
-        # A list surrogate should be chosen, since Xs are not all the same.
-        self.assertIsInstance(model.surrogate, ListSurrogate)
-        self.assertIsInstance(model.surrogate.model, ModelListGP)
+        # A model list should be chosen, since Xs are not all the same.
+        self.assertIsInstance(model.surrogate.model, ModelList)
         # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._tensor.Tensor.__i...
         for submodel in model.surrogate.model.models:
             # There are fidelity features and nonempty Yvars, so
@@ -588,8 +577,7 @@ class BoTorchModelTest(TestCase):
         # Dummy candidates and acquisition function value.
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_MOO(self, _):
+    def test_MOO(self, _) -> None:
         # Add mock for qNEHVI input constructor to catch arguments passed to it.
         qNEHVI_input_constructor = get_acqf_input_constructor(
             qNoisyExpectedHypervolumeImprovement
