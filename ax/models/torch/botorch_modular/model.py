@@ -6,12 +6,13 @@
 
 import dataclasses
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Type
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -27,8 +28,44 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
+from botorch.models.model import Model
+from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
+from gpytorch.kernels.kernel import Kernel
+from gpytorch.likelihoods import Likelihood
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
+
+
+@dataclass(frozen=True)
+class SurrogateSpec:
+    """
+    Fields in the SurrogateSpec dataclass correspond to arguments in
+    ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
+    outcomes the Surrogate is responsible for modeling.
+    When ``BotorchModel.fit`` is called, these fields will be used to construct the
+    requisite Surrogate objects.
+    If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
+    """
+
+    botorch_model_class: Optional[Type[Model]] = None
+    botorch_model_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
+    mll_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    covar_module_class: Optional[Type[Kernel]] = None
+    covar_module_kwargs: Optional[Dict[str, Any]] = None
+
+    likelihood_class: Optional[Type[Likelihood]] = None
+    likelihood_kwargs: Optional[Dict[str, Any]] = None
+
+    input_transform: Optional[InputTransform] = None
+    outcome_transform: Optional[OutcomeTransform] = None
+
+    outcomes: List[str] = field(default_factory=list)
 
 
 class BoTorchModel(TorchModel, Base):
@@ -50,19 +87,12 @@ class BoTorchModel(TorchModel, Base):
         botorch_acqf_class: Type of `AcquisitionFunction` to be
             used in this model, auto-selected based on experiment
             and data if not specified.
-        surrogate: An instance of `Surrogate` to be used as part of
-            this model; if not specified, type of `Surrogate` and
-            underlying BoTorch `Model` will be auto-selected based
-            on experiment and data, with kwargs in `surrogate_options`
-            applied.
-        surrogate_options: Optional dict of kwargs for `Surrogate`
-            (used if no pre-instantiated Surrogate via is passed via `surrogate`).
-            Can include:
-            - model_options: Dict of options to surrogate's underlying
-            BoTorch `Model`,
-            - submodel_options or submodel_options_per_outcome:
-            Options for submodels in `ListSurrogate`, see documentation
-            for `ListSurrogate`.
+        surrogate_specs: Optional Mapping of names onto SurrogateSpecs, which specify
+            how to initialize specific Surrogates to model specific outcomes. If None
+            is provided a single Surrogate will be created and set up automatically
+            based on the data provided.
+        surrogate: In liu of SurrogateSpecs, an instance of `Surrogate` may be
+            provided to be used as the sole Surrogate for all outcomes
         refit_on_update: Whether to reoptimize model parameters during call
             to `BoTorchModel.update`. If false, training data for the model
             (used for inference) is still swapped for new training data, but
@@ -78,39 +108,89 @@ class BoTorchModel(TorchModel, Base):
 
     acquisition_class: Type[Acquisition]
     acquisition_options: Dict[str, Any]
-    surrogate_options: Dict[str, Any]
-    _surrogate: Optional[Surrogate]
+
+    surrogate_specs: Dict[str, SurrogateSpec]
+    _surrogates: Dict[str, Surrogate]
+
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
     _search_space_digest: Optional[SearchSpaceDigest] = None
     _supports_robust_optimization: bool = True
 
     def __init__(
         self,
+        surrogate_specs: Optional[Mapping[str, SurrogateSpec]] = None,
+        surrogate: Optional[Surrogate] = None,
         acquisition_class: Optional[Type[Acquisition]] = None,
         acquisition_options: Optional[Dict[str, Any]] = None,
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
-        surrogate: Optional[Surrogate] = None,
-        surrogate_options: Optional[Dict[str, Any]] = None,
         refit_on_update: bool = True,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
     ) -> None:
-        self._surrogate = surrogate
-        if surrogate and surrogate_options:
-            raise ValueError(  # pragma: no cover
-                "`surrogate_options` are only applied when using the default "
-                "surrogate, so only one of `surrogate` and `surrogate_options`"
-                " arguments is expected."
+        # Ensure only surrogate_specs or surrogate is provided
+        if surrogate_specs and surrogate:
+            raise UserInputError(
+                "Only one of `surrogate_specs` and `surrogate` arguments is expected."
             )
-        self.surrogate_options = surrogate_options or {}
+
+        # Ensure each outcome is only modeled by one Surrogate in the SurrogateSpecs
+        outcomes_by_surrogate_label = {
+            label: spec.outcomes for label, spec in self.surrogate_specs.items()
+        }
+        if sum(
+            len(outcomes) for outcomes in outcomes_by_surrogate_label.values()
+        ) != len(set(outcomes_by_surrogate_label.values())):
+            raise UserInputError(
+                "Each outcome may be modeled by only one Surrogate, found "
+                f"{outcomes_by_surrogate_label}"
+            )
+
+        # Ensure user does not use reserved Surrogate labels
+        if (
+            surrogate_specs is not None
+            and len(
+                {Keys.ONLY_SURROGATE, Keys.AUTOSET_SURROGATE} - surrogate_specs.keys()
+            )
+            < 2
+        ):
+            raise UserInputError(
+                f"SurrogateSpecs may not be labeled {Keys.ONLY_SURROGATE} or "
+                f"{Keys.AUTOSET_SURROGATE}, these are reserved."
+            )
+
+        self._surrogates = {}
+        self.surrogate_specs = {}
+
+        if surrogate_specs:
+            self.surrogate_specs: Dict[str, SurrogateSpec] = {
+                label: spec for label, spec in surrogate_specs.items()
+            }
+        elif surrogate:
+            self._surrogates = {Keys.ONLY_SURROGATE: surrogate}
+
         self.acquisition_class = acquisition_class or Acquisition
-        # `_botorch_acqf_class` can be `None` here. If so, `Model.gen` or `Model.
-        # evaluate_acquisition_function` will set it with `choose_botorch_acqf_class`.
-        self._botorch_acqf_class = botorch_acqf_class
         self.acquisition_options = acquisition_options or {}
+        self._botorch_acqf_class = botorch_acqf_class
+
         self.refit_on_update = refit_on_update
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
+
+    @property
+    def surrogates(self) -> Dict[str, Surrogate]:
+        """Surrogates by label"""
+        return self._surrogates
+
+    @property
+    def surrogate(self) -> Surrogate:
+        """Surrogate, if there is only one."""
+        if len(self._surrogates) != 1:
+            raise UnsupportedError(
+                "BoTorchModel.surrogate is only supported with one surrogate."
+                f"The model has {len(self._surrogates)} surrogates. Use BoTorchModel.surrogates instead."
+            )
+
+        return next(iter(self.surrogates.values()))
 
     @property
     def Xs(self) -> List[Tensor]:
@@ -120,16 +200,14 @@ class BoTorchModel(TorchModel, Base):
         NOTE: This is an accessor for ``self.surrogate.Xs``
         and returns it unchanged.
         """
-        return self.surrogate.Xs
-
-    @property
-    def surrogate(self) -> Surrogate:
-        """Ax ``Surrogate`` object (wrapper for BoTorch ``Model``), associated with
-        this model. Raises an error if one is not yet set.
-        """
-        if not self._surrogate:
-            raise ValueError("Surrogate has not yet been set.")
-        return not_none(self._surrogate)
+        # TODO[mpolson64] Improve this logic in the future
+        try:
+            return self.surrogate.Xs
+        except ValueError:
+            raise NotImplementedError(
+                "Cannot get Xs when many Surrogates are present. Call each "
+                "Surrogate's model's Xs directly."
+            )
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -140,39 +218,110 @@ class BoTorchModel(TorchModel, Base):
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
         return not_none(self._botorch_acqf_class)
 
-    @copy_doc(TorchModel.fit)
     def fit(
         self,
         datasets: List[SupervisedDataset],
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        state_dict: Optional[Dict[str, Tensor]] = None,
+        # state dict by surrogate label
+        state_dicts: Optional[Mapping[str, Dict[str, Tensor]]] = None,
         refit: bool = True,
     ) -> None:
-        if not len(datasets) == len(metric_names):
+        """Fit model to m outcomes.
+
+        Args:
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome).
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
+            candidate_metadata: Model-produced metadata for candidates, in
+                the order corresponding to the Xs.
+            state_dicts: Optional state dict to load by model label as passed in via
+                surrogate_specs. If using a single, pre-instantiated model use
+                `Keys.ONLY_SURROGATE.
+            refit: Whether to re-optimize model parameters.
+        """
+
+        if len(datasets) != len(metric_names):
             raise ValueError(
                 "Length of datasets and metric_names must match, but your inputs "
                 f"are of lengths {len(datasets)} and {len(metric_names)}, "
                 "respectively."
             )
 
-        # store search space info for later use (e.g. during generation)
+        # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
 
-        # Initialize the surrogate if one was not provided at __init__ time or
-        # otherwise initialized already.
-        if self._surrogate is None:
-            self._surrogate = Surrogate(**self.surrogate_options)
+        # Step 0. If the user passed in a preconstructed surrogate we won't have a
+        # SurrogateSpec and must assume we're fitting all metrics
+        if Keys.ONLY_SURROGATE in self._surrogates.keys():
+            self._surrogates[Keys.ONLY_SURROGATE].fit(
+                datasets=datasets,
+                metric_names=metric_names,
+                search_space_digest=search_space_digest,
+                candidate_metadata=candidate_metadata,
+                state_dict=state_dicts.get(Keys.ONLY_SURROGATE)
+                if state_dicts
+                else None,
+                refit=refit,
+            )
+            return
 
-        self.surrogate.fit(
-            datasets=datasets,
-            metric_names=metric_names,
-            search_space_digest=search_space_digest,
-            candidate_metadata=candidate_metadata,
-            state_dict=state_dict,
-            refit=refit,
-        )
+        # Step 1. Initialize a Surrogate for every SurrogateSpec
+        self._surrogates = {
+            label: Surrogate(
+                # if None, Surrogate will autoset class per outcome at construct time
+                botorch_model_class=spec.botorch_model_class,
+                model_options=spec.botorch_model_kwargs,
+                mll_class=spec.mll_class,
+                mll_options=spec.mll_kwargs,
+                covar_module_class=spec.covar_module_class,
+                covar_module_options=spec.covar_module_kwargs,
+                likelihood_class=spec.likelihood_class,
+                likelihood_options=spec.likelihood_kwargs,
+                input_transform=spec.input_transform,
+                outcome_transform=spec.outcome_transform,
+            )
+            for label, spec in self.surrogate_specs.items()
+        }
+
+        # Step 1.5. If any outcomes are not explicitly assigned to a Surrogate, create
+        # a new Surrogate for all these metrics (which will autoset its botorch model
+        # class per outcome)
+        unassigned_metric_names = {
+            m for spec in self.surrogate_specs.values() for m in spec.outcomes
+        }
+
+        if len(unassigned_metric_names) > 0:
+            self._surrogates[Keys.AUTOSET_SURROGATE] = Surrogate()
+
+        # Step 2. Fit each Surrogate iteratively using its assigned outcomes
+        datasets_by_metric_name = dict(zip(metric_names, datasets))
+        for label, surrogate in self.surrogates.items():
+            # Only fit each Surrogate on its own metrics
+            if label == Keys.ONLY_SURROGATE:
+                subset_metric_names = metric_names
+            elif label == Keys.AUTOSET_SURROGATE:
+                subset_metric_names = list(unassigned_metric_names)
+            else:
+                subset_metric_names = self.surrogate_specs[label].outcomes
+
+            subset_datasets = [
+                datasets_by_metric_name[metric_name]
+                for metric_name in subset_metric_names
+            ]
+
+            surrogate.fit(
+                datasets=subset_datasets,
+                metric_names=subset_metric_names,
+                search_space_digest=search_space_digest,
+                candidate_metadata=candidate_metadata,
+                state_dict=(state_dicts or {}).get(label),
+                refit=refit,
+            )
 
     @copy_doc(TorchModel.update)
     def update(
@@ -182,37 +331,68 @@ class BoTorchModel(TorchModel, Base):
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
-        if not self._surrogate:
+        if len(self.surrogates) == 0:
             raise UnsupportedError("Cannot update model that has not been fitted.")
 
         # store search space info  for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
 
-        # Sometimes the model fit should be restarted from scratch on update, for models
-        # that are prone to overfitting. In those cases, `self.warm_start_refit` should
-        # be false and `Surrogate.update` will not receive a state dict and will not
-        # pass it to the underlying `Surrogate.fit`.
-        state_dict = (
-            None
-            if self.refit_on_update and not self.warm_start_refit
-            else self.surrogate.model.state_dict()
-        )
-        if any(dataset is None for dataset in datasets):
-            raise UnsupportedError(
-                f"{self.__class__.__name__}.update requires data for all outcomes."
-            )
-        self.surrogate.update(
-            datasets=[not_none(dataset) for dataset in datasets],
-            metric_names=metric_names,
-            search_space_digest=search_space_digest,
-            candidate_metadata=candidate_metadata,
-            state_dict=state_dict,
-            refit=self.refit_on_update,
-        )
+        for label, surrogate in self.surrogates.items():
+            # Sometimes the model fit should be restarted from scratch on update, for
+            # models that are prone to overfitting. In those cases,
+            # `self.warm_start_refit` should be false and `Surrogate.update` will not
+            # receive a state dict and will not pass it to the underlying
+            # `Surrogate.fit`.
 
-    @copy_doc(TorchModel.predict)
+            state_dict = (
+                None
+                if self.refit_on_update and not self.warm_start_refit
+                else surrogate.model.state_dict()
+            )
+            if any(dataset is None for dataset in datasets):
+                raise UnsupportedError(
+                    f"{self.__class__.__name__}.update requires data for all outcomes."
+                )
+
+            # Only update each Surrogate on its own metrics unless it was the
+            # preconstructed Surrogate
+            datasets_by_metric_name = dict(zip(metric_names, datasets))
+            subset_metric_names = (
+                self.surrogate_specs[label].outcomes
+                if label is not Keys.ONLY_SURROGATE
+                else metric_names
+            )
+            subset_datasets = [
+                datasets_by_metric_name[metric_name]
+                for metric_name in subset_metric_names
+            ]
+
+            surrogate.update(
+                datasets=subset_datasets,
+                metric_names=subset_metric_names,
+                search_space_digest=search_space_digest,
+                candidate_metadata=candidate_metadata,
+                state_dict=state_dict,
+                refit=self.refit_on_update,
+            )
+
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        return self.surrogate.predict(X=X)
+        """Predict if only one Surrogate, error if there are many"""
+        if len(self.surrogates) > 1:
+            raise NotImplementedError(
+                "Cannot predict when many Surrogates are present. Call each "
+                "Surrogate's model's predict directly."
+            )
+
+        surrogate = next(iter(self.surrogates.values()))
+
+        return surrogate.predict(X=X)
+
+    def predict_from_surrogate(
+        self, surrogate_label: str, X: Tensor
+    ) -> Tuple[Tensor, Tensor]:
+        """Predict from the Surrogate with the given label."""
+        return self.surrogates[surrogate_label].predict(X=X)
 
     @copy_doc(TorchModel.gen)
     def gen(
@@ -258,7 +438,7 @@ class BoTorchModel(TorchModel, Base):
         )
         return TorchGenResults(
             points=candidates.detach().cpu(),
-            weights=torch.ones(n, dtype=self.surrogate.dtype),
+            weights=torch.ones(n, dtype=self.dtype),
             gen_metadata=gen_metadata,
         )
 
@@ -289,14 +469,20 @@ class BoTorchModel(TorchModel, Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Optional[Tensor]:
+    ) -> Tensor:
+        """Get the best in sample point if there's only one Surrogate. Error out otherwise."""
         try:
-            return self.surrogate.best_in_sample_point(
-                search_space_digest=search_space_digest,
-                torch_opt_config=torch_opt_config,
-            )[0]
+            surrogate = self.surrogate
         except ValueError:
-            return None
+            raise NotImplementedError(
+                "Cannot predict when many Surrogates are present. Call each "
+                "Surrogate's model's best_in_sample_point directly."
+            )
+
+        best_point, _ = surrogate.best_in_sample_point(
+            search_space_digest=search_space_digest, torch_opt_config=torch_opt_config
+        )
+        return best_point
 
     @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
@@ -313,6 +499,7 @@ class BoTorchModel(TorchModel, Base):
         )
         return acqf.evaluate(X=X)
 
+    @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
         datasets: List[SupervisedDataset],
@@ -320,20 +507,40 @@ class BoTorchModel(TorchModel, Base):
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
     ) -> Tuple[Tensor, Tensor]:
-        current_surrogate = self.surrogate
+        # Will fail if metric_names exist across multiple models
+        surrogate_labels = [
+            label
+            for label, spec in self.surrogate_specs.items()
+            if any(metric in spec.outcomes for metric in metric_names)
+        ]
+        if len(surrogate_labels) != 1:
+            raise UserInputError(
+                "May not cross validate multiple Surrogates at once. Please input "
+                f"metric_names that exist on one Surrogate. {metric_names} spans "
+                f"{surrogate_labels}"
+            )
+        surrogate_label = surrogate_labels[0]
+
+        current_surrogates = self.surrogates
         # If we should be refitting but not warm-starting the refit, set
-        # `state_dict` to None to avoid loading it.
-        state_dict = (
+        # `state_dicts` to None to avoid loading it.
+        state_dicts = (
             None
             if self.refit_on_cv and not self.warm_start_refit
-            else deepcopy(current_surrogate.model.state_dict())
+            else {
+                label: deepcopy(surrogate.model.state_dict())
+                for label, surrogate in current_surrogates.items()
+            }
         )
 
-        # Temporarily set `_surrogate` to cloned surrogate to set
-        # the training data on cloned surrogate to train set and
+        # Temporarily set `_surrogates` to cloned surrogates to set
+        # the training data on cloned surrogates to train set and
         # use it to predict the test point.
-        surrogate_clone = self.surrogate.clone_reset()
-        self._surrogate = surrogate_clone
+        surrogate_clones = {
+            label: surrogate.clone_reset()
+            for label, surrogate in self.surrogates.items()
+        }
+        self._surrogates = surrogate_clones
         # Remove the robust_digest since we do not want to use perturbations here.
         search_space_digest = dataclasses.replace(
             search_space_digest,
@@ -345,16 +552,53 @@ class BoTorchModel(TorchModel, Base):
                 datasets=datasets,
                 metric_names=metric_names,
                 search_space_digest=search_space_digest,
-                state_dict=state_dict,
+                state_dicts=state_dicts,
                 refit=self.refit_on_cv,
             )
-            X_test_prediction = self.predict(X=X_test)
+            X_test_prediction = self.predict_from_surrogate(
+                surrogate_label=surrogate_label, X=X_test
+            )
         finally:
-            # Reset the surrogate back to this model's surrogate, make
+            # Reset the surrogates back to this model's surrogate, make
             # sure the cloned surrogate doesn't stay around if fit or
             # predict fail.
-            self._surrogate = current_surrogate
+            self._surrogates = current_surrogates
         return X_test_prediction
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Torch data type of the tensors in the training data used in the model,
+        of which this ``Acquisition`` is a subcomponent.
+        """
+        dtypes = {
+            label: surrogate.dtype for label, surrogate in self.surrogates.items()
+        }
+
+        dtypes_list = list(dtypes.values())
+        if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
+            raise NotImplementedError(
+                f"Expected all Surrogates to have same dtype, found {dtypes}"
+            )
+
+        return dtypes_list[0]
+
+    @property
+    def device(self) -> torch.device:
+        """Torch device type of the tensors in the training data used in the model,
+        of which this ``Acquisition`` is a subcomponent.
+        """
+
+        devices = {
+            label: surrogate.device for label, surrogate in self.surrogates.items()
+        }
+
+        devices_list = list(devices.values())
+        if devices_list.count(devices_list[0]) != len(devices_list):
+            raise NotImplementedError(
+                f"Expected all Surrogates to have same device, found {devices}"
+            )
+
+        return devices_list[0]
 
     def _instantiate_acquisition(
         self,
@@ -382,8 +626,9 @@ class BoTorchModel(TorchModel, Base):
                 objective_thresholds=torch_opt_config.objective_thresholds,
                 objective_weights=torch_opt_config.objective_weights,
             )
+        # pyre-ignore
         return self.acquisition_class(
-            surrogate=self.surrogate,
+            surrogates=self.surrogates,
             botorch_acqf_class=self.botorch_acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
