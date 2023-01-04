@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import operator
 import warnings
+from collections import ChainMap
 from functools import partial, reduce
 from itertools import product
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from logging import Logger
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -19,6 +22,7 @@ from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.utils import _tensor_difference
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -28,13 +32,14 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
-from botorch.models.model import Model
+from botorch.models.model import Model, ModelDict
 from botorch.optim.optimize import (
     optimize_acqf,
     optimize_acqf_discrete,
@@ -47,6 +52,8 @@ from torch import Tensor
 DUPLICATE_TOL = 1e-6
 MAX_CHOICES_ENUMERATE = 100_000
 
+logger: Logger = get_logger(__name__)
+
 
 class Acquisition(Base):
     """
@@ -58,8 +65,8 @@ class Acquisition(Base):
     of `BoTorchModel` and is not meant to be used outside of it.
 
     Args:
-        surrogate: Surrogate model, with which this acquisition function
-            will be used.
+        surrogates: Dict of name => Surrogate model pairs, with which this acquisition
+            function will be used.
         search_space_digest: A SearchSpaceDigest object containing metadata
             about the search space (e.g. bounds, parameter types).
         torch_opt_config: A TorchOptConfig object containing optimization
@@ -72,39 +79,105 @@ class Acquisition(Base):
             Function` in BoTorch.
     """
 
-    surrogate: Surrogate
+    surrogates: Dict[str, Surrogate]
     acqf: AcquisitionFunction
+    options: Dict[str, Any]
 
     def __init__(
         self,
-        surrogate: Surrogate,
+        # If using multiple Surrogates, must label primary Surrogate (typically the
+        # regression Surrogate) Keys.PRIMARY_SURROGATE
+        surrogates: Dict[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: Type[AcquisitionFunction],
         options: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.surrogate = surrogate
-        # pyre-fixme[4]: Attribute must be annotated.
+        self.surrogates = surrogates
         self.options = options or {}
-        X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=self.surrogate.Xs,
-            objective_weights=torch_opt_config.objective_weights,
-            bounds=search_space_digest.bounds,
-            pending_observations=torch_opt_config.pending_observations,
-            outcome_constraints=torch_opt_config.outcome_constraints,
-            linear_constraints=torch_opt_config.linear_constraints,
-            fixed_features=torch_opt_config.fixed_features,
+
+        # Compute pending and observed points for each surrogate
+        Xs_pending_and_observed = {
+            name: _get_X_pending_and_observed(
+                Xs=surrogate.Xs,
+                objective_weights=torch_opt_config.objective_weights,
+                bounds=search_space_digest.bounds,
+                pending_observations=torch_opt_config.pending_observations,
+                outcome_constraints=torch_opt_config.outcome_constraints,
+                linear_constraints=torch_opt_config.linear_constraints,
+                fixed_features=torch_opt_config.fixed_features,
+            )
+            for name, surrogate in self.surrogates.items()
+        }
+
+        Xs_pending_tensors = [
+            Xs_pending
+            for Xs_pending, _ in Xs_pending_and_observed.values()
+            if Xs_pending is not None
+        ]
+        unique_Xs_pending = torch.unique(
+            input=torch.cat(
+                tensors=Xs_pending_tensors,
+                dim=0,
+            )
         )
+
+        # This tensor may have some Xs that are also in pending (because they are
+        # observed for some models but not others)
+        Xs_observed_tensors = [
+            Xs_observed
+            for _, Xs_observed in Xs_pending_and_observed.values()
+            if Xs_observed is not None
+        ]
+        unique_Xs_observed_maybe_pending = torch.unique(
+            input=torch.cat(
+                tensors=Xs_observed_tensors,
+                dim=0,
+            )
+        )
+
+        # If a point is pending on any model do not count it as observed.
+        # Do this by stacking pending on top of observed, filtering repeats, then
+        # removing pending points.
+        # TODO[sdaulton] Is this a sound approach? Should we be doing something more
+        # sophisticated here?
+        unique_Xs_observed = _tensor_difference(
+            A=unique_Xs_pending, B=unique_Xs_observed_maybe_pending
+        )
+
+        if torch.size(unique_Xs_observed_maybe_pending) != torch.size(
+            unique_Xs_observed
+        ):
+            logger.warning(
+                "Encountered Xs pending for some Surrogates but observed for others. "
+                "Considering these points to be pending."
+            )
+
         # Store objective thresholds for all outcomes (including non-objectives).
         self._objective_thresholds: Optional[
             Tensor
         ] = torch_opt_config.objective_thresholds
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
+
+        # TODO[mpolson64] Handle more elegantly in the future. Since right now we
+        # only use one objective and posterior_transform this should be fine.
+        primary_surrogate = (
+            self.surrogates[Keys.PRIMARY_SURROGATE]
+            if len(self.surrogates) > 1
+            else next(iter(self.surrogates.values()))
+        )
+
+        primary_Xs_pending, primary_Xs_observed = Xs_pending_and_observed[
+            Keys.PRIMARY_SURROGATE
+            if len(self.surrogates) > 1
+            else next(iter(Xs_pending_and_observed.keys()))
+        ]
+
         # Subset model only to the outcomes we need for the optimization.
         if self.options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
-                model=self.surrogate.model,
+                model=primary_surrogate.model,
                 objective_weights=torch_opt_config.objective_weights,
                 outcome_constraints=torch_opt_config.outcome_constraints,
                 objective_thresholds=torch_opt_config.objective_thresholds,
@@ -115,7 +188,7 @@ class Acquisition(Base):
             objective_thresholds = subset_model_results.objective_thresholds
             subset_idcs = subset_model_results.indices
         else:
-            model = self.surrogate.model
+            model = primary_surrogate.model
             objective_weights = torch_opt_config.objective_weights
             outcome_constraints = torch_opt_config.outcome_constraints
             objective_thresholds = torch_opt_config.objective_thresholds
@@ -137,7 +210,7 @@ class Acquisition(Base):
                 model=model,
                 objective_weights=self._full_objective_weights,
                 outcome_constraints=full_outcome_constraints,
-                X_observed=X_observed,
+                X_observed=primary_Xs_observed,
                 subset_idcs=subset_idcs,
             )
             objective_thresholds = (
@@ -151,11 +224,12 @@ class Acquisition(Base):
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
-            X_observed=X_observed,
+            X_observed=primary_Xs_observed,
             risk_measure=torch_opt_config.risk_measure,
         )
+
         model_deps = self.compute_model_dependencies(
-            surrogate=surrogate,
+            surrogates=self.surrogates,
             search_space_digest=search_space_digest,
             torch_opt_config=dataclasses.replace(
                 torch_opt_config,
@@ -165,34 +239,56 @@ class Acquisition(Base):
             ),
             options=self.options,
         )
+
+        acqf_model_kwarg = (
+            {
+                "model_dict": ModelDict(
+                    models={
+                        name: surrogate.model
+                        for name, surrogate in self.surrogates.items()
+                    }
+                )
+            }
+            if len(self.surrogates) == 1
+            else {"model": model}
+        )
+
         input_constructor_kwargs = {
-            "X_baseline": X_observed,
-            "X_pending": X_pending,
+            "X_baseline": unique_Xs_observed,
+            "X_pending": unique_Xs_pending,
             "objective_thresholds": objective_thresholds,
             "outcome_constraints": outcome_constraints,
             "target_fidelities": search_space_digest.target_fidelities,
             "bounds": search_space_digest.bounds,
+            **acqf_model_kwarg,
             **model_deps,
             **self.options,
         }
         input_constructor = get_acqf_input_constructor(botorch_acqf_class)
         # Handle multi-dataset surrogates - TODO: Improve this
-        if len(self.surrogate.training_data) == 1:
-            training_data = self.surrogate.training_data[0]
+        # If there is only one SupervisedDataset return it alone
+        if (
+            len(self.surrogates) == 1
+            and len(self.surrogates[Keys.ONLY_SURROGATE].training_data) == 1
+        ):
+            training_data = self.surrogates[Keys.ONLY_SURROGATE].training_data[0]
         else:
-            training_data = dict(
-                zip(not_none(self.surrogate._outcomes), self.surrogate.training_data)
+            tdicts = (
+                dict(zip(not_none(surrogate._outcomes), surrogate.training_data))
+                for surrogate in self.surrogates.values()
             )
+            # outcome_name => Dataset
+            training_data = functools.reduce(lambda x, y: {**x, **y}, tdicts)
+
         acqf_inputs = input_constructor(
-            model=model,
             training_data=training_data,
             objective=objective,
             posterior_transform=posterior_transform,
             **input_constructor_kwargs,
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
-        self.X_pending: Optional[Tensor] = X_pending
-        self.X_observed: Tensor = not_none(X_observed)
+        self.X_pending: Optional[Tensor] = unique_Xs_pending
+        self.X_observed: Tensor = not_none(unique_Xs_observed)
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -204,14 +300,35 @@ class Acquisition(Base):
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-        return self.surrogate.dtype
+        dtypes = {
+            label: surrogate.dtype for label, surrogate in self.surrogates.items()
+        }
+
+        dtypes_list = list(dtypes.values())
+        if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
+            raise ValueError(  # pragma: no cover
+                f"Expected all Surrogates to have same dtype, found {dtypes}"
+            )
+
+        return dtypes_list[0]
 
     @property
     def device(self) -> Optional[torch.device]:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-        return self.surrogate.device
+
+        devices = {
+            label: surrogate.device for label, surrogate in self.surrogates.items()
+        }
+
+        devices_list = list(devices.values())
+        if devices_list.count(devices_list[0]) != len(devices_list):
+            raise ValueError(  # pragma: no cover
+                f"Expected all Surrogates to have same device, found {devices}"
+            )
+
+        return devices_list[0]
 
     @property
     def objective_thresholds(self) -> Optional[Tensor]:
@@ -392,7 +509,7 @@ class Acquisition(Base):
 
     def compute_model_dependencies(
         self,
-        surrogate: Surrogate,
+        surrogates: Mapping[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
@@ -409,8 +526,8 @@ class Acquisition(Base):
         for an example.
 
         Args:
-            surrogate: The surrogate object containing the BoTorch `Model`,
-                with which this `Acquisition` is to be used.
+            surrogates: Mapping from names to Surrogate objects containing BoTorch
+                `Model`s, with which this `Acquisition` is to be used.
             search_space_digest: A SearchSpaceDigest object containing metadata
                 about the search space (e.g. bounds, parameter types).
             torch_opt_config: A TorchOptConfig object containing optimization
