@@ -19,6 +19,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
+    convert_to_block_design,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -27,6 +28,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.models import ModelList
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.models.model import Model
 from botorch.models.transforms.input import InputTransform
@@ -129,21 +131,22 @@ class BoTorchModel(TorchModel, Base):
     ) -> None:
         # Ensure only surrogate_specs or surrogate is provided
         if surrogate_specs and surrogate:
-            raise UserInputError(
+            raise UserInputError(  # pragma: no cover
                 "Only one of `surrogate_specs` and `surrogate` arguments is expected."
             )
 
         # Ensure each outcome is only modeled by one Surrogate in the SurrogateSpecs
-        outcomes_by_surrogate_label = {
-            label: spec.outcomes for label, spec in self.surrogate_specs.items()
-        }
-        if sum(
-            len(outcomes) for outcomes in outcomes_by_surrogate_label.values()
-        ) != len(set(outcomes_by_surrogate_label.values())):
-            raise UserInputError(
-                "Each outcome may be modeled by only one Surrogate, found "
-                f"{outcomes_by_surrogate_label}"
-            )
+        if surrogate_specs is not None:
+            outcomes_by_surrogate_label = {
+                label: spec.outcomes for label, spec in surrogate_specs.items()
+            }
+            if sum(
+                len(outcomes) for outcomes in outcomes_by_surrogate_label.values()
+            ) != len(set(*outcomes_by_surrogate_label.values())):
+                raise UserInputError(  # pragma: no cover
+                    "Each outcome may be modeled by only one Surrogate, found "
+                    f"{outcomes_by_surrogate_label}"
+                )
 
         # Ensure user does not use reserved Surrogate labels
         if (
@@ -153,19 +156,18 @@ class BoTorchModel(TorchModel, Base):
             )
             < 2
         ):
-            raise UserInputError(
+            raise UserInputError(  # pragma: no cover
                 f"SurrogateSpecs may not be labeled {Keys.ONLY_SURROGATE} or "
                 f"{Keys.AUTOSET_SURROGATE}, these are reserved."
             )
 
         self._surrogates = {}
         self.surrogate_specs = {}
-
-        if surrogate_specs:
+        if surrogate_specs is not None:
             self.surrogate_specs: Dict[str, SurrogateSpec] = {
                 label: spec for label, spec in surrogate_specs.items()
             }
-        elif surrogate:
+        elif surrogate is not None:
             self._surrogates = {Keys.ONLY_SURROGATE: surrogate}
 
         self.acquisition_class = acquisition_class or Acquisition
@@ -290,22 +292,24 @@ class BoTorchModel(TorchModel, Base):
 
         # Step 1.5. If any outcomes are not explicitly assigned to a Surrogate, create
         # a new Surrogate for all these metrics (which will autoset its botorch model
-        # class per outcome)
-        unassigned_metric_names = {
-            m for spec in self.surrogate_specs.values() for m in spec.outcomes
+        # class per outcome) UNLESS there is only one SurrogateSpec with no outcomes
+        # assigned to it, in which case that will be used for all metrics.
+        assigned_metric_names = {
+            item
+            for sublist in [spec.outcomes for spec in self.surrogate_specs.values()]
+            for item in sublist
         }
-
-        if len(unassigned_metric_names) > 0:
+        unassigned_metric_names = [
+            name for name in metric_names if name not in assigned_metric_names
+        ]
+        if len(unassigned_metric_names) > 0 and len(self.surrogates) != 1:
             self._surrogates[Keys.AUTOSET_SURROGATE] = Surrogate()
 
         # Step 2. Fit each Surrogate iteratively using its assigned outcomes
         datasets_by_metric_name = dict(zip(metric_names, datasets))
         for label, surrogate in self.surrogates.items():
-            # Only fit each Surrogate on its own metrics
-            if label == Keys.ONLY_SURROGATE:
-                subset_metric_names = metric_names
-            elif label == Keys.AUTOSET_SURROGATE:
-                subset_metric_names = list(unassigned_metric_names)
+            if label == Keys.AUTOSET_SURROGATE or len(self.surrogates) == 1:
+                subset_metric_names = unassigned_metric_names
             else:
                 subset_metric_names = self.surrogate_specs[label].outcomes
 
@@ -313,6 +317,20 @@ class BoTorchModel(TorchModel, Base):
                 datasets_by_metric_name[metric_name]
                 for metric_name in subset_metric_names
             ]
+            if (
+                len(subset_datasets) > 1
+                # if Surrogate's model is none a ModelList will be autoset
+                and surrogate._model is not None
+                and not isinstance(surrogate.model, ModelList)
+            ):
+                # Note: If the datasets do not confirm to a block design then this
+                # will filter the data and drop observations to make sure that it does.
+                # This can happen e.g. if only some metrics are observed at some points
+                subset_datasets, metric_names = convert_to_block_design(
+                    datasets=subset_datasets,
+                    metric_names=metric_names,
+                    force=True,
+                )
 
             surrogate.fit(
                 datasets=subset_datasets,
@@ -379,7 +397,7 @@ class BoTorchModel(TorchModel, Base):
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         """Predict if only one Surrogate, error if there are many"""
         if len(self.surrogates) > 1:
-            raise NotImplementedError(
+            raise NotImplementedError(  # pragma: no cover
                 "Cannot predict when many Surrogates are present. Call each "
                 "Surrogate's model's predict directly."
             )
@@ -469,20 +487,22 @@ class BoTorchModel(TorchModel, Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Tensor:
-        """Get the best in sample point if there's only one Surrogate. Error out otherwise."""
+    ) -> Optional[Tensor]:
         try:
-            surrogate = self.surrogate
-        except ValueError:
-            raise NotImplementedError(
-                "Cannot predict when many Surrogates are present. Call each "
-                "Surrogate's model's best_in_sample_point directly."
-            )
+            if len(self.surrogates) > 1:
+                raise NotImplementedError(  # pragma: no cover
+                    "Cannot predict when many Surrogates are present. Call each "
+                    "Surrogate's model's best_in_sample_point directly."
+                )
 
-        best_point, _ = surrogate.best_in_sample_point(
-            search_space_digest=search_space_digest, torch_opt_config=torch_opt_config
-        )
-        return best_point
+            surrogate = next(iter(self.surrogates.values()))
+
+            return surrogate.best_in_sample_point(
+                search_space_digest=search_space_digest,
+                torch_opt_config=torch_opt_config,
+            )[0]
+        except ValueError:
+            return None
 
     @copy_doc(TorchModel.evaluate_acquisition_function)
     def evaluate_acquisition_function(
@@ -508,11 +528,15 @@ class BoTorchModel(TorchModel, Base):
         search_space_digest: SearchSpaceDigest,
     ) -> Tuple[Tensor, Tensor]:
         # Will fail if metric_names exist across multiple models
-        surrogate_labels = [
-            label
-            for label, spec in self.surrogate_specs.items()
-            if any(metric in spec.outcomes for metric in metric_names)
-        ]
+        surrogate_labels = (
+            [
+                label
+                for label, spec in self.surrogate_specs.items()
+                if any(metric in spec.outcomes for metric in metric_names)
+            ]
+            if len(self.surrogates) > 1
+            else [*self.surrogates.keys()]
+        )
         if len(surrogate_labels) != 1:
             raise UserInputError(
                 "May not cross validate multiple Surrogates at once. Please input "
@@ -576,7 +600,7 @@ class BoTorchModel(TorchModel, Base):
 
         dtypes_list = list(dtypes.values())
         if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
-            raise NotImplementedError(
+            raise NotImplementedError(  # pragma: no cover
                 f"Expected all Surrogates to have same dtype, found {dtypes}"
             )
 
@@ -594,7 +618,7 @@ class BoTorchModel(TorchModel, Base):
 
         devices_list = list(devices.values())
         if devices_list.count(devices_list[0]) != len(devices_list):
-            raise NotImplementedError(
+            raise NotImplementedError(  # pragma: no cover
                 f"Expected all Surrogates to have same device, found {devices}"
             )
 

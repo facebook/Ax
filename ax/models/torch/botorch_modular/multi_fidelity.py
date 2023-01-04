@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError
@@ -27,7 +27,7 @@ class MultiFidelityAcquisition(Acquisition):
     # use the `SobolQMCNormalSampler`.
     def compute_model_dependencies(
         self,
-        surrogate: Surrogate,
+        surrogates: Mapping[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
@@ -43,7 +43,7 @@ class MultiFidelityAcquisition(Acquisition):
             )
 
         dependencies = super().compute_model_dependencies(
-            surrogate=surrogate,
+            surrogates=surrogates,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
             options=options,
