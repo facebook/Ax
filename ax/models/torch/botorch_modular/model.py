@@ -14,13 +14,10 @@ from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch import get_rounding_func
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
-    choose_model_class,
     construct_acquisition_and_optimizer_options,
-    use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -358,43 +355,6 @@ class BoTorchModel(TorchModel, Base):
             # predict fail.
             self._surrogate = current_surrogate
         return X_test_prediction
-
-    def _autoset_surrogate(
-        self,
-        datasets: List[SupervisedDataset],
-        metric_names: List[str],
-        search_space_digest: SearchSpaceDigest,
-    ) -> None:
-        """Sets a default surrogate on this model if one was not explicitly
-        provided.
-        """
-        # To determine whether to use `ListSurrogate`, we need to check for
-        # the batched multi-output case, so we first see which model would
-        # be chosen given the Yvars and the properties of data.
-        botorch_model_class = choose_model_class(
-            datasets=datasets,
-            search_space_digest=search_space_digest,
-        )
-        if use_model_list(datasets=datasets, botorch_model_class=botorch_model_class):
-            # If using `ListSurrogate` / `ModelListGP`, pick submodels for each
-            # outcome.
-            botorch_submodel_class_per_outcome = {
-                metric_name: choose_model_class(
-                    datasets=[dataset],
-                    search_space_digest=search_space_digest,
-                )
-                for dataset, metric_name in zip(datasets, metric_names)
-            }
-            self._surrogate = ListSurrogate(
-                botorch_submodel_class_per_outcome=botorch_submodel_class_per_outcome,
-                **self.surrogate_options,
-            )
-        else:
-            # Using regular `Surrogate`, so botorch model picked at the beginning
-            # of the function is the one we should use.
-            self._surrogate = Surrogate(
-                botorch_model_class=botorch_model_class, **self.surrogate_options
-            )
 
     def _instantiate_acquisition(
         self,
