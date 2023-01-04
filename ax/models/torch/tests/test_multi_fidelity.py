@@ -95,7 +95,7 @@ class MultiFidelityAcquisitionTest(TestCase):
         ):
             # We don't actually need to instantiate the BoTorch acqf in these tests.
             mf_acquisition = MultiFidelityAcquisition(
-                surrogate=self.surrogate,
+                surrogates={"regression": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=self.objective_weights
@@ -105,7 +105,7 @@ class MultiFidelityAcquisitionTest(TestCase):
         # Raise Error if `fidelity_weights` and `target_fidelities` do not align.
         with self.assertRaisesRegex(RuntimeError, "Must provide the same indices"):
             mf_acquisition.compute_model_dependencies(
-                surrogate=self.surrogate,
+                surrogates={"regression": self.surrogate},
                 search_space_digest=dataclasses.replace(
                     self.search_space_digest, target_fidelities={1: 5.0}
                 ),
@@ -114,7 +114,7 @@ class MultiFidelityAcquisitionTest(TestCase):
             )
         # Make sure `fidelity_weights` are set when they are not passed in.
         mf_acquisition.compute_model_dependencies(
-            surrogate=self.surrogate,
+            surrogates={"regression": self.surrogate},
             search_space_digest=dataclasses.replace(
                 self.search_space_digest, target_fidelities={2: 5.0, 3: 5.0}
             ),
@@ -126,13 +126,13 @@ class MultiFidelityAcquisitionTest(TestCase):
         )
         # Usual case.
         dependencies = mf_acquisition.compute_model_dependencies(
-            surrogate=self.surrogate,
+            surrogates={"regression": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             options=self.options,
         )
         mock_Acquisition_compute.assert_called_with(
-            surrogate=self.surrogate,
+            surrogates={"regression": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             options=self.options,

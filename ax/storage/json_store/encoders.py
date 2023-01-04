@@ -457,10 +457,13 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str,
 
 def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     """Convert Ax model to a dictionary."""
+    # TODO[D41637384] Will deal with this later, need to come up with something
+    # backwards compatible
+
     return {
         "__type": model.__class__.__name__,
         "surrogate": model.surrogate,
-        "surrogate_options": model.surrogate_options,
+        "surrogate_options": model.surrogate_options,  # pyre-ignore
         "acquisition_class": model.acquisition_class,
         "botorch_acqf_class": model._botorch_acqf_class,
         "acquisition_options": model.acquisition_options or {},
