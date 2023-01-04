@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple
 
-import pyro  # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
+import pyro
 import torch
 from ax.models.torch.botorch_defaults import _get_model
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL

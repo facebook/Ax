@@ -34,6 +34,8 @@ from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+
+import pyro
 import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
@@ -66,7 +68,6 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import AcquisitionFunction
-from botorch.models.fully_bayesian import _psd_safe_pyro_mvn_sample
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -196,19 +197,22 @@ def single_task_pyro_model(
         X_tf = X
     # compute kernel
     if gp_kernel == "matern":
-        k = matern_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
+        K = matern_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
     elif gp_kernel == "rbf":
-        k = rbf_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
+        K = rbf_kernel(X=X_tf, Z=X_tf, lengthscale=lengthscale)
     else:
         raise ValueError(f"Expected kernel to be 'rbf' or 'matern', got {gp_kernel}")
 
     # add noise
-    k = outputscale * k + noise * torch.eye(X.shape[0], dtype=X.dtype, device=X.device)
+    K = outputscale * K + noise * torch.eye(X.shape[0], dtype=X.dtype, device=X.device)
 
-    _psd_safe_pyro_mvn_sample(
-        name="Y",
-        loc=mean.view(-1).expand(X.shape[0]),
-        covariance_matrix=k,
+    pyro.sample(
+        "Y",
+        # pyre-fixme[16]: Module `distributions` has no attribute `MultivariateNormal`.
+        pyro.distributions.MultivariateNormal(
+            loc=mean.view(-1).expand(X.shape[0]),
+            covariance_matrix=K,
+        ),
         obs=Y,
     )
 
@@ -363,10 +367,7 @@ def run_inference(
 ) -> Dict[str, Tensor]:
     start = time.time()
     try:
-        # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
         from pyro.infer.mcmc import MCMC, NUTS
-
-        # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
         from pyro.infer.mcmc.util import print_summary
     except ImportError:  # pragma: no cover
         raise RuntimeError("Cannot call run_inference without pyro installed!")
