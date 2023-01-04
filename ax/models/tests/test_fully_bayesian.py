@@ -14,6 +14,7 @@ from math import sqrt
 from typing import Any, Dict, Type
 from unittest import mock
 
+import pyro
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
@@ -37,11 +38,9 @@ from botorch.optim.optimize import optimize_acqf
 from botorch.utils import get_objective_weights_transform
 from botorch.utils.datasets import FixedNoiseDataset
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+from pyro.infer.mcmc import MCMC, NUTS
+from pyro.ops.integrator import potential_grad
 
-from pyro.infer.mcmc import (  # @manual=fbsource//third-party/pypi/pyro-ppl:pyro-ppl
-    MCMC,
-    NUTS,
-)
 
 RUN_INFERENCE_PATH = "ax.models.torch.fully_bayesian.run_inference"
 NUTS_PATH = "pyro.infer.mcmc.NUTS"
@@ -1061,3 +1060,47 @@ class TestKernels(TestCase):
             .exp()
         )
         self.assertLess(torch.norm(res - actual), 1e-3)
+
+
+class TestPyroCatchNumericalErrors(TestCase):
+    # This test is to verify that the pyro exception handlers are properly registered,
+    # which should happen upon importing from botorch.models.fully_bayesian.py
+    # (which in turn happens within ax.models.torch.fully_bayesian.py).
+
+    def test_pyro_catch_error(self) -> None:
+        def potential_fn(z: Dict[str, torch.Tensor]) -> torch.Tensor:
+            # pyre-fixme[16]: Module `distributions` has no attribute
+            #  `MultivariateNormal`.
+            mvn = pyro.distributions.MultivariateNormal(
+                loc=torch.zeros(2),
+                covariance_matrix=z["K"],
+            )
+            return mvn.log_prob(torch.zeros(2))
+
+        # Test base case where everything is fine
+        z = {"K": torch.eye(2)}
+        grads, val = potential_grad(potential_fn, z)
+        self.assertTrue(torch.allclose(grads["K"], -0.5 * torch.eye(2)))
+        norm_mvn = torch.distributions.Normal(0, 1)
+        self.assertTrue(torch.allclose(val, 2 * norm_mvn.log_prob(torch.zeros(1))))
+
+        # Default behavior should catch the ValueError when trying to instantiate
+        # the MVN and return NaN instead
+        z = {"K": torch.ones(2, 2)}
+        _, val = potential_grad(potential_fn, z)
+        self.assertTrue(torch.isnan(val))
+
+        # Default behavior should catch the LinAlgError when peforming a
+        # Cholesky decomposition and return NaN instead
+        def potential_fn_chol(z: Dict[str, torch.Tensor]) -> torch.Tensor:
+            return torch.linalg.cholesky(z["K"])
+
+        _, val = potential_grad(potential_fn_chol, z)
+        self.assertTrue(torch.isnan(val))
+
+        # Default behavior should not catch other errors
+        def potential_fn_rterr_foo(z: Dict[str, torch.Tensor]) -> torch.Tensor:
+            raise RuntimeError("foo")
+
+        with self.assertRaisesRegex(RuntimeError, "foo"):
+            potential_grad(potential_fn_rterr_foo, z)
