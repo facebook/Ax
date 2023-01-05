@@ -10,9 +10,10 @@ import inspect
 from copy import deepcopy
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 import torch
+from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -126,7 +127,11 @@ class ListSurrogate(Surrogate):
         )
 
     def construct(
-        self, datasets: List[SupervisedDataset], metric_names: List[str], **kwargs: Any
+        self,
+        datasets: List[SupervisedDataset],
+        metric_names: Optional[Iterable[str]] = None,
+        search_space_digest: Optional[SearchSpaceDigest] = None,
+        **kwargs: Any,
     ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
@@ -139,11 +144,16 @@ class ListSurrogate(Surrogate):
                 datasets is ``[ds_A, ds_B]``, the metrics are ``["A" and "B"]``).
                 These are used to match training data with correct submodels of
                 ``ModelListGP``.
+            search_space_digest: A ``SearchSpaceDigest`` object containing
+                metadata on the features in the datasets.
             **kwargs: Keyword arguments, accepts:
                 - ``fidelity_features``: Indices of columns in X that represent
                     fidelity
                 - ``task_features``: Indices of columns in X that represent tasks
         """
+        if metric_names is None:
+            metric_names = []
+
         fidelity_features = kwargs.get(Keys.FIDELITY_FEATURES, [])
         task_features = kwargs.get(Keys.TASK_FEATURES, [])
 
