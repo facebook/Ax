@@ -10,7 +10,6 @@ import dataclasses
 import functools
 import operator
 import warnings
-from collections import ChainMap
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
