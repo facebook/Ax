@@ -475,7 +475,7 @@ class SurrogateTest(TestCase):
                 options=self.options,
             )
             mock_acqf_init.assert_called_with(
-                surrogate=surrogate,
+                surrogates={"self": surrogate},
                 botorch_acqf_class=qSimpleRegret,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=torch_opt_config,

@@ -162,7 +162,7 @@ class AcquisitionTest(TestCase):
             botorch_acqf_class=DummyOneShotAcquisitionFunction
             if one_shot
             else self.botorch_acqf_class,
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
                 self.torch_opt_config, fixed_features=fixed_features or {}
@@ -201,7 +201,7 @@ class AcquisitionTest(TestCase):
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
             # pyre-fixme[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
-                surrogate=self.surrogate,
+                surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
@@ -210,7 +210,7 @@ class AcquisitionTest(TestCase):
         mock_get_objective_and_transform.return_value = (botorch_objective, None)
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -235,7 +235,7 @@ class AcquisitionTest(TestCase):
 
         # Call `subset_model` only when needed
         mock_subset_model.assert_called_with(
-            model=acquisition.surrogate.model,
+            model=acquisition.surrogates["surrogate"].model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
@@ -246,7 +246,7 @@ class AcquisitionTest(TestCase):
         mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -256,7 +256,7 @@ class AcquisitionTest(TestCase):
         # Check `get_botorch_objective_and_transform` kwargs
         mock_get_objective_and_transform.assert_called_once()
         _, ckwargs = mock_get_objective_and_transform.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
         self.assertIs(ckwargs["objective_weights"], self.objective_weights)
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
@@ -265,7 +265,7 @@ class AcquisitionTest(TestCase):
         self.mock_input_constructor.assert_called_once()
         mock_botorch_acqf_class.assert_called_once()
         _, ckwargs = self.mock_input_constructor.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
         for k, v in chain(self.options.items(), model_deps.items()):
@@ -542,7 +542,7 @@ class AcquisitionTest(TestCase):
             objective_thresholds=moo_objective_thresholds,
         )
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             search_space_digest=self.search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -576,7 +576,7 @@ class AcquisitionTest(TestCase):
                 )
             )
             acquisition = Acquisition(
-                surrogate=self.surrogate,
+                surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 botorch_acqf_class=self.botorch_acqf_class,
                 torch_opt_config=dataclasses.replace(
