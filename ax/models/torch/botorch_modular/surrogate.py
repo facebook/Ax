@@ -358,6 +358,8 @@ class Surrogate(Base):
                 "chosen."
             )
 
+        self._training_data = datasets
+
         (
             fidelity_features,
             task_feature,
@@ -367,8 +369,6 @@ class Surrogate(Base):
             task_features=kwargs.get(Keys.TASK_FEATURES, []),
             robust_digest=kwargs.get("robust_digest", None),
         )
-
-        self._training_data = datasets
 
         submodels = []
         for m, dataset in zip(metric_names, datasets):
@@ -635,7 +635,7 @@ class Surrogate(Base):
         from ax.models.torch.botorch_modular.acquisition import Acquisition
 
         acqf = Acquisition(  # TODO: For multi-fidelity, might need diff. class.
-            surrogate=self,
+            surrogates={"self": self},
             botorch_acqf_class=acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -752,9 +752,7 @@ class Surrogate(Base):
         # TODO: Allow each metric having different task_features or fidelity_features
         # TODO: Need upstream change in the modelbrdige
         if len(task_features) > 1:
-            raise NotImplementedError(
-                "This model only supports only a single task feature!"
-            )
+            raise NotImplementedError("This model only supports 1 task feature!")
         elif len(task_features) == 1:
             task_feature = task_features[0]
         else:
