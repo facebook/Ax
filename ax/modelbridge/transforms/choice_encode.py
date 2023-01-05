@@ -92,6 +92,7 @@ class ChoiceEncode(Transform):
                     parameter_type=ptype,
                     values=tvals.tolist(),
                     is_ordered=p.is_ordered,
+                    sort_values=p.sort_values,
                 )
             else:
                 transformed_parameters[p.name] = p
