@@ -11,7 +11,6 @@ from ax.benchmark.benchmark_method import (
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -115,8 +114,8 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei() -> Bench
                 num_trials=-1,
                 max_parallelism=1,
                 model_kwargs={
-                    "surrogate": ListSurrogate(
-                        botorch_submodel_class=SaasFullyBayesianSingleTaskGP
+                    "surrogate": Surrogate(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP
                     ),
                     "botorch_acqf_class": qNoisyExpectedImprovement,
                 },
@@ -145,8 +144,8 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi() -> Ben
                 num_trials=-1,
                 max_parallelism=1,
                 model_kwargs={
-                    "surrogate": ListSurrogate(
-                        botorch_submodel_class=SaasFullyBayesianSingleTaskGP
+                    "surrogate": Surrogate(
+                        botorch_model_class=SaasFullyBayesianSingleTaskGP
                     ),
                     "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
                 },
