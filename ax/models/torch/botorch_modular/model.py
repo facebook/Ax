@@ -7,7 +7,8 @@
 import dataclasses
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
+from functools import wraps
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, TypeVar
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -39,6 +40,26 @@ from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
+
+T = TypeVar("T")
+
+
+def single_surrogate_only(f: Callable[..., T]) -> Callable[..., T]:
+    """
+    For use as a decorator on functions only implemented for BotorchModels with a
+    single Surrogate.
+    """
+
+    @wraps(f)
+    def impl(self: "BoTorchModel", *args: List[Any], **kwargs: Dict[str, Any]) -> T:
+        if len(self._surrogates) != 1:
+            raise NotImplementedError(
+                f"{f.__name__} not implemented for multi-surrogate case. Found "
+                f"{self.surrogates=}."
+            )
+        return f(self, *args, **kwargs)
+
+    return impl
 
 
 @dataclass(frozen=True)
@@ -184,17 +205,14 @@ class BoTorchModel(TorchModel, Base):
         return self._surrogates
 
     @property
+    @single_surrogate_only
     def surrogate(self) -> Surrogate:
         """Surrogate, if there is only one."""
-        if len(self._surrogates) != 1:
-            raise UnsupportedError(
-                "BoTorchModel.surrogate is only supported with one surrogate."
-                f"The model has {len(self._surrogates)} surrogates. Use BoTorchModel.surrogates instead."
-            )
 
         return next(iter(self.surrogates.values()))
 
     @property
+    @single_surrogate_only
     def Xs(self) -> List[Tensor]:
         """A list of tensors, each of shape ``batch_shape x n_i x d``,
         where `n_i` is the number of training inputs for the i-th model.
@@ -202,14 +220,8 @@ class BoTorchModel(TorchModel, Base):
         NOTE: This is an accessor for ``self.surrogate.Xs``
         and returns it unchanged.
         """
-        # TODO[mpolson64] Improve this logic in the future
-        try:
-            return self.surrogate.Xs
-        except ValueError:
-            raise NotImplementedError(
-                "Cannot get Xs when many Surrogates are present. Call each "
-                "Surrogate's model's Xs directly."
-            )
+
+        return self.surrogate.Xs
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -394,17 +406,11 @@ class BoTorchModel(TorchModel, Base):
                 refit=self.refit_on_update,
             )
 
+    @single_surrogate_only
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        """Predict if only one Surrogate, error if there are many"""
-        if len(self.surrogates) > 1:
-            raise NotImplementedError(  # pragma: no cover
-                "Cannot predict when many Surrogates are present. Call each "
-                "Surrogate's model's predict directly."
-            )
+        """Predict if only one Surrogate, Error if there are many"""
 
-        surrogate = next(iter(self.surrogates.values()))
-
-        return surrogate.predict(X=X)
+        return self.surrogate.predict(X=X)
 
     def predict_from_surrogate(
         self, surrogate_label: str, X: Tensor
@@ -483,21 +489,14 @@ class BoTorchModel(TorchModel, Base):
         return gen_metadata
 
     @copy_doc(TorchModel.best_point)
+    @single_surrogate_only
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> Optional[Tensor]:
         try:
-            if len(self.surrogates) > 1:
-                raise NotImplementedError(  # pragma: no cover
-                    "Cannot predict when many Surrogates are present. Call each "
-                    "Surrogate's model's best_in_sample_point directly."
-                )
-
-            surrogate = next(iter(self.surrogates.values()))
-
-            return surrogate.best_in_sample_point(
+            return self.surrogate.best_in_sample_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )[0]

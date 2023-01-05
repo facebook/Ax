@@ -53,6 +53,7 @@ from ax.utils.common.typeutils_torch import torch_type_from_str
 
 logger: Logger = get_logger(__name__)
 
+
 # pyre-fixme[3]: Return annotation cannot be `Any`.
 def object_from_json(
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.

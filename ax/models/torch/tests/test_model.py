@@ -177,7 +177,7 @@ class BoTorchModelTest(TestCase):
             self.model.Xs[0].equal(torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]]))
         )
 
-        with self.assertRaisesRegex(NotImplementedError, "Cannot get Xs"):
+        with self.assertRaisesRegex(NotImplementedError, "Xs not implemented"):
             self.model._surrogates = {"foo": Surrogate(), "bar": Surrogate()}
             self.model.Xs
 
