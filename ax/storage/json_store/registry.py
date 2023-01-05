@@ -262,8 +262,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "Interval": Interval,
     "JenattonMetric": JenattonMetric,
-    # TODO[mpolson64]: Decode ListSurrogate into Surrogate
-    # "ListSurrogate": ListSurrogate,
+    "ListSurrogate": Surrogate,  # For backwards compatibility
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,
     "MapMetric": MapMetric,

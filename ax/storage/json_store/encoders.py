@@ -48,6 +48,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
+from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 
@@ -457,16 +458,17 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str,
 
 def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     """Convert Ax model to a dictionary."""
-    # TODO[D41637384] Will deal with this later, need to come up with something
-    # backwards compatible
-
     return {
         "__type": model.__class__.__name__,
-        "surrogate": model.surrogate,
-        "surrogate_options": model.surrogate_options,  # pyre-ignore
         "acquisition_class": model.acquisition_class,
-        "botorch_acqf_class": model._botorch_acqf_class,
         "acquisition_options": model.acquisition_options or {},
+        "surrogate": model._surrogates[Keys.ONLY_SURROGATE]
+        if Keys.ONLY_SURROGATE in model._surrogates
+        else None,
+        "surrogate_specs": model.surrogate_specs
+        if len(model.surrogate_specs) > 0
+        else None,
+        "botorch_acqf_class": model._botorch_acqf_class,
         "refit_on_update": model.refit_on_update,
         "refit_on_cv": model.refit_on_cv,
         "warm_start_refit": model.warm_start_refit,
