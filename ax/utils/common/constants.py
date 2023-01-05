@@ -65,6 +65,7 @@ class Keys(str, Enum):
     ONLY_SURROGATE = "only_surrogate"
     OPTIMIZER_KWARGS = "optimizer_kwargs"
     PREFERENCE_DATA = "preference_data"
+    PRIMARY_SURROGATE = "primary"
     PROJECT = "project"
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
     QMC = "qmc"

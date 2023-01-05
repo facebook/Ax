@@ -626,7 +626,7 @@ class BoTorchModel(TorchModel, Base):
                 objective_thresholds=torch_opt_config.objective_thresholds,
                 objective_weights=torch_opt_config.objective_weights,
             )
-        # pyre-ignore
+
         return self.acquisition_class(
             surrogates=self.surrogates,
             botorch_acqf_class=self.botorch_acqf_class,
