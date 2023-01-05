@@ -309,3 +309,14 @@ def disable_one_to_many_transforms(model: Model) -> Generator[None, None, None]:
         for intf in input_transforms:
             if intf is not None and intf.is_one_to_many:
                 intf.transform_on_eval = True
+
+
+def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
+    """Used to return B sans any Xs that also appear in A"""
+    C = torch.cat((A, B), dim=0)
+    D, inverse_ind = torch.unique(C, return_inverse=True, dim=0)
+    n = A.shape[0]
+    A_indices = inverse_ind[:n].tolist()
+    B_indices = inverse_ind[n:].tolist()
+    Bi_set = set(B_indices) - set(A_indices)
+    return D[list(Bi_set)]
