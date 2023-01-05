@@ -20,7 +20,6 @@ from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
-    convert_to_block_design,
     use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
@@ -164,23 +163,10 @@ class BoTorchModel(TorchModel, Base):
         # store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
 
-        # Choose `Surrogate` and undelying `Model` based on properties of data.
-        if not self._surrogate:
-            self._autoset_surrogate(
-                datasets=datasets,
-                metric_names=metric_names,
-                search_space_digest=search_space_digest,
-            )
-        original_metric_names = deepcopy(metric_names)
-        if len(datasets) > 1 and not isinstance(self.surrogate, ListSurrogate):
-            # Note: If the datasets do not confirm to a block design then this
-            # will filter the data and drop observations to make sure that it does.
-            # This can happen e.g. if only some metrics are observed at some points.
-            datasets, metric_names = convert_to_block_design(
-                datasets=datasets,
-                metric_names=metric_names,
-                force=True,
-            )
+        # Initialize the surrogate if one was not provided at __init__ time or
+        # otherwise initialized already.
+        if self._surrogate is None:
+            self._surrogate = Surrogate(**self.surrogate_options)
 
         self.surrogate.fit(
             datasets=datasets,
@@ -189,7 +175,6 @@ class BoTorchModel(TorchModel, Base):
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
-            original_metric_names=original_metric_names,
         )
 
     @copy_doc(TorchModel.update)
