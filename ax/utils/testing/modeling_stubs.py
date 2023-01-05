@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from logging import Logger
-from typing import List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 import numpy as np
 from ax.core.experiment import Experiment
@@ -192,6 +192,61 @@ def get_transform_type() -> Type[Transform]:
 
 def get_experiment_for_value() -> Experiment:
     return Experiment(get_search_space_for_value(), "test")
+
+
+def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
+    """
+    For use ensuring backwards compatibility loading the now deprecated ListSurrogate.
+    """
+
+    # Generated via `get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei`
+    # before new multi-Surrogate Model and new Surrogate diffs D42013742
+    return {
+        "__type": "GenerationStep",
+        "model": {"__type": "Models", "name": "BOTORCH_MODULAR"},
+        "num_trials": -1,
+        "min_trials_observed": 0,
+        "completion_criteria": [],
+        "max_parallelism": 1,
+        "use_update": False,
+        "enforce_num_trials": True,
+        "model_kwargs": {
+            "surrogate": {
+                "__type": "ListSurrogate",
+                "botorch_submodel_class_per_outcome": {},
+                "botorch_submodel_class": {
+                    "__type": "Type[Model]",
+                    "index": "SaasFullyBayesianSingleTaskGP",
+                    "class": "<class 'botorch.models.model.Model'>",
+                },
+                "submodel_options_per_outcome": {},
+                "submodel_options": {},
+                "mll_class": {
+                    "__type": "Type[MarginalLogLikelihood]",
+                    "index": "ExactMarginalLogLikelihood",
+                    "class": (
+                        "<class 'gpytorch.mlls.marginal_log_likelihood."
+                        "MarginalLogLikelihood'>"
+                    ),
+                },
+                "mll_options": {},
+                "submodel_outcome_transforms": None,
+                "submodel_input_transforms": None,
+                "submodel_covar_module_class": None,
+                "submodel_covar_module_options": {},
+                "submodel_likelihood_class": None,
+                "submodel_likelihood_options": {},
+            },
+            "botorch_acqf_class": {
+                "__type": "Type[AcquisitionFunction]",
+                "index": "qNoisyExpectedImprovement",
+                "class": "<class 'botorch.acquisition.acquisition.AcquisitionFunction'>",  # noqa
+            },
+        },
+        "model_gen_kwargs": {},
+        "index": 1,
+        "should_deduplicate": False,
+    }
 
 
 class transform_1(Transform):
