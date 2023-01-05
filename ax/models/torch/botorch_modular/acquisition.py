@@ -110,30 +110,40 @@ class Acquisition(Base):
             for name, surrogate in self.surrogates.items()
         }
 
-        Xs_pending_tensors = [
+        Xs_pending_list = [
             Xs_pending
             for Xs_pending, _ in Xs_pending_and_observed.values()
             if Xs_pending is not None
         ]
-        unique_Xs_pending = torch.unique(
-            input=torch.cat(
-                tensors=Xs_pending_tensors,
+        unique_Xs_pending = (
+            torch.unique(
+                input=torch.cat(
+                    tensors=Xs_pending_list,
+                    dim=0,
+                ),
                 dim=0,
             )
+            if len(Xs_pending_list) > 0
+            else None
         )
 
         # This tensor may have some Xs that are also in pending (because they are
         # observed for some models but not others)
-        Xs_observed_tensors = [
+        Xs_observed_maybe_pending_list = [
             Xs_observed
             for _, Xs_observed in Xs_pending_and_observed.values()
             if Xs_observed is not None
         ]
-        unique_Xs_observed_maybe_pending = torch.unique(
-            input=torch.cat(
-                tensors=Xs_observed_tensors,
+        unique_Xs_observed_maybe_pending = (
+            torch.unique(
+                input=torch.cat(
+                    tensors=Xs_observed_maybe_pending_list,
+                    dim=0,
+                ),
                 dim=0,
             )
+            if len(Xs_observed_maybe_pending_list) > 0
+            else None
         )
 
         # If a point is pending on any model do not count it as observed.
@@ -141,17 +151,22 @@ class Acquisition(Base):
         # removing pending points.
         # TODO[sdaulton] Is this a sound approach? Should we be doing something more
         # sophisticated here?
-        unique_Xs_observed = _tensor_difference(
-            A=unique_Xs_pending, B=unique_Xs_observed_maybe_pending
-        )
-
-        if torch.size(unique_Xs_observed_maybe_pending) != torch.size(
-            unique_Xs_observed
-        ):
-            logger.warning(
-                "Encountered Xs pending for some Surrogates but observed for others. "
-                "Considering these points to be pending."
+        if unique_Xs_pending is None and unique_Xs_observed_maybe_pending is None:
+            unique_Xs_observed = None
+        elif unique_Xs_pending is None:
+            unique_Xs_observed = unique_Xs_observed_maybe_pending
+        else:
+            unique_Xs_observed = _tensor_difference(
+                A=unique_Xs_pending, B=unique_Xs_observed_maybe_pending
             )
+
+            if torch.numel(unique_Xs_observed_maybe_pending) != torch.numel(
+                unique_Xs_observed
+            ):
+                logger.warning(
+                    "Encountered Xs pending for some Surrogates but observed for "
+                    "others. Considering these points to be pending."
+                )
 
         # Store objective thresholds for all outcomes (including non-objectives).
         self._objective_thresholds: Optional[
@@ -243,13 +258,13 @@ class Acquisition(Base):
         acqf_model_kwarg = (
             {
                 "model_dict": ModelDict(
-                    models={
+                    **{
                         name: surrogate.model
                         for name, surrogate in self.surrogates.items()
                     }
                 )
             }
-            if len(self.surrogates) == 1
+            if len(self.surrogates) > 1
             else {"model": model}
         )
 
@@ -269,9 +284,9 @@ class Acquisition(Base):
         # If there is only one SupervisedDataset return it alone
         if (
             len(self.surrogates) == 1
-            and len(self.surrogates[Keys.ONLY_SURROGATE].training_data) == 1
+            and len(next(iter(self.surrogates.values())).training_data) == 1
         ):
-            training_data = self.surrogates[Keys.ONLY_SURROGATE].training_data[0]
+            training_data = next(iter(self.surrogates.values())).training_data[0]
         else:
             tdicts = (
                 dict(zip(not_none(surrogate._outcomes), surrogate.training_data))

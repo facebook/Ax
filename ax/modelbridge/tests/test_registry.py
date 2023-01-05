@@ -32,6 +32,7 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.utils.common.constants import Keys
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -66,9 +67,11 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
         self.assertEqual(gpei.model.acquisition_class, Acquisition)
         self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
-        self.assertIsInstance(gpei.model.surrogate, Surrogate)
+        self.assertIsInstance(gpei.model.surrogates[Keys.AUTOSET_SURROGATE], Surrogate)
         # FixedNoiseGP should be picked since experiment data has fixed noise.
-        self.assertIsInstance(gpei.model.surrogate.model, FixedNoiseGP)
+        self.assertIsInstance(
+            gpei.model.surrogates[Keys.AUTOSET_SURROGATE].model, FixedNoiseGP
+        )
 
         gr = gpei.gen(n=1)
         self.assertIsNotNone(gr.best_arm_predictions)
