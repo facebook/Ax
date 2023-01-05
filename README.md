@@ -112,18 +112,19 @@ pip install SQLAlchemy
 
 #### Installing from Git
 
-You can install the latest (bleeding edge) version from Git:
+You can install the latest (bleeding edge) version from Git.
 
-```
-pip install git+https://github.com/facebook/Ax.git#egg=ax-platform
-```
-
-See recommendation for installing PyTorch for MacOS users above.
+First, see recommendation for installing PyTorch for MacOS users above.
 
 At times, the bleeding edge for Ax can depend on bleeding edge versions of BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
+
 ```
+pip install git+https://github.com/cornellius-gp/linear_operator.git
 pip install git+https://github.com/cornellius-gp/gpytorch.git
+export ALLOW_LATEST_GPYTORCH_LINOP=true
 pip install git+https://github.com/pytorch/botorch.git
+export ALLOW_BOTORCH_LATEST=true
+pip install git+https://github.com/facebook/Ax.git#egg=ax-platform
 ```
 
 #### Optional Dependencies
@@ -160,10 +161,11 @@ See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 When contributing to Ax, we recommend cloning the [repository](https://github.com/facebook/Ax) and installing all optional dependencies:
 
 ```
-# bleeding edge versions of GPyTorch + BoTorch are recommended
+pip install git+https://github.com/cornellius-gp/linear_operator.git
 pip install git+https://github.com/cornellius-gp/gpytorch.git
+export ALLOW_LATEST_GPYTORCH_LINOP=true
 pip install git+https://github.com/pytorch/botorch.git
-
+export ALLOW_BOTORCH_LATEST=true
 git clone https://github.com/facebook/ax.git --depth 1
 cd ax
 pip install -e .[notebook,mysql,dev]
