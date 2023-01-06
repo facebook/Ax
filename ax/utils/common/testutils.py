@@ -260,6 +260,7 @@ class TestCase(unittest.TestCase):
     # set to `False` on the specific testcase class if this occurs
     CAN_PROFILE = True
     _prior_status: Optional[str] = None
+    _tearDown_called: bool = False
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
@@ -286,6 +287,8 @@ class TestCase(unittest.TestCase):
             if os.path.exists(f):
                 os.remove(f)
 
+        self._tearDown_called = True
+
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
     ) -> Optional[unittest.result.TestResult]:
@@ -305,6 +308,13 @@ class TestCase(unittest.TestCase):
 
             signal.alarm(0)
         self._assert_status_is_unchanged()
+        self.assertTrue(
+            self._tearDown_called,
+            msg=(
+                "`tearDown()` was called.  If it was overriden, "
+                "call `super().tearDown()` in the override"
+            ),
+        )
         return result
 
     def _get_repository_status(self) -> str:
