@@ -13,6 +13,7 @@ import contextlib
 import io
 import linecache
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -243,6 +244,7 @@ class TestCase(unittest.TestCase):
 
     # try to remove these files on tearDown
     FILES_TO_CLEAN: List[str] = []
+    FOLDERS_TO_CLEAN: List[str] = []
 
     MAX_TEST_SECONDS = 540
     MIN_TTOT = 1.0
@@ -273,6 +275,13 @@ class TestCase(unittest.TestCase):
         signal.signal(signal.SIGALRM, signal_handler)
 
     def tearDown(self) -> None:
+        # just always clean "data/MNIST/raw"
+        for folder in self.FOLDERS_TO_CLEAN + ["data/MNIST/raw"]:
+            try:
+                shutil.rmtree(folder)
+            except OSError:
+                pass
+
         for f in self.FILES_TO_CLEAN:
             if os.path.exists(f):
                 os.remove(f)
