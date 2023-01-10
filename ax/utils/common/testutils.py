@@ -16,6 +16,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 import types
 import unittest
 from functools import wraps
@@ -39,7 +40,12 @@ import yappi
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
+from dba.lib.tests_lib.inspect_helpers import ensure_top_import
 
+# Imports have a tendency to include network calls. Let's ensure this module
+# (and thus block_network) are imported prior to other imports
+ensure_top_import("TestCase")
+import_start_time = time.monotonic()
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
 T = TypeVar("T")
@@ -270,6 +276,7 @@ class TestCase(unittest.TestCase):
             raise Exception(f"Test timed out at {self.MAX_TEST_SECONDS} seconds")
 
         super().__init__(methodName=methodName)
+        self.import_time: int = round(time.monotonic() - import_start_time)
         signal.signal(signal.SIGALRM, signal_handler)
 
     def tearDown(self) -> None:
@@ -282,7 +289,7 @@ class TestCase(unittest.TestCase):
     ) -> Optional[unittest.result.TestResult]:
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.
-        signal.alarm(self.MAX_TEST_SECONDS)
+        signal.alarm(max(self.MAX_TEST_SECONDS - self.import_time, 1))
         self._prior_status = self._get_repository_status()
         try:
             if self.CAN_PROFILE:
