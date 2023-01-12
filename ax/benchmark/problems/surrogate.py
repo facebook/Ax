@@ -50,7 +50,7 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             search_space=search_space,
             optimization_config=OptimizationConfig(
                 objective=Objective(
-                    metric=SurrogateMetric(),
+                    metric=SurrogateMetric(infer_noise=infer_noise),
                     minimize=minimize,
                 )
             ),
