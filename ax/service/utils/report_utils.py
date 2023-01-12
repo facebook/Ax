@@ -48,7 +48,7 @@ from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
-from ax.service.utils.best_point import _is_row_feasible
+from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
@@ -557,11 +557,16 @@ def exp_to_df(
         exp.optimization_config is not None
         and len(not_none(exp.optimization_config).all_constraints) > 0
     ):
+        optimization_config = not_none(exp.optimization_config)
         try:
+            if any(oc.relative for oc in optimization_config.all_constraints):
+                optimization_config = _derel_opt_config_wrapper(
+                    optimization_config=optimization_config,
+                    experiment=exp,
+                )
             results[FEASIBLE_COL_NAME] = _is_row_feasible(
                 df=results,
-                optimization_config=not_none(exp.optimization_config),
-                status_quo=exp.status_quo,
+                optimization_config=optimization_config,
             )
         except ValueError as e:
             logger.warning(e)
