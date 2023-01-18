@@ -387,9 +387,10 @@ class TestBestPointUtils(TestCase):
         Y = extract_Y_from_data(experiment=experiment, metric_names=["bar"])
         self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
         # Works with messed up ordering of data.
-        random.shuffle(df_dicts)
+        clone_dicts = df_dicts.copy()
+        random.shuffle(clone_dicts)
         experiment._data_by_trial = {}
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
+        experiment.attach_data(Data(df=pd.DataFrame.from_records(clone_dicts)))
         Y = extract_Y_from_data(
             experiment=experiment,
             metric_names=["foo", "bar"],
@@ -409,10 +410,11 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "single data point for each metric"
         ):
+            # Skipping first 5 data points since first two trials are not completed.
             extract_Y_from_data(
                 experiment=experiment,
                 metric_names=["foo", "bar"],
-                data=Data(df=pd.DataFrame.from_records(df_dicts[1:])),
+                data=Data(df=pd.DataFrame.from_records(df_dicts[5:])),
             )
 
         # Check that it errors with BatchTrial.
