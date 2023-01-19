@@ -7,10 +7,12 @@
 import logging
 import warnings
 from typing import Any, Dict
+from unittest import mock
 
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import (
     calculate_num_initialization_trials,
     choose_generation_strategy,
@@ -23,6 +25,7 @@ from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
     get_branin_search_space,
     get_discrete_search_space,
     get_experiment,
@@ -612,4 +615,49 @@ class TestDispatchUtils(TestCase):
                     use_batch_trials=False,
                 ),
                 5,
+            )
+
+    def test_use_update(self) -> None:
+        search_space = get_branin_search_space()
+        # No experiment, no SAAS, default to False.
+        gs = choose_generation_strategy(search_space=search_space)
+        self.assertFalse(gs._steps[1].use_update)
+        # Pass in True.
+        gs = choose_generation_strategy(search_space=search_space, use_update=True)
+        self.assertTrue(gs._steps[1].use_update)
+        # With experiment without any metrics available while running.
+        experiment = get_branin_experiment()
+        with mock.patch.object(
+            experiment.metrics["branin"],
+            "is_available_while_running",
+            return_value=False,
+        ):
+            # No SAAS, default to False.
+            gs = choose_generation_strategy(
+                search_space=search_space, experiment=experiment
+            )
+            self.assertFalse(gs._steps[1].use_update)
+            # SAAS, default to True.
+            gs = choose_generation_strategy(
+                search_space=search_space, experiment=experiment, use_saasbo=True
+            )
+            self.assertTrue(gs._steps[1].use_update)
+            # SAAS and pass in False.
+            gs = choose_generation_strategy(
+                search_space=search_space,
+                experiment=experiment,
+                use_saasbo=True,
+                use_update=False,
+            )
+            self.assertFalse(gs._steps[1].use_update)
+        # SAAS with metrics available while running.
+        gs = choose_generation_strategy(
+            search_space=search_space, experiment=experiment, use_saasbo=True
+        )
+        # Default to False.
+        self.assertFalse(gs._steps[1].use_update)
+        # Error with True.
+        with self.assertRaisesRegex(UnsupportedError, "use_update"):
+            choose_generation_strategy(
+                search_space=search_space, experiment=experiment, use_update=True
             )
