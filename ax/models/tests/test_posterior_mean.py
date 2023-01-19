@@ -11,6 +11,7 @@ from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.utils.datasets import FixedNoiseDataset
 
 
@@ -38,6 +39,7 @@ class PosteriorMeanTest(TestCase):
             bounds=self.bounds,
         )
 
+    @fast_botorch_optimize
     def test_GetPosteriorMean(self) -> None:
 
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
