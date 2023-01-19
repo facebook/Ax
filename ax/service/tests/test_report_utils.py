@@ -69,7 +69,7 @@ class ReportUtilsTest(TestCase):
             ]
         ),
     )
-    def test_exp_to_df_ordering(self, _) -> None:
+    def test_exp_to_df_row_ordering(self, _) -> None:
         """
         This test verifies that the returned data frame indexes are
         in the same order as trial index. It mocks _merge_results_if_no_duplicates
@@ -81,6 +81,49 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(df), 3)
         for idx, row in df.iterrows():
             self.assertEqual(row["trial_index"], idx)
+
+    @patch(
+        "ax.service.utils.report_utils._merge_results_if_no_duplicates",
+        autospec=True,
+        return_value=pd.DataFrame(
+            [
+                # Trial indexes are out-of-order.
+                {
+                    "col1": 1,
+                    "arm_name": "a",
+                    "trial_status": "FAILED",
+                    "generation_method": "Manual",
+                    "trial_index": 1,
+                },
+                {
+                    "col1": 2,
+                    "arm_name": "b",
+                    "trial_status": "COMPLETED",
+                    "generation_method": "BO",
+                    "trial_index": 2,
+                },
+                {
+                    "col1": 3,
+                    "arm_name": "c",
+                    "trial_status": "COMPLETED",
+                    "generation_method": "Manual",
+                    "trial_index": 0,
+                },
+            ]
+        ),
+    )
+    def test_exp_to_df_col_ordering(self, _) -> None:
+        """
+        This test verifies that the returned data frame indexes are
+        in the same order as trial index. It mocks _merge_results_if_no_duplicates
+        to verify just the ordering of items in the final data frame.
+        """
+        exp = get_branin_experiment(with_trial=True)
+        df = exp_to_df(exp)
+        self.assertListEqual(
+            list(df.columns),
+            ["trial_index", "arm_name", "trial_status", "generation_method", "col1"],
+        )
 
     def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail

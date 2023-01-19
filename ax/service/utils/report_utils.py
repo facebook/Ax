@@ -643,6 +643,17 @@ def exp_to_df(
     )
 
     exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
+    initial_column_order = (
+        ["trial_index", "arm_name", "trial_status", "generation_method"]
+        + (run_metadata_fields or [])
+        + (trial_properties_fields or [])
+    )
+    for column_name in reversed(initial_column_order):
+        if column_name in exp_df.columns:
+            # pyre-ignore[6]: In call `DataFrame.insert`, for 3rd positional argument,
+            # expected `Union[int, Series, Variable[ArrayLike <: [ExtensionArray,
+            # ndarray]]]` but got `Union[DataFrame, Series]`]
+            exp_df.insert(0, column_name, exp_df.pop(column_name))
     return exp_df.reset_index(drop=True)
 
 
