@@ -17,10 +17,15 @@ from botorch.optim.initializers import (
 
 
 @contextmanager
-def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
+def fast_botorch_optimize_context_manager(
+    force: bool = False,
+) -> Generator[None, None, None]:
     """A context manager to force botorch to speed up optimization. Currently, the
     primary tactic is to force the underlying scipy methods to stop after just one
     iteration.
+
+        force: If True will not raise an AssertionError if no mocks are called.
+            USE RESPONSIBLY.
     """
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -79,7 +84,7 @@ def fast_botorch_optimize_context_manager() -> Generator[None, None, None]:
 
         yield
 
-    if all(
+    if (not force) and all(
         mock_.call_count < 1
         for mock_ in [mock_generation, mock_fit, mock_gen_ics, mock_gen_os_ics]
     ):
