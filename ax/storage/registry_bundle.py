@@ -3,8 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractproperty
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, ChainMap, Dict, Optional, Type
 
 from ax.core.metric import Metric
 from ax.core.runner import Runner
@@ -129,6 +131,35 @@ class RegistryBundleBase(ABC):
     @abstractproperty
     def decoder(self) -> Decoder:
         pass
+
+    @classmethod
+    def from_registry_bundles(
+        cls, *registry_bundles: RegistryBundleBase
+    ) -> RegistryBundleBase:
+        return cls(
+            metric_clss={},
+            runner_clss={},
+            json_encoder_registry=dict(
+                # pyre-ignore[29] `typing._Alias` is not a function.
+                ChainMap(*[bundle.encoder_registry for bundle in registry_bundles])
+            ),
+            json_class_encoder_registry=dict(
+                # pyre-ignore[29] `typing._Alias` is not a function.
+                ChainMap(
+                    *[bundle.class_encoder_registry for bundle in registry_bundles]
+                )
+            ),
+            json_decoder_registry=dict(
+                # pyre-ignore[29] `typing._Alias` is not a function.
+                ChainMap(*[bundle.decoder_registry for bundle in registry_bundles])
+            ),
+            json_class_decoder_registry=dict(
+                # pyre-ignore[29] `typing._Alias` is not a function.
+                ChainMap(
+                    *[bundle.class_decoder_registry for bundle in registry_bundles]
+                )
+            ),
+        )
 
 
 class RegistryBundle(RegistryBundleBase):
