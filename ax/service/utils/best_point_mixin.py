@@ -181,6 +181,66 @@ class BestPointMixin(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def get_trace(
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[float]:
+        """Get the optimization trace of the given experiment.
+
+        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
+        repeatedly, with an increasing sequence of `trial_indices` and with
+        `use_model_predictions = False`, though this does it more efficiently.
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+
+        Returns:
+            A list of observed hypervolumes or best values.
+        """
+        pass
+
+    @abstractmethod
+    def get_trace_by_progression(
+        optimization_config: Optional[OptimizationConfig] = None,
+        bins: Optional[List[float]] = None,
+        final_progression_only: bool = False,
+    ) -> Tuple[List[float], List[float]]:
+        """Get the optimization trace with respect to trial progressions instead of
+        `trial_indices` (which is the behavior used in `get_trace`). Note that this
+        method does not take into account the parallelism of trials and essentially
+        assumes that trials are run one after another, in the sense that it considers
+        the total number of progressions "used" at the end of trial k to be the
+        cumulative progressions "used" in trials 0,...,k. This method assumes that the
+        final value of a particular trial is used and does not take the best value
+        of a trial over its progressions.
+
+        The best observed value is computed at each value in `bins` (see below for
+        details). If `bins` is not supplied, the method defaults to a heuristic of
+        approximately `NUM_BINS_PER_TRIAL` per trial, where each trial is assumed to
+        run until maximum progression (inferred from the data).
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+            bins: A list progression values at which to calculate the best observed
+                value. The best observed value at bins[i] is defined as the value
+                observed in trials 0,...,j where j = largest trial such that the total
+                progression in trials 0,...,j is less than bins[i].
+            final_progression_only: If True, considers the value of the last step to be
+                the value of the trial. If False, considers the best along the curve to
+                be the value of the trial.
+
+        Returns:
+            A tuple containing (1) the list of observed hypervolumes or best values and
+            (2) a list of associated x-values (i.e., progressions) useful for plotting.
+        """
+        pass
+
     @staticmethod
     def _get_best_trial(
         experiment: Experiment,
@@ -305,25 +365,10 @@ class BestPointMixin(metaclass=ABCMeta):
         )
 
     @staticmethod
-    def get_trace(
+    def _get_trace(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[float]:
-        """Get the optimization trace of the given experiment.
-
-        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
-        repeatedly, with an increasing sequence of `trial_indices` and with
-        `use_model_predictions = False`, though this does it more efficiently.
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-
-        Returns:
-            A list of observed hypervolumes or best values.
-        """
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -437,43 +482,12 @@ class BestPointMixin(metaclass=ABCMeta):
             return raw_maximum.tolist()
 
     @staticmethod
-    def get_trace_by_progression(
+    def _get_trace_by_progression(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
         bins: Optional[List[float]] = None,
         final_progression_only: bool = False,
     ) -> Tuple[List[float], List[float]]:
-        """Get the optimization trace with respect to trial progressions instead of
-        `trial_indices` (which is the behavior used in `get_trace`). Note that this
-        method does not take into account the parallelism of trials and essentially
-        assumes that trials are run one after another, in the sense that it considers
-        the total number of progressions "used" at the end of trial k to be the
-        cumulative progressions "used" in trials 0,...,k. This method assumes that the
-        final value of a particular trial is used and does not take the best value
-        of a trial over its progressions.
-
-        The best observed value is computed at each value in `bins` (see below for
-        details). If `bins` is not supplied, the method defaults to a heuristic of
-        approximately `NUM_BINS_PER_TRIAL` per trial, where each trial is assumed to
-        run until maximum progression (inferred from the data).
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-            bins: A list progression values at which to calculate the best observed
-                value. The best observed value at bins[i] is defined as the value
-                observed in trials 0,...,j where j = largest trial such that the total
-                progression in trials 0,...,j is less than bins[i].
-            final_progression_only: If True, considers the value of the last step to be
-                the value of the trial. If False, considers the best along the curve to
-                be the value of the trial.
-
-        Returns:
-            A tuple containing (1) the list of observed hypervolumes or best values and
-            (2) a list of associated x-values (i.e., progressions) useful for plotting.
-        """
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )

@@ -1545,6 +1545,30 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             use_model_predictions=use_model_predictions,
         )
 
+    @copy_doc(BestPointMixin.get_trace)
+    def get_trace(
+        self,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    ) -> List[float]:
+        return BestPointMixin._get_trace(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+        )
+
+    @copy_doc(BestPointMixin.get_trace_by_progression)
+    def get_trace_by_progression(
+        self,
+        optimization_config: Optional[OptimizationConfig] = None,
+        bins: Optional[List[float]] = None,
+        final_progression_only: bool = False,
+    ) -> Tuple[List[float], List[float]]:
+        return BestPointMixin._get_trace_by_progression(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+            bins=bins,
+            final_progression_only=final_progression_only,
+        )
+
     def _update_trial_with_raw_data(
         self,
         trial_index: int,

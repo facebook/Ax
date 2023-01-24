@@ -34,7 +34,6 @@ from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkRe
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
-from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
 
 
@@ -69,9 +68,7 @@ def benchmark_replication(
     with manual_seed(seed=seed):
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
-    optimization_trace = np.array(
-        BestPointMixin.get_trace(experiment=scheduler.experiment)
-    )
+    optimization_trace = np.array(scheduler.get_trace())
 
     # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
     # a timeout) the first GenerationStep will not have not completed and we will not
