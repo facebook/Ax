@@ -20,7 +20,7 @@ from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorc
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -65,6 +65,7 @@ class SurrogateTest(TestCase):
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype
         )
+        self.metric_names = ["metric"]
         self.training_data = [SupervisedDataset(X=self.Xs[0], Y=self.Ys[0])]
         self.mll_class = ExactMarginalLogLikelihood
         self.search_space_digest = SearchSpaceDigest(
@@ -185,6 +186,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             self.assertEqual(self.dtype, surrogate.dtype)
@@ -194,6 +196,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             self.assertEqual(self.device, surrogate.device)
@@ -220,10 +223,12 @@ class SurrogateTest(TestCase):
                 # will fail.
                 Surrogate(botorch_model_class=Model).construct(
                     datasets=self.training_data,
+                    metric_names=self.metric_names,
                     fidelity_features=self.search_space_digest.fidelity_features,
                 )
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             mock_GPs[i].assert_called_once()
@@ -244,7 +249,10 @@ class SurrogateTest(TestCase):
                     mll_class=self.mll_class,
                     model_options={"some_option": "some_value"},
                 )
-                surrogate.construct(self.training_data)
+                surrogate.construct(
+                    self.training_data,
+                    metric_names=self.metric_names,
+                )
                 mock_construct_inputs.assert_called_with(
                     training_data=self.training_data[0], some_option="some_value"
                 )
@@ -254,16 +262,9 @@ class SurrogateTest(TestCase):
                 UserInputError, "seach_space_digest may not be None"
             ):
                 surrogate = Surrogate()
-                surrogate.construct(datasets=self.training_data)
-
-            # metric_names must be provided if using using multiple datasets
-            with self.assertRaisesRegex(
-                UserInputError, "metric_names must be provided if using using multiple"
-            ):
-                surrogate = Surrogate()
                 surrogate.construct(
-                    datasets=self.training_data * 2,
-                    search_space_digest=self.search_space_digest,
+                    datasets=self.training_data,
+                    metric_names=self.metric_names,
                 )
 
             # botorch_model_class must be set to construct single model Surrogate
@@ -280,7 +281,10 @@ class SurrogateTest(TestCase):
             likelihood_class=FixedNoiseGaussianLikelihood,
         )
         with self.assertRaisesRegex(UserInputError, "does not support"):
-            surrogate.construct(self.training_data)
+            surrogate.construct(
+                self.training_data,
+                metric_names=self.metric_names,
+            )
         # Pass custom options to a SingleTaskGP and make sure they are used
         noise_constraint = Interval(1e-6, 1e-1)
         surrogate = Surrogate(
@@ -291,7 +295,10 @@ class SurrogateTest(TestCase):
             likelihood_class=GaussianLikelihood,
             likelihood_options={"noise_constraint": noise_constraint},
         )
-        surrogate.construct(self.training_data)
+        surrogate.construct(
+            self.training_data,
+            metric_names=self.metric_names,
+        )
         self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
         self.assertEqual(
             # pyre-fixme[16]: Optional type has no attribute `likelihood`.
@@ -391,6 +398,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             surrogate.predict(X=self.Xs[0])
@@ -401,6 +409,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # `best_in_sample_point` requires `objective_weights`
@@ -457,6 +466,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # currently cannot use function with fixed features
@@ -506,6 +516,7 @@ class SurrogateTest(TestCase):
             )
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
             )
             # Check that correct arguments are passed to `fit`.
@@ -586,6 +597,7 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 robust_digest={"environmental_variables": ["a"]},
             )
         robust_digest = {
@@ -597,6 +609,7 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.construct(
                 datasets=self.training_data,
+                metric_names=self.metric_names,
                 robust_digest=robust_digest,
             )
         # Input perturbation is constructed.
@@ -605,6 +618,7 @@ class SurrogateTest(TestCase):
         )
         surrogate.construct(
             datasets=self.training_data,
+            metric_names=self.metric_names,
             robust_digest=robust_digest,
         )
         intf = checked_cast(InputPerturbation, surrogate.model.input_transform)
@@ -732,13 +746,10 @@ class SurrogateWithModelListTest(TestCase):
             task_features=self.task_features,
             metric_names=self.outcomes,
         )
-        # pyre-fixme[16]: Optional type has no attribute `__iter__`.
-        for ds in surrogate._training_data:
+        for ds in not_none(surrogate._training_data):
             self.assertTrue(isinstance(ds, SupervisedDataset))
             self.assertFalse(isinstance(ds, FixedNoiseDataset))
-        # pyre-fixme[6]: For 1st param expected `Sized` but got
-        #  `Optional[List[SupervisedDataset]]`.
-        self.assertEqual(len(surrogate._training_data), 2)
+        self.assertEqual(len(not_none(surrogate._training_data)), 2)
 
     @patch.object(
         FixedNoiseMultiTaskGP,

@@ -197,14 +197,17 @@ class Surrogate(Base):
     def construct(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: Optional[List[str]] = None,
+        metric_names: List[str],
         search_space_digest: Optional[SearchSpaceDigest] = None,
         **kwargs: Any,
     ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
-            datasets: Training data for the model.
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome).
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
             search_space_digest: Information about the search space used for
                 inferring suitable botorch model class.
             **kwargs: Optional keyword arguments, expects any of:
@@ -216,10 +219,6 @@ class Surrogate(Base):
                 "seach_space_digest may not be None if surrogate.botorch_model_class "
                 "is None. The SearchSpaceDigest is used to choose and appropriate "
                 "model class automatically."
-            )
-        if len(datasets) > 1 and metric_names is None:
-            raise UserInputError(
-                "metric_names must be provided if using using multiple datasets."
             )
 
         if self._constructed_manually:
@@ -242,7 +241,7 @@ class Surrogate(Base):
             if len(datasets) > 1:
                 datasets, metric_names = convert_to_block_design(
                     datasets=datasets,
-                    metric_names=not_none(metric_names),
+                    metric_names=metric_names,
                     force=True,
                 )
                 kwargs["metric_names"] = metric_names
@@ -254,7 +253,7 @@ class Surrogate(Base):
         else:
             self._construct_model_list(
                 datasets=datasets,
-                metric_names=not_none(metric_names),
+                metric_names=metric_names,
                 search_space_digest=search_space_digest,
                 **kwargs,
             )
