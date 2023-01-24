@@ -12,11 +12,13 @@ import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
+    ObjectiveThreshold,
     OptimizationConfig,
 )
-from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -358,10 +360,22 @@ class BestPointMixin(metaclass=ABCMeta):
             torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
         )
         if optimization_config.is_moo_problem:
+            multiobjective_optimization_config = checked_cast(
+                MultiObjectiveOptimizationConfig, optimization_config
+            )
+
+            # If no ObjectiveThresholds provided, use nadir point to construct
+            thresholds = (
+                multiobjective_optimization_config.objective_thresholds
+                if len(multiobjective_optimization_config.objective_thresholds) > 0
+                else _objective_thresholds_from_nadir(
+                    experiment=experiment,
+                    optimization_config=multiobjective_optimization_config,
+                )
+            )
+
             objective_thresholds = extract_objective_thresholds(
-                objective_thresholds=checked_cast(
-                    MultiObjectiveOptimizationConfig, optimization_config
-                ).objective_thresholds,
+                objective_thresholds=thresholds,
                 objective=optimization_config.objective,
                 outcomes=metric_names,
             )
@@ -517,3 +531,33 @@ class BestPointMixin(metaclass=ABCMeta):
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+
+
+def _objective_thresholds_from_nadir(
+    experiment: Experiment,
+    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+) -> List[ObjectiveThreshold]:
+    """
+    Find the worst value observed for each objective and create an ObjectiveThreshold
+    with this as the bound.
+    """
+
+    optimization_config = optimization_config or checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    )
+
+    data_df = experiment.fetch_data().df
+
+    return [
+        ObjectiveThreshold(
+            metric=objective.metric,
+            bound=max(data_df[data_df["metric_name"] == objective.metric.name]["mean"])
+            if objective.minimize
+            else min(data_df[data_df["metric_name"] == objective.metric.name]["mean"]),
+            relative=False,
+            op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
+        )
+        for objective in checked_cast(
+            MultiObjective, optimization_config.objective
+        ).objectives
+    ]
