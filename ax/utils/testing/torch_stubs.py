@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
@@ -30,33 +30,20 @@ def get_torch_test_data(
     List[str],
     List[str],
 ]:
-    tkwargs = {"device": torch.device("cuda" if cuda else "cpu"), "dtype": dtype}
+    tkwargs: Dict[str, Any] = {
+        "device": torch.device("cuda" if cuda else "cpu"),
+        "dtype": dtype,
+    }
     Xs = [
         torch.tensor(
             [
                 [1.0 + offset, 2.0 + offset, 3.0 + offset],
                 [2.0 + offset, 3.0 + offset, 4.0 + offset],
             ],
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[dtype, device]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[dtype, device]`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[dtype,
-            #  device]`.
             **tkwargs,
         )
     ]
-    # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got `Union[dtype,
-    #  device]`.
-    # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-    #  `Union[dtype, device]`.
-    # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[dtype, device]`.
     Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)]
-    # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got `Union[dtype,
-    #  device]`.
-    # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-    #  `Union[dtype, device]`.
-    # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[dtype, device]`.
     Yvars = [torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)]
     if constant_noise:
         Yvars[0].fill_(1.0)

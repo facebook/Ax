@@ -92,25 +92,18 @@ class AcquisitionTest(TestCase):
             acqf_cls=DummyOneShotAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
-        tkwargs = {"dtype": torch.double}
+        tkwargs: Dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
         self.surrogate.construct(
-            datasets=self.training_data, fidelity_features=self.fidelity_features
+            datasets=self.training_data,
+            metric_names=["metric"],
+            fidelity_features=self.fidelity_features,
         )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
@@ -120,27 +113,15 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **tkwargs)]
         self.outcome_constraints = (
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[1.0]], **tkwargs),
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[0.5]], **tkwargs),
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
         self.options = {"best_f": 0.0}
         self.inequality_constraints = [
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
         self.rounding_func = lambda x: x
@@ -528,7 +509,9 @@ class AcquisitionTest(TestCase):
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
-        self.surrogate.construct(datasets=moo_training_data)
+        self.surrogate.construct(
+            datasets=moo_training_data, metric_names=["m1", "m2", "m3"]
+        )
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),

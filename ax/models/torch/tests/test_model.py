@@ -498,6 +498,7 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogates[Keys.ONLY_SURROGATE].construct(
             datasets=self.block_design_training_data,
+            metric_names=["metric"],
             fidelity_features=self.mf_search_space_digest.fidelity_features,
         )
         model._botorch_acqf_class = None
@@ -587,6 +588,7 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogates[Keys.ONLY_SURROGATE].construct(
             datasets=self.block_design_training_data,
+            metric_names=["metric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
