@@ -22,6 +22,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -48,6 +49,10 @@ def use_model_list(
     if issubclass(botorch_model_class, MultiTaskGP):
         # We currently always wrap multi-task models into `ModelListGP`.
         return True
+    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+        # SAAS models do not support multiple outcomes.
+        # Use model list if there are multiple outcomes.
+        return len(datasets) > 1 or datasets[0].Y().shape[-1] > 1
     if len(datasets) == 1:
         # Just one outcome, can use single model.
         return False
