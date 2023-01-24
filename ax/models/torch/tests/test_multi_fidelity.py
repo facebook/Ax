@@ -37,7 +37,9 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
         self.surrogate.construct(
-            datasets=self.training_data, fidelity_features=self.fidelity_features
+            datasets=self.training_data,
+            metric_names=["metric"],
+            fidelity_features=self.fidelity_features,
         )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}
         self.search_space_digest = SearchSpaceDigest(
