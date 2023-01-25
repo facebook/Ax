@@ -5,14 +5,22 @@
 
 from __future__ import annotations
 
-from logging import Logger
-from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    TYPE_CHECKING,
+    TypeVar,
+)
 
 import numpy as np
 
 import pandas as pd
 from ax.core.data import Data
-from ax.core.types import TMapTrialEvaluation
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
@@ -20,6 +28,11 @@ from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.types import TMapTrialEvaluation
 
 logger: Logger = get_logger(__name__)
 

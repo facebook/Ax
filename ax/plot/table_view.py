@@ -4,18 +4,22 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objs as go
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
-from pandas.core.frame import DataFrame
+
+if TYPE_CHECKING:
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from pandas.core.frame import DataFrame
 
 
 COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]

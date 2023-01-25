@@ -4,9 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from itertools import groupby
-from logging import Logger
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -20,6 +21,9 @@ from ax.core.risk_measures import RiskMeasure
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 logger: Logger = get_logger(__name__)
 

@@ -4,17 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Tuple
+from __future__ import annotations
+
+from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.types import TParameterization, TParamValue
 from ax.utils.common.result import Err, Ok
 from ax.utils.stats.statstools import agresti_coull_sem
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import BaseTrial
+    from ax.core.types import TParameterization, TParamValue
 
 
 class FactorialMetric(Metric):

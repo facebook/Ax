@@ -4,18 +4,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import copy
 from copy import deepcopy
 from itertools import combinations
-from logging import Logger
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.metric import Metric
+
 from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -25,7 +25,6 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
 )
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError
 from ax.modelbridge.modelbridge_utils import (
     _get_modelbridge_training_data,
@@ -44,6 +43,14 @@ from ax.utils.common.logger import get_logger
 from ax.utils.stats.statstools import relativize
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.experiment import Experiment
+    from ax.core.metric import Metric
+    from ax.core.types import TParameterization
+
 
 # type aliases
 Mu = Dict[str, List[float]]

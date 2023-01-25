@@ -4,16 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from logging import Logger
-from typing import Any, Dict, List, Optional, Type
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
 
 import torch
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.modelbridge_utils import check_has_multi_objective_and_data
 from ax.modelbridge.random import RandomModelBridge
@@ -25,7 +22,6 @@ from ax.modelbridge.registry import (
     Y_trans,
 )
 from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.convert_metric_names import tconfig_from_mt_experiment
 from ax.models.torch.botorch import (
     BotorchModel,
@@ -37,10 +33,18 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_defaults import get_and_fit_model, get_NEI, scipy_optimizer
 from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.torch.utils import predict_from_model
-from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.modelbridge.transforms.base import Transform
+    from ax.models.types import TConfig
 
 logger: Logger = get_logger(__name__)
 

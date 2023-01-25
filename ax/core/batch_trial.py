@@ -10,7 +10,6 @@ from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import Logger
 from typing import (
     DefaultDict,
     Dict,
@@ -23,24 +22,24 @@ from typing import (
 )
 
 import numpy as np
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.generator_run import ArmWeight, GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
-from ax.core.types import TCandidateMetadata
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
-
-logger: Logger = get_logger(__name__)
-
-
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
+    from logging import Logger
+
     from ax import core  # noqa F401  # pragma: no cover
+    from ax.core.arm import Arm
+    from ax.core.types import TCandidateMetadata
+
+logger: Logger = get_logger(__name__)
 
 
 class LifecycleStage(int, Enum):

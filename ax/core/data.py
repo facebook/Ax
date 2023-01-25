@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 from functools import reduce
 from hashlib import md5
-from typing import Any, Dict, Iterable, Optional, Set, Type, Union
+from typing import Any, Dict, Iterable, Optional, Set, Type, TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
-from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import (
     extract_init_args,
@@ -21,6 +20,9 @@ from ax.utils.common.serialization import (
     serialize_init_args,
 )
 from ax.utils.common.typeutils import checked_cast, not_none
+
+if TYPE_CHECKING:
+    from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 
 
 class Data(Base, SerializationMixin):

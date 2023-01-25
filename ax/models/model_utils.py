@@ -9,17 +9,18 @@ from __future__ import annotations
 import itertools
 import warnings
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 import torch
-from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.torch_base import TorchModel
-from ax.models.types import TConfig
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 
+if TYPE_CHECKING:
+    from ax.core.search_space import SearchSpaceDigest
+    from ax.core.types import TParamCounter
+    from ax.models.torch_base import TorchModel
+    from ax.models.types import TConfig
+    from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 
 Tensoray = Union[torch.Tensor, np.ndarray]
 

@@ -37,6 +37,7 @@ DEV_REQUIRES = [
     "beautifulsoup4",
     "black==22.3.0",
     "flake8",
+    "flake8-type-checking==2.3.0",
     "hypothesis",
     "Jinja2",
     "pytest>=4.6",

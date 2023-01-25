@@ -5,15 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from __future__ import annotations
 
 import hashlib
 import json
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from ax.core.types import TParameterization
 from ax.utils.common.base import SortableBase
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import numpy_type_to_python_type
+
+if TYPE_CHECKING:
+    from ax.core.types import TParameterization
 
 
 class Arm(SortableBase):

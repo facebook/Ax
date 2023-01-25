@@ -4,19 +4,24 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
-from typing import Any, Dict, List, Optional, Set
+from __future__ import annotations
 
-from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
-from ax.core.metric import Metric, MetricFetchResult
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    import logging
+
+    from ax.core.arm import Arm
+    from ax.core.base_trial import BaseTrial
+    from ax.core.metric import Metric, MetricFetchResult
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.runner import Runner
+    from ax.core.search_space import SearchSpace
 
 
 logger: logging.Logger = get_logger(__name__)

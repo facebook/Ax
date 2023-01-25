@@ -4,18 +4,22 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Iterable, NamedTuple, Set, Tuple
+from __future__ import annotations
+
+from typing import Dict, Iterable, NamedTuple, Set, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
-from ax.core.optimization_config import OptimizationConfig
 
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.optimization_config import OptimizationConfig
 
 TArmTrial = Tuple[str, int]
 

@@ -4,16 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import inspect
 
-from logging import Logger
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set, TYPE_CHECKING
 
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 logger: Logger = get_logger(__name__)
 

@@ -19,19 +19,12 @@ from __future__ import annotations
 from enum import Enum
 from inspect import isfunction, signature
 
-from logging import Logger
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, TYPE_CHECKING
 
 import torch
-from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.search_space import SearchSpace
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
-from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
 from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
@@ -50,7 +43,6 @@ from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandar
 from ax.modelbridge.transforms.task_encode import TaskEncode
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
-from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.models.discrete.thompson import ThompsonSampler
@@ -77,6 +69,17 @@ from ax.utils.common.kwargs import (
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
 from ax.utils.common.typeutils import checked_cast, not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.search_space import SearchSpace
+    from ax.modelbridge.base import ModelBridge
+    from ax.modelbridge.transforms.base import Transform
+    from ax.models.base import Model
 
 logger: Logger = get_logger(__name__)
 

@@ -4,18 +4,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import time
 from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from logging import Logger
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
+from typing import (
+    Any,
+    Dict,
+    List,
+    MutableMapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TYPE_CHECKING,
+)
 
 from ax.core.arm import Arm
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
 from ax.core.observation import (
     Observation,
@@ -25,16 +34,22 @@ from ax.core.observation import (
     recombine_observations,
     separate_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
-from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
+    from ax.modelbridge.transforms.base import Transform
+    from ax.models.types import TConfig
 
 logger: Logger = get_logger(__name__)
 

@@ -9,27 +9,30 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 
-from logging import Logger
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TYPE_CHECKING
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     MaxParallelismReachedException,
 )
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.modelbridge_utils import extend_pending_observations
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.experiment import Experiment
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.observation import ObservationFeatures
+    from ax.modelbridge.base import ModelBridge
 
 logger: Logger = get_logger(__name__)
 

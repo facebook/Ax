@@ -11,20 +11,22 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, TYPE_CHECKING
 
 import pandas as pd
-from ax.core.arm import Arm
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
-from ax.core.types import (
-    TCandidateMetadata,
-    TGenMetadata,
-    TModelPredict,
-    TModelPredictArm,
-)
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.core.types import (
+        TCandidateMetadata,
+        TGenMetadata,
+        TModelPredict,
+        TModelPredictArm,
+    )
 
 
 class GeneratorRunType(Enum):

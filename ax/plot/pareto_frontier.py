@@ -4,26 +4,29 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import warnings
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 import plotly.graph_objs as go
-from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.exceptions.core import UserInputError
 from ax.plot.base import AxPlotConfig, AxPlotTypes, CI_OPACITY, DECIMALS
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import _format_CI, _format_dict, extend_range
-from ax.plot.pareto_utils import ParetoFrontierResults
 from ax.utils.common.typeutils import checked_cast, not_none
 from scipy.stats import norm
 
+if TYPE_CHECKING:
+    from ax.core.experiment import Experiment
+    from ax.core.outcome_constraint import ObjectiveThreshold
+    from ax.plot.pareto_utils import ParetoFrontierResults
 
 DEFAULT_CI_LEVEL: float = 0.9
 VALID_CONSTRAINT_OP_NAMES = {"GEQ", "LEQ"}

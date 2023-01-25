@@ -3,14 +3,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any, Optional, TYPE_CHECKING
 
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import BaseTrial
 
 
 class JenattonMetric(Metric):

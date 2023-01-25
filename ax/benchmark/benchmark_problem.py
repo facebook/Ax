@@ -3,11 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Type
-
-from ax.core.metric import Metric
+from typing import Any, Dict, List, Type, TYPE_CHECKING
 
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -16,17 +15,19 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.base import Base
-from botorch.test_functions.base import BaseTestProblem
-from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
-from botorch.test_functions.synthetic import SyntheticTestFunction
 
-# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+if TYPE_CHECKING:
+    from ax.core.metric import Metric
+    from ax.core.runner import Runner
+    from botorch.test_functions.base import BaseTestProblem, MultiObjectiveTestProblem
+    from botorch.test_functions.synthetic import SyntheticTestFunction
+
+# NOTE: Do not add `from __future__ import annotations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
 # `BenchmarkProblem` as return type annotation, used for serialization and rendering
 # in the UI.

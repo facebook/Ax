@@ -3,18 +3,22 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import time
-from logging import Logger
 from queue import Queue
 from threading import Event, Lock, Thread
-from typing import Any, Callable, Dict, Tuple
-
-from ax.core.types import TEvaluationOutcome, TParameterization
+from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
 
 from ax.exceptions.core import DataRequiredError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.service.ax_client import AxClient
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.types import TEvaluationOutcome, TParameterization
+    from ax.service.ax_client import AxClient
 
 logger: Logger = get_logger(__name__)
 

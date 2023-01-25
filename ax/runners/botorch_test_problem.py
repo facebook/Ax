@@ -3,16 +3,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import importlib
-from typing import Any, Dict, Iterable, Optional, Set, Type
+from typing import Any, Dict, Iterable, Optional, Set, Type, TYPE_CHECKING
 
 import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
-from ax.utils.common.base import Base
+
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import checked_cast
-from botorch.test_functions.base import BaseTestProblem
+
+if TYPE_CHECKING:
+    from ax.utils.common.base import Base
+    from botorch.test_functions.base import BaseTestProblem
 
 
 class BotorchTestProblemRunner(Runner):

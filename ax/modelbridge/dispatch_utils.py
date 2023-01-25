@@ -4,26 +4,29 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
 import warnings
 from math import ceil
-from typing import Any, cast, Dict, Optional, Type, Union
+from typing import Any, cast, Dict, Optional, Type, TYPE_CHECKING, Union
 
 import torch
-from ax.core.experiment import Experiment
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
-from ax.models.types import TConfig
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
+if TYPE_CHECKING:
+    from ax.core.experiment import Experiment
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.models.types import TConfig
+    from ax.models.winsorization_config import WinsorizationConfig
 
 logger: logging.Logger = get_logger(__name__)
 

@@ -12,21 +12,26 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime
 from enum import Enum
 from functools import reduce
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Type
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TYPE_CHECKING,
+)
 
 import pandas as pd
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
-from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import Parameter
-from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base
@@ -36,6 +41,15 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
+
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.parameter import Parameter
+    from ax.core.runner import Runner
+    from ax.core.search_space import SearchSpace
+
 
 logger: logging.Logger = get_logger(__name__)
 

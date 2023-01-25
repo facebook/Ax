@@ -4,21 +4,37 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from functools import partial
 
-from logging import Logger
-from numbers import Number
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+)
 
 import numpy as np
-from ax.core.observation import Observation, ObservationData
-from ax.core.optimization_config import OptimizationConfig
-from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
+
+if TYPE_CHECKING:
+    from logging import Logger
+    from numbers import Number
+
+    from ax.core.observation import Observation, ObservationData
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.modelbridge.base import ModelBridge
 
 logger: Logger = get_logger(__name__)
 

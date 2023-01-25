@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import logging
 
-from logging import Logger
-from typing import Dict, Iterable, List, NamedTuple, Union
+from typing import Dict, Iterable, List, NamedTuple, TYPE_CHECKING, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo
 from ax.metrics.curve import AbstractCurveMetric
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 logger: Logger = get_logger(__name__)
 

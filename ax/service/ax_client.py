@@ -4,12 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import json
 import logging
 import warnings
 from functools import partial
 
-from logging import Logger
 from typing import (
     Any,
     Callable,
@@ -21,6 +22,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TYPE_CHECKING,
     TypeVar,
     Union,
 )
@@ -32,15 +34,11 @@ import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+
 from ax.core.experiment import DataType, Experiment
-from ax.core.generator_run import GeneratorRun
+
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -49,7 +47,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
-from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import (
     OptimizationComplete,
@@ -58,14 +56,13 @@ from ax.exceptions.core import (
     UnsupportedPlotError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
+
 from ax.modelbridge.modelbridge_utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.modelbridge.prediction_utils import predict_by_features
-from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
@@ -90,6 +87,21 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
 from botorch.utils.sampling import manual_seed
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.data import Data
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.optimization_config import (
+        MultiObjectiveOptimizationConfig,
+        OptimizationConfig,
+    )
+    from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+    from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+    from ax.modelbridge.generation_strategy import GenerationStrategy
+    from ax.plot.base import AxPlotConfig
+
 
 logger: Logger = get_logger(__name__)
 

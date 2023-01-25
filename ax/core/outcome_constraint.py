@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
-from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 
+if TYPE_CHECKING:
+    import logging
+
+    from ax.core.metric import Metric
 
 logger: logging.Logger = get_logger(__name__)
 

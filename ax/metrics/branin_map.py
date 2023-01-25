@@ -9,18 +9,20 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from random import random
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
-from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import BaseTrial
+    from ax.core.map_metric import MapMetricFetchResult
 
 FIDELITY = [0.1, 0.4, 0.7, 1.0]
 

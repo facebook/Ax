@@ -4,15 +4,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, List
+from __future__ import annotations
+
+from typing import Any, List, TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objs as go
-from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, DECIMALS
 from ax.plot.helper import get_plot_data
 from ax.utils.stats.statstools import marginal_effects
 from plotly import subplots
+
+if TYPE_CHECKING:
+    from ax.modelbridge.base import ModelBridge
 
 
 def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:

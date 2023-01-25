@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, Set, Tuple
+from typing import Dict, Set, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.observation import ObservationFeatures
-from ax.modelbridge import ModelBridge
+
+if TYPE_CHECKING:
+    from ax.core.observation import ObservationFeatures
+    from ax.modelbridge import ModelBridge
 
 
 def predict_at_point(

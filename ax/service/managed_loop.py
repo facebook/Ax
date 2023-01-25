@@ -8,24 +8,13 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, TYPE_CHECKING
 
-from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
-from ax.core.experiment import Experiment
 from ax.core.trial import Trial
-from ax.core.types import (
-    TEvaluationFunction,
-    TEvaluationOutcome,
-    TModelPredictArm,
-    TParameterization,
-)
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.modelbridge.registry import Models
 from ax.service.utils.best_point import (
@@ -36,6 +25,19 @@ from ax.service.utils.instantiation import InstantiationBase, TParameterRepresen
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.base_trial import BaseTrial
+    from ax.core.experiment import Experiment
+    from ax.core.types import (
+        TEvaluationFunction,
+        TEvaluationOutcome,
+        TModelPredictArm,
+        TParameterization,
+    )
+    from ax.modelbridge.base import ModelBridge
+    from ax.modelbridge.generation_strategy import GenerationStrategy
 
 
 logger: logging.Logger = get_logger(__name__)

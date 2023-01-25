@@ -4,11 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from collections import Counter
 
-from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.generator_run import GeneratorRun
@@ -20,13 +21,17 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.types import TParameterization
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.types import TParameterization
+    from ax.modelbridge.base import ModelBridge
 
 logger: Logger = get_logger(__name__)
 
