@@ -73,6 +73,24 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
             self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+        with self.subTest("num_initialization_trials > max_initialization_trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                max_initialization_trials=2,
+                num_initialization_trials=3,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+        with self.subTest("num_initialization_trials > max_initialization_trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                max_initialization_trials=2,
+                num_initialization_trials=3,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
