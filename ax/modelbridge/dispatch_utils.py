@@ -439,12 +439,12 @@ def choose_generation_strategy(
                 num_trials=num_trials,
                 use_batch_trials=use_batch_trials,
             )
+            if max_initialization_trials is not None:
+                num_initialization_trials = min(
+                    num_initialization_trials, max_initialization_trials
+                )
             logger.info(
                 f"calculated num_initialization_trials={num_initialization_trials}"
-            )
-        if max_initialization_trials is not None:
-            num_initialization_trials = min(
-                num_initialization_trials, max_initialization_trials
             )
         num_remaining_initialization_trials = max(
             0, num_initialization_trials - max(0, num_completed_initialization_trials)
