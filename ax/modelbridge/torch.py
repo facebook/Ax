@@ -8,16 +8,22 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TYPE_CHECKING,
+    Union,
+)
 
 import numpy as np
 import torch
-from ax.core.arm import Arm
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions
-from ax.core.metric import Metric
 from ax.core.observation import (
     Observation,
     ObservationData,
@@ -33,8 +39,6 @@ from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
@@ -54,16 +58,26 @@ from ax.modelbridge.modelbridge_utils import (
     transform_callback,
     validate_and_apply_final_transform,
 )
-from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel, TorchOptConfig
-from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
-from torch import Tensor
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.arm import Arm
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.metric import Metric
+    from ax.core.search_space import SearchSpace
+    from ax.core.types import TCandidateMetadata, TModelPredictArm
+    from ax.modelbridge.transforms.base import Transform
+    from ax.models.types import TConfig
+    from torch import Tensor
 
 logger: Logger = get_logger(__name__)
 

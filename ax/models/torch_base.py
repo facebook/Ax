@@ -7,17 +7,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-import torch
-from ax.core.metric import Metric
-from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TCandidateMetadata
 from ax.models.base import Model as BaseModel
-from ax.models.types import TConfig
-from botorch.acquisition.risk_measures import RiskMeasureMCObjective
-from botorch.utils.datasets import SupervisedDataset
-from torch import Tensor
+
+if TYPE_CHECKING:
+    import torch
+    from ax.core.metric import Metric
+    from ax.core.search_space import SearchSpaceDigest
+    from ax.core.types import TCandidateMetadata
+    from ax.models.types import TConfig
+    from botorch.acquisition.risk_measures import RiskMeasureMCObjective
+    from botorch.utils.datasets import SupervisedDataset
+    from torch import Tensor
 
 
 @dataclass

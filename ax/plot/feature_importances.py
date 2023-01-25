@@ -4,18 +4,23 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from logging import Logger
-from typing import Any, Dict, Optional, Union
+from __future__ import annotations
+
+from typing import Any, Dict, Optional, TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 from ax.exceptions.core import NoDataError
-from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import compose_annotation
 from ax.utils.common.logger import get_logger
 from plotly import subplots
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.modelbridge import ModelBridge
 
 logger: Logger = get_logger(__name__)
 

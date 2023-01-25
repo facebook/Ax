@@ -10,12 +10,10 @@ from copy import deepcopy
 from enum import Enum
 from functools import lru_cache
 from math import sqrt
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
@@ -24,6 +22,10 @@ from sklearn import datasets
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from sklearn.neural_network import MLPClassifier, MLPRegressor
+
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.base_trial import BaseTrial
 
 
 class SklearnModelType(Enum):

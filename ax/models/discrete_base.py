@@ -4,12 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple
+from __future__ import annotations
 
-import numpy as np
-from ax.core.types import TGenMetadata, TParamValue, TParamValueList
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+
 from ax.models.base import Model
-from ax.models.types import TConfig
+
+if TYPE_CHECKING:
+    import numpy as np
+    from ax.core.types import TGenMetadata, TParamValue, TParamValueList
+    from ax.models.types import TConfig
 
 
 class DiscreteModel(Model):

@@ -34,16 +34,18 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 from zipfile import ZipFile
 
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.types import TParameterization, TParamValue
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import BaseTrial
+    from ax.core.types import TParameterization, TParamValue
 
 
 class ChemistryProblemType(Enum):

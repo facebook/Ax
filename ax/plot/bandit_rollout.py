@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List
+from __future__ import annotations
+
+from typing import Any, Dict, List, TYPE_CHECKING
 
 import plotly.graph_objs as go
 from ax.core.batch_trial import BatchTrial
-from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import MIXED_SCALE, rgba
+
+if TYPE_CHECKING:
+    from ax.core.experiment import Experiment
 
 
 def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:

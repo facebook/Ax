@@ -4,9 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Type
+from __future__ import annotations
 
-import torch
+from typing import Any, Dict, Type, TYPE_CHECKING
 
 # Ax `Acquisition` imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -54,6 +54,9 @@ from gpytorch.mlls.leave_one_out_pseudo_likelihood import LeaveOneOutPseudoLikel
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
+
+if TYPE_CHECKING:
+    import torch
 
 # NOTE: When adding a new registry for a class, make sure to make changes
 # to `CLASS_TO_REGISTRY` and `CLASS_TO_REVERSE_REGISTRY` in this file.

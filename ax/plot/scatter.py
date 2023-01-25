@@ -4,19 +4,28 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import numbers
 import warnings
 from collections import OrderedDict
 
-from logging import Logger
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 import numpy as np
 import plotly.graph_objs as go
 from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.observation import Observation, ObservationFeatures
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
 from ax.plot.base import (
     AxPlotConfig,
@@ -44,6 +53,13 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast_optional
 from ax.utils.stats.statstools import relativize
 from plotly import subplots
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.experiment import Experiment
+    from ax.core.observation import Observation, ObservationFeatures
+    from ax.modelbridge.base import ModelBridge
 
 logger: Logger = get_logger(__name__)
 

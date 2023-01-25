@@ -11,14 +11,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from ax.core.arm import Arm
-from ax.core.data import Data
-from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
-from ax.core.runner import Runner
-from ax.core.types import TCandidateMetadata
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
@@ -26,6 +21,11 @@ from ax.utils.common.typeutils import not_none
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
+    from ax.core.arm import Arm
+    from ax.core.data import Data
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.runner import Runner
+    from ax.core.types import TCandidateMetadata
 
 
 class TrialStatus(int, Enum):

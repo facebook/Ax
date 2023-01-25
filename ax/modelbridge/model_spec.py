@@ -10,14 +10,8 @@ import json
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.cross_validation import (
@@ -26,7 +20,6 @@ from ax.modelbridge.cross_validation import (
     CVDiagnostics,
     CVResult,
 )
-from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -34,6 +27,15 @@ from ax.utils.common.kwargs import (
     get_function_argument_names,
 )
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.observation import ObservationFeatures
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.modelbridge.registry import ModelRegistryBase
 
 
 TModelFactory = Callable[..., ModelBridge]

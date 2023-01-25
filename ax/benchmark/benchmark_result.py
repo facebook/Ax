@@ -3,11 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
@@ -16,7 +17,10 @@ from numpy import nanmean, nanquantile, ndarray
 from pandas import DataFrame
 from scipy.stats import sem
 
-# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+if TYPE_CHECKING:
+    from ax.core.experiment import Experiment
+
+# NOTE: Do not add `from __future__ import annotations` to this file. Adding
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
 # `BenchmarkResult` as return type annotation, used for serialization and rendering
 # in the UI.

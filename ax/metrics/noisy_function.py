@@ -6,15 +6,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.types import TParameterization
 from ax.utils.common.result import Err, Ok
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import BaseTrial
+    from ax.core.types import TParameterization
 
 
 class NoisyFunctionMetric(Metric):

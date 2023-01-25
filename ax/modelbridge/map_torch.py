@@ -3,13 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple, Type
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 import numpy as np
 
 import torch
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.observation import (
     Observation,
@@ -18,21 +18,25 @@ from ax.core.observation import (
     observations_from_map_data,
     separate_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata
-from ax.modelbridge.base import GenResults
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
     observation_features_to_array,
     parse_observation_features,
 )
 from ax.modelbridge.torch import FIT_MODEL_ERROR, TorchModelBridge
-from ax.modelbridge.transforms.base import Transform
-from ax.models.torch_base import TorchModel
-from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.core.types import TCandidateMetadata
+    from ax.modelbridge.base import GenResults
+    from ax.modelbridge.transforms.base import Transform
+    from ax.models.torch_base import TorchModel
+    from ax.models.types import TConfig
 
 
 # A mapping from map_key to its target (or final) value; by default,

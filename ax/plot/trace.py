@@ -4,17 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 import plotly.graph_objs as go
-from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.utils.common.timeutils import timestamps_in_range
 from ax.utils.common.typeutils import not_none
 
+if TYPE_CHECKING:
+    from ax.core.experiment import Experiment
 
 FIVE_MINUTES = timedelta(minutes=5)
 

@@ -3,13 +3,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
-from ax.core.base_trial import TrialStatus
-
-from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
+
+if TYPE_CHECKING:
+    from ax.core.base_trial import TrialStatus
+    from ax.core.experiment import Experiment
 
 
 class CompletionCriterion(Base, SerializationMixin):

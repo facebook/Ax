@@ -8,14 +8,15 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, TYPE_CHECKING, Union
 from warnings import warn
 
-from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
+if TYPE_CHECKING:
+    from ax.core.types import TParamValue
 
 FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "

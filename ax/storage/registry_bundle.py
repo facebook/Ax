@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractproperty
-from typing import Any, Callable, ChainMap, Dict, Optional, Type
+from typing import Any, Callable, ChainMap, Dict, Optional, Type, TYPE_CHECKING
 
-from ax.core.metric import Metric
-from ax.core.runner import Runner
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_CLASS_ENCODER_REGISTRY,
@@ -21,6 +19,10 @@ from ax.storage.runner_registry import register_runners
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
+
+if TYPE_CHECKING:
+    from ax.core.metric import Metric
+    from ax.core.runner import Runner
 
 
 class RegistryBundleBase(ABC):

@@ -6,13 +6,10 @@
 
 from __future__ import annotations
 
-from logging import Logger
-
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric, MapMetricFetchResult
 from ax.core.metric import MetricFetchE
@@ -20,6 +17,11 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.base_trial import BaseTrial
 
 logger: Logger = get_logger(__name__)
 

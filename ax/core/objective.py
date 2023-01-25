@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 import warnings
-from logging import Logger
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
-from ax.core.metric import Metric
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.metric import Metric
 
 logger: Logger = get_logger(__name__)
 

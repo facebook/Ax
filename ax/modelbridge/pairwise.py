@@ -6,17 +6,19 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 import torch
-from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.types import TCandidateMetadata
 from ax.modelbridge.modelbridge_utils import detect_duplicates
 from ax.modelbridge.torch import TorchModelBridge
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
-from torch import Tensor
+
+if TYPE_CHECKING:
+    from ax.core.observation import ObservationData, ObservationFeatures
+    from ax.core.types import TCandidateMetadata
+    from torch import Tensor
 
 
 class PairwiseModelBridge(TorchModelBridge):

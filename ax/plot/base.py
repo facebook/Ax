@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import enum
 import json
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, TYPE_CHECKING, Union
 
-from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
 from plotly import utils
+
+if TYPE_CHECKING:
+    from ax.core.types import TParameterization
 
 
 # Constants used for numerous plots

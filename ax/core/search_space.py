@@ -11,12 +11,10 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from functools import reduce
-from logging import Logger
 from random import choice, uniform
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
-from ax import core
 from ax.core.arm import Arm
 from ax.core.parameter import (
     ChoiceParameter,
@@ -24,20 +22,24 @@ from ax.core.parameter import (
     Parameter,
     ParameterType,
     RangeParameter,
-    TParamValue,
 )
 from ax.core.parameter_constraint import (
     OrderConstraint,
     ParameterConstraint,
     SumConstraint,
 )
-from ax.core.parameter_distribution import ParameterDistribution
-from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax import core
+    from ax.core.parameter_distribution import ParameterDistribution
+    from ax.core.types import TParameterization, TParamValue
 
 
 logger: Logger = get_logger(__name__)

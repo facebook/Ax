@@ -17,14 +17,15 @@ Key terms used:
 
 """
 
+from __future__ import annotations
+
 from functools import partial
 from itertools import product
 from time import time
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, TYPE_CHECKING
 
 import numpy as np
 
-from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     MultiObjectiveBenchmarkProblem,
@@ -36,6 +37,9 @@ from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
 from botorch.utils.sampling import manual_seed
+
+if TYPE_CHECKING:
+    from ax.benchmark.benchmark_method import BenchmarkMethod
 
 
 def benchmark_replication(

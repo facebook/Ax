@@ -9,20 +9,21 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.map_data import MapData
-from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.map_data import MapData
+    from ax.core.types import TCandidateMetadata, TParameterization
 
 TIME_COLS = {"start_time", "end_time"}
 

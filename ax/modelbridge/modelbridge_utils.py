@@ -12,7 +12,6 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 
-from logging import Logger
 from typing import (
     Callable,
     Dict,
@@ -30,9 +29,6 @@ import numpy as np
 import torch
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
@@ -46,8 +42,6 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
-from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.risk_measures import RiskMeasure
 from ax.core.search_space import (
     RobustSearchSpace,
     RobustSearchSpaceDigest,
@@ -55,9 +49,7 @@ from ax.core.search_space import (
     SearchSpaceDigest,
 )
 from ax.core.trial import Trial
-from ax.core.types import TBounds, TCandidateMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
@@ -89,15 +81,22 @@ from botorch.acquisition.risk_measures import (
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
-from torch import Tensor
-
-logger: Logger = get_logger(__name__)
-
 
 if TYPE_CHECKING:
+    from logging import Logger
+
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.parameter_constraint import ParameterConstraint
+    from ax.core.risk_measures import RiskMeasure
+    from ax.core.types import TBounds, TCandidateMetadata
+    from ax.modelbridge.transforms.base import Transform
+    from torch import Tensor
 
+logger: Logger = get_logger(__name__)
 
 """A mapping of risk measure names to the corresponding classes.
 

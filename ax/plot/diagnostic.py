@@ -4,17 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 import plotly.graph_objs as go
-from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.observation import Observation
-from ax.modelbridge.cross_validation import CVResult
 from ax.modelbridge.transforms.convert_metric_names import convert_mt_observations
 from ax.plot.base import (
     AxPlotConfig,
@@ -28,6 +25,13 @@ from ax.plot.helper import compose_annotation
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
 from ax.utils.common.typeutils import not_none
 from plotly import subplots
+
+if TYPE_CHECKING:
+    from ax.core.batch_trial import BatchTrial
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.observation import Observation
+    from ax.modelbridge.cross_validation import CVResult
 
 
 # type alias

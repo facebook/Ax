@@ -7,25 +7,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING, Union
 
-from ax.core.arm import Arm
-from ax.core.data import Data
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.completion_criterion import CompletionCriterion
-from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.arm import Arm
+    from ax.core.data import Data
+    from ax.core.experiment import Experiment
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.observation import ObservationFeatures
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.modelbridge.completion_criterion import CompletionCriterion
+    from ax.modelbridge.cross_validation import (
+        BestModelSelector,
+        CVDiagnostics,
+        CVResult,
+    )
 
 
 TModelFactory = Callable[..., ModelBridge]

@@ -4,8 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from logging import Logger
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, Optional, Tuple, Type, TYPE_CHECKING
 
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -19,6 +20,9 @@ from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
 from ax.utils.common.logger import get_logger
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 logger: Logger = get_logger(__name__)
 

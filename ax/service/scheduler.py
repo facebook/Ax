@@ -24,21 +24,13 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TYPE_CHECKING,
 )
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
-from ax.core.outcome_constraint import ObjectiveThreshold
-from ax.core.runner import Runner
-from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -67,6 +59,17 @@ from ax.utils.common.logger import (
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import not_none
+
+if TYPE_CHECKING:
+    from ax.core.generator_run import GeneratorRun
+    from ax.core.observation import ObservationFeatures
+    from ax.core.optimization_config import (
+        MultiObjectiveOptimizationConfig,
+        OptimizationConfig,
+    )
+    from ax.core.outcome_constraint import ObjectiveThreshold
+    from ax.core.runner import Runner
+    from ax.core.types import TModelPredictArm, TParameterization
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """

@@ -8,10 +8,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.types import TCandidateMetadata
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 
@@ -19,6 +17,8 @@ from ax.utils.common.typeutils import not_none
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
+    from ax.core.arm import Arm
+    from ax.core.types import TCandidateMetadata
 
 
 class Trial(BaseTrial):

@@ -13,21 +13,24 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from logging import Logger
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
-from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
-from ax.core.metric import Metric, MetricFetchResult
 from ax.core.trial import Trial
 from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Ok
 from ax.utils.common.typeutils import checked_cast
+
+if TYPE_CHECKING:
+    from logging import Logger
+
+    from ax.core.base_trial import BaseTrial
+    from ax.core.experiment import Experiment
+    from ax.core.metric import Metric, MetricFetchResult
 
 logger: Logger = get_logger(__name__)
 

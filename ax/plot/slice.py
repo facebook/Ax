@@ -4,12 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
-from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
 from ax.plot.helper import (
     axis_range,
@@ -24,6 +25,8 @@ from ax.plot.helper import (
 from ax.utils.common.typeutils import not_none
 from plotly import graph_objs as go
 
+if TYPE_CHECKING:
+    from ax.modelbridge.base import ModelBridge
 
 # type aliases
 SlicePredictions = Tuple[

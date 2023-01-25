@@ -10,7 +10,6 @@ import traceback
 
 from dataclasses import dataclass
 from functools import reduce
-from logging import Logger
 
 from typing import (
     Any,
@@ -24,6 +23,9 @@ from typing import (
     TYPE_CHECKING,
 )
 
+# import as module to make sphinx-autodoc-typehints happy
+from ax import core  # noqa F401
+
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
@@ -31,8 +33,7 @@ from ax.utils.common.result import Err, Ok, Result, UnwrapError
 from ax.utils.common.serialization import SerializationMixin
 
 if TYPE_CHECKING:  # pragma: no cover
-    # import as module to make sphinx-autodoc-typehints happy
-    from ax import core  # noqa F401
+    from logging import Logger
 
 
 logger: Logger = get_logger(__name__)

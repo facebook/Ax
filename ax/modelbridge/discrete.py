@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Set, Tuple
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from ax.core.observation import (
     Observation,
@@ -12,10 +14,7 @@ from ax.core.observation import (
     ObservationFeatures,
     separate_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
-from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import array_to_observation_data
@@ -24,9 +23,13 @@ from ax.modelbridge.torch import (
     extract_outcome_constraints,
     validate_optimization_config,
 )
-from ax.models.discrete_base import DiscreteModel
-from ax.models.types import TConfig
 
+if TYPE_CHECKING:
+    from ax.core.optimization_config import OptimizationConfig
+    from ax.core.search_space import SearchSpace
+    from ax.core.types import TParamValueList
+    from ax.models.discrete_base import DiscreteModel
+    from ax.models.types import TConfig
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 

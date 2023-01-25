@@ -4,13 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional
+from __future__ import annotations
 
-import pandas as pd
-from ax.core.experiment import Experiment
+from typing import List, Optional, TYPE_CHECKING
+
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.service.utils.report_utils import _get_shortest_unique_suffix_dict, exp_to_df
 from plotly import express as px, graph_objs as go
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from ax.core.experiment import Experiment
 
 
 def prepare_experiment_for_plotting(

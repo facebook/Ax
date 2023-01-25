@@ -3,13 +3,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Iterable, List, Optional
+from __future__ import annotations
 
-from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
+from typing import Iterable, List, Optional, TYPE_CHECKING
+
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import rgb
 from plotly import graph_objs as go
+
+if TYPE_CHECKING:
+    from ax.benchmark.benchmark_result import AggregatedBenchmarkResult
 
 
 def plot_modeling_times(

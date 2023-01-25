@@ -3,11 +3,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
+from __future__ import annotations
 
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.base import Base
+
+if TYPE_CHECKING:
+    from ax.modelbridge.generation_strategy import GenerationStrategy
 
 
 @dataclass(frozen=True)
