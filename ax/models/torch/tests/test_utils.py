@@ -29,6 +29,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -266,6 +267,31 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(
             use_model_list(
                 datasets=self.supervised_datasets, botorch_model_class=MultiTaskGP
+            )
+        )
+        # Not using model list with single outcome.
+        self.assertFalse(
+            use_model_list(
+                datasets=self.supervised_datasets,
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+            )
+        )
+        # Using it with multiple outcomes.
+        self.assertTrue(
+            use_model_list(
+                datasets=[
+                    SupervisedDataset(X=self.Xs[0], Y=self.Ys[0]),
+                    SupervisedDataset(X=self.Xs2[0], Y=self.Ys2[0]),
+                ],
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+            )
+        )
+        self.assertTrue(
+            use_model_list(
+                datasets=[
+                    SupervisedDataset(X=self.Xs[0], Y=self.Ys[0].repeat(1, 2)),
+                ],
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
             )
         )
 
