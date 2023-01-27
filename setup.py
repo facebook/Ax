@@ -49,7 +49,7 @@ DEV_REQUIRES = [
     "yappi",
 ]
 
-MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
+MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
