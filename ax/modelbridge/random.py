@@ -63,7 +63,7 @@ class RandomModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: Dict[str, List[ObservationFeatures]],
-        fixed_features: ObservationFeatures,
+        fixed_features: Optional[ObservationFeatures],
         optimization_config: Optional[OptimizationConfig],
         model_gen_options: Optional[TConfig],
     ) -> GenResults:

@@ -44,7 +44,7 @@ class BaseGenArgs:
     search_space: SearchSpace
     optimization_config: Optional[OptimizationConfig]
     pending_observations: Dict[str, List[ObservationFeatures]]
-    fixed_features: ObservationFeatures
+    fixed_features: Optional[ObservationFeatures]
 
 
 @dataclass(frozen=True)
@@ -607,8 +607,6 @@ class ModelBridge(ABC):
     ) -> BaseGenArgs:
         if pending_observations is None:
             pending_observations = {}
-        if fixed_features is None:
-            fixed_features = ObservationFeatures({})
         if optimization_config is None:
             optimization_config = (
                 self._optimization_config.clone()
@@ -633,7 +631,11 @@ class ModelBridge(ABC):
                 )
             for metric, po in pending_observations.items():
                 pending_observations[metric] = t.transform_observation_features(po)
-            fixed_features = t.transform_observation_features([fixed_features])[0]
+            fixed_features = (
+                t.transform_observation_features([fixed_features])[0]
+                if fixed_features is not None
+                else None
+            )
         return BaseGenArgs(
             search_space=search_space,
             optimization_config=optimization_config,
@@ -795,7 +797,7 @@ class ModelBridge(ABC):
         search_space: SearchSpace,
         optimization_config: Optional[OptimizationConfig],
         pending_observations: Dict[str, List[ObservationFeatures]],
-        fixed_features: ObservationFeatures,
+        fixed_features: Optional[ObservationFeatures],
         model_gen_options: Optional[TConfig],
     ) -> GenResults:
         """Apply terminal transform, gen, and reverse terminal transform on

@@ -18,7 +18,10 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValueList
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import GenResults, ModelBridge
-from ax.modelbridge.modelbridge_utils import array_to_observation_data
+from ax.modelbridge.modelbridge_utils import (
+    array_to_observation_data,
+    get_fixed_features,
+)
 from ax.modelbridge.torch import (
     extract_objective_weights,
     extract_outcome_constraints,
@@ -113,7 +116,7 @@ class DiscreteModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: Dict[str, List[ObservationFeatures]],
-        fixed_features: ObservationFeatures,
+        fixed_features: Optional[ObservationFeatures],
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> GenResults:
@@ -142,12 +145,8 @@ class DiscreteModelBridge(ModelBridge):
             )
 
         # Get fixed features
-        fixed_features_dict = {
-            self.parameters.index(p_name): val
-            for p_name, val in fixed_features.parameters.items()
-        }
-        fixed_features_dict = (
-            fixed_features_dict if len(fixed_features_dict) > 0 else None
+        fixed_features_dict = get_fixed_features(
+            fixed_features=fixed_features, param_names=self.parameters
         )
 
         # Pending observations
@@ -166,7 +165,7 @@ class DiscreteModelBridge(ModelBridge):
             parameter_values=parameter_values,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            fixed_features=fixed_features_dict,
+            fixed_features=fixed_features_dict,  # pyre-ignore
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
         )

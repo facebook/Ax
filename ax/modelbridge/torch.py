@@ -520,7 +520,7 @@ class TorchModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: Dict[str, List[ObservationFeatures]],
-        fixed_features: ObservationFeatures,
+        fixed_features: Optional[ObservationFeatures],
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> GenResults:
@@ -645,7 +645,7 @@ class TorchModelBridge(ModelBridge):
         self,
         search_space: SearchSpace,
         pending_observations: Dict[str, List[ObservationFeatures]],
-        fixed_features: ObservationFeatures,
+        fixed_features: Optional[ObservationFeatures],
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> Tuple[SearchSpaceDigest, TorchOptConfig]:
