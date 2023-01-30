@@ -287,14 +287,14 @@ class ReportUtilsTest(TestCase):
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 7)
+        self.assertEqual(len(plots), 8)
 
         # All plots are successfully created when objective thresholds are absent
         exp.optimization_config._objective_thresholds = []
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 7)
+        self.assertEqual(len(plots), 8)
 
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)

@@ -42,6 +42,7 @@ from ax.plot.helper import get_range_parameters_from_list
 from ax.plot.pareto_frontier import (
     _pareto_frontier_plot_input_processing,
     _validate_experiment_and_get_optimization_config,
+    scatter_plot_with_hypervolume_trace_plotly,
     scatter_plot_with_pareto_frontier_plotly,
 )
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
@@ -70,13 +71,6 @@ CROSS_VALIDATION_CAPTION = (
 FEASIBLE_COL_NAME = "is_feasible"
 
 
-def _get_hypervolume_trace() -> None:
-    logger.warning(
-        "Objective trace plots not yet implemented for multi-objective optimization. "
-        "Returning `None`."
-    )
-
-
 # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
     cv = cross_validate(model=model)
@@ -94,8 +88,10 @@ def _get_objective_trace_plot(
     true_objective_metric_name: Optional[str] = None,
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
-        # TODO: implement `_get_hypervolume_trace()`
-        return _pairwise_pareto_plotly_scatter(experiment=experiment)
+        return [
+            scatter_plot_with_hypervolume_trace_plotly(experiment=experiment),
+            *_pairwise_pareto_plotly_scatter(experiment=experiment),
+        ]
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
