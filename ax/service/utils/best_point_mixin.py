@@ -6,17 +6,20 @@
 
 from abc import ABCMeta, abstractmethod
 from functools import partial
+from logging import Logger
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
+    ObjectiveThreshold,
     OptimizationConfig,
 )
-from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -36,9 +39,12 @@ from ax.models.torch.botorch_moo_defaults import (
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point import extract_Y_from_data
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 
+
+logger: Logger = get_logger(__name__)
 
 NUM_BINS_PER_TRIAL = 3
 
@@ -358,10 +364,37 @@ class BestPointMixin(metaclass=ABCMeta):
             torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
         )
         if optimization_config.is_moo_problem:
+            multiobjective_optimization_config = checked_cast(
+                MultiObjectiveOptimizationConfig, optimization_config
+            )
+
+            provided_thresholds = (
+                multiobjective_optimization_config.objective_thresholds
+            )
+
+            # For Objectives without thresholds provided, infer the threshold from
+            # the nadir point.
+            provided_threshold_names = [
+                threshold.metric.name for threshold in provided_thresholds
+            ]
+            objectives_without_threshold = [
+                objective
+                for objective in checked_cast(
+                    MultiObjective, optimization_config.objective
+                ).objectives
+                if objective.metric.name not in provided_threshold_names
+            ]
+            inferred_thresholds = [
+                _objective_threshold_from_nadir(
+                    experiment=experiment,
+                    objective=objective,
+                    optimization_config=multiobjective_optimization_config,
+                )
+                for objective in objectives_without_threshold
+            ]
+
             objective_thresholds = extract_objective_thresholds(
-                objective_thresholds=checked_cast(
-                    MultiObjectiveOptimizationConfig, optimization_config
-                ).objective_thresholds,
+                objective_thresholds=[*provided_thresholds, *inferred_thresholds],
                 objective=optimization_config.objective,
                 outcomes=metric_names,
             )
@@ -517,3 +550,30 @@ class BestPointMixin(metaclass=ABCMeta):
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+
+
+def _objective_threshold_from_nadir(
+    experiment: Experiment,
+    objective: Objective,
+    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+) -> ObjectiveThreshold:
+    """
+    Find the worst value observed for each objective and create an ObjectiveThreshold
+    with this as the bound.
+    """
+
+    logger.info(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
+
+    optimization_config = optimization_config or checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    )
+
+    data_df = experiment.fetch_data().df
+
+    mean = data_df[data_df["metric_name"] == objective.metric.name]["mean"]
+    bound = max(mean) if objective.minimize else min(mean)
+    op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
+
+    return ObjectiveThreshold(
+        metric=objective.metric, bound=bound, op=op, relative=False
+    )
