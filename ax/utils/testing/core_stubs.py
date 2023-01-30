@@ -845,15 +845,18 @@ def get_small_discrete_search_space() -> SearchSpace:
     )
 
 
-def get_hierarchical_search_space() -> HierarchicalSearchSpace:
-    return HierarchicalSearchSpace(
-        parameters=[
-            get_model_parameter(),
-            get_lr_parameter(),
-            get_l2_reg_weight_parameter(),
-            get_num_boost_rounds_parameter(),
-        ]
-    )
+def get_hierarchical_search_space(
+    with_fixed_parameter: bool = False,
+) -> HierarchicalSearchSpace:
+    parameters: List[Parameter] = [
+        get_model_parameter(with_fixed_parameter=with_fixed_parameter),
+        get_lr_parameter(),
+        get_l2_reg_weight_parameter(),
+        get_num_boost_rounds_parameter(),
+    ]
+    if with_fixed_parameter:
+        parameters.append(get_fixed_parameter())
+    return HierarchicalSearchSpace(parameters=parameters)
 
 
 def get_robust_search_space(
@@ -1019,6 +1022,35 @@ def get_trial() -> Trial:
     return trial
 
 
+def get_hss_trials_with_fixed_parameter(exp: Experiment) -> Dict[int, BaseTrial]:
+    return {
+        0: Trial(experiment=exp).add_arm(
+            arm=Arm(
+                parameters={
+                    "model": "Linear",
+                    "learning_rate": 0.05,
+                    "l2_reg_weight": 1e-4,
+                    "num_boost_rounds": 15,
+                    "z": True,
+                },
+                name="0_0",
+            )
+        ),
+        1: Trial(experiment=exp).add_arm(
+            arm=Arm(
+                parameters={
+                    "model": "XGBoost",
+                    "learning_rate": 0.05,
+                    "l2_reg_weight": 1e-4,
+                    "num_boost_rounds": 15,
+                    "z": True,
+                },
+                name="1_0",
+            )
+        ),
+    }
+
+
 class TestTrial(BaseTrial):
     "Trial class to test unsupported trial type error"
 
@@ -1112,14 +1144,18 @@ def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 
 
-def get_model_parameter() -> ChoiceParameter:
+def get_model_parameter(with_fixed_parameter: bool = False) -> ChoiceParameter:
     return ChoiceParameter(
         name="model",
         parameter_type=ParameterType.STRING,
         values=["Linear", "XGBoost"],
         dependents={
             "Linear": ["learning_rate", "l2_reg_weight"],
-            "XGBoost": ["num_boost_rounds"],
+            "XGBoost": (
+                ["num_boost_rounds", "z"]
+                if with_fixed_parameter
+                else ["num_boost_rounds"]
+            ),
         },
     )
 
