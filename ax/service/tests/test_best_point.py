@@ -19,7 +19,7 @@ from ax.utils.testing.core_stubs import (
 class TestBestPointMixin(TestCase):
     def test_get_trace(self) -> None:
         # Alias for easier access.
-        get_trace = BestPointMixin.get_trace
+        get_trace = BestPointMixin._get_trace
 
         # Single objective, minimize.
         exp = get_experiment_with_observations(
