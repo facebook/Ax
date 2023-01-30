@@ -235,6 +235,8 @@ def _build_comparison_str(
 
 def setup_import_mocks(mocked_import_paths: List[str]) -> None:
     for import_path in mocked_import_paths:
+        if import_path in sys.modules:
+            raise Exception(f"{import_path} has already been imported!")
         sys.modules[import_path] = MagicMock()
 
 
