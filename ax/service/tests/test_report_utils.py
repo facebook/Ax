@@ -257,6 +257,9 @@ class ReportUtilsTest(TestCase):
         )
         self.assertEqual(len(plots), 6)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
@@ -296,6 +299,8 @@ class ReportUtilsTest(TestCase):
         )
         self.assertEqual(len(plots), 7)
 
+    @fast_botorch_optimize
+    def test_get_standard_plots_map_data(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()
