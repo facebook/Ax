@@ -503,9 +503,11 @@ def validate_and_apply_final_transform(
 
 
 def get_fixed_features(
-    fixed_features: ObservationFeatures, param_names: List[str]
+    fixed_features: Optional[ObservationFeatures], param_names: List[str]
 ) -> Optional[Dict[int, float]]:
     """Reformat a set of fixed_features."""
+    if fixed_features is None:
+        return None
     fixed_features_dict = {}
     for p_name, val in fixed_features.parameters.items():
         # These all need to be floats at this point.
