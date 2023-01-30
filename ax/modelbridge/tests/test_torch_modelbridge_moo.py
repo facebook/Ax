@@ -42,6 +42,8 @@ from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
+    get_hierarchical_search_space,
+    get_hss_trials_with_fixed_parameter,
     get_non_monolithic_branin_moo_data,
     TEST_SOBOL_SEED,
 )
@@ -560,6 +562,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 < nadir.numpy()
             )
         )
+
         # test using MTGP
         sobol_generator = get_sobol(
             search_space=exp.search_space,
@@ -630,6 +633,48 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 < nadir.numpy()
             )
         )
+
+        # test with HSS
+        hss = get_hierarchical_search_space(with_fixed_parameter=True)
+        exp = get_branin_experiment_with_multi_objective(has_optimization_config=True)
+        data = get_branin_data_multi_objective(trial_indices=[0, 1])
+        # Update trials to match the search space.
+        exp._search_space = hss
+        exp._trials = get_hss_trials_with_fixed_parameter(exp=exp)
+        modelbridge = TorchModelBridge(
+            search_space=hss,
+            model=MultiObjectiveBotorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=Cont_X_trans + Y_trans,
+            torch_device=torch.device("cuda" if cuda else "cpu"),
+            experiment=exp,
+            data=data,
+            # [T143911996] The trials get ignored without fit_out_of_design.
+            fit_out_of_design=True,
+        )
+        self.assertIn("Cast", modelbridge.transforms)
+        with patch.object(
+            modelbridge,
+            "_untransform_objective_thresholds",
+            wraps=modelbridge._untransform_objective_thresholds,
+        ) as mock_untransform, patch.object(
+            modelbridge.transforms["Cast"],
+            "untransform_observation_features",
+            wraps=modelbridge.transforms["Cast"].untransform_observation_features,
+        ) as wrapped_cast:
+            obj_thresholds = modelbridge.infer_objective_thresholds(
+                search_space=hss,
+                optimization_config=exp.optimization_config,
+                fixed_features=None,
+            )
+        mock_untransform.assert_called_once()
+        self.assertEqual(wrapped_cast.call_count, 0)
+        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertFalse(obj_thresholds[0].relative)
+        self.assertFalse(obj_thresholds[1].relative)
 
     @fast_botorch_optimize
     def test_status_quo_for_non_monolithic_data(self) -> None:

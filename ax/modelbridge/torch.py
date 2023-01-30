@@ -55,6 +55,7 @@ from ax.modelbridge.modelbridge_utils import (
     validate_and_apply_final_transform,
 )
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.cast import Cast
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
@@ -780,9 +781,12 @@ class TorchModelBridge(ModelBridge):
         )
 
         for t in reversed(list(self.transforms.values())):
-            fixed_features_obs = t.untransform_observation_features(
-                [fixed_features_obs]
-            )[0]
+            if not isinstance(t, Cast):
+                # Cast transform requires a valid hierarchical parameterization.
+                # `fixed_features_obs` is incomplete, so it leads to an error.
+                fixed_features_obs = t.untransform_observation_features(
+                    [fixed_features_obs]
+                )[0]
             thresholds = t.untransform_outcome_constraints(
                 outcome_constraints=thresholds,
                 fixed_features=fixed_features_obs,
