@@ -174,7 +174,7 @@ class TestBestPointUtils(TestCase):
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_experiment_with_observations(
-            observations=[[-1, 1], [1, 0]],
+            observations=[[-1, 1]],
             constrained=True,
         )
 

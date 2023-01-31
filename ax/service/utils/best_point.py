@@ -808,8 +808,8 @@ def extract_Y_from_data(
                 )
         except (KeyError, TypeError):
             raise UserInputError(
-                "Expected each trial to have a single data point for each metric."
-                f"Got {trial_data} for trial {trial_idx}."
+                "Expected each trial to have a single data point for each metric. "
+                f"Got\n\n{trial_data}\n\nfor trial {trial_idx}."
             )
 
     return torch.tensor([Y_lists_dict[m] for m in metric_names], dtype=torch.double).T

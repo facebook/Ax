@@ -35,9 +35,9 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
-from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
+from ax.modelbridge.transforms.one_hot import OneHot
+from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
@@ -285,11 +285,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModel
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         model=TorchModel(),
-        transforms=[Derelativize, SearchSpaceToChoice, OrderedChoiceEncode, IntToFloat],
-        transform_configs={
-            "Derelativize": {"use_raw_status_quo": True},
-            "SearchSpaceToChoice": {"use_ordered": True},
-        },
+        transforms=[RemoveFixed, OrderedChoiceEncode, OneHot, IntToFloat],
         fit_out_of_design=True,
     )
 
