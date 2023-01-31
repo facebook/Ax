@@ -28,6 +28,7 @@ from ax.service.utils.report_utils import (
     get_standard_plots,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -263,9 +264,9 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
-        # pyre-fixme[16]: Optional type has no attribute `_objective_thresholds`.
-        # pyre-fixme[16]: `OptimizationConfig` has no attribute `_objective_thresholds`.
-        exp.optimization_config._objective_thresholds = [
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds = [
             ObjectiveThreshold(
                 metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
             ),
@@ -285,15 +286,39 @@ class ReportUtilsTest(TestCase):
                 log.output[0],
             )
         self.assertEqual(len(plots), 6)
-        for ot in exp.optimization_config._objective_thresholds:
+
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo_relative_constraints(self) -> None:
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.optimization_config.objective.objectives[0].minimize = False
+        exp.optimization_config.objective.objectives[1].minimize = True
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds = [
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
+            ),
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+            ),
+        ]
+        exp.trials[0].run()
+
+        for ot in checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds:
             ot.relative = False
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
         self.assertEqual(len(plots), 8)
 
-        # All plots are successfully created when objective thresholds are absent
-        exp.optimization_config._objective_thresholds = []
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.optimization_config.objective.objectives[0].minimize = False
+        exp.optimization_config.objective.objectives[1].minimize = True
+        exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
