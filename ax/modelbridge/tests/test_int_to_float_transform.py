@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
+from unittest import mock
 
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -140,10 +141,13 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
+    @mock.patch(
+        "ax.modelbridge.transforms.int_to_float.DEFAULT_MAX_ROUND_ATTEMPTS", 100
+    )
     def testRoundingWithImpossiblyConstrainedIntRanges(self) -> None:
         parameters = [
-            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
-            RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter("x", lower=1, upper=5, parameter_type=ParameterType.INT),
+            RangeParameter("y", lower=1, upper=5, parameter_type=ParameterType.INT),
         ]
         constrained_int_search_space = SearchSpace(
             # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
@@ -168,6 +172,16 @@ class IntToFloatTransformTest(TestCase):
                 )[0].parameters
             )
         )
+        # Round something that is outside the search space and make sure it satisfies
+        # the domain bounds even if it doesn't satisfy the parameter constraints.
+        for _ in range(10):
+            observation_features = [
+                ObservationFeatures(parameters={"x": 0.51, "y": 4.44})
+            ]
+            untransformed_t = t.untransform_observation_features(
+                observation_features=observation_features
+            )[0].parameters
+            self.assertEqual(untransformed_t, {"x": 1, "y": 4})
 
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()

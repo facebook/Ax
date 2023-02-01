@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 logger: Logger = get_logger(__name__)
 
 
-DEFAULT_MAX_ROUND_ATTEMPTS = 10000
+DEFAULT_MAX_ROUND_ATTEMPTS = 10_000
 
 
 class IntToFloat(Transform):
@@ -142,14 +142,23 @@ class IntToFloat(Transform):
                         obsf.parameters, present_params
                     )
                     round_attempts += 1
-                # Update observation with successful rounding or log warning.
-                for p_name in present_params:
-                    obsf.parameters[p_name] = rounded_parameters[p_name]
                 if not self.search_space.check_membership(
                     rounded_parameters, check_all_parameters_present=False
                 ):
                     logger.warning(
                         f"Unable to round {obsf.parameters}"
-                        f"to meet constraints of {self.search_space}"
+                        f"to meet parameter constraints of {self.search_space}"
                     )
+                    # This means we failed to randomly round the observation to
+                    # something that satisfies the search space bounds and parameter
+                    # constraints. We use strict rounding in order to get a candidate
+                    # that satisfies the search space bounds, but this candidate may
+                    # not satisfy the parameter constraints.
+                    for p_name in present_params:
+                        param = obsf.parameters.get(p_name)
+                        obsf.parameters[p_name] = int(round(param))  # pyre-ignore
+                else:  # Update observation if rounding was successful
+                    for p_name in present_params:
+                        obsf.parameters[p_name] = rounded_parameters[p_name]
+
         return observation_features
