@@ -12,9 +12,7 @@
 import contextlib
 import io
 import linecache
-import os
 import signal
-import subprocess
 import sys
 import types
 import unittest
@@ -39,6 +37,7 @@ import yappi
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
+from pyfakefs import fake_filesystem_unittest
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
@@ -240,11 +239,8 @@ def setup_import_mocks(mocked_import_paths: List[str]) -> None:
         sys.modules[import_path] = MagicMock()
 
 
-class TestCase(unittest.TestCase):
+class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
-
-    # try to remove these files on tearDown
-    FILES_TO_CLEAN: List[str] = []
 
     MAX_TEST_SECONDS = 480
     MIN_TTOT = 1.0
@@ -259,7 +255,6 @@ class TestCase(unittest.TestCase):
     # it appears to be pytorch related https://fburl.com/wiki/r8u9f3rs
     # set to `False` on the specific testcase class if this occurs
     CAN_PROFILE = True
-    _prior_status: Optional[str] = None
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
@@ -274,18 +269,12 @@ class TestCase(unittest.TestCase):
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
 
-    def tearDown(self) -> None:
-        for f in self.FILES_TO_CLEAN:
-            if os.path.exists(f):
-                os.remove(f)
-
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
     ) -> Optional[unittest.result.TestResult]:
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
-        self._prior_status = self._get_repository_status()
         try:
             if self.CAN_PROFILE:
                 yappi.set_clock_type("wall")
@@ -297,22 +286,7 @@ class TestCase(unittest.TestCase):
                 yappi.stop()
 
             signal.alarm(0)
-        self._assert_status_is_unchanged()
         return result
-
-    def _get_repository_status(self) -> str:
-        return subprocess.run(
-            ["hg", "status"],
-            capture_output=True,
-        ).stdout.decode("utf-8")
-
-    def _assert_status_is_unchanged(self) -> None:
-        post_status = self._get_repository_status()
-        self.assertEqual(
-            self._prior_status,
-            post_status,
-            "Files in the repository were modified while this test was running",
-        )
 
     def assertEqual(
         self,
