@@ -747,15 +747,17 @@ def get_factorial_search_space() -> SearchSpace:
     )
 
 
-def get_large_factorial_search_space() -> SearchSpace:
+def get_large_factorial_search_space(
+    num_levels: int = 10, num_parameters: int = 6
+) -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
                 name=f"factor{j}",
                 parameter_type=ParameterType.STRING,
-                values=[f"level1{i}" for i in range(10)],
+                values=[f"level1{i}" for i in range(num_levels)],
             )
-            for j in range(6)
+            for j in range(num_parameters)
         ]
     )
 
@@ -831,7 +833,7 @@ def get_discrete_search_space() -> SearchSpace:
         [
             RangeParameter("x", ParameterType.INT, 0, 3),
             RangeParameter("y", ParameterType.INT, 5, 7),
-            ChoiceParameter("z", ParameterType.STRING, ["red", "panda"]),
+            ChoiceParameter("z", ParameterType.STRING, ["red", "panda", "bear"]),
         ]
     )
 

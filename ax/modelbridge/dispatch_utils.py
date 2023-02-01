@@ -137,7 +137,8 @@ def _suggest_gp_model(
     ``MAX_DISCRETE_ENUMERATIONS_MIXED``, or if there are only choice parameters and
     the number of choice combinations to enumerate is less than
     ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. ``BO_MIXED`` is not currently enabled
-    for multi-objective optimization.
+    for multi-objective optimization. Note that we do not count 2-level choice
+    parameters as unordered, since these do not affect the modeling choice.
     3. We use ``MOO`` if ``optimization_config`` has multiple objectives and
     ``use_saasbo is False``.
     4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives
@@ -157,7 +158,7 @@ def _suggest_gp_model(
             should_enumerate_param = True
             num_param_discrete_values = len(parameter.values)
             num_possible_points *= num_param_discrete_values
-            if parameter.is_ordered is False:
+            if parameter.is_ordered is False and num_param_discrete_values > 2:
                 num_unordered_choices += num_param_discrete_values
             else:
                 num_ordered_parameters += 1

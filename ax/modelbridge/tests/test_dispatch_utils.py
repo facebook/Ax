@@ -115,14 +115,12 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
-            ss = get_large_factorial_search_space()
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
             self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("Sobol (because of too many categories) with saasbo"):
-            ss = get_large_factorial_search_space()
             with self.assertLogs(
                 choose_generation_strategy.__module__, logging.WARNING
             ) as logger:
@@ -140,6 +138,14 @@ class TestDispatchUtils(TestCase):
                 )
             self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
+        with self.subTest("GPEI despite many unordered 2-value parameters"):
+            gs = choose_generation_strategy(
+                search_space=get_large_factorial_search_space(
+                    num_levels=2, num_parameters=10
+                ),
+            )
+            self.assertEqual(gs._steps[0].model, Models.SOBOL)
+            self.assertEqual(gs._steps[1].model, Models.GPEI)
         with self.subTest("GPEI-Batched"):
             sobol_gpei_batched = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -462,7 +468,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[1].model, Models.BO_MIXED)
         with self.subTest("with budget that is exhaustive, Sobol is used"):
-            sobol = choose_generation_strategy(search_space=ss, num_trials=24)
+            sobol = choose_generation_strategy(search_space=ss, num_trials=36)
             self.assertEqual(sobol._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("with budget that is exhaustive and use_saasbo, it warns"):
@@ -471,7 +477,7 @@ class TestDispatchUtils(TestCase):
             ) as logger:
                 sobol = choose_generation_strategy(
                     search_space=ss,
-                    num_trials=24,
+                    num_trials=36,
                     use_saasbo=True,
                 )
                 self.assertTrue(
