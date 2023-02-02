@@ -508,9 +508,7 @@ class BaseTrial(ABC, SortableBase):
             results=self.fetch_data_results(metrics=metrics, **kwargs)
         )
 
-    def lookup_data(
-        self,
-    ) -> Data:
+    def lookup_data(self) -> Data:
         """Lookup cached data on experiment for this trial.
 
         Returns:
@@ -518,9 +516,7 @@ class BaseTrial(ABC, SortableBase):
             associated with the trial. If merging, all data for trial, merged.
 
         """
-        return self.experiment.lookup_data_for_trial(
-            trial_index=self.index,
-        )[0]
+        return self.experiment.lookup_data_for_trial(trial_index=self.index)[0]
 
     def _check_existing_and_name_arm(self, arm: Arm) -> None:
         """Sets name for given arm; if this arm is already in the
