@@ -279,6 +279,9 @@ class Data(Base, SerializationMixin):
             df: The filtered DataFrame.
         """
         df = self.df.copy()
+        if df.empty:
+            return df
+
         columns = df.columns
         for colname, value in filters.items():
             if colname not in columns:
