@@ -37,8 +37,12 @@ class OutcomeConstraint(SortableBase):
         op: Specifies whether metric should be greater or equal
             to, or less than or equal to, some bound.
         bound: The bound in the constraint.
-        relative: Whether you want to bound on an absolute or relative
-            scale. If relative, bound is the acceptable percent change.
+        relative: [default ``True``] Whether the provided bound value is relative to
+            some status-quo arm's metric value. If False, ``bound`` is interpreted as an
+            absolute number, else ``bound`` specifies percent-difference from the
+            observed metric value on the status-quo arm. That is, the bound's absolute
+            value will be ``(1 + bound/100.0) * status_quo_metric_value``. This requires
+            specification of a status-quo arm in ``Experiment``.
 
     """
 
@@ -178,8 +182,12 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         op: Specifies whether metric should be greater or equal
             to, or less than or equal to, some bound.
         bound: The bound in the constraint.
-        relative: Whether you want to bound on an absolute or relative
-            scale. If relative, bound is the acceptable percent change.
+        relative: [default ``True``] Whether the provided bound value is relative to
+            some status-quo arm's metric value. If False, ``bound`` is interpreted as an
+            absolute number, else ``bound`` specifies percent-difference from the
+            observed metric value on the status-quo arm. That is, the bound's absolute
+            value will be ``(1 + bound/100.0) * status_quo_metric_value``. This requires
+            specification of a status-quo arm in ``Experiment``.
     """
 
     weights: List[float]
