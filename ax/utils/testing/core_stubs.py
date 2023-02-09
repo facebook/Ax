@@ -1021,6 +1021,7 @@ def get_trial() -> Trial:
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
     trial._generation_step_index = 0
+    trial.update_run_metadata({"workflow_run_id": [12345]})
     return trial
 
 
