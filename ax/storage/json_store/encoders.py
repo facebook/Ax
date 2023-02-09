@@ -39,6 +39,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
@@ -558,6 +559,19 @@ def logical_early_stopping_strategy_to_dict(
         "__type": strategy.__class__.__name__,
         "left": strategy.left,
         "right": strategy.right,
+    }
+
+
+def improvement_global_stopping_strategy_to_dict(
+    gss: ImprovementGlobalStoppingStrategy,
+) -> Dict[str, Any]:
+    """Convert ImprovementGlobalStoppingStrategy to a dictionary."""
+    return {
+        "__type": gss.__class__.__name__,
+        "min_trials": gss.min_trials,
+        "window_size": gss.window_size,
+        "improvement_bar": gss.improvement_bar,
+        "inactive_when_pending_trials": gss.inactive_when_pending_trials,
     }
 
 
