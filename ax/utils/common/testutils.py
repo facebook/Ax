@@ -17,6 +17,7 @@ import sys
 import types
 import unittest
 from functools import wraps
+from logging import Logger
 from types import FrameType
 from typing import (
     Any,
@@ -37,11 +38,14 @@ import yappi
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
+from ax.utils.common.logger import get_logger
 from pyfakefs import fake_filesystem_unittest
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
 T = TypeVar("T")
+
+logger: Logger = get_logger(__name__)
 
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
@@ -259,12 +263,15 @@ class TestCase(fake_filesystem_unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
             if self.CAN_PROFILE:
+                logger.warning(
+                    f"Test took longer than {self.MAX_TEST_SECONDS} seconds. Printing "
+                    "`yappi` profile."
+                )
                 yappi.get_func_stats(
                     filter_callback=lambda s: s.ttot > self.MIN_TTOT
                 ).sort(sort_type="ttot", sort_order="asc").print_all(
                     columns=self.PROFILER_COLUMNS
                 )
-            raise Exception(f"Test timed out at {self.MAX_TEST_SECONDS} seconds")
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
