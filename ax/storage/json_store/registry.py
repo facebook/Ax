@@ -62,6 +62,7 @@ from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
     OrEarlyStoppingStrategy,
 )
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -101,6 +102,7 @@ from ax.storage.json_store.encoders import (
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
+    improvement_global_stopping_strategy_to_dict,
     logical_early_stopping_strategy_to_dict,
     map_data_to_dict,
     map_key_info_to_dict,
@@ -163,6 +165,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
+    ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
     JenattonMetric: metric_to_dict,
     L2NormMetric: metric_to_dict,
@@ -260,6 +263,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "GeneratorRunStruct": GeneratorRunStruct,
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
+    "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "Interval": Interval,
     "JenattonMetric": JenattonMetric,
     "ListSurrogate": Surrogate,  # For backwards compatibility

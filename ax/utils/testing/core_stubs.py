@@ -80,6 +80,7 @@ from ax.early_stopping.strategies.logical import (
 )
 from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
@@ -1814,6 +1815,15 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         **kwargs: Dict[str, Any],
     ) -> Dict[int, Optional[str]]:
         return self.early_stop_trials
+
+
+def get_improvement_global_stopping_strategy() -> ImprovementGlobalStoppingStrategy:
+    return ImprovementGlobalStoppingStrategy(
+        min_trials=30,
+        window_size=10,
+        improvement_bar=0.05,
+        inactive_when_pending_trials=True,
+    )
 
 
 class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
