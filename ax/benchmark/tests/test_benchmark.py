@@ -11,6 +11,8 @@ from ax.benchmark.benchmark import (
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.utils.scheduler_options import SchedulerOptions
@@ -22,6 +24,7 @@ from ax.utils.testing.benchmark_stubs import (
     get_sobol_gpei_benchmark_method,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.test_functions.synthetic import Branin
 
 
@@ -39,6 +42,16 @@ class TestBenchmark(TestCase):
         )
 
         self.assertTrue(np.all(res.score_trace <= 100))
+
+    @fast_botorch_optimize
+    def test_jenatton_qkg(self) -> None:
+        problem = get_problem(problem_name="jenatton")
+        method = get_sobol_botorch_modular_acquisition(
+            acquisition_cls=qKnowledgeGradient,
+        )
+
+        seed = 1123
+        benchmark_replication(problem, method, seed)
 
     def test_replication_moo(self) -> None:
         problem = get_multi_objective_benchmark_problem()
