@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import logging
 from datetime import datetime
+from os import PathLike
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
 
@@ -201,5 +202,5 @@ def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Typ
     return botorch_class(**state_dict)
 
 
-def pathlib_from_json(pathsegments):
+def pathlib_from_json(pathsegments: str | PathLike[str]) -> Path:
     return Path(*pathsegments)

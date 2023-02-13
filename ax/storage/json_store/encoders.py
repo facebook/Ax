@@ -610,5 +610,5 @@ def risk_measure_to_dict(
     }
 
 
-def pathlib_to_dict(path: Path):
+def pathlib_to_dict(path: Path) -> Dict[str, Any]:
     return {"__type": path.__class__.__name__, "pathsegments": [str(path)]}

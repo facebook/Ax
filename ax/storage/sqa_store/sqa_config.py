@@ -94,7 +94,7 @@ class SQAConfig:
     )
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    json_decoder_registry: Dict[str, Type] = field(
+    json_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
         default_factory=lambda: CORE_DECODER_REGISTRY
     )
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.

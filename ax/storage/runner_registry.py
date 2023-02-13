@@ -39,7 +39,7 @@ def register_runner(
     ] = CORE_ENCODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = CORE_DECODER_REGISTRY,
     val: Optional[int] = None,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
@@ -72,7 +72,7 @@ def register_runners(
     ] = CORE_ENCODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = CORE_DECODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
 ) -> Tuple[
