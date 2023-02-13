@@ -558,17 +558,18 @@ class TestModelbridgeUtils(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `shape`.
         self.assertEqual(obj_t.shape[0], 4)
 
-        # Fails if threshold not provided for all objective metrics
-        with self.assertRaises(ValueError):
-            extract_objective_thresholds(
-                objective_thresholds=objective_thresholds[:2],
-                objective=objective,
-                outcomes=outcomes,
-            )
+        # Returns NaN for objectives without a threshold.
+        obj_t = extract_objective_thresholds(
+            objective_thresholds=objective_thresholds[:2],
+            objective=objective,
+            outcomes=outcomes,
+        )
+        self.assertTrue(np.array_equal(obj_t[:2], expected_obj_t_not_nan[:2]))
+        self.assertTrue(np.isnan(obj_t[-2:]).all())
 
-        # Fails if number of thresholds doesn't equal number of objectives
+        # Fails if a threshold does not have a corresponding metric.
         objective2 = Objective(Metric("m1"))
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "corresponding metrics"):
             extract_objective_thresholds(
                 objective_thresholds=objective_thresholds,
                 objective=objective2,

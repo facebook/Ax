@@ -292,13 +292,17 @@ class MultiObjectiveBotorchModel(BotorchModel):
             outcome_constraints = torch_opt_config.outcome_constraints
             objective_thresholds = torch_opt_config.objective_thresholds
             idcs = None
-        if objective_thresholds is None:
+        if (
+            objective_thresholds is None
+            or objective_thresholds[objective_weights != 0].isnan().any()
+        ):
             full_objective_thresholds = infer_objective_thresholds(
                 model=model,
                 X_observed=not_none(X_observed),
                 objective_weights=full_objective_weights,
                 outcome_constraints=full_outcome_constraints,
                 subset_idcs=idcs,
+                objective_thresholds=objective_thresholds,
             )
             # subset the objective thresholds
             objective_thresholds = (
