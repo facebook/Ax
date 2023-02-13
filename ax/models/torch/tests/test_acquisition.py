@@ -211,7 +211,6 @@ class AcquisitionTest(TestCase):
             "fixed_features",
         ):
             self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
-            # self.assertEqual(ckwargs[attr], getattr(self, attr))
         self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
 
         # Call `subset_model` only when needed
@@ -572,6 +571,26 @@ class AcquisitionTest(TestCase):
                 torch.equal(
                     acquisition.objective_thresholds[:2],
                     torch.tensor([9.9, 3.3], **self.tkwargs),
+                )
+            )
+            self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+            # With partial thresholds.
+            acquisition = Acquisition(
+                surrogates={"surrogate": self.surrogate},
+                search_space_digest=self.search_space_digest,
+                botorch_acqf_class=self.botorch_acqf_class,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    objective_thresholds=torch.tensor(
+                        [float("nan"), 5.5, float("nan")], **self.tkwargs
+                    ),
+                ),
+                options=self.options,
+            )
+            self.assertTrue(
+                torch.equal(
+                    acquisition.objective_thresholds[:2],
+                    torch.tensor([9.9, 5.5], **self.tkwargs),
                 )
             )
             self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))

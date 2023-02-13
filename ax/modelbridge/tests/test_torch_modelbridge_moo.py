@@ -38,7 +38,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data_multi_objective,
     get_branin_experiment_with_multi_objective,
@@ -475,93 +475,105 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ParameterConstraint(constraint_dict={"x1": 1.0}, bound=10.0)
         ]
         search_space.add_parameter_constraints(param_constraints)
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        oc = exp.optimization_config.clone()
+        oc = not_none(exp.optimization_config).clone()
         oc.objective._objectives[0].minimize = True
-        expected_base_gen_args = modelbridge._get_transformed_gen_args(
-            search_space=search_space.clone(),
-            optimization_config=oc,
-            fixed_features=fixed_features,
-        )
-        with ExitStack() as es:
-            mock_model_infer_obj_t = es.enter_context(
-                patch(
-                    "ax.modelbridge.torch.infer_objective_thresholds",
-                    wraps=infer_objective_thresholds,
-                )
-            )
-            mock_get_transformed_gen_args = es.enter_context(
-                patch.object(
-                    modelbridge,
-                    "_get_transformed_gen_args",
-                    wraps=modelbridge._get_transformed_gen_args,
-                )
-            )
-            mock_get_transformed_model_gen_args = es.enter_context(
-                patch.object(
-                    modelbridge,
-                    "_get_transformed_model_gen_args",
-                    wraps=modelbridge._get_transformed_model_gen_args,
-                )
-            )
-            mock_untransform_objective_thresholds = es.enter_context(
-                patch.object(
-                    modelbridge,
-                    "_untransform_objective_thresholds",
-                    wraps=modelbridge._untransform_objective_thresholds,
-                )
-            )
-            obj_thresholds = modelbridge.infer_objective_thresholds(
-                search_space=search_space,
+
+        for use_partial_thresholds in (False, True):
+            if use_partial_thresholds:
+                checked_cast(
+                    MultiObjectiveOptimizationConfig, oc
+                )._objective_thresholds = [
+                    ObjectiveThreshold(
+                        metric=oc.objective.metrics[0],
+                        bound=2.0,
+                        relative=False,
+                        op=ComparisonOp.LEQ,
+                    )
+                ]
+            expected_base_gen_args = modelbridge._get_transformed_gen_args(
+                search_space=search_space.clone(),
                 optimization_config=oc,
                 fixed_features=fixed_features,
             )
-            expected_obj_weights = torch.tensor([-1.0, 1.0], dtype=torch.double)
-            ckwargs = mock_model_infer_obj_t.call_args[1]
-            self.assertTrue(
-                torch.equal(ckwargs["objective_weights"], expected_obj_weights)
-            )
-            # check that transforms have been applied (at least UnitX)
-            self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
-            lc = ckwargs["linear_constraints"]
-            self.assertTrue(
-                torch.equal(lc[0], torch.tensor([[15.0, 0.0]], dtype=torch.double))
-            )
-            self.assertTrue(
-                torch.equal(lc[1], torch.tensor([[15.0]], dtype=torch.double))
-            )
-            self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
-            mock_get_transformed_gen_args.assert_called_once()
-            mock_get_transformed_model_gen_args.assert_called_once_with(
-                search_space=expected_base_gen_args.search_space,
-                fixed_features=expected_base_gen_args.fixed_features,
-                pending_observations=expected_base_gen_args.pending_observations,
-                optimization_config=expected_base_gen_args.optimization_config,
-            )
-            mock_untransform_objective_thresholds.assert_called_once()
-            ckwargs = mock_untransform_objective_thresholds.call_args[1]
+            with ExitStack() as es:
+                mock_model_infer_obj_t = es.enter_context(
+                    patch(
+                        "ax.modelbridge.torch.infer_objective_thresholds",
+                        wraps=infer_objective_thresholds,
+                    )
+                )
+                mock_get_transformed_gen_args = es.enter_context(
+                    patch.object(
+                        modelbridge,
+                        "_get_transformed_gen_args",
+                        wraps=modelbridge._get_transformed_gen_args,
+                    )
+                )
+                mock_get_transformed_model_gen_args = es.enter_context(
+                    patch.object(
+                        modelbridge,
+                        "_get_transformed_model_gen_args",
+                        wraps=modelbridge._get_transformed_model_gen_args,
+                    )
+                )
+                mock_untransform_objective_thresholds = es.enter_context(
+                    patch.object(
+                        modelbridge,
+                        "_untransform_objective_thresholds",
+                        wraps=modelbridge._untransform_objective_thresholds,
+                    )
+                )
+                obj_thresholds = modelbridge.infer_objective_thresholds(
+                    search_space=search_space,
+                    optimization_config=oc,
+                    fixed_features=fixed_features,
+                )
+                expected_obj_weights = torch.tensor([-1.0, 1.0], dtype=torch.double)
+                ckwargs = mock_model_infer_obj_t.call_args[1]
+                self.assertTrue(
+                    torch.equal(ckwargs["objective_weights"], expected_obj_weights)
+                )
+                # check that transforms have been applied (at least UnitX)
+                self.assertEqual(ckwargs["bounds"], [(0.0, 1.0), (0.0, 1.0)])
+                lc = ckwargs["linear_constraints"]
+                self.assertTrue(
+                    torch.equal(lc[0], torch.tensor([[15.0, 0.0]], dtype=torch.double))
+                )
+                self.assertTrue(
+                    torch.equal(lc[1], torch.tensor([[15.0]], dtype=torch.double))
+                )
+                self.assertEqual(ckwargs["fixed_features"], {0: 1.0 / 3.0})
+                mock_get_transformed_gen_args.assert_called_once()
+                mock_get_transformed_model_gen_args.assert_called_once_with(
+                    search_space=expected_base_gen_args.search_space,
+                    fixed_features=expected_base_gen_args.fixed_features,
+                    pending_observations=expected_base_gen_args.pending_observations,
+                    optimization_config=expected_base_gen_args.optimization_config,
+                )
+                mock_untransform_objective_thresholds.assert_called_once()
+                ckwargs = mock_untransform_objective_thresholds.call_args[1]
 
+                self.assertTrue(
+                    torch.equal(ckwargs["objective_weights"], expected_obj_weights)
+                )
+            self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
+            self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+            self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
+            self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+            self.assertFalse(obj_thresholds[0].relative)
+            self.assertFalse(obj_thresholds[1].relative)
+            df = exp_to_df(exp)
+            Y = np.stack([df.branin_a.values, df.branin_b.values]).T
+            Y = torch.from_numpy(Y)
+            Y[:, 0] *= -1
+            pareto_Y = Y[is_non_dominated(Y)]
+            nadir = pareto_Y.min(dim=0).values
             self.assertTrue(
-                torch.equal(ckwargs["objective_weights"], expected_obj_weights)
+                np.all(
+                    np.array([-obj_thresholds[0].bound, obj_thresholds[1].bound])
+                    < nadir.numpy()
+                )
             )
-        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
-        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
-        self.assertFalse(obj_thresholds[0].relative)
-        self.assertFalse(obj_thresholds[1].relative)
-        df = exp_to_df(exp)
-        Y = np.stack([df.branin_a.values, df.branin_b.values]).T
-        Y = torch.from_numpy(Y)
-        Y[:, 0] *= -1
-        pareto_Y = Y[is_non_dominated(Y)]
-        nadir = pareto_Y.min(dim=0).values
-        self.assertTrue(
-            np.all(
-                np.array([-obj_thresholds[0].bound, obj_thresholds[1].bound])
-                < nadir.numpy()
-            )
-        )
 
         # test using MTGP
         sobol_generator = get_sobol(

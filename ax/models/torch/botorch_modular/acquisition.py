@@ -211,9 +211,11 @@ class Acquisition(Base):
         # thresholds are not specified, infer them using the model that
         # has already been subset to avoid re-subsetting it within
         # `inter_objective_thresholds`.
-        if (
-            objective_weights.nonzero().numel() > 1
-            and self._objective_thresholds is None
+        if objective_weights.nonzero().numel() > 1 and (
+            self._objective_thresholds is None
+            or self._objective_thresholds[torch_opt_config.objective_weights != 0]
+            .isnan()
+            .any()
         ):
             if torch_opt_config.risk_measure is not None:
                 # TODO[T131759263]: modify the heuristic to support risk measures.
@@ -226,6 +228,7 @@ class Acquisition(Base):
                 outcome_constraints=full_outcome_constraints,
                 X_observed=primary_Xs_observed,
                 subset_idcs=subset_idcs,
+                objective_thresholds=self._objective_thresholds,
             )
             objective_thresholds = (
                 not_none(self._objective_thresholds)[subset_idcs]

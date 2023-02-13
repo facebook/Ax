@@ -350,13 +350,10 @@ def extract_objective_thresholds(
     Will return None if no objective thresholds, otherwise the extracted tensor
     will be the same length as `outcomes`.
 
-    If one objective threshold is specified, they must be specified for every
-    metric in the objective.
-
-    Outcomes that are not part of an objective will be given a threshold of 0
-    in this tensor, under the assumption that its value will not be used. Note
-    that setting it to 0 for an outcome that is part of the objective would be
-    incorrect, hence we validate that all objective metrics are represented.
+    Outcomes that are not part of an objective and the objectives that do no have
+    a corresponding objective threshold will be given a threshold of NaN. We will
+    later infer appropriate threshold values for the objectives that are given a
+    threshold of NaN.
 
     Args:
         objective_thresholds: Objective thresholds to extract values from.
@@ -378,20 +375,18 @@ def extract_objective_thresholds(
             )
         objective_threshold_dict[ot.metric.name] = ot.bound
 
-    if len(objective_threshold_dict) != len(objective.metrics):
+    # Check that all thresholds correspond to a metric.
+    if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
         raise ValueError(
-            "Objective thresholds do not match number of objective metrics."
+            "Some objective thresholds do not have corresponding metrics."
+            f"Got {objective_thresholds=} and {objective=}."
         )
-    # Initialize these to be nan to make sure that objective thresholds for
-    # non-objective metrics are never used
+
+    # Initialize these to be NaN to make sure that objective thresholds for
+    # non-objective metrics are never used.
     obj_t = np.full(len(outcomes), float("nan"))
-    for metric in objective.metrics:
-        if metric.name not in objective_threshold_dict:
-            raise ValueError(  # pragma: no cover
-                f"Objective threshold not specified for {metric.name}. Thresholds must "
-                f"be specified for all objective metrics or for none."
-            )
-        obj_t[outcomes.index(metric.name)] = objective_threshold_dict[metric.name]
+    for metric, threshold in objective_threshold_dict.items():
+        obj_t[outcomes.index(metric)] = threshold
     return obj_t
 
 
