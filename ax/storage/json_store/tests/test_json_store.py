@@ -92,6 +92,7 @@ from ax.utils.testing.core_stubs import (
     get_outcome_constraint,
     get_parameter_constraint,
     get_parameter_distribution,
+    get_pathlib_path,
     get_percentile_early_stopping_strategy,
     get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     get_percentile_early_stopping_strategy_with_true_objective_metric_name,
@@ -169,6 +170,7 @@ TEST_CASES = [
     ("OrEarlyStoppingStrategy", get_or_early_stopping_strategy),
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
+    ("Path", get_pathlib_path),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),
     (
         "PercentileEarlyStoppingStrategy",

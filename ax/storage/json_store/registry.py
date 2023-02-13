@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pathlib
 from typing import Any, Callable, Dict, Type
 
 import torch
@@ -87,7 +88,11 @@ from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
-from ax.storage.json_store.decoders import class_from_json, transform_type_from_json
+from ax.storage.json_store.decoders import (
+    class_from_json,
+    pathlib_from_json,
+    transform_type_from_json,
+)
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
@@ -117,6 +122,7 @@ from ax.storage.json_store.encoders import (
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
     parameter_distribution_to_dict,
+    pathlib_to_dict,
     percentile_early_stopping_strategy_to_dict,
     pytorch_cnn_torchvision_benchmark_problem_to_dict,
     range_parameter_to_dict,
@@ -191,6 +197,12 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     OutcomeConstraint: outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     ParameterDistribution: parameter_distribution_to_dict,
+    pathlib.Path: pathlib_to_dict,
+    pathlib.PurePath: pathlib_to_dict,
+    pathlib.PosixPath: pathlib_to_dict,
+    pathlib.WindowsPath: pathlib_to_dict,
+    pathlib.PurePosixPath: pathlib_to_dict,
+    pathlib.PureWindowsPath: pathlib_to_dict,
     PyTorchCNNTorchvisionBenchmarkProblem: pytorch_cnn_torchvision_benchmark_problem_to_dict,  # noqa
     PyTorchCNNMetric: metric_to_dict,
     PyTorchCNNTorchvisionRunner: runner_to_dict,
@@ -291,6 +303,12 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterDistribution": ParameterDistribution,
     "ParameterType": ParameterType,
+    "Path": pathlib_from_json,
+    "PurePath": pathlib_from_json,
+    "PosixPath": pathlib_from_json,
+    "WindowsPath": pathlib_from_json,
+    "PurePosixPath": pathlib_from_json,
+    "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
     "PyTorchCNNTorchvisionBenchmarkProblem": PyTorchCNNTorchvisionBenchmarkProblem,
     "PyTorchCNNMetric": PyTorchCNNMetric,

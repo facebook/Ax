@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
+from pathlib import Path
 from typing import Any, Dict, Type
 
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
@@ -607,3 +608,7 @@ def risk_measure_to_dict(
         "risk_measure": risk_measure.risk_measure,
         "options": risk_measure.options,
     }
+
+
+def pathlib_to_dict(path: Path):
+    return {"__type": path.__class__.__name__, "pathsegments": [str(path)]}

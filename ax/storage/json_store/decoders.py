@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
 
 from ax.core.arm import Arm
@@ -198,3 +199,7 @@ def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Typ
             "by this serialization/deserialization method."
         )
     return botorch_class(**state_dict)
+
+
+def pathlib_from_json(pathsegments):
+    return Path(*pathsegments)
