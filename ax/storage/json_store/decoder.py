@@ -700,18 +700,7 @@ def generation_strategy_from_json(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
-        # If model in the current step was not directly from the `Models` enum,
-        # pass its type to `restore_model_from_generator_run`, which will then
-        # attempt to use this type to recreate the model.
-        if type(gs._curr.model) != Models:
-            models_enum = type(gs._curr.model)
-            assert issubclass(models_enum, ModelRegistryBase)
-            # pyre-ignore[6]: `models_enum` typing hackiness
-            gs._restore_model_from_generator_run(models_enum=models_enum)
-            return gs
 
-        gs._restore_model_from_generator_run()
     return gs
 
 

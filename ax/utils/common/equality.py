@@ -166,8 +166,10 @@ def object_attribute_dicts_find_unequal_fields(
         elif field == "_model":  # pragma: no cover (tested in modelbridge)
             # TODO[T52643706]: replace with per-`ModelBridge` method like
             # `equivalent_models`, to compare models more meaningfully.
-            if not hasattr(one_val, "model"):
-                equal = not hasattr(other_val, "model")
+            if not hasattr(one_val, "model") or not hasattr(other_val, "model"):
+                equal = not hasattr(other_val, "model") and not hasattr(
+                    other_val, "model"
+                )
             else:
                 # If model bridges have a `model` attribute, the types of the
                 # values of those attributes should be equal if the model

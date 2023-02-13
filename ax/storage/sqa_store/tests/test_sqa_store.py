@@ -72,6 +72,7 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_data,
@@ -1182,12 +1183,17 @@ class SQAStoreTest(TestCase):
         new_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
 
     def testEncodeDecodeGenerationStrategyReducedState(self) -> None:
         """Try restoring the generation strategy using the experiment its attached to,
@@ -1218,15 +1224,22 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         # Now the generation strategies should be equal.
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
     def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
@@ -1274,14 +1287,21 @@ class SQAStoreTest(TestCase):
         # Now experiment on generation strategy should be equal to the original
         # experiment with reduced state.
         self.assertEqual(new_generation_strategy.experiment, experiment)
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
+        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
 
     def testUpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
@@ -1296,6 +1316,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add another generator run, save, reload
@@ -1307,14 +1332,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # During restoration of generation strategy's model from its last generator
-        # run, we set `_seen_trial_indices_by_status` to that of the experiment,
-        # from which we are grabbing the data to restore the model with. When the
-        # experiment was updated more recently than the last `gen` from generation
-        # strategy, the generation strategy prior to save might not have 'seen'
-        # some recently added trials, so we update the mappings to match and check
-        # that the generation strategies are equal otherwise.
-        generation_strategy._seen_trial_indices_by_status[TrialStatus.CANDIDATE].add(1)
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too
@@ -1325,13 +1347,12 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `description`.
-            generation_strategy._experiment.description,
+            not_none(generation_strategy._experiment).description,
             experiment.description,
         )
         self.assertEqual(
-            generation_strategy._experiment.description,
-            loaded_generation_strategy._experiment.description,
+            not_none(generation_strategy._experiment).description,
+            not_none(loaded_generation_strategy._experiment).description,
         )
 
     def testGeneratorRunGenMetadata(self) -> None:
@@ -1369,7 +1390,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        generation_strategy._save_seen_trial_indices()
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add even more generator runs, save using batch_size, reload
@@ -1392,7 +1417,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        generation_strategy._save_seen_trial_indices()
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
     def testUpdateRunner(self) -> None:
