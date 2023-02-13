@@ -220,7 +220,7 @@ def object_from_json(
                 num_trials=object_json["num_trials"],
                 infer_noise=object_json["infer_noise"],
             )
-        elif issubclass(_class, SerializationMixin):
+        elif isclass(_class) and issubclass(_class, SerializationMixin):
             return _class(**_class.deserialize_init_args(args=object_json))
 
         return ax_class_from_json_dict(
