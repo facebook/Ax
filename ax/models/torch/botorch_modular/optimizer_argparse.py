@@ -52,8 +52,15 @@ def _argparse_base(
     init_batch_limit: int = 32,
     batch_limit: int = 5,
     optimizer_options: Optional[Dict[str, Any]] = None,
+    optimizer_is_discrete: bool = False,
     **ignore: Any,
 ) -> Dict[str, Any]:
+    """
+    `optimizer_is_discrete`: True if the optimizer is `optimizer_acqf_discrete`,
+        which supports a limited set of arguments.
+    """
+    if optimizer_is_discrete:
+        return optimizer_options or {}
     return {
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,

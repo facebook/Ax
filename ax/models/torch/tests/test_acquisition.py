@@ -299,7 +299,6 @@ class AcquisitionTest(TestCase):
                 search_space_digest=ssd1,
                 fixed_features={3: 2.0},
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
         # check that SearchSpaceExhausted is raised correctly
         acquisition = self.get_acquisition_function()
@@ -313,7 +312,6 @@ class AcquisitionTest(TestCase):
                 n=1,
                 search_space_digest=ssd1,
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
         acquisition = self.get_acquisition_function()
         with self.assertWarnsRegex(
@@ -324,7 +322,6 @@ class AcquisitionTest(TestCase):
                 n=8,
                 search_space_digest=ssd1,
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
 
         # check this works without any fixed_feature specified
@@ -335,7 +332,6 @@ class AcquisitionTest(TestCase):
             n=2,
             search_space_digest=ssd1,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
         )
         expected = torch.tensor([[2, 2, 4], [2, 3, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (2, 3))
@@ -360,7 +356,6 @@ class AcquisitionTest(TestCase):
             search_space_digest=ssd2,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
         )
         expected = torch.tensor([[4, 2, 4], [3, 2, 4], [4, 2, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (3, 3))
@@ -373,7 +368,6 @@ class AcquisitionTest(TestCase):
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
             inequality_constraints=[
                 (torch.tensor([0, 1], dtype=torch.int64), -torch.ones(2), 0)
             ],
@@ -385,7 +379,6 @@ class AcquisitionTest(TestCase):
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
             inequality_constraints=[
                 (torch.tensor([0], dtype=torch.int64), -torch.ones(1), 0),
                 (torch.tensor([1], dtype=torch.int64), -torch.ones(1), 0),
