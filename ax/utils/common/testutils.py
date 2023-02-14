@@ -43,6 +43,7 @@ from pyfakefs import fake_filesystem_unittest
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
+COMPARISON_STR_MAX_LEVEL = 3
 T = TypeVar("T")
 
 logger: Logger = get_logger(__name__)
@@ -188,32 +189,52 @@ def _build_comparison_str(
     def _unequal_str(first: Any, second: Any) -> str:  # pyre-ignore[2]
         return f"{first} (type {type(first)}) != {second} (type {type(second)})."
 
-    if first == second or level > 3:
-        # Don't go deeper than 4 levels as the inequality report will not be legible.
+    if first == second:
         return ""
+
+    if level > COMPARISON_STR_MAX_LEVEL:
+        # Don't go deeper than 4 levels as the inequality report will not be legible.
+        return (
+            f"... also there were unequal fields at levels {level}+; "
+            "to see full comparison past this level, adjust `ax.utils.common.testutils."
+            "COMPARISON_STR_MAX_LEVEL`"
+        )
 
     msg = ""
     indent = " " * level * 4
-    _, unequal_val = object_attribute_dicts_find_unequal_fields(
+    unequal_types, unequal_val = object_attribute_dicts_find_unequal_fields(
         one_dict=first.__dict__ if isinstance(first, Base) else first,
         other_dict=second.__dict__ if isinstance(second, Base) else second,
         fast_return=False,
         skip_db_id_check=skip_db_id_check,
     )
+    unequal_types_suffixed = {
+        f"{k} (field had values of unequal type)": v for k, v in unequal_types.items()
+    }
     if level == 0:
         msg += f"{_unequal_str(first=first, second=second)}\n"
 
     msg += f"\n{indent}Fields with different values{values_in_suffix}:\n"
-    for idx, (field, (first, second)) in enumerate(unequal_val.items()):
+    joint_unequal_field_dict = {**unequal_val, **unequal_types_suffixed}
+    for idx, (field, (first, second)) in enumerate(joint_unequal_field_dict.items()):
         # For level 0, use numbers as bullets. For 1, use letters. For 2, use "i".
         # For 3, use "*".
         bul = "*"
         if level == 0:
             bul = f"{idx + 1})"
-        if level == 1:
+        elif level == 1:
             bul = f"{chr(ord('a') + idx)})"
-        if level == 2:
+        elif level == 2:
             bul = f"{'i' * (idx + 1)})"
+        elif level < COMPARISON_STR_MAX_LEVEL:
+            # Add default for when setting `COMPARISON_STR_MAX_LEVEL` to higher value
+            # during debugging.
+            bul = "*"
+        else:
+            raise RuntimeError(
+                "Reached level > `COMPARISON_STR_MAX_LEVEL`, which should've been "
+                "unreachable."
+            )
         msg += f"\n{indent}{bul} {field}: {_unequal_str(first=first, second=second)}\n"
         if isinstance(first, (dict, Base)) and isinstance(second, (dict, Base)):
             msg += _build_comparison_str(
