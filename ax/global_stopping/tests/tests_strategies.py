@@ -9,6 +9,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -27,13 +28,14 @@ from ax.global_stopping.strategies.improvement import (
     ImprovementGlobalStoppingStrategy,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import get_experiment, get_experiment_with_data
 
 
 class TestImprovementGlobalStoppingStrategy(TestCase):
     def test_base_cases(self) -> None:
         exp = get_experiment_with_data()
-        _ = exp.trials[0].mark_running(no_runner_required=True)
+        exp.trials[0].mark_running(no_runner_required=True)
 
         gss = ImprovementGlobalStoppingStrategy(min_trials=2, window_size=3)
         stop, message = gss.should_stop_optimization(experiment=exp)
@@ -52,13 +54,26 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "There are no completed trials yet.",
         )
 
-        _ = exp.trials[0].mark_completed()
+        # Insufficient trials to stop.
+        exp.trials[0].mark_completed()
         stop, message = gss.should_stop_optimization(experiment=exp)
         self.assertFalse(stop)
         self.assertEqual(
             message,
             "There are not enough completed trials to "
-            "make a stop decision (present: 1, required: 3).",
+            "make a stopping decision (completed: 1, required: 3).",
+        )
+
+        # Check that we properly count completed trials.
+        for _ in range(4):
+            checked_cast(BatchTrial, exp.trials[0]).clone()
+        exp.trials[3].mark_running(no_runner_required=True).mark_completed()
+        stop, message = gss.should_stop_optimization(experiment=exp)
+        self.assertFalse(stop)
+        self.assertEqual(
+            message,
+            "There are not enough completed trials to "
+            "make a stopping decision (completed: 2, required: 3).",
         )
 
         # Should raise ValueError if trying to check an invalid trial
@@ -90,22 +105,21 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             {
                 "trial_index": trial.index,
                 "metric_name": "m1",
-                # pyre-fixme[16]: Optional type has no attribute `name`.
-                "arm_name": trial.arm.name,
+                "arm_name": not_none(trial.arm).name,
                 "mean": values[0],
                 "sem": 0.0,
             },
             {
                 "trial_index": trial.index,
                 "metric_name": "m2",
-                "arm_name": trial.arm.name,
+                "arm_name": not_none(trial.arm).name,
                 "mean": values[1],
                 "sem": 0.0,
             },
             {
                 "trial_index": trial.index,
                 "metric_name": "m3",
-                "arm_name": trial.arm.name,
+                "arm_name": not_none(trial.arm).name,
                 "mean": values[2],
                 "sem": 0.0,
             },
@@ -342,11 +356,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             (0.5, 0.2, 0.4),  # infeasible
         ]
         exp = self._create_single_objective_experiment(metric_values=metric_values)
-        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertTrue(constraint_satisfaction(exp.trials[0]))
-        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[1]))
-        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[2]))
-        # pyre-fixme[6]: For 1st param expected `Trial` but got `BaseTrial`.
         self.assertFalse(constraint_satisfaction(exp.trials[3]))
