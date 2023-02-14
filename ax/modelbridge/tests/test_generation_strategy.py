@@ -221,35 +221,6 @@ class TestGenerationStrategy(TestCase):
         gs3 = gs1.clone_reset()
         self.assertEqual(gs1, gs3)
 
-    def test_restore_from_generator_run(self) -> None:
-        gs = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
-        )
-        # No generator runs on GS, so can't restore from one.
-        with self.assertRaises(ValueError):
-            gs._restore_model_from_generator_run()
-        exp = get_branin_experiment(with_batch=True)
-        gs.gen(experiment=exp)
-        model = gs.model
-        # Create a copy of the generation strategy and check that when
-        # we restore from last generator run, the model will be set
-        # correctly and that `_seen_trial_indices_by_status` is filled.
-        new_gs = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
-        )
-        new_gs._experiment = exp
-        new_gs._generator_runs = gs._generator_runs
-        self.assertIsNone(new_gs._seen_trial_indices_by_status)
-        new_gs._restore_model_from_generator_run()
-        self.assertEqual(gs._seen_trial_indices_by_status, exp.trial_indices_by_status)
-        # Model should be reset, but it should be the same model with same data.
-        self.assertIsNot(model, new_gs.model)
-        self.assertEqual(model.__class__, new_gs.model.__class__)  # Model bridge.
-        # pyre-fixme[16]: Optional type has no attribute `model`.
-        self.assertEqual(model.model.__class__, new_gs.model.model.__class__)  # Model.
-        # pyre-fixme[16]: Optional type has no attribute `_training_data`.
-        self.assertEqual(model._training_data, new_gs.model._training_data)
-
     def test_min_observed(self) -> None:
         # We should fail to transition the next model if there is not
         # enough data observed.

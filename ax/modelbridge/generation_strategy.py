@@ -10,7 +10,7 @@ from collections import defaultdict
 from copy import deepcopy
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -29,7 +29,7 @@ from ax.modelbridge.modelbridge_utils import extend_pending_observations
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 logger: Logger = get_logger(__name__)
 
@@ -664,18 +664,35 @@ class GenerationStrategy(Base):
         # Potential solution: store generator runs on `GenerationStep`-s and
         # split them per-model there.
         model_state_on_lgr = {}
+        model_on_curr = self._curr.model
         if (
             lgr is not None
             and lgr._generation_step_index == self._curr.index
             and lgr._model_state_after_gen
-            and self.model
         ):
-            # TODO[drfreund]: Consider moving this to `GenerationStep` or
-            # `GenerationNode`.
-            model_state_on_lgr = _extract_model_state_after_gen(
-                generator_run=lgr,
-                model_class=not_none(self.model).model.__class__,
-            )
+            if self.model or isinstance(model_on_curr, ModelRegistryBase):
+                # TODO[drfreund]: Consider moving this to `GenerationStep` or
+                # `GenerationNode`.
+                model_cls = (
+                    self.model.model.__class__
+                    if self.model is not None
+                    # NOTE: This checked cast is save per the OR-statement in last line
+                    # of the IF-check above.
+                    else checked_cast(ModelRegistryBase, model_on_curr).model_class
+                )
+                model_state_on_lgr = _extract_model_state_after_gen(
+                    generator_run=lgr,
+                    model_class=model_cls,
+                )
+            else:
+                logger.warning(  # pragma: no cover
+                    "While model state after last call to `gen` was recorded on the "
+                    "las generator run produced by this generation strategy, it could"
+                    " not be applied because model for this generation step is defined"
+                    f" via factory function: {self._curr.model}. Generation strategies"
+                    " with factory functions do not support reloading from a stored "
+                    "state."
+                )
 
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
@@ -715,7 +732,7 @@ class GenerationStrategy(Base):
             else:
                 data = self.experiment.lookup_data()
         else:
-            data = passed_in_data
+            data = passed_in_data  # pragma: no cover
         # By the time we get here, we will have already transitioned
         # to a new step, but if previous step required observed data,
         # we should raise an error even if enough trials were completed.
@@ -780,19 +797,6 @@ class GenerationStrategy(Base):
             df=passed_in_data.df[
                 passed_in_data.df.trial_index.isin(newly_completed_trials)
             ]
-        )
-
-    def _restore_model_from_generator_run(
-        self, models_enum: Optional[Type[ModelRegistryBase]] = None
-    ) -> None:
-        """Reinstantiates the most recent model on this generation strategy
-        from the last generator run it produced.
-
-        NOTE: Uses model and model bridge kwargs stored on the generator run, as well
-        as the model state attributes stored on the generator run.
-        """
-        self._fit_or_update_current_model(
-            data=self._get_data_for_fit(passed_in_data=None)
         )
 
     # ------------------------- State-tracking helpers. -------------------------
