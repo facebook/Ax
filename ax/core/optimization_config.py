@@ -476,21 +476,13 @@ def check_objective_thresholds_match_objectives(
             )
         obj_thresh_metrics.add(metric_name)
 
-        if metric_name in objectives_by_name:
-            minimize = objectives_by_name[metric_name].minimize
-            bounded_above = threshold.op == ComparisonOp.LEQ
-            is_aligned = minimize == bounded_above
-            if not is_aligned:
-                raise UserInputError(
-                    f"Objective threshold on {metric_name} bounds from "
-                    f"{'above' if bounded_above else 'below'} "
-                    f"but {metric_name} is being "
-                    f"{'minimized' if minimize else 'maximized'}."
-                )
-
-    obj_metrics = set(objectives_by_name.keys())
-    if objective_thresholds and obj_thresh_metrics.symmetric_difference(obj_metrics):
-        raise UserInputError(
-            f"Objective thresholds: {obj_thresh_metrics} do not match objectives: "
-            f"{obj_metrics}."
-        )
+        minimize = objectives_by_name[metric_name].minimize
+        bounded_above = threshold.op == ComparisonOp.LEQ
+        is_aligned = minimize == bounded_above
+        if not is_aligned:
+            raise UserInputError(
+                f"Objective threshold on {metric_name} bounds from "
+                f"{'above' if bounded_above else 'below'} "
+                f"but {metric_name} is being "
+                f"{'minimized' if minimize else 'maximized'}."
+            )

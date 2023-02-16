@@ -8,10 +8,13 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
@@ -19,7 +22,7 @@ from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger: Logger = get_logger(__name__)
@@ -105,19 +108,23 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         if trial_to_check is None:
             trial_to_check = max_completed_trial
-
-        if trial_to_check > max_completed_trial:
+        elif trial_to_check > max_completed_trial:
             raise ValueError(
                 "trial_to_check is larger than the total number of "
                 f"trials (={max_completed_trial})."
             )
 
+        # Only counting the trials up to trial_to_check.
+        num_completed_trials = sum(
+            index <= trial_to_check
+            for index in experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+        )
         min_required_trials = max(self.min_trials, self.window_size)
-        if trial_to_check < (min_required_trials - 1):
+        if num_completed_trials < min_required_trials:
             stop = False
             message = (
-                "There are not enough completed trials to make a stop decision "
-                f"(present: {trial_to_check+1}, required: {min_required_trials})."
+                "There are not enough completed trials to make a stopping decision "
+                f"(completed: {num_completed_trials}, required: {min_required_trials})."
             )
             return stop, message
 
@@ -164,7 +171,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         reference_point = (
             objective_thresholds
-            or experiment.optimization_config.objective_thresholds  # pyre-ignore
+            or checked_cast(
+                MultiObjectiveOptimizationConfig, experiment.optimization_config
+            ).objective_thresholds
         )
 
         # Computing or retrieving HV at "window_size" iteration before
@@ -226,7 +235,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 objectives.append(tr.objective_mean)
                 is_feasible.append(constraint_satisfaction(tr))
 
-        if experiment.optimization_config.objective.minimize:  # pyre-ignore
+        if checked_cast(
+            OptimizationConfig, experiment.optimization_config
+        ).objective.minimize:
             selector, mask_val = np.minimum, np.inf
         else:
             selector, mask_val = np.maximum, -np.inf
@@ -261,7 +272,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         return stop, message
 
 
-def constraint_satisfaction(trial: Trial) -> bool:
+def constraint_satisfaction(trial: BaseTrial) -> bool:
     """
     This function checks whether the outcome constraints of the
     optimization config of an experiment are satisfied in the
@@ -273,9 +284,9 @@ def constraint_satisfaction(trial: Trial) -> bool:
     Returns:
         A boolean which is True iff all outcome constraints are satisifed.
     """
-    outcome_constraints = (
-        trial.experiment.optimization_config.outcome_constraints  # pyre-ignore
-    )
+    outcome_constraints = not_none(
+        trial.experiment.optimization_config
+    ).outcome_constraints
     if len(outcome_constraints) == 0:
         return True
 

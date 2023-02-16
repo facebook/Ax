@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -1917,13 +1916,11 @@ class TestAxClient(TestCase):
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
-        # Trial #4 was completed after the last time the generation strategy
-        # generated candidates, so pre-save generation strategy was not
-        # "aware" of completion of trial #4. Post-restoration generation
-        # strategy is aware of it, however, since it gets restored with most
-        # up-to-date experiment data. Do adding trial #4 to the seen completed
-        # trials of pre-storage GS to check their equality otherwise.
-        gs._seen_trial_indices_by_status[TrialStatus.COMPLETED].add(4)
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        gs._seen_trial_indices_by_status = None
+        gs._model = None
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -2052,8 +2049,7 @@ class TestAxClient(TestCase):
             ax_client = AxClient.from_json_snapshot(serialized)
             with self.subTest(ax=ax_client, params=params, idx=idx):
                 new_params, new_idx = ax_client.get_next_trial()
-                self.assertEqual(params, new_params)
-                self.assertEqual(idx, new_idx)
+                # Sobol "init_position" setting should be saved on the generator run.
                 self.assertEqual(
                     # pyre-fixme[16]: `BaseTrial` has no attribute `_generator_run`.
                     ax_client.experiment.trials[
@@ -2061,6 +2057,8 @@ class TestAxClient(TestCase):
                     ]._generator_run._model_state_after_gen["init_position"],
                     idx + 1,
                 )
+                self.assertEqual(params, new_params)
+                self.assertEqual(idx, new_idx)
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(idx, branin(params.get("x"), params.get("y")))
 
