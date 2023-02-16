@@ -73,6 +73,8 @@ from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
+    CustomTestMetric,
+    CustomTestRunner,
     get_arm,
     get_branin_data,
     get_branin_experiment,
@@ -82,6 +84,7 @@ from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
     get_experiment_with_batch_trial,
+    get_experiment_with_custom_runner_and_metric,
     get_experiment_with_map_data_type,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
@@ -194,6 +197,68 @@ class SQAStoreTest(TestCase):
             self.experiment.name, load_trials_in_batches_of_size=2
         )
         self.assertEqual(self.experiment, loaded_experiment)
+
+    # The goal of this test is to confirm that when skip_runners_and_metrics
+    # is set to True, we do not attempt to load runners, and load
+    # metrics minimally (converted to a base metric). This enables us to
+    # load experiments with custom runners and metrics without a decoder.
+    def testLoadExperimentSkipMetricsAndRunners(self) -> None:
+        # Create a test experiment with a custom metric and runner.
+        experiment = get_experiment_with_custom_runner_and_metric()
+
+        # Note that the experiment is created outside of the test code.
+        # Confirm that it uses the custom runner and metric
+        self.assertEqual(experiment.runner.__class__, CustomTestRunner)
+        self.assertTrue("custom_test_metric" in experiment.metrics)
+        self.assertEqual(
+            experiment.metrics["custom_test_metric"].__class__, CustomTestMetric
+        )
+
+        # Create an SQAConfig with the updated registries with the
+        # custom runner and metric.
+        (
+            metric_registry,
+            partial_encoder_registry,
+            partial_decoder_registry,
+        ) = register_metric(metric_cls=CustomTestMetric)
+
+        runner_registry, encoder_registry, decoder_registry = register_runner(
+            runner_cls=CustomTestRunner,
+            encoder_registry=partial_encoder_registry,
+            decoder_registry=partial_decoder_registry,
+        )
+
+        sqa_config = SQAConfig(
+            json_encoder_registry=encoder_registry,
+            json_decoder_registry=decoder_registry,
+            metric_registry=metric_registry,
+            runner_registry=runner_registry,
+        )
+
+        # Save the experiment to db using the updated registries.
+        save_experiment(experiment, config=sqa_config)
+
+        # At this point try to load the experiment back without specifying
+        # updated registries. Confirm that this attempt fails.
+        with self.assertRaises(SQADecodeError):
+            loaded_experiment = load_experiment(self.experiment.name)
+
+        # Now load it with the skip_runners_and_metrics argument set.
+        # The experiment should load (i.e. no exceptions raised)
+        loaded_experiment = load_experiment(
+            self.experiment.name, skip_runners_and_metrics=True
+        )
+
+        # Validate that:
+        #   - the runner is not loaded
+        #   - the metric is loaded as a base Metric class (i.e. not CustomTestMetric)
+        self.assertIs(loaded_experiment.runner, None)
+        self.assertTrue("custom_test_metric" in loaded_experiment.metrics)
+        self.assertEqual(
+            loaded_experiment.metrics["custom_test_metric"].__class__, Metric
+        )
+        self.assertEqual(len(loaded_experiment.trials), 1)
+        self.assertIs(loaded_experiment.trials[0].runner, None)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",

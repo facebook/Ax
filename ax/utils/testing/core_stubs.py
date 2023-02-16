@@ -59,6 +59,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
+from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -136,6 +137,33 @@ def get_experiment_with_map_data_type() -> Experiment:
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
+
+
+def get_experiment_with_custom_runner_and_metric() -> Experiment:
+
+    # Create experiment with custom runner and metric
+    experiment = Experiment(
+        name="test",
+        search_space=get_search_space(),
+        optimization_config=get_optimization_config(),
+        description="test description",
+        tracking_metrics=[
+            CustomTestMetric(name="custom_test_metric", test_attribute="test")
+        ],
+        runner=CustomTestRunner(test_attribute="test"),
+        is_test=True,
+    )
+
+    # Create a trial, set its runner and complete it.
+    sobol_generator = get_sobol(search_space=experiment.search_space)
+    sobol_run = sobol_generator.gen(n=1)
+    trial = experiment.new_trial(generator_run=sobol_run)
+    trial.runner = experiment.runner
+    trial.mark_running()
+    experiment.attach_data(get_data(metric_name="custom_test_metric"))
+    trial.mark_completed()
+
+    return experiment
 
 
 def get_branin_experiment(
@@ -1976,3 +2004,22 @@ def get_parameter_distribution() -> ParameterDistribution:
         distribution_class="norm",
         distribution_parameters={"loc": 1.0, "scale": 0.5},
     )
+
+
+##############################
+# Custom runner and metric
+##############################
+
+
+class CustomTestRunner(Runner):
+    def __init__(self, test_attribute: str) -> None:
+        self.test_attribute = test_attribute
+
+    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+        return {"foo": "bar"}
+
+
+class CustomTestMetric(Metric):
+    def __init__(self, name: str, test_attribute: str) -> None:
+        self.test_attribute = test_attribute
+        super().__init__(name=name)
