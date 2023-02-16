@@ -482,11 +482,15 @@ class Acquisition(Base):
                 )
                 n = num_choices
 
-            return optimize_acqf_discrete(
-                acq_function=self.acqf,
+            discrete_opt_options = optimizer_argparse(
+                self.acqf,
+                bounds=bounds,
                 q=n,
-                choices=all_choices,
-                **optimizer_options_with_defaults,
+                optimizer_options=optimizer_options,
+                optimizer_is_discrete=True,
+            )
+            return optimize_acqf_discrete(
+                acq_function=self.acqf, q=n, choices=all_choices, **discrete_opt_options
             )
 
         # 2b. Handle mixed search spaces that have discrete and continuous features.
