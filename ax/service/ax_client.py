@@ -380,11 +380,11 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self._save_generation_strategy_to_db_if_possible()
 
     @property
-    def status_quo(self) -> TParameterization:
+    def status_quo(self) -> Optional[TParameterization]:
         """The parameterization of the status quo arm of the experiment."""
-        return not_none(
-            self.experiment.status_quo, "Experiment does not have a status quo arm"
-        ).parameters
+        if self.experiment.status_quo:
+            return self.experiment.status_quo.parameters
+        return None
 
     def set_status_quo(self, params: Optional[TParameterization]) -> None:
         """Set, or unset status quo on the experiment.  There may be risk
