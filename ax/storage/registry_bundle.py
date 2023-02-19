@@ -183,7 +183,9 @@ class RegistryBundle(RegistryBundleBase):
         ] = CORE_CLASS_ENCODER_REGISTRY,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        json_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = CORE_DECODER_REGISTRY,
+        json_decoder_registry: Dict[
+            str, Callable[[Dict[str, Any]], Any]
+        ] = CORE_DECODER_REGISTRY,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         json_class_decoder_registry: Dict[
             str, Callable[[Dict[str, Any]], Any]
