@@ -199,7 +199,7 @@ class SensitivityAnanlysisTest(TestCase):
 
     def testDerivativeGp(self) -> None:
         test_x = torch.rand(2, 2)
-        posterior = posterior_derivative(self.model, test_x, kernel_type="matern_l1")
+        posterior = posterior_derivative(self.model, test_x, kernel_type="matern")
         self.assertIsInstance(posterior, MultivariateNormal)
 
         with self.assertRaises(ValueError):
