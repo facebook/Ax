@@ -294,6 +294,7 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
+        self.assertIsNone(ax_client.status_quo)
         status_quo_params = {"x": 1.0, "y": 1.0}
         # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, Union[None,
         #  bool, float, int, str]]]` but got `Dict[str, float]`.
@@ -320,10 +321,10 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(ax_client.status_quo, status_quo_params)
         with self.subTest("it returns a copy"):
-            ax_client.status_quo.update({"x": 2.0})
-            ax_client.status_quo["y"] = 2.0
-            self.assertEqual(ax_client.status_quo["x"], 1.0)
-            self.assertEqual(ax_client.status_quo["y"], 1.0)
+            not_none(ax_client.status_quo).update({"x": 2.0})
+            not_none(ax_client.status_quo)["y"] = 2.0
+            self.assertEqual(not_none(ax_client.status_quo)["x"], 1.0)
+            self.assertEqual(not_none(ax_client.status_quo)["y"], 1.0)
 
     def test_set_optimization_config_to_moo_with_constraints(self) -> None:
         ax_client = AxClient()
