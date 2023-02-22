@@ -81,7 +81,7 @@ from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
@@ -311,6 +311,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     # NOTE: SurrogateRunners -> SyntheticRunner on load due to complications
     "SurrogateRunner": SyntheticRunner,
     "SyntheticRunner": SyntheticRunner,
+    "SurrogateSpec": SurrogateSpec,
     "Trial": Trial,
     "TrialType": TrialType,
     "TrialStatus": TrialStatus,

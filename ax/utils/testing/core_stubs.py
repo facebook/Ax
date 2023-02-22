@@ -88,7 +88,7 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
@@ -1932,6 +1932,14 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
         surrogate=get_surrogate(),
         acquisition_class=Acquisition,
         botorch_acqf_class=get_acquisition_function_type(),
+    )
+
+
+def get_botorch_model_with_surrogate_specs() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate_specs={
+            "name": SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
+        }
     )
 
 
