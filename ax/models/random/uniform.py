@@ -24,7 +24,7 @@ class UniformGenerator(RandomModel):
 
     def __init__(self, deduplicate: bool = True, seed: Optional[int] = None) -> None:
         super().__init__(deduplicate=deduplicate, seed=seed)
-        self._rs = np.random.RandomState(seed=seed)
+        self._rs = np.random.RandomState(seed=self.seed)
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate samples from the scipy uniform distribution.
