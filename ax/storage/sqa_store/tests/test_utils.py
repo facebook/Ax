@@ -41,6 +41,11 @@ class SQAStoreUtilsTest(TestCase):
         # pyre-fixme[8]: Attribute has type `int`; used as `None`.
         exp2.trials[0].generator_runs[0].arms[0].db_id = None
 
+        # this proves it does not error trying to sort lists in run_metadata
+        run_metadata = {"arms": [arm.parameters for arm in exp2.trials[0].arms]}
+        exp1.trials[0].update_run_metadata(run_metadata)
+        exp2.trials[0].update_run_metadata(run_metadata)
+
         # copy db_ids from exp1 to exp2
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
