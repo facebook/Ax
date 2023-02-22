@@ -135,7 +135,8 @@ class RandomModel(Model):
             if self.fallback_to_sample_polytope:
                 logger.info(
                     "Rejection sampling exceeded specified maximum draws."
-                    "Falling back on polytope sampler"
+                    "Falling back on HitAndRunPolytopeSampler instead of "
+                    f"{self.__class__.__name__}."
                 )
                 # If rejection sampling fails, try polytope sampler.
                 polytope_sampler = HitAndRunPolytopeSampler(
