@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Dict
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.decoder import object_from_json
