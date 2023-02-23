@@ -58,7 +58,6 @@ UNITTEST_MINIMAL_REQUIRES = [
     "tensorboard",  # For tensorboard unit tests.
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
-    "protobuf<4",  # Temporary fix for tensorboard / ray import errors.
 ]
 
 UNITTEST_REQUIRES = (
