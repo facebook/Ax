@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.exceptions.core import AxError
+from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
 from ax.models.torch.utils import (  # noqa F40
     _get_X_pending_and_observed,
     _to_inequality_constraints,
@@ -136,7 +137,7 @@ def get_NEHVI(
         qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -209,7 +210,7 @@ def get_EHVI(
         qExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -524,7 +525,7 @@ def infer_objective_thresholds(
         feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         pred = pred[feas]
     if pred.shape[0] == 0:
-        raise AxError("There are no feasible observed points.")
+        raise AxError(NO_FEASIBLE_POINTS_MESSAGE)
     obj_mask = objective_weights.nonzero().view(-1)
     obj_weights_subset = objective_weights[obj_mask]
     obj = pred[..., obj_mask] * obj_weights_subset

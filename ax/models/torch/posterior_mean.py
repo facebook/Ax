@@ -8,6 +8,7 @@
 from typing import Any, Optional, Tuple
 
 import torch
+from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -55,7 +56,7 @@ def get_PosteriorMean(
         PosteriorMean: The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
         with torch.no_grad():
