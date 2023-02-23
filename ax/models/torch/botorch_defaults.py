@@ -45,6 +45,10 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-6
+NO_FEASIBLE_POINTS_MESSAGE = (
+    "There are no feasible observed points.  This likely means that one "
+    "or more outcome constraints or objective thresholds is set too strictly.  "
+)
 
 
 def get_and_fit_model(
@@ -270,7 +274,7 @@ def _get_acquisition_func(
         The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     if kwargs.get("chebyshev_scalarization", False):
         with torch.no_grad():
