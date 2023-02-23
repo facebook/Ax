@@ -34,7 +34,7 @@ def not_none(val: Optional[T], message: Optional[str] = None) -> T:
     return val
 
 
-def checked_cast(typ: Type[T], val: V) -> T:
+def checked_cast(typ: Type[T], val: V, exception: Optional[Exception] = None) -> T:
     """
     Cast a value to a type (with a runtime safety check).
 
@@ -48,13 +48,16 @@ def checked_cast(typ: Type[T], val: V) -> T:
     Args:
         typ: the type to cast to
         val: the value that we are casting
+        exception: override exception to raise if  typecheck fails
     Returns:
         the ``val`` argument, unchanged
 
     .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
     """
     if not isinstance(val, typ):
-        raise ValueError(f"Value was not of type {typ}:\n{val}")
+        raise exception if exception is not None else ValueError(
+            f"Value was not of type {typ}:\n{val}"
+        )
     return val
 
 
