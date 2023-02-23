@@ -55,14 +55,14 @@ class Arm(SortableBase):
 
     @property
     def name_or_short_signature(self) -> str:
-        """Returns arm name if exists; else last 4 characters of the hash.
+        """Returns arm name if exists; else last 8 characters of the hash.
 
         Used for presentation of candidates (e.g. plotting and tables),
         where the candidates do not yet have names (since names are
         automatically set upon addition to a trial).
 
         """
-        return self._name or self.signature[-4:]
+        return self._name or self.signature[-8:]
 
     @name.setter
     def name(self, name: str) -> None:
