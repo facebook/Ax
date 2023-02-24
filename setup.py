@@ -25,10 +25,9 @@ REQUIRES = [
     "pandas",
     "scipy",
     "scikit-learn",
-    # ipywidgets 8.0.0 is incompatible with Plotly >=5.7.0
-    # https://github.com/plotly/plotly.py/issues/3686
-    "ipywidgets<8.0.0",
-    "plotly",
+    "ipywidgets",
+    # Needed for compatibility with ipywidgets >= 8.0.0
+    "plotly>=5.12.0",
     "typeguard",
 ]
 
