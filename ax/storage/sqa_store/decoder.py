@@ -41,7 +41,6 @@ from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, Sea
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import ModelRegistryBase, Models
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
@@ -770,6 +769,7 @@ class Decoder:
                 for gr in gs_sqa.generator_runs
             ]
         gs._experiment = experiment
+
         if len(gs._generator_runs) > 0:
             # Generation strategy had an initialized model.
             if experiment is None:
@@ -777,17 +777,8 @@ class Decoder:
                     "Cannot decode a generation strategy with a non-zero number of "
                     "generator runs without an experiment."
                 )
-            # If model in the current step was not directly from the `Models` enum,
-            # pass its type to `restore_model_from_generator_run`, which will then
-            # attempt to use this type to recreate the model.
-            if type(gs._curr.model) != Models:
-                models_enum = type(gs._curr.model)
-                assert issubclass(models_enum, ModelRegistryBase)
-                # pyre-ignore[6]: `models_enum` typing hackiness
-                gs._restore_model_from_generator_run(models_enum=models_enum)
-            else:
-                gs._restore_model_from_generator_run()
         gs.db_id = gs_sqa.id
+
         return gs
 
     def runner_from_sqa(

@@ -92,7 +92,6 @@ class TestBenchmark(TestCase):
             for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
                 self.assertTrue((agg.score_trace[col] <= 100).all())
 
-    @fast_botorch_optimize
     def test_timeout(self) -> None:
         problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
             test_problem_class=Branin,

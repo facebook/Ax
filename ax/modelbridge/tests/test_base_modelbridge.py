@@ -190,7 +190,7 @@ class BaseModelBridgeTest(TestCase):
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=None,
             pending_observations={},
-            fixed_features=ObservationFeatures({}),
+            fixed_features=None,
             model_gen_options=None,
         )
 
@@ -208,7 +208,7 @@ class BaseModelBridgeTest(TestCase):
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             optimization_config=oc2,
             pending_observations={},
-            fixed_features=ObservationFeatures({}),
+            fixed_features=None,
             model_gen_options=None,
         )
 
@@ -551,9 +551,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testGenWithDefaults(self, _, mock_gen):
+    def testGenWithDefaults(self, _, mock_gen: Mock) -> None:
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
@@ -565,7 +563,7 @@ class BaseModelBridgeTest(TestCase):
             modelbridge,
             n=1,
             search_space=ss,
-            fixed_features=ObservationFeatures(parameters={}),
+            fixed_features=None,
             model_gen_options=None,
             optimization_config=OptimizationConfig(
                 objective=Objective(metric=Metric("test_metric"), minimize=False),

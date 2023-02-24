@@ -9,8 +9,9 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import warnings
+from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -18,8 +19,11 @@ from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.utils import (
+    choose_model_class,
+    convert_to_block_design,
     disable_one_to_many_transforms,
     fit_botorch_model,
+    use_model_list,
 )
 from ax.models.torch.utils import (
     _to_inequality_constraints,
@@ -33,6 +37,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
 from botorch.models.model import Model
+from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputPerturbation, InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
@@ -63,7 +68,9 @@ class Surrogate(Base):
 
     Args:
         botorch_model_class: ``Model`` class to be used as the underlying
-            BoTorch model.
+            BoTorch model. If None is provided a model class will be selected (either
+            one for all outcomes or a ModelList with separate models for each outcome)
+            will be selected automatically based off the datasets at `construct` time.
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
@@ -84,7 +91,7 @@ class Surrogate(Base):
             construct custom BoTorch ``Model`` in the future.
     """
 
-    botorch_model_class: Type[Model]
+    botorch_model_class: Optional[Type[Model]]
     model_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
     mll_options: Dict[str, Any]
@@ -94,6 +101,7 @@ class Surrogate(Base):
     covar_module_options: Dict[str, Any]
     likelihood_class: Optional[Type[Likelihood]] = None
     likelihood_options: Dict[str, Any]
+
     _training_data: Optional[List[SupervisedDataset]] = None
     _outcomes: Optional[List[str]] = None
     _model: Optional[Model] = None
@@ -106,7 +114,7 @@ class Surrogate(Base):
         self,
         # TODO: make optional when BoTorch model factory is checked in.
         # Construction will then be possible from likelihood, kernel, etc.
-        botorch_model_class: Type[Model],
+        botorch_model_class: Optional[Type[Model]] = None,
         model_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
@@ -186,11 +194,79 @@ class Surrogate(Base):
     def clone_reset(self) -> Surrogate:
         return self.__class__(**self._serialize_attributes_as_kwargs())
 
-    def construct(self, datasets: List[SupervisedDataset], **kwargs: Any) -> None:
+    def construct(
+        self,
+        datasets: List[SupervisedDataset],
+        metric_names: List[str],
+        search_space_digest: Optional[SearchSpaceDigest] = None,
+        **kwargs: Any,
+    ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
 
         Args:
-            training_data: Training data for the model (for one outcome for
+            datasets: A list of ``SupervisedDataset`` containers, each
+                corresponding to the data of one metric (outcome).
+            metric_names: A list of metric names, with the i-th metric
+                corresponding to the i-th dataset.
+            search_space_digest: Information about the search space used for
+                inferring suitable botorch model class.
+            **kwargs: Optional keyword arguments, expects any of:
+                - "fidelity_features": Indices of columns in X that represent
+                fidelity.
+        """
+        if self.botorch_model_class is None and search_space_digest is None:
+            raise UserInputError(
+                "seach_space_digest may not be None if surrogate.botorch_model_class "
+                "is None. The SearchSpaceDigest is used to choose and appropriate "
+                "model class automatically."
+            )
+
+        if self._constructed_manually:
+            logger.warning("Reconstructing a manually constructed `Model`.")
+
+        # To determine whether to use ModelList under the hood, we need to check for
+        # the batched multi-output case, so we first see which model would be chosen
+        # given the Yvars and the properties of data.
+        botorch_model_class = self.botorch_model_class or choose_model_class(
+            datasets=datasets,
+            search_space_digest=not_none(search_space_digest),
+        )
+
+        if not use_model_list(
+            datasets=datasets, botorch_model_class=botorch_model_class
+        ):
+            if self.botorch_model_class is None:
+                self.botorch_model_class = botorch_model_class
+
+            if len(datasets) > 1:
+                datasets, metric_names = convert_to_block_design(
+                    datasets=datasets,
+                    metric_names=metric_names,
+                    force=True,
+                )
+                kwargs["metric_names"] = metric_names
+
+            self._construct_model(
+                dataset=datasets[0],
+                **kwargs,
+            )
+        else:
+            self._construct_model_list(
+                datasets=datasets,
+                metric_names=metric_names,
+                search_space_digest=search_space_digest,
+                **kwargs,
+            )
+
+    def _construct_model(
+        self,
+        dataset: SupervisedDataset,
+        **kwargs: Any,
+    ) -> None:
+        """Constructs the underlying BoTorch ``Model`` using the training data.
+
+        Args:
+            dataset: Training data for the model (for one outcome for
                 the default `Surrogate`, with the exception of batched
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
@@ -198,15 +274,14 @@ class Surrogate(Base):
                 - "fidelity_features": Indices of columns in X that represent
                 fidelity.
         """
-        if self._constructed_manually:
-            logger.warning("Reconstructing a manually constructed `Model`.")
-        if not len(datasets) == 1:
-            raise ValueError(  # pragma: no cover
-                "Base `Surrogate` expects training data for single outcome."
+        if self.botorch_model_class is None:
+            raise ValueError(
+                "botorch_model_class must be set to construct single model Surrogate."
             )
+        botorch_model_class = self.botorch_model_class
+
         input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
-        dataset = datasets[0]
-        botorch_model_class_args = inspect.getfullargspec(self.botorch_model_class).args
+        botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
 
         # Temporary workaround to allow models to consume data from
         # `FixedNoiseDataset`s even if they don't accept variance observations
@@ -214,7 +289,7 @@ class Surrogate(Base):
             dataset, FixedNoiseDataset
         ):
             warnings.warn(
-                f"Provided model class {self.botorch_model_class} does not accept "
+                f"Provided model class {botorch_model_class} does not accept "
                 "`train_Yvar` argument, but received `FixedNoiseDataset`. Ignoring "
                 "variance observations and converting to `SupervisedDataset`.",
                 AxWarning,
@@ -223,7 +298,7 @@ class Surrogate(Base):
 
         self._training_data = [dataset]
 
-        formatted_model_inputs = self.botorch_model_class.construct_inputs(
+        formatted_model_inputs = botorch_model_class.construct_inputs(
             training_data=dataset, **input_constructor_kwargs
         )
         self._set_formatted_inputs(
@@ -244,7 +319,112 @@ class Surrogate(Base):
             robust_digest=kwargs.get("robust_digest", None),
         )
         # pyre-ignore [45]
-        self._model = self.botorch_model_class(**formatted_model_inputs)
+        self._model = botorch_model_class(**formatted_model_inputs)
+
+    def _construct_model_list(
+        self,
+        datasets: List[SupervisedDataset],
+        metric_names: Iterable[str],
+        search_space_digest: Optional[SearchSpaceDigest] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Constructs the underlying BoTorch ``Model`` using the training data.
+
+        Args:
+            datasets: List of ``SupervisedDataset`` for the submodels of
+                ``ModelListGP``. Each training data is for one outcome, and the order
+                of outcomes should match the order of metrics in ``metric_names``
+                argument.
+            metric_names: Names of metrics, in the same order as datasets (so if
+                datasets is ``[ds_A, ds_B]``, the metrics are ``["A" and "B"]``).
+                These are used to match training data with correct submodels of
+                ``ModelListGP``.
+            search_space_digest: SearchSpaceDigest must be provided if no
+                botorch_submodel_class is provided so the appropriate botorch model
+                class can be automatically selected.
+
+            **kwargs: Keyword arguments, accepts:
+                - ``fidelity_features``: Indices of columns in X that represent
+                    fidelity
+                - ``task_features``: Indices of columns in X that represent tasks
+                - ``robust_digest``: An optional `RobustSearchSpaceDigest` that carries
+                    additional attributes if using a `RobustSearchSpace`
+        """
+        if self.botorch_model_class is None and search_space_digest is None:
+            raise UserInputError(
+                "Must either provide `botorch_submodel_class` or "
+                "`search_space_digest` so an appropriate submodel class can be "
+                "chosen."
+            )
+
+        self._training_data = datasets
+
+        (
+            fidelity_features,
+            task_feature,
+            submodel_input_transforms,
+        ) = self._extract_construct_model_list_kwargs(
+            fidelity_features=kwargs.get(Keys.FIDELITY_FEATURES, []),
+            task_features=kwargs.get(Keys.TASK_FEATURES, []),
+            robust_digest=kwargs.get("robust_digest", None),
+        )
+
+        submodels = []
+        for m, dataset in zip(metric_names, datasets):
+            model_cls = self.botorch_model_class or choose_model_class(
+                datasets=[dataset], search_space_digest=not_none(search_space_digest)
+            )
+
+            if self._outcomes is not None and m not in self._outcomes:
+                logger.warning(f"Metric {m} not in training data.")
+                continue
+
+            formatted_model_inputs = model_cls.construct_inputs(
+                training_data=dataset,
+                fidelity_features=fidelity_features,
+                task_feature=task_feature,
+                **self.model_options,
+            )
+            # Add input / outcome transforms.
+            # TODO: The use of `inspect` here is not ideal. We should find a better
+            # way to filter the arguments. See the comment in `Surrogate.construct`
+            # regarding potential use of a `ModelFactory` in the future.
+            model_cls_args = inspect.getfullargspec(model_cls).args
+            self._set_formatted_inputs(
+                formatted_model_inputs=formatted_model_inputs,
+                inputs=[
+                    [
+                        "covar_module",
+                        self.covar_module_class,
+                        self.covar_module_options,
+                        None,
+                    ],
+                    [
+                        "likelihood",
+                        self.likelihood_class,
+                        self.likelihood_options,
+                        None,
+                    ],
+                    [
+                        "outcome_transform",
+                        None,
+                        None,
+                        deepcopy(self.outcome_transform),
+                    ],
+                    [
+                        "input_transform",
+                        None,
+                        None,
+                        deepcopy(submodel_input_transforms),
+                    ],
+                ],
+                dataset=dataset,
+                botorch_model_class_args=model_cls_args,
+            )
+            # pyre-ignore[45]: Py raises informative error if model is abstract.
+            submodels.append(model_cls(**formatted_model_inputs))
+
+        self._model = ModelListGP(*submodels)
 
     def _set_formatted_inputs(
         self,
@@ -357,6 +537,7 @@ class Surrogate(Base):
             self.construct(
                 datasets=datasets,
                 metric_names=metric_names,
+                search_space_digest=search_space_digest,
                 **dataclasses.asdict(search_space_digest),
             )
             self._outcomes = (
@@ -453,7 +634,7 @@ class Surrogate(Base):
         from ax.models.torch.botorch_modular.acquisition import Acquisition
 
         acqf = Acquisition(  # TODO: For multi-fidelity, might need diff. class.
-            surrogate=self,
+            surrogates={"self": self},
             botorch_acqf_class=acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -555,3 +736,53 @@ class Surrogate(Base):
             "likelihood_class": self.likelihood_class,
             "likelihood_options": self.likelihood_options,
         }
+
+    def _extract_construct_model_list_kwargs(
+        self,
+        fidelity_features: Sequence[int],
+        task_features: Sequence[int],
+        robust_digest: Optional[Mapping[str, Any]],
+    ) -> Tuple[List[int], Optional[int], Optional[InputTransform]]:
+        if len(fidelity_features) > 0 and len(task_features) > 0:
+            raise NotImplementedError(
+                "Multi-Fidelity GP models with task_features are "
+                "currently not supported."
+            )
+        # TODO: Allow each metric having different task_features or fidelity_features
+        # TODO: Need upstream change in the modelbrdige
+        if len(task_features) > 1:
+            raise NotImplementedError("This model only supports 1 task feature!")
+        elif len(task_features) == 1:
+            task_feature = task_features[0]
+        else:
+            task_feature = None
+
+        # Construct input perturbation if doing robust optimization.
+        # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
+        # we use the same perturbations for each sub-model.
+        if robust_digest is not None:
+            if len(robust_digest["environmental_variables"]) > 0:
+                # TODO[T131759269]: support env variables.
+                raise NotImplementedError(
+                    "Environmental variable support is not yet implemented."
+                )
+            samples = torch.as_tensor(
+                robust_digest["sample_param_perturbations"](),
+                dtype=self.dtype,
+                device=self.device,
+            )
+            perturbation = InputPerturbation(
+                perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
+            )
+
+            if self.input_transform is not None:
+                # TODO: Support mixing with user supplied transforms.
+                raise NotImplementedError(
+                    "User supplied input transforms are not supported "
+                    "in robust optimization."
+                )
+            submodel_input_transforms = perturbation
+        else:
+            submodel_input_transforms = self.input_transform
+
+        return list(fidelity_features), task_feature, submodel_input_transforms

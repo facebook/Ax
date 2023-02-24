@@ -38,6 +38,7 @@ def load_experiment(
     config: Optional[SQAConfig] = None,
     reduced_state: bool = False,
     load_trials_in_batches_of_size: Optional[int] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> Experiment:
     """Load experiment by name.
 
@@ -48,6 +49,12 @@ def load_experiment(
         reduced_state: Whether to load experiment with a slightly reduced state
             (without abandoned arms on experiment and withoug model state,
             search space, and optimization config on generator runs).
+        skip_runners_and_metrics: If True skip loading runners, and do only a
+            minimal load of metrics. This option is intended to enable loading of
+            experiments that require custom runners or metrics, without depending
+            on a registry. Note that even though the intention is to skip loading
+            of metrics, this option converts the loaded metrics into a base
+            metric avoiding conversion related to custom properties of the metric.
     """
     config = config or SQAConfig()
     decoder = Decoder(config=config)
@@ -56,6 +63,7 @@ def load_experiment(
         decoder=decoder,
         reduced_state=reduced_state,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
 
 
@@ -65,6 +73,7 @@ def _load_experiment(
     reduced_state: bool = False,
     load_trials_in_batches_of_size: Optional[int] = None,
     ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
@@ -83,6 +92,7 @@ def _load_experiment(
             current valid object types are: "runner"
 
     """
+
     # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
     # `Type[SQAExperiment]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
     exp_sqa_class: Type[SQAExperiment] = decoder.config.class_to_sqa_class[Experiment]
@@ -109,7 +119,26 @@ def _load_experiment(
         exp_sqa_class=exp_sqa_class,
         trial_sqa_class=trial_sqa_class,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
+
+    # If skip_runners_and_metrics is True, override metric types to
+    # base metric type of 0 (to load them with minimum base properties).
+    # This includes metrics attached to the experiment, and ones
+    # attached to the trials.
+    #
+    # NOTE: Currently, we load metrics and then convert mostly go get
+    # "lower_is_better". Alternatively, we can "nolod" all attributes except
+    # "lower_is_better" or any other attribute we want to include. This can be
+    # implemented in the future if we need to.
+    if skip_runners_and_metrics:
+        for sqa_metric in experiment_sqa.metrics:
+            sqa_metric.metric_type = 0
+
+        for sqa_trial in experiment_sqa.trials:
+            for sqa_generator_run in sqa_trial.generator_runs:
+                for sqa_metric in sqa_generator_run.metrics:
+                    sqa_metric.metric_type = 0
 
     return decoder.experiment_from_sqa(
         experiment_sqa=experiment_sqa,
@@ -125,6 +154,7 @@ def _get_experiment_sqa(
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: Optional[List[Any]] = None,
     load_trials_in_batches_of_size: Optional[int] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """Obtains SQLAlchemy experiment object from DB."""
     with session_scope() as session:
@@ -133,6 +163,10 @@ def _get_experiment_sqa(
             # Delay loading trials to a separate call to `_get_trials_sqa` below
             .options(noload("trials"))
         )
+
+        if skip_runners_and_metrics:
+            query = query.options(noload("runners")).options(noload("trials.runner"))
+
         sqa_experiment = query.one_or_none()
 
     if sqa_experiment is None:
@@ -143,6 +177,7 @@ def _get_experiment_sqa(
         trial_sqa_class=trial_sqa_class,
         trials_query_options=trials_query_options,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
 
     sqa_experiment.trials = sqa_trials
@@ -156,6 +191,7 @@ def _get_trials_sqa(
     load_trials_in_batches_of_size: Optional[int] = None,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_query_options: Optional[List[Any]] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> List[SQATrial]:
 
     """Obtains SQLAlchemy trial objects for given experiment ID from DB,
@@ -186,6 +222,9 @@ def _get_trials_sqa(
             if trials_query_options is not None:
                 query = query.options(*trials_query_options)
 
+            if skip_runners_and_metrics:
+                query = query.options(noload("runner"))
+
             sqa_trials.extend(query.all())
 
     return sqa_trials
@@ -196,6 +235,7 @@ def _get_experiment_sqa_reduced_state(
     exp_sqa_class: Type[SQAExperiment],
     trial_sqa_class: Type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """Obtains most of the SQLAlchemy experiment object from DB, with some attributes
     (model state on generator runs, abandoned arms) omitted. Used for loading
@@ -211,6 +251,7 @@ def _get_experiment_sqa_reduced_state(
         trial_sqa_class=trial_sqa_class,
         trials_query_options=options,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
 
 
@@ -219,6 +260,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
     exp_sqa_class: Type[SQAExperiment],
     trial_sqa_class: Type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
+    skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """For experiments where the search space and opt config are
     immutable, we don't store copies of search space and opt config
@@ -232,6 +274,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
         trial_sqa_class=trial_sqa_class,
         trials_query_options=get_query_options_to_defer_immutable_duplicates(),
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
 
 

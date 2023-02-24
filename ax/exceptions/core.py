@@ -145,6 +145,12 @@ class SearchSpaceExhausted(OptimizationComplete):
         )
 
 
+class IncompatibleDependencyVersion(AxError):
+    """Raise when an imcompatible dependency version is installed."""
+
+    pass
+
+
 class AxWarning(Warning):
     """Base Ax warning.
 

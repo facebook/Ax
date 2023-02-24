@@ -38,6 +38,7 @@ DEV_REQUIRES = [
     "flake8",
     "hypothesis",
     "Jinja2",
+    "pyfakefs==5.1.0",
     "pytest>=4.6",
     "pytest-cov",
     "sphinx==5.3.0",
@@ -48,7 +49,7 @@ DEV_REQUIRES = [
     "yappi",
 ]
 
-MYSQL_REQUIRES = ["SQLAlchemy>=1.1.13"]
+MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 
@@ -56,7 +57,6 @@ UNITTEST_MINIMAL_REQUIRES = [
     "tensorboard",  # For tensorboard unit tests.
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
-    "protobuf<4",  # Temporary fix for tensorboard / ray import errors.
 ]
 
 UNITTEST_REQUIRES = (

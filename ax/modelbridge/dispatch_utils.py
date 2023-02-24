@@ -14,6 +14,7 @@ from ax.core.experiment import Experiment
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
 from ax.modelbridge.transforms.base import Transform
@@ -76,6 +77,7 @@ def _make_botorch_step(
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
     derelativize_with_raw_status_quo: bool = False,
+    use_update: Optional[bool] = None,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
 
@@ -104,11 +106,6 @@ def _make_botorch_step(
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
         model_kwargs.update({"disable_progbar": disable_progbar})
-    if is_saasbo(model):
-        logger.info(
-            "Setting `use_update=True` for SAASBO models. This will avoid "
-            " model re-fitting when there are no new completed trials."
-        )
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -116,7 +113,7 @@ def _make_botorch_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        use_update=is_saasbo(model),
+        use_update=use_update if use_update is not None else is_saasbo(model),
         # `model_kwargs` should default to `None` if empty
         model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
@@ -140,7 +137,8 @@ def _suggest_gp_model(
     ``MAX_DISCRETE_ENUMERATIONS_MIXED``, or if there are only choice parameters and
     the number of choice combinations to enumerate is less than
     ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. ``BO_MIXED`` is not currently enabled
-    for multi-objective optimization.
+    for multi-objective optimization. Note that we do not count 2-level choice
+    parameters as unordered, since these do not affect the modeling choice.
     3. We use ``MOO`` if ``optimization_config`` has multiple objectives and
     ``use_saasbo is False``.
     4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives
@@ -160,7 +158,7 @@ def _suggest_gp_model(
             should_enumerate_param = True
             num_param_discrete_values = len(parameter.values)
             num_possible_points *= num_param_discrete_values
-            if parameter.is_ordered is False:
+            if parameter.is_ordered is False and num_param_discrete_values > 2:
                 num_unordered_choices += num_param_discrete_values
             else:
                 num_ordered_parameters += 1
@@ -272,6 +270,7 @@ def choose_generation_strategy(
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
+    use_update: Optional[bool] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -366,9 +365,28 @@ def choose_generation_strategy(
             strategy with a given experiment before it's first used to ``gen`` with
             that experiment). Can also provide `optimization_config` if it is not
             provided as an arg to this function.
+        use_update: Whether to use ``ModelBridge.update`` to update the model with
+            new data rather than fitting it from scratch. This is much more efficient,
+            particularly when running trials in parallel. Note that this is not
+            compatible with metrics that are available while running.
+            It will default to True if using SAASBO and the given experiment does not
+            have any metrics that are available while running.
     """
-    if optimization_config is None and experiment is not None:
-        optimization_config = experiment.optimization_config
+    if experiment is not None:
+        if optimization_config is None:
+            optimization_config = experiment.optimization_config
+        metrics_available_while_running = any(
+            m.is_available_while_running() for m in experiment.metrics.values()
+        )
+        if metrics_available_while_running:
+            if use_update is True:
+                raise UnsupportedError(
+                    "Got `use_update=True` but the experiment has metrics that are "
+                    "available while running. Set `use_update=False`."
+                )
+            else:
+                use_update = False
+
     suggested_model = _suggest_gp_model(
         search_space=search_space,
         num_trials=num_trials,
@@ -422,12 +440,12 @@ def choose_generation_strategy(
                 num_trials=num_trials,
                 use_batch_trials=use_batch_trials,
             )
+            if max_initialization_trials is not None:
+                num_initialization_trials = min(
+                    num_initialization_trials, max_initialization_trials
+                )
             logger.info(
                 f"calculated num_initialization_trials={num_initialization_trials}"
-            )
-        if max_initialization_trials is not None:
-            num_initialization_trials = min(
-                num_initialization_trials, max_initialization_trials
             )
         num_remaining_initialization_trials = max(
             0, num_initialization_trials - max(0, num_completed_initialization_trials)
@@ -477,6 +495,7 @@ def choose_generation_strategy(
                 should_deduplicate=should_deduplicate,
                 verbose=verbose,
                 disable_progbar=disable_progbar,
+                use_update=use_update,
             ),
         )
         gs = GenerationStrategy(steps=steps)

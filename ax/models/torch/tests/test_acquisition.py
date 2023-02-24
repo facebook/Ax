@@ -92,25 +92,18 @@ class AcquisitionTest(TestCase):
             acqf_cls=DummyOneShotAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
-        tkwargs = {"dtype": torch.double}
+        tkwargs: Dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
         self.surrogate.construct(
-            datasets=self.training_data, fidelity_features=self.fidelity_features
+            datasets=self.training_data,
+            metric_names=["metric"],
+            fidelity_features=self.fidelity_features,
         )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
@@ -120,27 +113,15 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `dtype`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **tkwargs)]
         self.outcome_constraints = (
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[1.0]], **tkwargs),
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             torch.tensor([[0.5]], **tkwargs),
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
         self.options = {"best_f": 0.0}
         self.inequality_constraints = [
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `dtype`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
         self.rounding_func = lambda x: x
@@ -162,7 +143,7 @@ class AcquisitionTest(TestCase):
             botorch_acqf_class=DummyOneShotAcquisitionFunction
             if one_shot
             else self.botorch_acqf_class,
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
                 self.torch_opt_config, fixed_features=fixed_features or {}
@@ -201,7 +182,7 @@ class AcquisitionTest(TestCase):
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
             # pyre-fixme[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
-                surrogate=self.surrogate,
+                surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
@@ -210,7 +191,7 @@ class AcquisitionTest(TestCase):
         mock_get_objective_and_transform.return_value = (botorch_objective, None)
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -230,12 +211,11 @@ class AcquisitionTest(TestCase):
             "fixed_features",
         ):
             self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
-            # self.assertEqual(ckwargs[attr], getattr(self, attr))
         self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
 
         # Call `subset_model` only when needed
         mock_subset_model.assert_called_with(
-            model=acquisition.surrogate.model,
+            model=acquisition.surrogates["surrogate"].model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
@@ -246,7 +226,7 @@ class AcquisitionTest(TestCase):
         mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -256,7 +236,7 @@ class AcquisitionTest(TestCase):
         # Check `get_botorch_objective_and_transform` kwargs
         mock_get_objective_and_transform.assert_called_once()
         _, ckwargs = mock_get_objective_and_transform.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
         self.assertIs(ckwargs["objective_weights"], self.objective_weights)
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
@@ -265,7 +245,7 @@ class AcquisitionTest(TestCase):
         self.mock_input_constructor.assert_called_once()
         mock_botorch_acqf_class.assert_called_once()
         _, ckwargs = self.mock_input_constructor.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
         for k, v in chain(self.options.items(), model_deps.items()):
@@ -319,7 +299,6 @@ class AcquisitionTest(TestCase):
                 search_space_digest=ssd1,
                 fixed_features={3: 2.0},
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
         # check that SearchSpaceExhausted is raised correctly
         acquisition = self.get_acquisition_function()
@@ -333,7 +312,6 @@ class AcquisitionTest(TestCase):
                 n=1,
                 search_space_digest=ssd1,
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
         acquisition = self.get_acquisition_function()
         with self.assertWarnsRegex(
@@ -344,7 +322,6 @@ class AcquisitionTest(TestCase):
                 n=8,
                 search_space_digest=ssd1,
                 rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
             )
 
         # check this works without any fixed_feature specified
@@ -355,7 +332,6 @@ class AcquisitionTest(TestCase):
             n=2,
             search_space_digest=ssd1,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
         )
         expected = torch.tensor([[2, 2, 4], [2, 3, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (2, 3))
@@ -380,7 +356,6 @@ class AcquisitionTest(TestCase):
             search_space_digest=ssd2,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
         )
         expected = torch.tensor([[4, 2, 4], [3, 2, 4], [4, 2, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (3, 3))
@@ -393,7 +368,6 @@ class AcquisitionTest(TestCase):
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
             inequality_constraints=[
                 (torch.tensor([0, 1], dtype=torch.int64), -torch.ones(2), 0)
             ],
@@ -405,7 +379,6 @@ class AcquisitionTest(TestCase):
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
             inequality_constraints=[
                 (torch.tensor([0], dtype=torch.int64), -torch.ones(1), 0),
                 (torch.tensor([1], dtype=torch.int64), -torch.ones(1), 0),
@@ -528,7 +501,9 @@ class AcquisitionTest(TestCase):
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
-        self.surrogate.construct(datasets=moo_training_data)
+        self.surrogate.construct(
+            datasets=moo_training_data, metric_names=["m1", "m2", "m3"]
+        )
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),
@@ -542,7 +517,7 @@ class AcquisitionTest(TestCase):
             objective_thresholds=moo_objective_thresholds,
         )
         acquisition = Acquisition(
-            surrogate=self.surrogate,
+            surrogates={"surrogate": self.surrogate},
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             search_space_digest=self.search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -576,7 +551,7 @@ class AcquisitionTest(TestCase):
                 )
             )
             acquisition = Acquisition(
-                surrogate=self.surrogate,
+                surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 botorch_acqf_class=self.botorch_acqf_class,
                 torch_opt_config=dataclasses.replace(
@@ -589,6 +564,26 @@ class AcquisitionTest(TestCase):
                 torch.equal(
                     acquisition.objective_thresholds[:2],
                     torch.tensor([9.9, 3.3], **self.tkwargs),
+                )
+            )
+            self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+            # With partial thresholds.
+            acquisition = Acquisition(
+                surrogates={"surrogate": self.surrogate},
+                search_space_digest=self.search_space_digest,
+                botorch_acqf_class=self.botorch_acqf_class,
+                torch_opt_config=dataclasses.replace(
+                    torch_opt_config,
+                    objective_thresholds=torch.tensor(
+                        [float("nan"), 5.5, float("nan")], **self.tkwargs
+                    ),
+                ),
+                options=self.options,
+            )
+            self.assertTrue(
+                torch.equal(
+                    acquisition.objective_thresholds[:2],
+                    torch.tensor([9.9, 5.5], **self.tkwargs),
                 )
             )
             self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))

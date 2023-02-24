@@ -7,10 +7,12 @@
 import logging
 import warnings
 from typing import Any, Dict
+from unittest import mock
 
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import (
     calculate_num_initialization_trials,
     choose_generation_strategy,
@@ -23,6 +25,7 @@ from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
     get_branin_search_space,
     get_discrete_search_space,
     get_experiment,
@@ -70,6 +73,24 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
             self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+        with self.subTest("num_initialization_trials > max_initialization_trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                max_initialization_trials=2,
+                num_initialization_trials=3,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+        with self.subTest("num_initialization_trials > max_initialization_trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                max_initialization_trials=2,
+                num_initialization_trials=3,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
@@ -94,14 +115,12 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("Sobol (because of too many categories)"):
-            ss = get_large_factorial_search_space()
             sobol_large = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(), verbose=True
             )
             self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
         with self.subTest("Sobol (because of too many categories) with saasbo"):
-            ss = get_large_factorial_search_space()
             with self.assertLogs(
                 choose_generation_strategy.__module__, logging.WARNING
             ) as logger:
@@ -119,6 +138,14 @@ class TestDispatchUtils(TestCase):
                 )
             self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
+        with self.subTest("GPEI despite many unordered 2-value parameters"):
+            gs = choose_generation_strategy(
+                search_space=get_large_factorial_search_space(
+                    num_levels=2, num_parameters=10
+                ),
+            )
+            self.assertEqual(gs._steps[0].model, Models.SOBOL)
+            self.assertEqual(gs._steps[1].model, Models.GPEI)
         with self.subTest("GPEI-Batched"):
             sobol_gpei_batched = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -441,7 +468,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[1].model, Models.BO_MIXED)
         with self.subTest("with budget that is exhaustive, Sobol is used"):
-            sobol = choose_generation_strategy(search_space=ss, num_trials=24)
+            sobol = choose_generation_strategy(search_space=ss, num_trials=36)
             self.assertEqual(sobol._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol._steps), 1)
         with self.subTest("with budget that is exhaustive and use_saasbo, it warns"):
@@ -450,7 +477,7 @@ class TestDispatchUtils(TestCase):
             ) as logger:
                 sobol = choose_generation_strategy(
                     search_space=ss,
-                    num_trials=24,
+                    num_trials=36,
                     use_saasbo=True,
                 )
                 self.assertTrue(
@@ -612,4 +639,49 @@ class TestDispatchUtils(TestCase):
                     use_batch_trials=False,
                 ),
                 5,
+            )
+
+    def test_use_update(self) -> None:
+        search_space = get_branin_search_space()
+        # No experiment, no SAAS, default to False.
+        gs = choose_generation_strategy(search_space=search_space)
+        self.assertFalse(gs._steps[1].use_update)
+        # Pass in True.
+        gs = choose_generation_strategy(search_space=search_space, use_update=True)
+        self.assertTrue(gs._steps[1].use_update)
+        # With experiment without any metrics available while running.
+        experiment = get_branin_experiment()
+        with mock.patch.object(
+            experiment.metrics["branin"],
+            "is_available_while_running",
+            return_value=False,
+        ):
+            # No SAAS, default to False.
+            gs = choose_generation_strategy(
+                search_space=search_space, experiment=experiment
+            )
+            self.assertFalse(gs._steps[1].use_update)
+            # SAAS, default to True.
+            gs = choose_generation_strategy(
+                search_space=search_space, experiment=experiment, use_saasbo=True
+            )
+            self.assertTrue(gs._steps[1].use_update)
+            # SAAS and pass in False.
+            gs = choose_generation_strategy(
+                search_space=search_space,
+                experiment=experiment,
+                use_saasbo=True,
+                use_update=False,
+            )
+            self.assertFalse(gs._steps[1].use_update)
+        # SAAS with metrics available while running.
+        gs = choose_generation_strategy(
+            search_space=search_space, experiment=experiment, use_saasbo=True
+        )
+        # Default to False.
+        self.assertFalse(gs._steps[1].use_update)
+        # Error with True.
+        with self.assertRaisesRegex(UnsupportedError, "use_update"):
+            choose_generation_strategy(
+                search_space=search_space, experiment=experiment, use_update=True
             )

@@ -28,6 +28,7 @@ from ax.service.utils.report_utils import (
     get_standard_plots,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -69,7 +70,7 @@ class ReportUtilsTest(TestCase):
             ]
         ),
     )
-    def test_exp_to_df_ordering(self, _) -> None:
+    def test_exp_to_df_row_ordering(self, _) -> None:
         """
         This test verifies that the returned data frame indexes are
         in the same order as trial index. It mocks _merge_results_if_no_duplicates
@@ -81,6 +82,49 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(df), 3)
         for idx, row in df.iterrows():
             self.assertEqual(row["trial_index"], idx)
+
+    @patch(
+        "ax.service.utils.report_utils._merge_results_if_no_duplicates",
+        autospec=True,
+        return_value=pd.DataFrame(
+            [
+                # Trial indexes are out-of-order.
+                {
+                    "col1": 1,
+                    "arm_name": "a",
+                    "trial_status": "FAILED",
+                    "generation_method": "Manual",
+                    "trial_index": 1,
+                },
+                {
+                    "col1": 2,
+                    "arm_name": "b",
+                    "trial_status": "COMPLETED",
+                    "generation_method": "BO",
+                    "trial_index": 2,
+                },
+                {
+                    "col1": 3,
+                    "arm_name": "c",
+                    "trial_status": "COMPLETED",
+                    "generation_method": "Manual",
+                    "trial_index": 0,
+                },
+            ]
+        ),
+    )
+    def test_exp_to_df_col_ordering(self, _) -> None:
+        """
+        This test verifies that the returned data frame indexes are
+        in the same order as trial index. It mocks _merge_results_if_no_duplicates
+        to verify just the ordering of items in the final data frame.
+        """
+        exp = get_branin_experiment(with_trial=True)
+        df = exp_to_df(exp)
+        self.assertListEqual(
+            list(df.columns),
+            ["trial_index", "arm_name", "trial_status", "generation_method", "col1"],
+        )
 
     def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail
@@ -214,12 +258,15 @@ class ReportUtilsTest(TestCase):
         )
         self.assertEqual(len(plots), 6)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
-        # pyre-fixme[16]: Optional type has no attribute `_objective_thresholds`.
-        # pyre-fixme[16]: `OptimizationConfig` has no attribute `_objective_thresholds`.
-        exp.optimization_config._objective_thresholds = [
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds = [
             ObjectiveThreshold(
                 metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
             ),
@@ -239,20 +286,46 @@ class ReportUtilsTest(TestCase):
                 log.output[0],
             )
         self.assertEqual(len(plots), 6)
-        for ot in exp.optimization_config._objective_thresholds:
+
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo_relative_constraints(self) -> None:
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.optimization_config.objective.objectives[0].minimize = False
+        exp.optimization_config.objective.objectives[1].minimize = True
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds = [
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
+            ),
+            ObjectiveThreshold(
+                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+            ),
+        ]
+        exp.trials[0].run()
+
+        for ot in checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        )._objective_thresholds:
             ot.relative = False
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 7)
+        self.assertEqual(len(plots), 8)
 
-        # All plots are successfully created when objective thresholds are absent
-        exp.optimization_config._objective_thresholds = []
+    @fast_botorch_optimize
+    def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.optimization_config.objective.objectives[0].minimize = False
+        exp.optimization_config.objective.objectives[1].minimize = True
+        exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
         )
-        self.assertEqual(len(plots), 7)
+        self.assertEqual(len(plots), 8)
 
+    @fast_botorch_optimize
+    def test_get_standard_plots_map_data(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)
         exp.trials[0].run()

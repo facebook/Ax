@@ -59,6 +59,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.parameter_distribution import ParameterDistribution
 from ax.core.risk_measures import RiskMeasure
+from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
@@ -80,14 +81,14 @@ from ax.early_stopping.strategies.logical import (
 )
 from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
@@ -136,6 +137,33 @@ def get_experiment_with_map_data_type() -> Experiment:
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
+
+
+def get_experiment_with_custom_runner_and_metric() -> Experiment:
+
+    # Create experiment with custom runner and metric
+    experiment = Experiment(
+        name="test",
+        search_space=get_search_space(),
+        optimization_config=get_optimization_config(),
+        description="test description",
+        tracking_metrics=[
+            CustomTestMetric(name="custom_test_metric", test_attribute="test")
+        ],
+        runner=CustomTestRunner(test_attribute="test"),
+        is_test=True,
+    )
+
+    # Create a trial, set its runner and complete it.
+    sobol_generator = get_sobol(search_space=experiment.search_space)
+    sobol_run = sobol_generator.gen(n=1)
+    trial = experiment.new_trial(generator_run=sobol_run)
+    trial.runner = experiment.runner
+    trial.mark_running()
+    experiment.attach_data(get_data(metric_name="custom_test_metric"))
+    trial.mark_completed()
+
+    return experiment
 
 
 def get_branin_experiment(
@@ -748,15 +776,17 @@ def get_factorial_search_space() -> SearchSpace:
     )
 
 
-def get_large_factorial_search_space() -> SearchSpace:
+def get_large_factorial_search_space(
+    num_levels: int = 10, num_parameters: int = 6
+) -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
                 name=f"factor{j}",
                 parameter_type=ParameterType.STRING,
-                values=[f"level1{i}" for i in range(10)],
+                values=[f"level1{i}" for i in range(num_levels)],
             )
-            for j in range(6)
+            for j in range(num_parameters)
         ]
     )
 
@@ -832,7 +862,7 @@ def get_discrete_search_space() -> SearchSpace:
         [
             RangeParameter("x", ParameterType.INT, 0, 3),
             RangeParameter("y", ParameterType.INT, 5, 7),
-            ChoiceParameter("z", ParameterType.STRING, ["red", "panda"]),
+            ChoiceParameter("z", ParameterType.STRING, ["red", "panda", "bear"]),
         ]
     )
 
@@ -846,15 +876,18 @@ def get_small_discrete_search_space() -> SearchSpace:
     )
 
 
-def get_hierarchical_search_space() -> HierarchicalSearchSpace:
-    return HierarchicalSearchSpace(
-        parameters=[
-            get_model_parameter(),
-            get_lr_parameter(),
-            get_l2_reg_weight_parameter(),
-            get_num_boost_rounds_parameter(),
-        ]
-    )
+def get_hierarchical_search_space(
+    with_fixed_parameter: bool = False,
+) -> HierarchicalSearchSpace:
+    parameters: List[Parameter] = [
+        get_model_parameter(with_fixed_parameter=with_fixed_parameter),
+        get_lr_parameter(),
+        get_l2_reg_weight_parameter(),
+        get_num_boost_rounds_parameter(),
+    ]
+    if with_fixed_parameter:
+        parameters.append(get_fixed_parameter())
+    return HierarchicalSearchSpace(parameters=parameters)
 
 
 def get_robust_search_space(
@@ -1017,7 +1050,37 @@ def get_trial() -> Trial:
     trial.add_arm(arm)
     trial.runner = SyntheticRunner()
     trial._generation_step_index = 0
+    trial.update_run_metadata({"workflow_run_id": [12345]})
     return trial
+
+
+def get_hss_trials_with_fixed_parameter(exp: Experiment) -> Dict[int, BaseTrial]:
+    return {
+        0: Trial(experiment=exp).add_arm(
+            arm=Arm(
+                parameters={
+                    "model": "Linear",
+                    "learning_rate": 0.05,
+                    "l2_reg_weight": 1e-4,
+                    "num_boost_rounds": 15,
+                    "z": True,
+                },
+                name="0_0",
+            )
+        ),
+        1: Trial(experiment=exp).add_arm(
+            arm=Arm(
+                parameters={
+                    "model": "XGBoost",
+                    "learning_rate": 0.05,
+                    "l2_reg_weight": 1e-4,
+                    "num_boost_rounds": 15,
+                    "z": True,
+                },
+                name="1_0",
+            )
+        ),
+    }
 
 
 class TestTrial(BaseTrial):
@@ -1113,14 +1176,18 @@ def get_fixed_parameter() -> FixedParameter:
     return FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=True)
 
 
-def get_model_parameter() -> ChoiceParameter:
+def get_model_parameter(with_fixed_parameter: bool = False) -> ChoiceParameter:
     return ChoiceParameter(
         name="model",
         parameter_type=ParameterType.STRING,
         values=["Linear", "XGBoost"],
         dependents={
             "Linear": ["learning_rate", "l2_reg_weight"],
-            "XGBoost": ["num_boost_rounds"],
+            "XGBoost": (
+                ["num_boost_rounds", "z"]
+                if with_fixed_parameter
+                else ["num_boost_rounds"]
+            ),
         },
     )
 
@@ -1778,6 +1845,15 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         return self.early_stop_trials
 
 
+def get_improvement_global_stopping_strategy() -> ImprovementGlobalStoppingStrategy:
+    return ImprovementGlobalStoppingStrategy(
+        min_trials=30,
+        window_size=10,
+        improvement_bar=0.05,
+        inactive_when_pending_trials=True,
+    )
+
+
 class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
     """
     A dummy Global Stopping Strategy which stops the optimization after
@@ -1859,20 +1935,19 @@ def get_botorch_model_with_default_acquisition_class() -> BoTorchModel:
     )
 
 
+def get_botorch_model_with_surrogate_specs() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate_specs={
+            "name": SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
+        }
+    )
+
+
 def get_surrogate() -> Surrogate:
     return Surrogate(
         botorch_model_class=get_model_type(),
         mll_class=get_mll_type(),
         model_options={"some_option": "some_value"},
-    )
-
-
-def get_list_surrogate() -> Surrogate:
-    return ListSurrogate(
-        botorch_submodel_class_per_outcome={"m": get_model_type()},
-        submodel_options_per_outcome={"m": {"some_option": "some_value"}},
-        submodel_options={"shared_option": "shared_option_value"},
-        mll_class=get_mll_type(),
     )
 
 
@@ -1937,3 +2012,22 @@ def get_parameter_distribution() -> ParameterDistribution:
         distribution_class="norm",
         distribution_parameters={"loc": 1.0, "scale": 0.5},
     )
+
+
+##############################
+# Custom runner and metric
+##############################
+
+
+class CustomTestRunner(Runner):
+    def __init__(self, test_attribute: str) -> None:
+        self.test_attribute = test_attribute
+
+    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+        return {"foo": "bar"}
+
+
+class CustomTestMetric(Metric):
+    def __init__(self, name: str, test_attribute: str) -> None:
+        self.test_attribute = test_attribute
+        super().__init__(name=name)

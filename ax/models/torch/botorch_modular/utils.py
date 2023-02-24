@@ -22,6 +22,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import (
     FixedNoiseMultiFidelityGP,
@@ -48,6 +49,10 @@ def use_model_list(
     if issubclass(botorch_model_class, MultiTaskGP):
         # We currently always wrap multi-task models into `ModelListGP`.
         return True
+    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+        # SAAS models do not support multiple outcomes.
+        # Use model list if there are multiple outcomes.
+        return len(datasets) > 1 or datasets[0].Y().shape[-1] > 1
     if len(datasets) == 1:
         # Just one outcome, can use single model.
         return False
@@ -309,3 +314,14 @@ def disable_one_to_many_transforms(model: Model) -> Generator[None, None, None]:
         for intf in input_transforms:
             if intf is not None and intf.is_one_to_many:
                 intf.transform_on_eval = True
+
+
+def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
+    """Used to return B sans any Xs that also appear in A"""
+    C = torch.cat((A, B), dim=0)
+    D, inverse_ind = torch.unique(C, return_inverse=True, dim=0)
+    n = A.shape[0]
+    A_indices = inverse_ind[:n].tolist()
+    B_indices = inverse_ind[n:].tolist()
+    Bi_set = set(B_indices) - set(A_indices)
+    return D[list(Bi_set)]

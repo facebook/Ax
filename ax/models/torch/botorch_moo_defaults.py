@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.exceptions.core import AxError
+from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
 from ax.models.torch.utils import (  # noqa F40
     _get_X_pending_and_observed,
     _to_inequality_constraints,
@@ -136,7 +137,7 @@ def get_NEHVI(
         qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -209,7 +210,7 @@ def get_EHVI(
         qExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
     if X_observed is None:
-        raise ValueError("There are no feasible observed points.")
+        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -418,6 +419,7 @@ def infer_objective_thresholds(
     subset_idcs: Optional[Tensor] = None,
     Xs: Optional[List[Tensor]] = None,
     X_observed: Optional[Tensor] = None,
+    objective_thresholds: Optional[Tensor] = None,
 ) -> Tensor:
     """Infer objective thresholds.
 
@@ -452,6 +454,11 @@ def infer_objective_thresholds(
             vary from i=1,...,m.
         X_observed: A `n x d`-dim tensor of in-sample points to use for
             determining the current in-sample Pareto frontier.
+        objective_thresholds: Any known objective thresholds to pass to
+            `infer_reference_point` heuristic. This should not be subsetted.
+            If only a subset of the objectives have known thresholds, the
+            remaining objectives should be NaN. If no objective threshold
+            was provided, this can be `None`.
 
     Returns:
         A `m`-dim tensor of objective thresholds, where the objective
@@ -518,13 +525,19 @@ def infer_objective_thresholds(
         feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         pred = pred[feas]
     if pred.shape[0] == 0:
-        raise AxError("There are no feasible observed points.")
+        raise AxError(NO_FEASIBLE_POINTS_MESSAGE)
     obj_mask = objective_weights.nonzero().view(-1)
     obj_weights_subset = objective_weights[obj_mask]
     obj = pred[..., obj_mask] * obj_weights_subset
     pareto_obj = obj[is_non_dominated(obj)]
+    # If objective thresholds are provided, set max_ref_point accordingly.
+    if objective_thresholds is not None:
+        max_ref_point = objective_thresholds[obj_mask] * obj_weights_subset
+    else:
+        max_ref_point = None
     objective_thresholds = infer_reference_point(
         pareto_Y=pareto_obj,
+        max_ref_point=max_ref_point,
         scale=0.1,
     )
     # multiply by objective weights to return objective thresholds in the

@@ -12,13 +12,12 @@
 import contextlib
 import io
 import linecache
-import os
 import signal
-import subprocess
 import sys
 import types
 import unittest
 from functools import wraps
+from logging import Logger
 from types import FrameType
 from typing import (
     Any,
@@ -39,10 +38,15 @@ import yappi
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
+from ax.utils.common.logger import get_logger
+from pyfakefs import fake_filesystem_unittest
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
+COMPARISON_STR_MAX_LEVEL = 3
 T = TypeVar("T")
+
+logger: Logger = get_logger(__name__)
 
 
 def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
@@ -185,32 +189,52 @@ def _build_comparison_str(
     def _unequal_str(first: Any, second: Any) -> str:  # pyre-ignore[2]
         return f"{first} (type {type(first)}) != {second} (type {type(second)})."
 
-    if first == second or level > 3:
-        # Don't go deeper than 4 levels as the inequality report will not be legible.
+    if first == second:
         return ""
+
+    if level > COMPARISON_STR_MAX_LEVEL:
+        # Don't go deeper than 4 levels as the inequality report will not be legible.
+        return (
+            f"... also there were unequal fields at levels {level}+; "
+            "to see full comparison past this level, adjust `ax.utils.common.testutils."
+            "COMPARISON_STR_MAX_LEVEL`"
+        )
 
     msg = ""
     indent = " " * level * 4
-    _, unequal_val = object_attribute_dicts_find_unequal_fields(
+    unequal_types, unequal_val = object_attribute_dicts_find_unequal_fields(
         one_dict=first.__dict__ if isinstance(first, Base) else first,
         other_dict=second.__dict__ if isinstance(second, Base) else second,
         fast_return=False,
         skip_db_id_check=skip_db_id_check,
     )
+    unequal_types_suffixed = {
+        f"{k} (field had values of unequal type)": v for k, v in unequal_types.items()
+    }
     if level == 0:
         msg += f"{_unequal_str(first=first, second=second)}\n"
 
     msg += f"\n{indent}Fields with different values{values_in_suffix}:\n"
-    for idx, (field, (first, second)) in enumerate(unequal_val.items()):
+    joint_unequal_field_dict = {**unequal_val, **unequal_types_suffixed}
+    for idx, (field, (first, second)) in enumerate(joint_unequal_field_dict.items()):
         # For level 0, use numbers as bullets. For 1, use letters. For 2, use "i".
         # For 3, use "*".
         bul = "*"
         if level == 0:
             bul = f"{idx + 1})"
-        if level == 1:
+        elif level == 1:
             bul = f"{chr(ord('a') + idx)})"
-        if level == 2:
+        elif level == 2:
             bul = f"{'i' * (idx + 1)})"
+        elif level < COMPARISON_STR_MAX_LEVEL:
+            # Add default for when setting `COMPARISON_STR_MAX_LEVEL` to higher value
+            # during debugging.
+            bul = "*"
+        else:
+            raise RuntimeError(
+                "Reached level > `COMPARISON_STR_MAX_LEVEL`, which should've been "
+                "unreachable."
+            )
         msg += f"\n{indent}{bul} {field}: {_unequal_str(first=first, second=second)}\n"
         if isinstance(first, (dict, Base)) and isinstance(second, (dict, Base)):
             msg += _build_comparison_str(
@@ -235,16 +259,15 @@ def _build_comparison_str(
 
 def setup_import_mocks(mocked_import_paths: List[str]) -> None:
     for import_path in mocked_import_paths:
+        if import_path in sys.modules:
+            raise Exception(f"{import_path} has already been imported!")
         sys.modules[import_path] = MagicMock()
 
 
-class TestCase(unittest.TestCase):
+class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
-    # try to remove these files on tearDown
-    FILES_TO_CLEAN: List[str] = []
-
-    MAX_TEST_SECONDS = 5400000
+    MAX_TEST_SECONDS = 480
     MIN_TTOT = 1.0
     PROFILER_COLUMNS = {
         0: ("name", 100),  # default 36 is often not enough
@@ -257,25 +280,22 @@ class TestCase(unittest.TestCase):
     # it appears to be pytorch related https://fburl.com/wiki/r8u9f3rs
     # set to `False` on the specific testcase class if this occurs
     CAN_PROFILE = True
-    _prior_status: Optional[str] = None
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
             if self.CAN_PROFILE:
+                logger.warning(
+                    f"Test took longer than {self.MAX_TEST_SECONDS} seconds. Printing "
+                    "`yappi` profile."
+                )
                 yappi.get_func_stats(
                     filter_callback=lambda s: s.ttot > self.MIN_TTOT
                 ).sort(sort_type="ttot", sort_order="asc").print_all(
                     columns=self.PROFILER_COLUMNS
                 )
-            raise Exception(f"Test timed out at {self.MAX_TEST_SECONDS} seconds")
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
-
-    def tearDown(self) -> None:
-        for f in self.FILES_TO_CLEAN:
-            if os.path.exists(f):
-                os.remove(f)
 
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
@@ -283,7 +303,6 @@ class TestCase(unittest.TestCase):
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
-        self._prior_status = self._get_repository_status()
         try:
             if self.CAN_PROFILE:
                 yappi.set_clock_type("wall")
@@ -295,22 +314,7 @@ class TestCase(unittest.TestCase):
                 yappi.stop()
 
             signal.alarm(0)
-        self._assert_status_is_unchanged()
         return result
-
-    def _get_repository_status(self) -> str:
-        return subprocess.run(
-            ["hg", "status"],
-            capture_output=True,
-        ).stdout.decode("utf-8")
-
-    def _assert_status_is_unchanged(self) -> None:
-        post_status = self._get_repository_status()
-        self.assertEqual(
-            self._prior_status,
-            post_status,
-            "Files in the repository were modified while this test was running",
-        )
 
     def assertEqual(
         self,

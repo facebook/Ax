@@ -142,9 +142,13 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
             source = sorted(source)
             target = sorted(target)
         except TypeError as e:
-            raise SQADecodeError(
-                error_message_prefix + f"TypeError encountered during sorting: {e}"
-            )
+            if any(isinstance(o, Base) for o in source + target):
+                raise SQADecodeError(
+                    error_message_prefix + f"TypeError encountered during sorting: {e}"
+                )
+            else:
+                # source and target are not lists of things that need to be saved
+                return
 
         for index, x in enumerate(source):
             copy_db_ids(x, target[index], path + [str(index)])

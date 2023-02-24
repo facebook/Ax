@@ -201,15 +201,6 @@ class Metric(SortableBase, SerializationMixin):
             if trial.status.expecting_data
         }
 
-        return cls.data_constructor.from_multiple_data(
-            [
-                cls.fetch_trial_data_multi(trial, metrics, **kwargs)
-                if trial.status.expecting_data
-                else cls.data_constructor()
-                for trial in (experiment.trials.values() if trials is None else trials)
-            ]
-        )
-
     @classmethod
     def lookup_or_fetch_experiment_data_multi(
         cls,

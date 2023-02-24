@@ -737,7 +737,8 @@ class InstantiationBase:
                 minimize=minimize,
             ),
             outcome_constraints=cls.make_outcome_constraints(
-                outcome_constraints or [], status_quo_arm is not None
+                outcome_constraints=outcome_constraints or [],
+                status_quo_defined=status_quo_arm is not None,
             ),
         )
 
@@ -846,10 +847,10 @@ class InstantiationBase:
             )
         else:
             optimization_config = cls.make_optimization_config(
-                objectives,
-                objective_thresholds or [],
-                outcome_constraints or [],
-                status_quo_arm is not None,
+                objectives=objectives,
+                objective_thresholds=objective_thresholds or [],
+                outcome_constraints=outcome_constraints or [],
+                status_quo_defined=status_quo_arm is not None,
                 metric_definitions=metric_definitions,
             )
 

@@ -36,7 +36,7 @@ class ArmTest(TestCase):
         self.assertEqual(arm.name_or_short_signature, "0_0")
 
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
-        self.assertEqual(arm.name_or_short_signature, arm.signature[-4:])
+        self.assertEqual(arm.name_or_short_signature, arm.signature[-8:])
 
     def testEq(self) -> None:
         arm1 = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})

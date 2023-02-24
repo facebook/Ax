@@ -6,17 +6,20 @@
 
 from abc import ABCMeta, abstractmethod
 from functools import partial
+from logging import Logger
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
+    ObjectiveThreshold,
     OptimizationConfig,
 )
-from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -36,9 +39,12 @@ from ax.models.torch.botorch_moo_defaults import (
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point import extract_Y_from_data
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
 
+
+logger: Logger = get_logger(__name__)
 
 NUM_BINS_PER_TRIAL = 3
 
@@ -179,6 +185,66 @@ class BestPointMixin(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def get_trace(
+        optimization_config: Optional[OptimizationConfig] = None,
+    ) -> List[float]:
+        """Get the optimization trace of the given experiment.
+
+        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
+        repeatedly, with an increasing sequence of `trial_indices` and with
+        `use_model_predictions = False`, though this does it more efficiently.
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+
+        Returns:
+            A list of observed hypervolumes or best values.
+        """
+        pass
+
+    @abstractmethod
+    def get_trace_by_progression(
+        optimization_config: Optional[OptimizationConfig] = None,
+        bins: Optional[List[float]] = None,
+        final_progression_only: bool = False,
+    ) -> Tuple[List[float], List[float]]:
+        """Get the optimization trace with respect to trial progressions instead of
+        `trial_indices` (which is the behavior used in `get_trace`). Note that this
+        method does not take into account the parallelism of trials and essentially
+        assumes that trials are run one after another, in the sense that it considers
+        the total number of progressions "used" at the end of trial k to be the
+        cumulative progressions "used" in trials 0,...,k. This method assumes that the
+        final value of a particular trial is used and does not take the best value
+        of a trial over its progressions.
+
+        The best observed value is computed at each value in `bins` (see below for
+        details). If `bins` is not supplied, the method defaults to a heuristic of
+        approximately `NUM_BINS_PER_TRIAL` per trial, where each trial is assumed to
+        run until maximum progression (inferred from the data).
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: An optional optimization config to use for computing
+                the trace. This allows computing the traces under different objectives
+                or constraints without having to modify the experiment.
+            bins: A list progression values at which to calculate the best observed
+                value. The best observed value at bins[i] is defined as the value
+                observed in trials 0,...,j where j = largest trial such that the total
+                progression in trials 0,...,j is less than bins[i].
+            final_progression_only: If True, considers the value of the last step to be
+                the value of the trial. If False, considers the best along the curve to
+                be the value of the trial.
+
+        Returns:
+            A tuple containing (1) the list of observed hypervolumes or best values and
+            (2) a list of associated x-values (i.e., progressions) useful for plotting.
+        """
+        pass
+
     @staticmethod
     def _get_best_trial(
         experiment: Experiment,
@@ -303,25 +369,10 @@ class BestPointMixin(metaclass=ABCMeta):
         )
 
     @staticmethod
-    def get_trace(
+    def _get_trace(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[float]:
-        """Get the optimization trace of the given experiment.
-
-        The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
-        repeatedly, with an increasing sequence of `trial_indices` and with
-        `use_model_predictions = False`, though this does it more efficiently.
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-
-        Returns:
-            A list of observed hypervolumes or best values.
-        """
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -358,10 +409,37 @@ class BestPointMixin(metaclass=ABCMeta):
             torch.as_tensor, dtype=torch.double, device=torch.device("cpu")
         )
         if optimization_config.is_moo_problem:
+            multiobjective_optimization_config = checked_cast(
+                MultiObjectiveOptimizationConfig, optimization_config
+            )
+
+            provided_thresholds = (
+                multiobjective_optimization_config.objective_thresholds
+            )
+
+            # For Objectives without thresholds provided, infer the threshold from
+            # the nadir point.
+            provided_threshold_names = [
+                threshold.metric.name for threshold in provided_thresholds
+            ]
+            objectives_without_threshold = [
+                objective
+                for objective in checked_cast(
+                    MultiObjective, optimization_config.objective
+                ).objectives
+                if objective.metric.name not in provided_threshold_names
+            ]
+            inferred_thresholds = [
+                _objective_threshold_from_nadir(
+                    experiment=experiment,
+                    objective=objective,
+                    optimization_config=multiobjective_optimization_config,
+                )
+                for objective in objectives_without_threshold
+            ]
+
             objective_thresholds = extract_objective_thresholds(
-                objective_thresholds=checked_cast(
-                    MultiObjectiveOptimizationConfig, optimization_config
-                ).objective_thresholds,
+                objective_thresholds=[*provided_thresholds, *inferred_thresholds],
                 objective=optimization_config.objective,
                 outcomes=metric_names,
             )
@@ -423,43 +501,12 @@ class BestPointMixin(metaclass=ABCMeta):
             return raw_maximum.tolist()
 
     @staticmethod
-    def get_trace_by_progression(
+    def _get_trace_by_progression(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
         bins: Optional[List[float]] = None,
         final_progression_only: bool = False,
     ) -> Tuple[List[float], List[float]]:
-        """Get the optimization trace with respect to trial progressions instead of
-        `trial_indices` (which is the behavior used in `get_trace`). Note that this
-        method does not take into account the parallelism of trials and essentially
-        assumes that trials are run one after another, in the sense that it considers
-        the total number of progressions "used" at the end of trial k to be the
-        cumulative progressions "used" in trials 0,...,k. This method assumes that the
-        final value of a particular trial is used and does not take the best value
-        of a trial over its progressions.
-
-        The best observed value is computed at each value in `bins` (see below for
-        details). If `bins` is not supplied, the method defaults to a heuristic of
-        approximately `NUM_BINS_PER_TRIAL` per trial, where each trial is assumed to
-        run until maximum progression (inferred from the data).
-
-        Args:
-            experiment: The experiment to get the trace for.
-            optimization_config: An optional optimization config to use for computing
-                the trace. This allows computing the traces under different objectives
-                or constraints without having to modify the experiment.
-            bins: A list progression values at which to calculate the best observed
-                value. The best observed value at bins[i] is defined as the value
-                observed in trials 0,...,j where j = largest trial such that the total
-                progression in trials 0,...,j is less than bins[i].
-            final_progression_only: If True, considers the value of the last step to be
-                the value of the trial. If False, considers the best along the curve to
-                be the value of the trial.
-
-        Returns:
-            A tuple containing (1) the list of observed hypervolumes or best values and
-            (2) a list of associated x-values (i.e., progressions) useful for plotting.
-        """
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -517,3 +564,30 @@ class BestPointMixin(metaclass=ABCMeta):
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+
+
+def _objective_threshold_from_nadir(
+    experiment: Experiment,
+    objective: Objective,
+    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+) -> ObjectiveThreshold:
+    """
+    Find the worst value observed for each objective and create an ObjectiveThreshold
+    with this as the bound.
+    """
+
+    logger.info(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
+
+    optimization_config = optimization_config or checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    )
+
+    data_df = experiment.fetch_data().df
+
+    mean = data_df[data_df["metric_name"] == objective.metric.name]["mean"]
+    bound = max(mean) if objective.minimize else min(mean)
+    op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
+
+    return ObjectiveThreshold(
+        metric=objective.metric, bound=bound, op=op, relative=False
+    )

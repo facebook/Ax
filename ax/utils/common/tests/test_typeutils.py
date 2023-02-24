@@ -30,6 +30,13 @@ class TestTypeUtils(TestCase):
         with self.assertRaises(ValueError):
             checked_cast(float, 2)
 
+    def test_checked_cast_with_error_override(self) -> None:
+        self.assertEqual(checked_cast(float, 2.0), 2.0)
+        with self.assertRaises(NotImplementedError):
+            checked_cast(
+                float, 2, exception=NotImplementedError("foo() doesn't support ints")
+            )
+
     def test_checked_cast_complex(self) -> None:
         t = Dict[int, str]
         self.assertEqual(checked_cast_complex(t, {1: "one"}), {1: "one"})

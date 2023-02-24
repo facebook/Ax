@@ -39,6 +39,7 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
@@ -48,6 +49,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
+from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 
@@ -459,11 +461,15 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     """Convert Ax model to a dictionary."""
     return {
         "__type": model.__class__.__name__,
-        "surrogate": model.surrogate,
-        "surrogate_options": model.surrogate_options,
         "acquisition_class": model.acquisition_class,
-        "botorch_acqf_class": model._botorch_acqf_class,
         "acquisition_options": model.acquisition_options or {},
+        "surrogate": model._surrogates[Keys.ONLY_SURROGATE]
+        if Keys.ONLY_SURROGATE in model._surrogates
+        else None,
+        "surrogate_specs": model.surrogate_specs
+        if len(model.surrogate_specs) > 0
+        else None,
+        "botorch_acqf_class": model._botorch_acqf_class,
         "refit_on_update": model.refit_on_update,
         "refit_on_cv": model.refit_on_cv,
         "warm_start_refit": model.warm_start_refit,
@@ -553,6 +559,19 @@ def logical_early_stopping_strategy_to_dict(
         "__type": strategy.__class__.__name__,
         "left": strategy.left,
         "right": strategy.right,
+    }
+
+
+def improvement_global_stopping_strategy_to_dict(
+    gss: ImprovementGlobalStoppingStrategy,
+) -> Dict[str, Any]:
+    """Convert ImprovementGlobalStoppingStrategy to a dictionary."""
+    return {
+        "__type": gss.__class__.__name__,
+        "min_trials": gss.min_trials,
+        "window_size": gss.window_size,
+        "improvement_bar": gss.improvement_bar,
+        "inactive_when_pending_trials": gss.inactive_when_pending_trials,
     }
 
 

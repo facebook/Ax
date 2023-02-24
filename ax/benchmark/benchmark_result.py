@@ -46,7 +46,7 @@ class BenchmarkResult(Base):
         self, final_progression_only: bool = False
     ) -> Tuple[ndarray, ndarray]:  # (y-values, x-values)
         if isinstance(self.experiment.lookup_data(), MapData):
-            by_progression_result = BestPointMixin.get_trace_by_progression(
+            by_progression_result = BestPointMixin._get_trace_by_progression(
                 experiment=self.experiment,
                 final_progression_only=final_progression_only,
             )
@@ -59,7 +59,7 @@ class BenchmarkResult(Base):
             # if not MapData, set this to standard optimization_trace
             # with a default x-values
             optimization_trace = np.array(
-                BestPointMixin.get_trace(
+                BestPointMixin._get_trace(
                     experiment=self.experiment,
                 )
             )

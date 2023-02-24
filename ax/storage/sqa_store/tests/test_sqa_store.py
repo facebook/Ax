@@ -5,10 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import datetime
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -20,7 +20,6 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
 from ax.exceptions.storage import SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -72,7 +71,10 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
+    CustomTestMetric,
+    CustomTestRunner,
     get_arm,
     get_branin_data,
     get_branin_experiment,
@@ -82,6 +84,7 @@ from ax.utils.testing.core_stubs import (
     get_data,
     get_experiment,
     get_experiment_with_batch_trial,
+    get_experiment_with_custom_runner_and_metric,
     get_experiment_with_map_data_type,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
@@ -129,14 +132,11 @@ class SQAStoreTest(TestCase):
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
     def testConnectionToDBWithCreator(self) -> None:
-        # pyre-fixme[3]: Return type must be annotated.
-        def MockDBAPI():
+        def MockDBAPI() -> MagicMock:
             connection = Mock()
 
             # pyre-fixme[53]: Captured variable `connection` is not annotated.
-            # pyre-fixme[3]: Return type must be annotated.
-            # pyre-fixme[2]: Parameter must be annotated.
-            def connect(*args, **kwargs):
+            def connect(*args: Any, **kwargs: Any) -> Mock:
                 return connection
 
             return MagicMock(connect=Mock(side_effect=connect))
@@ -197,6 +197,68 @@ class SQAStoreTest(TestCase):
             self.experiment.name, load_trials_in_batches_of_size=2
         )
         self.assertEqual(self.experiment, loaded_experiment)
+
+    # The goal of this test is to confirm that when skip_runners_and_metrics
+    # is set to True, we do not attempt to load runners, and load
+    # metrics minimally (converted to a base metric). This enables us to
+    # load experiments with custom runners and metrics without a decoder.
+    def testLoadExperimentSkipMetricsAndRunners(self) -> None:
+        # Create a test experiment with a custom metric and runner.
+        experiment = get_experiment_with_custom_runner_and_metric()
+
+        # Note that the experiment is created outside of the test code.
+        # Confirm that it uses the custom runner and metric
+        self.assertEqual(experiment.runner.__class__, CustomTestRunner)
+        self.assertTrue("custom_test_metric" in experiment.metrics)
+        self.assertEqual(
+            experiment.metrics["custom_test_metric"].__class__, CustomTestMetric
+        )
+
+        # Create an SQAConfig with the updated registries with the
+        # custom runner and metric.
+        (
+            metric_registry,
+            partial_encoder_registry,
+            partial_decoder_registry,
+        ) = register_metric(metric_cls=CustomTestMetric)
+
+        runner_registry, encoder_registry, decoder_registry = register_runner(
+            runner_cls=CustomTestRunner,
+            encoder_registry=partial_encoder_registry,
+            decoder_registry=partial_decoder_registry,
+        )
+
+        sqa_config = SQAConfig(
+            json_encoder_registry=encoder_registry,
+            json_decoder_registry=decoder_registry,
+            metric_registry=metric_registry,
+            runner_registry=runner_registry,
+        )
+
+        # Save the experiment to db using the updated registries.
+        save_experiment(experiment, config=sqa_config)
+
+        # At this point try to load the experiment back without specifying
+        # updated registries. Confirm that this attempt fails.
+        with self.assertRaises(SQADecodeError):
+            loaded_experiment = load_experiment(self.experiment.name)
+
+        # Now load it with the skip_runners_and_metrics argument set.
+        # The experiment should load (i.e. no exceptions raised)
+        loaded_experiment = load_experiment(
+            self.experiment.name, skip_runners_and_metrics=True
+        )
+
+        # Validate that:
+        #   - the runner is not loaded
+        #   - the metric is loaded as a base Metric class (i.e. not CustomTestMetric)
+        self.assertIs(loaded_experiment.runner, None)
+        self.assertTrue("custom_test_metric" in loaded_experiment.metrics)
+        self.assertEqual(
+            loaded_experiment.metrics["custom_test_metric"].__class__, Metric
+        )
+        self.assertEqual(len(loaded_experiment.trials), 1)
+        self.assertIs(loaded_experiment.trials[0].runner, None)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
@@ -1182,12 +1244,17 @@ class SQAStoreTest(TestCase):
         new_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
 
     def testEncodeDecodeGenerationStrategyReducedState(self) -> None:
         """Try restoring the generation strategy using the experiment its attached to,
@@ -1218,15 +1285,26 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         # Now the generation strategies should be equal.
+        # Reloaded generation strategy will not have attributes associated with fitting
+        # the model until after it's used to fit the model or generate candidates, so
+        # we unset those attributes here and compare equality of the rest.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
     def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
@@ -1274,14 +1352,20 @@ class SQAStoreTest(TestCase):
         # Now experiment on generation strategy should be equal to the original
         # experiment with reduced state.
         self.assertEqual(new_generation_strategy.experiment, experiment)
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
-        self.assertIsInstance(new_generation_strategy.model, ModelBridge)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
-        # pyre-fixme[16]: Optional type has no attribute `_name`.
-        self.assertEqual(new_generation_strategy._experiment._name, experiment._name)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+        experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
     def testUpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
@@ -1296,6 +1380,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add another generator run, save, reload
@@ -1307,14 +1396,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # During restoration of generation strategy's model from its last generator
-        # run, we set `_seen_trial_indices_by_status` to that of the experiment,
-        # from which we are grabbing the data to restore the model with. When the
-        # experiment was updated more recently than the last `gen` from generation
-        # strategy, the generation strategy prior to save might not have 'seen'
-        # some recently added trials, so we update the mappings to match and check
-        # that the generation strategies are equal otherwise.
-        generation_strategy._seen_trial_indices_by_status[TrialStatus.CANDIDATE].add(1)
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too
@@ -1323,15 +1409,20 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
+        # Reloaded generation strategy will not have attributes associated with fitting
+        # the model until after it's used to fit the model or generate candidates, so
+        # we unset those attributes here and compare equality of the rest.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
+        self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `description`.
-            generation_strategy._experiment.description,
+            not_none(generation_strategy._experiment).description,
             experiment.description,
         )
         self.assertEqual(
-            generation_strategy._experiment.description,
-            loaded_generation_strategy._experiment.description,
+            not_none(generation_strategy._experiment).description,
+            not_none(loaded_generation_strategy._experiment).description,
         )
 
     def testGeneratorRunGenMetadata(self) -> None:
@@ -1369,7 +1460,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        generation_strategy._save_seen_trial_indices()
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add even more generator runs, save using batch_size, reload
@@ -1392,7 +1487,11 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        generation_strategy._save_seen_trial_indices()
+        # These fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._seen_trial_indices_by_status = None
+        generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
     def testUpdateRunner(self) -> None:
@@ -1503,13 +1602,12 @@ class SQAStoreTest(TestCase):
         ),
         side_effect=_get_experiment_sqa_immutable_opt_config_and_search_space,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def testImmutableSearchSpaceAndOptConfigLoading(
         self,
         _mock_get_exp_sqa_imm_oc_ss,
         _mock_get_gs_sqa_imm_oc_ss,
         _mock_gr_from_sqa,
-    ):
+    ) -> None:
         experiment = get_experiment_with_batch_trial()
         experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
         save_experiment(experiment)

@@ -42,13 +42,14 @@ from ax.plot.helper import get_range_parameters_from_list
 from ax.plot.pareto_frontier import (
     _pareto_frontier_plot_input_processing,
     _validate_experiment_and_get_optimization_config,
+    scatter_plot_with_hypervolume_trace_plotly,
     scatter_plot_with_pareto_frontier_plotly,
 )
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import optimization_trace_single_method_plotly
-from ax.service.utils.best_point import _is_row_feasible
+from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
@@ -70,13 +71,6 @@ CROSS_VALIDATION_CAPTION = (
 FEASIBLE_COL_NAME = "is_feasible"
 
 
-def _get_hypervolume_trace() -> None:
-    logger.warning(
-        "Objective trace plots not yet implemented for multi-objective optimization. "
-        "Returning `None`."
-    )
-
-
 # pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
     cv = cross_validate(model=model)
@@ -94,8 +88,10 @@ def _get_objective_trace_plot(
     true_objective_metric_name: Optional[str] = None,
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
-        # TODO: implement `_get_hypervolume_trace()`
-        return _pairwise_pareto_plotly_scatter(experiment=experiment)
+        return [
+            scatter_plot_with_hypervolume_trace_plotly(experiment=experiment),
+            *_pairwise_pareto_plotly_scatter(experiment=experiment),
+        ]
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
@@ -557,11 +553,16 @@ def exp_to_df(
         exp.optimization_config is not None
         and len(not_none(exp.optimization_config).all_constraints) > 0
     ):
+        optimization_config = not_none(exp.optimization_config)
         try:
+            if any(oc.relative for oc in optimization_config.all_constraints):
+                optimization_config = _derel_opt_config_wrapper(
+                    optimization_config=optimization_config,
+                    experiment=exp,
+                )
             results[FEASIBLE_COL_NAME] = _is_row_feasible(
                 df=results,
-                optimization_config=not_none(exp.optimization_config),
-                status_quo=exp.status_quo,
+                optimization_config=optimization_config,
             )
         except ValueError as e:
             logger.warning(e)
@@ -638,6 +639,17 @@ def exp_to_df(
     )
 
     exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
+    initial_column_order = (
+        ["trial_index", "arm_name", "trial_status", "generation_method"]
+        + (run_metadata_fields or [])
+        + (trial_properties_fields or [])
+    )
+    for column_name in reversed(initial_column_order):
+        if column_name in exp_df.columns:
+            # pyre-ignore[6]: In call `DataFrame.insert`, for 3rd positional argument,
+            # expected `Union[int, Series, Variable[ArrayLike <: [ExtensionArray,
+            # ndarray]]]` but got `Union[DataFrame, Series]`]
+            exp_df.insert(0, column_name, exp_df.pop(column_name))
     return exp_df.reset_index(drop=True)
 
 

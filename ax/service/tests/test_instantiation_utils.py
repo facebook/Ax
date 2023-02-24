@@ -5,11 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.metric import Metric
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 
 
 class TestInstantiationtUtils(TestCase):
@@ -162,14 +164,22 @@ class TestInstantiationtUtils(TestCase):
                     status_quo_defined=False,
                 )
 
-        with self.subTest("MOO missing objective thresholds"):
-            with self.assertRaises(UserInputError):
-                multi_optimization_config = InstantiationBase.make_optimization_config(
-                    objectives,
-                    objective_thresholds=objective_thresholds[:1],
-                    outcome_constraints=[],
-                    status_quo_defined=False,
-                )
+        with self.subTest("MOO with partial objective thresholds"):
+            multi_optimization_config = InstantiationBase.make_optimization_config(
+                objectives,
+                objective_thresholds=objective_thresholds[:1],
+                outcome_constraints=[],
+                status_quo_defined=False,
+            )
+            self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+            self.assertEqual(
+                len(
+                    checked_cast(
+                        MultiObjectiveOptimizationConfig, multi_optimization_config
+                    ).objective_thresholds
+                ),
+                1,
+            )
 
         with self.subTest("MOO with all objective threshold"):
             multi_optimization_config = InstantiationBase.make_optimization_config(
@@ -179,9 +189,14 @@ class TestInstantiationtUtils(TestCase):
                 status_quo_defined=False,
             )
             self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
-            # pyre-fixme[16]: `OptimizationConfig` has no attribute
-            #  `objective_thresholds`.
-            self.assertEqual(len(multi_optimization_config.objective_thresholds), 2)
+            self.assertEqual(
+                len(
+                    checked_cast(
+                        MultiObjectiveOptimizationConfig, multi_optimization_config
+                    ).objective_thresholds
+                ),
+                2,
+            )
 
         with self.subTest(
             "Single-objective optimizations without objective thresholds"

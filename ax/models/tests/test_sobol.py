@@ -4,21 +4,22 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import List, Tuple
+from unittest import mock
 
 import numpy as np
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
+from botorch.utils.sampling import sample_polytope
 
 
 class SobolGeneratorTest(TestCase):
     def setUp(self) -> None:
-        self.tunable_param_bounds = (0, 1)
-        self.fixed_param_bounds = (1, 100)
+        self.tunable_param_bounds = (0.0, 1.0)
+        self.fixed_param_bounds = (1.0, 100.0)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _create_bounds(self, n_tunable, n_fixed):
+    def _create_bounds(self, n_tunable: int, n_fixed: int) -> List[Tuple[float, float]]:
         tunable_bounds = [self.tunable_param_bounds] * n_tunable
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
@@ -139,7 +140,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
-    def testSobolGeneratorFallbackToPolytopeSampler(self) -> None:
+    def test_SobolGeneratorFallbackToPolytopeSampler(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
         # polytope sampler when encountering this error.
@@ -147,17 +148,42 @@ class SobolGeneratorTest(TestCase):
         bounds = self._create_bounds(n_tunable=10, n_fixed=0)
         A = np.ones((1, 10))
         b = np.array([1]).reshape((1, 1))
-        generated_points, weights = generator.gen(
-            n=3,
-            bounds=bounds,
-            linear_constraints=(
-                A,
-                b,
-            ),
-            rounding_func=lambda x: x,
+        with mock.patch("ax.models.random.base.logger.info") as mock_logger, mock.patch(
+            "botorch.utils.sampling.sample_polytope",
+            wraps=sample_polytope,
+        ) as wrapped_sampler:
+            generated_points, weights = generator.gen(
+                n=3,
+                bounds=bounds,
+                linear_constraints=(
+                    A,
+                    b,
+                ),
+                rounding_func=lambda x: x,
+            )
+        # First call uses the original seed since no candidates are generated.
+        self.assertEqual(wrapped_sampler.call_args[-1]["seed"], 0)
+        self.assertTrue(
+            "exceeded specified maximum draws" in mock_logger.call_args[0][0]
         )
         self.assertTrue(np.shape(generated_points) == (3, 10))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+
+        with mock.patch(
+            "botorch.utils.sampling.sample_polytope",
+            wraps=sample_polytope,
+        ) as wrapped_sampler:
+            generator.gen(
+                n=3,
+                bounds=bounds,
+                linear_constraints=(
+                    A,
+                    b,
+                ),
+                rounding_func=lambda x: x,
+            )
+        # Second call uses seed 3 since 3 candidates are already generated.
+        self.assertEqual(wrapped_sampler.call_args[-1]["seed"], 3)
 
     def testSobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection

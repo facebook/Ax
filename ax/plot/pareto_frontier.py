@@ -8,6 +8,7 @@ import warnings
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
@@ -21,7 +22,9 @@ from ax.plot.base import AxPlotConfig, AxPlotTypes, CI_OPACITY, DECIMALS
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import _format_CI, _format_dict, extend_range
 from ax.plot.pareto_utils import ParetoFrontierResults
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.typeutils import checked_cast, not_none
+from plotly import express as px
 from scipy.stats import norm
 
 
@@ -45,6 +48,33 @@ def _make_label(
 def _filter_outliers(Y: np.ndarray, m: float = 2.0) -> np.ndarray:
     std_filter = abs(Y - np.median(Y, axis=0)) < m * np.std(Y, axis=0)
     return Y[np.all(abs(std_filter), axis=1)]
+
+
+def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Figure:
+    """
+    Plots the hypervolume of the Pareto frontier after each iteration with the same
+    color scheme as the Pareto frontier plot. This is useful for understanding if the
+    frontier is expanding or if the optimization has stalled out.
+
+    Arguments:
+        experiment: MOO experiment to calculate the hypervolume trace from
+    """
+    hypervolume_trace = BestPointMixin._get_trace(experiment=experiment)
+
+    df = pd.DataFrame(
+        {
+            "hypervolume": hypervolume_trace,
+            "trial_index": [*range(len(hypervolume_trace))],
+        }
+    )
+
+    return px.line(
+        data_frame=df,
+        x="trial_index",
+        y="hypervolume",
+        title="Pareto Frontier Hypervolume Trace",
+        markers=True,
+    )
 
 
 def scatter_plot_with_pareto_frontier_plotly(

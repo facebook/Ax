@@ -8,6 +8,7 @@ import datetime
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Type
 
 import numpy as np
@@ -30,11 +31,8 @@ from ax.core.parameter_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import (
-    _decode_callables_from_references,
-    ModelRegistryBase,
-    Models,
-)
+from ax.modelbridge.registry import _decode_callables_from_references
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
     botorch_component_from_json,
@@ -44,9 +42,12 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_from_str
+
+logger: Logger = get_logger(__name__)
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -148,6 +149,12 @@ def object_from_json(
                 identifier=object_json["value"], type_name=_type[6:]
             )
 
+        elif _type == "ListSurrogate":
+            return surrogate_from_list_surrogate_json(
+                list_surrogate_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
@@ -689,16 +696,57 @@ def generation_strategy_from_json(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    if generation_strategy_json.pop("had_initialized_model"):  # pragma: no cover
-        # If model in the current step was not directly from the `Models` enum,
-        # pass its type to `restore_model_from_generator_run`, which will then
-        # attempt to use this type to recreate the model.
-        if type(gs._curr.model) != Models:
-            models_enum = type(gs._curr.model)
-            assert issubclass(models_enum, ModelRegistryBase)
-            # pyre-ignore[6]: `models_enum` typing hackiness
-            gs._restore_model_from_generator_run(models_enum=models_enum)
-            return gs
-
-        gs._restore_model_from_generator_run()
     return gs
+
+
+def surrogate_from_list_surrogate_json(
+    list_surrogate_json: Dict[str, Any],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> Surrogate:
+    logger.warning(
+        "`ListSurrogate` has been deprecated. Reconstructing a `Surrogate` "
+        "with as similar properties as possible."
+    )
+
+    return Surrogate(
+        botorch_model_class=object_from_json(
+            object_json=list_surrogate_json.get("botorch_submodel_class"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        model_options=list_surrogate_json.get("submodel_options"),
+        mll_class=object_from_json(
+            object_json=list_surrogate_json.get("mll_class"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        mll_options=list_surrogate_json.get("mll_options"),
+        input_transform=object_from_json(
+            object_json=list_surrogate_json.get("submodel_input_transforms"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        outcome_transform=object_from_json(
+            object_json=list_surrogate_json.get("submodel_outcome_transforms"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        covar_module_class=object_from_json(
+            object_json=list_surrogate_json.get("submodel_covar_module_class"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        covar_module_options=list_surrogate_json.get("submodel_covar_module_options"),
+        likelihood_class=object_from_json(
+            object_json=list_surrogate_json.get("submodel_likelihood_class"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        likelihood_options=list_surrogate_json.get("submodel_likelihood_options"),
+    )

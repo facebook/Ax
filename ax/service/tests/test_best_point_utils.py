@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import random
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -24,6 +25,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils.best_point import (
     _derel_opt_config_wrapper,
+    _is_row_feasible,
     extract_Y_from_data,
     get_best_parameters,
     get_best_raw_objective_point,
@@ -171,25 +173,15 @@ class TestBestPointUtils(TestCase):
             get_best_raw_objective_point(exp, opt_conf)
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
-        exp = get_branin_experiment()
-
-        # Optimization config with unsatisfiable constraint
-        # pyre-fixme[16]: Optional type has no attribute `clone`.
-        opt_conf = exp.optimization_config.clone()
-        opt_conf.outcome_constraints.append(
-            OutcomeConstraint(
-                metric=get_branin_metric(),
-                op=ComparisonOp.GEQ,
-                bound=9999,
-                relative=True,
-            )
+        exp = get_experiment_with_observations(
+            observations=[[-1, 1]],
+            constrained=True,
         )
 
-        trial = exp.new_trial(
-            generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
-        ).run()
-        trial.mark_completed()
-        exp.fetch_data()
+        # Create altered optimization config with unsatisfiable relative constraint.
+        opt_conf = not_none(exp.optimization_config).clone()
+        opt_conf.outcome_constraints[0].relative = True
+        opt_conf.outcome_constraints[0].bound = 9999
 
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
             get_best_raw_objective_point(exp, opt_conf)
@@ -198,14 +190,7 @@ class TestBestPointUtils(TestCase):
                 msg=lg.output,
             )
 
-        exp.status_quo = Arm(parameters={"x1": 0, "x2": 0}, name="status_quo")
-        sq_trial = exp.new_trial(
-            # pyre-fixme[6]: For 1st param expected `List[Arm]` but got
-            #  `List[Optional[Arm]]`.
-            generator_run=GeneratorRun(arms=[exp.status_quo])
-        ).run()
-        sq_trial.mark_completed()
-        exp.fetch_data()
+        exp.status_quo = exp.trials[0].arms[0]
 
         with self.assertRaisesRegex(ValueError, "No points satisfied"):
             get_best_raw_objective_point(exp, opt_conf)
@@ -402,9 +387,10 @@ class TestBestPointUtils(TestCase):
         Y = extract_Y_from_data(experiment=experiment, metric_names=["bar"])
         self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
         # Works with messed up ordering of data.
-        random.shuffle(df_dicts)
+        clone_dicts = df_dicts.copy()
+        random.shuffle(clone_dicts)
         experiment._data_by_trial = {}
-        experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
+        experiment.attach_data(Data(df=pd.DataFrame.from_records(clone_dicts)))
         Y = extract_Y_from_data(
             experiment=experiment,
             metric_names=["foo", "bar"],
@@ -424,10 +410,11 @@ class TestBestPointUtils(TestCase):
         with self.assertRaisesRegex(
             UserInputError, "single data point for each metric"
         ):
+            # Skipping first 5 data points since first two trials are not completed.
             extract_Y_from_data(
                 experiment=experiment,
                 metric_names=["foo", "bar"],
-                data=Data(df=pd.DataFrame.from_records(df_dicts[1:])),
+                data=Data(df=pd.DataFrame.from_records(df_dicts[5:])),
             )
 
         # Check that it errors with BatchTrial.
@@ -441,3 +428,89 @@ class TestBestPointUtils(TestCase):
                 metric_names=["foo", "bar"],
                 data=Data(df=pd.DataFrame.from_records(df_0)),
             )
+
+    def test_is_row_feasible(self) -> None:
+        exp = get_experiment_with_observations(
+            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
+            constrained=True,
+        )
+        feasible_series = _is_row_feasible(
+            df=exp.lookup_data().df,
+            optimization_config=not_none(exp.optimization_config),
+        )
+        expected_per_arm = [False, True, False, True, True]
+        expected_series = _repeat_elements(
+            list_to_replicate=expected_per_arm, n_repeats=3
+        )
+        pd.testing.assert_series_equal(
+            feasible_series, expected_series, check_names=False
+        )
+
+        exp.optimization_config.outcome_constraints[0].relative = True
+        relative_constraint_warning = (
+            "WARNING:ax.service.utils.best_point:Ignoring relative constraint "
+            "OutcomeConstraint(m3 >= 0.0%). Derelativize OptimizationConfig "
+            "before passing to `_is_row_feasible`."
+        )
+        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
+            # with lookout for warnings(" OutcomeConstraint(m3 >= 0.0%) ignored."):
+            feasible_series = _is_row_feasible(
+                df=exp.lookup_data().df,
+                optimization_config=not_none(exp.optimization_config),
+            )
+            self.assertTrue(
+                any(relative_constraint_warning in warning for warning in lg.output),
+                msg=lg.output,
+            )
+        expected_per_arm = [False, True, True, True, True]
+        expected_series = _repeat_elements(
+            list_to_replicate=expected_per_arm, n_repeats=3
+        )
+        pd.testing.assert_series_equal(
+            feasible_series, expected_series, check_names=False
+        )
+        exp._status_quo = exp.trials[0].arms[0]
+        for constraint in not_none(exp.optimization_config).all_constraints:
+            constraint.relative = True
+        optimization_config = _derel_opt_config_wrapper(
+            optimization_config=not_none(exp.optimization_config),
+            experiment=exp,
+        )
+        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
+            # `assertNoLogs` coming in 3.10 - until then we log a dummy warning and
+            # continue.
+            best_point_logger.warning("Dummy warning")
+            feasible_series = _is_row_feasible(
+                df=exp.lookup_data().df, optimization_config=optimization_config
+            )
+            self.assertFalse(
+                any(relative_constraint_warning in warning for warning in lg.output),
+                msg=lg.output,
+            )
+        expected_per_arm = [True, True, False, True, False]
+        expected_series = _repeat_elements(
+            list_to_replicate=expected_per_arm, n_repeats=3
+        )
+        pd.testing.assert_series_equal(
+            feasible_series, expected_series, check_names=False
+        )
+
+        # Check that index is carried over for interfacing appropriately
+        # with related dataframes.
+        exp = get_experiment_with_observations(
+            observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
+            constrained=False,
+        )
+        df = exp.lookup_data().df
+        # Artificially redact some data.
+        df = df[df["mean"] > 1]
+        feasible_series = _is_row_feasible(
+            df=df, optimization_config=optimization_config
+        )
+        pd.testing.assert_index_equal(
+            df.index, feasible_series.index, check_names=False
+        )
+
+
+def _repeat_elements(list_to_replicate: List[bool], n_repeats: int) -> pd.Series:
+    return pd.Series([item for item in list_to_replicate for _ in range(n_repeats)])

@@ -52,13 +52,53 @@ def _argparse_base(
     init_batch_limit: int = 32,
     batch_limit: int = 5,
     optimizer_options: Optional[Dict[str, Any]] = None,
+    optimizer_is_discrete: bool = False,
     **ignore: Any,
 ) -> Dict[str, Any]:
+    """Extract the base optimizer kwargs form the given arguments.
+
+    NOTE: Since `optimizer_options` is how the user would typically pass in these
+    options, it takes precedence over other arguments. E.g., if both `num_restarts`
+    and `optimizer_options["num_restarts"]` are provided, this will use
+    `num_restarts` from `optimizer_options`.
+
+    Args:
+        acqf: The acquisition function being optimized.
+        num_restarts: The number of starting points for multistart acquisition
+            function optimization.
+        raw_samples: The number of samples for initialization.
+        init_batch_limit: The size of mini-batches used to evaluate the `raw_samples`.
+            This helps reduce peak memory usage.
+        batch_limit: The size of mini-batches used while optimizing the `acqf`.
+            This helps reduce peak memory usage.
+        optimizer_options: An optional dictionary of optimizer options. This may
+            include overrides for the above options (some of these under an `options`
+            dictionary) or any other option that is accepted by the optimizer. See
+            the docstrings in `botorch/optim/optimize.py` for supported options.
+            Example:
+                >>> optimizer_options = {
+                >>>     "num_restarts": 20,
+                >>>     "options": {
+                >>>         "maxiter": 200,
+                >>>         "batch_limit": 5,
+                >>>     },
+                >>>     "retry_on_optimization_warning": False,
+                >>> }
+        optimizer_is_discrete: True if the optimizer is `optimizer_acqf_discrete`,
+            which supports a limited set of arguments.
+    """
+    optimizer_options = optimizer_options or {}
+    if optimizer_is_discrete:
+        return optimizer_options
     return {
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,
-        "options": {"init_batch_limit": init_batch_limit, "batch_limit": batch_limit},
-        **(optimizer_options or {}),
+        "options": {
+            "init_batch_limit": init_batch_limit,
+            "batch_limit": batch_limit,
+            **optimizer_options.get("options", {}),
+        },
+        **{k: v for k, v in optimizer_options.items() if k != "options"},
     }
 
 
@@ -76,10 +116,10 @@ def _argparse_ehvi(
             acqf=acqf,
             init_batch_limit=init_batch_limit,
             batch_limit=batch_limit,
+            optimizer_options=optimizer_options,
             **kwargs,
         ),
         "sequential": sequential,
-        **(optimizer_options or {}),
     }
 
 
@@ -100,6 +140,7 @@ def _argparse_kg(
         acqf,
         num_restarts=num_restarts,
         raw_samples=raw_samples,
+        optimizer_options=optimizer_options,
         **kwargs,
     )
 
@@ -119,7 +160,6 @@ def _argparse_kg(
     return {
         **base_options,
         Keys.BATCH_INIT_CONDITIONS: initial_conditions,
-        **(optimizer_options or {}),
     }
 
 
@@ -131,7 +171,6 @@ def _argparse_mes(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     return {
-        **_argparse_base(acqf, **kwargs),
+        **_argparse_base(acqf=acqf, optimizer_options=optimizer_options, **kwargs),
         "sequential": sequential,
-        **(optimizer_options or {}),
     }

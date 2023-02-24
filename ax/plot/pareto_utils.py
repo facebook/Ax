@@ -37,6 +37,8 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.one_hot import OneHot
+from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
@@ -123,6 +125,7 @@ def get_observed_pareto_frontiers(
     data: Optional[Data] = None,
     rel: bool = True,
     arm_names: Optional[List[str]] = None,
+    is_pex: Optional[bool] = False,
 ) -> List[ParetoFrontierResults]:
     """
     Find all Pareto points from an experiment.
@@ -163,7 +166,10 @@ def get_observed_pareto_frontiers(
             # Make sure status quo is always included, for derelativization
             arm_names.append(experiment.status_quo.name)
         data = Data(data.df[data.df["arm_name"].isin(arm_names)])
-    mb = get_tensor_converter_model(experiment=experiment, data=data)
+    if is_pex:
+        mb = pex_get_tensor_converter_model(experiment=experiment, data=data)
+    else:
+        mb = get_tensor_converter_model(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(modelbridge=mb)
     # Convert to ParetoFrontierResults
     objective_metric_names = {
@@ -262,6 +268,35 @@ def to_nonrobust_search_space(search_space: SearchSpace) -> SearchSpace:
         return search_space
 
 
+# TODO: delete this function after merging with get_tensor_converter_model
+def pex_get_tensor_converter_model(
+    experiment: Experiment, data: Data
+) -> TorchModelBridge:
+    """
+    Copy of get_tensor_converter_model which retains the old transforms for pex usage
+
+    Args:
+        experiment: Experiment.
+        data: Data for fitting the model.
+
+    Returns: A torch modelbridge with transforms set.
+    """
+    # Transforms is the minimal set that will work for converting any search
+    # space to tensors.
+    return TorchModelBridge(
+        experiment=experiment,
+        search_space=to_nonrobust_search_space(experiment.search_space),
+        data=data,
+        model=TorchModel(),
+        transforms=[Derelativize, SearchSpaceToChoice, OrderedChoiceEncode, IntToFloat],
+        transform_configs={
+            "Derelativize": {"use_raw_status_quo": True},
+            "SearchSpaceToChoice": {"use_ordered": True},
+        },
+        fit_out_of_design=True,
+    )
+
+
 def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModelBridge:
     """
     Constructs a minimal model for converting things to tensors.
@@ -285,11 +320,7 @@ def get_tensor_converter_model(experiment: Experiment, data: Data) -> TorchModel
         search_space=to_nonrobust_search_space(experiment.search_space),
         data=data,
         model=TorchModel(),
-        transforms=[Derelativize, SearchSpaceToChoice, OrderedChoiceEncode, IntToFloat],
-        transform_configs={
-            "Derelativize": {"use_raw_status_quo": True},
-            "SearchSpaceToChoice": {"use_ordered": True},
-        },
+        transforms=[RemoveFixed, OrderedChoiceEncode, OneHot, IntToFloat],
         fit_out_of_design=True,
     )
 

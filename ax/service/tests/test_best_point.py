@@ -5,9 +5,11 @@
 
 from unittest.mock import Mock
 
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_experiment_with_trial,
@@ -17,7 +19,7 @@ from ax.utils.testing.core_stubs import (
 class TestBestPointMixin(TestCase):
     def test_get_trace(self) -> None:
         # Alias for easier access.
-        get_trace = BestPointMixin.get_trace
+        get_trace = BestPointMixin._get_trace
 
         # Single objective, minimize.
         exp = get_experiment_with_observations(
@@ -41,6 +43,12 @@ class TestBestPointMixin(TestCase):
             observations=[[1, 1], [-1, 100], [1, 2], [3, 3], [2, 4], [2, 1]],
         )
         self.assertEqual(get_trace(exp), [1, 1, 2, 9, 11, 11])
+
+        # W/o ObjectiveThresholds (infering ObjectiveThresholds from nadir point)
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp.optimization_config
+        ).objective_thresholds = []
+        self.assertEqual(get_trace(exp), [0.0, 0.0, 2.0, 8.0, 11.0, 11.0])
 
         # W/ constraints.
         exp = get_experiment_with_observations(

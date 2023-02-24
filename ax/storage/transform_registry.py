@@ -15,6 +15,7 @@ from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
+from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.modelbridge.transforms.metrics_as_task import MetricsAsTask
@@ -69,6 +70,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     Logit: 20,
     MapUnitX: 21,
     MetricsAsTask: 22,
+    LogY: 23,
 }
 
 

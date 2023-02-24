@@ -18,7 +18,6 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
-from ax.models.torch.botorch_modular.list_surrogate import ListSurrogate
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_branin_experiment
@@ -37,7 +36,6 @@ class TestRobust(TestCase):
         risk_measure: Optional[RiskMeasure] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         acqf_class: Optional[str] = None,
-        use_list_surrogate: bool = False,
     ) -> None:
         exp = get_robust_branin_experiment(
             risk_measure=risk_measure,
@@ -45,14 +43,10 @@ class TestRobust(TestCase):
         )
 
         for _ in range(5):
-            if use_list_surrogate:
-                surrogate = ListSurrogate(botorch_submodel_class=FixedNoiseGP)
-            else:
-                surrogate = Surrogate(botorch_model_class=FixedNoiseGP)
             modelbridge = Models.BOTORCH_MODULAR(
                 experiment=exp,
                 data=exp.fetch_data(),
-                surrogate=surrogate,
+                surrogate=Surrogate(botorch_model_class=FixedNoiseGP),
                 botorch_acqf_class=acqf_class or qNoisyExpectedImprovement,
             )
             trial = (
@@ -89,14 +83,11 @@ class TestRobust(TestCase):
             ],
             risk_measure=risk_measure,
         )
-        for use_list_surrogate in (True, False):
-            with self.subTest(use_list_surrogate=use_list_surrogate):
-                self.test_robust(
-                    risk_measure,
-                    optimization_config,
-                    acqf_class=qNoisyExpectedHypervolumeImprovement,
-                    use_list_surrogate=use_list_surrogate,
-                )
+        self.test_robust(
+            risk_measure,
+            optimization_config,
+            acqf_class=qNoisyExpectedHypervolumeImprovement,
+        )
 
     def test_mars(self) -> None:
         risk_measure = RiskMeasure(

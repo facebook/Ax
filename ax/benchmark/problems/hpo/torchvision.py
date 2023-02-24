@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 from typing import Any, Dict
 
 from ax.benchmark.problems.hpo.pytorch_cnn import (
@@ -11,11 +12,26 @@ from ax.benchmark.problems.hpo.pytorch_cnn import (
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.typeutils import checked_cast
+from torch.utils.data import TensorDataset
 
 try:  # We don't require TorchVision by default.
     from torchvision import datasets, transforms
 
-    _REGISTRY = {"MNIST": datasets.MNIST, "FashionMNIST": datasets.FashionMNIST}
+    _REGISTRY = {
+        "MNIST": datasets.MNIST,
+        "FashionMNIST": datasets.FashionMNIST,
+    }
+
+    if os.environ.get("TESTENV"):
+        # If we are in the test environment do not download any torchvision datasets.
+        # Instead, we use an empty TensorDataset
+        def get_dummy_dataset(**kwargs: Dict[str, Any]) -> TensorDataset:
+            return TensorDataset()
+
+        # pyre-ignore[9] We are replacing a type with a function
+        _REGISTRY = {key: get_dummy_dataset for key in _REGISTRY.keys()}
+
+
 except ModuleNotFoundError:
     transforms = None
     datasets = None

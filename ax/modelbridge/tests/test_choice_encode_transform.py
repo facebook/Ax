@@ -14,6 +14,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
 
 
@@ -38,9 +39,20 @@ class ChoiceEncodeTransformTest(TestCase):
                     parameter_type=ParameterType.FLOAT,
                     values=[10.0, 100.0, 1000.0],
                     is_ordered=True,
+                    sort_values=False,
                 ),
                 ChoiceParameter(
-                    "d", parameter_type=ParameterType.STRING, values=["r", "q", "z"]
+                    "d",
+                    parameter_type=ParameterType.STRING,
+                    values=["r", "q", "z"],
+                    sort_values=True,
+                ),
+                ChoiceParameter(
+                    "e",
+                    parameter_type=ParameterType.STRING,
+                    values=["r", "q", "z"],
+                    is_ordered=False,
+                    sort_values=False,
                 ),
             ],
             parameter_constraints=[
@@ -65,11 +77,11 @@ class ChoiceEncodeTransformTest(TestCase):
             # ordered float choice originally; transformed normalized value
             "c": normalize_values([10.0, 100.0, 1000.0])[0],
             # string choice originally; transformed to int index.
-            "d": 0,
+            "d": 1,
         }
 
     def testInit(self) -> None:
-        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d", "e"])
 
     def testTransformObservationFeatures(self) -> None:
         observation_features = self.observation_features
@@ -92,6 +104,31 @@ class ChoiceEncodeTransformTest(TestCase):
         )
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
+
+    def testItPreservesChoiceParameterArgs(self) -> None:
+        ss2 = deepcopy(self.search_space)
+        ss2 = self.t.transform_search_space(ss2)
+        for p in ("d", "e"):
+            with self.subTest(p):
+                tranformed_param = checked_cast(ChoiceParameter, ss2.parameters[p])
+                original_param = checked_cast(
+                    ChoiceParameter, self.search_space.parameters[p]
+                )
+                self.assertEqual(tranformed_param.is_ordered, original_param.is_ordered)
+                self.assertEqual(
+                    tranformed_param.sort_values,
+                    original_param.sort_values,
+                )
+                if self.t_class == ChoiceEncode:
+                    self.assertEqual(
+                        tranformed_param.values,
+                        [i for i, _ in enumerate(original_param.values)],
+                    )
+                else:
+                    self.assertEqual(
+                        tranformed_param.values,
+                        original_param.values,
+                    )
 
     def testTransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
@@ -204,7 +241,7 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
         self.assertEqual(ss2.parameters["b"].upper, 2)
         self.assertEqual(ss2.parameters["c"].lower, 0)
         self.assertEqual(ss2.parameters["c"].upper, 2)
-        self.assertEqual(ss2.parameters["d"].values, ["r", "q", "z"])
+        self.assertEqual(ss2.parameters["d"].values, ["q", "r", "z"])
 
         # Ensure we error if we try to transform a fidelity parameter
         ss3 = SearchSpace(

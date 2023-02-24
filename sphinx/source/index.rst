@@ -20,6 +20,7 @@ API Reference
    runners
    service
    storage
+   telemetry
    utils
 
 
