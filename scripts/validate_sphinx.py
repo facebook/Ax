@@ -64,7 +64,7 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
         for importer, modname, ispkg in pkgutil.walk_packages(
             path=[AX_LIBRARY_PATH], onerror=lambda x: None
         )
-        if modname not in {"fb", "version"}
+        if modname not in {"fb", "__version__"}
     }
 
     # Load all rst files (these contain the documentation for Sphinx)
