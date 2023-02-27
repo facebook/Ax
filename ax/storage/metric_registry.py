@@ -52,8 +52,7 @@ def register_metric(
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     decoder_registry: Dict[
         str, Callable[[Dict[str, Any]], Any]
     ] = CORE_DECODER_REGISTRY,
@@ -89,8 +88,7 @@ def register_metrics(
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     decoder_registry: Dict[
         str, Callable[[Dict[str, Any]], Any]
     ] = CORE_DECODER_REGISTRY,

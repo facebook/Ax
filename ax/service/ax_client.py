@@ -1389,8 +1389,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def from_json_snapshot(
         cls: Type[AxClientSubclass],
         serialized: Dict[str, Any],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: Optional[
