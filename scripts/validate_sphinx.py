@@ -64,7 +64,7 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
         for importer, modname, ispkg in pkgutil.walk_packages(
             path=[AX_LIBRARY_PATH], onerror=lambda x: None
         )
-        if modname not in {"fb", "__version__"}
+        if modname not in {"fb", "version", "__version__"}
     }
 
     # Load all rst files (these contain the documentation for Sphinx)
@@ -80,7 +80,10 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
         }
 
     # Verify that all top-level modules have a corresponding rst
-    assert len(modules.difference(rsts)) == 0, "Not all modules have corresponding rst."
+    modules_without_rsts = modules.difference(rsts)
+    assert (
+        len(modules_without_rsts) == 0
+    ), f"Not all modules have corresponding rst: {modules_without_rsts}"
 
     # Track all modules that are not in docs (so can print all)
     modules_not_in_docs = []
