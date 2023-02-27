@@ -219,12 +219,6 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
-    "MOO_Modular": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=ModularBoTorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "ST_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
