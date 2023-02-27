@@ -240,8 +240,7 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Transform: transform_type_to_dict,  # Ax general (not just MBM) component
 }
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
+# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 CORE_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "AbandonedArm": AbandonedArm,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
