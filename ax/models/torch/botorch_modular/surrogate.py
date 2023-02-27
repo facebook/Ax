@@ -21,7 +21,6 @@ from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
-    disable_one_to_many_transforms,
     fit_botorch_model,
     use_model_list,
 )
@@ -556,6 +555,7 @@ class Surrogate(Base):
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         """Predicts outcomes given a model and input tensor.
 
+
         Args:
             model: A botorch Model.
             X: A ``n x d`` tensor of input parameters.
@@ -564,10 +564,7 @@ class Surrogate(Base):
             Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
             Tensor: The predicted posterior covariance as a ``n x o x o``-dim tensor.
         """
-        # This temporarily disables the one-to-many transforms to avoid perturbing
-        # the user supplied parameterization.
-        with disable_one_to_many_transforms(self.model):
-            return predict_from_model(model=self.model, X=X)
+        return predict_from_model(model=self.model, X=X)
 
     def best_in_sample_point(
         self,

@@ -613,6 +613,14 @@ class TorchModelBridge(ModelBridge):
         f, cov = not_none(self.model).predict(X=self._array_to_tensor(X))
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
+        if f.shape[-2] != X.shape[-2]:
+            raise NotImplementedError(
+                "Expected same number of predictions as the number of inputs but got "
+                f"predictions of shape {f.shape} for inputs of shape {X.shape}. "
+                "This was likely due to the use of one-to-many input transforms -- "
+                "typically used for robust optimization -- which are not supported in"
+                "TorchModelBridge.predict."
+            )
         # Convert resulting arrays to observations
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
