@@ -24,16 +24,14 @@ if TYPE_CHECKING:
 
 
 class ChoiceEncode(Transform):
-    """Convert general ChoiceParameters to Float ChoiceParameters.
+    """Convert general ChoiceParameters to integer or float ChoiceParameters.
 
-    ChoiceParameters will be transformed to ChoiceParameters of float or int type.
-    The resulting choice parameter will be considered ordered iff the original
-    parameter is.
-
-    If the parameter type is numeric (int, float) and the parameter is orderd,
+    If the parameter type is numeric (int, float) and the parameter is ordered,
     then the values are normalized to the unit interval while retaining relative
     spacing. If the parameter type is unordered (categorical) or ordered but
-    non-numeric, this transform uses an integer encoding.
+    non-numeric, this transform uses an integer encoding to `0, 1, ..., n_choices - 1`.
+    The resulting choice parameter will be considered ordered iff the original
+    parameter is.
 
     In the inverse transform, parameters will be mapped back onto the original domain.
 
@@ -188,15 +186,21 @@ class OrderedChoiceEncode(ChoiceEncode):
 
 
 def transform_choice_values(p: ChoiceParameter) -> Tuple[np.ndarray, ParameterType]:
+    """Transforms the choice values and returns the new parameter type.
+
+    If the choices were numeric (int or float) and ordered, then they're cast
+    to float and rescaled to [0, 1]. Otherwise, they're cast to integers
+    `0, 1, ..., n_choices - 1`.
+    """
     if p.is_numeric and p.is_ordered:
-        # If values are ordered numeric, retain relative distances
+        # If values are ordered numeric, retain relative distances.
         values = np.array(p.values, dtype=float)
         vmin, vmax = values.min(), values.max()
         if len(values) > 1:
             values = (values - vmin) / (vmax - vmin)
         ptype = ParameterType.FLOAT
     else:
-        # If values are unordered or not numeric, use integer encoding
+        # If values are unordered or not numeric, use integer encoding.
         # The reason for using integers rather than floats is somewhat arcane - it has
         # to do with slightly different representation of floats in pure python and in
         # PyTorch, which require some careful handling when untransform the choices that
