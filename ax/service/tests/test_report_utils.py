@@ -55,6 +55,7 @@ DUMMY_SOURCE = "test_source"
 DUMMY_MAP_KEY = "test_map_key"
 TRUE_OBJECTIVE_NAME = "other_metric"
 TRUE_OBJECTIVE_MEAN = 2.3456
+DUMMY_MSG = "test_message"
 
 
 class ReportUtilsTest(TestCase):
@@ -207,12 +208,22 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(
             df[df.arm_name == "custom"].iloc[0].generation_method, "Manual"
         )
-        # infeasible arm has `is_feasible = False`.
+        # failing feasibility calculation doesn't warns and suppresses error
         observations = [[1.0, 2.0, 3.0], [4.0, 5.0, -6.0], [7.0, 8.0, 9.0]]
         exp = get_experiment_with_observations(
             observations=observations,
             constrained=True,
         )
+        with patch(
+            f"{exp_to_df.__module__}._is_row_feasible", side_effect=KeyError(DUMMY_MSG)
+        ), self.assertLogs(logger="ax", level=WARN) as log:
+            exp_to_df(exp)
+            self.assertIn(
+                f"Feasibility calculation failed with error: '{DUMMY_MSG}'",
+                log.output[0],
+            )
+
+        # infeasible arm has `is_feasible = False`.
         df = exp_to_df(exp)
         self.assertListEqual(list(df[FEASIBLE_COL_NAME]), [True, False, True])
 
