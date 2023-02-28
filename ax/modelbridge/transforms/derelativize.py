@@ -10,6 +10,7 @@ import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
@@ -86,8 +87,13 @@ class Derelativize(Transform):
                             for i, metric in enumerate(c.metrics)
                         ]
                     )
-                else:
+                elif c.metric.name in f:
                     sq_val = f[c.metric.name][0]
+                else:
+                    raise DataRequiredError(
+                        f"Status-quo metric value not yet available for metric "
+                        f"{c.metric.name}."
+                    )
                 c.bound = (1 + c.bound / 100.0) * sq_val
                 c.relative = False
         return optimization_config
