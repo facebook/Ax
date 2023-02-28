@@ -6,6 +6,7 @@
 
 from copy import deepcopy
 from unittest import mock
+from unittest.mock import patch
 
 import numpy as np
 from ax.core.data import Data
@@ -18,6 +19,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.testutils import TestCase
@@ -246,6 +248,14 @@ class DerelativizeTransformTest(TestCase):
             config={"use_raw_status_quo": True},
         )
         oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
+
+        # But not if sq arm is not available
+        with patch(
+            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
+        ), self.assertRaisesRegex(
+            DataRequiredError, "Status-quo metric value not yet available"
+        ):
+            oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
 
         # Raises error with relative constraint, no status quo
         g = ModelBridge(
