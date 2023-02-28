@@ -564,8 +564,8 @@ def exp_to_df(
                 df=results,
                 optimization_config=optimization_config,
             )
-        except ValueError as e:
-            logger.warning(e)
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Feasibility calculation failed with error: {e}")
 
     # If arms_df is empty, return empty results (legacy behavior)
     if len(arms_df.index) == 0:
