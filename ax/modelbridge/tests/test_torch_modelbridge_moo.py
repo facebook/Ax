@@ -195,12 +195,16 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         self.assertEqual(observed_frontier, observed_frontier2)
 
+        # Remove the thresholds for testing None handling.
+        checked_cast(
+            MultiObjectiveOptimizationConfig, modelbridge._optimization_config
+        )._objective_thresholds = []
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
             (observed_frontier, f, obj_w, obj_t,) = get_pareto_frontier_and_configs(
                 modelbridge=modelbridge,
-                objective_thresholds=objective_thresholds,
+                objective_thresholds=None,
                 observation_features=observation_features,
                 observation_data=observation_data,
                 use_model_predictions=False,
@@ -215,6 +219,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         )
         self.assertTrue(torch.equal(f[:, :2], true_Y[1:, :]))
+        self.assertIsNone(obj_t)
 
     def test_pareto_frontier(self) -> None:
         """
