@@ -178,6 +178,7 @@ class ParetoUtilsTest(TestCase):
         sobol = Models.SOBOL(experiment.search_space)
         a = sobol.gen(5)
         experiment.new_batch_trial(generator_run=a).run()
+        experiment.fetch_data()
         pfrs = get_observed_pareto_frontiers(experiment=experiment)
         pfrs2 = copy.deepcopy(pfrs)
         pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
