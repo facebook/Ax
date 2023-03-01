@@ -144,10 +144,11 @@ if [[ $VERSION == false ]]; then
 
   # erase git history then force push to overwrite
   cd Ax-gh-pages || exit
-  git checkout --orphan latest
+  rm -rf .git
+  git init -b main
   git add --all
   git commit -m 'Update latest version of site'
-  git push --force origin latest:gh-pages
+  git push --force "git@github.com:facebook/Ax" main:gh-pages
 
 else
   echo "-----------------------------------------"
@@ -221,10 +222,10 @@ else
 
   # Init as Git repo and push to gh-pages
   cd new-site || exit
-  git checkout --orphan latest
+  git init -b main
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force origin latest:gh-pages
+  git push --force "git@github.com:facebook/Ax" main:gh-pages
 
 fi
 
