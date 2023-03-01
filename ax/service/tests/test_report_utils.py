@@ -7,7 +7,7 @@
 import itertools
 from collections import namedtuple
 from logging import WARN
-from typing import List
+from typing import Dict, List
 from unittest.mock import patch
 
 import pandas as pd
@@ -22,6 +22,7 @@ from ax.service.utils.report_utils import (
     _get_metric_name_pairs,
     _get_objective_v_param_plots,
     _get_shortest_unique_suffix_dict,
+    compute_maximum_map_values,
     exp_to_df,
     Experiment,
     FEASIBLE_COL_NAME,
@@ -36,6 +37,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
+    get_test_map_data_experiment,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
@@ -126,6 +128,65 @@ class ReportUtilsTest(TestCase):
             list(df.columns),
             ["trial_index", "arm_name", "trial_status", "generation_method", "col1"],
         )
+
+    def test_exp_to_df_max_map_value(self) -> None:
+        exp = get_test_map_data_experiment(num_trials=3, num_fetches=5, num_complete=0)
+
+        def compute_maximum_map_values_timestamp(
+            experiment: Experiment,
+        ) -> Dict[int, float]:
+            return compute_maximum_map_values(
+                experiment=experiment, map_key="timestamp"
+            )
+
+        df = exp_to_df(
+            exp=exp,
+            additional_fields_callables={  # pyre-ignore
+                "timestamp": compute_maximum_map_values_timestamp
+            },
+        )
+        self.assertEqual(df["timestamp"].tolist(), [5.0, 5.0, 5.0])
+
+    def test_exp_to_df_trial_timing(self) -> None:
+        # 1. test all have started, none have completed
+        exp = get_test_map_data_experiment(num_trials=3, num_fetches=5, num_complete=0)
+        df = exp_to_df(
+            exp=exp,
+            trial_attribute_fields=["time_run_started", "time_completed"],
+            always_include_field_columns=True,
+        )
+        self.assertTrue("time_run_started" in list(df.columns))
+        self.assertTrue("time_completed" in list(df.columns))
+        # since all trials started, all should have values
+        self.assertFalse(any(df["time_run_started"].isnull()))
+        # since no trials are complete, all should be None
+        self.assertTrue(all(df["time_completed"].isnull()))
+
+        # 2. test some trials not started yet
+        exp.trials[0]._time_run_started = None
+        df = exp_to_df(
+            exp=exp, trial_attribute_fields=["time_run_started", "time_completed"]
+        )
+        # the first trial should have NaN for rel_time_run_started
+        self.assertTrue(df["time_run_started"].isnull().iloc[0])
+
+        # 3. test all trials not started yet
+        for t in exp.trials.values():
+            t._time_run_started = None
+        df = exp_to_df(
+            exp=exp,
+            trial_attribute_fields=["time_run_started", "time_completed"],
+            always_include_field_columns=True,
+        )
+        self.assertTrue(all(df["time_run_started"].isnull()))
+
+        # 4. test some trials are completed
+        exp = get_test_map_data_experiment(num_trials=3, num_fetches=5, num_complete=2)
+        df = exp_to_df(
+            exp=exp, trial_attribute_fields=["time_run_started", "time_completed"]
+        )
+        # the last trial should have NaN for rel_time_completed
+        self.assertTrue(df["time_completed"].isnull().iloc[2])
 
     def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail

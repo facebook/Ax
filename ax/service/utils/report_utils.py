@@ -474,6 +474,7 @@ def _merge_trials_dict_with_df(
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_dict: Dict[int, Any],
     column_name: str,
+    always_include_field_column: bool = False,
 ) -> None:
     """Add a column ``column_name`` to a DataFrame ``df`` containing a column
     ``trial_index``. Each value of the new column is given by the element of
@@ -486,12 +487,18 @@ def _merge_trials_dict_with_df(
             df will be populated with the value corresponding with the
             ``trial_index`` of each row.
         column_name: Name of the column to be appended to ``df``.
+        always_include_field_column: Even if all trials have missing values,
+            include the column.
     """
 
     if "trial_index" not in df.columns:
         raise ValueError("df must have trial_index column")
-    if any(trials_dict.values()):  # field present for any trial
-        if not all(trials_dict.values()):  # not present for all trials
+
+    # field present for some trial
+    if always_include_field_column or any(trials_dict.values()):
+        if not all(
+            v is not None for v in trials_dict.values()
+        ):  # not present for all trials
             logger.warning(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
@@ -583,6 +590,11 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     trial_properties_fields: Optional[List[str]] = None,
+    trial_attribute_fields: Optional[List[str]] = None,
+    additional_fields_callables: Optional[
+        Dict[str, Callable[[Experiment], Dict[int, Union[str, float]]]]
+    ] = None,
+    always_include_field_columns: bool = False,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame with rows keyed by trial_index
@@ -596,14 +608,23 @@ def exp_to_df(
     Args:
         exp: An ``Experiment`` that may have pending trials.
         metrics: Override list of metrics to return. Return all metrics if ``None``.
-        run_metadata_fields: fields to extract from ``trial.run_metadata`` for trial
+        run_metadata_fields: Fields to extract from ``trial.run_metadata`` for trial
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
-        trial_properties_fields: fields to extract from ``trial._properties`` for trial
+        trial_properties_fields: Fields to extract from ``trial._properties`` for trial
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial. Output columns names
             will be prepended with ``"trial_properties_"``.
-
+        trial_attribute_fields: Fields to extract from trial attributes for each trial
+            in ``experiment.trials``. If there are multiple arms per trial, these
+            fields will be replicated across the arms of a trial.
+        additional_fields_callables: A dictionary of field names to callables, with
+            each being a function from `experiment` to a `trials_dict` of the form
+            {trial_index: value}. An example of a custom callable like this is the
+            function `compute_maximum_map_values`.
+        always_include_field_columns: If `True`, even if all trials have missing
+            values, include field columns anyway. Such columns are by default
+            omitted (False).
     Returns:
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
         ``map_keys``, if present). If no trials are available, returns an empty
@@ -637,6 +658,11 @@ def exp_to_df(
     # Fetch results.
     data = exp.lookup_data()
     results = data.df
+
+    # Filter metrics.
+    if metrics is not None:
+        metric_names = [m.name for m in metrics]
+        results = results[results["metric_name"].isin(metric_names)]
 
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
@@ -704,6 +730,7 @@ def exp_to_df(
                 df=arms_df,
                 trials_dict=trial_to_properties_field,
                 column_name="trial_properties_" + field,
+                always_include_field_column=always_include_field_columns,
             )
 
     # Add any run_metadata fields to arms_df
@@ -720,7 +747,35 @@ def exp_to_df(
                 df=arms_df,
                 trials_dict=trial_to_metadata_field,
                 column_name=field,
+                always_include_field_column=always_include_field_columns,
             )
+
+    # Add any trial attributes fields to arms_df
+    if trial_attribute_fields is not None:
+        # add trial attribute fields
+        for field in trial_attribute_fields:
+            trial_to_attribute_field = {
+                trial_index: (getattr(trial, field) if hasattr(trial, field) else None)
+                for trial_index, trial in trials
+            }
+            _merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_attribute_field,
+                column_name=field,
+                always_include_field_column=always_include_field_columns,
+            )
+
+    # Add additional fields to arms_df
+    if additional_fields_callables is not None:
+        for field, func in additional_fields_callables.items():
+            trial_to_additional_field = func(exp)
+            _merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_additional_field,
+                column_name=field,
+                always_include_field_column=always_include_field_columns,
+            )
+
     exp_df = _merge_results_if_no_duplicates(
         arms_df=arms_df,
         results=results,
@@ -741,6 +796,34 @@ def exp_to_df(
             # ndarray]]]` but got `Union[DataFrame, Series]`]
             exp_df.insert(0, column_name, exp_df.pop(column_name))
     return exp_df.reset_index(drop=True)
+
+
+def compute_maximum_map_values(
+    experiment: Experiment, map_key: Optional[str] = None
+) -> Dict[int, float]:
+    """A function that returns a map from trial_index to the maximum map value
+    reached. If map_key is not specified, it uses the first map_key."""
+    data = experiment.lookup_data()
+    if not isinstance(data, MapData):
+        raise ValueError("`compute_maximum_map_values` requires `MapData`.")
+    if map_key is None:
+        map_key = data.map_keys[0]
+    map_df = data.map_df
+    maximum_map_value_df = (
+        map_df[["trial_index"] + data.map_keys]
+        .groupby("trial_index")
+        .max()
+        .reset_index()
+    )
+    trials_dict = {}
+    for trial_index in experiment.trials:
+        value = None
+        if trial_index in maximum_map_value_df["trial_index"]:
+            value = maximum_map_value_df[
+                maximum_map_value_df["trial_index"] == trial_index
+            ][map_key].iloc[0]
+        trials_dict[trial_index] = value
+    return trials_dict
 
 
 def _pairwise_pareto_plotly_scatter(
