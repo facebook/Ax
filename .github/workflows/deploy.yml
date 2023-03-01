@@ -43,30 +43,8 @@ jobs:
       run: |
         pytest -ra
 
-  publish-stable-website:
-
-    needs: tests-and-coverage # only run if previous step succeeds
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.8"
-    - name: Install dependencies
-      run: |
-        # use stable Botorch
-        pip install -e ".[tutorial]"
-    - name: Publish latest website
-      env:
-        DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
-      run: |
-        bash scripts/publish_site.sh -d -k python3 -v ${{ github.event.release.tag_name }}
-
   deploy:
 
-    needs: publish-stable-website # only run if previous step succeeds
     runs-on: ubuntu-latest
 
     steps:
