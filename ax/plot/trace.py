@@ -14,13 +14,190 @@ from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.utils.common.timeutils import timestamps_in_range
 from ax.utils.common.typeutils import not_none
-
+from plotly.express.colors import sample_colorscale
 
 FIVE_MINUTES = timedelta(minutes=5)
 
 
 # type aliases
 Traces = List[Dict[str, Any]]
+
+
+def map_data_single_trace_scatters(
+    x: np.ndarray,
+    y: np.ndarray,
+    legend_label: str,
+    xlabel: str = "Trial progression",
+    ylabel: str = "Trial performance",
+    plot_stopping_marker: bool = False,
+    opacity: float = 0.5,
+    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
+    visible: bool = True,
+) -> List[go.Scatter]:
+    """Plot a single trial's trace from map data.
+
+    Args:
+        x: An array of x-values for a single trace.
+        y: An array of y-values for a single trace.
+        legend_label: Label for this trace used in the legend.
+        x_label: Label for the x-axis.
+        y_label: Label for the y-axis.
+        plot_stopping_marker: Whether to add a red early stopping
+            marker for the last data point in this trace. If True,
+            this function returns two go.Scatter objects, one for
+            the main trace and another for the early stopping marker.
+        opacity: Opacity of this trace (excluding early stopping marker).
+        trace_color: Color of trace.
+        visible: Whether the trace should be visible or not.
+    """
+    scatters = [
+        go.Scatter(
+            name=legend_label,
+            text=legend_label,
+            x=x,
+            y=y,
+            mode="lines+markers",
+            line={"color": rgba(trace_color)},
+            opacity=opacity,
+            hovertemplate=f"{legend_label}<br>"
+            + f"{xlabel}: "
+            + "%{x:.2f}<br>"
+            + f"{ylabel}: "
+            + "%{y:.2f}<extra></extra>",
+            visible=visible,
+        )
+    ]
+    if plot_stopping_marker:
+        scatters.append(
+            go.Scatter(
+                text=legend_label + " stopped",
+                mode="markers",
+                x=x[-1:],
+                y=y[-1:],
+                marker={"color": "Red", "size": 10},
+                showlegend=False,
+                opacity=1.0,
+                hovertemplate=f"{legend_label} stopped<br>"
+                + f"{xlabel}: "
+                + "%{x:.2f}<br>"
+                + f"{ylabel}: "
+                + "%{y:.2f}<extra></extra>",
+                visible=visible,
+            )
+        )
+    return scatters
+
+
+def map_data_multiple_metrics_dropdown_plotly(
+    title: str,
+    metric_names: List[str],
+    xs_by_metric: Dict[str, List[np.ndarray]],
+    ys_by_metric: Dict[str, List[np.ndarray]],
+    legend_labels_by_metric: Dict[str, List[str]],
+    stopping_markers_by_metric: Dict[str, List[bool]],
+    xlabels_by_metric: Dict[str, str],
+    lower_is_better_by_metric: Dict[str, Optional[bool]],
+    opacity: float = 0.75,
+    color_map: str = "viridis",
+    autoset_axis_limits: bool = True,
+) -> go.Figure:
+    """Plot map data traces for multiple metrics, controlled by a dropdown.
+    Each button in the dropdown reveals the plot for a different metric.
+
+    Args:
+        title: Title of the plot.
+        metric_names: List of metric names.
+        xs_by_metric: Maps metric names to a list of x-value arrays.
+        ys_by_metric: Maps metric names to a list of y-value arrays.
+        legend_labels_by_metric: Maps metric names to legend labels.
+        stopping_markers_by_metric: Maps metric names to a list of
+            boolean values indicating whether a trace should be plotted
+            with a stopping marker.
+        xlabels_by_metric: Maps metric names to xlabels.
+        lower_is_better_by_metric: Maps metric names to `lower_is_better`
+        opacity: The opacity to use when plotting traces.
+        color_map: The color map for plotting different trials.
+        autoset_axis_limits: Whether to automatically set axis limits.
+    """
+    data = []
+    trace_ranges = {}  # maps metric names to range of associated traces
+    layout_yaxis_ranges = {}  # maps metric names to y-axis ranges
+    for i, metric_name in enumerate(metric_names):
+        colors = sample_colorscale(
+            colorscale=color_map,
+            samplepoints=np.linspace(1.0, 0.0, len(xs_by_metric[metric_name])),
+            colortype="tuple",
+        )
+        metric_traces = []
+        for x, y, legend_label, plot_stopping_marker, color in zip(
+            xs_by_metric[metric_name],
+            ys_by_metric[metric_name],
+            legend_labels_by_metric[metric_name],
+            stopping_markers_by_metric[metric_name],
+            colors,
+        ):
+            metric_traces.extend(
+                map_data_single_trace_scatters(
+                    x=x,
+                    y=y,
+                    xlabel=xlabels_by_metric[metric_name],
+                    ylabel=metric_name,
+                    legend_label=legend_label,
+                    plot_stopping_marker=plot_stopping_marker,
+                    opacity=opacity,
+                    visible=(i == 0),
+                    trace_color=color,
+                )
+            )
+        trace_ranges[metric_name] = (len(data), len(data) + len(metric_traces))
+        data.extend(metric_traces)
+        lower_is_better = lower_is_better_by_metric[metric_name]
+        if autoset_axis_limits and lower_is_better is not None:
+            layout_yaxis_ranges[metric_name] = _autoset_axis_limits(
+                y=np.concatenate(ys_by_metric[metric_name]),
+                optimization_direction="minimize" if lower_is_better else "maximize",
+            )
+        else:
+            layout_yaxis_ranges[metric_name] = None
+
+    metric_dropdown = []
+    for metric_name in metric_names:
+        is_visible = [False] * len(data)
+        metric_start, metric_end = trace_ranges[metric_name]
+        is_visible[metric_start:metric_end] = [True] * (metric_end - metric_start)
+        metric_dropdown.append(
+            {
+                "args": [
+                    {"visible": is_visible},
+                    {
+                        "yaxis.range": layout_yaxis_ranges[metric_name],
+                        "yaxis.title": metric_name,
+                        "xaxis.title": xlabels_by_metric[metric_name],
+                    },
+                ],
+                "label": metric_name,
+                "method": "update",
+            }
+        )
+    layout = go.Layout(
+        title=title,
+        showlegend=True,
+        updatemenus=[
+            {
+                "active": 0,
+                "buttons": metric_dropdown,
+                "yanchor": "top",
+                "xanchor": "left",
+                "x": 0,
+                "y": 1.15,
+            },
+        ],
+    )
+    return go.Figure(
+        layout=layout,
+        data=data,
+        layout_yaxis_range=layout_yaxis_ranges[metric_names[0]],
+    )
 
 
 def mean_trace_scatter(
@@ -307,24 +484,28 @@ def optimization_trace_single_method_plotly(
         yaxis={"title": ylabel},
         xaxis={"title": "Iteration"},
     )
+    layout_yaxis_range = None
     if autoset_axis_limits and optimization_direction in ["minimize", "maximize"]:
-        q1 = np.percentile(y, q=25, interpolation="lower").min()
-        q2_min = np.percentile(y, q=50, interpolation="linear").min()
-        q2_max = np.percentile(y, q=50, interpolation="linear").max()
-        q3 = np.percentile(y, q=75, interpolation="higher").max()
-        if optimization_direction == "minimize":
-            y_lower = y.min()
-            y_upper = q2_max + 1.5 * (q2_max - q1)
-        else:
-            y_lower = q2_min - 1.5 * (q3 - q2_min)
-            y_upper = y.max()
-        y_padding = 0.1 * (y_upper - y_lower)
-        y_lower, y_upper = y_lower - y_padding, y_upper + y_padding
-        layout_yaxis_range = [y_lower, y_upper]
-    else:
-        layout_yaxis_range = None
-
+        layout_yaxis_range = _autoset_axis_limits(
+            y=y, optimization_direction=optimization_direction
+        )
     return go.Figure(layout=layout, data=data, layout_yaxis_range=layout_yaxis_range)
+
+
+def _autoset_axis_limits(y: np.ndarray, optimization_direction: str) -> List[float]:
+    q1 = np.percentile(y, q=25, interpolation="lower").min()
+    q2_min = np.percentile(y, q=50, interpolation="linear").min()
+    q2_max = np.percentile(y, q=50, interpolation="linear").max()
+    q3 = np.percentile(y, q=75, interpolation="higher").max()
+    if optimization_direction == "minimize":
+        y_lower = y.min()
+        y_upper = q2_max + 1.5 * (q2_max - q1)
+    else:
+        y_lower = q2_min - 1.5 * (q3 - q2_min)
+        y_upper = y.max()
+    y_padding = 0.1 * (y_upper - y_lower)
+    y_lower, y_upper = y_lower - y_padding, y_upper + y_padding
+    return [y_lower, y_upper]
 
 
 def optimization_trace_single_method(
