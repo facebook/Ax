@@ -73,7 +73,17 @@ class StandardizeY(Transform):
                 raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
+            # For required data checks, metrics must be available in Ymean and Ystd.
+            available_metrics = set(self.Ymean).intersection(set(self.Ystd))
             if isinstance(c, ScalarizedOutcomeConstraint):
+                # check metrics are present.
+                constraint_metrics = {metric.name for metric in c.metrics}
+                if len(constraint_metrics - available_metrics) > 0:
+                    raise DataRequiredError(
+                        "`StandardizeY` transform requires constraint metric(s) "
+                        f"{constraint_metrics} but received only {available_metrics}."
+                    )
+
                 # transform \sum (wi * yi) <= C to
                 # \sum (wi * si * zi) <= C - \sum (wi * mu_i) that zi = (yi - mu_i) / si
 
@@ -94,6 +104,11 @@ class StandardizeY(Transform):
                 ]
                 c.weights = new_weight
             else:
+                if c.metric.name not in available_metrics:
+                    raise DataRequiredError(
+                        "`StandardizeY` transform requires constraint metric(s) "
+                        f"{c.metric.name} but got {available_metrics}"
+                    )
                 c.bound = float(
                     (c.bound - self.Ymean[c.metric.name]) / self.Ystd[c.metric.name]
                 )
