@@ -25,14 +25,18 @@ import gpytorch
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
+from ax.metrics.curve import AbstractCurveMetric
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
@@ -48,7 +52,10 @@ from ax.plot.pareto_frontier import (
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
-from ax.plot.trace import optimization_trace_single_method_plotly
+from ax.plot.trace import (
+    map_data_multiple_metrics_dropdown_plotly,
+    optimization_trace_single_method_plotly,
+)
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -273,6 +280,7 @@ def get_standard_plots(
     data: Optional[Data] = None,
     model_transitions: Optional[List[int]] = None,
     true_objective_metric_name: Optional[str] = None,
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -376,7 +384,89 @@ def get_standard_plots(
             # Model does not implement `predict` method.
             pass
 
+    # Get plots for AbstractCurveMetrics
+    curve_metrics = [
+        m for m in experiment.metrics.values() if isinstance(m, AbstractCurveMetric)
+    ]
+    if curve_metrics:
+        # Sort so that objective metrics first
+        curve_metrics.sort(
+            key=lambda e: e.name in [m.name for m in objective.metrics],
+            reverse=True,
+        )
+        output_plot_list.extend(
+            _get_all_curves_plots(
+                experiment=experiment,
+                curve_metrics=curve_metrics,
+                data=data,  # pyre-ignore
+                early_stopping_strategy=early_stopping_strategy,
+            )
+        )
     return [plot for plot in output_plot_list if plot is not None]
+
+
+def _get_early_stopping_metrics(
+    experiment: Experiment, early_stopping_strategy: Optional[BaseEarlyStoppingStrategy]
+) -> List[str]:
+    if early_stopping_strategy is None:
+        return []
+    if early_stopping_strategy.metric_names is not None:
+        return list(early_stopping_strategy.metric_names)
+    return [
+        early_stopping_strategy._default_objective_and_direction(experiment=experiment)[
+            0
+        ]
+    ]
+
+
+def _get_all_curves_plots(
+    experiment: Experiment,
+    curve_metrics: Iterable[AbstractCurveMetric],
+    data: MapData,
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
+) -> List[go.Figure]:
+    map_df = data.map_df
+    plots = []
+    early_stopping_metrics = _get_early_stopping_metrics(
+        experiment=experiment, early_stopping_strategy=early_stopping_strategy
+    )
+    xs_by_metric = {}
+    ys_by_metric = {}
+    legend_labels_by_metric = {}
+    stopping_markers_by_metric = {}
+    for m in curve_metrics:
+        map_key = m.MAP_KEY.key
+        metric_df = map_df[map_df["metric_name"] == m.name]
+        xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
+        is_early_stopping_metric = m.name in early_stopping_metrics
+        for trial_idx, df_g in metric_df.groupby("trial_index"):
+            xs.append(df_g[map_key].to_numpy())
+            ys.append(df_g["mean"].to_numpy())
+            legend_labels.append(f"Trial {trial_idx}")
+            plot_stopping_markers.append(
+                is_early_stopping_metric
+                and experiment.trials[trial_idx].status == TrialStatus.EARLY_STOPPED
+            )
+        xs_by_metric[m.name] = xs
+        ys_by_metric[m.name] = ys
+        legend_labels_by_metric[m.name] = legend_labels
+        stopping_markers_by_metric[m.name] = plot_stopping_markers
+
+    plots.append(
+        map_data_multiple_metrics_dropdown_plotly(
+            metric_names=[m.name for m in curve_metrics],
+            xs_by_metric=xs_by_metric,
+            ys_by_metric=ys_by_metric,
+            legend_labels_by_metric=legend_labels_by_metric,
+            stopping_markers_by_metric=stopping_markers_by_metric,
+            title="Curve metrics by progression (i.e., learning curves)",
+            xlabels_by_metric={m.name: m.MAP_KEY.key for m in curve_metrics},
+            lower_is_better_by_metric={
+                m.name: m.lower_is_better for m in curve_metrics
+            },
+        )
+    )
+    return plots
 
 
 def _merge_trials_dict_with_df(
