@@ -21,6 +21,7 @@ from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import get_tensor_converter_model
+from ax.service.utils.best_point import fill_missing_thresholds_from_nadir
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -169,11 +170,11 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
         data_df = data_df[data_df["trial_index"] <= trial_to_check]
 
-        reference_point = (
-            objective_thresholds
-            or checked_cast(
-                MultiObjectiveOptimizationConfig, experiment.optimization_config
-            ).objective_thresholds
+        optimization_config = checked_cast(
+            MultiObjectiveOptimizationConfig, experiment.optimization_config
+        ).clone_with_args(objective_thresholds=objective_thresholds)
+        objective_thresholds = fill_missing_thresholds_from_nadir(
+            experiment=experiment, optimization_config=optimization_config
         )
 
         # Computing or retrieving HV at "window_size" iteration before
@@ -184,7 +185,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 experiment=experiment, data=Data(data_df_reference)
             )
             hv_reference = observed_hypervolume(
-                modelbridge=mb_reference, objective_thresholds=reference_point
+                modelbridge=mb_reference, objective_thresholds=objective_thresholds
             )
             self.hv_by_trial[reference_trial_index] = hv_reference
 
@@ -194,7 +195,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
         # Computing HV at current trial
         mb = get_tensor_converter_model(experiment=experiment, data=Data(data_df))
-        hv = observed_hypervolume(mb, objective_thresholds=reference_point)
+        hv = observed_hypervolume(mb, objective_thresholds=objective_thresholds)
         self.hv_by_trial[trial_to_check] = hv
 
         hv_improvement = (hv - hv_reference) / hv_reference
