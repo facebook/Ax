@@ -908,7 +908,8 @@ def get_pareto_frontier_and_configs(
         objective=optimization_config.objective,
         outcomes=modelbridge.outcomes,
     )
-    obj_t = array_to_tensor(obj_t)
+    if obj_t is not None:
+        obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
     obj_w, oc_c, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
@@ -942,7 +943,12 @@ def get_pareto_frontier_and_configs(
             )
         )
 
-    return frontier_observations, f, obj_w.cpu(), obj_t.cpu()
+    return (
+        frontier_observations,
+        f,
+        obj_w.cpu(),
+        obj_t.cpu() if obj_t is not None else None,
+    )
 
 
 def pareto_frontier(
@@ -1231,8 +1237,10 @@ def observed_hypervolume(
 
     Args:
         modelbridge: Modelbridge that holds previous training data.
-        objective_thresholds: point defining the origin of hyperrectangles that
-            can contribute to hypervolume.
+        objective_thresholds: Point defining the origin of hyperrectangles that
+            can contribute to hypervolume. Note that if this is None,
+            `objective_thresholds` must be present on the
+            `modelbridge.optimization_config`.
         observation_features: observation features to predict. Model's training
             data used by default if unspecified.
         optimization_config: Optimization config
