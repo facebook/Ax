@@ -766,11 +766,12 @@ class Experiment(Base):
                     _, last_data = list(current_trial_data.items())[-1]
                     last_data_metrics = set(last_data.df["metric_name"])
                     new_data_metrics = set(trial_df["metric_name"])
-                    if last_data_metrics.difference(new_data_metrics):
+                    difference = last_data_metrics.difference(new_data_metrics)
+                    if len(difference) > 0:
                         raise ValueError(
                             "overwrite_trial_data is True, but the new data contains "
                             "only a subset of the metrics that are present in the "
-                            "previous data."
+                            f"previous data. Missing metrics: {difference}"
                         )
                 current_trial_data = OrderedDict(
                     {cur_time_millis: data_type(**data_init_args)}
