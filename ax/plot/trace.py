@@ -50,6 +50,8 @@ def map_data_single_trace_scatters(
         trace_color: Color of trace.
         visible: Whether the trace should be visible or not.
     """
+    # NOTE: In the hovertemplate, we are not using float formatting for `x`
+    # and `y` due to autoformatting + this allows `x` to be time data.
     scatters = [
         go.Scatter(
             name=legend_label,
@@ -61,9 +63,9 @@ def map_data_single_trace_scatters(
             opacity=opacity,
             hovertemplate=f"{legend_label}<br>"
             + f"{xlabel}: "
-            + "%{x:.2f}<br>"
+            + "%{x}<br>"
             + f"{ylabel}: "
-            + "%{y:.2f}<extra></extra>",
+            + "%{y}<extra></extra>",
             visible=visible,
         )
     ]
@@ -79,9 +81,9 @@ def map_data_single_trace_scatters(
                 opacity=1.0,
                 hovertemplate=f"{legend_label} stopped<br>"
                 + f"{xlabel}: "
-                + "%{x:.2f}<br>"
+                + "%{x}<br>"
                 + f"{ylabel}: "
-                + "%{y:.2f}<extra></extra>",
+                + "%{y}<extra></extra>",
                 visible=visible,
             )
         )
@@ -182,6 +184,8 @@ def map_data_multiple_metrics_dropdown_plotly(
     layout = go.Layout(
         title=title,
         showlegend=True,
+        yaxis={"title": metric_names[0]},
+        xaxis={"title": xlabels_by_metric[metric_names[0]]},
         updatemenus=[
             {
                 "active": 0,
@@ -189,7 +193,7 @@ def map_data_multiple_metrics_dropdown_plotly(
                 "yanchor": "top",
                 "xanchor": "left",
                 "x": 0,
-                "y": 1.15,
+                "y": 1.125,
             },
         ],
     )

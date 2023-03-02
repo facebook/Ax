@@ -7,6 +7,7 @@
 import itertools
 import logging
 from collections import defaultdict
+from datetime import timedelta
 from logging import Logger
 from typing import (
     Any,
@@ -389,19 +390,21 @@ def get_standard_plots(
         m for m in experiment.metrics.values() if isinstance(m, AbstractCurveMetric)
     ]
     if curve_metrics:
-        # Sort so that objective metrics first
+        # Sort so that objective metrics appear first
         curve_metrics.sort(
             key=lambda e: e.name in [m.name for m in objective.metrics],
             reverse=True,
         )
-        output_plot_list.extend(
-            _get_all_curves_plots(
-                experiment=experiment,
-                curve_metrics=curve_metrics,
-                data=data,  # pyre-ignore
-                early_stopping_strategy=early_stopping_strategy,
+        for by_walltime in [False, True]:
+            output_plot_list.append(
+                _get_curve_plot_dropdown(
+                    experiment=experiment,
+                    curve_metrics=curve_metrics,
+                    data=data,  # pyre-ignore
+                    early_stopping_strategy=early_stopping_strategy,
+                    by_walltime=by_walltime,
+                )
             )
-        )
     return [plot for plot in output_plot_list if plot is not None]
 
 
@@ -412,21 +415,50 @@ def _get_early_stopping_metrics(
         return []
     if early_stopping_strategy.metric_names is not None:
         return list(early_stopping_strategy.metric_names)
-    return [
-        early_stopping_strategy._default_objective_and_direction(experiment=experiment)[
-            0
-        ]
-    ]
+    default_objective, _ = early_stopping_strategy._default_objective_and_direction(
+        experiment=experiment
+    )
+    return [default_objective]
 
 
-def _get_all_curves_plots(
+def _transform_progression_to_walltime(
+    progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
+) -> Optional[np.ndarray]:
+    try:
+        trial_df = exp_df[exp_df["trial_index"] == trial_idx]
+        time_run_started = trial_df["time_run_started"].iloc[0]
+        time_completed = trial_df["time_completed"].iloc[0]
+        runtime_seconds = (time_completed - time_run_started).total_seconds()
+        intermediate_times = runtime_seconds * progressions / progressions.max()
+        transformed_times = np.array(
+            [time_run_started + timedelta(seconds=t) for t in intermediate_times]
+        )
+        return transformed_times
+    except Exception as e:
+        logger.info(f"Failed to transform progression to walltime: {e}")
+        return None
+
+
+def _get_curve_plot_dropdown(
     experiment: Experiment,
     curve_metrics: Iterable[AbstractCurveMetric],
     data: MapData,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
-) -> List[go.Figure]:
+    by_walltime: bool = False,
+) -> go.Figure:
+    """Plot curve metrics by either progression or walltime.
+
+    Args:
+        experiment: The experiment to generate plots for.
+        curve_metrics: The list of metrics to generate plots for. Each metric
+            will be one entry in the dropdown.
+        data: The map data used to generate the plots.
+        early_stopping_strategy: An instance of ``BaseEarlyStoppingStrategy``. This
+            is used to check which metrics are being used for early stopping.
+        by_walltime: If true, the x-axis will be walltime. If false, the x-axis is
+            the progression of the trials (trials are 'stacked').
+    """
     map_df = data.map_df
-    plots = []
     early_stopping_metrics = _get_early_stopping_metrics(
         experiment=experiment, early_stopping_strategy=early_stopping_strategy
     )
@@ -434,13 +466,35 @@ def _get_all_curves_plots(
     ys_by_metric = {}
     legend_labels_by_metric = {}
     stopping_markers_by_metric = {}
+    exp_df = pd.DataFrame()
+    if by_walltime:
+        exp_df = exp_to_df(
+            exp=experiment,
+            trial_attribute_fields=["time_run_started", "time_completed"],
+            always_include_field_columns=True,
+        )
     for m in curve_metrics:
         map_key = m.MAP_KEY.key
         metric_df = map_df[map_df["metric_name"] == m.name]
         xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
         is_early_stopping_metric = m.name in early_stopping_metrics
         for trial_idx, df_g in metric_df.groupby("trial_index"):
-            xs.append(df_g[map_key].to_numpy())
+            if experiment.trials[trial_idx].status not in (
+                TrialStatus.COMPLETED,
+                TrialStatus.EARLY_STOPPED,
+            ):
+                continue
+            if by_walltime:
+                x = _transform_progression_to_walltime(
+                    progressions=df_g[map_key].to_numpy(),
+                    exp_df=exp_df,
+                    trial_idx=trial_idx,
+                )
+                if x is None:
+                    continue
+            else:
+                x = df_g[map_key].to_numpy()
+            xs.append(x)
             ys.append(df_g["mean"].to_numpy())
             legend_labels.append(f"Trial {trial_idx}")
             plot_stopping_markers.append(
@@ -452,21 +506,23 @@ def _get_all_curves_plots(
         legend_labels_by_metric[m.name] = legend_labels
         stopping_markers_by_metric[m.name] = plot_stopping_markers
 
-    plots.append(
-        map_data_multiple_metrics_dropdown_plotly(
-            metric_names=[m.name for m in curve_metrics],
-            xs_by_metric=xs_by_metric,
-            ys_by_metric=ys_by_metric,
-            legend_labels_by_metric=legend_labels_by_metric,
-            stopping_markers_by_metric=stopping_markers_by_metric,
-            title="Curve metrics by progression (i.e., learning curves)",
-            xlabels_by_metric={m.name: m.MAP_KEY.key for m in curve_metrics},
-            lower_is_better_by_metric={
-                m.name: m.lower_is_better for m in curve_metrics
-            },
-        )
+    title = (
+        "Curve metrics (i.e., learning curves) by walltime"
+        if by_walltime
+        else "Curve metrics (i.e., learning curves) by progression"
     )
-    return plots
+    return map_data_multiple_metrics_dropdown_plotly(
+        metric_names=[m.name for m in curve_metrics],
+        xs_by_metric=xs_by_metric,
+        ys_by_metric=ys_by_metric,
+        legend_labels_by_metric=legend_labels_by_metric,
+        stopping_markers_by_metric=stopping_markers_by_metric,
+        title=title,
+        xlabels_by_metric={
+            m.name: "wall time" if by_walltime else m.MAP_KEY.key for m in curve_metrics
+        },
+        lower_is_better_by_metric={m.name: m.lower_is_better for m in curve_metrics},
+    )
 
 
 def _merge_trials_dict_with_df(
