@@ -58,6 +58,7 @@ from ax.plot.trace import (
     optimization_trace_single_method_plotly,
 )
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
@@ -408,19 +409,6 @@ def get_standard_plots(
     return [plot for plot in output_plot_list if plot is not None]
 
 
-def _get_early_stopping_metrics(
-    experiment: Experiment, early_stopping_strategy: Optional[BaseEarlyStoppingStrategy]
-) -> List[str]:
-    if early_stopping_strategy is None:
-        return []
-    if early_stopping_strategy.metric_names is not None:
-        return list(early_stopping_strategy.metric_names)
-    default_objective, _ = early_stopping_strategy._default_objective_and_direction(
-        experiment=experiment
-    )
-    return [default_objective]
-
-
 def _transform_progression_to_walltime(
     progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
 ) -> Optional[np.ndarray]:
@@ -445,7 +433,7 @@ def _get_curve_plot_dropdown(
     data: MapData,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
     by_walltime: bool = False,
-) -> go.Figure:
+) -> Optional[go.Figure]:
     """Plot curve metrics by either progression or walltime.
 
     Args:
@@ -459,7 +447,7 @@ def _get_curve_plot_dropdown(
             the progression of the trials (trials are 'stacked').
     """
     map_df = data.map_df
-    early_stopping_metrics = _get_early_stopping_metrics(
+    early_stopping_metrics = get_early_stopping_metrics(
         experiment=experiment, early_stopping_strategy=early_stopping_strategy
     )
     xs_by_metric = {}
@@ -501,10 +489,15 @@ def _get_curve_plot_dropdown(
                 is_early_stopping_metric
                 and experiment.trials[trial_idx].status == TrialStatus.EARLY_STOPPED
             )
-        xs_by_metric[m.name] = xs
-        ys_by_metric[m.name] = ys
-        legend_labels_by_metric[m.name] = legend_labels
-        stopping_markers_by_metric[m.name] = plot_stopping_markers
+
+        if len(xs) > 0:
+            xs_by_metric[m.name] = xs
+            ys_by_metric[m.name] = ys
+            legend_labels_by_metric[m.name] = legend_labels
+            stopping_markers_by_metric[m.name] = plot_stopping_markers
+
+    if len(xs_by_metric.keys()) == 0:
+        return None
 
     title = (
         "Curve metrics (i.e., learning curves) by walltime"
@@ -874,7 +867,7 @@ def compute_maximum_map_values(
     trials_dict = {}
     for trial_index in experiment.trials:
         value = None
-        if trial_index in maximum_map_value_df["trial_index"]:
+        if trial_index in maximum_map_value_df["trial_index"].values:
             value = maximum_map_value_df[
                 maximum_map_value_df["trial_index"] == trial_index
             ][map_key].iloc[0]
