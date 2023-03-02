@@ -180,7 +180,31 @@ def extract_parameter_constraints(
 def extract_search_space_digest(
     search_space: SearchSpace, param_names: List[str]
 ) -> SearchSpaceDigest:
-    """Extract basic parameter properties from a search space."""
+    """Extract basic parameter properties from a search space.
+
+    This is typically called with the transformed search space and makes certain
+    assumptions regarding the parameters being transformed.
+
+    For ChoiceParameters:
+    * The choices are assumed to be numerical. ChoiceEncode and OrderedChoiceEncode
+    transforms handle this.
+    * If is_task, its index is added to task_features.
+    * If ordered, its index is added to ordinal_features.
+    * Otherwise, its index is added to categorical_features.
+    * In all cases, the choices are added to discrete_choices.
+    * The minimum and maximum value are added to the bounds.
+
+    For RangeParameters:
+    * They're assumed not to be in the log_scale. The Log transform handles this.
+    * If integer, its index is added to ordinal_features and the choices are added
+    to discrete_choices.
+    * The minimum and maximum value are added to the bounds.
+
+    If a parameter is_fidelity:
+    * Its target_value is assumed to be numerical.
+    * The target_value is added to target_fidelities.
+    * Its index is added to fidelity_features.
+    """
     bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
     ordinal_features: List[int] = []
     categorical_features: List[int] = []
