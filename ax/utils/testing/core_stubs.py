@@ -9,6 +9,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 
 from logging import Logger
+from pathlib import Path
 from typing import (
     Any,
     cast,
@@ -2012,6 +2013,10 @@ def get_parameter_distribution() -> ParameterDistribution:
         distribution_class="norm",
         distribution_parameters={"loc": 1.0, "scale": 0.5},
     )
+
+
+def get_pathlib_path() -> Path:
+    return Path("some/meaningless/path")
 
 
 ##############################
