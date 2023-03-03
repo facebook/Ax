@@ -18,13 +18,13 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.objective import Objective, ScalarizedObjective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import Observation
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -813,3 +813,65 @@ def extract_Y_from_data(
             )
 
     return torch.tensor([Y_lists_dict[m] for m in metric_names], dtype=torch.double).T
+
+
+def _objective_threshold_from_nadir(
+    experiment: Experiment,
+    objective: Objective,
+    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+) -> ObjectiveThreshold:
+    """
+    Find the worst value observed for each objective and create an ObjectiveThreshold
+    with this as the bound.
+    """
+
+    logger.info(f"Inferring ObjectiveThreshold for {objective} using nadir point.")
+
+    optimization_config = optimization_config or checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
+    )
+
+    data_df = experiment.fetch_data().df
+
+    mean = data_df[data_df["metric_name"] == objective.metric.name]["mean"]
+    bound = max(mean) if objective.minimize else min(mean)
+    op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
+
+    return ObjectiveThreshold(
+        metric=objective.metric, bound=bound, op=op, relative=False
+    )
+
+
+def fill_missing_thresholds_from_nadir(
+    experiment: Experiment, optimization_config: OptimizationConfig
+) -> List[ObjectiveThreshold]:
+    r"""Get the objective thresholds from the optimization config and
+    fill the missing thresholds based on the nadir point.
+
+    Args:
+        experiment: The experiment, whose data is used to calculate the nadir point.
+        optimization_config: Optimization config to get the objective thresholds
+            and the objective directions from.
+
+    Returns:
+        A list of objective thresholds, one for each objective in
+        optimization config.
+    """
+    objectives = checked_cast(MultiObjective, optimization_config.objective).objectives
+    optimization_config = checked_cast(
+        MultiObjectiveOptimizationConfig, optimization_config
+    )
+    provided_thresholds = {
+        obj_t.metric.name: obj_t for obj_t in optimization_config.objective_thresholds
+    }
+    objective_thresholds = [
+        provided_thresholds[objective.metric.name]
+        if objective.metric.name in provided_thresholds
+        else _objective_threshold_from_nadir(
+            experiment=experiment,
+            objective=objective,
+            optimization_config=optimization_config,
+        )
+        for objective in objectives
+    ]
+    return objective_thresholds

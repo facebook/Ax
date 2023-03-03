@@ -9,7 +9,7 @@ import os
 from setuptools import find_packages, setup
 
 # TODO: read pinned Botorch version from a shared source
-PINNED_BOTORCH_VERSION = "0.8.0"
+PINNED_BOTORCH_VERSION = "0.8.2"
 
 if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows a more recent previously installed version of botorch to remain
@@ -25,10 +25,9 @@ REQUIRES = [
     "pandas",
     "scipy",
     "scikit-learn",
-    # ipywidgets 8.0.0 is incompatible with Plotly >=5.7.0
-    # https://github.com/plotly/plotly.py/issues/3686
-    "ipywidgets<8.0.0",
-    "plotly",
+    "ipywidgets",
+    # Needed for compatibility with ipywidgets >= 8.0.0
+    "plotly>=5.12.0",
     "typeguard",
 ]
 
@@ -58,7 +57,6 @@ UNITTEST_MINIMAL_REQUIRES = [
     "tensorboard",  # For tensorboard unit tests.
     "torchvision",  # For torchvision unit tests.
     "torchx",  # For torchx unit tests.
-    "protobuf<4",  # Temporary fix for tensorboard / ray import errors.
 ]
 
 UNITTEST_REQUIRES = (

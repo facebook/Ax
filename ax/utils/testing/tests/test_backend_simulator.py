@@ -13,8 +13,7 @@ from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulato
 
 class BackendSimulatorTest(TestCase):
     @patch("ax.utils.testing.backend_simulator.time.time")
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_backend_simulator(self, time_mock: Mock):
+    def test_backend_simulator(self, time_mock: Mock) -> None:
         time_mock.return_value = 0.0
         dt = 0.001
         options = BackendSimulatorOptions(max_concurrency=2)

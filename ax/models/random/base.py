@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import random
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -58,7 +59,7 @@ class RandomModel(Model):
     ) -> None:
         super().__init__()
         self.deduplicate = deduplicate
-        self.seed = seed
+        self.seed: int = seed if seed is not None else random.randint(0, 100_000)
         # Used for deduplication.
         self.generated_points = generated_points
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
@@ -113,8 +114,7 @@ class RandomModel(Model):
                 #  for 1st param but got
                 #  `Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
                 #  int, str]`.
-                # pyre-fixme[35]: Target cannot be annotated.
-                max_draws: int = int(max_draws)
+                max_draws = int(max_draws)
         try:
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
@@ -135,7 +135,8 @@ class RandomModel(Model):
             if self.fallback_to_sample_polytope:
                 logger.info(
                     "Rejection sampling exceeded specified maximum draws."
-                    "Falling back on polytope sampler"
+                    "Falling back on HitAndRunPolytopeSampler instead of "
+                    f"{self.__class__.__name__}."
                 )
                 # If rejection sampling fails, try polytope sampler.
                 polytope_sampler = HitAndRunPolytopeSampler(
@@ -148,7 +149,14 @@ class RandomModel(Model):
                     interior_point=self._get_last_point(),
                     bounds=self._convert_bounds(bounds),
                 )
-                points = polytope_sampler.draw(n).numpy()
+                num_generated = (
+                    len(self.generated_points)
+                    if self.generated_points is not None
+                    else 0
+                )
+                points = polytope_sampler.draw(
+                    n=n, seed=self.seed + num_generated
+                ).numpy()
             else:
                 raise e
 

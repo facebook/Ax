@@ -80,6 +80,16 @@ class OptimizerArgparseTest(TestCase):
             for key, val in user_options.items():
                 self.assertEqual(val, parsed_options.get(key))
 
+        # Also test sub-options.
+        func = _argparse_base
+        parsed_options = func(
+            None, optimizer_options={"options": {"batch_limit": 10, "maxiter": 20}}
+        )
+        self.assertEqual(
+            parsed_options["options"],
+            {"batch_limit": 10, "init_batch_limit": 32, "maxiter": 20},
+        )
+
     def test_ehvi(self) -> None:
         user_options = {"foo": "bar", "num_restarts": 651}
         inner_options = {"init_batch_limit": 23, "batch_limit": 67}

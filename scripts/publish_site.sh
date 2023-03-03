@@ -148,7 +148,7 @@ if [[ $VERSION == false ]]; then
   git init -b main
   git add --all
   git commit -m 'Update latest version of site'
-  git push --force "https://github.com/facebook/Ax" main:gh-pages
+  git push --force "git@github.com:facebook/Ax" main:gh-pages
 
 else
   echo "-----------------------------------------"
@@ -225,7 +225,7 @@ else
   git init -b main
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force "https://github.com/facebook/Ax" main:gh-pages
+  git push --force "git@github.com:facebook/Ax" main:gh-pages
 
 fi
 

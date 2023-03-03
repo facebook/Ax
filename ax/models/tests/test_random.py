@@ -8,11 +8,19 @@ import numpy as np
 import torch
 from ax.models.random.base import RandomModel
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 
 
 class RandomModelTest(TestCase):
     def setUp(self) -> None:
         self.random_model = RandomModel()
+
+    def test_seed(self) -> None:
+        # With manual seed.
+        random_model = RandomModel(seed=5)
+        self.assertEqual(random_model.seed, 5)
+        # With no seed.
+        self.assertIsInstance(self.random_model.seed, int)
 
     def testRandomModelGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
@@ -27,9 +35,9 @@ class RandomModelTest(TestCase):
     def testConvertEqualityConstraints(self) -> None:
         fixed_features = {3: 0.7, 1: 0.5}
         d = 4
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Tensor, Tensor]]` into 2
-        #  values.
-        C, c = self.random_model._convert_equality_constraints(d, fixed_features)
+        C, c = not_none(
+            self.random_model._convert_equality_constraints(d, fixed_features)
+        )
         c_expected = torch.tensor([[0.5], [0.7]], dtype=torch.double)
         C_expected = torch.tensor([[0, 1, 0, 0], [0, 0, 0, 1]], dtype=torch.double)
         c_comparison = c == c_expected
@@ -41,9 +49,9 @@ class RandomModelTest(TestCase):
     def testConvertInequalityConstraints(self) -> None:
         A = np.array([[1, 2], [3, 4]])
         b = np.array([[5], [6]])
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Tensor, Tensor]]` into 2
-        #  values.
-        A_result, b_result = self.random_model._convert_inequality_constraints((A, b))
+        A_result, b_result = not_none(
+            self.random_model._convert_inequality_constraints((A, b))
+        )
         A_expected = torch.tensor([[1, 2], [3, 4]], dtype=torch.double)
         b_expected = torch.tensor([[5], [6]], dtype=torch.double)
         A_comparison = A_result == A_expected
@@ -53,9 +61,7 @@ class RandomModelTest(TestCase):
         self.assertEqual(self.random_model._convert_inequality_constraints(None), None)
 
     def testConvertBounds(self) -> None:
-        bounds = [(1, 2), (3, 4), (5, 6)]
-        # pyre-fixme[6]: For 1st param expected `List[Tuple[float, float]]` but got
-        #  `List[Tuple[int, int]]`.
+        bounds = [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]
         bounds_result = self.random_model._convert_bounds(bounds)
         bounds_expected = torch.tensor([[1, 3, 5], [2, 4, 6]], dtype=torch.double)
         bounds_comparison = bounds_result == bounds_expected

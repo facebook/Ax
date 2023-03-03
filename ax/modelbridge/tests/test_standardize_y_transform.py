@@ -6,6 +6,7 @@
 
 from copy import deepcopy
 from math import sqrt
+from typing import List
 
 import numpy as np
 from ax.core.metric import Metric
@@ -76,7 +77,33 @@ class StandardizeYTransformTest(TestCase):
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")
         m3 = Metric(name="m3")
+        m4 = Metric(name="m4")
         objective = Objective(metric=m3, minimize=False)
+        cons: List[OutcomeConstraint] = [
+            OutcomeConstraint(
+                metric=m4, op=ComparisonOp.GEQ, bound=2.0, relative=False
+            ),
+        ]
+
+        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        with self.assertRaisesRegex(
+            DataRequiredError, "`StandardizeY` transform requires constraint metric"
+        ):
+            oc = self.t.transform_optimization_config(oc, None, None)
+        cons = [
+            ScalarizedOutcomeConstraint(
+                metrics=[m1, m4],
+                weights=[0.5, 0.5],
+                op=ComparisonOp.LEQ,
+                bound=3.5,
+                relative=False,
+            ),
+        ]
+        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        with self.assertRaisesRegex(
+            DataRequiredError, "`StandardizeY` transform requires constraint metric"
+        ):
+            oc = self.t.transform_optimization_config(oc, None, None)
         cons = [
             OutcomeConstraint(
                 metric=m1, op=ComparisonOp.GEQ, bound=2.0, relative=False

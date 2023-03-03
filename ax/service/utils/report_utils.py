@@ -7,6 +7,7 @@
 import itertools
 import logging
 from collections import defaultdict
+from datetime import timedelta
 from logging import Logger
 from typing import (
     Any,
@@ -25,14 +26,18 @@ import gpytorch
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
+from ax.metrics.curve import AbstractCurveMetric
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
@@ -48,8 +53,12 @@ from ax.plot.pareto_frontier import (
 from ax.plot.pareto_utils import _extract_observed_pareto_2d
 from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
-from ax.plot.trace import optimization_trace_single_method_plotly
+from ax.plot.trace import (
+    map_data_multiple_metrics_dropdown_plotly,
+    optimization_trace_single_method_plotly,
+)
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from pandas.core.frame import DataFrame
@@ -273,6 +282,7 @@ def get_standard_plots(
     data: Optional[Data] = None,
     model_transitions: Optional[List[int]] = None,
     true_objective_metric_name: Optional[str] = None,
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -376,7 +386,136 @@ def get_standard_plots(
             # Model does not implement `predict` method.
             pass
 
+    # Get plots for AbstractCurveMetrics
+    curve_metrics = [
+        m for m in experiment.metrics.values() if isinstance(m, AbstractCurveMetric)
+    ]
+    if curve_metrics:
+        # Sort so that objective metrics appear first
+        curve_metrics.sort(
+            key=lambda e: e.name in [m.name for m in objective.metrics],
+            reverse=True,
+        )
+        for by_walltime in [False, True]:
+            output_plot_list.append(
+                _get_curve_plot_dropdown(
+                    experiment=experiment,
+                    curve_metrics=curve_metrics,
+                    data=data,  # pyre-ignore
+                    early_stopping_strategy=early_stopping_strategy,
+                    by_walltime=by_walltime,
+                )
+            )
     return [plot for plot in output_plot_list if plot is not None]
+
+
+def _transform_progression_to_walltime(
+    progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
+) -> Optional[np.ndarray]:
+    try:
+        trial_df = exp_df[exp_df["trial_index"] == trial_idx]
+        time_run_started = trial_df["time_run_started"].iloc[0]
+        time_completed = trial_df["time_completed"].iloc[0]
+        runtime_seconds = (time_completed - time_run_started).total_seconds()
+        intermediate_times = runtime_seconds * progressions / progressions.max()
+        transformed_times = np.array(
+            [time_run_started + timedelta(seconds=t) for t in intermediate_times]
+        )
+        return transformed_times
+    except Exception as e:
+        logger.info(f"Failed to transform progression to walltime: {e}")
+        return None
+
+
+def _get_curve_plot_dropdown(
+    experiment: Experiment,
+    curve_metrics: Iterable[AbstractCurveMetric],
+    data: MapData,
+    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
+    by_walltime: bool = False,
+) -> Optional[go.Figure]:
+    """Plot curve metrics by either progression or walltime.
+
+    Args:
+        experiment: The experiment to generate plots for.
+        curve_metrics: The list of metrics to generate plots for. Each metric
+            will be one entry in the dropdown.
+        data: The map data used to generate the plots.
+        early_stopping_strategy: An instance of ``BaseEarlyStoppingStrategy``. This
+            is used to check which metrics are being used for early stopping.
+        by_walltime: If true, the x-axis will be walltime. If false, the x-axis is
+            the progression of the trials (trials are 'stacked').
+    """
+    map_df = data.map_df
+    early_stopping_metrics = get_early_stopping_metrics(
+        experiment=experiment, early_stopping_strategy=early_stopping_strategy
+    )
+    xs_by_metric = {}
+    ys_by_metric = {}
+    legend_labels_by_metric = {}
+    stopping_markers_by_metric = {}
+    exp_df = pd.DataFrame()
+    if by_walltime:
+        exp_df = exp_to_df(
+            exp=experiment,
+            trial_attribute_fields=["time_run_started", "time_completed"],
+            always_include_field_columns=True,
+        )
+    for m in curve_metrics:
+        map_key = m.MAP_KEY.key
+        metric_df = map_df[map_df["metric_name"] == m.name]
+        xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
+        is_early_stopping_metric = m.name in early_stopping_metrics
+        for trial_idx, df_g in metric_df.groupby("trial_index"):
+            if experiment.trials[trial_idx].status not in (
+                TrialStatus.COMPLETED,
+                TrialStatus.EARLY_STOPPED,
+            ):
+                continue
+            if by_walltime:
+                x = _transform_progression_to_walltime(
+                    progressions=df_g[map_key].to_numpy(),
+                    exp_df=exp_df,
+                    trial_idx=trial_idx,
+                )
+                if x is None:
+                    continue
+            else:
+                x = df_g[map_key].to_numpy()
+            xs.append(x)
+            ys.append(df_g["mean"].to_numpy())
+            legend_labels.append(f"Trial {trial_idx}")
+            plot_stopping_markers.append(
+                is_early_stopping_metric
+                and experiment.trials[trial_idx].status == TrialStatus.EARLY_STOPPED
+            )
+
+        if len(xs) > 0:
+            xs_by_metric[m.name] = xs
+            ys_by_metric[m.name] = ys
+            legend_labels_by_metric[m.name] = legend_labels
+            stopping_markers_by_metric[m.name] = plot_stopping_markers
+
+    if len(xs_by_metric.keys()) == 0:
+        return None
+
+    title = (
+        "Curve metrics (i.e., learning curves) by walltime"
+        if by_walltime
+        else "Curve metrics (i.e., learning curves) by progression"
+    )
+    return map_data_multiple_metrics_dropdown_plotly(
+        metric_names=[m.name for m in curve_metrics],
+        xs_by_metric=xs_by_metric,
+        ys_by_metric=ys_by_metric,
+        legend_labels_by_metric=legend_labels_by_metric,
+        stopping_markers_by_metric=stopping_markers_by_metric,
+        title=title,
+        xlabels_by_metric={
+            m.name: "wall time" if by_walltime else m.MAP_KEY.key for m in curve_metrics
+        },
+        lower_is_better_by_metric={m.name: m.lower_is_better for m in curve_metrics},
+    )
 
 
 def _merge_trials_dict_with_df(
@@ -384,6 +523,7 @@ def _merge_trials_dict_with_df(
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     trials_dict: Dict[int, Any],
     column_name: str,
+    always_include_field_column: bool = False,
 ) -> None:
     """Add a column ``column_name`` to a DataFrame ``df`` containing a column
     ``trial_index``. Each value of the new column is given by the element of
@@ -396,12 +536,18 @@ def _merge_trials_dict_with_df(
             df will be populated with the value corresponding with the
             ``trial_index`` of each row.
         column_name: Name of the column to be appended to ``df``.
+        always_include_field_column: Even if all trials have missing values,
+            include the column.
     """
 
     if "trial_index" not in df.columns:
         raise ValueError("df must have trial_index column")
-    if any(trials_dict.values()):  # field present for any trial
-        if not all(trials_dict.values()):  # not present for all trials
+
+    # field present for some trial
+    if always_include_field_column or any(trials_dict.values()):
+        if not all(
+            v is not None for v in trials_dict.values()
+        ):  # not present for all trials
             logger.warning(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
@@ -493,6 +639,11 @@ def exp_to_df(
     metrics: Optional[List[Metric]] = None,
     run_metadata_fields: Optional[List[str]] = None,
     trial_properties_fields: Optional[List[str]] = None,
+    trial_attribute_fields: Optional[List[str]] = None,
+    additional_fields_callables: Optional[
+        Dict[str, Callable[[Experiment], Dict[int, Union[str, float]]]]
+    ] = None,
+    always_include_field_columns: bool = False,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame with rows keyed by trial_index
@@ -506,14 +657,23 @@ def exp_to_df(
     Args:
         exp: An ``Experiment`` that may have pending trials.
         metrics: Override list of metrics to return. Return all metrics if ``None``.
-        run_metadata_fields: fields to extract from ``trial.run_metadata`` for trial
+        run_metadata_fields: Fields to extract from ``trial.run_metadata`` for trial
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial.
-        trial_properties_fields: fields to extract from ``trial._properties`` for trial
+        trial_properties_fields: Fields to extract from ``trial._properties`` for trial
             in ``experiment.trials``. If there are multiple arms per trial, these
             fields will be replicated across the arms of a trial. Output columns names
             will be prepended with ``"trial_properties_"``.
-
+        trial_attribute_fields: Fields to extract from trial attributes for each trial
+            in ``experiment.trials``. If there are multiple arms per trial, these
+            fields will be replicated across the arms of a trial.
+        additional_fields_callables: A dictionary of field names to callables, with
+            each being a function from `experiment` to a `trials_dict` of the form
+            {trial_index: value}. An example of a custom callable like this is the
+            function `compute_maximum_map_values`.
+        always_include_field_columns: If `True`, even if all trials have missing
+            values, include field columns anyway. Such columns are by default
+            omitted (False).
     Returns:
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
         ``map_keys``, if present). If no trials are available, returns an empty
@@ -548,6 +708,11 @@ def exp_to_df(
     data = exp.lookup_data()
     results = data.df
 
+    # Filter metrics.
+    if metrics is not None:
+        metric_names = [m.name for m in metrics]
+        results = results[results["metric_name"].isin(metric_names)]
+
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
         exp.optimization_config is not None
@@ -564,8 +729,8 @@ def exp_to_df(
                 df=results,
                 optimization_config=optimization_config,
             )
-        except ValueError as e:
-            logger.warning(e)
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Feasibility calculation failed with error: {e}")
 
     # If arms_df is empty, return empty results (legacy behavior)
     if len(arms_df.index) == 0:
@@ -614,6 +779,7 @@ def exp_to_df(
                 df=arms_df,
                 trials_dict=trial_to_properties_field,
                 column_name="trial_properties_" + field,
+                always_include_field_column=always_include_field_columns,
             )
 
     # Add any run_metadata fields to arms_df
@@ -630,7 +796,35 @@ def exp_to_df(
                 df=arms_df,
                 trials_dict=trial_to_metadata_field,
                 column_name=field,
+                always_include_field_column=always_include_field_columns,
             )
+
+    # Add any trial attributes fields to arms_df
+    if trial_attribute_fields is not None:
+        # add trial attribute fields
+        for field in trial_attribute_fields:
+            trial_to_attribute_field = {
+                trial_index: (getattr(trial, field) if hasattr(trial, field) else None)
+                for trial_index, trial in trials
+            }
+            _merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_attribute_field,
+                column_name=field,
+                always_include_field_column=always_include_field_columns,
+            )
+
+    # Add additional fields to arms_df
+    if additional_fields_callables is not None:
+        for field, func in additional_fields_callables.items():
+            trial_to_additional_field = func(exp)
+            _merge_trials_dict_with_df(
+                df=arms_df,
+                trials_dict=trial_to_additional_field,
+                column_name=field,
+                always_include_field_column=always_include_field_columns,
+            )
+
     exp_df = _merge_results_if_no_duplicates(
         arms_df=arms_df,
         results=results,
@@ -651,6 +845,34 @@ def exp_to_df(
             # ndarray]]]` but got `Union[DataFrame, Series]`]
             exp_df.insert(0, column_name, exp_df.pop(column_name))
     return exp_df.reset_index(drop=True)
+
+
+def compute_maximum_map_values(
+    experiment: Experiment, map_key: Optional[str] = None
+) -> Dict[int, float]:
+    """A function that returns a map from trial_index to the maximum map value
+    reached. If map_key is not specified, it uses the first map_key."""
+    data = experiment.lookup_data()
+    if not isinstance(data, MapData):
+        raise ValueError("`compute_maximum_map_values` requires `MapData`.")
+    if map_key is None:
+        map_key = data.map_keys[0]
+    map_df = data.map_df
+    maximum_map_value_df = (
+        map_df[["trial_index"] + data.map_keys]
+        .groupby("trial_index")
+        .max()
+        .reset_index()
+    )
+    trials_dict = {}
+    for trial_index in experiment.trials:
+        value = None
+        if trial_index in maximum_map_value_df["trial_index"].values:
+            value = maximum_map_value_df[
+                maximum_map_value_df["trial_index"] == trial_index
+            ][map_key].iloc[0]
+        trials_dict[trial_index] = value
+    return trials_dict
 
 
 def _pairwise_pareto_plotly_scatter(

@@ -54,7 +54,8 @@ class TestRobust(TestCase):
             )
 
         obs = ObservationFeatures(parameters=trial.arm.parameters)
-        modelbridge.predict([obs])
+        with self.assertRaisesRegex(NotImplementedError, "one-to-many"):
+            modelbridge.predict([obs])
 
     def test_robust_multi_objective(self) -> None:
         risk_measure = RiskMeasure(

@@ -180,7 +180,31 @@ def extract_parameter_constraints(
 def extract_search_space_digest(
     search_space: SearchSpace, param_names: List[str]
 ) -> SearchSpaceDigest:
-    """Extract basic parameter properties from a search space."""
+    """Extract basic parameter properties from a search space.
+
+    This is typically called with the transformed search space and makes certain
+    assumptions regarding the parameters being transformed.
+
+    For ChoiceParameters:
+    * The choices are assumed to be numerical. ChoiceEncode and OrderedChoiceEncode
+    transforms handle this.
+    * If is_task, its index is added to task_features.
+    * If ordered, its index is added to ordinal_features.
+    * Otherwise, its index is added to categorical_features.
+    * In all cases, the choices are added to discrete_choices.
+    * The minimum and maximum value are added to the bounds.
+
+    For RangeParameters:
+    * They're assumed not to be in the log_scale. The Log transform handles this.
+    * If integer, its index is added to ordinal_features and the choices are added
+    to discrete_choices.
+    * The minimum and maximum value are added to the bounds.
+
+    If a parameter is_fidelity:
+    * Its target_value is assumed to be numerical.
+    * The target_value is added to target_fidelities.
+    * Its index is added to fidelity_features.
+    """
     bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
     ordinal_features: List[int] = []
     categorical_features: List[int] = []
@@ -908,7 +932,8 @@ def get_pareto_frontier_and_configs(
         objective=optimization_config.objective,
         outcomes=modelbridge.outcomes,
     )
-    obj_t = array_to_tensor(obj_t)
+    if obj_t is not None:
+        obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
     obj_w, oc_c, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
@@ -942,7 +967,12 @@ def get_pareto_frontier_and_configs(
             )
         )
 
-    return frontier_observations, f, obj_w.cpu(), obj_t.cpu()
+    return (
+        frontier_observations,
+        f,
+        obj_w.cpu(),
+        obj_t.cpu() if obj_t is not None else None,
+    )
 
 
 def pareto_frontier(
@@ -1231,8 +1261,10 @@ def observed_hypervolume(
 
     Args:
         modelbridge: Modelbridge that holds previous training data.
-        objective_thresholds: point defining the origin of hyperrectangles that
-            can contribute to hypervolume.
+        objective_thresholds: Point defining the origin of hyperrectangles that
+            can contribute to hypervolume. Note that if this is None,
+            `objective_thresholds` must be present on the
+            `modelbridge.optimization_config`.
         observation_features: observation features to predict. Model's training
             data used by default if unspecified.
         optimization_config: Optimization config

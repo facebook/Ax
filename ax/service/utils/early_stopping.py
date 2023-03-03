@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -34,3 +34,18 @@ def should_stop_trials_early(
     return early_stopping_strategy.should_stop_trials_early(
         trial_indices=trial_indices, experiment=experiment
     )
+
+
+def get_early_stopping_metrics(
+    experiment: Experiment, early_stopping_strategy: Optional[BaseEarlyStoppingStrategy]
+) -> List[str]:
+    """A helper function that returns a list of metric names on which a given
+    `early_stopping_strategy` is operating."""
+    if early_stopping_strategy is None:
+        return []
+    if early_stopping_strategy.metric_names is not None:
+        return list(early_stopping_strategy.metric_names)
+    default_objective, _ = early_stopping_strategy._default_objective_and_direction(
+        experiment=experiment
+    )
+    return [default_objective]

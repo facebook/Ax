@@ -924,7 +924,9 @@ class SearchSpaceDigest:
     """Container for lightweight representation of search space properties.
 
     This is used for communicating between modelbridge and models. This is
-    an ephemeral object and not meant to be stored / serialized.
+    an ephemeral object and not meant to be stored / serialized. It is typically
+    constructed from the transformed search space using `extract_search_space_digest`,
+    whose docstring explains how various fields are populated.
 
     Attributes:
         feature_names: A list of parameter names.

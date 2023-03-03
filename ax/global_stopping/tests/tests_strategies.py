@@ -253,7 +253,6 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         return exp
 
     def test_multi_objective(self) -> None:
-
         metric_values = [
             (0.15, 0.6, 0.1),
             (0.25, 0.5, 0.2),
@@ -281,7 +280,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         # Now we select a very far custom reference point against which the pareto front
         # has not increased in hypervolume at trial 4. Hence, it should stop the
         # optimization at this trial.
-        gss2 = ImprovementGlobalStoppingStrategy(
+        gss = ImprovementGlobalStoppingStrategy(
             min_trials=3, window_size=3, improvement_bar=0.1
         )
         objectives = exp.optimization_config.objective.objectives  # pyre-ignore
@@ -299,7 +298,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
                 relative=False,
             ),
         ]
-        stop, message = gss2.should_stop_optimization(
+        stop, message = gss.should_stop_optimization(
             experiment=exp,
             trial_to_check=4,
             objective_thresholds=custom_objective_thresholds,
@@ -311,8 +310,18 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "0.1.",
         )
 
-    def test_single_objective(self) -> None:
+        # Test with no objective thresholds specified.
+        checked_cast(
+            MultiObjectiveOptimizationConfig, exp._optimization_config
+        )._objective_thresholds = []
+        stop, message = gss.should_stop_optimization(
+            experiment=exp,
+            trial_to_check=4,
+            objective_thresholds=None,
+        )
+        self.assertTrue(stop)
 
+    def test_single_objective(self) -> None:
         metric_values = [
             (0.1, 0.6, 0.1),  # feasible, best_objective_so_far = 0.1
             (0.2, 0.3, 0.2),  # feasible, best_objective_so_far = 0.2

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import re
 import time
 
 from logging import INFO, Logger
@@ -12,7 +13,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
+from ax.exceptions.core import (
+    IncompatibleDependencyVersion,
+    ObjectNotFoundError,
+    UnsupportedError,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -20,7 +25,28 @@ from ax.utils.common.typeutils import not_none
 
 RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
 
+
+logger: Logger = get_logger(__name__)
+
 try:  # We don't require SQLAlchemy by default.
+    # pyre-fixme[21]: Could not find a name `__version__` defined in module
+    # `sqlalchemy`.
+    from sqlalchemy import __version__ as sqa_version
+
+    # pyre-fixme[16]: Module `sqlalchemy` has no attribute `__version__`.
+    sqa_major_version = int(not_none(re.match(r"^\d*", sqa_version))[0])
+    if sqa_major_version > 1:
+        msg = (
+            "Ax currently requires a sqlalchemy version below 2.0. This will be "
+            "addressed in a future release. Disabling SQL storage in Ax for now, if "
+            "you would like to use SQL storage please install Ax with mysql extras "
+            "via `pip install ax-platform[mysql]`."
+        )
+
+        logger.warning(msg)
+
+        raise IncompatibleDependencyVersion(msg)
+
     from ax.storage.sqa_store.db import init_engine_and_session_factory
     from ax.storage.sqa_store.decoder import Decoder
     from ax.storage.sqa_store.encoder import Encoder
@@ -44,7 +70,7 @@ try:  # We don't require SQLAlchemy by default.
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
-except ModuleNotFoundError:  # pragma: no cover
+except (ModuleNotFoundError, IncompatibleDependencyVersion):  # pragma: no cover
     DBSettings = None
     Decoder = None
     Encoder = None
@@ -53,8 +79,6 @@ except ModuleNotFoundError:  # pragma: no cover
 
 STORAGE_MINI_BATCH_SIZE = 50
 LOADING_MINI_BATCH_SIZE = 10000
-
-logger: Logger = get_logger(__name__)
 
 
 class WithDBSettingsBase:

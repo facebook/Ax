@@ -132,7 +132,7 @@ def get_observed_pareto_frontiers(
 
     Uses only values as observed in the data; no modeling is involved. Makes no
     assumption about the search space or types of parameters. If "data" is provided will
-    use that, otherwise will use all data attached to the experiment.
+    use that, otherwise will use all data already attached to the experiment.
 
     Uses all arms present in data; does not filter according to experiment
     search space. If arm_names is specified, will filter to just those arm whose names
@@ -146,7 +146,7 @@ def get_observed_pareto_frontiers(
 
     Args:
         experiment: The experiment.
-        data: Data to use for computing Pareto frontier. If not provided, will fetch
+        data: Data to use for computing Pareto frontier. If not provided, will lookup
             data from experiment.
         rel: Relativize, if status quo on experiment.
         arm_names: If provided, computes Pareto frontier only from among the provided
@@ -155,7 +155,7 @@ def get_observed_pareto_frontiers(
     Returns: ParetoFrontierResults that can be used with interact_pareto_frontier.
     """
     if data is None:
-        data = experiment.fetch_data()
+        data = experiment.lookup_data()
     if experiment.optimization_config is None:
         raise ValueError("Experiment must have an optimization config")
     if arm_names is not None:
