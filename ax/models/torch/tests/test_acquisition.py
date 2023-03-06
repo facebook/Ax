@@ -34,9 +34,13 @@ from botorch.acquisition.input_constructors import (
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
+    MultiObjectiveMCAcquisitionFunction,
     qNoisyExpectedHypervolumeImprovement,
 )
-from botorch.acquisition.objective import LinearMCObjective
+from botorch.acquisition.objective import (
+    LinearMCObjective,
+    ScalarizedPosteriorTransform,
+)
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
@@ -72,6 +76,12 @@ class DummyAcquisitionFunction(AcquisitionFunction):
         pass
 
 
+class DummyMOOAcquisitionFunction(
+    DummyAcquisitionFunction, MultiObjectiveMCAcquisitionFunction
+):
+    pass
+
+
 class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradient):
     def evaluate(self, X: Tensor, **kwargs: Any) -> Tensor:
         return X.sum(dim=-1)
@@ -86,6 +96,10 @@ class AcquisitionTest(TestCase):
         # Adding wrapping here to be able to count calls and inspect arguments.
         _register_acqf_input_constructor(
             acqf_cls=DummyAcquisitionFunction,
+            input_constructor=self.mock_input_constructor,
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=DummyMOOAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
         _register_acqf_input_constructor(
@@ -553,7 +567,7 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=self.botorch_acqf_class,
+                botorch_acqf_class=DummyMOOAcquisitionFunction,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=None,
@@ -571,7 +585,7 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=self.botorch_acqf_class,
+                botorch_acqf_class=DummyMOOAcquisitionFunction,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=torch.tensor(
@@ -587,3 +601,19 @@ class AcquisitionTest(TestCase):
                 )
             )
             self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+
+    def test_get_botorch_objective_and_transform(self) -> None:
+        # Check that we do not construct a multi-output MC objective for
+        # single objective acquisition functions.
+        (
+            objective,
+            posterior_transform,
+        ) = Acquisition.get_botorch_objective_and_transform(
+            None,  # pyre-ignore
+            botorch_acqf_class=qNoisyExpectedImprovement,
+            model=None,  # pyre-ignore
+            objective_weights=torch.ones(2),
+            objective_thresholds=torch.ones(2),
+        )
+        self.assertIsNone(objective)
+        self.assertIsInstance(posterior_transform, ScalarizedPosteriorTransform)

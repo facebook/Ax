@@ -36,6 +36,12 @@ from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.multi_objective.analytic import (
+    MultiObjectiveAnalyticAcquisitionFunction,
+)
+from botorch.acquisition.multi_objective.monte_carlo import (
+    MultiObjectiveMCAcquisitionFunction,
+)
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.models.model import Model, ModelDict
@@ -575,7 +581,15 @@ class Acquisition(Base):
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
+            objective_thresholds=objective_thresholds
+            if issubclass(
+                botorch_acqf_class,
+                (
+                    MultiObjectiveMCAcquisitionFunction,
+                    MultiObjectiveAnalyticAcquisitionFunction,
+                ),
+            )
+            else None,
             X_observed=X_observed,
             risk_measure=risk_measure,
         )
