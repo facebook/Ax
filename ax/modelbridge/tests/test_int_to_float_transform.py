@@ -46,11 +46,16 @@ class IntToFloatTransformTest(TestCase):
             observations=[],
             config={"rounding": "randomized"},
         )
+        self.t3 = IntToFloat(
+            search_space=self.search_space,
+            observations=[],
+            config={"min_choices": 3},
+        )
 
     def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a", "d"})
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_transform_observation_features(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})
         ]
@@ -65,12 +70,34 @@ class IntToFloatTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
+        # With min_choices. Only d should be transformed.
+        obs_ft2 = deepcopy(observation_features)
+        obs_ft2 = self.t3.transform_observation_features(obs_ft2)
+        self.assertEqual(
+            obs_ft2,
+            [ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})],
+        )
+        self.assertTrue(isinstance(obs_ft2[0].parameters["a"], int))
+        self.assertTrue(isinstance(obs_ft2[0].parameters["d"], float))
+        obs_ft2 = self.t.untransform_observation_features(obs_ft2)
+        self.assertEqual(obs_ft2, observation_features)
+
         # Let the transformed space be a float, verify it becomes an int.
         obs_ft3 = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 2.9})
         ]
         obs_ft3 = self.t.untransform_observation_features(obs_ft3)
         self.assertEqual(obs_ft3, observation_features)
+
+        # With min_choices. Only d should become an int.
+        obs_ft3 = [
+            ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 2.9})
+        ]
+        obs_ft3 = self.t3.untransform_observation_features(obs_ft3)
+        self.assertEqual(
+            obs_ft3,
+            [ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 3})],
+        )
 
         # Test forward transform on partial observation
         obs_ft4 = [ObservationFeatures(parameters={"x": 2.2, "d": 3})]
@@ -106,10 +133,15 @@ class IntToFloatTransformTest(TestCase):
         obs_ft2 = self.t2.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_transform_search_space(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
+        self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
+        # With min_choices, only d should be transformed.
+        ss2 = deepcopy(self.search_space)
+        ss2 = self.t3.transform_search_space(ss2)
+        self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.INT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
     def testRoundingWithConstrainedIntRanges(self) -> None:
