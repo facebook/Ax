@@ -18,7 +18,7 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -37,6 +37,9 @@ class IntToFloat(Transform):
     Uses either randomized_rounding or default python rounding,
     depending on 'rounding' flag.
 
+    The `min_choices` config can be used to transform only the parameters
+    with cardinality greater than or equal to `min_choices`.
+
     Transform is done in-place.
     """
 
@@ -50,21 +53,20 @@ class IntToFloat(Transform):
         self.search_space: SearchSpace = not_none(
             search_space, "IntToFloat requires search space"
         )
-        self.rounding: str = "strict"
-        if config is not None:
-            self.rounding = config.get("rounding", "strict")  # pyre-ignore
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.max_round_attempts = config.get(
-                "max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS
-            )
-        else:
-            self.max_round_attempts = DEFAULT_MAX_ROUND_ATTEMPTS
+        config = config or {}
+        self.rounding: str = checked_cast(str, config.get("rounding", "strict"))
+        self.max_round_attempts: int = checked_cast(
+            int, config.get("max_round_attempts", DEFAULT_MAX_ROUND_ATTEMPTS)
+        )
+        self.min_choices: int = checked_cast(int, config.get("min_choices", 0))
 
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name
             for p_name, p in self.search_space.parameters.items()
-            if isinstance(p, RangeParameter) and p.parameter_type == ParameterType.INT
+            if isinstance(p, RangeParameter)
+            and p.parameter_type == ParameterType.INT
+            and p.upper - p.lower + 1 >= self.min_choices
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):
             self.rounding = "randomized"
