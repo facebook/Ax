@@ -22,6 +22,12 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import qSimpleRegret
+from botorch.acquisition.multi_objective.analytic import (
+    MultiObjectiveAnalyticAcquisitionFunction,
+)
+from botorch.acquisition.multi_objective.monte_carlo import (
+    MultiObjectiveMCAcquisitionFunction,
+)
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     MARS,
     MultiOutputRiskMeasureMCObjective,
@@ -406,25 +412,26 @@ def _get_risk_measure(
 
 
 def get_botorch_objective_and_transform(
+    botorch_acqf_class: Type[AcquisitionFunction],
     model: Model,
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    objective_thresholds: Optional[Tensor] = None,
     X_observed: Optional[Tensor] = None,
     risk_measure: Optional[RiskMeasureMCObjective] = None,
 ) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
     """Constructs a BoTorch `AcquisitionObjective` object.
 
     Args:
-        model: A BoTorch Model
+        botorch_acqf_class: The acquisition function class the objective
+            and posterior transform are to be used with. This is mainly
+            used to determine whether to construct a multi-output or a
+            single-output objective.
+        model: A BoTorch Model.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
-        objective_thresholds: A tensor containing thresholds forming a reference point
-            from which to calculate pareto frontier hypervolume. Points that do not
-            dominate the objective_thresholds contribute nothing to hypervolume.
         X_observed: Observed points that are feasible and appear in the
             objective or the constraints. None if there are no such points.
         risk_measure: An optional risk measure for robust optimization.
@@ -443,7 +450,13 @@ def get_botorch_objective_and_transform(
         )
         return risk_measure, None
 
-    if objective_thresholds is not None:
+    if issubclass(
+        botorch_acqf_class,
+        (
+            MultiObjectiveMCAcquisitionFunction,
+            MultiObjectiveAnalyticAcquisitionFunction,
+        ),
+    ):
         # We are doing multi-objective optimization.
         return _get_weighted_mo_objective(objective_weights=objective_weights), None
     if outcome_constraints:
@@ -531,6 +544,7 @@ def get_out_of_sample_best_point_acqf(
         risk_measure=risk_measure,
     )
     objective, posterior_transform = get_botorch_objective_and_transform(
+        botorch_acqf_class=acqf_class,
         model=model,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,

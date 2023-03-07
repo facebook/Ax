@@ -120,7 +120,7 @@ class AcquisitionTest(TestCase):
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
-        self.options = {"best_f": 0.0}
+        self.options = {"best_f": 0.0, "cache_root": False, "prune_baseline": False}
         self.inequality_constraints = [
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
@@ -553,7 +553,7 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=self.botorch_acqf_class,
+                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=None,
@@ -571,7 +571,7 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=self.botorch_acqf_class,
+                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=torch.tensor(

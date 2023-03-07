@@ -572,10 +572,10 @@ class Acquisition(Base):
         risk_measure: Optional[RiskMeasureMCObjective] = None,
     ) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
         return get_botorch_objective_and_transform(
+            botorch_acqf_class=botorch_acqf_class,
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
             X_observed=X_observed,
             risk_measure=risk_measure,
         )

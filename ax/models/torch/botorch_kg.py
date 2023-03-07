@@ -122,6 +122,7 @@ class KnowledgeGradient(BotorchModel):
             outcome_constraints = torch_opt_config.outcome_constraints
 
         objective, posterior_transform = get_botorch_objective_and_transform(
+            botorch_acqf_class=qKnowledgeGradient,
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
