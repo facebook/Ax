@@ -11,12 +11,13 @@ import warnings
 from copy import deepcopy
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+import ax.core.experiment as experiment
+
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
@@ -245,7 +246,7 @@ class Observation(Base):
 
 
 def _observations_from_dataframe(
-    experiment: Experiment,
+    experiment: experiment.Experiment,
     df: pd.DataFrame,
     cols: List[str],
     arm_name_only: bool,
@@ -361,7 +362,7 @@ def get_feature_cols_from_map_data(map_data: MapData) -> List[str]:
 
 
 def observations_from_data(
-    experiment: Experiment, data: Data, include_abandoned: bool = False
+    experiment: experiment.Experiment, data: Data, include_abandoned: bool = False
 ) -> List[Observation]:
     """Convert Data to observations.
 
@@ -430,7 +431,7 @@ def observations_from_data(
 
 
 def observations_from_map_data(
-    experiment: Experiment,
+    experiment: experiment.Experiment,
     map_data: MapData,
     include_abandoned: bool = False,
     map_keys_as_parameters: bool = False,

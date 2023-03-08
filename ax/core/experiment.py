@@ -11,8 +11,10 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
 from enum import Enum
-from functools import reduce
+from functools import partial, reduce
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Type
+
+import ax.core.observation as observation
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -26,13 +28,14 @@ from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
-from ax.exceptions.core import UnsupportedError
+from ax.core.types import TParameterization
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.logger import get_logger
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -53,6 +56,14 @@ DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
 }
 
 DEFAULT_OBJECTIVE_NAME = "objective"
+
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
+
+# pyre-fixme[5]: Global expression must be annotated.
+round_floats_for_logging = partial(
+    _round_floats_for_logging,
+    decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+)
 
 
 # pyre-fixme[13]: Attribute `_search_space` is never initialized.
@@ -1307,6 +1318,116 @@ class Experiment(Base):
         with multiple trial types, use the MultiTypeExperiment class.
         """
         return trial_type is None
+
+    def attach_trial(
+        self,
+        parameterizations: List[TParameterization],
+        arm_names: Optional[List[str]] = None,
+        ttl_seconds: Optional[int] = None,
+        run_metadata: Optional[Dict[str, Any]] = None,
+        optimize_for_power: bool = False,
+    ) -> Tuple[Dict[str, TParameterization], int]:
+        """Attach a new trial with the given parameterization to the experiment.
+
+        Args:
+            parameterizations: List of parameterization for the new trial. If
+                only one is provided a single-arm Trial is created. If multiple
+                arms are provided a BatchTrial is created.
+            arm_names: Names of arm(s) in the new trial.
+            ttl_seconds: If specified, will consider the trial failed after this
+                many seconds. Used to detect dead trials that were not marked
+                failed properly.
+            run_metadata: Metadata to attach to the trial.
+            optimize_for_power: For BatchTrial only.
+                Whether to optimize the weights of arms in this
+                trial such that the experiment's power to detect effects of
+                certain size is as high as possible. Refer to documentation of
+                `BatchTrial.set_status_quo_and_optimize_power` for more detail.
+
+        Returns:
+            Tuple of arm name to parameterization dict, and trial index from
+            newly created trial.
+        """
+
+        # If more than one parameterization is provided,
+        # proceed with a batch trial
+        is_batch = len(parameterizations) > 1
+
+        # Validate search space membership for all parameterizations
+        for parameterization in parameterizations:
+            self.search_space.validate_membership(parameters=parameterization)
+
+        # Validate number of arm names if any arm names are provided.
+        named_arms = False
+        arm_names = arm_names or []
+        if len(arm_names) > 0:
+            named_arms = True
+            if len(arm_names) != len(parameterizations):
+                raise UserInputError(
+                    f"Number of arm names ({len(arm_names)} "
+                    "does not match number of parameterizations "
+                    f"({len(parameterizations)})."
+                )
+
+        # Prepare arm(s) to be added to the trial created later
+        arms = [
+            Arm(
+                parameters=parameterization,
+                name=arm_names[i] if named_arms else None,
+            )
+            for i, parameterization in enumerate(parameterizations)
+        ]
+
+        # Create the trial and add arm(s)
+        trial = None
+        if is_batch:
+            # TODO: HSS support for batch trials.
+            if self.search_space.is_hierarchical:
+                raise NotImplementedError(
+                    "Support for batch trials "
+                    "in hierarchical search space coming soon. Let "
+                    "the Ax developers know if you have a use "
+                    "case for it."
+                )
+
+            trial = self.new_batch_trial(
+                ttl_seconds=ttl_seconds, optimize_for_power=optimize_for_power
+            ).add_arms_and_weights(arms=arms)
+
+        else:
+            # If search space is hierarchical, we need to store dummy values of
+            # parameters that are not in the arm (but are in flattened
+            # search space), as metadata, so later we are able to make the
+            # data for this arm "complete" in the flattened search space.
+            candidate_metadata = None
+            if self.search_space.is_hierarchical:
+                hss = checked_cast(HierarchicalSearchSpace, self.search_space)
+                candidate_metadata = hss.cast_observation_features(
+                    observation_features=hss.flatten_observation_features(
+                        observation_features=observation.ObservationFeatures(
+                            parameters=parameterizations[0]
+                        ),
+                        inject_dummy_values_to_complete_flat_parameterization=True,
+                    )
+                ).metadata
+
+            trial = self.new_trial(ttl_seconds=ttl_seconds).add_arm(
+                arms[0],
+                candidate_metadata=candidate_metadata,
+            )
+
+        trial.mark_running(no_runner_required=True)
+
+        logger.info(
+            "Attached custom parameterizations "
+            f"{round_floats_for_logging(item=parameterizations)} "
+            f"as trial {trial.index}."
+        )
+
+        if run_metadata is not None:
+            trial.update_run_metadata(metadata=run_metadata)
+
+        return {arm.name: arm.parameters for arm in trial.arms}, trial.index
 
 
 def add_arm_and_prevent_naming_collision(

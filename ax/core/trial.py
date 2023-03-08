@@ -6,15 +6,34 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from functools import partial
+
+from logging import Logger
+
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
+from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
-from ax.core.types import TCandidateMetadata
+from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.typeutils import checked_cast_complex, not_none
 
+logger: Logger = get_logger(__name__)
+
+TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
+    "Raw data must be data for a single arm for non batched trials."
+)
+
+ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
+
+# pyre-fixme[5]: Global expression must be annotated.
+round_floats_for_logging = partial(
+    _round_floats_for_logging,
+    decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
+)
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -247,3 +266,62 @@ class Trial(BaseTrial):
 
         arm = gr.arms[0]
         return not_none(gr.candidate_metadata_by_arm_signature).get(arm.signature)
+
+    def validate_data_for_trial(self, data: Data) -> None:
+        """Utility method to validate data before further processing."""
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Please specify `tracking_metric_"
+                    "names` argument in AxClient.create_experiment to add tracking "
+                    "metrics to the experiment. Without those, all data users "
+                    "specify is still attached to the experiment, but will not be "
+                    "fetched in `experiment.fetch_data()`, but you can still use "
+                    "`experiment.lookup_data_for_trial` to get all attached data."
+                )
+
+    def update_trial_data(
+        self,
+        raw_data: TEvaluationOutcome,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        sample_size: Optional[int] = None,
+        combine_with_last_data: bool = False,
+    ) -> str:
+        """Utility method that attaches data to a trial,
+        returns a str of the update."""
+        # Format the data to save.
+        sample_sizes = {not_none(self.arm).name: sample_size} if sample_size else {}
+
+        arm_name = not_none(self.arm).name
+        raw_data_by_arm = {
+            arm_name: checked_cast_complex(
+                TEvaluationOutcome,
+                raw_data,
+                message=TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
+            )
+        }
+        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
+            self.arms_by_name.keys()
+        )
+        if not_trial_arm_names:
+            raise ValueError(  # pragma: no cover
+                f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
+            )
+
+        evaluations, data = self._make_evaluations_and_data(
+            raw_data=raw_data_by_arm,
+            metadata=metadata,
+            sample_sizes=sample_sizes,
+        )
+
+        self.validate_data_for_trial(data=data)
+        self.update_run_metadata(metadata=metadata or {})
+
+        self.experiment.attach_data(
+            data=data, combine_with_last_data=combine_with_last_data
+        )
+
+        return str(
+            round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
+        )
