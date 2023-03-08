@@ -14,6 +14,10 @@ from ax.models.torch.utils import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qNoisyExpectedHypervolumeImprovement,
+)
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     MARS,
     MultiOutputExpectation,
@@ -79,6 +83,7 @@ class TorchUtilsTest(TestCase):
     def test_get_botorch_objective(self, _) -> None:
         # If there are outcome constraints, use a ConstrainedMCObjective
         obj, tf = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedImprovement,
             model=self.mock_botorch_model,
             outcome_constraints=self.outcome_constraints,
             objective_weights=self.objective_weights,
@@ -90,6 +95,7 @@ class TorchUtilsTest(TestCase):
         # By default, `ScalarizedPosteriorTransform` should be picked in absence of
         # outcome constraints.
         obj, tf = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedImprovement,
             model=self.mock_botorch_model,
             objective_weights=self.objective_weights,
             X_observed=self.X_dummy,
@@ -100,17 +106,17 @@ class TorchUtilsTest(TestCase):
         # Test MOO case.
         with self.assertRaises(BotorchTensorDimensionError):
             get_botorch_objective_and_transform(
+                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
                 model=self.mock_botorch_model,
                 objective_weights=self.objective_weights,  # Only has 1 objective.
                 X_observed=self.X_dummy,
-                objective_thresholds=self.objective_thresholds,
             )
 
         obj, tf = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             model=self.mock_botorch_model,
             objective_weights=self.moo_objective_weights,  # Has 2 objectives.
             X_observed=self.X_dummy,
-            objective_thresholds=self.objective_thresholds,
         )
         self.assertIsInstance(obj, WeightedMCMultiOutputObjective)
         self.assertIsNone(tf)
@@ -122,6 +128,7 @@ class TorchUtilsTest(TestCase):
         # Test outcome constraint error.
         with self.assertRaisesRegex(NotImplementedError, "Outcome constraints"):
             get_botorch_objective_and_transform(
+                botorch_acqf_class=qNoisyExpectedImprovement,
                 model=self.mock_botorch_model,
                 objective_weights=self.objective_weights,
                 outcome_constraints=self.outcome_constraints,
@@ -130,6 +137,7 @@ class TorchUtilsTest(TestCase):
         # Test user supplied preprocessing function error.
         with self.assertRaisesRegex(UnsupportedError, "User supplied"):
             get_botorch_objective_and_transform(
+                botorch_acqf_class=qNoisyExpectedImprovement,
                 model=self.mock_botorch_model,
                 objective_weights=self.objective_weights,
                 risk_measure=Expectation(
@@ -142,12 +150,14 @@ class TorchUtilsTest(TestCase):
         # Test MARS errors.
         with self.assertRaisesRegex(UnsupportedError, "X_observed"):
             get_botorch_objective_and_transform(
+                botorch_acqf_class=qNoisyExpectedImprovement,
                 model=self.mock_botorch_model,
                 objective_weights=self.moo_objective_weights,
                 risk_measure=MARS(alpha=0.8, n_w=5, chebyshev_weights=[]),
             )
         # Test single objective case.
         risk_measure, _ = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedImprovement,
             model=self.mock_botorch_model,
             objective_weights=torch.tensor([-1.0]),
             risk_measure=Expectation(n_w=2),
@@ -160,6 +170,7 @@ class TorchUtilsTest(TestCase):
         )
         # Test scalarized objective with single objective risk measure.
         risk_measure, _ = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedImprovement,
             model=self.mock_botorch_model,
             objective_weights=torch.tensor([-1.0, 1.0, 0.0]),
             risk_measure=Expectation(n_w=2),
@@ -173,6 +184,7 @@ class TorchUtilsTest(TestCase):
         )
         # Test MO risk measure.
         risk_measure, _ = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             model=self.mock_botorch_model,
             objective_weights=torch.tensor([-1.0, 2.0, 0.0]),
             risk_measure=MultiOutputExpectation(n_w=2),
@@ -185,6 +197,7 @@ class TorchUtilsTest(TestCase):
         )
         # Test MARS.
         risk_measure, _ = get_botorch_objective_and_transform(
+            botorch_acqf_class=qNoisyExpectedImprovement,
             model=self.mock_botorch_model,
             objective_weights=torch.tensor([-1.0, 2.0, 0.0]),
             risk_measure=MARS(

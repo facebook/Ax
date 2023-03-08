@@ -131,7 +131,15 @@ class KnowledgeGradientTest(TestCase):
         dummy_acq = PosteriorMean(model=model.model, posterior_transform=posterior_tf)
         with mock.patch(
             "ax.models.torch.utils.PosteriorMean", return_value=dummy_acq
-        ) as mock_posterior_mean:
+        ) as mock_posterior_mean, mock.patch(
+            "ax.models.torch.utils.get_botorch_objective_and_transform",
+            return_value=(
+                None,
+                ScalarizedPosteriorTransform(
+                    weights=torch.tensor([1.0], dtype=torch.double)
+                ),
+            ),
+        ):
             gen_results = model.gen(
                 n=n,
                 search_space_digest=self.search_space_digest,
