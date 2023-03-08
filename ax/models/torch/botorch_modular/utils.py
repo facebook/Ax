@@ -44,23 +44,26 @@ logger: Logger = get_logger(__name__)
 
 
 def use_model_list(
-    datasets: List[SupervisedDataset], botorch_model_class: Type[Model]
+    datasets: List[SupervisedDataset],
+    botorch_model_class: Type[Model],
+    allow_batched_models: bool = True,
 ) -> bool:
+
     if issubclass(botorch_model_class, MultiTaskGP):
         # We currently always wrap multi-task models into `ModelListGP`.
         return True
-    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+    elif issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y().shape[-1] > 1
-    if len(datasets) == 1:
+    elif len(datasets) == 1:
         # Just one outcome, can use single model.
         return False
-    if issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
+    elif issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
         torch.equal(datasets[0].X(), ds.X()) for ds in datasets[1:]
     ):
-        # Single model, batched multi-output case.
-        return False
+        # Use batch models if allowed
+        return not allow_batched_models
     # If there are multiple Xs and they are not all equal, we
     # use `ListSurrogate` and `ModelListGP`.
     return True

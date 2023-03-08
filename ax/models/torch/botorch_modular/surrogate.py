@@ -88,6 +88,8 @@ class Surrogate(Base):
             construct custom BoTorch ``Model`` in the future.
         likelihood_options: Likelihood options, not yet used. Will be used to
             construct custom BoTorch ``Model`` in the future.
+        allow_batched_models: Set to true to fit the models in a batch if supported.
+            Set to false to fit individual models to each metric in a loop.
     """
 
     botorch_model_class: Optional[Type[Model]]
@@ -100,6 +102,7 @@ class Surrogate(Base):
     covar_module_options: Dict[str, Any]
     likelihood_class: Optional[Type[Likelihood]] = None
     likelihood_options: Dict[str, Any]
+    allow_batched_models: bool = True
 
     _training_data: Optional[List[SupervisedDataset]] = None
     _outcomes: Optional[List[str]] = None
@@ -123,6 +126,7 @@ class Surrogate(Base):
         covar_module_options: Optional[Dict[str, Any]] = None,
         likelihood_class: Optional[Type[Likelihood]] = None,
         likelihood_options: Optional[Dict[str, Any]] = None,
+        allow_batched_models: bool = True,
     ) -> None:
         self.botorch_model_class = botorch_model_class
         self.model_options = model_options or {}
@@ -134,6 +138,7 @@ class Surrogate(Base):
         self.covar_module_options = covar_module_options or {}
         self.likelihood_class = likelihood_class
         self.likelihood_options = likelihood_options or {}
+        self.allow_batched_models = allow_batched_models
 
     @property
     def model(self) -> Model:
@@ -231,9 +236,18 @@ class Surrogate(Base):
             search_space_digest=not_none(search_space_digest),
         )
 
-        if not use_model_list(
-            datasets=datasets, botorch_model_class=botorch_model_class
+        if use_model_list(
+            datasets=datasets,
+            botorch_model_class=botorch_model_class,
+            allow_batched_models=self.allow_batched_models,
         ):
+            self._construct_model_list(
+                datasets=datasets,
+                metric_names=metric_names,
+                search_space_digest=search_space_digest,
+                **kwargs,
+            )
+        else:
             if self.botorch_model_class is None:
                 self.botorch_model_class = botorch_model_class
 
@@ -247,13 +261,6 @@ class Surrogate(Base):
 
             self._construct_model(
                 dataset=datasets[0],
-                **kwargs,
-            )
-        else:
-            self._construct_model_list(
-                datasets=datasets,
-                metric_names=metric_names,
-                search_space_digest=search_space_digest,
                 **kwargs,
             )
 
@@ -732,6 +739,7 @@ class Surrogate(Base):
             "covar_module_options": self.covar_module_options,
             "likelihood_class": self.likelihood_class,
             "likelihood_options": self.likelihood_options,
+            "allow_batched_models": self.allow_batched_models,
         }
 
     def _extract_construct_model_list_kwargs(

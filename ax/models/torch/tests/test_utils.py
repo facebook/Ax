@@ -255,6 +255,21 @@ class BoTorchModelUtilsTest(TestCase):
                 botorch_model_class=SingleTaskGP,
             )
         )
+        # Multi-output with allow_batched_models
+        self.assertFalse(
+            use_model_list(
+                datasets=2 * [SupervisedDataset(X=self.Xs[0], Y=Y) for Y in self.Ys],
+                botorch_model_class=SingleTaskGP,
+                allow_batched_models=True,
+            )
+        )
+        self.assertTrue(
+            use_model_list(
+                datasets=2 * [SupervisedDataset(X=self.Xs[0], Y=Y) for Y in self.Ys],
+                botorch_model_class=SingleTaskGP,
+                allow_batched_models=False,
+            )
+        )
         self.assertTrue(
             use_model_list(
                 datasets=[

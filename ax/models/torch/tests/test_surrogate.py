@@ -24,7 +24,12 @@ from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
-from botorch.models import SaasFullyBayesianSingleTaskGP, SingleTaskGP
+from botorch.models import (
+    FixedNoiseGP,
+    ModelListGP,
+    SaasFullyBayesianSingleTaskGP,
+    SingleTaskGP,
+)
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401
@@ -109,6 +114,7 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             self.assertEqual(surrogate.botorch_model_class, botorch_model_class)
             self.assertEqual(surrogate.mll_class, self.mll_class)
+            self.assertTrue(surrogate.allow_batched_models)  # True by default
 
     def test_clone_reset(self) -> None:
         surrogate = self._get_surrogate(botorch_model_class=SingleTaskGP)[0]
@@ -815,15 +821,29 @@ class SurrogateWithModelListTest(TestCase):
             ),
             Surrogate(botorch_model_class=SaasFullyBayesianSingleTaskGP),
             Surrogate(botorch_model_class=SaasFullyBayesianMultiTaskGP),
+            Surrogate(  # Batch model
+                botorch_model_class=FixedNoiseGP, mll_class=ExactMarginalLogLikelihood
+            ),
+            Surrogate(  # ModelListGP
+                botorch_model_class=FixedNoiseGP,
+                mll_class=ExactMarginalLogLikelihood,
+                allow_batched_models=False,
+            ),
         ]
 
         for i, surrogate in enumerate(surrogates):
+            # Reset mocks
+            mock_state_dict.reset_mock()
+            mock_MLL.reset_mock()
+            mock_fit_gpytorch.reset_mock()
+            mock_fit_nuts.reset_mock()
+
             # Checking that model is None before `fit` (and `construct`) calls.
             self.assertIsNone(surrogate._model)
             # Should instantiate mll and `fit_gpytorch_mll` when `state_dict`
             # is `None`.
             surrogate.fit(
-                datasets=self.fixed_noise_training_data,
+                datasets=2 * [self.fixed_noise_training_data[0]],
                 metric_names=self.outcomes,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
@@ -835,13 +855,30 @@ class SurrogateWithModelListTest(TestCase):
             if i == 0:
                 self.assertEqual(mock_MLL.call_count, 2)
                 self.assertEqual(mock_fit_gpytorch.call_count, 2)
+                self.assertTrue(isinstance(surrogate.model, ModelListGP))
                 mock_state_dict.reset_mock()
                 mock_MLL.reset_mock()
                 mock_fit_gpytorch.reset_mock()
-            else:
+            elif i in [1, 2]:
                 self.assertEqual(mock_MLL.call_count, 0)
                 self.assertEqual(mock_fit_nuts.call_count, 2)
+                self.assertTrue(isinstance(surrogate.model, ModelListGP))
                 mock_fit_nuts.reset_mock()
+            elif i == 3:
+                self.assertEqual(mock_MLL.call_count, 1)
+                self.assertEqual(mock_fit_gpytorch.call_count, 1)
+                self.assertTrue(isinstance(surrogate.model, FixedNoiseGP))
+                mock_state_dict.reset_mock()
+                mock_MLL.reset_mock()
+                mock_fit_gpytorch.reset_mock()
+            elif i == 4:
+                self.assertEqual(mock_MLL.call_count, 2)
+                self.assertEqual(mock_fit_gpytorch.call_count, 2)
+                self.assertTrue(isinstance(surrogate.model, ModelListGP))
+                mock_state_dict.reset_mock()
+                mock_MLL.reset_mock()
+                mock_fit_gpytorch.reset_mock()
+
             # Should `load_state_dict` when `state_dict` is not `None`
             # and `refit` is `False`.
             state_dict = {"state_attribute": "value"}
