@@ -256,7 +256,27 @@ class DerelativizeTransformTest(TestCase):
         ):
             t2.transform_optimization_config(deepcopy(oc), g, None)
 
-        # Raises error with relative constraint, no status quo
+        # Same for scalarized constraint only.
+        oc_scalarized_only = OptimizationConfig(
+            objective=objective,
+            outcome_constraints=[
+                ScalarizedOutcomeConstraint(
+                    metrics=[Metric("a"), Metric("b")],
+                    weights=[0.0, 1.0],
+                    op=ComparisonOp.LEQ,
+                    bound=-10,
+                    relative=True,
+                ),
+            ],
+        )
+        with patch(
+            f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
+        ), self.assertRaisesRegex(
+            DataRequiredError,
+            "Status-quo metric value not yet available for metric\\(s\\) ",
+        ):
+            t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
+
         # Raises error with relative constraint, no status quo.
         g = ModelBridge(
             search_space=search_space,
@@ -265,7 +285,7 @@ class DerelativizeTransformTest(TestCase):
             experiment=Experiment(search_space, "test"),
             data=Data(),
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             t.transform_optimization_config(deepcopy(oc), g, None)
 
         # Raises error with relative constraint, no modelbridge.
@@ -289,5 +309,5 @@ class DerelativizeTransformTest(TestCase):
         g = ModelBridge(search_space, None, [])
         with self.assertRaises(ValueError):
             t.transform_optimization_config(oc, None, None)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataRequiredError):
             t.transform_optimization_config(oc, g, None)
