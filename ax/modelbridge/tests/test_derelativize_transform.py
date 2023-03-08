@@ -145,9 +145,9 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
-        oc = t.transform_optimization_config(oc, g, None)
+        oc2 = t.transform_optimization_config(oc, g, None)
         self.assertTrue(
-            oc.outcome_constraints
+            oc2.outcome_constraints
             == [
                 OutcomeConstraint(
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
@@ -196,9 +196,9 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ],
         )
-        oc = t.transform_optimization_config(oc, g, None)
+        oc2 = t.transform_optimization_config(oc, g, None)
         self.assertTrue(
-            oc.outcome_constraints
+            oc2.outcome_constraints
             == [
                 OutcomeConstraint(
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
@@ -238,8 +238,7 @@ class DerelativizeTransformTest(TestCase):
             ],
         )
         with self.assertRaises(RuntimeError):
-            #  `None`.
-            oc = t.transform_optimization_config(oc, g, None)
+            t.transform_optimization_config(oc, g, None)
 
         # Bypasses error if use_raw_sq
         t2 = Derelativize(
@@ -247,17 +246,18 @@ class DerelativizeTransformTest(TestCase):
             observations=[],
             config={"use_raw_status_quo": True},
         )
-        oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
+        t2.transform_optimization_config(deepcopy(oc), g, None)
 
-        # But not if sq arm is not available
+        # But not if sq arm is not available.
         with patch(
             f"{Derelativize.__module__}.unwrap_observation_data", return_value=({}, {})
         ), self.assertRaisesRegex(
-            DataRequiredError, "Status-quo metric value not yet available"
+            DataRequiredError, "Status-quo metric value not yet available for metric "
         ):
-            oc2 = t2.transform_optimization_config(deepcopy(oc), g, None)
+            t2.transform_optimization_config(deepcopy(oc), g, None)
 
         # Raises error with relative constraint, no status quo
+        # Raises error with relative constraint, no status quo.
         g = ModelBridge(
             search_space=search_space,
             model=None,
@@ -266,13 +266,11 @@ class DerelativizeTransformTest(TestCase):
             data=Data(),
         )
         with self.assertRaises(ValueError):
-            #  `None`.
-            oc = t.transform_optimization_config(oc, g, None)
+            t.transform_optimization_config(deepcopy(oc), g, None)
 
-        # Raises error with relative constraint, no modelbridge
+        # Raises error with relative constraint, no modelbridge.
         with self.assertRaises(ValueError):
-            #  `None`.
-            oc = t.transform_optimization_config(oc, None, None)
+            t.transform_optimization_config(deepcopy(oc), None, None)
 
     def testErrors(self) -> None:
         t = Derelativize(
@@ -290,8 +288,6 @@ class DerelativizeTransformTest(TestCase):
         )
         g = ModelBridge(search_space, None, [])
         with self.assertRaises(ValueError):
-            #  `None`.
             t.transform_optimization_config(oc, None, None)
         with self.assertRaises(ValueError):
-            #  `None`.
             t.transform_optimization_config(oc, g, None)
