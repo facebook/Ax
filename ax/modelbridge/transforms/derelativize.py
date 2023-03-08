@@ -53,8 +53,9 @@ class Derelativize(Transform):
         # Estimate the value at the status quo.
         if modelbridge is None:
             raise ValueError("ModelBridge not supplied to transform.")
+        # Unobserved status quo corresponds to a modelbridge.status_quo of None.
         if modelbridge.status_quo is None:
-            raise ValueError(
+            raise DataRequiredError(
                 "Optimization config has relative constraint, but model was "
                 "not fit with status quo."
             )
@@ -79,6 +80,14 @@ class Derelativize(Transform):
         for c in optimization_config.all_constraints:
             if c.relative:
                 if isinstance(c, ScalarizedOutcomeConstraint):
+                    missing_metrics = {
+                        metric.name for metric in c.metrics if metric.name not in f
+                    }
+                    if len(missing_metrics) > 0:
+                        raise DataRequiredError(
+                            f"Status-quo metric value not yet available for metric(s) "
+                            f"{missing_metrics}."
+                        )
                     # The sq_val of scalarized outcome is the weighted
                     # sum of its component metrics
                     sq_val = np.sum(

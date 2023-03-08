@@ -603,7 +603,9 @@ class WinsorizeTransformTest(TestCase):
             data=Data(),
             optimization_config=oc,
         )
-        with self.assertRaisesRegex(ValueError, "model was not fit with status quo"):
+        with self.assertRaisesRegex(
+            DataRequiredError, "model was not fit with status quo"
+        ):
             Winsorize(
                 search_space=search_space,
                 observations=OBSERVATION_DATA,
