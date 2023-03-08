@@ -877,6 +877,31 @@ def get_small_discrete_search_space() -> SearchSpace:
     )
 
 
+def get_search_space_with_choice_parameters(
+    num_ordered_parameters: int = 2,
+    num_unordered_choices: int = 5,
+) -> SearchSpace:
+    parameters = []
+    for i in range(num_ordered_parameters):
+        parameters.append(
+            ChoiceParameter(
+                name=f"ordered_{i}",
+                parameter_type=ParameterType.INT,
+                values=list(range(10)),  # pyre-ignore
+                is_ordered=True,
+            )
+        )
+    parameters.append(
+        ChoiceParameter(
+            name="unordered",
+            parameter_type=ParameterType.INT,
+            values=list(range(num_unordered_choices)),  # pyre-ignore
+            is_ordered=False,
+        )
+    )
+    return SearchSpace(parameters=parameters)
+
+
 def get_hierarchical_search_space(
     with_fixed_parameter: bool = False,
 ) -> HierarchicalSearchSpace:
