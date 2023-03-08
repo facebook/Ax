@@ -475,7 +475,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 via `_check_validity_and_get_data`.
             max_training_size: Subsample the learning curve to keep the total
                 number of data points less than this threshold. Passed to
-                MapData's `subsample` method as `limit_total_rows`.
+                MapData's `subsample` method as `limit_rows_per_metric`.
 
         Returns:
             An `EarlyStoppingTrainingData` that contains training data arrays X, Y,
@@ -484,7 +484,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         if max_training_size is not None:
             map_data = map_data.subsample(
                 map_key=map_data.map_keys[0],
-                limit_total_rows=max_training_size,
+                limit_rows_per_metric=max_training_size,
             )
         if outcomes is None:
             # default to the default objective
