@@ -25,14 +25,16 @@ from typing import (
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
+from ax.core.data import Data
 from ax.core.generator_run import ArmWeight, GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
-from ax.core.types import TCandidateMetadata
+from ax.core.types import TCandidateMetadata, TEvaluationOutcome
+from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
-from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
 
 
 logger: Logger = get_logger(__name__)
@@ -41,6 +43,10 @@ logger: Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
+
+BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
+    "Raw data must be a dict for batched trials."
+)
 
 
 class LifecycleStage(int, Enum):
@@ -545,6 +551,52 @@ class BatchTrial(BaseTrial):
         new_trial.runner = self._runner
         return new_trial
 
+    def attach_batch_trial_data(
+        self,
+        raw_data: Dict[str, TEvaluationOutcome],
+        sample_sizes: Optional[Dict[str, int]] = None,
+        metadata: Optional[Dict[str, Union[str, int]]] = None,
+    ) -> None:
+        """Attaches data to the trial
+
+        Args:
+            raw_data: Map from arm name to metric outcomes.
+            sample_sizes: Dict from arm name to sample size.
+            metadata: Additional metadata to track about this run.
+                importantly the start_date and end_date
+            complete_trial: Whether to mark trial as complete after
+                attaching data. Defaults to False.
+        """
+
+        # Format the data to save.
+        raw_data_by_arm = checked_cast_complex(
+            Dict[str, TEvaluationOutcome],
+            raw_data,
+            message=BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
+        )
+        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
+            self.arms_by_name.keys()
+        )
+        if not_trial_arm_names:
+            raise UserInputError(  # pragma: no cover
+                f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
+            )
+
+        evaluations, data = self._make_evaluations_and_data(
+            raw_data=raw_data_by_arm, metadata=metadata, sample_sizes=sample_sizes
+        )
+        self._validate_batch_trial_data(data=data)
+
+        self._run_metadata = metadata or {}
+        self.experiment.attach_data(data)
+
+        data_for_logging = _round_floats_for_logging(item=evaluations)
+
+        logger.info(
+            f"Updated trial {self.index} with data: "
+            f"{_round_floats_for_logging(item=data_for_logging)}."
+        )
+
     def __repr__(self) -> str:
         return (
             "BatchTrial("
@@ -600,3 +652,28 @@ class BatchTrial(BaseTrial):
                     arm.signature
                 )
         return None
+
+    def _validate_batch_trial_data(self, data: Data) -> None:
+        """Utility function to validate batch data before further processing."""
+        if (
+            self.status_quo
+            and not_none(self.status_quo).name in self.arms_by_name
+            and not_none(self.status_quo).name not in data.df["arm_name"].values
+        ):
+            raise AxError(
+                f"Trial #{self.index} was completed with data that did "
+                "not contain status quo observations, but the trial has "
+                "status quo set and therefore data for it is required."
+            )
+
+        for metric_name in data.df["metric_name"].values:
+            if metric_name not in self.experiment.metrics:
+                logger.info(
+                    f"Data was logged for metric {metric_name} that was not yet "
+                    "tracked on the experiment. Please specify `tracking_metric_"
+                    "names` argument in AxClient.create_experiment to add tracking "
+                    "metrics to the experiment. Without those, all data users "
+                    "specify is still attached to the experiment, but will not be "
+                    "fetched in `experiment.fetch_data()`, but you can still use "
+                    "`experiment.lookup_data_for_trial` to get all attached data."
+                )

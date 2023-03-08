@@ -30,9 +30,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
@@ -41,7 +39,6 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -88,7 +85,7 @@ from ax.storage.json_store.registry import (
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.sampling import manual_seed
 
 logger: Logger = get_logger(__name__)
@@ -176,12 +173,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             whether the full optimization should be stopped or not.
     """
 
-    BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
-        "Raw data must be a dict for batched trials."
-    )
-    TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
-        "Raw data must be data for a single arm for non batched trials."
-    )
     _experiment: Optional[Experiment] = None
 
     def __init__(
@@ -762,7 +753,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """
         # Validate that trial can be completed.
         trial = self.get_trial(trial_index)
-        self._validate_can_complete_trial(trial=trial)
+        trial._validate_can_attach_data()
         if not isinstance(trial_index, int):  # pragma: no cover
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         data_update_repr = self._update_trial_with_raw_data(
@@ -859,38 +850,19 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         Returns:
             Tuple of parameterization and trial index from newly created trial.
         """
-        self._validate_search_space_membership(parameters=parameters)
 
-        # If search space is hierarchical, we need to store dummy values of parameters
-        # that are not in the arm (but are in flattened search space), as metadata,
-        # so later we are able to make the data for this arm "complete" in the
-        # flattened search space.
-        candidate_metadata = None
-        if self.experiment.search_space.is_hierarchical:
-            hss = checked_cast(HierarchicalSearchSpace, self.experiment.search_space)
-            candidate_metadata = hss.cast_observation_features(
-                observation_features=hss.flatten_observation_features(
-                    observation_features=ObservationFeatures(parameters=parameters),
-                    inject_dummy_values_to_complete_flat_parameterization=True,
-                )
-            ).metadata
-
-        trial = self.experiment.new_trial(ttl_seconds=ttl_seconds).add_arm(
-            Arm(parameters=parameters, name=arm_name),
-            candidate_metadata=candidate_metadata,
+        output_parameters, trial_index = self.experiment.attach_trial(
+            parameterizations=[parameters],
+            arm_names=[arm_name] if arm_name else None,
+            ttl_seconds=ttl_seconds,
+            run_metadata=run_metadata,
         )
-        trial.mark_running(no_runner_required=True)
-        logger.info(
-            "Attached custom parameterization "
-            f"{round_floats_for_logging(item=parameters)} as trial {trial.index}."
-        )
-        if run_metadata is not None:
-            trial.update_run_metadata(metadata=run_metadata)
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
-            trial=trial,
+            trial=self.experiment.trials[trial_index],
         )
-        return not_none(trial.arm).parameters, trial.index
+
+        return list(output_parameters.values())[0], trial_index
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
@@ -1581,26 +1553,22 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Helper method attaches data to a trial, returns a str of update."""
         # Format the data to save.
         trial = self.get_trial(trial_index)
-        sample_sizes = {not_none(trial.arm).name: sample_size} if sample_size else {}
-        evaluations, data = self._make_evaluations_and_data(
-            trial=trial, raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
+        update_info = trial.update_trial_data(
+            raw_data=raw_data,
+            metadata=metadata,
+            sample_size=sample_size,
+            combine_with_last_data=combine_with_last_data,
         )
-        metadata = metadata or {}
-        self._validate_trial_data(trial=trial, data=data)
-        trial.update_run_metadata(metadata=metadata)
 
-        self.experiment.attach_data(
-            data=data, combine_with_last_data=combine_with_last_data
-        )
         if complete_trial:
             trial.mark_completed()
+
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
             trial=trial,
         )
-        return str(
-            round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
-        )
+
+        return update_info
 
     def _set_experiment(
         self,
@@ -1757,125 +1725,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             experiment=experiment
         )
 
-    @classmethod
-    def _raw_data_by_arm(
-        cls,
-        trial: BaseTrial,
-        raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
-    ) -> Dict[str, TEvaluationOutcome]:
-        raw_data_by_arm: Dict[str, TEvaluationOutcome]
-        if isinstance(trial, BatchTrial):  # pragma: no cover
-            raw_data_by_arm = checked_cast_complex(
-                Dict[str, TEvaluationOutcome],
-                raw_data,
-                message=cls.BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-            )
-        elif isinstance(trial, Trial):
-            arm_name = not_none(trial.arm).name
-            raw_data_by_arm = {
-                arm_name: checked_cast_complex(
-                    TEvaluationOutcome,
-                    raw_data,
-                    message=cls.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-                )
-            }
-        else:  # pragma: no cover
-            raise ValueError(f"Unexpected trial type: {type(trial)}.")
-
-        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
-            trial.arms_by_name.keys()
-        )
-        if not_trial_arm_names:
-            raise ValueError(  # pragma: no cover
-                f"Arms {not_trial_arm_names} are not part of trial #{trial.index}."
-            )
-        return raw_data_by_arm
-
-    def _make_evaluations_and_data(
-        self,
-        trial: BaseTrial,
-        raw_data: Union[TEvaluationOutcome, Dict[str, TEvaluationOutcome]],
-        metadata: Optional[Dict[str, Union[str, int]]],
-        sample_sizes: Optional[Dict[str, int]] = None,
-    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
-        """Formats given raw data as Ax evaluations and `Data`.
-
-        Args:
-            trial: Trial within the experiment.
-            raw_data: Metric outcomes for 1-arm trials, map from arm name to
-                metric outcomes for batched trials.
-            sample_size: Integer sample size for 1-arm trials, dict from arm
-                name to sample size for batched trials. Optional.
-            metadata: Additional metadata to track about this run.
-            data_is_for_batched_trials: Whether making evaluations and data for
-                a batched trial or a 1-arm trial.
-        """
-        raw_data_by_arm = self._raw_data_by_arm(trial=trial, raw_data=raw_data)
-        metadata = metadata if metadata is not None else {}
-
-        evaluations, data = self.data_and_evaluations_from_raw_data(
-            raw_data=raw_data_by_arm,
-            metric_names=list(self.metric_names),
-            trial_index=trial.index,
-            sample_sizes=sample_sizes or {},
-            start_time=metadata.get("start_time"),
-            end_time=metadata.get("end_time"),
-        )
-        return evaluations, data
-
     # ------------------------------ Validators. -------------------------------
-
-    @staticmethod
-    def _validate_can_complete_trial(trial: BaseTrial) -> None:
-        if trial.status.is_completed:
-            raise ValueError(
-                f"Trial {trial.index} has already been completed with data."
-                "To add more data to it (for example, for a different metric), "
-                "use `ax_client.update_trial_data`."
-            )
-        if trial.status.is_abandoned or trial.status.is_failed:
-            raise ValueError(
-                f"Trial {trial.index} has been marked {trial.status.name}, so it "
-                "no longer expects data."
-            )
-
-    def _validate_search_space_membership(self, parameters: TParameterization) -> None:
-        self.experiment.search_space.check_membership(
-            parameterization=parameters, raise_error=True
-        )
-        # `check_membership` uses int and float interchangeably, which we don't
-        # want here.
-        for p_name, parameter in self.experiment.search_space.parameters.items():
-            if (
-                isinstance(self.experiment.search_space, HierarchicalSearchSpace)
-                and p_name not in parameters
-            ):
-                # Parameterizations in HSS-s can be missing some of the dependent
-                # parameters based on the hierarchical structure and values of
-                # the parameters those depend on.
-                continue
-            param_val = parameters.get(p_name)
-            if not isinstance(param_val, parameter.python_type):
-                typ = type(param_val)
-                raise ValueError(
-                    f"Value for parameter {p_name}: {param_val} is of type {typ}, "
-                    f"expected  {parameter.python_type}. If the intention was to have"
-                    f" the parameter on experiment be of type {typ}, set `value_type`"
-                    f" on experiment creation for {p_name}."
-                )
-
-    def _validate_trial_data(self, trial: Trial, data: Data) -> None:
-        for metric_name in data.df["metric_name"].values:
-            if metric_name not in self.experiment.metrics:
-                logger.info(
-                    f"Data was logged for metric {metric_name} that was not yet "
-                    "tracked on the experiment. Please specify `tracking_metric_"
-                    "names` argument in AxClient.create_experiment to add tracking "
-                    "metrics to the experiment. Without those, all data users "
-                    "specify is still attached to the experiment, but will not be "
-                    "fetched in `experiment.fetch_data()`, but you can still use "
-                    "`experiment.lookup_data_for_trial` to get all attached data."
-                )
 
     def _validate_early_stopping_strategy(
         self, support_intermediate_data: bool

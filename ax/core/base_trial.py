@@ -9,16 +9,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod, abstractproperty
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from ax.core.arm import Arm
 from ax.core.data import Data
+from ax.core.formatting_utils import data_and_evaluations_from_raw_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchResult
 from ax.core.runner import Runner
-from ax.core.types import TCandidateMetadata
+from ax.core.types import TCandidateMetadata, TEvaluationOutcome
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
@@ -806,3 +808,46 @@ class BaseTrial(ABC, SortableBase):
     @property
     def _unique_id(self) -> str:
         return str(self.index)
+
+    def _make_evaluations_and_data(
+        self,
+        raw_data: Dict[str, TEvaluationOutcome],
+        metadata: Optional[Dict[str, Union[str, int]]],
+        sample_sizes: Optional[Dict[str, int]] = None,
+    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
+        """Formats given raw data as Ax evaluations and `Data`.
+
+        Args:
+            raw_data: Map from arm name to
+                metric outcomes.
+            metadata: Additional metadata to track about this run.
+            sample_size: Integer sample size for 1-arm trials, dict from arm
+                name to sample size for batched trials. Optional.
+        """
+
+        metadata = metadata if metadata is not None else {}
+
+        evaluations, data = data_and_evaluations_from_raw_data(
+            raw_data=raw_data,
+            metric_names=list(set(self.experiment.metrics)),
+            trial_index=self.index,
+            sample_sizes=sample_sizes or {},
+            start_time=metadata.get("start_time"),
+            end_time=metadata.get("end_time"),
+        )
+        return evaluations, data
+
+    def _validate_can_attach_data(self) -> None:
+        """Determines whether a trial is in a state that can be attached data."""
+        if self.status.is_completed:
+            raise UnsupportedError(
+                f"Trial {self.index} has already been completed with data."
+                "To add more data to it (for example, for a different metric), "
+                "use `Trial.update_trial_data()` or "
+                "BatchTrial.update_batch_trial_data()."
+            )
+        if self.status.is_abandoned or self.status.is_failed:
+            raise UnsupportedError(
+                f"Trial {self.index} has been marked {self.status.name}, so it "
+                "no longer expects data."
+            )

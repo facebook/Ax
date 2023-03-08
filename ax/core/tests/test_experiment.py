@@ -9,6 +9,7 @@ from typing import Dict, Type
 from unittest.mock import patch
 
 import pandas as pd
+from ax.core import BatchTrial, Trial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
@@ -677,6 +678,85 @@ class ExperimentTest(TestCase):
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value: True},
         )
         self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
+
+    def testAttachBatchTrialNoArmNames(self) -> None:
+        num_trials = len(self.experiment.trials)
+
+        attached_parameterizations, trial_index = self.experiment.attach_trial(
+            parameterizations=[
+                {"w": 5.3, "x": 5, "y": "baz", "z": True},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+            ],
+            ttl_seconds=3600,
+            run_metadata={"test_metadata_field": 1},
+            optimize_for_power=True,
+        )
+
+        self.assertEqual(len(self.experiment.trials), num_trials + 1)
+        self.assertEqual(
+            len(set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"}),
+            3,
+        )
+        self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
+
+    def testAttachBatchTrialWithArmNames(self) -> None:
+        num_trials = len(self.experiment.trials)
+
+        attached_parameterizations, trial_index = self.experiment.attach_trial(
+            parameterizations=[
+                {"w": 5.3, "x": 5, "y": "baz", "z": True},
+                {"w": 5.2, "x": 5, "y": "foo", "z": True},
+                {"w": 5.1, "x": 5, "y": "bar", "z": True},
+            ],
+            arm_names=["arm1", "arm2", "arm3"],
+            ttl_seconds=3600,
+            run_metadata={"test_metadata_field": 1},
+            optimize_for_power=True,
+        )
+
+        self.assertEqual(len(self.experiment.trials), num_trials + 1)
+        self.assertEqual(
+            len(set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"}),
+            3,
+        )
+        self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
+        print({arm.name for arm in self.experiment.trials[trial_index].arms})
+        self.assertEqual(
+            {"arm1", "arm2", "arm3"},
+            set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
+        )
+
+    def testAttachSingleArmTrialNoArmName(self) -> None:
+        num_trials = len(self.experiment.trials)
+
+        attached_parameterization, trial_index = self.experiment.attach_trial(
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            ttl_seconds=3600,
+            run_metadata={"test_metadata_field": 1},
+            optimize_for_power=True,
+        )
+
+        self.assertEqual(len(self.experiment.trials), num_trials + 1)
+        self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
+
+    def testAttachSingleArmTrialWithArmName(self) -> None:
+        num_trials = len(self.experiment.trials)
+
+        attached_parameterization, trial_index = self.experiment.attach_trial(
+            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True}],
+            arm_names=["arm1"],
+            ttl_seconds=3600,
+            run_metadata={"test_metadata_field": 1},
+            optimize_for_power=True,
+        )
+
+        self.assertEqual(len(self.experiment.trials), num_trials + 1)
+        self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
+        self.assertEqual(
+            "arm1",
+            self.experiment.trials[trial_index].arm.name,
+        )
 
     def test_fetch_as_class(self) -> None:
         class MyMetric(Metric):

@@ -364,6 +364,26 @@ class SearchSpace(Base):
                             f"`{parameter_name}` does not exist in search space."
                         )
 
+    def validate_membership(self, parameters: TParameterization) -> None:
+        self.check_membership(parameterization=parameters, raise_error=True)
+        # `check_membership` uses int and float interchangeably, which we don't
+        # want here.
+        for p_name, parameter in self.parameters.items():
+            if isinstance(self, HierarchicalSearchSpace) and p_name not in parameters:
+                # Parameterizations in HSS-s can be missing some of the dependent
+                # parameters based on the hierarchical structure and values of
+                # the parameters those depend on.
+                continue
+            param_val = parameters.get(p_name)
+            if not isinstance(param_val, parameter.python_type):
+                typ = type(param_val)
+                raise UnsupportedError(
+                    f"Value for parameter {p_name}: {param_val} is of type {typ}, "
+                    f"expected  {parameter.python_type}. If the intention was to have"
+                    f" the parameter on experiment be of type {typ}, set `value_type`"
+                    f" on experiment creation for {p_name}."
+                )
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("

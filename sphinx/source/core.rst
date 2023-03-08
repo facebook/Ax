@@ -212,3 +212,11 @@ Core Utils
     :members:
     :undoc-members:
     :show-inheritance:
+
+Formatting Utils
+----------
+
+.. automodule:: ax.core.formatting_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:

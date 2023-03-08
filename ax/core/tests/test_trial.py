@@ -236,3 +236,32 @@ class TrialTest(TestCase):
         self.assertEqual(len(self.trial.stop_metadata), 0)
         self.trial.update_stop_metadata({"something": "new"})
         self.assertEqual(self.trial.stop_metadata, {"something": "new"})
+
+    def test_update_trial_data(self) -> None:
+        # Verify components before we attach trial data
+        self.assertEqual(1, len(self.trial.arms))
+        arm_name = self.trial.arm.name
+
+        self.assertEqual(
+            2,
+            len(self.trial.experiment.metrics)
+            - len(self.trial.experiment.tracking_metrics),
+        )
+        self.assertTrue("m1" in self.trial.experiment.metrics)
+        self.assertTrue("m2" in self.trial.experiment.metrics)
+
+        data = self.trial.lookup_data().df.to_dict(orient="index")
+        self.assertTrue(len(data) == 0)
+
+        # Attach data
+        self.trial.update_trial_data(raw_data={"m1": 1.0, "m2": 2.0})
+
+        # Confirm the expected state after attaching data
+        data = (
+            self.trial.lookup_data()
+            .df.set_index(["arm_name", "metric_name"])
+            .to_dict(orient="index")
+        )
+
+        self.assertEqual(1.0, data[(arm_name, "m1")]["mean"])
+        self.assertEqual(2.0, data[(arm_name, "m2")]["mean"])

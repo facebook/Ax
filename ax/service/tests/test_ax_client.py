@@ -28,6 +28,7 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.trial import TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization, TParamValue
 from ax.exceptions.core import (
     DataRequiredError,
@@ -600,6 +601,31 @@ class TestAxClient(TestCase):
         second_client = AxClient(db_settings=db_settings)
         second_client.load_experiment_from_database("unique_test_experiment")
         self.assertEqual(second_client.generation_strategy, generation_strategy)
+
+    @patch(
+        f"{AxClient.__module__}.AxClient._save_experiment_to_db_if_possible",
+        side_effect=Exception("patched db exception"),
+    )
+    def test_db_write_failure_on_create_experiment(self, _mock_save_experiment) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+        ax_client = AxClient(
+            db_settings=db_settings,
+        )
+
+        with self.assertRaises(
+            expected_exception=Exception, msg="patched db exception"
+        ):
+            ax_client.create_experiment(
+                name="unique_test_experiment1",
+                parameters=[
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                    {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+                ],
+            )
 
     @patch(
         "ax.modelbridge.base.observations_from_data",
@@ -1385,9 +1411,7 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
-        with self.assertRaisesRegex(
-            ValueError, AxClient.TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
-        ):
+        with self.assertRaisesRegex(ValueError, TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE):
             # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
@@ -1525,7 +1549,7 @@ class TestAxClient(TestCase):
             ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
         # Cannot complete a trial twice, should use `update_trial_data`.
-        with self.assertRaisesRegex(ValueError, ".* already been completed"):
+        with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
             ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
         # Cannot update trial data with observation for a metric it already has.
         with self.assertRaisesRegex(ValueError, ".* contained an observation"):
@@ -1633,7 +1657,7 @@ class TestAxClient(TestCase):
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
         # Also make sure we can no longer complete the trial as it is failed.
         with self.assertRaisesRegex(
-            ValueError, ".* has been marked FAILED, so it no longer expects data."
+            UnsupportedError, ".* has been marked FAILED, so it no longer expects data."
         ):
             ax_client.complete_trial(trial_index=idx, raw_data={"objective": (0, 0.0)})
 
@@ -1704,7 +1728,7 @@ class TestAxClient(TestCase):
             ax_client.experiment.trials.get(idx).run_metadata.get("dummy"),
             "test",
         )
-        with self.assertRaisesRegex(ValueError, ".* no longer expects"):
+        with self.assertRaisesRegex(UnsupportedError, ".* no longer expects"):
             ax_client.complete_trial(idx, {})
 
     def test_attach_trial_and_get_trial_parameters(self) -> None:
@@ -1734,7 +1758,7 @@ class TestAxClient(TestCase):
             ax_client.get_trial_parameters(
                 trial_index=10
             )  # No trial #10 in experiment.
-        with self.assertRaisesRegex(ValueError, ".* is of type"):
+        with self.assertRaisesRegex(UnsupportedError, ".* is of type"):
             ax_client.attach_trial({"x": 1, "y": 2})
 
     def test_attach_trial_ttl_seconds(self) -> None:
@@ -1755,7 +1779,7 @@ class TestAxClient(TestCase):
         self.assertTrue(ax_client.experiment.trials.get(idx).status.is_failed)
         # Also make sure we can no longer complete the trial as it is failed.
         with self.assertRaisesRegex(
-            ValueError, ".* has been marked FAILED, so it no longer expects data."
+            UnsupportedError, ".* has been marked FAILED, so it no longer expects data."
         ):
             ax_client.complete_trial(trial_index=idx, raw_data=5)
 
@@ -2776,6 +2800,22 @@ class TestAxClient(TestCase):
         # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
+    def test_repr_function(
+        self,
+    ) -> None:
+        ax_client = AxClient()
+        experiment_name = "test_experiment"
+        ax_client.create_experiment(
+            name=experiment_name,
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+        )
+        self.assertEqual(
+            ax_client.__repr__(), f"AxClient(experiment=Experiment({experiment_name}))"
+        )
+
 
 # Utility functions for testing get_model_predictions without calling
 # get_next_trial. Create Ax Client with an experiment where
@@ -2830,9 +2870,6 @@ def _attach_not_completed_trials(ax_client) -> None:
 
     trial4 = {"x1": 0.4, "x2": 0.1}
     parameters, trial_index = ax_client.attach_trial(trial4)
-
-
-# def  _attach_multi_arm_trial(ax_client):
 
 
 # Test metric evaluation method

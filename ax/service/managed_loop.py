@@ -14,6 +14,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.formatting_utils import data_and_evaluations_from_raw_data
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationFunction,
@@ -201,7 +202,7 @@ class OptimizationLoop:
         trial = self._get_new_trial()
 
         trial.mark_running(no_runner_required=True)
-        _, data = InstantiationBase.data_and_evaluations_from_raw_data(
+        _, data = data_and_evaluations_from_raw_data(
             raw_data={
                 arm.name: self._call_evaluation_function(arm.parameters, weight)
                 for arm, weight in self._get_weights_by_arm(trial)
