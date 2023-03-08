@@ -65,7 +65,7 @@ class MapKeyInfo(Generic[T], SortableBase):
 class MapData(Data):
     """Class storing mapping-like results for an experiment.
 
-    Data is stored in a dataframe, and axilary information ((key name,
+    Data is stored in a dataframe, and auxiliary information ((key name,
     default value) pairs) are stored in a collection of MapKeyInfo objects.
 
     Mapping-like results occur whenever a metric is reported as a collection
@@ -315,7 +315,7 @@ class MapData(Data):
         map_key: Optional[str] = None,
         keep_every: Optional[int] = None,
         limit_rows_per_group: Optional[int] = None,
-        limit_total_rows: Optional[int] = None,
+        limit_rows_per_metric: Optional[int] = None,
         include_first_last: bool = True,
     ) -> MapData:
         """Subsample the `map_key` column in an equally-spaced manner (if there is
@@ -330,78 +330,98 @@ class MapData(Data):
                 pair with the largest number of rows in the `map_key` column and select
                 an approprioate `keep_every` such that each (arm, metric) has at most
                 `n` rows in the `map_key` column.
-            3. If `limit_total_rows = n`, the method will select an appropriate
-                `keep_every` such that the total number of rows per metric is less
-                than `n`.
-        If multiple of `keep_every`, `limit_rows_per_group`, `limit_total_rows`, then
-        the priority is in the order above: 1. `keep_every`, 2. `limit_rows_per_group`,
-        and 3. `limit_total_rows`.
+            3. If `limit_rows_per_metric = n`, the method will select an
+                appropriate `keep_every` such that the total number of rows per
+                metric is less than `n`.
+        If multiple of `keep_every`, `limit_rows_per_group`, `limit_rows_per_metric`,
+        then the priority is in the order above: 1. `keep_every`,
+        2. `limit_rows_per_group`, and 3. `limit_rows_per_metric`.
 
         Note that we want all curves to be subsampled with nearly the same spacing.
-        Internally, the method converts `limit_rows_per_group` and `limit_total_rows`
-        to a `keep_every` quantity that will satisfy the original request.
+        Internally, the method converts `limit_rows_per_group` and
+        `limit_rows_per_metric` to a `keep_every` quantity that will satisfy the
+        original request.
 
         When `include_first_last` is True, then the method will use the `keep_every`
         as a guideline and for each group, produce (nearly) evenly spaced points that
         include the first and last points.
         """
+        if (
+            keep_every is None
+            and limit_rows_per_group is None
+            and limit_rows_per_metric is None
+        ):
+            logger.warning(
+                "None of `keep_every`, `limit_rows_per_group`, or "
+                "`limit_rows_per_metric` is specified. Returning the original data "
+                "without subsampling."
+            )
+            return self
         if map_key is None:
             if len(self.map_keys) > 1:
                 raise ValueError(
                     "More than one `map_key` found, cannot decide target to subsample."
                 )
             map_key = self.map_keys[0]
-
-        derived_keep_every = None
-        map_df = self.map_df
-        if keep_every is not None:
-            derived_keep_every = keep_every
-        elif limit_rows_per_group is not None:
-            max_rows = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().max()
-            derived_keep_every = np.ceil(max_rows / limit_rows_per_group)
-        elif limit_total_rows is not None:
-            num_metrics = len(self.map_df["metric_name"].unique())
-            limit_total_rows = limit_total_rows * num_metrics
-            group_sizes = (
-                self.map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().to_numpy()
-            )
-            if limit_total_rows < len(group_sizes):
-                raise ValueError(
-                    f"The value of `limit_total_rows` ({limit_total_rows}) is too "
-                    f"small compared to the number of groups ({len(group_sizes)})."
-                )
-            # search for the `keep_every` such that when you apply it to each group,
-            # the total number of rows is smaller than `limit_total_rows`.
-            derived_keep_every = next(
-                (
-                    k
-                    for k in range(1, group_sizes.max())
-                    if (np.ceil(group_sizes / k)).sum() <= limit_total_rows
+        subsampled_metric_dfs = []
+        for metric_name in self.map_df["metric_name"].unique():
+            metric_map_df = self._filter_df(self.map_df, metric_names=[metric_name])
+            subsampled_metric_dfs.append(
+                _subsample_one_metric(
+                    metric_map_df,
+                    map_key=map_key,
+                    keep_every=keep_every,
+                    limit_rows_per_group=limit_rows_per_group,
+                    limit_rows_per_metric=limit_rows_per_metric,
+                    include_first_last=include_first_last,
                 )
             )
-        else:
-            raise ValueError(
-                "At least one of `keep_every`, `limit_rows_per_group`, or "
-                "`limit_total_rows` must be specified."
-            )
-        if derived_keep_every <= 1:
-            filtered_map_df = map_df
-        else:
-            filtered_dfs = []
-            for _, df_g in map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS):
-                df_g = df_g.sort_values(map_key)
-                if include_first_last:
-                    rows_per_group = int(np.ceil(len(df_g) / derived_keep_every))
-                    idcs = np.round(
-                        np.linspace(0, len(df_g) - 1, rows_per_group)
-                    ).astype(int)
-                    filtered_df = df_g.iloc[idcs]
-                else:
-                    filtered_df = df_g.iloc[:: int(derived_keep_every)]
-                filtered_dfs.append(filtered_df)
-            filtered_map_df: pd.DataFrame = pd.concat(filtered_dfs)
+        subsampled_df: pd.DataFrame = pd.concat(subsampled_metric_dfs)
         return MapData(
-            df=filtered_map_df,
+            df=subsampled_df,
             map_key_infos=self.map_key_infos,
             description=self.description,
         )
+
+
+def _subsample_one_metric(
+    map_df: pd.DataFrame,
+    map_key: Optional[str] = None,
+    keep_every: Optional[int] = None,
+    limit_rows_per_group: Optional[int] = None,
+    limit_rows_per_metric: Optional[int] = None,
+    include_first_last: bool = True,
+) -> pd.DataFrame:
+    """Helper function to subsample a dataframe that holds a single metric."""
+    derived_keep_every = 1
+    if keep_every is not None:
+        derived_keep_every = keep_every
+    elif limit_rows_per_group is not None:
+        max_rows = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().max()
+        derived_keep_every = np.ceil(max_rows / limit_rows_per_group)
+    elif limit_rows_per_metric is not None:
+        group_sizes = map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS).size().to_numpy()
+        # search for the `keep_every` such that when you apply it to each group,
+        # the total number of rows is smaller than `limit_rows_per_metric`.
+        for k in range(1, group_sizes.max() + 1):
+            if (np.ceil(group_sizes / k)).sum() <= limit_rows_per_metric:
+                derived_keep_every = k
+                break
+        # if no such `k` is found, then `derived_keep_every` stays as 1.
+
+    if derived_keep_every <= 1:
+        filtered_map_df = map_df
+    else:
+        filtered_dfs = []
+        for _, df_g in map_df.groupby(MapData.DEDUPLICATE_BY_COLUMNS):
+            df_g = df_g.sort_values(map_key)
+            if include_first_last:
+                rows_per_group = int(np.ceil(len(df_g) / derived_keep_every))
+                linspace_idcs = np.linspace(0, len(df_g) - 1, rows_per_group)
+                idcs = np.round(linspace_idcs).astype(int)
+                filtered_df = df_g.iloc[idcs]
+            else:
+                filtered_df = df_g.iloc[:: int(derived_keep_every)]
+            filtered_dfs.append(filtered_df)
+        filtered_map_df: pd.DataFrame = pd.concat(filtered_dfs)
+    return filtered_map_df

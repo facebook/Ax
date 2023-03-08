@@ -244,6 +244,27 @@ class MapDataTest(TestCase):
         )
         large_map_data = MapData(df=large_map_df, map_key_infos=self.map_key_infos)
 
+        large_map_df_sparse_metric = pd.DataFrame(
+            [
+                {
+                    "arm_name": arm_name,
+                    "epoch": epoch + 1,
+                    "mean": epoch * 0.1,
+                    "sem": 0.1,
+                    "trial_index": trial_index,
+                    "metric_name": metric_name,
+                }
+                for metric_name in metric_names
+                for trial_index, (arm_name, max_epoch) in enumerate(
+                    zip(arm_names, max_epochs)
+                )
+                for epoch in range(max_epoch if metric_name == "a" else max_epoch // 5)
+            ]
+        )
+        large_map_data_sparse_metric = MapData(
+            df=large_map_df_sparse_metric, map_key_infos=self.map_key_infos
+        )
+
         # test keep_every
         subsample = large_map_data.subsample(keep_every=10)
         self.assertEqual(len(subsample.map_df), 52)
@@ -265,24 +286,40 @@ class MapDataTest(TestCase):
         subsample = large_map_data.subsample(limit_rows_per_group=1000)
         self.assertEqual(len(subsample.map_df), 500)
 
-        # test limit_total_rows
-        with self.assertRaises(ValueError):
-            large_map_data.subsample(limit_total_rows=1)
-        subsample = large_map_data.subsample(limit_total_rows=50)
+        # test limit_rows_per_metric
+        subsample = large_map_data.subsample(limit_rows_per_metric=50)
         self.assertEqual(len(subsample.map_df), 100)
-        subsample = large_map_data.subsample(limit_total_rows=65)
+        subsample = large_map_data.subsample(limit_rows_per_metric=65)
         self.assertEqual(len(subsample.map_df), 128)
-        subsample = large_map_data.subsample(limit_total_rows=1000)
+        subsample = large_map_data.subsample(limit_rows_per_metric=1000)
         self.assertEqual(len(subsample.map_df), 500)
 
         # test include_first_last
         subsample = large_map_data.subsample(
-            limit_total_rows=20, include_first_last=True
+            limit_rows_per_metric=20, include_first_last=True
         )
         self.assertEqual(len(subsample.map_df), 40)
+        # check that we 1 and 100 are included
+        self.assertEqual(subsample.map_df["epoch"].min(), 1)
         self.assertEqual(subsample.map_df["epoch"].max(), 100)
         subsample = large_map_data.subsample(
-            limit_total_rows=20, include_first_last=False
+            limit_rows_per_metric=20, include_first_last=False
         )
         self.assertEqual(len(subsample.map_df), 40)
+        self.assertEqual(subsample.map_df["epoch"].min(), 1)
         self.assertEqual(subsample.map_df["epoch"].max(), 92)
+
+        # test limit_rows_per_metric when some metrics are sparsely
+        # reported (we shouldn't subsample those)
+        subsample = large_map_data_sparse_metric.subsample(
+            limit_rows_per_metric=100, include_first_last=False
+        )
+        map_df = large_map_data_sparse_metric.map_df
+        subsample_map_df = subsample.map_df
+        self.assertEqual(
+            len(subsample_map_df[subsample_map_df["metric_name"] == "a"]), 85
+        )
+        self.assertEqual(
+            len(subsample_map_df[subsample_map_df["metric_name"] == "b"]),
+            len(map_df[map_df["metric_name"] == "b"]),
+        )

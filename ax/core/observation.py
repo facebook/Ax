@@ -435,7 +435,7 @@ def observations_from_map_data(
     map_data: MapData,
     include_abandoned: bool = False,
     map_keys_as_parameters: bool = False,
-    limit_total_rows: Optional[int] = None,
+    limit_rows_per_metric: Optional[int] = None,
     limit_rows_per_group: Optional[int] = None,
 ) -> List[Observation]:
     """Convert MapData to observations.
@@ -453,8 +453,8 @@ def observations_from_map_data(
             be included in the observations, returned from this function.
         map_keys_as_parameters: Whether map_keys should be returned as part of
             the parameters of the Observation objects.
-        limit_total_rows: If specified, uses MapData.subsample() with
-            `limit_total_rows` equal to the specified value on the first
+        limit_rows_per_metric: If specified, uses MapData.subsample() with
+            `limit_rows_per_metric` equal to the specified value on the first
             map_key (map_data.map_keys[0]) to subsample the MapData. This is
             useful in, e.g., cases where learning curves are frequently
             updated, leading to an intractable number of Observation objects
@@ -466,10 +466,10 @@ def observations_from_map_data(
     Returns:
         List of Observation objects.
     """
-    if limit_total_rows is not None or limit_rows_per_group is not None:
+    if limit_rows_per_metric is not None or limit_rows_per_group is not None:
         map_data = map_data.subsample(
             map_key=map_data.map_keys[0],
-            limit_total_rows=limit_total_rows,
+            limit_rows_per_metric=limit_rows_per_metric,
             limit_rows_per_group=limit_rows_per_group,
             include_first_last=True,
         )
