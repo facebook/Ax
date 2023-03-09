@@ -4,7 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import random
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -21,6 +20,7 @@ from ax.models.model_utils import (
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast
 from botorch.utils.sampling import HitAndRunPolytopeSampler
 from torch import Tensor
 
@@ -59,7 +59,11 @@ class RandomModel(Model):
     ) -> None:
         super().__init__()
         self.deduplicate = deduplicate
-        self.seed: int = seed if seed is not None else random.randint(0, 100_000)
+        self.seed: int = (
+            seed
+            if seed is not None
+            else checked_cast(int, torch.randint(high=100_000, size=(1,)).item())
+        )
         # Used for deduplication.
         self.generated_points = generated_points
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
