@@ -657,11 +657,17 @@ class Experiment(Base):
             }
 
         if contains_new_data:
-            self.attach_fetch_results(
-                results=results,
-                combine_with_last_data=combine_with_last_data,
-                overwrite_existing_data=overwrite_existing_data,
-            )
+            try:
+                self.attach_fetch_results(
+                    results=results,
+                    combine_with_last_data=combine_with_last_data,
+                    overwrite_existing_data=overwrite_existing_data,
+                )
+            except ValueError as e:
+                logger.error(
+                    f"Encountered ValueError {e} while attaching results. Proceeding "
+                    "and returning Results fetched without attaching."
+                )
 
         return results
 
