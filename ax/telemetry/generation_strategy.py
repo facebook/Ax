@@ -7,16 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import inf
-from typing import List
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.registry import Models
 
-# Models who's generated trails will count towards initialization_trials
-INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
-
-# Models who's generated trails will count towards other_trials
-OTHER_MODELS: List[Models] = []
+from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
 
 @dataclass(frozen=True)

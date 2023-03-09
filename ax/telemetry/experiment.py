@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from math import inf
 from typing import Dict, List, Optional, Tuple
 
+from ax.core.base_trial import TrialStatus
+
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.parameter import (
@@ -18,13 +20,11 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
-from ax.modelbridge.registry import Models
+from ax.core.utils import get_model_times
+from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
-# Models who's generated trails will count towards initialization_trials
-INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
-
-# Models who's generated trails will count towards other_trials
-OTHER_MODELS: List[Models] = []
+INITIALIZATION_MODEL_STRS: List[str] = [enum.value for enum in INITIALIZATION_MODELS]
+OTHER_MODEL_STRS: List[str] = [enum.value for enum in OTHER_MODELS]
 
 
 @dataclass(frozen=True)
@@ -254,3 +254,42 @@ class ExperimentCompletedRecord:
     num_failed_trials: int
     num_abandoned_trials: int
     num_early_stopped_trials: int
+
+    total_fit_time: float
+    total_gen_time: float
+
+    @classmethod
+    def from_experiment(cls, experiment: Experiment) -> ExperimentCompletedRecord:
+        trial_count_by_status = {
+            status: len(trials)
+            for status, trials in experiment.trials_by_status.items()
+        }
+
+        model_keys = [
+            trial.generator_runs[0]._model_key for trial in experiment.trials.values()
+        ]
+
+        fit_time, gen_time = get_model_times(experiment=experiment)
+
+        return cls(
+            num_initialization_trials=sum(
+                1 for model_key in model_keys if model_key in INITIALIZATION_MODEL_STRS
+            ),
+            num_bayesopt_trials=sum(
+                1
+                for model_key in model_keys
+                if not (
+                    model_key in INITIALIZATION_MODEL_STRS
+                    or model_key in OTHER_MODEL_STRS
+                )
+            ),
+            num_other_trials=sum(
+                1 for model_key in model_keys if model_key in OTHER_MODEL_STRS
+            ),
+            num_completed_trials=trial_count_by_status[TrialStatus.COMPLETED],
+            num_failed_trials=trial_count_by_status[TrialStatus.FAILED],
+            num_abandoned_trials=trial_count_by_status[TrialStatus.ABANDONED],
+            num_early_stopped_trials=trial_count_by_status[TrialStatus.EARLY_STOPPED],
+            total_fit_time=fit_time,
+            total_gen_time=gen_time,
+        )

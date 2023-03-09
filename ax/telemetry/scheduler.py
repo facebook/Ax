@@ -80,23 +80,42 @@ class SchedulerCreatedRecord:
 
 
 @dataclass(frozen=True)
-class SchedulerCompletedRecord(ExperimentCompletedRecord):
+class SchedulerCompletedRecord:
     """
     Record of the Scheduler completion event. This will have information only available
     after the optimization has completed.
     """
 
+    experiment_completed_record: ExperimentCompletedRecord
+
     best_point_quality: float
     model_fit_quality: float
 
-    total_fit_time: float
-    total_gen_time: float
+    num_metric_fetch_e_encountered: int
+    num_trials_bad_due_to_err: int
 
-    estimated_early_stopping_savings: float
-    estimated_global_stopping_savings: float
+    @classmethod
+    def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCompletedRecord:
+        return cls(
+            experiment_completed_record=ExperimentCompletedRecord.from_experiment(
+                experiment=scheduler.experiment
+            ),
+            # TODO[mpolson64] Create metrics for point quality and model quality
+            best_point_quality=-1,
+            model_fit_quality=-1,
+            num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
+            num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
+        )
 
-    num_metric_fetch_errs_encountered: int
+    def flatten(self) -> Dict[str, Any]:
+        """
+        Flatten into an appropriate format for logging to a tabular database.
+        """
 
-    # Can be used to join against deployment engine-specific tables for more metadata,
-    # and with scheduler creation event table
-    deployed_job_id: Optional[int]
+        self_dict = asdict(self)
+        experiment_completed_record_dict = self_dict.pop("experiment_completed_record")
+
+        return {
+            **self_dict,
+            **experiment_completed_record_dict,
+        }
