@@ -64,7 +64,7 @@ class MapTorchModelBridge(TorchModelBridge):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
-        map_data_limit_total_rows: Optional[int] = None,
+        map_data_limit_rows_per_metric: Optional[int] = None,
         map_data_limit_rows_per_group: Optional[int] = None,
     ) -> None:
         """
@@ -94,8 +94,8 @@ class MapTorchModelBridge(TorchModelBridge):
             fit_out_of_design: If specified, all training data is returned.
                 Otherwise, only in design points are returned.
             default_model_gen_options: Options passed down to `model.gen(...)`.
-            map_data_limit_total_rows: Subsample the map data so that the total
-                number of rows is limited by this value.
+            map_data_limit_rows_per_metric: Subsample the map data so that the
+                total number of rows per metric is limited by this value.
             map_data_limit_rows_per_group: Subsample the map data so that the
                 number of rows in the `map_key` column for each (arm, metric)
                 is limited by this value.
@@ -107,7 +107,7 @@ class MapTorchModelBridge(TorchModelBridge):
             )
         # pyre-fixme[4]: Attribute must be annotated.
         self._map_key_features = data.map_keys
-        self._map_data_limit_total_rows = map_data_limit_total_rows
+        self._map_data_limit_rows_per_metric = map_data_limit_rows_per_metric
         self._map_data_limit_rows_per_group = map_data_limit_rows_per_group
 
         super().__init__(
@@ -243,7 +243,7 @@ class MapTorchModelBridge(TorchModelBridge):
             map_data=data,  # pyre-ignore[6]: Checked in __init__.
             map_keys_as_parameters=True,
             include_abandoned=self._fit_abandoned,
-            limit_total_rows=self._map_data_limit_total_rows,
+            limit_rows_per_metric=self._map_data_limit_rows_per_metric,
             limit_rows_per_group=self._map_data_limit_rows_per_group,
         )
 
