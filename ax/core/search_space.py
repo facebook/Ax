@@ -687,6 +687,27 @@ class HierarchicalSearchSpace(SearchSpace):
 
         return self.parameters[root_parameters.pop()]
 
+    @property
+    def height(self) -> int:
+        """
+        Height of the underlying tree structure of this hierarchical search space.
+        """
+
+        def _height_from_parameter(parameter: Parameter) -> int:
+            if len(parameter.dependents) == 0:
+                return 1
+
+            return (
+                max(
+                    _height_from_parameter(parameter=self[param_name])
+                    for deps in parameter.dependents.values()
+                    for param_name in deps
+                )
+                + 1
+            )
+
+        return _height_from_parameter(parameter=self.root)
+
     def _validate_hierarchical_structure(self) -> None:
         """Validate the structure of this hierarchical search space, ensuring that all
         subtrees are independent (not sharing any parameters) and that all parameters

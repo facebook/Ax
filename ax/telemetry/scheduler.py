@@ -3,15 +3,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
-from typing import Optional
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, Optional
+
+from ax.service.scheduler import Scheduler
 
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 
 
 @dataclass(frozen=True)
-class SchedulerCreatedRecord(ExperimentCreatedRecord, GenerationStrategyCreatedRecord):
+class SchedulerCreatedRecord:
     """
     Record of the Scheduler creation event. This can be used for telemetry in settings
     where many Schedulers are being created either manually or programatically. In
@@ -19,9 +23,12 @@ class SchedulerCreatedRecord(ExperimentCreatedRecord, GenerationStrategyCreatedR
     bools, and None.
     """
 
+    experiment_created_record: ExperimentCreatedRecord
+    generation_strategy_created_record: GenerationStrategyCreatedRecord
+
     # SchedulerOptions info
-    total_trials: Optional[int]
-    max_pending_trials: int
+    scheduler_total_trials: Optional[int]
+    scheduler_max_pending_trials: int
     arms_per_trial: int
     early_stopping_strategy_cls: Optional[str]
     global_stopping_strategy_cls: Optional[str]
@@ -30,14 +37,46 @@ class SchedulerCreatedRecord(ExperimentCreatedRecord, GenerationStrategyCreatedR
     # encoding of unordered ChoiceParameters
     transformed_dimensionality: int
 
-    product_surface: str
-    launch_surface: str
-    # Can be used to join against deployment engine-specific tables for more metadata
-    deployed_job_id: Optional[int]
+    @classmethod
+    def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCreatedRecord:
+        return cls(
+            experiment_created_record=ExperimentCreatedRecord.from_experiment(
+                experiment=scheduler.experiment
+            ),
+            generation_strategy_created_record=(
+                GenerationStrategyCreatedRecord.from_generation_strategy(
+                    generation_strategy=scheduler.generation_strategy
+                )
+            ),
+            scheduler_total_trials=scheduler.options.total_trials,
+            scheduler_max_pending_trials=scheduler.options.max_pending_trials,
+            # If batch_size is None then we are using single-Arm trials
+            arms_per_trial=scheduler.options.batch_size or 1,
+            early_stopping_strategy_cls=(
+                scheduler.options.early_stopping_strategy.__class__.__name__
+            ),
+            global_stopping_strategy_cls=(
+                scheduler.options.global_stopping_strategy.__class__.__name__
+            ),
+            transformed_dimensionality=-1,  # TODO[mpolson64]
+        )
 
-    is_manual_generation_strategy: bool
-    warm_started_from: Optional[str]
-    num_custom_trials: int
+    def flatten(self) -> Dict[str, Any]:
+        """
+        Flatten into an appropriate format for logging to a tabular database.
+        """
+
+        self_dict = asdict(self)
+        experiment_created_record_dict = self_dict.pop("experiment_created_record")
+        generation_strategy_created_record_dict = self_dict.pop(
+            "generation_strategy_created_record"
+        )
+
+        return {
+            **self_dict,
+            **experiment_created_record_dict,
+            **generation_strategy_created_record_dict,
+        }
 
 
 @dataclass(frozen=True)

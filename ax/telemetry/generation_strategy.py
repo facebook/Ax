@@ -3,7 +3,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from math import inf
+from typing import List
+
+from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.registry import Models
+
+# Models who's generated trails will count towards initialization_trials
+INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
+
+# Models who's generated trails will count towards other_trials
+OTHER_MODELS: List[Models] = []
 
 
 @dataclass(frozen=True)
@@ -22,4 +35,36 @@ class GenerationStrategyCreatedRecord:
     num_requested_bayesopt_trials: int
     num_requested_other_trials: int
 
-    max_parallelism: int  # Minimum `max_parallelism` across GenerationSteps
+    # Minimum `max_parallelism` across GenerationSteps, i.e. the bottleneck
+    max_parallelism: int
+
+    @classmethod
+    def from_generation_strategy(
+        cls, generation_strategy: GenerationStrategy
+    ) -> GenerationStrategyCreatedRecord:
+        # Minimum `max_parallelism` across GenerationSteps, i.e. the bottleneck
+        true_max_parallelism = min(
+            step.max_parallelism or inf for step in generation_strategy._steps
+        )
+
+        return cls(
+            generation_strategy_name=generation_strategy.name,
+            num_requested_initialization_trials=sum(
+                step.num_trials
+                for step in generation_strategy._steps
+                if step.model in INITIALIZATION_MODELS
+            ),
+            num_requested_bayesopt_trials=sum(
+                step.num_trials
+                for step in generation_strategy._steps
+                if step.model not in INITIALIZATION_MODELS + OTHER_MODELS
+            ),
+            num_requested_other_trials=sum(
+                step.num_trials
+                for step in generation_strategy._steps
+                if step.model in OTHER_MODELS
+            ),
+            max_parallelism=true_max_parallelism
+            if isinstance(true_max_parallelism, int)
+            else -1,
+        )

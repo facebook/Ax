@@ -3,8 +3,28 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict, Optional
+from math import inf
+from typing import Dict, List, Optional, Tuple
+
+from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.modelbridge.registry import Models
+
+# Models who's generated trails will count towards initialization_trials
+INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
+
+# Models who's generated trails will count towards other_trials
+OTHER_MODELS: List[Models] = []
 
 
 @dataclass(frozen=True)
@@ -17,6 +37,7 @@ class ExperimentCreatedRecord:
     """
 
     experiment_name: Optional[str]
+    experiment_type: Optional[str]
 
     # SearchSpace info
     num_continuous_range_parameters: int
@@ -51,8 +72,169 @@ class ExperimentCreatedRecord:
 
     # Runner info
     runner_cls: str
-    # This could be the name of a training job, etc.
-    trial_evaluation_identifier: Optional[str]
+
+    @classmethod
+    def from_experiment(cls, experiment: Experiment) -> ExperimentCreatedRecord:
+        (
+            num_continuous_range_parameters,
+            num_int_range_parameters_small,
+            num_int_range_parameters_medium,
+            num_int_range_parameters_large,
+            num_log_scale_range_parameters,
+            num_unordered_choice_parameters_small,
+            num_unordered_choice_parameters_medium,
+            num_unordered_choice_parameters_large,
+            num_fixed_parameters,
+        ) = cls._get_param_counts_from_search_space(
+            search_space=experiment.search_space
+        )
+
+        return cls(
+            experiment_name=experiment._name,
+            experiment_type=experiment._experiment_type,
+            num_continuous_range_parameters=num_continuous_range_parameters,
+            num_int_range_parameters_small=num_int_range_parameters_small,
+            num_int_range_parameters_medium=num_int_range_parameters_medium,
+            num_int_range_parameters_large=num_int_range_parameters_large,
+            num_log_scale_range_parameters=num_log_scale_range_parameters,
+            num_unordered_choice_parameters_small=num_unordered_choice_parameters_small,
+            num_unordered_choice_parameters_medium=(
+                num_unordered_choice_parameters_medium
+            ),
+            num_unordered_choice_parameters_large=num_unordered_choice_parameters_large,
+            num_fixed_parameters=num_fixed_parameters,
+            dimensionality=sum(
+                1 for param in experiment.parameters.values() if param.cardinality() > 1
+            ),
+            heirerarchical_tree_height=experiment.search_space.height
+            if isinstance(experiment.search_space, HierarchicalSearchSpace)
+            else 1,
+            num_parameter_constraints=len(
+                experiment.search_space.parameter_constraints
+            ),
+            num_objectives=len(experiment.optimization_config.objective.metrics)
+            if experiment.optimization_config is not None
+            else 0,
+            num_tracking_metrics=len(experiment.tracking_metrics),
+            num_outcome_constraints=len(
+                experiment.optimization_config.outcome_constraints
+            )
+            if experiment.optimization_config is not None
+            else 0,
+            num_map_metrics=sum(
+                1
+                for metric in experiment.metrics.values()
+                if isinstance(metric, MapMetric)
+            ),
+            metric_cls_to_quantity={
+                cls_name: sum(
+                    1
+                    for metric in experiment.metrics.values()
+                    if metric.__class__.__name__ == cls_name
+                )
+                for cls_name in {
+                    metric.__class__.__name__ for metric in experiment.metrics.values()
+                }
+            },
+            runner_cls=experiment.runner.__class__.__name__,
+        )
+
+    @staticmethod
+    def _get_param_counts_from_search_space(
+        search_space: SearchSpace,
+    ) -> Tuple[int, int, int, int, int, int, int, int, int]:
+        """
+        Return counts of different types of parameters.
+
+        returns:
+            num_continuous_range_parameters
+
+            num_int_range_parameters_small
+            num_int_range_parameters_medium
+            num_int_range_parameters_large
+
+            num_log_scale_range_parameters
+
+            num_unordered_choice_parameters_small
+            num_unordered_choice_parameters_medium
+            num_unordered_choice_parameters_large
+
+            num_fixed_parameters
+        """
+
+        num_continuous_range_parameters = sum(
+            1
+            for param in search_space.parameters.values()
+            if isinstance(param, RangeParameter)
+            and param.parameter_type == ParameterType.FLOAT
+        )
+        num_int_range_parameters_small = sum(
+            1
+            for param in search_space.parameters.values()
+            if (
+                isinstance(param, RangeParameter)
+                or (isinstance(param, ChoiceParameter) and param.is_ordered)
+            )
+            and (1 < param.cardinality() <= 3)
+        )
+        num_int_range_parameters_medium = sum(
+            1
+            for param in search_space.parameters.values()
+            if (
+                isinstance(param, RangeParameter)
+                or (isinstance(param, ChoiceParameter) and param.is_ordered)
+            )
+            and (3 < param.cardinality() <= 7)
+        )
+        num_int_range_parameters_large = sum(
+            1
+            for param in search_space.parameters.values()
+            if (
+                isinstance(param, RangeParameter)
+                or (isinstance(param, ChoiceParameter) and param.is_ordered)
+            )
+            and (7 < param.cardinality() < inf)
+        )
+        num_log_scale_range_parameters = sum(
+            1
+            for param in search_space.parameters.values()
+            if isinstance(param, RangeParameter) and param.log_scale
+        )
+        num_unordered_choice_parameters_small = sum(
+            1
+            for param in search_space.parameters.values()
+            if (isinstance(param, ChoiceParameter) and not param.is_ordered)
+            and (1 < param.cardinality() <= 3)
+        )
+        num_unordered_choice_parameters_medium = sum(
+            1
+            for param in search_space.parameters.values()
+            if (isinstance(param, ChoiceParameter) and not param.is_ordered)
+            and (3 < param.cardinality() <= 7)
+        )
+        num_unordered_choice_parameters_large = sum(
+            1
+            for param in search_space.parameters.values()
+            if (isinstance(param, ChoiceParameter) and not param.is_ordered)
+            and param.cardinality() > 7
+        )
+        num_fixed_parameters = sum(
+            1
+            for param in search_space.parameters.values()
+            if isinstance(param, FixedParameter)
+        )
+
+        return (
+            num_continuous_range_parameters,
+            num_int_range_parameters_small,
+            num_int_range_parameters_medium,
+            num_int_range_parameters_large,
+            num_log_scale_range_parameters,
+            num_unordered_choice_parameters_small,
+            num_unordered_choice_parameters_medium,
+            num_unordered_choice_parameters_large,
+            num_fixed_parameters,
+        )
 
 
 @dataclass(frozen=True)
