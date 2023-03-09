@@ -283,6 +283,7 @@ def get_standard_plots(
     model_transitions: Optional[List[int]] = None,
     true_objective_metric_name: Optional[str] = None,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
+    limit_points_per_plot: Optional[int] = None,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -297,6 +298,11 @@ def get_standard_plots(
         - data: If specified, data, to which to fit the model before generating plots.
         - model_transitions: The arm numbers at which shifts in generation_strategy
             occur.
+        - true_objective_metric_name: Name of the metric to use as the true objective.
+        - early_stopping_strategy: Early stopping strategy used throughout the
+            experiment; used for visualizing when curves are stopped.
+        - limit_points_per_plot: Limit the number of points used per metric in
+            each curve plot. Passed to `_get_curve_plot_dropdown`.
 
     Returns:
         - a plot of objective value vs. trial index, to show experiment progression
@@ -404,6 +410,7 @@ def get_standard_plots(
                     data=data,  # pyre-ignore
                     early_stopping_strategy=early_stopping_strategy,
                     by_walltime=by_walltime,
+                    limit_points_per_plot=limit_points_per_plot,
                 )
             )
     return [plot for plot in output_plot_list if plot is not None]
@@ -433,6 +440,7 @@ def _get_curve_plot_dropdown(
     data: MapData,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
     by_walltime: bool = False,
+    limit_points_per_plot: Optional[int] = None,
 ) -> Optional[go.Figure]:
     """Plot curve metrics by either progression or walltime.
 
@@ -445,8 +453,10 @@ def _get_curve_plot_dropdown(
             is used to check which metrics are being used for early stopping.
         by_walltime: If true, the x-axis will be walltime. If false, the x-axis is
             the progression of the trials (trials are 'stacked').
+        limit_points_per_plot: Limit the total number of data points used per plot
+            (i.e., per metric). This is passed down to `MapData.subsample(...)` to
+            subsample the data. Useful for keeping the plots of manageable size.
     """
-    map_df = data.map_df
     early_stopping_metrics = get_early_stopping_metrics(
         experiment=experiment, early_stopping_strategy=early_stopping_strategy
     )
@@ -463,6 +473,14 @@ def _get_curve_plot_dropdown(
         )
     for m in curve_metrics:
         map_key = m.MAP_KEY.key
+        subsampled_data = (
+            data
+            if limit_points_per_plot is None
+            else data.subsample(
+                limit_rows_per_metric=limit_points_per_plot, map_key=map_key
+            )
+        )
+        map_df = subsampled_data.map_df
         metric_df = map_df[map_df["metric_name"] == m.name]
         xs, ys, legend_labels, plot_stopping_markers = [], [], [], []
         is_early_stopping_metric = m.name in early_stopping_metrics
