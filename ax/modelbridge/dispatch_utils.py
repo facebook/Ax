@@ -35,6 +35,7 @@ DEFAULT_BAYESIAN_PARALLELISM = 3
 # number of enumerated discrete combinations is below some maximum value.
 MAX_DISCRETE_ENUMERATIONS_MIXED = 65
 MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION = 1e4
+MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION = 33
 SAASBO_INCOMPATIBLE_MESSAGE = (
     "SAASBO is incompatible with {} generation strategy. "
     "Disregarding user input `use_saasbo = True`."
@@ -136,19 +137,23 @@ def _suggest_gp_model(
     of discrete enumerations to be performed by the optimizer is less than
     ``MAX_DISCRETE_ENUMERATIONS_MIXED``, or if there are only choice parameters and
     the number of choice combinations to enumerate is less than
-    ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. ``BO_MIXED`` is not currently enabled
-    for multi-objective optimization. Note that we do not count 2-level choice
+    ``MAX_DISCRETE_ENUMERATIONS_CHOICE_ONLY``. Note that we do not count 2-level choice
     parameters as unordered, since these do not affect the modeling choice.
-    3. We use ``MOO`` if ``optimization_config`` has multiple objectives and
-    ``use_saasbo is False``.
-    4. We use ``FULLYBAYESIANMOO`` if ``optimization_config`` has multiple objectives
-    and ``use_saasbo is True``.
-    5. If none of the above and ``use_saasbo is False``, we use ``GPEI``.
-    6. If none of the above and ``use_saasbo is True``, we use ``FULLYBAYESIAN``.
+    3. If there are more ordered parameters in the search space than the sum of options
+    for the *unordered* choice parameters, or if there is at least one ordered
+    parameter and the number of parameters needed to encode all unordered parameters
+    is less than ``MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION``, we use BO with
+    continuous relaxation.
+    * If ``optimization_config`` has multiple objectives, we use ``MOO`` if
+    ``use_saasbo is False`` and ``FULLYBAYESIANMOO`` otherwise.
+    * Otherwise, we use ``GPEI`` if ``use_saasbo is False`` and ``FULLYBAYESIAN``
+    otherwise.
     """
     # Count tunable parameter types.
-    num_ordered_parameters = num_unordered_choices = 0
-    num_enumerated_combinations = num_possible_points = 1
+    num_ordered_parameters = 0
+    num_unordered_choices = 0
+    num_enumerated_combinations = 1
+    num_possible_points = 1
     all_range_parameters_are_discrete = True
     all_parameters_are_enumerated = True
     for parameter in search_space.tunable_parameters.values():
@@ -186,23 +191,18 @@ def _suggest_gp_model(
             logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("Sobol"))
         return None
 
-    is_moo_problem = optimization_config and optimization_config.is_moo_problem
-    if num_ordered_parameters > num_unordered_choices:
-        logger.info(
-            "Using Bayesian optimization since there are more ordered parameters than "
-            "there are categories for the unordered categorical parameters."
-        )
-        if is_moo_problem:
-            return Models.FULLYBAYESIANMOO if use_saasbo else Models.MOO
-        return Models.FULLYBAYESIAN if use_saasbo else Models.GPEI
-
     # Use mixed Bayesian optimization when appropriate. This logic is currently tied to
     # the fact that acquisition function optimization for mixed BayesOpt currently
     # enumerates all combinations of choice parameters.
-    if num_enumerated_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED or (
-        all_parameters_are_enumerated
-        and num_enumerated_combinations
-        < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
+    # We use continuous relaxation if there are more ordered parameters than there
+    # are choices for unordered parameters.
+    if (num_ordered_parameters < num_unordered_choices) and (
+        num_enumerated_combinations <= MAX_DISCRETE_ENUMERATIONS_MIXED
+        or (
+            all_parameters_are_enumerated
+            and num_enumerated_combinations
+            < MAX_DISCRETE_ENUMERATIONS_NO_CONTINUOUS_OPTIMIZATION
+        )
     ):
         logger.info(
             "Using Bayesian optimization with a categorical kernel for improved "
@@ -211,6 +211,29 @@ def _suggest_gp_model(
         if use_saasbo:
             logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
+
+    is_moo_problem = optimization_config and optimization_config.is_moo_problem
+    if num_ordered_parameters >= num_unordered_choices or (
+        num_unordered_choices < MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION
+        and num_ordered_parameters > 0
+    ):
+        # These use one-hot encoding for unordered choice parameters, resulting in a
+        # total of num_unordered_choices OHE parameters.
+        # So, we do not want to use them when there are too many unordered choices.
+        if is_moo_problem:
+            method = Models.FULLYBAYESIANMOO if use_saasbo else Models.MOO
+        else:
+            method = Models.FULLYBAYESIAN if use_saasbo else Models.GPEI
+        reason = (
+            "there are more ordered parameters than there are categories for the "
+            "unordered categorical parameters."
+            if num_ordered_parameters >= num_unordered_choices
+            else "there is at least one ordered parameter and there are fewer than "
+            f"{MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION} choices for "
+            "unordered parameters."
+        )
+        logger.info(f"Using {method} since {reason}")
+        return method
 
     logger.info(
         f"Using Sobol since there are more than {MAX_DISCRETE_ENUMERATIONS_MIXED} "

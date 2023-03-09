@@ -32,6 +32,7 @@ from ax.utils.testing.core_stubs import (
     get_factorial_search_space,
     get_large_factorial_search_space,
     get_large_ordinal_search_space,
+    get_search_space_with_choice_parameters,
 )
 
 
@@ -138,6 +139,25 @@ class TestDispatchUtils(TestCase):
                 )
             self.assertEqual(sobol_large._steps[0].model, Models.SOBOL)
             self.assertEqual(len(sobol_large._steps), 1)
+        with self.subTest("SOBOL due to too many unordered choices"):
+            # Search space with more unordered choices than ordered parameters.
+            sobol = choose_generation_strategy(
+                search_space=get_search_space_with_choice_parameters(
+                    num_ordered_parameters=5,
+                    num_unordered_choices=100,
+                )
+            )
+            self.assertEqual(sobol._steps[0].model, Models.SOBOL)
+            self.assertEqual(len(sobol._steps), 1)
+        with self.subTest("GPEI with more unordered choices than ordered parameters"):
+            # Search space with more unordered choices than ordered parameters.
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_search_space_with_choice_parameters(
+                    num_ordered_parameters=5,
+                    num_unordered_choices=10,
+                )
+            )
+            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
         with self.subTest("GPEI despite many unordered 2-value parameters"):
             gs = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(
