@@ -22,11 +22,11 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
-from ax.core.metric import Metric, MetricFetchResult
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.trial import Trial
 from ax.early_stopping.utils import align_partial_results
 from ax.utils.common.logger import get_logger
-from ax.utils.common.result import Ok
+from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import checked_cast
 
 logger: Logger = get_logger(__name__)
@@ -100,66 +100,91 @@ class AbstractCurveMetric(MapMetric, ABC):
             raise RuntimeError(
                 f"Only (non-batch) Trials are supported by {cls.__name__}"
             )
+        try:
+            trial_idx_to_id = cls.get_ids_from_trials(trials=trials)
+            if len(trial_idx_to_id) == 0:
+                logger.debug("Could not get ids from trials. Returning MetricFetchE.")
+                return {
+                    trial.index: {
+                        metric.name: Err(
+                            value=MetricFetchE(
+                                message=(f"Could not get ids from trials: {trials}"),
+                                exception=None,
+                            )
+                        )
+                        for metric in metrics
+                    }
+                    for trial in (trials if trials is not None else [])
+                }
 
-        trial_idx_to_id = cls.get_ids_from_trials(trials=trials)
-        if len(trial_idx_to_id) == 0:
-            logger.debug("Could not get ids from trials. Returning empty data.")
-            # TODO[mpolson64] Do we want to return Errs here?
+            all_curve_series = cls.get_curves_from_ids(ids=trial_idx_to_id.values())
+            if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
+                logger.debug("Could not get curves from ids. Returning Errs.")
+                return {
+                    trial.index: {
+                        metric.name: Err(
+                            value=MetricFetchE(
+                                message=(
+                                    f"Could not get curves from ids: {trial_idx_to_id}"
+                                ),
+                                exception=None,
+                            )
+                        )
+                        for metric in metrics
+                    }
+                    for trial in (trials if trials is not None else [])
+                }
+
+            df = cls.get_df_from_curve_series(
+                experiment=experiment,
+                all_curve_series=all_curve_series,
+                metrics=metrics,
+                trial_idx_to_id=trial_idx_to_id,
+            )
+
+            if df is None:
+                return {
+                    trial.index: {
+                        metric.name: Err(
+                            value=MetricFetchE(
+                                message=("DataFrame from curve series is empty"),
+                                exception=None,
+                            )
+                        )
+                        for metric in metrics
+                    }
+                    for trial in (trials if trials is not None else [])
+                }
+
             return {
                 trial.index: {
-                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
-                    for metric in metrics
-                }
-                for trial in (trials if trials is not None else [])
-            }
-
-        all_curve_series = cls.get_curves_from_ids(ids=trial_idx_to_id.values())
-        if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
-            logger.debug("Could not get curves from ids. Returning empty data.")
-            # TODO[mpolson64] Do we want to return Errs here?
-            return {
-                trial.index: {
-                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
-                    for metric in metrics
-                }
-                for trial in (trials if trials is not None else [])
-            }
-
-        df = cls.get_df_from_curve_series(
-            experiment=experiment,
-            all_curve_series=all_curve_series,
-            metrics=metrics,
-            trial_idx_to_id=trial_idx_to_id,
-        )
-
-        if df is None:
-            return {
-                trial.index: {
-                    metric.name: Ok(value=MapData(map_key_infos=[cls.MAP_KEY]))
-                    for metric in metrics
-                }
-                for trial in (trials if trials is not None else [])
-            }
-
-        return {
-            trial.index: {
-                metric.name: Ok(
-                    value=MapData(
-                        df=(
-                            df.loc[
-                                (df["metric_name"] == metric.name)
-                                & (df["trial_index"] == trial.index)
-                            ]
-                        ),
-                        map_key_infos=[cls.MAP_KEY],
+                    metric.name: Ok(
+                        value=MapData(
+                            df=(
+                                df.loc[
+                                    (df["metric_name"] == metric.name)
+                                    & (df["trial_index"] == trial.index)
+                                ]
+                            ),
+                            map_key_infos=[cls.MAP_KEY],
+                        )
                     )
-                )
-                for metric in metrics
+                    for metric in metrics
+                }
+                for trial in (trials if trials is not None else [])
             }
-            for trial in (trials if trials is not None else [])
-        }
-
-        return MapData(df=df, map_key_infos=[cls.MAP_KEY])
+        except Exception as e:
+            return {
+                trial.index: {
+                    metric.name: Err(
+                        value=MetricFetchE(
+                            message=f"Failed to fetch {cls}", exception=e
+                        )
+                    )
+                    for metric in metrics
+                }
+                for trial in (trials if trials is not None else [])
+            }
 
     @classmethod
     def get_df_from_curve_series(
