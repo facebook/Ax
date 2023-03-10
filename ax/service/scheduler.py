@@ -170,6 +170,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
     _num_preexisting_trials: int
+    # Total number of MetricFetchEs encountered during the course of optimization. Note
+    # this is different from and may be greater than the number of trials that have
+    # been marked either FAILED or ABANDONED due to metric fetching errors.
+    _num_metric_fetch_e_encountered: int = 0
     # Number of trials that have been marked either FAILED or ABANDONED due to
     # MetricFetchE being encountered during _fetch_and_process_trials_data_results
     _num_trials_bad_due_to_err: int = 0
@@ -1669,6 +1673,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 if result.is_ok():
                     continue
 
+                self._num_metric_fetch_e_encountered += 1
                 metric_fetch_e = result.unwrap_err()
 
                 self._report_metric_fetch_e(
