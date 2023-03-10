@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from enum import Enum
+from math import inf
 from typing import Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
@@ -75,6 +76,10 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     @abstractmethod
     def validate(self, value: TParamValue) -> bool:
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def cardinality(self) -> float:
         pass  # pragma: no cover
 
     @property
@@ -196,6 +201,12 @@ class RangeParameter(Parameter):
             log_scale=log_scale,
             logit_scale=logit_scale,
         )
+
+    def cardinality(self) -> float:
+        if self.parameter_type == ParameterType.FLOAT:
+            return inf
+
+        return self.upper - self.lower + 1
 
     def _validate_range_param(
         self,
@@ -487,6 +498,9 @@ class ChoiceParameter(Parameter):
         )
         return default_bool
 
+    def cardinality(self) -> float:
+        return len(self.values)
+
     @property
     def sort_values(self) -> bool:
         return self._sort_values
@@ -630,6 +644,9 @@ class FixedParameter(Parameter):
                     f"{self.name}: {self.value}; got: {dependents}."
                 )
         self._dependents = dependents
+
+    def cardinality(self) -> float:
+        return 1.0
 
     @property
     def value(self) -> TParamValue:
