@@ -166,3 +166,9 @@ class AxWarning(Warning):
 
     def __str__(self) -> str:
         return " ".join([self.message, getattr(self, "hint", "")]).rstrip()
+
+
+class AxStorageWarning(AxWarning):
+    """Ax warning used for storage related concerns."""
+
+    pass

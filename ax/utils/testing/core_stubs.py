@@ -101,6 +101,7 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
+from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
 from gpytorch.constraints import Interval
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -2008,6 +2009,18 @@ def get_gamma_prior() -> GammaPrior:
 
 def get_interval() -> Interval:
     return Interval(lower_bound=1e-6, upper_bound=0.1)
+
+
+def get_chained_input_transform() -> ChainedInputTransform:
+    bounds = torch.tensor([[0, 0], [3, 5]], dtype=torch.double)
+    return ChainedInputTransform(
+        round=Round(
+            integer_indices=[1],
+            transform_on_eval=True,
+            transform_on_train=False,
+        ),
+        normalize=Normalize(d=2, bounds=bounds),
+    )
 
 
 ##############################
