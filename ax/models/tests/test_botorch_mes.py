@@ -44,12 +44,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.metric_names = ["y"]
         self.acq_options = {"num_fantasies": 30, "candidate_size": 100}
         self.objective_weights = torch.tensor([1.0], **self.tkwargs)
-        self.optimizer_options = {
-            "num_restarts": 12,
-            "raw_samples": 12,
-            "maxiter": 5,
-            "batch_limit": 1,
-        }
         self.optimize_acqf = "ax.models.torch.botorch_mes.optimize_acqf"
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
@@ -72,7 +66,6 @@ class MaxValueEntropySearchTest(TestCase):
             objective_weights=self.objective_weights,
             model_gen_options={
                 "acquisition_function_kwargs": self.acq_options,
-                "optimizer_kwargs": self.optimizer_options,
             },
         )
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
@@ -223,31 +216,23 @@ class MaxValueEntropySearchTest(TestCase):
         # check generation
 
         n = 1
-        new_X_dummy = torch.rand(1, n, 3, **self.tkwargs)
-        with mock.patch(
-            self.optimize_acqf, side_effect=[(new_X_dummy, None)]
-        ) as mock_optimize_acqf:
-            gen_results = model.gen(
-                n=n,
-                search_space_digest=dataclasses.replace(
-                    search_space_digest,
-                    target_fidelities={2: 1.0},
-                ),
-                torch_opt_config=dataclasses.replace(
-                    torch_opt_config,
-                    model_gen_options={
-                        "acquisition_function_kwargs": self.acq_options,
-                        "optimizer_kwargs": self.optimizer_options,
-                    },
-                ),
-            )
-            self.assertTrue(torch.equal(gen_results.points, new_X_dummy.cpu()))
-            self.assertTrue(
-                torch.equal(
-                    gen_results.weights, torch.ones(n, dtype=self.tkwargs["dtype"])
-                )
-            )
-            mock_optimize_acqf.assert_called()
+        gen_results = model.gen(
+            n=n,
+            search_space_digest=dataclasses.replace(
+                search_space_digest,
+                target_fidelities={2: 1.0},
+            ),
+            torch_opt_config=dataclasses.replace(
+                torch_opt_config,
+                model_gen_options={
+                    "acquisition_function_kwargs": self.acq_options,
+                },
+            ),
+        )
+        self.assertEqual(gen_results.points.shape, torch.Size([n, 3]))
+        self.assertTrue(
+            torch.equal(gen_results.weights, torch.ones(n, dtype=self.tkwargs["dtype"]))
+        )
 
         # test input warping
         self.assertFalse(model.use_input_warping)

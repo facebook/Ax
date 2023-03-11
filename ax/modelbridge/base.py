@@ -685,7 +685,7 @@ class ModelBridge(ABC):
                 features that should be fixed at specified values during
                 generation.
             model_gen_options: A config dictionary that is passed along to the
-                model.
+                model. See `TorchOptConfig` for details.
 
         Returns:
             A GeneratorRun object that contains the generated points and other metadata.

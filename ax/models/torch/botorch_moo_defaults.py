@@ -284,19 +284,19 @@ def scipy_optimizer_list(
     num_restarts: int = kwargs.pop(Keys.NUM_RESTARTS, 20)
     raw_samples: int = kwargs.pop(Keys.RAW_SAMPLES, 50 * num_restarts)
 
-    # use SLSQP by default for small problems since it yields faster wall times
-    if "method" not in kwargs:
-        kwargs["method"] = "SLSQP"
-    if "init_batch_limit" not in kwargs:
-        kwargs["init_batch_limit"] = 32
-    if "batch_limit" not in kwargs:
-        kwargs["batch_limit"] = 5
+    # Use SLSQP by default for small problems since it yields faster wall times.
+    options: Dict[str, Union[bool, float, int, str]] = {
+        "batch_limit": 5,
+        "init_batch_limit": 32,
+        "method": "SLSQP",
+    }
+    options.update(kwargs.get("options", {}))
     X, expected_acquisition_value = optimize_acqf_list(
         acq_function_list=acq_function_list,
         bounds=bounds,
         num_restarts=num_restarts,
         raw_samples=raw_samples,
-        options=kwargs,
+        options=options,
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         post_processing_func=rounding_func,

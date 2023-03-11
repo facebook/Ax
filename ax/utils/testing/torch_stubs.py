@@ -11,10 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 
 
-def get_optimizer_kwargs() -> Dict[str, int]:
-    return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
-
-
 def get_torch_test_data(
     dtype: torch.dtype = torch.float,
     cuda: bool = False,

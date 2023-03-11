@@ -53,8 +53,10 @@ class KnowledgeGradientTest(TestCase):
         self.optimizer_options = {
             "num_restarts": 12,
             "raw_samples": 12,
-            "maxiter": 5,
-            "batch_limit": 1,
+            "options": {
+                "maxiter": 5,
+                "batch_limit": 1,
+            },
         }
         self.optimize_acqf = "ax.models.torch.botorch_kg.optimize_acqf"
         self.X_dummy = torch.ones(1, 3, **self.tkwargs)
@@ -110,8 +112,10 @@ class KnowledgeGradientTest(TestCase):
         optimizer_options2 = {
             "num_restarts": 1,
             "raw_samples": 1,
-            "maxiter": 5,
-            "batch_limit": 1,
+            "options": {
+                "maxiter": 5,
+                "batch_limit": 1,
+            },
             "partial_restarts": 2,
         }
         torch_opt_config.model_gen_options["optimizer_kwargs"] = optimizer_options2

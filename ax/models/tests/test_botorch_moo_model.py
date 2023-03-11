@@ -58,10 +58,6 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
     return X
 
 
-def _get_optimizer_kwargs() -> Dict[str, int]:
-    return {"num_restarts": 2, "raw_samples": 2, "maxiter": 2, "batch_limit": 1}
-
-
 # pyre-fixme[3]: Return type must be annotated.
 def _get_torch_test_data(
     dtype: torch.dtype = torch.float,
@@ -160,7 +156,6 @@ class BotorchMOOModelTest(TestCase):
             objective_thresholds=obj_t,
             model_gen_options={
                 "acquisition_function_kwargs": {"random_scalarization": True},
-                "optimizer_kwargs": _get_optimizer_kwargs(),
                 "subset_model": False,
             },
             is_moo=True,
@@ -279,7 +274,7 @@ class BotorchMOOModelTest(TestCase):
             objective_thresholds=obj_t,
             model_gen_options={
                 "acquisition_function_kwargs": {"chebyshev_scalarization": True},
-                "optimizer_kwargs": _get_optimizer_kwargs(),
+                "optimizer_kwargs": {"options": {"batch_limit": 1}},
             },
         )
         with mock.patch(
@@ -369,7 +364,7 @@ class BotorchMOOModelTest(TestCase):
                         wraps=moo_monte_carlo.qExpectedHypervolumeImprovement,
                     )
                 )
-            es.enter_context(
+            mock_optimize = es.enter_context(
                 mock.patch(
                     "ax.models.torch.botorch_defaults.optimize_acqf",
                     return_value=(X_dummy, acqfv_dummy),
@@ -384,7 +379,9 @@ class BotorchMOOModelTest(TestCase):
             torch_opt_config = TorchOptConfig(
                 objective_weights=objective_weights,
                 objective_thresholds=obj_t,
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
+                model_gen_options={
+                    "optimizer_kwargs": {"options": {"batch_limit": 1}},
+                },
             )
             gen_results = model.gen(
                 n,
@@ -403,6 +400,13 @@ class BotorchMOOModelTest(TestCase):
                 )
             )
             _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
+            # Optimizer options correctly passed through.
+            self.assertEqual(
+                mock_optimize.call_args.kwargs["options"]["init_batch_limit"], 32
+            )
+            self.assertEqual(
+                mock_optimize.call_args.kwargs["options"]["batch_limit"], 1
+            )
             # 3 objective
             training_data_m3 = training_data + [training_data[-1]]
 
@@ -414,7 +418,6 @@ class BotorchMOOModelTest(TestCase):
             torch_opt_config = TorchOptConfig(
                 objective_weights=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
                 objective_thresholds=torch.tensor([1.0, 1.0, 1.0], **tkwargs),
-                model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
             )
             model.gen(
                 n,
@@ -513,7 +516,6 @@ class BotorchMOOModelTest(TestCase):
                 objective_weights=torch.tensor([-1.0, -1.0, 0.0], **tkwargs),
                 outcome_constraints=outcome_constraints,
                 model_gen_options={
-                    "optimizer_kwargs": _get_optimizer_kwargs(),
                     # do not used cached root decomposition since
                     # MockPosterior does not have an mvn attribute
                     "acquisition_function_kwargs": {
@@ -643,7 +645,6 @@ class BotorchMOOModelTest(TestCase):
                     ),
                     model_gen_options={
                         "acquisition_function_kwargs": {"random_scalarization": True},
-                        "optimizer_kwargs": _get_optimizer_kwargs(),
                     },
                     objective_thresholds=obj_t,
                 ),
@@ -698,7 +699,6 @@ class BotorchMOOModelTest(TestCase):
             ),
             model_gen_options={
                 "acquisition_function_kwargs": {"chebyshev_scalarization": True},
-                "optimizer_kwargs": _get_optimizer_kwargs(),
             },
             objective_thresholds=obj_t,
         )
@@ -774,7 +774,6 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         torch_opt_config = dataclasses.replace(
             torch_opt_config,
-            model_gen_options={"optimizer_kwargs": _get_optimizer_kwargs()},
             objective_thresholds=obj_t,
         )
         with mock.patch.object(

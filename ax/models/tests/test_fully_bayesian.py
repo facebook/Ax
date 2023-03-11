@@ -466,7 +466,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             X_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
             acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
             model_gen_options = {
-                Keys.OPTIMIZER_KWARGS: {"maxiter": 1},
+                Keys.OPTIMIZER_KWARGS: {"options": {"maxiter": 1}},
                 Keys.ACQF_KWARGS: {"mc_samples": 3},
             }
             search_space_digest = SearchSpaceDigest(

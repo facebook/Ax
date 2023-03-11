@@ -47,7 +47,26 @@ class TorchOptConfig:
         pending_observations:  A list of m (k_i x d) feature tensors X
             for m outcomes and k_i pending observations for outcome i.
         model_gen_options: A config dictionary that can contain
-            model-specific options.
+            model-specific options. This commonly includes `optimizer_kwargs`,
+            which often specifies the optimizer options to be passed to the
+            optimizer while optimizing the acquisition function. These are
+            generally expected to mimic the signature of `optimize_acqf`,
+            though not all models may support all possible arguments and some
+            models may support additional arguments that are not passed to the
+            optimizer. While constructing a generation strategy, these options
+            can be passed in as follows:
+            >>> model_gen_kwargs = {
+            >>>     "model_gen_options": {
+            >>>         "optimizer_kwargs": {
+            >>>             "num_restarts": 20,
+            >>>             "sequential": False,
+            >>>             "options": {
+            >>>                 "batch_limit: 5,
+            >>>                 "maxiter": 200,
+            >>>             },
+            >>>         },
+            >>>     },
+            >>> }
         rounding_func: A function that rounds an optimization result
             appropriately (i.e., according to `round-trip` transformations).
         opt_config_metrics: A dictionary of metrics that are included in

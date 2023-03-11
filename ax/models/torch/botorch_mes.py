@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -146,6 +146,13 @@ class MaxValueEntropySearch(BotorchModel):
 
         # optimize and get new points
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
+        opt_options: Dict[str, Union[bool, float, int, str]] = {
+            "batch_limit": 8,
+            "maxiter": 200,
+            "method": "L-BFGS-B",
+            "nonnegative": False,
+        }
+        opt_options.update(optimizer_options.get("options", {}))
         candidates, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=bounds_,
@@ -155,12 +162,7 @@ class MaxValueEntropySearch(BotorchModel):
             post_processing_func=botorch_rounding_func,
             num_restarts=num_restarts,
             raw_samples=raw_samples,
-            options={
-                "batch_limit": optimizer_options.get("batch_limit", 8),
-                "maxiter": optimizer_options.get("maxiter", 200),
-                "method": "L-BFGS-B",
-                "nonnegative": optimizer_options.get("nonnegative", False),
-            },
+            options=opt_options,
             sequential=True,
         )
         return TorchGenResults(

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -377,6 +377,13 @@ def _optimize_and_get_candidates(
 
     botorch_rounding_func = get_rounding_func(rounding_func)
 
+    opt_options: Dict[str, Union[bool, float, int, str]] = {
+        "batch_limit": 8,
+        "maxiter": 200,
+        "method": "L-BFGS-B",
+        "nonnegative": False,
+    }
+    opt_options.update(optimizer_options.get("options", {}))
     candidates, _ = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds_,
@@ -386,12 +393,7 @@ def _optimize_and_get_candidates(
         post_processing_func=botorch_rounding_func,
         num_restarts=num_restarts,
         raw_samples=raw_samples,
-        options={
-            "batch_limit": optimizer_options.get("batch_limit", 8),
-            "maxiter": optimizer_options.get("maxiter", 200),
-            "method": "L-BFGS-B",
-            "nonnegative": optimizer_options.get("nonnegative", False),
-        },
+        options=opt_options,
         batch_initial_conditions=batch_initial_conditions,
     )
     new_x = candidates.detach().cpu()
