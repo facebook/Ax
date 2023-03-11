@@ -36,6 +36,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
     botorch_component_from_json,
+    tensor_from_json,
     trial_from_json,
 )
 from ax.storage.json_store.registry import (
@@ -125,24 +126,7 @@ def object_from_json(
         elif _type == "ndarray":
             return np.array(object_json["value"])
         elif _type == "Tensor":
-            device = (
-                object_from_json(
-                    object_json["device"],
-                    decoder_registry=decoder_registry,
-                    class_decoder_registry=class_decoder_registry,
-                )
-                if torch.cuda.is_available()
-                else torch.device("cpu")
-            )
-            return torch.tensor(
-                object_json["value"],
-                dtype=object_from_json(
-                    object_json["dtype"],
-                    decoder_registry=decoder_registry,
-                    class_decoder_registry=class_decoder_registry,
-                ),
-                device=device,
-            )
+            return tensor_from_json(json=object_json)
         elif _type.startswith("torch"):
             # Torch types will be encoded as "torch_<type_name>", so we drop prefix
             return torch_type_from_str(

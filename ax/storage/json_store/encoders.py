@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Type
 
@@ -40,6 +41,8 @@ from ax.early_stopping.strategies import (
     PercentileEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
+from ax.exceptions.core import AxStorageWarning
+from ax.exceptions.storage import JSONEncodeError
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -53,6 +56,9 @@ from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils_torch import torch_type_to_str
+from botorch.models.transforms.input import ChainedInputTransform, InputTransform
+from torch import Tensor
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
@@ -484,6 +490,21 @@ def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
     return dict_representation
 
 
+def tensor_to_dict(obj: Tensor) -> Dict[str, Any]:
+    if obj.numel() > 1e4:
+        warnings.warn(
+            f"Attempting to serialize a tensor with {obj.numel()} elements. "
+            "This may result in storage issues.",
+            AxStorageWarning,
+        )
+    return {
+        "__type": "Tensor",
+        "value": obj.tolist(),
+        "dtype": {"__type": "torch_dtype", "value": torch_type_to_str(obj.dtype)},
+        "device": {"__type": "torch_device", "value": torch_type_to_str(obj.device)},
+    }
+
+
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
     """Convert any class to a dictionary."""
@@ -508,17 +529,36 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
 
 
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-def botorch_component_to_dict(input_obj: Type[Any]) -> Dict[str, Any]:
+def botorch_component_to_dict(input_obj: Any) -> Dict[str, Any]:
     class_type = input_obj.__class__
-    state_dict = input_obj.state_dict()
-    # Cast dict values to float to avoid errors with Tensors.
-    state_dict = {k: float(v) for k, v in state_dict.items()}
+    if isinstance(input_obj, InputTransform):
+        # Input transforms cannot be initialized with their state dicts.
+        # We will instead extract the init args.
+        state_dict = botorch_input_transform_to_init_args(input_transform=input_obj)
+    else:
+        state_dict = dict(input_obj.state_dict())
     return {
         "__type": f"{class_type.__name__}",
         "index": class_type,
         "class": f"{class_type}",
         "state_dict": state_dict,
     }
+
+
+def botorch_input_transform_to_init_args(
+    input_transform: InputTransform,
+) -> Dict[str, Any]:
+    """Extract the init kwargs from an input transform."""
+    if isinstance(input_transform, ChainedInputTransform):
+        return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
+    else:
+        try:
+            return input_transform.get_init_args()  # pyre-fixme [16]
+        except AttributeError:  # pragma: no cover
+            raise JSONEncodeError(
+                f"{input_transform.__class__.__name__} does not define `get_init_args` "
+                "method. Please implement it to enable storage."
+            )
 
 
 def percentile_early_stopping_strategy_to_dict(

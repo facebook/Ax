@@ -141,6 +141,7 @@ from ax.storage.json_store.encoders import (
 from ax.storage.utils import DomainType, ParameterConstraintType
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
+from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
 from gpytorch.constraints import Interval
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -161,6 +162,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     BotorchTestProblemRunner: runner_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
+    ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
     Experiment: experiment_to_dict,
@@ -184,6 +186,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
     MultiTypeExperiment: multi_type_experiment_to_dict,
+    Normalize: botorch_component_to_dict,
     PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
@@ -209,6 +212,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     RangeParameter: range_parameter_to_dict,
     RiskMeasure: risk_measure_to_dict,
     RobustSearchSpace: robust_search_space_to_dict,
+    Round: botorch_component_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
@@ -259,6 +263,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "BotorchTestProblemRunner": BotorchTestProblemRunner,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
+    "ChainedInputTransform": ChainedInputTransform,
     "ChemistryMetric": ChemistryMetric,
     "ChemistryProblemType": ChemistryProblemType,
     "ChoiceParameter": ChoiceParameter,
@@ -294,6 +299,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,
     "NoisyFunctionMetric": NoisyFunctionMetric,
+    "Normalize": Normalize,
     "Objective": Objective,
     "ObjectiveThreshold": ObjectiveThreshold,
     "OptimizationConfig": OptimizationConfig,
@@ -317,6 +323,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "RangeParameter": RangeParameter,
     "RiskMeasure": RiskMeasure,
     "RobustSearchSpace": RobustSearchSpace,
+    "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,

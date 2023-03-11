@@ -42,6 +42,12 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    InputTransform,
+    Normalize,
+    Round,
+)
 
 # Miscellaneous BoTorch imports
 from gpytorch.constraints import Interval
@@ -117,6 +123,16 @@ GPYTORCH_COMPONENT_REGISTRY: Dict[Type[torch.nn.Module], str] = {
 }
 
 """
+Mapping of BoTorch `InputTransform` classes to class name strings.
+"""
+INPUT_TRANSFORM_REGISTRY: Dict[Type[InputTransform], str] = {
+    ChainedInputTransform: "ChainedInputTransform",
+    Normalize: "Normalize",
+    Round: "Round",
+}
+
+
+"""
 Overarching mapping from encoded classes to registry map.
 """
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
@@ -128,6 +144,7 @@ CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     Model: MODEL_REGISTRY,
     Interval: GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
+    InputTransform: INPUT_TRANSFORM_REGISTRY,
 }
 
 
@@ -153,13 +170,21 @@ REVERSE_MLL_REGISTRY: Dict[str, Type[MarginalLogLikelihood]] = {
     v: k for k, v in MLL_REGISTRY.items()
 }
 
+
 REVERSE_LIKELIHOOD_REGISTRY: Dict[str, Type[Likelihood]] = {
     v: k for k, v in LIKELIHOOD_REGISTRY.items()
 }
 
+
 REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[torch.nn.Module]] = {
     v: k for k, v in GPYTORCH_COMPONENT_REGISTRY.items()
 }
+
+
+REVERSE_INPUT_TRANSFORM_REGISTRY: Dict[str, Type[InputTransform]] = {
+    v: k for k, v in INPUT_TRANSFORM_REGISTRY.items()
+}
+
 
 """
 Overarching mapping from encoded classes to reverse registry map.
@@ -173,6 +198,7 @@ CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[str, Type[Any]]] = {
     Model: REVERSE_MODEL_REGISTRY,
     Interval: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
+    InputTransform: REVERSE_INPUT_TRANSFORM_REGISTRY,
 }
 
 

@@ -12,17 +12,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Type, TYPE_CHECKING, Union
 
+import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
+from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.transforms.base import Transform
-from ax.storage.botorch_modular_registry import CLASS_TO_REVERSE_REGISTRY
+from ax.storage.botorch_modular_registry import (
+    CLASS_TO_REVERSE_REGISTRY,
+    REVERSE_INPUT_TRANSFORM_REGISTRY,
+)
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils_torch import torch_type_from_str
+from botorch.models.transforms.input import ChainedInputTransform
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -170,15 +178,70 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     )
 
 
+def tensor_from_json(json: Dict[str, Any]) -> torch.Tensor:
+    try:
+        device = (
+            checked_cast(
+                torch.device,
+                torch_type_from_str(
+                    identifier=json["device"]["value"], type_name="device"
+                ),
+            )
+            if torch.cuda.is_available()
+            else torch.device("cpu")
+        )
+        return torch.tensor(
+            json["value"],
+            dtype=checked_cast(
+                torch.dtype,
+                torch_type_from_str(
+                    identifier=json["dtype"]["value"], type_name="dtype"
+                ),
+            ),
+            device=device,
+        )
+    except KeyError as e:
+        raise JSONDecodeError(
+            f"Got KeyError {e} while attempting to construct a tensor from json. "
+            f"Expected value, dtype, and device fields; got {json=}."
+        )
+
+
+def tensor_or_size_from_json(json: Dict[str, Any]) -> Union[torch.Tensor, torch.Size]:
+    if json["__type"] == "Tensor":
+        return tensor_from_json(json)
+    elif json["__type"] == "torch_Size":
+        return checked_cast(
+            torch.Size,
+            torch_type_from_str(identifier=json["value"], type_name="Size"),
+        )
+    else:
+        raise JSONDecodeError(
+            f"Expected json encoding of a torch.Tensor or torch.Size. Got {json=}"
+        )
+
+
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 # pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Type[Any]:
-    """Load any instance of `gpytorch.Module` or descendent registered in
+    """Load any instance of `torch.nn.Module` or descendants registered in
     `CLASS_DECODER_REGISTRY` from state dict."""
-    class_path = json.pop("class")
     state_dict = json.pop("state_dict")
+    if issubclass(botorch_class, ChainedInputTransform):
+        return botorch_class(
+            **{
+                k: botorch_component_from_json(
+                    botorch_class=REVERSE_INPUT_TRANSFORM_REGISTRY[v.pop("__type")],
+                    json=v,
+                )
+                for k, v in state_dict.items()
+            }
+        )
+    class_path = json.pop("class")
     init_args = inspect.signature(botorch_class).parameters
-    required_args = {p for p, v in init_args.items() if v.default is inspect._empty}
+    required_args = {
+        p for p, v in init_args.items() if v.default is inspect._empty and p != "kwargs"
+    }
     allowable_args = set(init_args)
     received_args = set(state_dict)
     missing_args = required_args - received_args
@@ -198,7 +261,14 @@ def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Typ
             "indicate that the object's state will not be fully recreated "
             "by this serialization/deserialization method."
         )
-    return botorch_class(**state_dict)
+    return botorch_class(
+        **{
+            k: tensor_or_size_from_json(json=v)
+            if isinstance(v, dict) and "__type" in v
+            else v
+            for k, v in state_dict.items()
+        }
+    )
 
 
 def pathlib_from_json(pathsegments: Union[str, Iterable[str]]) -> Path:

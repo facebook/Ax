@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.exceptions.storage import JSONEncodeError
+from ax.storage.json_store.encoders import tensor_to_dict
 from ax.storage.json_store.registry import (
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
@@ -171,21 +172,7 @@ def object_to_json(  # noqa C901
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": obj.tolist()}
     elif _type is torch.Tensor:
-        return {
-            "__type": _type.__name__,
-            # TODO: check size and add warning for large tensors: T69137799
-            "value": obj.tolist(),
-            "dtype": object_to_json(
-                obj.dtype,
-                encoder_registry=encoder_registry,
-                class_encoder_registry=class_encoder_registry,
-            ),
-            "device": object_to_json(
-                obj.device,
-                encoder_registry=encoder_registry,
-                class_encoder_registry=class_encoder_registry,
-            ),
-        }
+        return tensor_to_dict(obj=obj)
     elif _type.__module__ == "torch":
         # Torch does not support saving to string, so save to buffer first
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}

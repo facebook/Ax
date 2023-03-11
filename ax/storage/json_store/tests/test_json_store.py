@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from ax.core.metric import Metric
 from ax.core.runner import Runner
+from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.metrics.jenatton import JenattonMetric
 from ax.modelbridge.registry import Models
@@ -61,6 +62,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
     get_branin_metric,
+    get_chained_input_transform,
     get_choice_parameter,
     get_default_scheduler_options,
     get_experiment_with_batch_and_single_trial,
@@ -115,6 +117,7 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_transform_type,
 )
+from ax.utils.testing.utils import generic_equals
 
 
 # pyre-fixme[5]: Global expression must be annotated.
@@ -133,6 +136,7 @@ TEST_CASES = [
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BoTorchModel", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
+    ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
     ("Experiment", get_experiment_with_batch_and_single_trial),
     ("Experiment", get_experiment_with_trial_with_ttl),
@@ -270,7 +274,7 @@ class JSONStoreTest(TestCase):
             CORE_CLASS_ENCODER_REGISTRY,
         )
 
-    def testEncodeDecode(self) -> None:
+    def test_EncodeDecode(self) -> None:
         for class_, fake_func in TEST_CASES:
             # Can't load trials from JSON, because a batch needs an experiment
             # in order to be initialized
@@ -311,13 +315,21 @@ class JSONStoreTest(TestCase):
                 )
                 original_object = original_object.state_dict()
                 converted_object = converted_object.state_dict()
-            self.assertEqual(
-                original_object,
-                converted_object,
-                msg=f"Error encoding/decoding {class_}.",
-            )
+            try:
+                self.assertEqual(
+                    original_object,
+                    converted_object,
+                    msg=f"Error encoding/decoding {class_}.",
+                )
+            except RuntimeError as e:
+                if "Tensor with more than one value" in str(e):
+                    self.assertTrue(
+                        generic_equals(first=original_object, second=converted_object)
+                    )
+                else:
+                    raise e
 
-    def testEncodeDecodeTorchTensor(self) -> None:
+    def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
         )
@@ -339,6 +351,28 @@ class JSONStoreTest(TestCase):
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
         self.assertTrue(torch.equal(x, x2))
+
+        # Warning on large tensor.
+        with self.assertWarnsRegex(AxStorageWarning, "serialize a tensor"):
+            object_to_json(
+                torch.ones(99_999),
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
+
+        # Key error on desearialization.
+        x_json = object_to_json(
+            x,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+        x_json.pop("dtype")
+        with self.assertRaisesRegex(JSONDecodeError, "construct a tensor"):
+            object_from_json(
+                x_json,
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
 
     def testDecodeGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy()
@@ -534,17 +568,12 @@ class JSONStoreTest(TestCase):
 
     def testBadStateDict(self) -> None:
         interval = get_interval()
-        # pyre-fixme[6]: For 1st param expected `Type[typing.Any]` but got `Interval`.
         expected_json = botorch_component_to_dict(interval)
         with self.assertRaisesRegex(ValueError, "Received unused args"):
-            # pyre-fixme[6]: For 1st param expected `Type[typing.Any]` but got
-            #  `Interval`.
             expected_json = botorch_component_to_dict(interval)
             expected_json["state_dict"]["foo"] = "bar"
             botorch_component_from_json(interval.__class__, expected_json)
         with self.assertRaisesRegex(ValueError, "Missing required initialization args"):
-            # pyre-fixme[6]: For 1st param expected `Type[typing.Any]` but got
-            #  `Interval`.
             expected_json = botorch_component_to_dict(interval)
             del expected_json["state_dict"]["lower_bound"]
             botorch_component_from_json(interval.__class__, expected_json)
