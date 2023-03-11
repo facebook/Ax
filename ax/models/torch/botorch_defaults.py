@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 from ax.models.model_utils import best_observed_point, get_observed
@@ -366,17 +366,18 @@ def scipy_optimizer(
         sequential = False
     else:
         sequential = True
-    if "init_batch_limit" not in kwargs:
-        kwargs["init_batch_limit"] = 32
-    if "batch_limit" not in kwargs:
-        kwargs["batch_limit"] = 5
+    options: Dict[str, Union[bool, float, int, str]] = {
+        "batch_limit": 5,
+        "init_batch_limit": 32,
+    }
+    options.update(kwargs.get("options", {}))
     X, expected_acquisition_value = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds,
         q=n,
         num_restarts=num_restarts,
         raw_samples=raw_samples,
-        options=kwargs,
+        options=options,
         inequality_constraints=inequality_constraints,
         equality_constraints=equality_constraints,
         fixed_features=fixed_features,
@@ -415,7 +416,7 @@ def recommend_best_observed_point(
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
         model_gen_options: A config dictionary that can contain
-            model-specific options.
+            model-specific options. See `TorchOptConfig` for details.
         target_fidelities: A map {feature_index: value} of fidelity feature
             column indices to their respective target fidelities. Used for
             multi-fidelity optimization.
@@ -472,7 +473,7 @@ def recommend_best_out_of_sample_point(
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
         model_gen_options: A config dictionary that can contain
-            model-specific options.
+            model-specific options. See `TorchOptConfig` for details.
         target_fidelities: A map {feature_index: value} of fidelity feature
             column indices to their respective target fidelities. Used for
             multi-fidelity optimization.
@@ -517,6 +518,13 @@ def recommend_best_out_of_sample_point(
     if non_fixed_idcs is not None:
         bounds_ = bounds_[..., non_fixed_idcs]
 
+    opt_options: Dict[str, Union[bool, float, int, str]] = {
+        "batch_limit": 8,
+        "maxiter": 200,
+        "method": "L-BFGS-B",
+        "nonnegative": False,
+    }
+    opt_options.update(optimizer_options.get("options", {}))
     candidates, _ = optimize_acqf(
         acq_function=acq_function,
         bounds=bounds_,
@@ -525,12 +533,7 @@ def recommend_best_out_of_sample_point(
         raw_samples=optimizer_options.get("raw_samples", 1024),
         inequality_constraints=inequality_constraints,
         fixed_features=None,  # handled inside the acquisition function
-        options={
-            "batch_limit": optimizer_options.get("batch_limit", 8),
-            "maxiter": optimizer_options.get("maxiter", 200),
-            "nonnegative": optimizer_options.get("nonnegative", False),
-            "method": "L-BFGS-B",
-        },
+        options=opt_options,
         return_best_only=return_best_only,
     )
     rec_point = candidates.detach().cpu()

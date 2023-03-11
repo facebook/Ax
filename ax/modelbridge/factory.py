@@ -91,7 +91,7 @@ def get_MOO_NEHVI(
                 "optimizer_kwargs": {
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
-                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT,
+                    "options": {"batch_limit": DEFAULT_EHVI_BATCH_LIMIT},
                     "sequential": True,
                 },
             },
@@ -173,7 +173,7 @@ def get_MTGP_NEHVI(
                 "optimizer_kwargs": {
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
-                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT,
+                    "options": {"batch_limit": DEFAULT_EHVI_BATCH_LIMIT},
                     "sequential": True,
                 },
             },
@@ -526,7 +526,7 @@ def get_MOO_EHVI(
                 "optimizer_kwargs": {
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
-                    "batch_limit": DEFAULT_EHVI_BATCH_LIMIT
+                    "options": {"batch_limit": DEFAULT_EHVI_BATCH_LIMIT},
                 },
             },
             optimization_config=optimization_config,
