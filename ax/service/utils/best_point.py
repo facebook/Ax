@@ -580,7 +580,9 @@ def get_pareto_optimal_parameters(
     # { trial_index --> (parameterization, (means, covariances) }
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
-        modelbridge=modelbridge, objective_thresholds=objective_thresholds_override
+        modelbridge=modelbridge,
+        optimization_config=moo_optimization_config,
+        objective_thresholds=objective_thresholds_override,
     )
     return {
         int(not_none(obs.features.trial_index)): (

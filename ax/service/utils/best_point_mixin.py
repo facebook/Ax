@@ -254,7 +254,10 @@ class BestPointMixin(metaclass=ABCMeta):
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-        if not_none(experiment.optimization_config).is_moo_problem:
+        optimization_config = optimization_config or not_none(
+            experiment.optimization_config
+        )
+        if optimization_config.is_moo_problem:
             raise NotImplementedError(  # pragma: no cover
                 "Please use `get_pareto_optimal_parameters` for multi-objective "
                 "problems."
@@ -298,7 +301,10 @@ class BestPointMixin(metaclass=ABCMeta):
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
-        if not not_none(experiment.optimization_config).is_moo_problem:
+        optimization_config = optimization_config or not_none(
+            experiment.optimization_config
+        )
+        if not optimization_config.is_moo_problem:
             raise NotImplementedError(  # pragma: no cover
                 "Please use `get_best_parameters` for single-objective problems."
             )

@@ -441,6 +441,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return self._get_best_trial(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
@@ -455,6 +456,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
