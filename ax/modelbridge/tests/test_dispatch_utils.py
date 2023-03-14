@@ -14,12 +14,14 @@ from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import (
+    _make_botorch_step,
     calculate_num_initialization_trials,
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
 from ax.modelbridge.factory import Cont_X_trans, Y_trans
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
@@ -105,8 +107,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[1].model, Models.MOO)
             model_kwargs = not_none(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
-                list(model_kwargs.keys()),
-                ["torch_device", "transforms", "transform_configs"],
+                set(model_kwargs.keys()),
+                {"torch_device", "transforms", "transform_configs"},
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("Sobol (we can try every option)"):
@@ -213,8 +215,8 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(moo_mixed._steps[1].model, Models.BO_MIXED)
             model_kwargs = not_none(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
-                list(model_kwargs.keys()),
-                ["torch_device", "transforms", "transform_configs"],
+                set(model_kwargs.keys()),
+                {"torch_device", "transforms", "transform_configs"},
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
@@ -289,6 +291,26 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(gs_6_init_trials._steps[0].model, Models.SOBOL)
             self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
             self.assertEqual(gs_6_init_trials._steps[1].model, Models.GPEI)
+
+    def test_make_botorch_step_extra(self) -> None:
+        # Test parts of _make_botorch_step that are not directly exposed in
+        # choose_generation_strategy.
+        model_kwargs = {
+            "transforms": [LogY],
+            "transform_configs": {"LogY": {"metrics": ["metric_1"]}},
+        }
+        bo_step = _make_botorch_step(model_kwargs=model_kwargs)
+        self.assertEqual(
+            not_none(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
+        )
+        self.assertEqual(
+            not_none(bo_step.model_kwargs)["transform_configs"],
+            {
+                "LogY": {"metrics": ["metric_1"]},
+                "Derelativize": {"use_raw_status_quo": False},
+                "Winsorize": {"derelativize_with_raw_status_quo": False},
+            },
+        )
 
     def test_disable_progbar(self) -> None:
         for disable_progbar in (True, False):
@@ -474,9 +496,8 @@ class TestDispatchUtils(TestCase):
             self.assertIn("Not winsorizing", str(w[-1].message))
 
         self.assertNotIn(
-            # transform_configs would have "Winsorize" if it existed
-            "transform_configs",
-            set(not_none(unwinsorized._steps[1].model_kwargs)),
+            "Winsorize",
+            not_none(unwinsorized._steps[1].model_kwargs)["transform_configs"],
         )
 
     def test_num_trials(self) -> None:

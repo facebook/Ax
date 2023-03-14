@@ -81,6 +81,7 @@ def _make_botorch_step(
     use_update: Optional[bool] = None,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
+    model_kwargs = model_kwargs or {}
 
     winsorization_transform_config = _get_winsorization_transform_config(
         winsorization_config=winsorization_config,
@@ -91,17 +92,18 @@ def _make_botorch_step(
     derelativization_transform_config = {
         "use_raw_status_quo": derelativize_with_raw_status_quo
     }
+    model_kwargs["transform_configs"] = model_kwargs.get("transform_configs", {})
+    model_kwargs["transform_configs"][
+        "Derelativize"
+    ] = derelativization_transform_config
 
-    model_kwargs = model_kwargs or {}
     if not no_winsorization:
-        transforms = [cast(Type[Transform], Winsorize)] + Cont_X_trans + Y_trans
-        model_kwargs.update({"transforms": transforms})
+        transforms = model_kwargs.get("transforms", Cont_X_trans + Y_trans)
+        model_kwargs["transforms"] = [cast(Type[Transform], Winsorize)] + transforms
         if winsorization_transform_config is not None:
-            transform_configs = {
-                "Winsorize": winsorization_transform_config,
-                "Derelativize": derelativization_transform_config,
-            }
-            model_kwargs.update({"transform_configs": transform_configs})
+            model_kwargs["transform_configs"][
+                "Winsorize"
+            ] = winsorization_transform_config
 
     if verbose is not None:
         model_kwargs.update({"verbose": verbose})
