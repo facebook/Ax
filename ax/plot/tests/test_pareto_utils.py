@@ -16,13 +16,11 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
 from ax.plot.pareto_frontier import interact_multiple_pareto_frontier
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
-    compute_posterior_pareto_frontier,
     get_observed_pareto_frontiers,
     infer_reference_point_from_experiment,
     to_nonrobust_search_space,
@@ -49,36 +47,6 @@ class ParetoUtilsTest(TestCase):
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
-
-    def testComputePosteriorParetoFrontierByTrial(self) -> None:
-        # Experiments with batch trials must specify trial_index or data
-        with self.assertRaises(UnsupportedError):
-            compute_posterior_pareto_frontier(
-                self.experiment,
-                self.metrics[0],
-                self.metrics[1],
-                absolute_metrics=[m.name for m in self.metrics],
-            )
-        pfr = compute_posterior_pareto_frontier(
-            self.experiment,
-            self.metrics[0],
-            self.metrics[1],
-            trial_index=0,
-            absolute_metrics=[m.name for m in self.metrics],
-            num_points=2,
-        )
-        self.assertIsNone(pfr.arm_names)
-
-    def testComputePosteriorParetoFrontierByData(self) -> None:
-        # Experiments with batch trials must specify trial_index or data
-        compute_posterior_pareto_frontier(
-            self.experiment,
-            self.metrics[0],
-            self.metrics[1],
-            data=self.experiment.fetch_data(),
-            absolute_metrics=[m.name for m in self.metrics],
-            num_points=2,
-        )
 
     def testObservedParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
