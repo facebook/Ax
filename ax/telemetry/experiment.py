@@ -255,8 +255,8 @@ class ExperimentCompletedRecord:
     num_abandoned_trials: int
     num_early_stopped_trials: int
 
-    total_fit_time: float
-    total_gen_time: float
+    total_fit_time: int
+    total_gen_time: int
 
     @classmethod
     def from_experiment(cls, experiment: Experiment) -> ExperimentCompletedRecord:
@@ -290,6 +290,6 @@ class ExperimentCompletedRecord:
             num_failed_trials=trial_count_by_status[TrialStatus.FAILED],
             num_abandoned_trials=trial_count_by_status[TrialStatus.ABANDONED],
             num_early_stopped_trials=trial_count_by_status[TrialStatus.EARLY_STOPPED],
-            total_fit_time=fit_time,
-            total_gen_time=gen_time,
+            total_fit_time=int(fit_time),
+            total_gen_time=int(gen_time),
         )
