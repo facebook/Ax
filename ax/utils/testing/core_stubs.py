@@ -85,6 +85,7 @@ from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
+from ax.metrics.dict_lookup import DictLookupMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
@@ -1322,6 +1323,17 @@ def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
         # pyre-fixme[6]:
         coefficients=coefficients,
         batch_size=int(1e4),
+    )
+
+
+def get_dict_lookup_metric() -> DictLookupMetric:
+    return DictLookupMetric(
+        name="test metric",
+        param_names=["p1", "p2"],
+        lookup_dict={
+            (0, 0): 0,
+            (0, 1): 1,
+        },
     )
 
 
