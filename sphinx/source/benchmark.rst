@@ -107,6 +107,14 @@ Benchmark Problems Surrogate
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems Mixed Integer Synthetic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.synthetic.discretized.mixed_integer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Problems Jenatton
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
