@@ -42,7 +42,7 @@ class NoisyFunctionMetric(Metric):
             param_names: An ordered list of names of parameters to be passed
                 to the deterministic function.
             noise_sd: Scale of normal noise added to the function result. If
-                None, interpret the function as nosiy with unknown noise level.
+                None, interpret the function as noisy with unknown noise level.
             lower_is_better: Flag for metrics which should be minimized.
         """
         self.param_names = param_names
@@ -121,7 +121,7 @@ class GenericNoisyFunctionMetric(NoisyFunctionMetric):
             f: A callable accepting a dictionary from parameter names to
                 values and returning a float metric value.
             noise_sd: Scale of normal noise added to the function result. If
-                None, interpret the function as nosiy with unknown noise level.
+                None, interpret the function as noisy with unknown noise level.
             lower_is_better: Flag for metrics which should be minimized.
 
         Note: Since this metric setup uses a generic callable it cannot be serialized

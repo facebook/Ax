@@ -48,6 +48,13 @@ Curve
     :undoc-members:
     :show-inheritance:
 
+Dictionary Lookup
+~~~~~~~~~
+
+.. automodule:: ax.metrics.dict_lookup
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Factorial
 ~~~~~~~~~
