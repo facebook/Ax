@@ -54,7 +54,7 @@ class TestExperiment(TestCase):
             num_failed_trials=0,
             num_abandoned_trials=0,
             num_early_stopped_trials=0,
-            total_fit_time=fit_time,
-            total_gen_time=gen_time,
+            total_fit_time=int(fit_time),
+            total_gen_time=int(gen_time),
         )
         self.assertEqual(record, expected)
