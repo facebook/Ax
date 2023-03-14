@@ -55,9 +55,13 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_branin_multi_objective_optimization_config,
     get_branin_search_space,
     get_generator_run,
 )
+
+from pyre_extensions import none_throws
+
 from sqlalchemy.orm.exc import StaleDataError
 
 
@@ -1060,24 +1064,31 @@ class TestAxScheduler(TestCase):
 
         scheduler.run_n_trials(max_trials=1)
 
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[int, Dict[str,
-        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
-        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 3 values.
-        trial, params, _arm = scheduler.get_best_trial()
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Dict[str,
-        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
-        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 2 values.
-        just_params, _just_arm = scheduler.get_best_parameters()
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Dict[str,
-        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
-        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 2 values.
-        just_params_unmodeled, _just_arm_unmodled = scheduler.get_best_parameters(
-            use_model_predictions=False
+        trial, params, _arm = none_throws(scheduler.get_best_trial())
+        just_params, _just_arm = none_throws(scheduler.get_best_parameters())
+        just_params_unmodeled, _just_arm_unmodled = none_throws(
+            scheduler.get_best_parameters(use_model_predictions=False)
         )
         with self.assertRaisesRegex(
             NotImplementedError, "Please use `get_best_parameters`"
         ):
             scheduler.get_pareto_optimal_parameters()
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Please use `get_pareto_optimal_parameters`"
+        ):
+            scheduler.get_best_trial(
+                optimization_config=get_branin_multi_objective_optimization_config()
+            )
+
+        # We override the optimization config but not objectives, so an error
+        # results as expected, but only much deeper in the stack.
+        with self.assertRaisesRegex(ValueError, "'branin_a' is not in list"):
+            scheduler.get_pareto_optimal_parameters(
+                optimization_config=get_branin_multi_objective_optimization_config(
+                    has_objective_thresholds=True
+                )
+            )
 
         self.assertEqual(trial, 0)
         self.assertIn("x1", params)
