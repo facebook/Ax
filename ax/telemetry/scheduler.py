@@ -62,7 +62,7 @@ class SchedulerCreatedRecord:
                 if scheduler.options.global_stopping_strategy is None
                 else scheduler.options.global_stopping_strategy.__class__.__name__
             ),
-            transformed_dimensionality=-1,  # TODO[mpolson64]
+            transformed_dimensionality=-1,  # TODO[T147907632]
         )
 
     def flatten(self) -> Dict[str, Any]:
@@ -104,9 +104,8 @@ class SchedulerCompletedRecord:
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ),
-            # TODO[mpolson64] Create metrics for point quality and model quality
-            best_point_quality=-1,
-            model_fit_quality=-1,
+            best_point_quality=-1,  # TODO[T147907632]
+            model_fit_quality=-1,  # TODO[T147907632]
             num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
             num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
         )
