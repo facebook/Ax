@@ -82,7 +82,7 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
                     # if the keyword is a callable, we only do shallow checks
                     if not (callable(kw_val) and callable(param.annotation)):
                         try:
-                            check_type(kw, kw_val, param.annotation)
+                            check_type(kw_val, param.annotation)
                         except TypeError:
                             message = (
                                 f"`{typed_callable}` expected argument `{kw}` to be of"

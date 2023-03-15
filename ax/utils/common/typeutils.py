@@ -83,7 +83,7 @@ def checked_cast_complex(typ: Type[T], val: V, message: Optional[str] = None) ->
     .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
     """
     try:
-        check_type("val", val, typ)
+        check_type(val, typ)
         return cast(T, val)
     except TypeError:
         raise ValueError(message or f"Value was not of type {typ}: {val}")
