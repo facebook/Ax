@@ -39,8 +39,8 @@ class TestScheduler(TestCase):
             scheduler_total_trials=0,
             scheduler_max_pending_trials=10,
             arms_per_trial=1,
-            early_stopping_strategy_cls="NoneType",
-            global_stopping_strategy_cls="NoneType",
+            early_stopping_strategy_cls=None,
+            global_stopping_strategy_cls=None,
             transformed_dimensionality=-1,
         )
         self.assertEqual(record, expected)
@@ -56,8 +56,8 @@ class TestScheduler(TestCase):
             "scheduler_total_trials": 0,
             "scheduler_max_pending_trials": 10,
             "arms_per_trial": 1,
-            "early_stopping_strategy_cls": "NoneType",
-            "global_stopping_strategy_cls": "NoneType",
+            "early_stopping_strategy_cls": None,
+            "global_stopping_strategy_cls": None,
             "transformed_dimensionality": -1,
         }
         self.assertEqual(flat, expected_dict)

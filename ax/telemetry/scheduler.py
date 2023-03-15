@@ -53,10 +53,14 @@ class SchedulerCreatedRecord:
             # If batch_size is None then we are using single-Arm trials
             arms_per_trial=scheduler.options.batch_size or 1,
             early_stopping_strategy_cls=(
-                scheduler.options.early_stopping_strategy.__class__.__name__
+                None
+                if scheduler.options.early_stopping_strategy is None
+                else scheduler.options.early_stopping_strategy.__class__.__name__
             ),
             global_stopping_strategy_cls=(
-                scheduler.options.global_stopping_strategy.__class__.__name__
+                None
+                if scheduler.options.global_stopping_strategy is None
+                else scheduler.options.global_stopping_strategy.__class__.__name__
             ),
             transformed_dimensionality=-1,  # TODO[mpolson64]
         )
