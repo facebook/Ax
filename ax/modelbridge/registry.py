@@ -72,7 +72,6 @@ from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
     get_function_default_arguments,
-    validate_kwarg_typing,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
@@ -301,7 +300,6 @@ class ModelRegistryBase(Enum):
         search_space: Optional[SearchSpace] = None,
         experiment: Optional[Experiment] = None,
         data: Optional[Data] = None,
-        silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> ModelBridge:
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
@@ -311,14 +309,6 @@ class ModelRegistryBase(Enum):
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
-        if not silently_filter_kwargs:
-            validate_kwarg_typing(
-                typed_callables=[model_class, bridge_class],
-                search_space=search_space,
-                experiment=experiment,
-                data=data,
-                **kwargs,
-            )
 
         # Create model with consolidated arguments: defaults + passed in kwargs.
         model_kwargs = consolidate_kwargs(
