@@ -5,14 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from unittest import mock
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
-from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -41,49 +39,23 @@ class ModelSpecTest(BaseModelSpecTest):
         with self.assertRaises(NotImplementedError):
             ms.update(experiment=self.experiment, new_data=self.data)
 
-    @fast_botorch_optimize
-    # We can use `extract_search_space_digest` as a surrogate for executing
-    # the full TorchModelBridge._fit.
-    @mock.patch(
-        "ax.modelbridge.torch.extract_search_space_digest",
-        wraps=extract_search_space_digest,
-    )
-    def test_fit(self, wrapped_extract_ssd: Mock) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
-        # This should fit the model as usual.
-        ms.fit(experiment=self.experiment, data=self.data)
-        wrapped_extract_ssd.assert_called_once()
-        self.assertIsNotNone(ms._last_fit_arg_ids)
-        self.assertEqual(ms._last_fit_arg_ids["experiment"], id(self.experiment))
-        # This should skip the model fit.
-        with mock.patch("ax.modelbridge.torch.logger") as mock_logger:
-            ms.fit(experiment=self.experiment, data=self.data)
-        mock_logger.info.assert_called_with(
-            "The observations are identical to the last set of observations "
-            "used to fit the model. Skipping model fitting."
-        )
-        wrapped_extract_ssd.assert_called_once()
-
     def test_model_key(self) -> None:
         ms = ModelSpec(model_enum=Models.GPEI)
         self.assertEqual(ms.model_key, "GPEI")
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", return_value=["fake-cv-result"])
-    def test_cross_validate_with_GP_model(
-        self, mock_cv: Mock, mock_diagnostics: Mock
-    ) -> None:
+    # pyre-fixme[3]: Return type must be annotated.
+    def test_cross_validate_with_GP_model(self, mock_cv: Mock, mock_diagnostics: Mock):
         mock_enum = Mock()
-        fake_mb = MagicMock()
-        fake_mb._process_and_transform_data = MagicMock(return_value=(None, None))
-        mock_enum.return_value = fake_mb
+        mock_enum.return_value = "fake-modelbridge"
         ms = ModelSpec(model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"})
         ms.fit(
             experiment=self.experiment,
             data=self.experiment.trials[0].fetch_data(),
         )
         cv_results, cv_diagnostics = ms.cross_validate()
-        mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+        mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
         mock_diagnostics.assert_called_with(["fake-cv-result"])
 
         self.assertIsNotNone(cv_results)
@@ -112,14 +84,15 @@ class ModelSpecTest(BaseModelSpecTest):
 
             self.assertIsNotNone(cv_results)
             self.assertIsNotNone(cv_diagnostics)
-            mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
+            mock_cv.assert_called_with(model="fake-modelbridge", test_key="test-value")
             mock_diagnostics.assert_called_with(["fake-cv-result"])
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", side_effect=NotImplementedError)
+    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_with_non_GP_model(
         self, mock_cv: Mock, mock_diagnostics: Mock
-    ) -> None:
+    ):
         mock_enum = Mock()
         mock_enum.return_value = "fake-modelbridge"
         ms = ModelSpec(model_enum=mock_enum, model_cv_kwargs={"test_key": "test-value"})
