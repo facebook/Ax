@@ -59,7 +59,9 @@ class TestGenerationStrategy(TestCase):
             f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
         )
         self.mock_torch_model_bridge = self.torch_model_bridge_patcher.start()
-        self.mock_torch_model_bridge.return_value.gen.return_value = self.gr
+        mock_mb = self.mock_torch_model_bridge.return_value
+        mock_mb.gen.return_value = self.gr
+        mock_mb._process_and_transform_data.return_value = (None, None)
 
         # Mock out slow TS.
         self.discrete_model_bridge_patcher = patch(
@@ -302,6 +304,7 @@ class TestGenerationStrategy(TestCase):
                         "transforms": Cont_X_trans,
                         "fit_out_of_design": False,
                         "fit_abandoned": False,
+                        "fit_on_init": True,
                     },
                 )
                 ms = g._model_state_after_gen

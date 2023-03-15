@@ -258,6 +258,15 @@ class BaseModelBridgeTest(TestCase):
             modelbridge.transform_observation_features([get_observation2().features])
         mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
 
+        # Test that fit is not called when fit_on_init = False.
+        mock_fit.reset_mock()
+        modelbridge = ModelBridge(
+            search_space=ss,
+            model=Model(),
+            fit_on_init=False,
+        )
+        self.assertEqual(mock_fit.call_count, 0)
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
