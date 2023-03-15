@@ -63,7 +63,6 @@ class MapTorchModelBridge(TorchModelBridge):
         status_quo_features: Optional[ObservationFeatures] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
-        fit_on_init: bool = True,
         default_model_gen_options: Optional[TConfig] = None,
         map_data_limit_rows_per_metric: Optional[int] = None,
         map_data_limit_rows_per_group: Optional[int] = None,
@@ -94,11 +93,6 @@ class MapTorchModelBridge(TorchModelBridge):
                 the model.
             fit_out_of_design: If specified, all training data is returned.
                 Otherwise, only in design points are returned.
-            fit_on_init: Whether to fit the model on initialization. This can
-                be used to skip model fitting when a fitted model is not needed.
-                To fit the model afterwards, use `_process_and_transform_data`
-                to get the transformed inputs and call `_fit_if_implemented` with
-                the transformed inputs.
             default_model_gen_options: Options passed down to `model.gen(...)`.
             map_data_limit_rows_per_metric: Subsample the map data so that the
                 total number of rows per metric is limited by this value.
@@ -129,7 +123,6 @@ class MapTorchModelBridge(TorchModelBridge):
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
-            fit_on_init=fit_on_init,
             default_model_gen_options=default_model_gen_options,
         )
 

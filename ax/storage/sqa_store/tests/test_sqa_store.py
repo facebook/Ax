@@ -273,7 +273,7 @@ class SQAStoreTest(TestCase):
         f"{Decoder.__module__}.Decoder.experiment_from_sqa",
         side_effect=Decoder(SQAConfig()).experiment_from_sqa,
     )
-    def test_ExperimentSaveAndLoadReducedState(
+    def testExperimentSaveAndLoadReducedState(
         self, _mock_exp_from_sqa, _mock_trial_from_sqa, _mock_gr_from_sqa
     ) -> None:
         # 1. No abandoned arms + no trials case, reduced state should be the
@@ -316,7 +316,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(len(mkw), 6)
         bkw = gr._bridge_kwargs
         self.assertIsNotNone(bkw)
-        self.assertEqual(len(bkw), 8)
+        self.assertEqual(len(bkw), 7)
         ms = gr._model_state_after_gen
         self.assertIsNotNone(ms)
         self.assertEqual(len(ms), 2)

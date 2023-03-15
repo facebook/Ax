@@ -137,7 +137,6 @@ class ModelRegistryTest(TestCase):
                 "transforms": Cont_X_trans + Y_trans,
                 "fit_out_of_design": False,
                 "fit_abandoned": False,
-                "fit_on_init": True,
                 "default_model_gen_options": None,
             },
         )
@@ -231,7 +230,6 @@ class ModelRegistryTest(TestCase):
                     "status_quo_features": None,
                     "fit_out_of_design": False,
                     "fit_abandoned": False,
-                    "fit_on_init": True,
                 },
             ),
         )
@@ -253,7 +251,6 @@ class ModelRegistryTest(TestCase):
                     "status_quo_features",
                     "fit_out_of_design",
                     "fit_abandoned",
-                    "fit_on_init",
                 ]
             ),
         )
