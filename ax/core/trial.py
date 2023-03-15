@@ -19,7 +19,7 @@ from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast_complex, not_none
+from ax.utils.common.typeutils import not_none
 
 logger: Logger = get_logger(__name__)
 
@@ -294,13 +294,7 @@ class Trial(BaseTrial):
         sample_sizes = {not_none(self.arm).name: sample_size} if sample_size else {}
 
         arm_name = not_none(self.arm).name
-        raw_data_by_arm = {
-            arm_name: checked_cast_complex(
-                TEvaluationOutcome,
-                raw_data,
-                message=TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-            )
-        }
+        raw_data_by_arm = {arm_name: raw_data}
         not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
             self.arms_by_name.keys()
         )
