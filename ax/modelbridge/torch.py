@@ -107,6 +107,7 @@ class TorchModelBridge(ModelBridge):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
+        fit_on_init: bool = True,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
         self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
@@ -133,6 +134,7 @@ class TorchModelBridge(ModelBridge):
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
+            fit_on_init=fit_on_init,
         )
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:

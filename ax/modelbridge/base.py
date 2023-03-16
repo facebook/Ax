@@ -94,6 +94,7 @@ class ModelBridge(ABC):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
+        fit_on_init: bool = True,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -122,12 +123,19 @@ class ModelBridge(ABC):
             fit_abandoned: Whether data for abandoned arms or trials should be
                 included in model training data. If ``False``, only
                 non-abandoned points are returned.
+            fit_on_init: Whether to fit the model on initialization. This can
+                be used to skip model fitting when a fitted model is not needed.
+                To fit the model afterwards, use `_process_and_transform_data`
+                to get the transformed inputs and call `_fit_if_implemented` with
+                the transformed inputs.
         """
-        t_fit_start = time.time()
+        t_fit_start = time.monotonic()
         transforms = transforms or []
         # pyre-ignore: Cast is a Tranform
         transforms: List[Type[Transform]] = [Cast] + transforms
 
+        self.fit_time: float = 0.0
+        self.fit_time_since_gen: float = 0.0
         self._metric_names: Set[str] = set()
         self._training_data: List[Observation] = []
         self._optimization_config: Optional[OptimizationConfig] = optimization_config
@@ -138,56 +146,97 @@ class ModelBridge(ABC):
         self._model_key: Optional[str] = None
         self._model_kwargs: Optional[Dict[str, Any]] = None
         self._bridge_kwargs: Optional[Dict[str, Any]] = None
-
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._model_space = search_space.clone()
+        self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
         self._fit_abandoned = fit_abandoned
-        imm = experiment and experiment.immutable_search_space_and_opt_config
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._experiment_has_immutable_search_space_and_opt_config = imm
+        self._experiment_has_immutable_search_space_and_opt_config: bool = (
+            experiment is not None and experiment.immutable_search_space_and_opt_config
+        )
         if experiment is not None:
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
 
-        # Convert Data to Observations
-        observations = self._prepare_observations(experiment=experiment, data=data)
-
+        # Set training data (in the raw / untransformed space). This also omits
+        # out-of-design and abandoned observations depending on the corresponding flags.
+        observations_raw = self._prepare_observations(experiment=experiment, data=data)
         observations_raw = self._set_training_data(
-            observations=observations, search_space=search_space
+            observations=observations_raw, search_space=self._model_space
         )
-        # Set model status quo
+
+        # Set model status quo.
         # NOTE: training data must be set before setting the status quo.
         self._set_status_quo(
             experiment=experiment,
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
         )
-        observations, search_space = self._transform_data(
-            observations=observations_raw,
-            search_space=search_space,
-            transforms=transforms,
-            transform_configs=transform_configs,
-        )
 
-        # Save model, apply terminal transform, and fit
+        # Save model, apply terminal transform, and fit.
         self.model = model
+        if fit_on_init:
+            observations, search_space = self._transform_data(
+                observations=observations_raw,
+                search_space=self._model_space,
+                transforms=self._raw_transforms,
+                transform_configs=self._transform_configs,
+            )
+            self._fit_if_implemented(
+                search_space=search_space,
+                observations=observations,
+                time_so_far=time.monotonic() - t_fit_start,
+            )
+
+    def _fit_if_implemented(
+        self,
+        search_space: SearchSpace,
+        observations: List[Observation],
+        time_so_far: float,
+    ) -> None:
+        r"""Fits the model if `_fit` is implemented and stores fit time.
+
+        Args:
+            search_space: A transformed search space for fitting the model.
+            observations: The observations to fit the model with. These should
+                also be transformed.
+            time_so_far: Time spent in initializing the model up to
+                `_fit_if_implemented` call.
+        """
         try:
+            t_fit_start = time.monotonic()
             self._fit(
-                model=model,
+                model=self.model,
                 search_space=search_space,
                 observations=observations,
             )
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.fit_time = time.time() - t_fit_start
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.fit_time_since_gen = float(self.fit_time)
+            self.fit_time += time.monotonic() - t_fit_start + time_so_far
+            self.fit_time_since_gen += self.fit_time
         except NotImplementedError:
-            self.fit_time = 0.0
-            self.fit_time_since_gen = 0.0
+            pass
+
+    def _process_and_transform_data(
+        self,
+        experiment: Optional[Experiment] = None,
+        data: Optional[Data] = None,
+    ) -> Tuple[List[Observation], SearchSpace]:
+        r"""Processes the data into observations and returns transformed
+        observations and the search space. This packages the following methods:
+        * self._prepare_observations
+        * self._set_training_data
+        * self._transform_data
+        """
+        observations = self._prepare_observations(experiment=experiment, data=data)
+        observations_raw = self._set_training_data(
+            observations=observations, search_space=self._model_space
+        )
+        return self._transform_data(
+            observations=observations_raw,
+            search_space=self._model_space,
+            transforms=self._raw_transforms,
+            transform_configs=self._transform_configs,
+        )
 
     def _prepare_observations(
         self, experiment: Optional[Experiment], data: Optional[Data]
@@ -231,7 +280,7 @@ class ModelBridge(ABC):
         observation_features, observation_data = separate_observations(observations)
         if len(observation_features) != len(set(observation_features)):
             raise ValueError(
-                "Observation features not unique."
+                "Observation features are not unique. "
                 "Something went wrong constructing training data..."
             )
         return observations
@@ -566,7 +615,7 @@ class ModelBridge(ABC):
                 `update`.
             experiment: Experiment, in which this data was obtained.
         """
-        t_update_start = time.time()
+        t_update_start = time.monotonic()
         observations = self._prepare_observations(experiment=experiment, data=new_data)
         obs_raw = self._extend_training_data(observations=observations)
         observations, search_space = self._transform_data(
@@ -579,8 +628,8 @@ class ModelBridge(ABC):
             search_space=search_space,
             observations=observations,
         )
-        self.fit_time += time.time() - t_update_start
-        self.fit_time_since_gen += time.time() - t_update_start
+        self.fit_time += time.monotonic() - t_update_start
+        self.fit_time_since_gen += time.monotonic() - t_update_start
 
     def _update(
         self,

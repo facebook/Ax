@@ -68,6 +68,9 @@ class ModelSpec(Base):
     # stored cross validation diagnostics set in cross validate
     _diagnostics: Optional[CVDiagnostics] = None
 
+    # Stored to check if the model can be safely updated in fit.
+    _last_fit_arg_ids: Optional[Dict[str, int]] = None
+
     def __post_init__(self) -> None:
         self.model_kwargs = self.model_kwargs or {}
         self.model_gen_kwargs = self.model_gen_kwargs or {}
@@ -125,11 +128,28 @@ class ModelSpec(Base):
         # adding contents of `model_kwargs` passed to this method, to
         # `self.model_kwargs`.
         combined_model_kwargs = {**(self.model_kwargs or {}), **model_kwargs}
-        self._fitted_model = self.model_enum(
-            experiment=experiment,
-            data=data,
-            **combined_model_kwargs,
-        )
+        if self._fitted_model is not None and self._safe_to_update(
+            experiment=experiment, combined_model_kwargs=combined_model_kwargs
+        ):
+            # Update the data on the modelbridge and call `_fit`.
+            # This will skip model fitting if the data has not changed.
+            observations, search_space = self.fitted_model._process_and_transform_data(
+                experiment=experiment, data=data
+            )
+            self.fitted_model._fit_if_implemented(
+                search_space=search_space, observations=observations, time_so_far=0.0
+            )
+
+        else:
+            # Fit from scratch.
+            self._fitted_model = self.model_enum(
+                experiment=experiment,
+                data=data,
+                **combined_model_kwargs,
+            )
+            self._last_fit_arg_ids = self._get_fit_arg_ids(
+                experiment=experiment, combined_model_kwargs=combined_model_kwargs
+            )
 
     def cross_validate(
         self,
@@ -214,6 +234,32 @@ class ModelSpec(Base):
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
         )
+
+    def _safe_to_update(
+        self,
+        experiment: Experiment,
+        combined_model_kwargs: Dict[str, Any],
+    ) -> bool:
+        """Checks if the object id of any of the non-data fit arguments has changed.
+
+        This is a cheap way of checking that we're attempting to re-fit the same
+        model for the same experiment, which is a very reasonable expectation
+        since this all happens on the same `ModelSpec` instance.
+        """
+        return self._last_fit_arg_ids == self._get_fit_arg_ids(
+            experiment=experiment, combined_model_kwargs=combined_model_kwargs
+        )
+
+    def _get_fit_arg_ids(
+        self,
+        experiment: Experiment,
+        combined_model_kwargs: Dict[str, Any],
+    ) -> Dict[str, int]:
+        """Construct a dictionary mapping arg name to object id."""
+        return {
+            "experiment": id(experiment),
+            **{k: id(v) for k, v in combined_model_kwargs.items()},
+        }
 
     def _assert_fitted(self) -> None:
         """Helper that verifies a model was fitted, raising an error if not"""
