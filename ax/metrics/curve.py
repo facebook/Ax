@@ -35,8 +35,7 @@ logger: Logger = get_logger(__name__)
 class AbstractCurveMetric(MapMetric, ABC):
     """Metric representing (partial) learning curves of ML model training jobs."""
 
-    # pyre-fixme[4]: Attribute must be annotated.
-    MAP_KEY = MapKeyInfo(key="training_rows", default_value=0.0)
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="training_rows", default_value=0.0)
 
     def __init__(
         self,
@@ -166,7 +165,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                                     & (df["trial_index"] == trial.index)
                                 ]
                             ),
-                            map_key_infos=[cls.MAP_KEY],
+                            map_key_infos=[cls.map_key_info],
                         )
                     )
                     for metric in metrics
@@ -219,7 +218,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                         curve_series=curve_series,
                         curve_name=m.curve_name,
                         metric_name=m.name,
-                        map_key=cls.MAP_KEY.key,
+                        map_key=cls.map_key_info.key,
                         trial=experiment.trials[trial_idx],
                         cumulative_best=m.cumulative_best,  # pyre-ignore[16]
                         lower_is_better=m.lower_is_better,  # pyre-ignore[6]
@@ -270,9 +269,9 @@ class AbstractCurveMetric(MapMetric, ABC):
             A dictionary mapping the backend id to the partial result
             curves, each of which is represented as a mapping from
             the metric name to a pandas Series indexed by the progression
-            (which will be mapped to the `MAP_KEY` of the metric class).
-            E.g. if `curve_name=loss` and `MAP_KEY=training_rows`, then a
-            Series should look like:
+            (which will be mapped to the `map_key_info.key` of the metric class).
+            E.g. if `curve_name=loss` and `map_key_info.key = training_rows`,
+            then a Series should look like:
 
                  training_rows (index) | loss
                 -----------------------|------
@@ -360,7 +359,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
                         curve_df = _get_single_curve(
                             curve_series=curve_series,
                             curve_name=curve_name,
-                            map_key=cls.MAP_KEY.key,
+                            map_key=cls.map_key_info.key,
                             trial=experiment.trials[trial_idx],
                             cumulative_best=m.cumulative_best,  # pyre-ignore[16]
                             lower_is_better=m.lower_is_better,  # pyre-ignore[6]
@@ -394,7 +393,7 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
             trial_curves = dfi["metric_name"].unique().tolist()
             dfs_mean, dfs_sem = align_partial_results(
                 dfi,
-                progr_key=cls.MAP_KEY.key,
+                progr_key=cls.map_key_info.key,
                 metrics=trial_curves,
                 do_forward_fill=True,
             )
