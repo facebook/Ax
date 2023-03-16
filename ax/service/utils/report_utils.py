@@ -31,13 +31,13 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRunType
 from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
-from ax.metrics.curve import AbstractCurveMetric
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.plot.contour import interact_contour_plotly
@@ -392,13 +392,11 @@ def get_standard_plots(
             # Model does not implement `predict` method.
             pass
 
-    # Get plots for AbstractCurveMetrics
-    curve_metrics = [
-        m for m in experiment.metrics.values() if isinstance(m, AbstractCurveMetric)
-    ]
-    if curve_metrics:
+    # Get plots for MapMetrics
+    map_metrics = [m for m in experiment.metrics.values() if isinstance(m, MapMetric)]
+    if map_metrics:
         # Sort so that objective metrics appear first
-        curve_metrics.sort(
+        map_metrics.sort(
             key=lambda e: e.name in [m.name for m in objective.metrics],
             reverse=True,
         )
@@ -406,7 +404,7 @@ def get_standard_plots(
             output_plot_list.append(
                 _get_curve_plot_dropdown(
                     experiment=experiment,
-                    curve_metrics=curve_metrics,
+                    map_metrics=map_metrics,
                     data=data,  # pyre-ignore
                     early_stopping_strategy=early_stopping_strategy,
                     by_walltime=by_walltime,
@@ -436,7 +434,7 @@ def _transform_progression_to_walltime(
 
 def _get_curve_plot_dropdown(
     experiment: Experiment,
-    curve_metrics: Iterable[AbstractCurveMetric],
+    map_metrics: Iterable[MapMetric],
     data: MapData,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
     by_walltime: bool = False,
@@ -446,7 +444,7 @@ def _get_curve_plot_dropdown(
 
     Args:
         experiment: The experiment to generate plots for.
-        curve_metrics: The list of metrics to generate plots for. Each metric
+        map_metrics: The list of metrics to generate plots for. Each metric
             will be one entry in the dropdown.
         data: The map data used to generate the plots.
         early_stopping_strategy: An instance of ``BaseEarlyStoppingStrategy``. This
@@ -471,7 +469,7 @@ def _get_curve_plot_dropdown(
             trial_attribute_fields=["time_run_started", "time_completed"],
             always_include_field_columns=True,
         )
-    for m in curve_metrics:
+    for m in map_metrics:
         map_key = m.map_key_info.key
         subsampled_data = (
             data
@@ -523,7 +521,7 @@ def _get_curve_plot_dropdown(
         else "Curve metrics (i.e., learning curves) by progression"
     )
     return map_data_multiple_metrics_dropdown_plotly(
-        metric_names=[m.name for m in curve_metrics],
+        metric_names=[m.name for m in map_metrics],
         xs_by_metric=xs_by_metric,
         ys_by_metric=ys_by_metric,
         legend_labels_by_metric=legend_labels_by_metric,
@@ -531,9 +529,9 @@ def _get_curve_plot_dropdown(
         title=title,
         xlabels_by_metric={
             m.name: "wall time" if by_walltime else m.map_key_info.key
-            for m in curve_metrics
+            for m in map_metrics
         },
-        lower_is_better_by_metric={m.name: m.lower_is_better for m in curve_metrics},
+        lower_is_better_by_metric={m.name: m.lower_is_better for m in map_metrics},
     )
 
 
