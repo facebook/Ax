@@ -30,12 +30,13 @@ from ax.modelbridge.base import (
     ModelBridge,
     unwrap_observation_data,
 )
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, Y_trans
 from ax.modelbridge.transforms.log import Log
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_experiment,
     get_experiment_with_repeated_arms,
@@ -258,6 +259,40 @@ class BaseModelBridgeTest(TestCase):
             modelbridge.transform_observation_features([get_observation2().features])
         mock_tr.assert_called_with(modelbridge, [get_observation2trans().features])
 
+        # Test that fit is not called when fit_on_init = False.
+        mock_fit.reset_mock()
+        modelbridge = ModelBridge(
+            search_space=ss,
+            model=Model(),
+            fit_on_init=False,
+        )
+        self.assertEqual(mock_fit.call_count, 0)
+
+    @mock.patch(
+        "ax.modelbridge.base.gen_arms",
+        autospec=True,
+        return_value=([Arm(parameters={"x1": 0.0, "x2": 0.0})], None),
+    )
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    def test_with_status_quo(self, mock_fit: Mock, mock_gen_arms: Mock) -> None:
+        # Test init with a status quo.
+        exp = get_branin_experiment(
+            with_trial=True,
+            with_status_quo=True,
+            with_completed_trial=True,
+        )
+        modelbridge = ModelBridge(
+            search_space=exp.search_space,
+            model=Model(),
+            transforms=Y_trans,
+            experiment=exp,
+            data=exp.lookup_data(),
+        )
+        self.assertIsNotNone(modelbridge.status_quo)
+        self.assertEqual(
+            modelbridge.status_quo.features.parameters, {"x1": 0.0, "x2": 0.0}
+        )
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
@@ -476,9 +511,9 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation1()]),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def testSetTrainingDataDupFeatures(self, mock_fit, mock_observations_from_data):
+    def testSetTrainingDataDupFeatures(
+        self, mock_fit: Mock, mock_observations_from_data: Mock
+    ) -> None:
         # Throws an error if repeated features in observations.
         with self.assertRaises(ValueError):
             ModelBridge(
