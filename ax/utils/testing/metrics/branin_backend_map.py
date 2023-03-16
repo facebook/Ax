@@ -4,10 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import numpy as np
-from ax.core.map_data import MapKeyInfo
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.utils.testing.metrics.backend_simulator_map import (
     BackendSimulatorTimestampMapMetric,
@@ -24,8 +23,6 @@ class BraninBackendMapMetric(
         self,
         name: str,
         param_names: List[str],
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-        map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = True,
         cache_evaluations: bool = True,
@@ -48,9 +45,6 @@ class BraninBackendMapMetric(
             self,
             name=name,
             param_names=param_names,
-            map_key_infos=map_key_infos
-            if map_key_infos is not None
-            else [MapKeyInfo(key="timestamp", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
             cache_evaluations=cache_evaluations,

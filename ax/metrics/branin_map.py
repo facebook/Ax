@@ -30,8 +30,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         self,
         name: str,
         param_names: Iterable[str],
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-        map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
         rate: Optional[float] = None,
@@ -58,9 +56,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         super().__init__(
             name=name,
             param_names=param_names,
-            map_key_infos=map_key_infos
-            if map_key_infos is not None
-            else [MapKeyInfo(key="timestamp", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
             cache_evaluations=cache_evaluations,
@@ -71,7 +66,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         return (
             self.name == o.name
             and self.param_names == o.param_names
-            and self.map_key_infos == o.map_key_infos
             and self.noise_sd == o.noise_sd
             and self.lower_is_better == o.lower_is_better
         )
@@ -103,14 +97,13 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                         "sem": self.noise_sd if noisy else 0.0,
                         "trial_index": trial.index,
                         "mean": [item["mean"] for item in res],
-                        **{
-                            mki.key: [item[mki.key] for item in res]
-                            for mki in self.map_key_infos
-                        },
+                        self.map_key_info.key: [
+                            item[self.map_key_info.key] for item in res
+                        ],
                     }
                 )
 
-                datas.append(MapData(df=df, map_key_infos=self.map_key_infos))
+                datas.append(MapData(df=df, map_key_infos=[self.map_key_info]))
 
             return Ok(value=MapData.from_multiple_map_data(datas))
 
@@ -133,6 +126,9 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
 
 class BraninFidelityMapMetric(NoisyFunctionMapMetric):
+
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="fidelity", default_value=0.0)
+
     def __init__(
         self,
         name: str,
@@ -143,7 +139,6 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
         super().__init__(
             name=name,
             param_names=param_names,
-            map_key_infos=[MapKeyInfo(key="fidelity", default_value=0.0)],
             noise_sd=noise_sd,
             lower_is_better=lower_is_better,
         )

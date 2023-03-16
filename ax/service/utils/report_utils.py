@@ -472,7 +472,7 @@ def _get_curve_plot_dropdown(
             always_include_field_columns=True,
         )
     for m in curve_metrics:
-        map_key = m.MAP_KEY.key
+        map_key = m.map_key_info.key
         subsampled_data = (
             data
             if limit_points_per_plot is None
@@ -530,7 +530,8 @@ def _get_curve_plot_dropdown(
         stopping_markers_by_metric=stopping_markers_by_metric,
         title=title,
         xlabels_by_metric={
-            m.name: "wall time" if by_walltime else m.MAP_KEY.key for m in curve_metrics
+            m.name: "wall time" if by_walltime else m.map_key_info.key
+            for m in curve_metrics
         },
         lower_is_better_by_metric={m.name: m.lower_is_better for m in curve_metrics},
     )

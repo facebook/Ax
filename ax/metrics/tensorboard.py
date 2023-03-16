@@ -29,8 +29,7 @@ try:
     class TensorboardCurveMetric(AbstractCurveMetric):
         """A `CurveMetric` for getting Tensorboard curves."""
 
-        # pyre-fixme[4]: Attribute must be annotated.
-        MAP_KEY = MapKeyInfo(key="steps", default_value=0.0)
+        map_key_info: MapKeyInfo[float] = MapKeyInfo(key="steps", default_value=0.0)
 
         @classmethod
         def get_curves_from_ids(
