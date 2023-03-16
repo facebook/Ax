@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from logging import Logger
 
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -18,8 +18,6 @@ from ax.core.map_metric import MapMetric, MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import checked_cast
 
 logger: Logger = get_logger(__name__)
 
@@ -29,12 +27,12 @@ class NoisyFunctionMapMetric(MapMetric):
     with mean 0 and mean_sd scale added to the result.
     """
 
+    map_key_info: MapKeyInfo[float] = MapKeyInfo(key="timestamp", default_value=0.0)
+
     def __init__(
         self,
         name: str,
         param_names: Iterable[str],
-        # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-        map_key_infos: Iterable[MapKeyInfo],
         noise_sd: float = 0.0,
         lower_is_better: Optional[bool] = None,
         cache_evaluations: bool = True,
@@ -59,7 +57,6 @@ class NoisyFunctionMapMetric(MapMetric):
                 observation noise.
         """
         self.param_names = param_names
-        self.map_key_infos = map_key_infos
         self.noise_sd = noise_sd
         # pyre-fixme[4]: Attribute must be annotated.
         self.cache = {}
@@ -78,7 +75,6 @@ class NoisyFunctionMapMetric(MapMetric):
         return self.__class__(
             name=self._name,
             param_names=self.param_names,
-            map_key_infos=self.map_key_infos,
             noise_sd=self.noise_sd,
             lower_is_better=self.lower_is_better,
             cache_evaluations=self.cache_evaluations,
@@ -100,14 +96,12 @@ class NoisyFunctionMapMetric(MapMetric):
                     "sem": self.noise_sd if noisy else 0.0,
                     "trial_index": trial.index,
                     "mean": [item["mean"] for item in res],
-                    **{
-                        mki.key: [item[mki.key] for item in res]
-                        for mki in self.map_key_infos
-                    },
+                    self.map_key_info.key: [
+                        item[self.map_key_info.key] for item in res
+                    ],
                 }
             )
-
-            return Ok(value=MapData(df=df, map_key_infos=self.map_key_infos))
+            return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
 
         except Exception as e:
             return Err(
@@ -117,20 +111,3 @@ class NoisyFunctionMapMetric(MapMetric):
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError
-
-    @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
-        nf_map_metric = checked_cast(NoisyFunctionMapMetric, obj)
-        init_args = serialize_init_args(
-            object=nf_map_metric, exclude_fields=["map_key_infos"]
-        )
-        init_args["map_key_infos"] = [
-            serialize_init_args(object=mki) for mki in nf_map_metric.map_key_infos
-        ]
-        return init_args
-
-    @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        args["map_key_infos"] = [MapKeyInfo(**mki) for mki in args["map_key_infos"]]
-        return super().deserialize_init_args(args=args)
