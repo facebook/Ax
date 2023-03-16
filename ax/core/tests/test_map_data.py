@@ -95,6 +95,9 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
 
     def test_combine(self) -> None:
+        data = MapData.from_multiple_map_data([])
+        self.assertEqual(data.map_df.size, 0)
+
         mmd_double = MapData.from_multiple_map_data([self.mmd, self.mmd])
         self.assertEqual(mmd_double.map_df.size, 2 * self.mmd.map_df.size)
         self.assertEqual(mmd_double.map_key_infos, self.mmd.map_key_infos)

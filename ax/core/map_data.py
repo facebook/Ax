@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from logging import Logger
-from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Optional, Sequence, Type, TypeVar
 
 import numpy as np
 
@@ -162,9 +162,12 @@ class MapData(Data):
 
     @staticmethod
     def from_multiple_map_data(
-        data: Iterable[MapData],
+        data: Sequence[MapData],
         subset_metrics: Optional[Iterable[str]] = None,
     ) -> MapData:
+        if len(data) == 0:
+            return MapData()
+
         unique_map_key_infos = []
         for mki in (mki for datum in data for mki in datum.map_key_infos):
             if any(
@@ -183,11 +186,11 @@ class MapData(Data):
             + [datum.map_df for datum in data]
         ).fillna(value={mki.key: mki.default_value for mki in unique_map_key_infos})
 
-        subset_metrics_mask = df["metric_name"].isin(
-            subset_metrics if subset_metrics else df["metric_name"]
-        )
+        if subset_metrics:
+            subset_metrics_mask = df["metric_name"].isin(subset_metrics)
+            df = df[subset_metrics_mask]
 
-        return MapData(df=df[subset_metrics_mask], map_key_infos=unique_map_key_infos)
+        return MapData(df=df, map_key_infos=unique_map_key_infos)
 
     @staticmethod
     def from_map_evaluations(
