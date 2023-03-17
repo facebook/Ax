@@ -7,10 +7,10 @@
 from inspect import Parameter, signature
 
 from logging import Logger
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type
 
 from ax.utils.common.logger import get_logger
-from typeguard import check_type
+from pyre_extensions.safe_json import _validate_value, InvalidJson
 
 logger: Logger = get_logger(__name__)
 
@@ -82,8 +82,8 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
                     # if the keyword is a callable, we only do shallow checks
                     if not (callable(kw_val) and callable(param.annotation)):
                         try:
-                            check_type(kw, kw_val, param.annotation)
-                        except TypeError:
+                            validate_collection_typing(kw_val, param.annotation)
+                        except (TypeError, InvalidJson):
                             message = (
                                 f"`{typed_callable}` expected argument `{kw}` to be of"
                                 f" type {param.annotation}. Got {kw_val}"
@@ -97,6 +97,31 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
         raise ValueError(
             f"Arguments {extra_keywords} are not expected by any of {typed_callables}."
         )
+
+
+def validate_collection_typing(value: object, target_type: Type[object]) -> None:
+    """
+    Use pyre_extension's json validation to recursively check the type of collections,
+    with the small caveat that in we allow any type to be a leaf (non-collection)
+    value rather than just [int, float, str, bool, NoneType].
+    """
+
+    try:
+        _validate_value(value=value, target_type=target_type)
+    except InvalidJson as e:
+        # We do not care that value is not [int, float, str, bool, NoneType]
+        if "Invalid value type" in e.msg:
+            # Sometimes the type hint is not a real type and is just an unqualified
+            # name. Let's be lenient and just check value's types's name matches the
+            # type hint str.
+            if type(target_type) is str:
+                if type(value).__name__ != target_type:
+                    raise TypeError(f"`{value}` is not a {target_type}")
+            else:
+                if not isinstance(value, target_type):
+                    raise TypeError(f"`{value}` is not a {target_type}")
+        else:
+            raise e
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
