@@ -37,6 +37,8 @@ from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils import get_objective_weights_transform
 from botorch.utils.datasets import FixedNoiseDataset
+from gpytorch.constraints import GreaterThan, Positive
+from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from pyro.infer.mcmc import MCMC, NUTS
 from pyro.ops.integrator import potential_grad
@@ -168,7 +170,39 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                     ),
                     metric_names=["y1", "y2"],
                 )
-                # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
+
+                # Check that there are no unexpected constraints on the hyperparameters
+                for _, m in enumerate(model.model.models):  # pyre-fixme[16]
+                    if inferred_noise:
+                        noise_covar = m.likelihood.noise_covar
+                        self.assertEqual(  # pyre-fixme[16]
+                            noise_covar.raw_noise_constraint.__class__, GreaterThan
+                        )
+                        self.assertTrue(
+                            torch.allclose(
+                                noise_covar.raw_noise_constraint.lower_bound,
+                                torch.tensor(1e-4, dtype=dtype),
+                            )
+                        )
+                    else:
+                        self.assertFalse(  # pyre-fixme[16]
+                            hasattr(m.likelihood.noise_covar, "raw_noise_constraint")
+                        )
+
+                    self.assertEqual(m.covar_module.__class__, ScaleKernel)
+                    self.assertEqual(
+                        m.covar_module.raw_outputscale_constraint.__class__, Positive
+                    )
+                    self.assertEqual(
+                        m.covar_module.base_kernel.__class__,
+                        RBFKernel if gp_kernel == "rbf" else MaternKernel,
+                    )
+                    self.assertEqual(m.covar_module.base_kernel.ard_num_dims, 3)
+                    self.assertEqual(
+                        m.covar_module.base_kernel.raw_lengthscale_constraint.__class__,
+                        Positive,
+                    )
+
                 #  attribute `assertEqual`.
                 self.assertEqual(_mock_fit_model.call_count, 2)
                 for i, call in enumerate(_mock_fit_model.call_args_list):
@@ -205,7 +239,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                     # Check fitting
                     # Note each model in the model list is a batched model, where
                     # the batch dim corresponds to the MCMC samples
-                    # pyre-fixme[16]: Optional type has no attribute `models`.
                     model_list = model.model.models
                     # Put model in `eval` mode to transform the train inputs.
                     m = model_list[i].eval()
@@ -304,8 +337,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             )
                         )
                     else:
-                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest`
-                        #  has no attribute `assertFalse`.
                         self.assertFalse(hasattr(m, "input_transform"))
             # test that multi-task is not implemented
             (
