@@ -21,8 +21,9 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize
+
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -59,13 +60,13 @@ class Relativize(Transform):
         )
         # self.modelbridge should NOT be modified
         # pyre-fixme[4]: Attribute must be annotated.
-        self.modelbridge = not_none(
+        self.modelbridge = none_throws(
             modelbridge, "Relativize transform requires a modelbridge"
         )
         # pyre-fixme[4]: Attribute must be annotated.
         self.status_quo_by_trial = self._get_status_quo_by_trial(
             observations=observations,
-            status_quo_feature=not_none(
+            status_quo_feature=none_throws(
                 self.modelbridge.status_quo, self.MISSING_STATUS_QUO_ERROR
             ).features,
         )
@@ -148,7 +149,7 @@ class Relativize(Transform):
                 features=obs.features,
                 data=self._get_relative_data(
                     data=obs.data,
-                    status_quo_data=not_none(
+                    status_quo_data=none_throws(
                         self.status_quo_by_trial.get(obs.features.trial_index, None),
                         self.MISSING_STATUS_QUO_ERROR,
                     ),
@@ -217,7 +218,7 @@ class Relativize(Transform):
     ) -> Dict[int, ObservationData]:
         status_quo_signature = json.dumps(status_quo_feature.parameters, sort_keys=True)
         return {
-            int(not_none(obs.features.trial_index)): obs.data
+            int(none_throws(obs.features.trial_index)): obs.data
             for obs in observations
             if json.dumps(obs.features.parameters, sort_keys=True)
             == status_quo_signature

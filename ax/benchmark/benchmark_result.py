@@ -11,9 +11,10 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
-from ax.utils.common.typeutils import not_none
 from numpy import nanmean, nanquantile, ndarray
 from pandas import DataFrame
+
+from pyre_extensions import none_throws
 from scipy.stats import sem
 
 # NOTE: Do not add `from __future__ import annotatations` to this file. Adding
@@ -73,7 +74,7 @@ class BenchmarkResult(Base):
         """Computes progressions used as a function of trials and
         also the total progression across all trials."""
         experiment = self.experiment
-        optimization_config = not_none(experiment.optimization_config)
+        optimization_config = none_throws(experiment.optimization_config)
         objective = optimization_config.objective.metric.name
         map_data = experiment.lookup_data()
         if not isinstance(map_data, MapData):

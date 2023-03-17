@@ -37,7 +37,8 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -331,7 +332,7 @@ class SearchSpace(Base):
                     raise ValueError(
                         f"`{p_value}` is not a valid value for parameter {p_name}."
                     )
-            final_parameters.update(not_none(parameters))
+            final_parameters.update(none_throws(parameters))
         return Arm(parameters=final_parameters, name=name)
 
     def clone(self) -> SearchSpace:
@@ -480,7 +481,7 @@ class HierarchicalSearchSpace(SearchSpace):
             # opting for a safer option of only injecting parameters that were
             # removed, but not altering those that are present if they have different
             # values in full parameterization as stored in metadata.
-            full_parameterization = not_none(obs_feats.metadata)[
+            full_parameterization = none_throws(obs_feats.metadata)[
                 Keys.FULL_PARAMETERIZATION
             ]
             obs_feats.parameters = {**full_parameterization, **obs_feats.parameters}
@@ -575,7 +576,7 @@ class HierarchicalSearchSpace(SearchSpace):
         def _hrepr(param: Optional[Parameter], value: Optional[str], level: int) -> str:
             is_level_param = param and not value
             if is_level_param:
-                param = not_none(param)
+                param = none_throws(param)
                 node_name = f"{param.name if parameter_names_only else param}"
                 ret = "\t" * level + node_name + "\n"
                 if param.is_hierarchical:
@@ -588,7 +589,7 @@ class HierarchicalSearchSpace(SearchSpace):
                                 level=level + 2,
                             )
             else:
-                value = not_none(value)
+                value = none_throws(value)
                 node_name = f"({value})"
                 ret = "\t" * level + node_name + "\n"
 

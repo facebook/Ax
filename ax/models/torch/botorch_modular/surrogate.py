@@ -34,7 +34,7 @@ from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
+from ax.utils.common.typeutils import checked_cast, checked_cast_optional
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.pairwise_gp import PairwiseGP
@@ -45,6 +45,7 @@ from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 NOT_YET_FIT_MSG = (
@@ -147,13 +148,13 @@ class Surrogate(Base):
                 "BoTorch `Model` has not yet been constructed, please fit the "
                 "surrogate first (done via `BoTorchModel.fit`)."
             )
-        return not_none(self._model)
+        return none_throws(self._model)
 
     @property
     def training_data(self) -> List[SupervisedDataset]:
         if self._training_data is None:
             raise ValueError(NOT_YET_FIT_MSG)
-        return not_none(self._training_data)
+        return none_throws(self._training_data)
 
     @property
     def Xs(self) -> List[Tensor]:
@@ -233,7 +234,7 @@ class Surrogate(Base):
         # given the Yvars and the properties of data.
         botorch_model_class = self.botorch_model_class or choose_model_class(
             datasets=datasets,
-            search_space_digest=not_none(search_space_digest),
+            search_space_digest=none_throws(search_space_digest),
         )
 
         if use_model_list(
@@ -378,7 +379,7 @@ class Surrogate(Base):
         submodels = []
         for m, dataset in zip(metric_names, datasets):
             model_cls = self.botorch_model_class or choose_model_class(
-                datasets=[dataset], search_space_digest=not_none(search_space_digest)
+                datasets=[dataset], search_space_digest=none_throws(search_space_digest)
             )
 
             if self._outcomes is not None and m not in self._outcomes:
@@ -552,7 +553,7 @@ class Surrogate(Base):
                 else metric_names
             )
         if state_dict:
-            self.model.load_state_dict(not_none(state_dict))
+            self.model.load_state_dict(none_throws(state_dict))
 
         if state_dict is None or refit:
             fit_botorch_model(

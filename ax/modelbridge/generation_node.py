@@ -25,7 +25,8 @@ from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CV
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -211,7 +212,7 @@ class GenerationNode:
                 )
             )
             n_gen_draws += 1
-        return not_none(generator_run)
+        return none_throws(generator_run)
 
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
         """Select one model to generate from among the fitted models on this
@@ -232,8 +233,8 @@ class GenerationNode:
         for model_spec in self.model_specs:
             model_spec.cross_validate()
 
-        best_model_index = not_none(self.best_model_selector).best_diagnostic(
-            diagnostics=[not_none(m.diagnostics) for m in self.model_specs],
+        best_model_index = none_throws(self.best_model_selector).best_diagnostic(
+            diagnostics=[none_throws(m.diagnostics) for m in self.model_specs],
         )
         return self.model_specs[best_model_index]
 

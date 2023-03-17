@@ -85,8 +85,9 @@ from ax.storage.json_store.registry import (
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.utils.sampling import manual_seed
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -548,7 +549,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             raise e
         logger.info(
             f"Generated new trial {trial.index} with parameters "
-            f"{round_floats_for_logging(item=not_none(trial.arm).parameters)}."
+            f"{round_floats_for_logging(item=none_throws(trial.arm).parameters)}."
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(
@@ -561,7 +562,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             generation_strategy=self.generation_strategy,
             new_generator_runs=[self.generation_strategy._generator_runs[-1]],
         )
-        return not_none(trial.arm).parameters, trial.index
+        return none_throws(trial.arm).parameters, trial.index
 
     def get_current_trial_generation_limit(self) -> Tuple[int, bool]:
         """How many trials this ``AxClient`` instance can currently produce via
@@ -866,7 +867,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
-        return not_none(self.get_trial(trial_index).arm).parameters
+        return none_throws(self.get_trial(trial_index).arm).parameters
 
     def get_trials_data_frame(self) -> pd.DataFrame:
         return exp_to_df(exp=self.experiment)
@@ -935,7 +936,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ]
         )
         hover_labels = [
-            _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
+            _format_dict(none_throws(checked_cast(Trial, trial).arm).parameters)
             for trial in self.experiment.trials.values()
             if trial.status.is_completed
         ]
@@ -1020,7 +1021,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                     "Remaining parameters are affixed to the middle of their range."
                 )
                 return plot_contour(
-                    model=not_none(self.generation_strategy.model),
+                    model=none_throws(self.generation_strategy.model),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
@@ -1089,7 +1090,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         experiment, generation_strategy = self._load_experiment_and_generation_strategy(
             experiment_name=experiment_name
         )
-        self._experiment = not_none(
+        self._experiment = none_throws(
             experiment, f"Experiment by name '{experiment_name}' not found."
         )
         logger.info(f"Loaded {experiment}.")
@@ -1183,9 +1184,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         metric_names_to_predict = (
             set(metric_names)
             if metric_names is not None
-            else set(not_none(self.experiment.metrics).keys())
+            else set(none_throws(self.experiment.metrics).keys())
         )
-        model = not_none(
+        model = none_throws(
             self.generation_strategy.model, "No model has been instantiated yet."
         )
 
@@ -1263,7 +1264,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Whether the given parameterization matches that of the arm in the trial
         specified in the trial index.
         """
-        return not_none(self.get_trial(trial_index).arm).parameters == parameterization
+        return (
+            none_throws(self.get_trial(trial_index).arm).parameters == parameterization
+        )
 
     def should_stop_trials_early(
         self, trial_indices: Set[int]
@@ -1406,7 +1409,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @property
     def experiment(self) -> Experiment:
         """Returns the experiment set on this Ax client."""
-        return not_none(
+        return none_throws(
             self._experiment,
             (
                 "Experiment not set on Ax client. Must first "
@@ -1421,14 +1424,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @property
     def generation_strategy(self) -> GenerationStrategy:
         """Returns the generation strategy, set on this experiment."""
-        return not_none(
+        return none_throws(
             self._generation_strategy,
             "No generation strategy has been set on this optimization yet.",
         )
 
     @property
     def objective(self) -> Objective:
-        return not_none(self.experiment.optimization_config).objective
+        return none_throws(self.experiment.optimization_config).objective
 
     @property
     def objective_name(self) -> str:
@@ -1592,7 +1595,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             )
         if self.db_settings_set:
             experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
-                experiment_name=not_none(name)
+                experiment_name=none_throws(name)
             )
             if experiment_id:
                 raise ValueError(
@@ -1687,7 +1690,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # serious negative impact on the performance of the models that employ
         # stochasticity.
         with manual_seed(seed=self._random_seed):
-            return not_none(self.generation_strategy).gen(
+            return none_throws(self.generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,
                 pending_observations=self._get_pending_observation_features(
@@ -1702,7 +1705,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         contains an arm with that parameterization.
         """
         for trial_idx in sorted(self.experiment.trials.keys(), reverse=True):
-            if not_none(self.get_trial(trial_idx).arm).parameters == parameterization:
+            if (
+                none_throws(self.get_trial(trial_idx).arm).parameters
+                == parameterization
+            ):
                 return trial_idx
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."

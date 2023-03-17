@@ -14,7 +14,8 @@ from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ class Derelativize(Transform):
             ):
                 # Out-of-design: use the raw observation
                 sq_data = ivw_metric_merge(
-                    obsd=not_none(modelbridge.status_quo).data,
+                    obsd=none_throws(modelbridge.status_quo).data,
                     conflicting_noiseless="raise",
                 )
                 f, _ = unwrap_observation_data([sq_data])

@@ -20,7 +20,7 @@ from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorc
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -47,6 +47,7 @@ from gpytorch.likelihoods import (  # noqa: F401
     Likelihood,  # noqa: F401
 )
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -752,10 +753,10 @@ class SurrogateWithModelListTest(TestCase):
             task_features=self.task_features,
             metric_names=self.outcomes,
         )
-        for ds in not_none(surrogate._training_data):
+        for ds in none_throws(surrogate._training_data):
             self.assertTrue(isinstance(ds, SupervisedDataset))
             self.assertFalse(isinstance(ds, FixedNoiseDataset))
-        self.assertEqual(len(not_none(surrogate._training_data)), 2)
+        self.assertEqual(len(none_throws(surrogate._training_data)), 2)
 
     @patch.object(
         FixedNoiseMultiTaskGP,

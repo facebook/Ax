@@ -25,7 +25,6 @@ from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_search_space,
@@ -36,6 +35,8 @@ from ax.utils.testing.core_stubs import (
     get_large_ordinal_search_space,
     get_search_space_with_choice_parameters,
 )
+
+from pyre_extensions import none_throws
 
 
 class TestDispatchUtils(TestCase):
@@ -105,7 +106,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model, Models.MOO)
-            model_kwargs = not_none(sobol_gpei._steps[1].model_kwargs)
+            model_kwargs = none_throws(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
                 {"torch_device", "transforms", "transform_configs"},
@@ -213,7 +214,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(moo_mixed._steps[0].model, Models.SOBOL)
             self.assertEqual(moo_mixed._steps[0].num_trials, 5)
             self.assertEqual(moo_mixed._steps[1].model, Models.BO_MIXED)
-            model_kwargs = not_none(moo_mixed._steps[1].model_kwargs)
+            model_kwargs = none_throws(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
                 {"torch_device", "transforms", "transform_configs"},
@@ -230,7 +231,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
             self.assertEqual(sobol_fullybayesian._steps[1].model, Models.FULLYBAYESIAN)
             self.assertTrue(
-                not_none(sobol_fullybayesian._steps[1].model_kwargs)["verbose"]
+                none_throws(sobol_fullybayesian._steps[1].model_kwargs)["verbose"]
             )
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
@@ -249,7 +250,7 @@ class TestDispatchUtils(TestCase):
                 Models.FULLYBAYESIANMOO,
             )
             self.assertTrue(
-                not_none(sobol_fullybayesianmoo._steps[1].model_kwargs)["verbose"]
+                none_throws(sobol_fullybayesianmoo._steps[1].model_kwargs)["verbose"]
             )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
@@ -265,7 +266,7 @@ class TestDispatchUtils(TestCase):
                 Models.FULLYBAYESIAN,
             )
             self.assertTrue(
-                not_none(sobol_fullybayesian_large._steps[1].model_kwargs)["verbose"]
+                none_throws(sobol_fullybayesian_large._steps[1].model_kwargs)["verbose"]
             )
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
@@ -301,10 +302,10 @@ class TestDispatchUtils(TestCase):
         }
         bo_step = _make_botorch_step(model_kwargs=model_kwargs)
         self.assertEqual(
-            not_none(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
+            none_throws(bo_step.model_kwargs)["transforms"], [Winsorize, LogY]
         )
         self.assertEqual(
-            not_none(bo_step.model_kwargs)["transform_configs"],
+            none_throws(bo_step.model_kwargs)["transform_configs"],
             {
                 "LogY": {"metrics": ["metric_1"]},
                 "Derelativize": {"use_raw_status_quo": False},
@@ -323,11 +324,11 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(sobol_saasbo._steps[0].model, Models.SOBOL)
                 self.assertNotIn(
                     "disable_progbar",
-                    not_none(sobol_saasbo._steps[0].model_kwargs),
+                    none_throws(sobol_saasbo._steps[0].model_kwargs),
                 )
                 self.assertEqual(sobol_saasbo._steps[1].model, Models.FULLYBAYESIAN)
                 self.assertEqual(
-                    not_none(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
+                    none_throws(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
                     disable_progbar,
                 )
 
@@ -343,12 +344,12 @@ class TestDispatchUtils(TestCase):
                 self.assertEqual(gp_saasbo._steps[0].model, Models.SOBOL)
                 self.assertNotIn(
                     "disable_progbar",
-                    not_none(gp_saasbo._steps[0].model_kwargs),
+                    none_throws(gp_saasbo._steps[0].model_kwargs),
                 )
                 self.assertEqual(gp_saasbo._steps[1].model, Models.GPEI)
                 self.assertNotIn(
                     "disable_progbar",
-                    not_none(gp_saasbo._steps[1].model_kwargs),
+                    none_throws(gp_saasbo._steps[1].model_kwargs),
                 )
 
     def test_setting_random_seed(self) -> None:
@@ -357,7 +358,7 @@ class TestDispatchUtils(TestCase):
         )
         sobol.gen(experiment=get_experiment(), n=1)
         # First model is actually a bridge, second is the Sobol engine.
-        self.assertEqual(not_none(sobol.model).model.seed, 9)
+        self.assertEqual(none_throws(sobol.model).model.seed, 9)
 
         with self.subTest("warns if use_saasbo is true"):
             with self.assertLogs(
@@ -450,7 +451,7 @@ class TestDispatchUtils(TestCase):
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
         )
-        tc = not_none(winsorized._steps[1].model_kwargs).get("transform_configs")
+        tc = none_throws(winsorized._steps[1].model_kwargs).get("transform_configs")
         self.assertIn("Winsorize", tc)
         self.assertDictEqual(
             tc["Winsorize"],
@@ -470,7 +471,7 @@ class TestDispatchUtils(TestCase):
             search_space=get_branin_search_space(),
             derelativize_with_raw_status_quo=True,
         )
-        tc = not_none(winsorized._steps[1].model_kwargs).get("transform_configs")
+        tc = none_throws(winsorized._steps[1].model_kwargs).get("transform_configs")
         self.assertIn(
             "Winsorize",
             tc,
@@ -497,7 +498,7 @@ class TestDispatchUtils(TestCase):
 
         self.assertNotIn(
             "Winsorize",
-            not_none(unwinsorized._steps[1].model_kwargs)["transform_configs"],
+            none_throws(unwinsorized._steps[1].model_kwargs)["transform_configs"],
         )
 
     def test_num_trials(self) -> None:

@@ -10,7 +10,8 @@ from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -44,7 +45,7 @@ class Cast(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        self.search_space: SearchSpace = not_none(search_space).clone()
+        self.search_space: SearchSpace = none_throws(search_space).clone()
         self.flatten_hss: bool = (
             config is None or checked_cast(bool, config.get("flatten_hss", True))
         ) and isinstance(search_space, HierarchicalSearchSpace)

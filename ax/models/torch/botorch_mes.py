@@ -16,7 +16,6 @@ from ax.models.torch.utils import (
 )
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
 from botorch.acquisition.max_value_entropy_search import (
@@ -31,6 +30,8 @@ from botorch.exceptions.errors import UnsupportedError
 from botorch.models.cost import AffineFidelityCostModel
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf
+
+from pyre_extensions import none_throws
 from torch import Tensor
 
 from .utils import subset_model
@@ -187,7 +188,7 @@ class MaxValueEntropySearch(BotorchModel):
             raise UnsupportedError("Outcome constraints not yet supported.")
 
         return get_out_of_sample_best_point_acqf(
-            model=not_none(self.model),
+            model=none_throws(self.model),
             Xs=self.Xs,
             objective_weights=objective_weights,
             # With None `outcome_constraints`, `get_objective` utility
@@ -195,7 +196,7 @@ class MaxValueEntropySearch(BotorchModel):
             # `get_out_of_sample_best_point_acqf` always selecting
             # `PosteriorMean`.
             outcome_constraints=outcome_constraints,
-            X_observed=not_none(X_observed),
+            X_observed=none_throws(X_observed),
             seed_inner=seed_inner,
             fixed_features=fixed_features,
             fidelity_features=self.fidelity_features,

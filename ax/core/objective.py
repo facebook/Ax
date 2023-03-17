@@ -13,7 +13,8 @@ from typing import Any, Iterable, List, Optional, Tuple
 from ax.core.metric import Metric
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -61,7 +62,7 @@ class Objective(SortableBase):
                 )
         self._metric = metric
         # pyre-fixme[4]: Attribute must be annotated.
-        self.minimize = not_none(minimize)
+        self.minimize = none_throws(minimize)
 
     @property
     def metric(self) -> Metric:
@@ -142,7 +143,7 @@ class MultiObjective(Objective):
                 objectives.append(Objective(metric=metric, minimize=_minimize))
 
         # pyre-fixme[4]: Attribute must be annotated.
-        self._objectives = not_none(objectives)
+        self._objectives = none_throws(objectives)
 
         # For now, assume all objectives are weighted equally.
         # This might be used in the future to change emphasis on the

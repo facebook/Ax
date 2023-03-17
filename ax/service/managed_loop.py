@@ -36,7 +36,8 @@ from ax.service.utils.best_point import (
 from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -180,7 +181,7 @@ class OptimizationLoop:
     ) -> Iterable[Tuple[Arm, Optional[float]]]:
         if isinstance(trial, Trial):
             if trial.arm is not None:
-                return [(not_none(trial.arm), None)]
+                return [(none_throws(trial.arm), None)]
             return []
         elif isinstance(trial, BatchTrial):
             return trial.normalized_arm_weights().items()
@@ -209,7 +210,7 @@ class OptimizationLoop:
             },
             trial_index=self.current_trial,
             sample_sizes={},
-            metric_names=not_none(
+            metric_names=none_throws(
                 self.experiment.optimization_config
             ).objective.metric_names,
         )

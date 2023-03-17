@@ -12,16 +12,16 @@ from ax.utils.common.typeutils import (
     checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
-    not_none,
     numpy_type_to_python_type,
 )
+from pyre_extensions import none_throws
 
 
 class TestTypeUtils(TestCase):
     def test_not_none(self) -> None:
-        self.assertEqual(not_none("not_none"), "not_none")
+        self.assertEqual(none_throws("not_none"), "not_none")
         with self.assertRaises(ValueError):
-            not_none(None)
+            none_throws(None)
 
     def test_checked_cast(self) -> None:
         self.assertEqual(checked_cast(float, 2.0), 2.0)

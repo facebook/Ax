@@ -9,11 +9,12 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_experiment_with_trial,
 )
+from pyre_extensions import none_throws
 
 
 class TestBestPointMixin(TestCase):
@@ -27,7 +28,7 @@ class TestBestPointMixin(TestCase):
         )
         self.assertEqual(get_trace(exp), [11, 10, 9, 9, 5])
         # Same experiment with maximize via new optimization config.
-        opt_conf = not_none(exp.optimization_config).clone()
+        opt_conf = none_throws(exp.optimization_config).clone()
         opt_conf.objective.minimize = False
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
 

@@ -15,7 +15,8 @@ from ax.core.optimization_config import OptimizationConfig
 
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 TArmTrial = Tuple[str, int]
 
@@ -158,11 +159,11 @@ def get_model_times(experiment: Experiment) -> Tuple[float, float]:  # pragma: n
         if isinstance(trial, BatchTrial):  # pragma: no cover
             gr = trial._generator_run_structs[0].generator_run
         elif isinstance(trial, Trial):
-            gr = not_none(trial.generator_run)
+            gr = none_throws(trial.generator_run)
         else:
             raise ValueError("Unexpected trial type")  # pragma: no cover
         if gr.fit_time is not None:
-            fit_time += not_none(gr.fit_time)
+            fit_time += none_throws(gr.fit_time)
         if gr.gen_time is not None:
-            gen_time += not_none(gr.gen_time)
+            gen_time += none_throws(gr.gen_time)
     return fit_time, gen_time

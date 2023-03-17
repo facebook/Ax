@@ -12,7 +12,8 @@ from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.modelbridge.prediction_utils import predict_at_point, predict_by_features
 from ax.service.ax_client import AxClient
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 class TestPredictionUtils(TestCase):
@@ -25,7 +26,7 @@ class TestPredictionUtils(TestCase):
 
         observation_features = ObservationFeatures(parameters={"x1": 0.3, "x2": 0.5})
         y_hat, se_hat = predict_at_point(
-            model=not_none(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.model),
             obsf=observation_features,
             metric_names={"test_metric1"},
         )
@@ -44,7 +45,7 @@ class TestPredictionUtils(TestCase):
             20: ObservationFeatures(parameters={"x1": 0.8, "x2": 0.5}),
         }
         predictions_map = predict_by_features(
-            model=not_none(ax_client.generation_strategy.model),
+            model=none_throws(ax_client.generation_strategy.model),
             label_to_feature_dict=observation_features_dict,
             metric_names={"test_metric1"},
         )

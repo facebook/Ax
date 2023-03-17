@@ -22,7 +22,8 @@ from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -404,9 +405,9 @@ class BaseTrial(ABC, SortableBase):
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
 
-        self._run_metadata = not_none(self._runner).run(self)
+        self._run_metadata = none_throws(self._runner).run(self)
 
-        if not_none(self._runner).staging_required:
+        if none_throws(self._runner).staging_required:
             self.mark_staged()
         else:
             self.mark_running()
@@ -443,7 +444,7 @@ class BaseTrial(ABC, SortableBase):
         self.assign_runner()
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
-        runner = not_none(self._runner)
+        runner = none_throws(self._runner)
 
         self._stop_metadata = runner.stop(self, reason=reason)
         self.mark_as(new_status)
@@ -782,7 +783,7 @@ class BaseTrial(ABC, SortableBase):
         time_run_started = self._time_run_started
         assert time_run_started is not None
         dt = datetime.now() - time_run_started
-        if dt > timedelta(seconds=not_none(self.ttl_seconds)):
+        if dt > timedelta(seconds=none_throws(self.ttl_seconds)):
             self.mark_failed()
 
     @property

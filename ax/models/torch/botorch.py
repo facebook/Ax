@@ -35,11 +35,12 @@ from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -502,7 +503,7 @@ class BotorchModel(TorchModel):
         if self.refit_on_update and not self.warm_start_refitting:
             state_dict = None  # pragma: no cover
         else:
-            state_dict = deepcopy(not_none(self.model).state_dict())
+            state_dict = deepcopy(none_throws(self.model).state_dict())
         self.model = self.model_constructor(  # pyre-ignore: [28]
             Xs=self.Xs,
             Ys=self.Ys,

@@ -50,8 +50,9 @@ from ax.modelbridge.transforms.utils import (
 )
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from numpy import NaN
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -125,7 +126,7 @@ def get_best_raw_objective_point_with_trial_index(
         for _, row in objective_rows.iterrows()
     }
 
-    return best_trial_index, not_none(best_arm).parameters, vals
+    return best_trial_index, none_throws(best_arm).parameters, vals
 
 
 def get_best_raw_objective_point(
@@ -266,7 +267,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
             best_arm, best_arm_predictions = res
 
-            return idx, not_none(best_arm).parameters, best_arm_predictions
+            return idx, none_throws(best_arm).parameters, best_arm_predictions
 
     return None
 
@@ -585,7 +586,7 @@ def get_pareto_optimal_parameters(
         objective_thresholds=objective_thresholds_override,
     )
     return {
-        int(not_none(obs.features.trial_index)): (
+        int(none_throws(obs.features.trial_index)): (
             obs.features.parameters,
             (obs.data.means_dict, obs.data.covariance_matrix),
         )
@@ -654,7 +655,7 @@ def _is_row_feasible(
     name = df["metric_name"]
 
     # When SEM is NaN we should treat it as if it were 0
-    sems = not_none(df["sem"].fillna(0))
+    sems = none_throws(df["sem"].fillna(0))
 
     # Bounds computed for 95% confidence interval on Normal distribution
     lower_bound = df["mean"] - sems * 1.96
@@ -746,8 +747,8 @@ def _derel_opt_config_wrapper(
         )
     elif not modelbridge:
         modelbridge = get_tensor_converter_model(
-            experiment=not_none(experiment),
-            data=not_none(experiment).lookup_data(),
+            experiment=none_throws(experiment),
+            data=none_throws(experiment).lookup_data(),
         )
     else:  # Both modelbridge and experiment specified.
         logger.warning(

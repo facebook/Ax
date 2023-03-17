@@ -19,7 +19,8 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchGenResults, TorchOptConfig
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
 from botorch.acquisition.knowledge_gradient import (
@@ -107,7 +108,7 @@ class KnowledgeGradient(BotorchModel):
         )
 
         # subset model only to the outcomes we need for the optimization
-        model = not_none(self.model)
+        model = none_throws(self.model)
         if options.get("subset_model", True):
             subset_model_results = subset_model(
                 model=model,
@@ -154,7 +155,7 @@ class KnowledgeGradient(BotorchModel):
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
             ),
-            X_observed=not_none(X_observed),
+            X_observed=none_throws(X_observed),
             seed_inner=seed_inner,
             qmc=qmc,
         )
@@ -210,11 +211,11 @@ class KnowledgeGradient(BotorchModel):
         **kwargs: Any,
     ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
         return get_out_of_sample_best_point_acqf(
-            model=not_none(self.model),
+            model=none_throws(self.model),
             Xs=self.Xs,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            X_observed=not_none(X_observed),
+            X_observed=none_throws(X_observed),
             seed_inner=seed_inner,
             fixed_features=fixed_features,
             fidelity_features=self.fidelity_features,

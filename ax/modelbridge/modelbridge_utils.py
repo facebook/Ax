@@ -70,7 +70,6 @@ from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
-    not_none,
 )
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
@@ -89,6 +88,7 @@ from botorch.acquisition.risk_measures import (
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -153,7 +153,7 @@ def check_has_multi_objective_and_data(
     optimization_config: Optional[OptimizationConfig] = None,
 ) -> None:
     """Raise an error if not using a `MultiObjective` or if the data is empty."""
-    optimization_config = not_none(
+    optimization_config = none_throws(
         optimization_config or experiment.optimization_config
     )
     if not isinstance(optimization_config.objective, MultiObjective):
@@ -239,7 +239,7 @@ def extract_search_space_digest(
         else:
             raise ValueError(f"Unknown parameter type {type(p)}")  # pragma: no cover
         if p.is_fidelity:
-            if not isinstance(not_none(p.target_value), (int, float)):
+            if not isinstance(none_throws(p.target_value), (int, float)):
                 raise NotImplementedError(  # pragma: no cover
                     "Only numerical target values are supported."
                 )
@@ -700,7 +700,7 @@ def get_pending_observation_features(
                     and trial.arms is not None
                 ):
                     for arm in trial.arms:
-                        not_none(pending_features.get(metric_name)).append(
+                        none_throws(pending_features.get(metric_name)).append(
                             ObservationFeatures.from_arm(
                                 arm=arm,
                                 trial_index=np.int64(trial_index),
@@ -711,7 +711,7 @@ def get_pending_observation_features(
                         )
                 abandoned_arms = trial.abandoned_arms
                 for abandoned_arm in abandoned_arms:
-                    not_none(pending_features.get(metric_name)).append(
+                    none_throws(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
                             arm=abandoned_arm,
                             trial_index=np.int64(trial_index),
@@ -727,12 +727,12 @@ def get_pending_observation_features(
                     and metric_name not in dat.df.metric_name.values
                     and trial.arm is not None
                 ):
-                    not_none(pending_features.get(metric_name)).append(
+                    none_throws(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
-                            arm=not_none(trial.arm),
+                            arm=none_throws(trial.arm),
                             trial_index=np.int64(trial_index),
                             metadata=trial._get_candidate_metadata(
-                                arm_name=not_none(trial.arm).name
+                                arm_name=none_throws(trial.arm).name
                             ),
                         )
                     )
@@ -890,7 +890,7 @@ def get_pareto_frontier_and_configs(
             observation_features=observation_features
         )
     Y, Yvar = observation_data_to_array(
-        outcomes=modelbridge.outcomes, observation_data=not_none(observation_data)
+        outcomes=modelbridge.outcomes, observation_data=none_throws(observation_data)
     )
     Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
@@ -954,7 +954,7 @@ def get_pareto_frontier_and_configs(
     f, cov = f.detach().cpu().clone(), cov.detach().cpu().clone()
     indx = indx.tolist()
     frontier_observation_data = array_to_observation_data(
-        f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
+        f=f.numpy(), cov=cov.numpy(), outcomes=none_throws(modelbridge.outcomes)
     )
     # Construct observations
     frontier_observations = []
@@ -1161,7 +1161,7 @@ def hypervolume(
     )
     # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=not_none(obj_t)
+        objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
     obj_mask = obj_w.nonzero().view(-1)

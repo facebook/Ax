@@ -66,7 +66,8 @@ from ax.utils.common.logger import (
     set_stderr_log_level,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """
@@ -321,7 +322,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         scheduler = cls(
             experiment=exp,
-            generation_strategy=not_none(generation_strategy or gs),
+            generation_strategy=none_throws(generation_strategy or gs),
             options=options,
             # No need to resave the experiment we just reloaded.
             _skip_experiment_save=True,
@@ -372,7 +373,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """``Runner`` specified on the experiment associated with this ``Scheduler``
         instance.
         """
-        return not_none(self.experiment.runner)
+        return none_throws(self.experiment.runner)
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
@@ -401,7 +402,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             not self.__ignore_global_stopping_strategy
             and self.options.global_stopping_strategy is not None
         ):
-            gss = not_none(self.options.global_stopping_strategy)
+            gss = none_throws(self.options.global_stopping_strategy)
             if (
                 self.experiment.is_moo_problem
                 and self.__inferred_reference_point is None
@@ -428,7 +429,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         expecting_data = sum(  # Number of `RUNNING` + `COMPLETED` trials
             1 for t in self.experiment.trials.values() if t.status.expecting_data
         )
-        should_stop = expecting_data >= not_none(self.options.total_trials)
+        should_stop = expecting_data >= none_throws(self.options.total_trials)
         return should_stop, "Exceeding the total number of trials."
 
     @copy_doc(BestPointMixin.get_best_trial)
@@ -716,8 +717,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self._timeout_hours is not None
             and self._latest_optimization_start_timestamp is not None
             and current_timestamp_in_millis()
-            - not_none(self._latest_optimization_start_timestamp)
-            >= not_none(self._timeout_hours) * 60 * 60 * 1000
+            - none_throws(self._latest_optimization_start_timestamp)
+            >= none_throws(self._timeout_hours) * 60 * 60 * 1000
         )
         if timed_out:
             self.logger.error(
@@ -1001,7 +1002,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
         for _ in self.run_trials_and_yield_results(
-            max_trials=not_none(self.options.total_trials),
+            max_trials=none_throws(self.options.total_trials),
             timeout_hours=timeout_hours,
             idle_callback=idle_callback,
         ):
@@ -1512,7 +1513,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if self._latest_trial_start_timestamp is not None:
             seconds_since_run_trial = (
                 current_timestamp_in_millis()
-                - not_none(self._latest_trial_start_timestamp)
+                - none_throws(self._latest_trial_start_timestamp)
             ) * 1000
             if seconds_since_run_trial < self.options.min_seconds_before_poll:
                 sleep(self.options.min_seconds_before_poll - seconds_since_run_trial)
@@ -1524,7 +1525,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         set_stderr_log_level(self.options.logging_level)
         if self.options.log_filepath is not None:
             handler = build_file_handler(
-                filepath=not_none(self.options.log_filepath),
+                filepath=none_throws(self.options.log_filepath),
                 level=self.options.logging_level,
             )
             logger.addHandler(handler)
@@ -1538,7 +1539,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if not experiment.trials or not self.options.total_trials:
             return
 
-        total_trials = not_none(self.options.total_trials)
+        total_trials = none_throws(self.options.total_trials)
         preexisting = len(experiment.trials)
         msg = (
             f"{experiment} already has {preexisting} trials associated with it. "

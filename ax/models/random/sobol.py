@@ -13,7 +13,8 @@ from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 from torch.quasirandom import SobolEngine
 
 
@@ -121,7 +122,7 @@ class SobolGenerator(RandomModel):
             rounding_func=rounding_func,
         )
         if self.engine:
-            self.init_position = not_none(self.engine).num_generated
+            self.init_position = none_throws(self.engine).num_generated
         return (points, weights)
 
     @copy_doc(Model._get_state)
@@ -143,7 +144,7 @@ class SobolGenerator(RandomModel):
             fixed_features = fixed_features or {}
             # pyre-fixme[7]: Expected `ndarray` but got `Tuple[typing.Any, typing.Any]`.
             return (
-                np.tile(np.array([list(not_none(fixed_features).values())]), (n, 1)),
+                np.tile(np.array([list(none_throws(fixed_features).values())]), (n, 1)),
                 np.ones(n),
             )
         return super()._gen_unconstrained(
@@ -167,4 +168,4 @@ class SobolGenerator(RandomModel):
             raise ValueError(  # pragma: no cover
                 "Sobol Engine must be initialized before candidate generation."
             )
-        return not_none(self.engine).draw(n, dtype=torch.double).numpy()
+        return none_throws(self.engine).draw(n, dtype=torch.double).numpy()

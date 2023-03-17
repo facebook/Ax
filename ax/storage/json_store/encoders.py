@@ -55,9 +55,10 @@ from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
+
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -633,7 +634,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     # unit tests for this in benchmark suite
     return {  # pragma: no cover
         "__type": problem.__class__.__name__,
-        "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
+        "name": none_throws(re.compile("(?<=::).*").search(problem.name)).group(),
         "num_trials": problem.num_trials,
         "infer_noise": problem.infer_noise,
     }

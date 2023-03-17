@@ -60,8 +60,9 @@ from ax.plot.trace import (
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from pandas.core.frame import DataFrame
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     from ax.service.scheduler import Scheduler
@@ -189,7 +190,7 @@ def _get_objective_v_param_plots(
             with gpytorch.settings.max_eager_kernel_size(float("inf")):
                 output_plots += [
                     interact_contour_plotly(
-                        model=not_none(model),
+                        model=none_throws(model),
                         metric_name=metric_name,
                     )
                     for metric_name in model.metric_names
@@ -326,7 +327,7 @@ def get_standard_plots(
             "standard plots."
         )
 
-    objective = not_none(experiment.optimization_config).objective
+    objective = none_throws(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
             "get_standard_plots does not currently support ScalarizedObjective "
@@ -582,7 +583,7 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
         return trial_generation_property
 
     generation_methods = {
-        not_none(generator_run._model_key)
+        none_throws(generator_run._model_key)
         for generator_run in trial.generator_runs
         if generator_run._model_key is not None
     }
@@ -733,9 +734,9 @@ def exp_to_df(
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
         exp.optimization_config is not None
-        and len(not_none(exp.optimization_config).all_constraints) > 0
+        and len(none_throws(exp.optimization_config).all_constraints) > 0
     ):
-        optimization_config = not_none(exp.optimization_config)
+        optimization_config = none_throws(exp.optimization_config)
         try:
             if any(oc.relative for oc in optimization_config.all_constraints):
                 optimization_config = _derel_opt_config_wrapper(
@@ -849,7 +850,7 @@ def exp_to_df(
         metrics=metrics or list(exp.metrics.values()),
     )
 
-    exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
+    exp_df = none_throws(none_throws(exp_df).sort_values(["trial_index"]))
     initial_column_order = (
         ["trial_index", "arm_name", "trial_status", "generation_method"]
         + (run_metadata_fields or [])
@@ -914,9 +915,9 @@ def _get_metric_name_pairs(
     optimization_config = _validate_experiment_and_get_optimization_config(
         experiment=experiment
     )
-    if not_none(optimization_config).is_moo_problem:
+    if none_throws(optimization_config).is_moo_problem:
         multi_objective = checked_cast(
-            MultiObjective, not_none(optimization_config).objective
+            MultiObjective, none_throws(optimization_config).objective
         )
         metric_names = [obj.metric.name for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
@@ -930,7 +931,7 @@ def _get_metric_name_pairs(
         return metric_name_pairs
     raise UserInputError(
         "Inference of `metric_names` failed. Expected `MultiObjective` but "
-        f"got {not_none(optimization_config).objective}. Please provide an experiment "
+        f"got {none_throws(optimization_config).objective}. Please provide an experiment "
         "with a MultiObjective `optimization_config`."
     )
 

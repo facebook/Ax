@@ -29,7 +29,8 @@ from ax.modelbridge.modelbridge_utils import extend_pending_observations
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -117,13 +118,13 @@ class GenerationStrategy(Base):
         """Name of this generation strategy. Defaults to a combination of model
         names provided in generation steps."""
         if self._name is not None:
-            return not_none(self._name)
+            return none_throws(self._name)
 
         factory_names = (step.model_name for step in self._steps)
         # Trim the "get_" beginning of the factory function if it's there.
         factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
         self._name = "+".join(factory_names)
-        return not_none(self._name)
+        return none_throws(self._name)
 
     @name.setter
     def name(self, name: str) -> None:
@@ -154,7 +155,7 @@ class GenerationStrategy(Base):
         """Experiment, currently set on this generation strategy."""
         if self._experiment is None:  # pragma: no cover
             raise ValueError("No experiment set on generation strategy.")
-        return not_none(self._experiment)
+        return none_throws(self._experiment)
 
     @experiment.setter
     def experiment(self, experiment: Experiment) -> None:
@@ -764,7 +765,7 @@ class GenerationStrategy(Base):
         trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
         logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
         # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
-        not_none(self._model).update(experiment=self.experiment, new_data=new_data)
+        none_throws(self._model).update(experiment=self.experiment, new_data=new_data)
 
     def _get_data_for_update(self, passed_in_data: Optional[Data]) -> Optional[Data]:
         # Should only pass data that is new since last call to `gen`, to the
@@ -819,7 +820,7 @@ class GenerationStrategy(Base):
         if self._seen_trial_indices_by_status is None:
             return completed_now
 
-        completed_before = not_none(self._seen_trial_indices_by_status)[
+        completed_before = none_throws(self._seen_trial_indices_by_status)[
             TrialStatus.COMPLETED
         ]
         return completed_now.difference(completed_before)

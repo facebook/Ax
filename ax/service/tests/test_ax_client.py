@@ -54,12 +54,13 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.utils.sampling import manual_seed
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     from ax.core.types import TTrialEvaluation
@@ -321,10 +322,10 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(ax_client.status_quo, status_quo_params)
         with self.subTest("it returns a copy"):
-            not_none(ax_client.status_quo).update({"x": 2.0})
-            not_none(ax_client.status_quo)["y"] = 2.0
-            self.assertEqual(not_none(ax_client.status_quo)["x"], 1.0)
-            self.assertEqual(not_none(ax_client.status_quo)["y"], 1.0)
+            none_throws(ax_client.status_quo).update({"x": 2.0})
+            none_throws(ax_client.status_quo)["y"] = 2.0
+            self.assertEqual(none_throws(ax_client.status_quo)["x"], 1.0)
+            self.assertEqual(none_throws(ax_client.status_quo)["y"], 1.0)
 
     def test_set_optimization_config_to_moo_with_constraints(self) -> None:
         ax_client = AxClient()
@@ -466,7 +467,7 @@ class TestAxClient(TestCase):
         """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.GPEI],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -663,7 +664,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.MOO],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -1747,7 +1748,7 @@ class TestAxClient(TestCase):
             ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
         )
         self.assertEqual(
-            not_none(ax_client.get_trial(trial_index=idx).arm).name, ARM_NAME
+            none_throws(ax_client.get_trial(trial_index=idx).arm).name, ARM_NAME
         )
         with self.assertRaises(KeyError):
             ax_client.get_trial_parameters(
@@ -2369,7 +2370,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "Sobol")
 
-        cfg = not_none(ax_client.experiment.optimization_config)
+        cfg = none_throws(ax_client.experiment.optimization_config)
         assert isinstance(cfg, MultiObjectiveOptimizationConfig)
         thresholds = np.array([t.bound for t in cfg.objective_thresholds])
 
