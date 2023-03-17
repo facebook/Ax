@@ -268,7 +268,10 @@ class Metric(SortableBase, SerializationMixin):
                     trials=[trial],
                     **kwargs,
                 )[trial.index]
-                contains_new_data = True
+
+                contains_new_data = any(
+                    result.is_ok() for result in fetched_trial_data.values()
+                )
             except NotImplementedError:
                 # Metric does not implement fetching logic and only uses lookup.
                 fetched_trial_data = {}

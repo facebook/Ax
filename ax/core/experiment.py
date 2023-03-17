@@ -834,12 +834,12 @@ class Experiment(Base):
                     "Ignoring for now -- will retry query on next call to fetch."
                 )
 
+        if len(oks) < 1:
+            return None
+
         data = self.default_data_constructor.from_multiple_data(
             data=[ok.ok for ok in oks]
         )
-
-        if data.df.empty:
-            return None
 
         return self.attach_data(
             data=data,
