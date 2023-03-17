@@ -23,7 +23,8 @@ from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.service.utils.best_point import fill_missing_thresholds_from_nadir
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -285,7 +286,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
     Returns:
         A boolean which is True iff all outcome constraints are satisifed.
     """
-    outcome_constraints = not_none(
+    outcome_constraints = none_throws(
         trial.experiment.optimization_config
     ).outcome_constraints
     if len(outcome_constraints) == 0:

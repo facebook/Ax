@@ -34,7 +34,8 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -43,10 +44,6 @@ logger: Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
-
-BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
-    "Raw data must be a dict for batched trials."
-)
 
 
 class LifecycleStage(int, Enum):
@@ -306,7 +303,9 @@ class BatchTrial(BaseTrial):
         generator_run.index = len(self._generator_run_structs) - 1
 
         if self.status_quo is not None and self.optimize_for_power:
-            self.set_status_quo_and_optimize_power(status_quo=not_none(self.status_quo))
+            self.set_status_quo_and_optimize_power(
+                status_quo=none_throws(self.status_quo)
+            )
 
         self._set_generation_step_index(
             generation_step_index=generator_run._generation_step_index
@@ -383,7 +382,7 @@ class BatchTrial(BaseTrial):
             return self
 
         # arm_weights should always have at least one arm now
-        arm_weights = not_none(self.arm_weights)
+        arm_weights = none_throws(self.arm_weights)
         sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
         optimal_status_quo_weight_override = np.sqrt(sum_weights)
         self.set_status_quo_with_weight(
@@ -569,21 +568,14 @@ class BatchTrial(BaseTrial):
         """
 
         # Format the data to save.
-        raw_data_by_arm = checked_cast_complex(
-            Dict[str, TEvaluationOutcome],
-            raw_data,
-            message=BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-        )
-        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
-            self.arms_by_name.keys()
-        )
+        not_trial_arm_names = set(raw_data.keys()) - set(self.arms_by_name.keys())
         if not_trial_arm_names:
             raise UserInputError(  # pragma: no cover
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
         evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data_by_arm, metadata=metadata, sample_sizes=sample_sizes
+            raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         self._validate_batch_trial_data(data=data)
 
@@ -648,7 +640,7 @@ class BatchTrial(BaseTrial):
         for gr_struct in self._generator_run_structs:
             gr = gr_struct.generator_run
             if gr and gr.candidate_metadata_by_arm_signature and arm in gr.arms:
-                return not_none(gr.candidate_metadata_by_arm_signature).get(
+                return none_throws(gr.candidate_metadata_by_arm_signature).get(
                     arm.signature
                 )
         return None
@@ -657,8 +649,8 @@ class BatchTrial(BaseTrial):
         """Utility function to validate batch data before further processing."""
         if (
             self.status_quo
-            and not_none(self.status_quo).name in self.arms_by_name
-            and not_none(self.status_quo).name not in data.df["arm_name"].values
+            and none_throws(self.status_quo).name in self.arms_by_name
+            and none_throws(self.status_quo).name not in data.df["arm_name"].values
         ):
             raise AxError(
                 f"Trial #{self.index} was completed with data that did "

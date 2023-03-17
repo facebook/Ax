@@ -19,13 +19,11 @@ from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast_complex, not_none
+
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
-TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
-    "Raw data must be data for a single arm for non batched trials."
-)
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
@@ -100,7 +98,7 @@ class Trial(BaseTrial):
         if self.generator_run is None:
             return None
 
-        generator_run = not_none(self.generator_run)
+        generator_run = none_throws(self.generator_run)
         if len(generator_run.arms) == 0:
             return None
         elif len(generator_run.arms) > 1:
@@ -191,7 +189,7 @@ class Trial(BaseTrial):
     def abandoned_arms(self) -> List[Arm]:
         """Abandoned arms attached to this trial."""
         return (
-            [not_none(self.arm)]
+            [none_throws(self.arm)]
             if self.generator_run is not None
             and self.arm is not None
             and self.is_abandoned
@@ -249,7 +247,7 @@ class Trial(BaseTrial):
         if gr is None or gr.candidate_metadata_by_arm_signature is None:
             return {}
 
-        cand_metadata = not_none(gr.candidate_metadata_by_arm_signature)
+        cand_metadata = none_throws(gr.candidate_metadata_by_arm_signature)
         return {a.name: cand_metadata.get(a.signature) for a in gr.arms}
 
     def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
@@ -265,7 +263,7 @@ class Trial(BaseTrial):
             return None
 
         arm = gr.arms[0]
-        return not_none(gr.candidate_metadata_by_arm_signature).get(arm.signature)
+        return none_throws(gr.candidate_metadata_by_arm_signature).get(arm.signature)
 
     def validate_data_for_trial(self, data: Data) -> None:
         """Utility method to validate data before further processing."""
@@ -291,16 +289,10 @@ class Trial(BaseTrial):
         """Utility method that attaches data to a trial,
         returns a str of the update."""
         # Format the data to save.
-        sample_sizes = {not_none(self.arm).name: sample_size} if sample_size else {}
+        sample_sizes = {none_throws(self.arm).name: sample_size} if sample_size else {}
 
-        arm_name = not_none(self.arm).name
-        raw_data_by_arm = {
-            arm_name: checked_cast_complex(
-                TEvaluationOutcome,
-                raw_data,
-                message=TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-            )
-        }
+        arm_name = none_throws(self.arm).name
+        raw_data_by_arm = {arm_name: raw_data}
         not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
             self.arms_by_name.keys()
         )

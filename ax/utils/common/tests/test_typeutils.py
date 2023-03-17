@@ -4,26 +4,24 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict
 
 import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import (
     checked_cast,
-    checked_cast_complex,
     checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
-    not_none,
     numpy_type_to_python_type,
 )
+from pyre_extensions import none_throws
 
 
 class TestTypeUtils(TestCase):
     def test_not_none(self) -> None:
-        self.assertEqual(not_none("not_none"), "not_none")
+        self.assertEqual(none_throws("not_none"), "not_none")
         with self.assertRaises(ValueError):
-            not_none(None)
+            none_throws(None)
 
     def test_checked_cast(self) -> None:
         self.assertEqual(checked_cast(float, 2.0), 2.0)
@@ -36,12 +34,6 @@ class TestTypeUtils(TestCase):
             checked_cast(
                 float, 2, exception=NotImplementedError("foo() doesn't support ints")
             )
-
-    def test_checked_cast_complex(self) -> None:
-        t = Dict[int, str]
-        self.assertEqual(checked_cast_complex(t, {1: "one"}), {1: "one"})
-        with self.assertRaises(ValueError):
-            checked_cast_complex(t, {"one": 1})
 
     def test_checked_cast_list(self) -> None:
         self.assertEqual(checked_cast_list(float, [1.0, 2.0]), [1.0, 2.0])

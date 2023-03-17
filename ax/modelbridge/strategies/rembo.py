@@ -22,7 +22,8 @@ from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.models.random.rembo_initializer import REMBOInitializer
 from ax.models.torch.rembo import REMBO
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 def get_rembo_initializer(
@@ -169,7 +170,7 @@ class REMBOStrategy(GenerationStrategy):
         # NOTE: May need to `model_class.deserialize_model_state` in the
         # future if using non-readily serializable state.
         model_state = (
-            not_none(lgr._model_state_after_gen)
+            none_throws(lgr._model_state_after_gen)
             if lgr is not None and lgr._model_state_after_gen is not None
             else {}
         )
@@ -202,7 +203,7 @@ class REMBOStrategy(GenerationStrategy):
         self.current_iteration += 1
         # Call gen
         gr = m.gen(n=n)
-        self.X_d_by_proj[i].extend(not_none(m.model).X_d_gen)  # pyre-ignore[16]
+        self.X_d_by_proj[i].extend(none_throws(m.model).X_d_gen)  # pyre-ignore[16]
         self.arms_by_proj[i].update(a.signature for a in gr.arms)
         self._generator_runs.append(gr)
         return gr

@@ -39,7 +39,6 @@ from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -48,6 +47,8 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_hierarchical_search_space_experiment,
 )
+
+from pyre_extensions import none_throws
 
 
 class TestGenerationStrategy(TestCase):
@@ -799,7 +800,7 @@ class TestGenerationStrategy(TestCase):
 
             # Check case with pending features initially specified; we should get two
             # GRs now (remaining in Sobol step) even though we requested 3.
-            original_pending = not_none(get_pending(experiment=exp))
+            original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
                 for idx, trial in exp.trials.items()

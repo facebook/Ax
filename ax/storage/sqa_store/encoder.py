@@ -60,7 +60,8 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -153,8 +154,8 @@ class Encoder:
         status_quo_name = None
         status_quo_parameters = None
         if experiment.status_quo is not None:
-            status_quo_name = not_none(experiment.status_quo).name
-            status_quo_parameters = not_none(experiment.status_quo).parameters
+            status_quo_name = none_throws(experiment.status_quo).name
+            status_quo_parameters = none_throws(experiment.status_quo).parameters
 
         trials = []
         for trial in experiment.trials.values():
@@ -188,7 +189,7 @@ class Encoder:
                         metric.name
                     ]
         elif experiment.runner:
-            runners.append(self.runner_to_sqa(not_none(experiment.runner)))
+            runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
@@ -906,7 +907,7 @@ class Encoder:
 
         runner = None
         if trial.runner:
-            runner = self.runner_to_sqa(runner=not_none(trial.runner))
+            runner = self.runner_to_sqa(runner=none_throws(trial.runner))
 
         abandoned_arms = []
         generator_runs = []
@@ -916,7 +917,7 @@ class Encoder:
 
         if isinstance(trial, Trial) and trial.generator_run:
             gr_sqa = self.generator_run_to_sqa(
-                generator_run=not_none(trial.generator_run),
+                generator_run=none_throws(trial.generator_run),
                 reduced_state=generator_run_reduced_state,
             )
             generator_runs.append(gr_sqa)

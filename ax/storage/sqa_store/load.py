@@ -26,7 +26,8 @@ from ax.storage.sqa_store.sqa_classes import (
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 from sqlalchemy.orm import defaultload, lazyload, noload
 
 
@@ -509,7 +510,7 @@ def _get_generation_strategy_sqa_reduced_state(
 
         # Swap last generator run with no state for a generator run with
         # state.
-        gs_sqa.generator_runs[len(gs_sqa.generator_runs) - 1] = not_none(last_gr_sqa)
+        gs_sqa.generator_runs[len(gs_sqa.generator_runs) - 1] = none_throws(last_gr_sqa)
 
     return gs_sqa
 

@@ -20,7 +20,8 @@ from ax.utils.common.serialization import (
     SerializationMixin,
     serialize_init_args,
 )
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 
 class Data(Base, SerializationMixin):
@@ -218,7 +219,7 @@ class Data(Base, SerializationMixin):
             str: The hash of the DataFrame.
 
         """
-        return md5(not_none(self.df.to_json()).encode("utf-8")).hexdigest()
+        return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
 
     @property
     def metric_names(self) -> Set[str]:

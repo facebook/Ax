@@ -62,8 +62,9 @@ from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -117,7 +118,7 @@ class TorchModelBridge(ModelBridge):
         # Handle init for multi-objective optimization.
         self.is_moo_problem: bool = False
         if optimization_config or (experiment and experiment.optimization_config):
-            optimization_config = not_none(
+            optimization_config = none_throws(
                 optimization_config or experiment.optimization_config
             )
             self.is_moo_problem = optimization_config.is_moo_problem
@@ -138,7 +139,7 @@ class TorchModelBridge(ModelBridge):
         )
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
-        importances_tensor = not_none(self.model).feature_importances()
+        importances_tensor = none_throws(self.model).feature_importances()
         importances_dict = dict(zip(self.outcomes, importances_tensor))
         importances_arr = importances_dict[metric_name].flatten()
         return dict(zip(self.parameters, importances_arr))
@@ -186,7 +187,7 @@ class TorchModelBridge(ModelBridge):
         # Infer objective thresholds.
         model = checked_cast(MultiObjectiveBotorchModel, self.model)
         obj_thresholds = infer_objective_thresholds(
-            model=not_none(model.model),
+            model=none_throws(model.model),
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
             outcome_constraints=torch_opt_config.outcome_constraints,
@@ -201,7 +202,7 @@ class TorchModelBridge(ModelBridge):
             bounds=search_space_digest.bounds,
             # we should never be in a situation where we call this without there
             # being an optimization config involved.
-            opt_config_metrics=not_none(torch_opt_config.opt_config_metrics),
+            opt_config_metrics=none_throws(torch_opt_config.opt_config_metrics),
             fixed_features=torch_opt_config.fixed_features,
         )
 
@@ -232,7 +233,7 @@ class TorchModelBridge(ModelBridge):
             optimization_config=base_gen_args.optimization_config,
         )
         try:
-            xbest = not_none(self.model).best_point(
+            xbest = none_throws(self.model).best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -362,8 +363,8 @@ class TorchModelBridge(ModelBridge):
             device=self.device,
         )
         # Use the model to do the cross validation
-        f_test, cov_test = not_none(self.model).cross_validate(
-            datasets=[not_none(dataset) for dataset in datasets],
+        f_test, cov_test = none_throws(self.model).cross_validate(
+            datasets=[none_throws(dataset) for dataset in datasets],
             metric_names=self.outcomes,
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
@@ -436,7 +437,7 @@ class TorchModelBridge(ModelBridge):
         return self._evaluate_acquisition_function(
             observation_features=obs_feats,
             search_space=base_gen_args.search_space,
-            optimization_config=not_none(base_gen_args.optimization_config),
+            optimization_config=none_throws(base_gen_args.optimization_config),
             pending_observations=base_gen_args.pending_observations,
             fixed_features=base_gen_args.fixed_features,
             acq_options=acq_options,
@@ -467,7 +468,7 @@ class TorchModelBridge(ModelBridge):
                 for obsf in observation_features
             ]
         )
-        evals = not_none(self.model).evaluate_acquisition_function(
+        evals = none_throws(self.model).evaluate_acquisition_function(
             X=self._array_to_tensor(X),
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -512,7 +513,7 @@ class TorchModelBridge(ModelBridge):
         self.model = model
         self.model.fit(
             # datasets are guaranteed to have all outcomes here by construction
-            datasets=[not_none(dataset) for dataset in datasets],
+            datasets=[none_throws(dataset) for dataset in datasets],
             metric_names=self.outcomes,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -554,7 +555,7 @@ class TorchModelBridge(ModelBridge):
         is_moo_problem = self.is_moo_problem and isinstance(
             self.model, (BoTorchModel, MultiObjectiveBotorchModel)
         )
-        gen_results = not_none(self.model).gen(
+        gen_results = none_throws(self.model).gen(
             n=n,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -567,7 +568,7 @@ class TorchModelBridge(ModelBridge):
             # inferred objective thresholds are in gen_metadata.
             opt_config_metrics = (
                 torch_opt_config.opt_config_metrics
-                or not_none(self._optimization_config).metrics
+                or none_throws(self._optimization_config).metrics
             )
             gen_metadata[
                 "objective_thresholds"
@@ -585,7 +586,7 @@ class TorchModelBridge(ModelBridge):
             candidate_metadata=gen_results.candidate_metadata,
         )
         try:
-            xbest = not_none(self.model).best_point(
+            xbest = none_throws(self.model).best_point(
                 search_space_digest=search_space_digest,
                 torch_opt_config=torch_opt_config,
             )
@@ -612,7 +613,7 @@ class TorchModelBridge(ModelBridge):
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # Convert observation features to array
         X = observation_features_to_array(self.parameters, observation_features)
-        f, cov = not_none(self.model).predict(X=self._array_to_tensor(X))
+        f, cov = none_throws(self.model).predict(X=self._array_to_tensor(X))
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
         if f.shape[-2] != X.shape[-2]:
@@ -716,7 +717,7 @@ class TorchModelBridge(ModelBridge):
             else None
         )
         if risk_measure is not None:
-            if not not_none(self.model)._supports_robust_optimization:
+            if not none_throws(self.model)._supports_robust_optimization:
                 raise UnsupportedError(
                     f"{self.model.__class__.__name__} does not support robust "
                     "optimization. Consider using modular BoTorch model instead."

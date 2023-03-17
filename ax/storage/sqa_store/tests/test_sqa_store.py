@@ -71,7 +71,6 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -104,6 +103,8 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+
+from pyre_extensions import none_throws
 
 GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
 
@@ -1253,7 +1254,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
 
     def testEncodeDecodeGenerationStrategyReducedState(self) -> None:
@@ -1302,7 +1303,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
@@ -1363,7 +1364,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
@@ -1417,12 +1418,12 @@ class SQAStoreTest(TestCase):
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
-            not_none(generation_strategy._experiment).description,
+            none_throws(generation_strategy._experiment).description,
             experiment.description,
         )
         self.assertEqual(
-            not_none(generation_strategy._experiment).description,
-            not_none(loaded_generation_strategy._experiment).description,
+            none_throws(generation_strategy._experiment).description,
+            none_throws(loaded_generation_strategy._experiment).description,
         )
 
     def testGeneratorRunGenMetadata(self) -> None:

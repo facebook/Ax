@@ -22,7 +22,8 @@ from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -178,7 +179,7 @@ def _suggest_gp_model(
                 num_possible_points *= num_param_discrete_values
 
         if should_enumerate_param:
-            num_enumerated_combinations *= not_none(num_param_discrete_values)
+            num_enumerated_combinations *= none_throws(num_param_discrete_values)
         else:
             all_parameters_are_enumerated = False
 
@@ -266,7 +267,7 @@ def calculate_num_initialization_trials(
 
     ret = 2 * num_tunable_parameters
     if num_trials is not None:
-        ret = min(ret, not_none(num_trials) // 5)
+        ret = min(ret, none_throws(num_trials) // 5)
     return max(ret, 5)
 
 

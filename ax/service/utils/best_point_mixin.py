@@ -41,8 +41,9 @@ from ax.service.utils.best_point import (
     fill_missing_thresholds_from_nadir,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -254,7 +255,7 @@ class BestPointMixin(metaclass=ABCMeta):
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
-        optimization_config = optimization_config or not_none(
+        optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
         if optimization_config.is_moo_problem:
@@ -301,7 +302,7 @@ class BestPointMixin(metaclass=ABCMeta):
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
     ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
-        optimization_config = optimization_config or not_none(
+        optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
         if not optimization_config.is_moo_problem:
@@ -351,7 +352,7 @@ class BestPointMixin(metaclass=ABCMeta):
                 )
 
             model = get_model_from_generator_run(
-                generator_run=not_none(generation_strategy.last_generator_run),
+                generator_run=none_throws(generation_strategy.last_generator_run),
                 experiment=experiment,
                 data=experiment.fetch_data(trial_indices=trial_indices),
                 models_enum=models_enum,
@@ -380,7 +381,7 @@ class BestPointMixin(metaclass=ABCMeta):
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[float]:
-        optimization_config = optimization_config or not_none(
+        optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
         # Get the names of the metrics in optimization config.
@@ -423,7 +424,7 @@ class BestPointMixin(metaclass=ABCMeta):
                 objective=optimization_config.objective,
                 outcomes=metric_names,
             )
-            objective_thresholds = to_tensor(not_none(objective_thresholds))
+            objective_thresholds = to_tensor(none_throws(objective_thresholds))
         else:
             objective_thresholds = None
         (
@@ -446,7 +447,7 @@ class BestPointMixin(metaclass=ABCMeta):
                 weighted_objective_thresholds,
             ) = get_weighted_mc_objective_and_objective_thresholds(
                 objective_weights=objective_weights,
-                objective_thresholds=not_none(objective_thresholds),
+                objective_thresholds=none_throws(objective_thresholds),
             )
             Y_obj = obj(Y)
             infeas_value = weighted_objective_thresholds
@@ -455,7 +456,9 @@ class BestPointMixin(metaclass=ABCMeta):
             infeas_value = Y_obj.min()
         # Account for feasibility.
         if outcome_constraints is not None:
-            cons_tfs = not_none(get_outcome_constraint_transforms(outcome_constraints))
+            cons_tfs = none_throws(
+                get_outcome_constraint_transforms(outcome_constraints)
+            )
             feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
             # Set the infeasible points to reference point or the worst observed value.
             Y_obj[~feas] = infeas_value
@@ -487,7 +490,7 @@ class BestPointMixin(metaclass=ABCMeta):
         bins: Optional[List[float]] = None,
         final_progression_only: bool = False,
     ) -> Tuple[List[float], List[float]]:
-        optimization_config = optimization_config or not_none(
+        optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
         objective = optimization_config.objective.metric.name

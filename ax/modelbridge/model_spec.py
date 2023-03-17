@@ -33,7 +33,8 @@ from ax.utils.common.kwargs import (
     filter_kwargs,
     get_function_argument_names,
 )
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -80,7 +81,7 @@ class ModelSpec(Base):
     def fitted_model(self) -> ModelBridge:
         """Returns the fitted Ax model, asserting fit() was called"""
         self._assert_fitted()
-        return not_none(self._fitted_model)
+        return none_throws(self._fitted_model)
 
     @property
     def fixed_features(self) -> Optional[ObservationFeatures]:
@@ -320,7 +321,7 @@ class FactoryFunctionModelSpec(ModelSpec):
         """Key string to identify the model used by this ``ModelSpec``."""
         try:
             # `model` is defined via a factory function.
-            return not_none(self.factory_function).__name__  # pyre-ignore[16]
+            return none_throws(self.factory_function).__name__  # pyre-ignore[16]
         except Exception:  # pragma: no cover
             raise TypeError(  # pragma: no cover
                 f"{self.factory_function} is not a valid function, cannot extract name."
@@ -338,7 +339,7 @@ class FactoryFunctionModelSpec(ModelSpec):
         model kwargs set on the model spec, alongside any passed down as
         kwargs to this function (local kwargs take precedent)
         """
-        factory_function = not_none(self.factory_function)
+        factory_function = none_throws(self.factory_function)
         all_kwargs = deepcopy((self.model_kwargs or {}))
         all_kwargs.update(model_kwargs)
         self._fitted_model = factory_function(

@@ -27,7 +27,7 @@ from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.deterministic import FixedSingleSampleModel
@@ -39,6 +39,7 @@ from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 T = TypeVar("T")
@@ -232,7 +233,7 @@ class BoTorchModel(TorchModel, Base):
         """
         if not self._botorch_acqf_class:
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
-        return not_none(self._botorch_acqf_class)
+        return none_throws(self._botorch_acqf_class)
 
     def fit(
         self,
@@ -435,7 +436,7 @@ class BoTorchModel(TorchModel, Base):
             model_gen_options=torch_opt_config.model_gen_options,
         )
         # update bounds / target fidelities
-        search_space_digest = not_none(
+        search_space_digest = none_throws(
             dataclasses.replace(
                 self._search_space_digest,
                 bounds=search_space_digest.bounds,

@@ -32,7 +32,6 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -45,6 +44,8 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
+
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -231,7 +232,7 @@ class Acquisition(Base):
                 objective_thresholds=self._objective_thresholds,
             )
             objective_thresholds = (
-                not_none(self._objective_thresholds)[subset_idcs]
+                none_throws(self._objective_thresholds)[subset_idcs]
                 if subset_idcs is not None
                 else self._objective_thresholds
             )
@@ -291,7 +292,7 @@ class Acquisition(Base):
             training_data = next(iter(self.surrogates.values())).training_data[0]
         else:
             tdicts = (
-                dict(zip(not_none(surrogate._outcomes), surrogate.training_data))
+                dict(zip(none_throws(surrogate._outcomes), surrogate.training_data))
                 for surrogate in self.surrogates.values()
             )
             # outcome_name => Dataset
@@ -305,7 +306,7 @@ class Acquisition(Base):
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
         self.X_pending: Optional[Tensor] = unique_Xs_pending
-        self.X_observed: Tensor = not_none(unique_Xs_observed)
+        self.X_observed: Tensor = none_throws(unique_Xs_observed)
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:

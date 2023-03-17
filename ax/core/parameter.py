@@ -15,7 +15,8 @@ from warnings import warn
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 FIXED_CHOICE_PARAM_ERROR = (
@@ -559,7 +560,7 @@ class ChoiceParameter(Parameter):
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
             )
-        return not_none(self._dependents)
+        return none_throws(self._dependents)
 
     def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
         return [self.cast(value) for value in values]
@@ -673,7 +674,7 @@ class FixedParameter(Parameter):
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
             )
-        return not_none(self._dependents)
+        return none_throws(self._dependents)
 
     def clone(self) -> FixedParameter:
         return FixedParameter(

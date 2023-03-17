@@ -14,7 +14,8 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 
 
 class DictLookupMetric(Metric):
@@ -73,7 +74,7 @@ class DictLookupMetric(Metric):
             for name, arm in trial.arms_by_name.items():
                 arm_names.append(name)
                 lookup_key = tuple(
-                    not_none(arm.parameters[p]) for p in self.param_names
+                    none_throws(arm.parameters[p]) for p in self.param_names
                 )
                 try:
                     val = self.lookup_dict[lookup_key]

@@ -10,8 +10,9 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 import numpy as np
 import torch
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions import synthetic as botorch_synthetic
+from pyre_extensions import none_throws
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -25,7 +26,7 @@ def informative_failure_on_none(func: Callable) -> Any:
             raise NotImplementedError(
                 f"{args[0].name} does not specify property " f'"{func.__name__}".'
             )
-        return not_none(res)
+        return none_throws(res)
 
     return function_wrapper
 

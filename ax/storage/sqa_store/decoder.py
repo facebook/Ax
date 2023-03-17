@@ -59,7 +59,8 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import not_none
+
+from pyre_extensions import none_throws
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 
@@ -182,10 +183,10 @@ class Decoder:
             else None
         )
         trial_type_to_runner = {
-            not_none(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
+            none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
-        default_trial_type = not_none(experiment_sqa.default_trial_type)
+        default_trial_type = none_throws(experiment_sqa.default_trial_type)
         properties = dict(experiment_sqa.properties or {})
         if properties:
             # Remove 'subclass' from experiment's properties, since its only
@@ -209,7 +210,7 @@ class Decoder:
             sqa_metric = sqa_metric_dict[tracking_metric.name]
             experiment.add_tracking_metric(
                 tracking_metric,
-                trial_type=not_none(sqa_metric.trial_type),
+                trial_type=none_throws(sqa_metric.trial_type),
                 canonical_name=sqa_metric.canonical_name,
             )
         return experiment
@@ -271,7 +272,7 @@ class Decoder:
             for arm in trial.arms:
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:
-            sq = not_none(experiment.status_quo)
+            sq = none_throws(experiment.status_quo)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
@@ -652,14 +653,14 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                parameters=not_none(generator_run_sqa.best_arm_parameters),
+                parameters=none_throws(generator_run_sqa.best_arm_parameters),
             )
             best_arm_predictions = (
                 best_arm,
-                tuple(not_none(generator_run_sqa.best_arm_predictions)),
+                tuple(none_throws(generator_run_sqa.best_arm_predictions)),
             )
         model_predictions = (
-            tuple(not_none(generator_run_sqa.model_predictions))
+            tuple(none_throws(generator_run_sqa.model_predictions))
             if generator_run_sqa.model_predictions is not None
             else None
         )
@@ -1059,7 +1060,7 @@ class Decoder:
         scalarized_objective = ScalarizedObjective(
             metrics=list(metrics),
             weights=list(weights),
-            minimize=not_none(parent_metric_sqa.minimize),
+            minimize=none_throws(parent_metric_sqa.minimize),
         )
         scalarized_objective.db_id = parent_metric_sqa.id
         return scalarized_objective
@@ -1124,9 +1125,9 @@ class Decoder:
         scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
             metrics=list(metrics),
             weights=list(weights),
-            bound=not_none(metric_sqa.bound),
-            op=not_none(metric_sqa.op),
-            relative=not_none(metric_sqa.relative),
+            bound=none_throws(metric_sqa.bound),
+            op=none_throws(metric_sqa.op),
+            relative=none_throws(metric_sqa.relative),
         )
         scalarized_outcome_constraint.db_id = metric_sqa.id
         return scalarized_outcome_constraint

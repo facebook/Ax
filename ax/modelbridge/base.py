@@ -34,7 +34,8 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -924,13 +925,13 @@ class ModelBridge(ABC):
         """Obtains the state of the underlying model (if using a stateful one)
         in a readily JSON-serializable form.
         """
-        model = not_none(self.model)
+        model = none_throws(self.model)
         return model.serialize_state(raw_state=model._get_state())
 
     def _deserialize_model_state(
         self, serialized_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        model = not_none(self.model)  # pragma: no cover
+        model = none_throws(self.model)  # pragma: no cover
         return model.deserialize_state(  # pragma: no cover
             serialized_state=serialized_state
         )
