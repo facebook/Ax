@@ -1671,21 +1671,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         for trial_index, results_by_metric_name in results.items():
             for metric_name, result in results_by_metric_name.items():
-                # If the fetch call succeded continue.
+                # If the fetch call succeeded, continue.
                 if result.is_ok():
                     continue
 
-                self._num_metric_fetch_e_encountered += 1
-                metric_fetch_e = result.unwrap_err()
-
-                self._report_metric_fetch_e(
-                    trial=self.experiment.trials[trial_index],
-                    metric_name=metric_name,
-                    metric_fetch_e=metric_fetch_e,
-                )
-
                 # Log the Err so the user is aware that something has failed, even if
                 # we do not do anything
+                metric_fetch_e = result.unwrap_err()
                 self.logger.warning(
                     f"Failed to fetch {metric_name} for trial {trial_index}, found "
                     f"{metric_fetch_e}."
@@ -1693,6 +1685,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
                 # If the metric is available while running just continue (we can try
                 # again later).
+                # NOTE: We don't need to report fetching errors in this case either
                 metric = self.experiment.metrics[metric_name]
                 status = self.experiment.trials[trial_index].status
                 if (
@@ -1706,6 +1699,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         "poll..."
                     )
                     continue
+
+                self._num_metric_fetch_e_encountered += 1
+                self._report_metric_fetch_e(
+                    trial=self.experiment.trials[trial_index],
+                    metric_name=metric_name,
+                    metric_fetch_e=metric_fetch_e,
+                )
 
                 # If the fetch failure was for a metric in the optimization config (an
                 # objective or constraint) the trial as failed
