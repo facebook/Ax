@@ -38,7 +38,8 @@ class IntToFloat(Transform):
     depending on 'rounding' flag.
 
     The `min_choices` config can be used to transform only the parameters
-    with cardinality greater than or equal to `min_choices`.
+    with cardinality greater than or equal to `min_choices`; with the exception
+    of `log_scale` parameters, which are always transformed.
 
     Transform is done in-place.
     """
@@ -66,7 +67,7 @@ class IntToFloat(Transform):
             for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter)
             and p.parameter_type == ParameterType.INT
-            and p.upper - p.lower + 1 >= self.min_choices
+            and (p.upper - p.lower + 1 >= self.min_choices or p.log_scale)
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):
             self.rounding = "randomized"

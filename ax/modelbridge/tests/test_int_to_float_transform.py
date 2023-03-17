@@ -14,6 +14,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
 
 
@@ -51,6 +52,15 @@ class IntToFloatTransformTest(TestCase):
             observations=[],
             config={"min_choices": 3},
         )
+        self.search_space_with_log = self.search_space.clone()
+        checked_cast(
+            RangeParameter, self.search_space_with_log.parameters["a"]
+        )._log_scale = True
+        self.t4 = IntToFloat(
+            search_space=self.search_space_with_log,
+            observations=[],
+            config={"min_choices": 3},
+        )
 
     def testInit(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a", "d"})
@@ -79,7 +89,19 @@ class IntToFloatTransformTest(TestCase):
         )
         self.assertTrue(isinstance(obs_ft2[0].parameters["a"], int))
         self.assertTrue(isinstance(obs_ft2[0].parameters["d"], float))
-        obs_ft2 = self.t.untransform_observation_features(obs_ft2)
+        obs_ft2 = self.t3.untransform_observation_features(obs_ft2)
+        self.assertEqual(obs_ft2, observation_features)
+
+        # With log_scale & min_choices. Both a & d should get transformed.
+        obs_ft2 = deepcopy(observation_features)
+        obs_ft2 = self.t4.transform_observation_features(obs_ft2)
+        self.assertEqual(
+            obs_ft2,
+            [ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})],
+        )
+        self.assertTrue(isinstance(obs_ft2[0].parameters["a"], float))
+        self.assertTrue(isinstance(obs_ft2[0].parameters["d"], float))
+        obs_ft2 = self.t4.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
         # Let the transformed space be a float, verify it becomes an int.
@@ -97,6 +119,16 @@ class IntToFloatTransformTest(TestCase):
         self.assertEqual(
             obs_ft3,
             [ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 3})],
+        )
+
+        # With log_scale & min_choices. Both a & d should become ints.
+        obs_ft3 = [
+            ObservationFeatures(parameters={"x": 2.2, "a": 2.2, "b": "b", "d": 2.9})
+        ]
+        obs_ft3 = self.t4.untransform_observation_features(obs_ft3)
+        self.assertEqual(
+            obs_ft3,
+            [ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 3})],
         )
 
         # Test forward transform on partial observation
@@ -142,6 +174,11 @@ class IntToFloatTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t3.transform_search_space(ss2)
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.INT)
+        self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
+        # With log_scale & min_choices. Both a & d should get transformed.
+        ss2 = deepcopy(self.search_space)
+        ss2 = self.t4.transform_search_space(ss2)
+        self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
     def testRoundingWithConstrainedIntRanges(self) -> None:
