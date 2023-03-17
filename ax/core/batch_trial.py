@@ -34,7 +34,7 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger: Logger = get_logger(__name__)
@@ -43,10 +43,6 @@ logger: Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401  # pragma: no cover
-
-BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
-    "Raw data must be a dict for batched trials."
-)
 
 
 class LifecycleStage(int, Enum):
@@ -569,21 +565,14 @@ class BatchTrial(BaseTrial):
         """
 
         # Format the data to save.
-        raw_data_by_arm = checked_cast_complex(
-            Dict[str, TEvaluationOutcome],
-            raw_data,
-            message=BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-        )
-        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
-            self.arms_by_name.keys()
-        )
+        not_trial_arm_names = set(raw_data.keys()) - set(self.arms_by_name.keys())
         if not_trial_arm_names:
             raise UserInputError(  # pragma: no cover
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
         evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data_by_arm, metadata=metadata, sample_sizes=sample_sizes
+            raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         self._validate_batch_trial_data(data=data)
 
