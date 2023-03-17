@@ -11,13 +11,22 @@ from ax.models.torch.botorch_defaults import _get_model
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
-from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from torch import Tensor
 
 
 def _get_rbf_kernel(num_samples: int, dim: int) -> ScaleKernel:
     return ScaleKernel(
         base_kernel=RBFKernel(ard_num_dims=dim, batch_shape=torch.Size([num_samples])),
+        batch_shape=torch.Size([num_samples]),
+    )
+
+
+def _get_matern_kernel(num_samples: int, dim: int) -> ScaleKernel:
+    return ScaleKernel(
+        base_kernel=MaternKernel(
+            ard_num_dims=dim, batch_shape=torch.Size([num_samples])
+        ),
         batch_shape=torch.Size([num_samples]),
     )
 
@@ -53,7 +62,7 @@ def _get_single_task_gpytorch_model(
     covar_modules = [
         _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
         if gp_kernel == "rbf"
-        else None
+        else _get_matern_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
         for _ in range(len(Xs))
     ]
 
