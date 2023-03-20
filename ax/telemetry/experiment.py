@@ -58,7 +58,7 @@ class ExperimentCreatedRecord:
     num_fixed_parameters: int
 
     dimensionality: int
-    heirerarchical_tree_height: int  # Height of tree for HSS, 1 for base SearchSpace
+    hierarchical_tree_height: int  # Height of tree for HSS, 1 for base SearchSpace
     num_parameter_constraints: int
 
     # OptimizationConfig info
@@ -106,7 +106,7 @@ class ExperimentCreatedRecord:
             dimensionality=sum(
                 1 for param in experiment.parameters.values() if param.cardinality() > 1
             ),
-            heirerarchical_tree_height=experiment.search_space.height
+            hierarchical_tree_height=experiment.search_space.height
             if isinstance(experiment.search_space, HierarchicalSearchSpace)
             else 1,
             num_parameter_constraints=len(
