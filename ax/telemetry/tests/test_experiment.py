@@ -28,7 +28,7 @@ class TestExperiment(TestCase):
             num_unordered_choice_parameters_large=0,
             num_fixed_parameters=1,
             dimensionality=3,
-            heirerarchical_tree_height=1,
+            hierarchical_tree_height=1,
             num_parameter_constraints=3,
             num_objectives=1,
             num_tracking_metrics=1,
