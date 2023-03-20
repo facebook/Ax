@@ -64,6 +64,22 @@ class TestInstantiationtUtils(TestCase):
                 #  got `Dict[str, None]`.
                 {"x1": None, "x2": None, "x3": None},
             )
+        one_val_constraint = InstantiationBase.constraint_from_str(
+            "x1 <= 0",
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
+            #  got `Dict[str, None]`.
+            {"x1": None, "x2": None},
+        )
+        self.assertEqual(one_val_constraint.bound, 0.0)
+        self.assertEqual(one_val_constraint.constraint_dict, {"x1": 1.0})
+        one_val_constraint = InstantiationBase.constraint_from_str(
+            "-0.5*x1 >= -0.1",
+            # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
+            #  got `Dict[str, None]`.
+            {"x1": None, "x2": None},
+        )
+        self.assertEqual(one_val_constraint.bound, 0.1)
+        self.assertEqual(one_val_constraint.constraint_dict, {"x1": 0.5})
         three_val_constaint2 = InstantiationBase.constraint_from_str(
             "-x1 + 2.1*x2 - 4*x3 <= 3",
             {
