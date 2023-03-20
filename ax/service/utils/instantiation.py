@@ -326,6 +326,11 @@ class InstantiationBase:
         """Parse string representation of a parameter constraint."""
         tokens = representation.split()
         parameter_names = parameters.keys()
+        try:
+            float(tokens[-1])
+            last_token_is_numeric = True
+        except ValueError:
+            last_token_is_numeric = False
         order_const = len(tokens) == 3 and tokens[1] in COMPARISON_OPS
         sum_const = (
             len(tokens) >= 5 and len(tokens) % 2 == 1 and tokens[-2] in COMPARISON_OPS
@@ -339,7 +344,8 @@ class InstantiationBase:
                 'are ">=" and "<=".'
             )
 
-        if len(tokens) == 3:  # Case "x1 >= x2" => order constraint.
+        # Case "x1 >= x2" => order constraint.
+        if len(tokens) == 3 and not last_token_is_numeric:
             left, right = tokens[0], tokens[2]
             assert (
                 left in parameter_names
@@ -356,12 +362,11 @@ class InstantiationBase:
                     lower_parameter=parameters[right], upper_parameter=parameters[left]
                 )
             )
-        try:  # Case "x1 - 2*x2 + x3 >= 2" => parameter constraint.
-            bound = float(tokens[-1])
-        except ValueError:
+        if not last_token_is_numeric:
             raise ValueError(
                 f"Bound for the constraint must be a number; got {tokens[-1]}"
             )
+        bound = float(tokens[-1])
         if any(token[0] == "*" or token[-1] == "*" for token in tokens):
             raise ValueError(
                 "A linear constraint should be the form a*x + b*y - c*z <= d"
@@ -374,7 +379,9 @@ class InstantiationBase:
             1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
         )
         operator_sign = 1.0  # Determines whether the operator is + or -
+        # tokens are alternating monomials and operators
         for idx, token in enumerate(tokens[:-2]):
+            # for monomials
             if idx % 2 == 0:
                 split_token = token.split("*")
                 parameter = ""  # Initializing the parameter
@@ -398,6 +405,7 @@ class InstantiationBase:
                     parameter in parameter_names
                 ), f"Parameter {parameter} not in {parameter_names}."
                 parameter_weight[parameter] = operator_sign * multiplier
+            # for operators
             else:
                 assert (
                     token == "+" or token == "-"
