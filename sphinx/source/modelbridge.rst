@@ -315,7 +315,15 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
-`ax.modelbridge.transforms.standardize\_y`
+`ax.modelbridge.transforms.search\_space\_to\_float`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.search_space_to_float
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+ `ax.modelbridge.transforms.standardize\_y`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.standardize_y
