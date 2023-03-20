@@ -32,6 +32,7 @@ from botorch.models import (
 )
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
+from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
@@ -121,8 +122,7 @@ class SurrogateTest(TestCase):
         self.assertEqual(surrogate, surrogate.clone_reset())
 
     @patch(f"{UTILS_PATH}.fit_gpytorch_mll")
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_mll_options(self, _):
+    def test_mll_options(self, _) -> None:
         mock_mll = MagicMock(self.mll_class)
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
@@ -631,6 +631,50 @@ class SurrogateTest(TestCase):
         self.assertIsInstance(intf, InputPerturbation)
         self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))
 
+    def test_fit_mixed(self) -> None:
+        # Test model construction with categorical variables.
+        surrogate = Surrogate()
+        search_space_digest = dataclasses.replace(
+            self.search_space_digest,
+            categorical_features=[0],
+        )
+        surrogate.fit(
+            datasets=self.training_data,
+            metric_names=self.metric_names,
+            search_space_digest=search_space_digest,
+        )
+        self.assertIsInstance(surrogate.model, MixedSingleTaskGP)
+        # _ignore_X_dims_scaling_check is the easiest way to check cat dims.
+        self.assertEqual(surrogate.model._ignore_X_dims_scaling_check, [0])
+        covar_module = checked_cast(Kernel, surrogate.model.covar_module)
+        self.assertEqual(
+            covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(), [0]
+        )
+        self.assertEqual(
+            covar_module.kernels[0].base_kernel.kernels[0].active_dims.tolist(), [1, 2]
+        )
+        self.assertEqual(
+            covar_module.kernels[1].base_kernel.kernels[1].active_dims.tolist(), [0]
+        )
+        self.assertEqual(
+            covar_module.kernels[1].base_kernel.kernels[0].active_dims.tolist(), [1, 2]
+        )
+        # With modellist.
+        training_data = [self.training_data[0], self.training_data[0]]
+        surrogate = Surrogate(allow_batched_models=False)
+        surrogate.fit(
+            datasets=training_data,
+            metric_names=self.original_metric_names,
+            search_space_digest=search_space_digest,
+        )
+        self.assertIsInstance(surrogate.model, ModelListGP)
+        self.assertTrue(
+            all(
+                isinstance(m, MixedSingleTaskGP)
+                for m in checked_cast(ModelListGP, surrogate.model).models
+            )
+        )
+
 
 class SurrogateWithModelListTest(TestCase):
     def setUp(self) -> None:
@@ -724,6 +768,7 @@ class SurrogateWithModelListTest(TestCase):
                 {
                     "fidelity_features": [],
                     "task_feature": self.task_features[0],
+                    "categorical_features": None,
                     # TODO: Figure out how to handle Multitask GPs and construct-inputs.
                     # I believe this functionality with modlular botorch model is
                     # currently broken as MultiTaskGP.construct_inputs expects a dict

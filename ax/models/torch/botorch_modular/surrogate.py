@@ -351,10 +351,12 @@ class Surrogate(Base):
 
             **kwargs: Keyword arguments, accepts:
                 - ``fidelity_features``: Indices of columns in X that represent
-                    fidelity
-                - ``task_features``: Indices of columns in X that represent tasks
+                    fidelity features.
+                - ``task_features``: Indices of columns in X that represent tasks.
+                - ``categorical_features``: Indices of columns in X that represent
+                    categorical features.
                 - ``robust_digest``: An optional `RobustSearchSpaceDigest` that carries
-                    additional attributes if using a `RobustSearchSpace`
+                    additional attributes if using a `RobustSearchSpace`.
         """
         if self.botorch_model_class is None and search_space_digest is None:
             raise UserInputError(
@@ -389,6 +391,7 @@ class Surrogate(Base):
                 training_data=dataset,
                 fidelity_features=fidelity_features,
                 task_feature=task_feature,
+                categorical_features=kwargs.get("categorical_features", None),
                 **self.model_options,
             )
             # Add input / outcome transforms.
