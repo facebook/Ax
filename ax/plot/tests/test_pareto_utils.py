@@ -18,7 +18,10 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
-from ax.plot.pareto_frontier import interact_multiple_pareto_frontier
+from ax.plot.pareto_frontier import (
+    interact_multiple_pareto_frontier,
+    interact_pareto_frontier,
+)
 from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     get_observed_pareto_frontiers,
@@ -139,7 +142,7 @@ class ParetoUtilsTest(TestCase):
             #  `Optional[typing.List[typing.Optional[str]]]`.
             self.assertTrue("status_quo" in pfr.arm_names)
 
-    def testPlotMultipleParetoFrontiers(self) -> None:
+    def testPlotParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )
@@ -148,6 +151,14 @@ class ParetoUtilsTest(TestCase):
         experiment.new_batch_trial(generator_run=a).run()
         experiment.fetch_data()
         pfrs = get_observed_pareto_frontiers(experiment=experiment)
+        label_dict = {"branin_a": "a_new_metric"}
+        b = interact_pareto_frontier(pfrs, label_dict=label_dict)
+        self.assertEqual(
+            b.data["layout"]["updatemenus"][0]["buttons"][0]["label"],
+            "a_new_metric<br>vs branin_b",
+        )
+        self.assertEqual(b.data["layout"]["xaxis"]["title"]["text"], "branin_b")
+        self.assertEqual(b.data["layout"]["yaxis"]["title"]["text"], "a_new_metric")
         pfrs2 = copy.deepcopy(pfrs)
         pfr_lists = {"pfrs 1": pfrs, "pfrs 2": pfrs2}
         self.assertIsNotNone(interact_multiple_pareto_frontier(pfr_lists))

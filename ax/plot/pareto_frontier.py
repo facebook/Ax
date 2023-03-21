@@ -523,10 +523,21 @@ def interact_pareto_frontier(
     frontier_list: List[ParetoFrontierResults],
     CI_level: float = DEFAULT_CI_LEVEL,
     show_parameterization_on_hover: bool = True,
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
-    """Plot a pareto frontier from a list of objects"""
+    """Plot a pareto frontier from a list of objects
+
+    Args:
+        frontier_list: List of ParetoFrontierResults objects to be plotted.
+        CI_level: CI level for error bars.
+        show_parameterization_on_hover: Show parameterization on hover.
+        label_dict: Map from metric name to shortened alias to use on plot.
+    """
     if not frontier_list:
         raise ValueError("Must receive a non-empty list of pareto frontiers to plot.")
+    label_dict_use = {k: k for k in frontier_list[0].means}
+    if label_dict is not None:
+        label_dict_use.update(label_dict)
 
     traces = []
     shapes = []
@@ -555,8 +566,8 @@ def interact_pareto_frontier(
             visible[j] = True
         rel_y = frontier.primary_metric not in frontier.absolute_metrics
         rel_x = frontier.secondary_metric not in frontier.absolute_metrics
-        primary_metric = frontier.primary_metric
-        secondary_metric = frontier.secondary_metric
+        primary_metric = label_dict_use[frontier.primary_metric]
+        secondary_metric = label_dict_use[frontier.secondary_metric]
         dropdown.append(
             {
                 "method": "update",
@@ -570,7 +581,7 @@ def interact_pareto_frontier(
                         "shapes": shapes[i],
                     },
                 ],
-                "label": f"{primary_metric} vs {secondary_metric}",
+                "label": f"{primary_metric}<br>vs {secondary_metric}",
             }
         )
 
@@ -578,8 +589,8 @@ def interact_pareto_frontier(
     initial_frontier = frontier_list[0]
     rel_x = initial_frontier.secondary_metric not in initial_frontier.absolute_metrics
     rel_y = initial_frontier.primary_metric not in initial_frontier.absolute_metrics
-    secondary_metric = initial_frontier.secondary_metric
-    primary_metric = initial_frontier.primary_metric
+    secondary_metric = label_dict_use[initial_frontier.secondary_metric]
+    primary_metric = label_dict_use[initial_frontier.primary_metric]
 
     layout = go.Layout(
         title="Pareto Frontier",
