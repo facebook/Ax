@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
+from typing import Any, List
 from unittest import mock
 from unittest.mock import Mock
 
@@ -58,6 +59,7 @@ from ax.utils.testing.modeling_stubs import (
     transform_1,
     transform_2,
 )
+from botorch.exceptions.warnings import InputDataWarning
 
 
 class BaseModelBridgeTest(TestCase):
@@ -213,17 +215,34 @@ class BaseModelBridgeTest(TestCase):
             model_gen_options=None,
         )
 
-        # Test transforms applied on cross_validate
+        # Test transforms applied on cross_validate and the warning is suppressed.
+        called = False
+
+        def warn_and_return_mock_obs(
+            *args: Any, **kwargs: Any
+        ) -> List[ObservationData]:
+            nonlocal called
+            called = True
+            warnings.warn(
+                "Input data is not standardized. Please consider scaling the "
+                "input to zero mean and unit variance.",
+                InputDataWarning,
+            )
+            return [get_observation1trans().data]
+
         modelbridge._cross_validate = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._cross_validate",
             autospec=True,
-            return_value=[get_observation1trans().data],
+            side_effect=warn_and_return_mock_obs,
         )
         cv_training_data = [get_observation2()]
         cv_test_points = [get_observation1().features]
-        cv_predictions = modelbridge.cross_validate(
-            cv_training_data=cv_training_data, cv_test_points=cv_test_points
-        )
+        with warnings.catch_warnings(record=True) as ws:
+            cv_predictions = modelbridge.cross_validate(
+                cv_training_data=cv_training_data, cv_test_points=cv_test_points
+            )
+        self.assertTrue(called)
+        self.assertFalse(any(w.category is InputDataWarning for w in ws))
         # pyre-fixme[16]: Callable `_cross_validate` has no attribute
         #  `assert_called_with`.
         modelbridge._cross_validate.assert_called_with(
