@@ -115,10 +115,53 @@ class ParetoFrontierResults(NamedTuple):
     arm_names: Optional[List[Optional[str]]]
 
 
+def _extract_sq_data(
+    experiment: Experiment, data: Data
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """
+    Returns sq_means and sq_sems, each a mapping from metric name to, respectively, mean
+    and sem of the status quo arm. Empty dictionaries if no SQ arm.
+    """
+    sq_means = {}
+    sq_sems = {}
+    if experiment.status_quo is not None:
+        # Extract SQ values
+        sq_df = data.df[
+            data.df["arm_name"] == experiment.status_quo.name  # pyre-ignore
+        ]
+        for metric, metric_df in sq_df.groupby(["metric_name"]):
+            sq_means[metric] = metric_df["mean"].values[0]
+            sq_sems[metric] = metric_df["sem"].values[0]
+    return sq_means, sq_sems
+
+
+def _relativize_values(
+    means: List[float], sq_mean: float, sems: List[float], sq_sem: float
+) -> Tuple[List[float], List[float]]:
+    """
+    Relativize values, using delta method if SEMs provided, or just by relativizing
+    means if not. Relativization is as percent.
+    """
+    if np.isnan(sq_sem) or np.isnan(sems).any():
+        # Just relativize means
+        means = [(mu / sq_mean - 1) * 100 for mu in means]
+    else:
+        # Use delta method
+        means_arr, sems_arr = relativize(
+            means_t=np.array(means),
+            sems_t=np.array(sems),
+            mean_c=sq_mean,
+            sem_c=sq_sem,
+            as_percent=True,
+        )
+        means, sems = list(means), list(sems)
+    return means, sems
+
+
 def get_observed_pareto_frontiers(
     experiment: Experiment,
     data: Optional[Data] = None,
-    rel: bool = True,
+    rel: Optional[bool] = None,
     arm_names: Optional[List[str]] = None,
 ) -> List[ParetoFrontierResults]:
     """
@@ -142,7 +185,8 @@ def get_observed_pareto_frontiers(
         experiment: The experiment.
         data: Data to use for computing Pareto frontier. If not provided, will lookup
             data from experiment.
-        rel: Relativize, if status quo on experiment.
+        rel: Relativize results wrt experiment status quo. If None, then rel will be
+            taken for each objective separately from its own objective threshold.
         arm_names: If provided, computes Pareto frontier only from among the provided
             list of arm names, plus status quo if set on experiment.
 
@@ -177,51 +221,52 @@ def get_observed_pareto_frontiers(
                 pfr_means[name].append(obs.data.means[i])
                 pfr_sems[name].append(np.sqrt(obs.data.covariance[i, i]))
 
-    # Relativize as needed
-    if rel and experiment.status_quo is not None:
-        # Get status quo values
-        # pyre-fixme[16]: `Optional` has no attribute `name`.
-        sq_df = data.df[data.df["arm_name"] == experiment.status_quo.name]
-        sq_df = sq_df.to_dict(orient="list")
-        sq_means = {}
-        sq_sems = {}
-        # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
-        for i, metric in enumerate(sq_df["metric_name"]):
-            # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
-            sq_means[metric] = sq_df["mean"][i]
-            # pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.
-            sq_sems[metric] = sq_df["sem"][i]
-        # Relativize
-        for name in pfr_means:
-            if np.isnan(sq_sems[name]) or np.isnan(pfr_sems[name]).any():
-                # Just relativize means
-                pfr_means[name] = [
-                    (mu / sq_means[name] - 1) * 100 for mu in pfr_means[name]
-                ]
-            else:
-                # Use delta method
-                pfr_means[name], pfr_sems[name] = relativize(
-                    means_t=pfr_means[name],
-                    sems_t=pfr_sems[name],
-                    mean_c=sq_means[name],
-                    sem_c=sq_sems[name],
-                    as_percent=True,
-                )
-        absolute_metrics = []
-    else:
-        absolute_metrics = obj_metr_list
-
+    # Get objective thresholds
+    rel_objth = {}
     objective_thresholds = {}
     if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
         for objth in experiment.optimization_config.objective_thresholds:
-            is_rel = objth.metric.name not in absolute_metrics
-            if objth.relative != is_rel:
-                raise ValueError(
-                    f"Objective threshold for {objth.metric.name} has "
-                    f"rel={objth.relative} but was specified here as rel={is_rel}"
-                )
+            rel_objth[objth.metric.name] = objth.relative
             objective_thresholds[objth.metric.name] = objth.bound
 
+    for name in obj_metr_list:
+        if name not in objective_thresholds:
+            raise ValueError(f"Objective threshold missing for {name}")
+    # Identify which metrics should be relativized
+    if rel in [True, False]:
+        metric_is_rel = {name: rel for name in pfr_means}
+    else:
+        # Default to however the threshold is specified
+        metric_is_rel = rel_objth
+
+    # Compute SQ values
+    sq_means, sq_sems = _extract_sq_data(experiment, data)
+
+    # Relativize data and thresholds as needed
+    for name in pfr_means:
+        if metric_is_rel[name]:
+            pfr_means[name], pfr_sems[name] = _relativize_values(
+                means=pfr_means[name],
+                sq_mean=sq_means[name],
+                sems=pfr_sems[name],
+                sq_sem=sq_sems[name],
+            )
+            if not rel_objth[name]:
+                # Metric is rel but obj th is not.
+                # Need to relativize the objective threshold
+                objective_thresholds[name] = _relativize_values(
+                    means=[objective_thresholds[name]],
+                    sq_mean=sq_means[name],
+                    sems=[np.nan],
+                    sq_sem=np.nan,
+                )[0][0]
+        elif rel_objth[name]:
+            # Metric is not rel but obj th is, so need to derelativize obj th
+            objective_thresholds[name] = (
+                1 + objective_thresholds[name] / 100.0
+            ) * sq_means[name]
+
+    absolute_metrics = [name for name, val in metric_is_rel.items() if not val]
     # Construct ParetoFrontResults for each pair
     pfr_list = []
     param_dicts = [obs.features.parameters for obs in pareto_observations]

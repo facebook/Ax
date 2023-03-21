@@ -80,12 +80,13 @@ class ParetoUtilsTest(TestCase):
                 minimize=True,
             ),
         ]
-        bounds = [0, -100, 0]
+        bounds = [0, -100, 1000]
+        rels = [True, True, False]
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=objective.metric,
                 bound=bounds[i],
-                relative=True,
+                relative=rels[i],
                 op=ComparisonOp.LEQ,
             )
             for i, objective in enumerate(objectives)
@@ -118,29 +119,39 @@ class ParetoUtilsTest(TestCase):
         for i, pfr in enumerate(pfrs):
             self.assertEqual(pfr.primary_metric, true_pairs[i][0])
             self.assertEqual(pfr.secondary_metric, true_pairs[i][1])
-            self.assertEqual(pfr.absolute_metrics, [])
+            self.assertEqual(pfr.absolute_metrics, ["m3"])
             self.assertEqual(list(pfr.means.keys()), ["m1", "m2", "m3"])
             self.assertEqual(len(pfr.means["m1"]), len(pareto_arms))
             self.assertTrue(np.isnan(pfr.sems["m1"]).all())
-            # pyre-fixme[6]: For 1st param expected `Sized` but got
-            #  `Optional[List[Optional[str]]]`.
-            self.assertEqual(len(pfr.arm_names), len(pareto_arms))
+            self.assertEqual(len(pfr.arm_names), len(pareto_arms))  # pyre-ignore
+            self.assertEqual(
+                pfr.objective_thresholds, {"m1": 0, "m2": -100, "m3": 1000}
+            )
             arm_idx = np.argsort(pfr.arm_names)
             for i, idx in enumerate(arm_idx):
                 name = pareto_arms[i]
-                # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                self.assertEqual(pfr.arm_names[idx], name)
+                self.assertEqual(pfr.arm_names[idx], name)  # pyre-ignore
                 self.assertEqual(
                     pfr.param_dicts[idx], experiment.arms_by_name[name].parameters
                 )
-
+        pfrs = get_observed_pareto_frontiers(experiment=experiment, data=data, rel=True)
+        pfr = pfrs[0]
+        self.assertEqual(pfr.absolute_metrics, [])
+        self.assertEqual(
+            pfr.objective_thresholds,
+            {"m1": 0, "m2": -100, "m3": (1000 / sq_val - 1) * 100},
+        )
+        pfrs = get_observed_pareto_frontiers(
+            experiment=experiment, data=data, rel=False
+        )
+        pfr = pfrs[0]
+        self.assertEqual(pfr.absolute_metrics, ["m1", "m2", "m3"])
+        self.assertEqual(pfr.objective_thresholds, {"m1": sq_val, "m2": 0, "m3": 1000})
         pfrs = get_observed_pareto_frontiers(
             experiment=experiment, data=data, arm_names=["0_1"]
         )
         for pfr in pfrs:
-            # pyre-fixme[58]: `in` is not supported for right operand type
-            #  `Optional[typing.List[typing.Optional[str]]]`.
-            self.assertTrue("status_quo" in pfr.arm_names)
+            self.assertTrue("status_quo" in pfr.arm_names)  # pyre-ignore
 
     def testPlotParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
