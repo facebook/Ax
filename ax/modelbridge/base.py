@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import time
+import warnings
 from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
@@ -35,6 +36,7 @@ from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.exceptions.warnings import InputDataWarning
 
 logger: Logger = get_logger(__name__)
 
@@ -879,11 +881,20 @@ class ModelBridge(ABC):
 
         obs_feats, obs_data = separate_observations(observations=cv_training_data)
         # Apply terminal transform, and get predictions.
-        cv_predictions = self._cross_validate(
-            search_space=search_space,
-            cv_training_data=cv_training_data,
-            cv_test_points=cv_test_points,
-        )
+        with warnings.catch_warnings():
+            # Since each CV fold removes points from the training data, the remaining
+            # observations will not pass the standardization test. To avoid confusing
+            # users with this warning, we filter it out.
+            warnings.filterwarnings(
+                "ignore",
+                message="Input data is not standardized.",
+                category=InputDataWarning,
+            )
+            cv_predictions = self._cross_validate(
+                search_space=search_space,
+                cv_training_data=cv_training_data,
+                cv_test_points=cv_test_points,
+            )
         # Apply reverse transforms, in reverse order
         cv_test_observations = [
             Observation(features=obsf, data=cv_predictions[i])
