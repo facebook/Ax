@@ -7,7 +7,7 @@
 import warnings
 from contextlib import contextmanager
 from logging import Logger
-from typing import Any, Dict, Generator, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -328,3 +328,35 @@ def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
     B_indices = inverse_ind[n:].tolist()
     Bi_set = set(B_indices) - set(A_indices)
     return D[list(Bi_set)]
+
+
+def get_post_processing_func(
+    rounding_func: Optional[Callable[[Tensor], Tensor]],
+    optimizer_options: Dict[str, Any],
+) -> Optional[Callable[[Tensor], Tensor]]:
+    """Get the post processing function by combining the rounding function
+    with the post processing function provided as part of the optimizer
+    options. If both are given, the post processing function is applied before
+    applying the rounding function. If only one of them is given, then
+    it is used as the post processing function.
+    """
+    if "post_processing_func" in optimizer_options:
+        provided_func: Callable[[Tensor], Tensor] = optimizer_options.pop(
+            "post_processing_func"
+        )
+        if rounding_func is None:
+            # No rounding function is given. We can use the post processing
+            # function directly.
+            return provided_func
+        else:
+            # Both post processing and rounding functions are given. We need
+            # to chain them and apply the post processing function first.
+            base_rounding_func: Callable[[Tensor], Tensor] = rounding_func
+
+            def combined_func(x: Tensor) -> Tensor:
+                return base_rounding_func(provided_func(x))
+
+            return combined_func
+
+    else:
+        return rounding_func

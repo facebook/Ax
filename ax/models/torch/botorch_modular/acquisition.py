@@ -21,7 +21,10 @@ from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.torch.botorch_modular.utils import _tensor_difference
+from ax.models.torch.botorch_modular.utils import (
+    _tensor_difference,
+    get_post_processing_func,
+)
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -382,10 +385,21 @@ class Acquisition(Base):
             fixed_features: A map `{feature_index: value}` for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that post-processes an optimization
-                result appropriately (i.e., according to `round-trip`
-                transformations).
+                result appropriately. This is typically passed down from
+                `ModelBridge` to ensure compatibility of the candidates with
+                with Ax transforms. For additional post processing, use
+                `post_processing_func` option in `optimizer_options`.
             optimizer_options: Options for the optimizer function, e.g. ``sequential``
-                or ``raw_samples``.
+                or ``raw_samples``. This can also include a `post_processing_func`
+                which is applied to the candidates before the `rounding_func`.
+                `post_processing_func` can be used to support more customized options
+                that typically only exist in MBM, such as BoTorch transforms.
+                See the docstring of `TorchOptConfig` for more information on passing
+                down these options while constructing a generation strategy.
+
+        Returns:
+            A two-element tuple containing an `n x d`-dim tensor of generated candidates
+            and a tensor with the associated acquisition value.
         """
         # NOTE: Could make use of `optimizer_class` when it's added to BoTorch
         # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
@@ -400,7 +414,10 @@ class Acquisition(Base):
             q=n,
             optimizer_options=optimizer_options,
         )
-
+        post_processing_func = get_post_processing_func(
+            rounding_func=rounding_func,
+            optimizer_options=optimizer_options_with_defaults,
+        )
         discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
         if fixed_features is not None:
             for i in fixed_features:
@@ -408,14 +425,16 @@ class Acquisition(Base):
                     raise ValueError(f"Invalid fixed_feature index: {i}")
 
         # 1. Handle the fully continuous search space.
-        if not discrete_features:
+        if not discrete_features or optimizer_options_with_defaults.pop(
+            "force_use_optimize_acqf", False
+        ):
             return optimize_acqf(
                 acq_function=self.acqf,
                 bounds=bounds,
                 q=n,
                 inequality_constraints=inequality_constraints,
                 fixed_features=fixed_features,
-                post_processing_func=rounding_func,
+                post_processing_func=post_processing_func,
                 **optimizer_options_with_defaults,
             )
 
@@ -505,7 +524,7 @@ class Acquisition(Base):
                 discrete_choices=discrete_choices
             ),
             inequality_constraints=inequality_constraints,
-            post_processing_func=rounding_func,
+            post_processing_func=post_processing_func,
             **optimizer_options_with_defaults,
         )
 
