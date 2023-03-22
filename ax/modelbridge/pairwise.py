@@ -12,8 +12,8 @@ import numpy as np
 import torch
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.types import TCandidateMetadata
-from ax.modelbridge.modelbridge_utils import detect_duplicates
 from ax.modelbridge.torch import TorchModelBridge
+from botorch.models.utils.assorted import consolidate_duplicates
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from torch import Tensor
@@ -94,36 +94,17 @@ def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:
 
 def _consolidate_comparisons(X: Tensor, Y: Tensor) -> Tuple[Tensor, Tensor]:
     """Drop duplicated Xs and update the indices in Ys accordingly"""
-    if len(X.shape) != 2:
-        raise ValueError("X must have 2 dimensions.")  # pragma: no cover
-    if len(Y.shape) != 2:
-        raise ValueError("Y must have 2 dimensions.")  # pragma: no cover
     if Y.shape[-1] != 2:
         raise ValueError(  # pragma: no cover
             "The last dimension of Y must contain 2 elements "
             "representing the pairwise comparison."
         )
 
-    n = X.shape[-2]
-    dupplicates = list(detect_duplicates(X=X))
-    if len(dupplicates) != 0:
-        dup_indices, kept_indices = zip(*dupplicates)
-        unique_indices = set(range(n)) - set(dup_indices)
+    if len(Y.shape) != 2:
+        raise ValueError("Y must have 2 dimensions.")
 
-        # After dropping the duplicates,
-        # the kept ones' indices may also change by being shifted up
-        new_idx_map = dict(zip(unique_indices, range(len(unique_indices))))
-        new_indices_for_dup = (new_idx_map[idx] for idx in kept_indices)
-        new_idx_map.update(dict(zip(dup_indices, new_indices_for_dup)))
-
-        consolidated_X = X[list(unique_indices), :]
-        consolidated_Y = torch.tensor(
-            [(new_idx_map[y1.item()], new_idx_map[y2.item()]) for y1, y2 in Y],
-            dtype=torch.long,
-        )
-        return consolidated_X, consolidated_Y
-    else:
-        return X, Y
+    X, Y, _ = consolidate_duplicates(X, Y)
+    return X, Y
 
 
 def _validate_Y_values(Y: Tensor) -> None:
