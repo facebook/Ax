@@ -17,6 +17,11 @@ from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
+# Tolerance for floating point comparisons. This is relatively permissive,
+# and allows for serializing at rather low numerical precision.
+# TODO: Do a more comprehensive audit of how floating point precision issues
+# may creep up and implement a more principled fix
+EPS = 1.5e-7
 
 FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "
@@ -228,6 +233,15 @@ class RangeParameter(Parameter):
                 f"Upper bound of {self.name} must be strictly larger than lower."
                 f"Got: ({lower}, {upper})."
             )
+        # pyre-fixme[58]: `-` is not supported for operand types `Union[None, bool,
+        #  float, int, str]` and `Union[None, bool, float, int, str]`.
+        width: float = upper - lower
+        if width < 100 * EPS:
+            raise UserInputError(
+                f"Parameter range ({width}) is very small and likely "
+                "to cause numerical errors. Consider reparameterizing your "
+                "problem by scaling the parameter."
+            )
         if log_scale and logit_scale:
             raise UserInputError("Can't use both log and logit.")
         # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
@@ -332,7 +346,7 @@ class RangeParameter(Parameter):
         self._logit_scale = logit_scale
         return self
 
-    def validate(self, value: TParamValue) -> bool:
+    def validate(self, value: TParamValue, tol: float = EPS) -> bool:
         """Returns True if input is a valid value for the parameter.
 
         Checks that value is of the right type and within
@@ -340,6 +354,7 @@ class RangeParameter(Parameter):
 
         Args:
             value: Value being checked.
+            tol: Absolute tolerance for floating point comparisons.
 
         Returns:
             True if valid, False otherwise.
@@ -349,7 +364,11 @@ class RangeParameter(Parameter):
 
         if not self.is_valid_type(value):
             return False
-        return value >= self._lower and value <= self._upper
+        # pyre-fixme[58]: `>=` is not supported for operand types `Union[bool,
+        #  float, int, str]` and `float`.
+        # pyre-fixme[58]: `<=` is not supported for operand types `Union[bool,
+        #  float, int, str]` and `float`.
+        return value >= self._lower - EPS and value <= self._upper + EPS
 
     def is_valid_type(self, value: TParamValue) -> bool:
         """Same as default except allows floats whose value is an int

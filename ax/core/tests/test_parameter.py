@@ -7,6 +7,7 @@
 from ax.core.parameter import (
     _get_parameter_type,
     ChoiceParameter,
+    EPS,
     FixedParameter,
     ParameterType,
     RangeParameter,
@@ -73,6 +74,10 @@ class RangeParameterTest(TestCase):
         self.assertFalse(self.param1.validate("foo"))
         self.assertTrue(self.param1.validate(1))
         self.assertTrue(self.param1.validate(1.3))
+        self.assertFalse(self.param1.validate(3.5))
+        # Check with tolerances
+        self.assertTrue(self.param1.validate(1 - 0.5 * EPS))
+        self.assertTrue(self.param1.validate(3 + 0.5 * EPS))
 
     def testRepr(self) -> None:
         self.assertEqual(str(self.param1), self.param1_repr)
@@ -93,6 +98,12 @@ class RangeParameterTest(TestCase):
 
         with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.INT, 0.5, 1, is_fidelity=True)
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "likely to cause numerical errors. Consider reparameterizing",
+        ):
+            RangeParameter("x", ParameterType.FLOAT, EPS, 2 * EPS)
 
     def testBadSetter(self) -> None:
         with self.assertRaises(ValueError):
