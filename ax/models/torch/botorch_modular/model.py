@@ -243,6 +243,7 @@ class BoTorchModel(TorchModel, Base):
         # state dict by surrogate label
         state_dicts: Optional[Mapping[str, Dict[str, Tensor]]] = None,
         refit: bool = True,
+        **kwargs: Any,
     ) -> None:
         """Fit model to m outcomes.
 
@@ -283,6 +284,7 @@ class BoTorchModel(TorchModel, Base):
                 if state_dicts
                 else None,
                 refit=refit,
+                **kwargs,
             )
             return
 
@@ -354,6 +356,7 @@ class BoTorchModel(TorchModel, Base):
                 candidate_metadata=candidate_metadata,
                 state_dict=(state_dicts or {}).get(label),
                 refit=refit,
+                **kwargs,
             )
 
     @copy_doc(TorchModel.update)
@@ -363,6 +366,7 @@ class BoTorchModel(TorchModel, Base):
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        **kwargs: Any,
     ) -> None:
         if len(self.surrogates) == 0:
             raise UnsupportedError("Cannot update model that has not been fitted.")
@@ -407,6 +411,7 @@ class BoTorchModel(TorchModel, Base):
                 candidate_metadata=candidate_metadata,
                 state_dict=state_dict,
                 refit=self.refit_on_update,
+                **kwargs,
             )
 
     @single_surrogate_only
@@ -528,6 +533,7 @@ class BoTorchModel(TorchModel, Base):
         metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
+        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         # Will fail if metric_names exist across multiple models
         surrogate_labels = (
@@ -580,6 +586,7 @@ class BoTorchModel(TorchModel, Base):
                 search_space_digest=search_space_digest,
                 state_dicts=state_dicts,
                 refit=self.refit_on_cv,
+                **kwargs,
             )
             X_test_prediction = self.predict_from_surrogate(
                 surrogate_label=surrogate_label, X=X_test
