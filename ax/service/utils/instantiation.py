@@ -287,10 +287,6 @@ class InstantiationBase:
             ), "Values are required for choice parameters."
             values = representation["values"]
             if isinstance(values, list) and len(values) == 1:
-                if representation.get("dependents"):
-                    raise NotImplementedError(
-                        "Support for hierarchical fixed parameters coming soon."
-                    )
                 logger.info(
                     f"Choice parameter {name} contains only one value, converting to a"
                     + " fixed parameter instead."

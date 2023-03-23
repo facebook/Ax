@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any, Dict
+
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
@@ -226,18 +228,21 @@ class TestInstantiationtUtils(TestCase):
             self.assertEqual(single_optimization_config.objective.metric.name, "branin")
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
-        representation = {
-            "name": "test",
-            "type": "choice",
-            "values": [1.0],
-        }
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, Dict[str,
-        #  List[str]], List[Union[None, bool, float, int, str]], bool, float, int,
-        #  str]]` but got `Dict[str, Union[List[float], str]]`.
-        output = InstantiationBase.parameter_from_json(representation)
-        self.assertIsInstance(output, FixedParameter)
-        # pyre-fixme[16]: `Parameter` has no attribute `value`.
-        self.assertEqual(output.value, 1.0)
+        for use_dependents in [True, False]:
+            representation: Dict[str, Any] = {
+                "name": "test",
+                "type": "choice",
+                "values": [1.0],
+            }
+            if use_dependents:
+                representation["dependents"] = {1.0: ["foo_or_bar", "bazz"]}
+            output = checked_cast(
+                FixedParameter, InstantiationBase.parameter_from_json(representation)
+            )
+            self.assertIsInstance(output, FixedParameter)
+            self.assertEqual(output.value, 1.0)
+            if use_dependents:
+                self.assertEqual(output.dependents, {1.0: ["foo_or_bar", "bazz"]})
 
     def test_hss(self) -> None:
         parameter_dicts = [
