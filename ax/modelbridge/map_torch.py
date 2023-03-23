@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 
@@ -173,6 +173,7 @@ class MapTorchModelBridge(TorchModelBridge):
         search_space: SearchSpace,
         observations: List[Observation],
         parameters: Optional[List[str]] = None,
+        **kwargs: Any,
     ) -> None:
         """The difference from `TorchModelBridge._fit(...)` is that we use
         `self.parameters_with_map_keys` instead of `self.parameters`.
@@ -185,6 +186,7 @@ class MapTorchModelBridge(TorchModelBridge):
             search_space=search_space,
             observations=observations,
             parameters=parameters,
+            **kwargs,
         )
 
     def _gen(
@@ -279,6 +281,7 @@ class MapTorchModelBridge(TorchModelBridge):
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
+        **kwargs: Any,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data. The difference from `TorchModelBridge._cross_validate`
@@ -293,6 +296,7 @@ class MapTorchModelBridge(TorchModelBridge):
             cv_training_data=cv_training_data,
             cv_test_points=cv_test_points,
             parameters=parameters,  # we pass the map_keys too by default
+            **kwargs,
         )
         observation_features, observation_data = separate_observations(cv_training_data)
         # Since map_keys are used as features, there can be the possibility that

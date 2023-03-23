@@ -879,7 +879,6 @@ class ModelBridge(ABC):
             cv_test_points = t.transform_observation_features(cv_test_points)
             search_space = t.transform_search_space(search_space)
 
-        obs_feats, obs_data = separate_observations(observations=cv_training_data)
         # Apply terminal transform, and get predictions.
         with warnings.catch_warnings():
             # Since each CV fold removes points from the training data, the remaining
