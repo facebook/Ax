@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import importlib
-from typing import Any, Dict, Iterable, Optional, Set, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -13,6 +13,8 @@ from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem
+from botorch.utils.transforms import normalize, unnormalize
+from torch import Tensor
 
 
 class BotorchTestProblemRunner(Runner):
@@ -34,13 +36,31 @@ class BotorchTestProblemRunner(Runner):
         self,
         test_problem_class: Type[BaseTestProblem],
         test_problem_kwargs: Dict[str, Any],
+        modified_bounds: Optional[List[Tuple[float, float]]] = None,
     ) -> None:
+        """Initialize the test problem runner.
+
+        Args:
+            test_problem_class: The BoTorch test problem class.
+            test_problem_kwargs: The keyword arguments used for initializing the
+                test problem.
+            modified_bounds: The bounds that are used by the Ax search space
+                while optimizing the problem. If different from the bounds of the
+                test problem, we project the parameters into the test problem
+                bounds before evaluating the test problem.
+                For example, if the test problem is defined on [0, 1] but the Ax
+                search space is integers in [0, 10], an Ax parameter value of
+                5 will correspond to 0.5 while evaluating the test problem.
+                If modified bounds are not provided, the test problem will be
+                evaluated using the raw parameter values.
+        """
 
         self._test_problem_class = test_problem_class
         self._test_problem_kwargs = test_problem_kwargs
 
         # pyre-fixme [45]: Invalid class instantiation
         self.test_problem = test_problem_class(**test_problem_kwargs)
+        self._modified_bounds = modified_bounds
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
@@ -52,10 +72,21 @@ class BotorchTestProblemRunner(Runner):
             == other.test_problem.__class__.__name__
         )
 
+    def evaluate_with_original_bounds(self, X: Tensor) -> Tensor:
+        """Converts X to original bounds -- only if modified bounds were provided --
+        and evaluates the test problem. See `__init__` docstring for details.
+        """
+        if self._modified_bounds is not None:
+            # Normalize from modified bounds to unit cube.
+            unit_X = normalize(X, torch.tensor(self._modified_bounds).T)
+            # Unnormalize from unit cube to original problem bounds.
+            X = unnormalize(unit_X, self.test_problem.bounds)
+        return self.test_problem(X)
+
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         return {
             "Ys": {
-                arm.name: self.test_problem.forward(
+                arm.name: self.evaluate_with_original_bounds(
                     torch.tensor(
                         [
                             value
@@ -86,6 +117,7 @@ class BotorchTestProblemRunner(Runner):
             "test_problem_module": runner._test_problem_class.__module__,
             "test_problem_class_name": runner._test_problem_class.__name__,
             "test_problem_kwargs": runner._test_problem_kwargs,
+            "modified_bounds": runner._modified_bounds,
         }
 
     @classmethod
@@ -99,4 +131,5 @@ class BotorchTestProblemRunner(Runner):
         return {
             "test_problem_class": getattr(module, args["test_problem_class_name"]),
             "test_problem_kwargs": args["test_problem_kwargs"],
+            "modified_bounds": args["modified_bounds"],
         }
