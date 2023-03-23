@@ -498,6 +498,7 @@ class Surrogate(Base):
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
         original_metric_names: Optional[List[str]] = None,
+        **kwargs: Any,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
 
@@ -543,11 +544,13 @@ class Surrogate(Base):
                 "its parameters if `refit=True`."
             )
         else:
+            _kwargs = dataclasses.asdict(search_space_digest)
+            _kwargs.update(kwargs)
             self.construct(
                 datasets=datasets,
                 metric_names=metric_names,
                 search_space_digest=search_space_digest,
-                **dataclasses.asdict(search_space_digest),
+                **_kwargs,
             )
             self._outcomes = (
                 original_metric_names
@@ -665,6 +668,7 @@ class Surrogate(Base):
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
+        **kwargs: Any,
     ) -> None:
         """Updates the surrogate model with new data. In the base ``Surrogate``,
         just calls ``fit`` after checking that this surrogate was not created
@@ -702,6 +706,7 @@ class Surrogate(Base):
             candidate_metadata=candidate_metadata,
             state_dict=state_dict,
             refit=refit,
+            **kwargs,
         )
 
     def pareto_frontier(self) -> Tuple[Tensor, Tensor]:
