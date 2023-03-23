@@ -116,3 +116,8 @@ class PairwiseModelBridgeTest(TestCase):
         consolidated_X, consolidated_Y = _consolidate_comparisons(X=X, Y=comp_pair_Y)
         self.assertTrue(torch.equal(consolidated_X, expected_X))
         self.assertTrue(torch.equal(consolidated_Y, expected_Y))
+
+        with self.assertRaises(ValueError):
+            _consolidate_comparisons(
+                X=X.expand(2, *X.shape), Y=comp_pair_Y.expand(2, *comp_pair_Y.shape)
+            )
