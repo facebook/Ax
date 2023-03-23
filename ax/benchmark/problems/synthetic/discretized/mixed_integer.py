@@ -41,7 +41,7 @@ def _get_problem_from_common_inputs(
     test_problem_class: Type[SyntheticTestFunction],
     benchmark_name: str,
     num_trials: int,
-    modified_bounds: Optional[List[Tuple[float, float]]] = None,
+    test_problem_bounds: Optional[List[Tuple[float, float]]] = None,
 ) -> BenchmarkProblem:
     """This is a helper that deduplicates common bits of the below problems.
 
@@ -54,7 +54,8 @@ def _get_problem_from_common_inputs(
         test_problem_class: The BoTorch test problem class.
         benchmark_name: The name of the benchmark problem.
         num_trials: The number of trials.
-        modified_bounds: Optional bounds to evaluate the base test problem on.
+        test_problem_bounds: Optional bounds to evaluate the base test problem on.
+            These are passed in as `bounds` while initializing the test problem.
 
     Returns:
         A mixed-integer BenchmarkProblem constructed from the given inputs.
@@ -83,11 +84,12 @@ def _get_problem_from_common_inputs(
         )
     )
     test_problem_kwargs: Dict[str, Any] = {"dim": dim}
-    if modified_bounds is not None:
-        test_problem_kwargs["bounds"] = modified_bounds
+    if test_problem_bounds is not None:
+        test_problem_kwargs["bounds"] = test_problem_bounds
     runner = BotorchTestProblemRunner(
         test_problem_class=test_problem_class,
         test_problem_kwargs=test_problem_kwargs,
+        modified_bounds=bounds,
     )
     return BenchmarkProblem(
         name=benchmark_name,
@@ -151,7 +153,7 @@ def get_discrete_ackley(
         test_problem_class=Ackley,
         benchmark_name="Discrete Ackley",
         num_trials=num_trials,
-        modified_bounds=[(0.0, 1.0)] * dim,
+        test_problem_bounds=[(0.0, 1.0)] * dim,
     )
 
 
