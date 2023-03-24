@@ -10,11 +10,15 @@ from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, TypeVar
 
+import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.models.torch.botorch import get_rounding_func
+from ax.models.torch.botorch import (
+    get_feature_importances_from_botorch_model,
+    get_rounding_func,
+)
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
@@ -667,3 +671,19 @@ class BoTorchModel(TorchModel, Base):
             torch_opt_config=torch_opt_config,
             options=acq_options,
         )
+
+    def feature_importances(self) -> np.ndarray:
+        """Compute feature importances from the model.
+
+        Caveat: This assumes the following:
+            1. There is a single surrogate model (potentially a `ModelList`).
+            2. We can get model lengthscales from `covar_module.base_kernel.lengthscale`
+
+        Returns:
+            The feature importances as a numpy array of size len(metrics) x 1 x dim
+            where each row sums to 1.
+        """
+        if list(self.surrogates.keys()) != [Keys.ONLY_SURROGATE]:
+            raise NotImplementedError("Only support a single surrogate model for now")
+        surrogate = self.surrogates[Keys.ONLY_SURROGATE]
+        return get_feature_importances_from_botorch_model(model=surrogate.model)
