@@ -16,7 +16,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Cont_X_trans, Models, Y_trans
+from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.types import TConfig
@@ -98,7 +98,9 @@ def _make_botorch_step(
     ] = derelativization_transform_config
 
     if not no_winsorization:
-        transforms = model_kwargs.get("transforms", Cont_X_trans + Y_trans)
+        _, default_bridge_kwargs = model.view_defaults()
+        default_transforms = default_bridge_kwargs["transforms"]
+        transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(Type[Transform], Winsorize)] + transforms
         if winsorization_transform_config is not None:
             model_kwargs["transform_configs"][

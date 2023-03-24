@@ -20,7 +20,7 @@ from ax.modelbridge.dispatch_utils import (
     DEFAULT_BAYESIAN_PARALLELISM,
 )
 from ax.modelbridge.factory import Cont_X_trans, Y_trans
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Mixed_transforms, Models
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.winsorization_config import WinsorizationConfig
@@ -183,7 +183,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed._steps[1].model, Models.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": expected_transforms,
+                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
@@ -197,7 +197,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(bo_mixed_2._steps[1].model, Models.BO_MIXED)
             expected_model_kwargs = {
                 "torch_device": None,
-                "transforms": expected_transforms,
+                "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
