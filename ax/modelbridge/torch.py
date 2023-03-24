@@ -330,6 +330,7 @@ class TorchModelBridge(ModelBridge):
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
+        **kwargs: Any,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
@@ -367,6 +368,7 @@ class TorchModelBridge(ModelBridge):
             metric_names=self.outcomes,
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
+            **kwargs,
         )
         # Convert array back to ObservationData
         return array_to_observation_data(
@@ -481,6 +483,7 @@ class TorchModelBridge(ModelBridge):
         search_space: SearchSpace,
         observations: List[Observation],
         parameters: Optional[List[str]] = None,
+        **kwargs: Any,
     ) -> None:  # pragma: no cover
         if self.model is not None and observations == self._last_observations:
             logger.info(
@@ -516,6 +519,7 @@ class TorchModelBridge(ModelBridge):
             metric_names=self.outcomes,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
+            **kwargs,
         )
 
     def _gen(
