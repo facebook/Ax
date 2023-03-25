@@ -7,6 +7,7 @@
 import dataclasses
 import warnings
 from contextlib import ExitStack
+from copy import deepcopy
 from typing import Dict
 from unittest import mock
 from unittest.mock import Mock
@@ -35,6 +36,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model import ModelList
@@ -72,6 +74,7 @@ class BoTorchModelTest(TestCase):
         self.dtype = torch.float
         self.device = torch.device("cpu")
         tkwargs = {"dtype": self.dtype, "device": self.device}
+        self.tkwargs = tkwargs
         Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.Xs = Xs1
@@ -542,6 +545,80 @@ class BoTorchModelTest(TestCase):
             rounding_func="func",
             optimizer_options=self.optimizer_options,
         )
+
+    def test_feature_importances(self) -> None:
+        for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
+            surrogate = Surrogate(botorch_model_class=botorch_model_class)
+            model = BoTorchModel(
+                surrogate=surrogate,
+                acquisition_class=Acquisition,
+                acquisition_options=self.acquisition_options,
+            )
+            model.surrogates[Keys.ONLY_SURROGATE].construct(
+                datasets=self.block_design_training_data,
+                metric_names=["metric"],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+            if botorch_model_class == SaasFullyBayesianSingleTaskGP:
+                mcmc_samples = {
+                    "lengthscale": torch.tensor(
+                        [[1, 2, 3], [2, 3, 4], [3, 4, 5]], **self.tkwargs
+                    ),
+                    "outputscale": torch.rand(3, **self.tkwargs),
+                    "mean": torch.randn(3, **self.tkwargs),
+                    "noise": torch.rand(3, **self.tkwargs),
+                }
+                model.surrogate.model.load_mcmc_samples(mcmc_samples)  # pyre-ignore
+                importances = model.feature_importances()
+                self.assertTrue(
+                    np.allclose(importances, np.array([6 / 13, 4 / 13, 3 / 13]))
+                )
+                self.assertEqual(importances.shape, (1, 1, 3))
+                saas_model = deepcopy(model.surrogate.model)
+            else:
+                model.surrogate.model.covar_module.base_kernel.lengthscale = (
+                    torch.tensor([1, 2, 3], **self.tkwargs)
+                )
+                importances = model.feature_importances()
+                self.assertTrue(
+                    np.allclose(importances, np.array([6 / 11, 3 / 11, 2 / 11]))
+                )
+                self.assertEqual(importances.shape, (1, 1, 3))
+                vanilla_model = deepcopy(model.surrogate.model)
+
+        # Mixed model
+        model.surrogate._model = ModelList(saas_model, vanilla_model)  # pyre-ignore
+        importances = model.feature_importances()
+        self.assertTrue(
+            np.allclose(
+                importances,
+                np.expand_dims(
+                    np.array([[6 / 13, 4 / 13, 3 / 13], [6 / 11, 3 / 11, 2 / 11]]),
+                    axis=1,
+                ),
+            )
+        )
+        self.assertEqual(importances.shape, (2, 1, 3))
+        # Add model we don't support
+        vanilla_model.covar_module.base_kernel = None
+        model.surrogate._model = vanilla_model  # pyre-ignore
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Failed to extract lengthscales from `m.covar_module.base_kernel`",
+        ):
+            model.feature_importances()
+        # Test model is None
+        model.surrogate._model = None
+        with self.assertRaisesRegex(
+            ValueError, "BoTorch `Model` has not yet been constructed"
+        ):
+            model.feature_importances()
+        # Test unsupported surrogate
+        model._surrogates = {"vanilla": None, "saas": None}
+        with self.assertRaisesRegex(
+            NotImplementedError, "Only support a single surrogate model for now"
+        ):
+            model.feature_importances()
 
     @fast_botorch_optimize
     def test_best_point(self) -> None:

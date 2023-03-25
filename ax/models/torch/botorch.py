@@ -9,7 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -37,10 +37,12 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.models import ModelList
 from botorch.models.model import Model
-from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.transforms import is_fully_bayesian
 from torch import Tensor
+from torch.nn import ModuleList  # @manual
 
 logger: Logger = get_logger(__name__)
 
@@ -518,24 +520,7 @@ class BotorchModel(TorchModel):
         )
 
     def feature_importances(self) -> np.ndarray:
-        if self.model is None:
-            raise RuntimeError(
-                "Cannot calculate feature_importances without a fitted model"
-            )
-        elif isinstance(self.model, ModelListGP):
-            models = self.model.models
-        else:
-            models = [self.model]
-        lengthscales = []
-        for m in models:
-            ls = m.covar_module.base_kernel.lengthscale
-            if ls.ndim == 2:
-                ls = ls.unsqueeze(0)
-            lengthscales.append(ls)
-        lengthscales = torch.cat(lengthscales, dim=0)
-        # pyre-fixme[16]: `float` has no attribute `detach`.
-        # pyre-fixme[58]: `/` is not supported for operand types `int` and `Tensor`.
-        return (1 / lengthscales).detach().cpu().numpy()
+        return get_feature_importances_from_botorch_model(model=self.model)
 
 
 def get_rounding_func(
@@ -553,3 +538,47 @@ def get_rounding_func(
             return X_round.view(*batch_shape, d)
 
     return botorch_rounding_func
+
+
+def get_feature_importances_from_botorch_model(
+    model: Union[Model, ModuleList, None],
+) -> np.ndarray:
+    """Get feature importances from a list of BoTorch models.
+
+    Args:
+        models: BoTorch model to get feature importances from.
+
+    Returns:
+        The feature importances as a numpy array where each row sums to 1.
+    """
+    if model is None:
+        raise RuntimeError(
+            "Cannot calculate feature_importances without a fitted model"
+        )
+    elif isinstance(model, ModelList):
+        models = model.models
+    else:
+        models = [model]
+    lengthscales = []
+    for m in models:
+        try:
+            ls = m.covar_module.base_kernel.lengthscale
+        except AttributeError:
+            ls = None
+        if ls is None or ls.shape[-1] != m.train_inputs[0].shape[-1]:
+            # TODO: We could potentially set the feature importances to NaN in this
+            # case, but this require knowing the batch dimension of this model.
+            # Consider supporting in the future.
+            raise NotImplementedError(
+                "Failed to extract lengthscales from `m.covar_module.base_kernel`"
+            )
+        if ls.ndim == 2:
+            ls = ls.unsqueeze(0)
+        if is_fully_bayesian(m):  # Take the median over the MCMC samples
+            ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
+        lengthscales.append(ls)
+    lengthscales = torch.cat(lengthscales, dim=0)
+    feature_importances = (1 / lengthscales).detach().cpu()  # pyre-ignore
+    # Make sure the sum of feature importances is 1.0 for each metric
+    feature_importances /= feature_importances.sum(dim=-1, keepdim=True)
+    return feature_importances.numpy()
