@@ -175,7 +175,10 @@ class SumConstraintTest(TestCase):
 
     def testProperties(self) -> None:
         self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
+        self.assertTrue(self.constraint1._is_upper_bound)
+
         self.assertEqual(self.constraint2.op, ComparisonOp.GEQ)
+        self.assertFalse(self.constraint2._is_upper_bound)
 
     def testRepr(self) -> None:
         self.assertEqual(str(self.constraint1), self.constraint_repr1)

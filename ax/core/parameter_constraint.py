@@ -205,6 +205,11 @@ class SumConstraint(ParameterConstraint):
         """Whether the sum is constrained by a <= or >= inequality."""
         return ComparisonOp.LEQ if self._is_upper_bound else ComparisonOp.GEQ
 
+    @property
+    def is_upper_bound(self) -> bool:
+        """Whether the bound is an upper or lower bound on the sum."""
+        return self._is_upper_bound
+
     def clone(self) -> SumConstraint:
         """Clone.
 
