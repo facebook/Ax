@@ -224,6 +224,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                     self.assertEqual(ckwargs["warmup_steps"], 512)
                     self.assertEqual(ckwargs["max_tree_depth"], 1)
                     self.assertTrue(ckwargs["disable_progbar"])
+                    self.assertFalse(ckwargs["jit_compile"])
                     self.assertEqual(ckwargs["use_input_warping"], use_input_warping)
                     self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
                     self.assertTrue(ckwargs["verbose"])
@@ -839,7 +840,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
                 #  attribute `assertIs`.
                 self.assertIs(ckwargs["pyro_model"], single_task_pyro_model)
-
+                self.assertFalse(ckwargs["jit_compile"])  # pyre-fixme[16]
                 # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
                 #  attribute `assertTrue`.
                 self.assertTrue(torch.equal(ckwargs["X"], Xs1[0]))
@@ -852,6 +853,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 self.assertEqual(ckwargs["warmup_steps"], 0)
                 self.assertEqual(ckwargs["max_tree_depth"], 1)
                 self.assertTrue(ckwargs["disable_progbar"])
+                self.assertFalse(ckwargs["jit_compile"])
                 self.assertEqual(ckwargs["use_input_warping"], use_input_warping)
                 self.assertEqual(ckwargs["gp_kernel"], gp_kernel)
                 self.assertTrue(ckwargs["verbose"])
@@ -956,8 +958,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             torch.Size([4, 1, 3]),
                         )
                     else:
-                        # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest`
-                        #  has no attribute `assertFalse`.
                         self.assertFalse(hasattr(m, "input_transform"))
 
     def test_FullyBayesianBotorchModelPyro_float(self) -> None:
