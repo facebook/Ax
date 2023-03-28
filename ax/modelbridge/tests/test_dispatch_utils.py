@@ -726,3 +726,42 @@ class TestDispatchUtils(TestCase):
             choose_generation_strategy(
                 search_space=search_space, experiment=experiment, use_update=True
             )
+
+    def test_jit_compile(self) -> None:
+        for jit_compile in (True, False):
+            with self.subTest(str(jit_compile)):
+                sobol_saasbo = choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    jit_compile=jit_compile,
+                    use_saasbo=True,
+                )
+                self.assertEqual(sobol_saasbo._steps[0].model, Models.SOBOL)
+                self.assertNotIn(
+                    "jit_compile",
+                    not_none(sobol_saasbo._steps[0].model_kwargs),
+                )
+                self.assertEqual(sobol_saasbo._steps[1].model, Models.FULLYBAYESIAN)
+                self.assertEqual(
+                    not_none(sobol_saasbo._steps[1].model_kwargs)["jit_compile"],
+                    jit_compile,
+                )
+
+    def test_jit_compile_for_non_saasbo_discards_the_model_kwarg(self) -> None:
+        for jit_compile in (True, False):
+            with self.subTest(str(jit_compile)):
+                gp_saasbo = choose_generation_strategy(
+                    search_space=get_branin_search_space(),
+                    jit_compile=jit_compile,
+                    use_saasbo=False,
+                )
+                self.assertEqual(len(gp_saasbo._steps), 2)
+                self.assertEqual(gp_saasbo._steps[0].model, Models.SOBOL)
+                self.assertNotIn(
+                    "jit_compile",
+                    not_none(gp_saasbo._steps[0].model_kwargs),
+                )
+                self.assertEqual(gp_saasbo._steps[1].model, Models.GPEI)
+                self.assertNotIn(
+                    "jit_compile",
+                    not_none(gp_saasbo._steps[1].model_kwargs),
+                )

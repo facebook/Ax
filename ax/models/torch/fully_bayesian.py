@@ -235,6 +235,7 @@ def _get_model_mcmc_samples(
     disable_progbar: bool = False,
     gp_kernel: str = "matern",
     verbose: bool = False,
+    jit_compile: bool = False,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     pyro_model: Callable = single_task_pyro_model,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
@@ -292,6 +293,7 @@ def _get_model_mcmc_samples(
                 verbose=verbose,
                 task_feature=task_feature,
                 rank=rank,
+                jit_compile=jit_compile,
             )
             mcmc_samples_list.append(mcmc_samples)
     return model, mcmc_samples_list
@@ -315,6 +317,7 @@ def get_and_fit_model_mcmc(
     disable_progbar: bool = False,
     gp_kernel: str = "matern",
     verbose: bool = False,
+    jit_compile: bool = False,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates a batched GPyTorchModel(ModelListGP) based on the given data and
@@ -339,6 +342,7 @@ def get_and_fit_model_mcmc(
         disable_progbar=disable_progbar,
         gp_kernel=gp_kernel,
         verbose=verbose,
+        jit_compile=jit_compile,
         pyro_model=single_task_pyro_model,
         get_gpytorch_model=_get_single_task_gpytorch_model,
     )
@@ -522,6 +526,7 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
         disable_progbar: bool = False,
         gp_kernel: str = "matern",
         verbose: bool = False,
+        jit_compile: bool = False,
         **kwargs: Any,
     ) -> None:
         """Initialize Fully Bayesian Botorch Model.
@@ -577,6 +582,7 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             disable_progbar=disable_progbar,
             gp_kernel=gp_kernel,
             verbose=verbose,
+            jit_compile=jit_compile,
         )
 
 
@@ -621,6 +627,7 @@ class FullyBayesianMOOBotorchModel(
         disable_progbar: bool = False,
         gp_kernel: str = "matern",
         verbose: bool = False,
+        jit_compile: bool = False,
         **kwargs: Any,
     ) -> None:
         # use_saas is deprecated. TODO: remove
@@ -645,4 +652,5 @@ class FullyBayesianMOOBotorchModel(
             disable_progbar=disable_progbar,
             gp_kernel=gp_kernel,
             verbose=verbose,
+            jit_compile=jit_compile,
         )

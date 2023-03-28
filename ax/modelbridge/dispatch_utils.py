@@ -77,6 +77,7 @@ def _make_botorch_step(
     should_deduplicate: bool = False,
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
+    jit_compile: Optional[bool] = None,
     derelativize_with_raw_status_quo: bool = False,
     use_update: Optional[bool] = None,
 ) -> GenerationStep:
@@ -111,6 +112,8 @@ def _make_botorch_step(
         model_kwargs.update({"verbose": verbose})
     if disable_progbar is not None:
         model_kwargs.update({"disable_progbar": disable_progbar})
+    if jit_compile is not None:
+        model_kwargs.update({"jit_compile": jit_compile})
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -296,6 +299,7 @@ def choose_generation_strategy(
     use_saasbo: bool = False,
     verbose: Optional[bool] = None,
     disable_progbar: Optional[bool] = None,
+    jit_compile: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
     use_update: Optional[bool] = None,
 ) -> GenerationStrategy:
@@ -387,6 +391,7 @@ def choose_generation_strategy(
             ``None``. Progress bars are currently only available for SAASBO, so if
             ``disable_probar is not None`` for a different model type, it will be
             overridden to ``None`` with a warning.
+        jit_compile: Whether to use jit compilation in Pyro when SAASBO is used.
         experiment: If specified, ``_experiment`` attribute of the generation strategy
             will be set to this experiment (useful for associating a generation
             strategy with a given experiment before it's first used to ``gen`` with
@@ -498,6 +503,12 @@ def choose_generation_strategy(
                 "non-SAASBO GP step."
             )
             disable_progbar = None
+        if jit_compile is not None and not model_is_saasbo:
+            logger.warning(
+                f"Overriding `jit_compile = {jit_compile}` to `None` for "
+                "non-SAASBO GP step."
+            )
+            jit_compile = None
 
         # Create `generation_strategy`, adding first Sobol step
         # if `num_remaining_initialization_trials` is > 0.
@@ -522,6 +533,7 @@ def choose_generation_strategy(
                 should_deduplicate=should_deduplicate,
                 verbose=verbose,
                 disable_progbar=disable_progbar,
+                jit_compile=jit_compile,
                 use_update=use_update,
             ),
         )
