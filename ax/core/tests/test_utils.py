@@ -19,10 +19,14 @@ from ax.core.utils import (
     best_feasible_objective,
     get_missing_metrics,
     get_missing_metrics_by_name,
+    get_model_times,
+    get_model_trace_of_times,
     MissingMetrics,
 )
 from ax.modelbridge.modelbridge_utils import feasible_hypervolume
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_robust_branin_experiment
+from pyre_extensions import none_throws
 
 
 class UtilsTest(TestCase):
@@ -185,3 +189,14 @@ class UtilsTest(TestCase):
             },
         )
         self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
+
+    def test_get_model_times(self) -> None:
+        exp = get_robust_branin_experiment(num_sobol_trials=2)
+        fit_times, gen_times = get_model_trace_of_times(exp)
+        total_fit_time, total_gen_time = get_model_times(exp)
+        fit_times_not_none = [none_throws(elt) for elt in fit_times]
+        gen_times_not_none = [none_throws(elt) for elt in gen_times]
+        self.assertTrue(all(elt >= 0 for elt in fit_times_not_none))
+        self.assertTrue(all(elt >= 0 for elt in gen_times_not_none))
+        self.assertEqual(sum(fit_times_not_none), total_fit_time)
+        self.assertEqual(sum(gen_times_not_none), total_gen_time)

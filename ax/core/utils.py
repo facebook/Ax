@@ -4,18 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Iterable, NamedTuple, Set, Tuple
+from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
+from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import OptimizationConfig
 
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 TArmTrial = Tuple[str, int]
 
@@ -148,21 +150,41 @@ def best_feasible_objective(  # pragma: no cover
     return accumulate(f)
 
 
+def _extract_generator_run(trial: BaseTrial) -> GeneratorRun:
+    if isinstance(trial, BatchTrial):
+        if len(trial.generator_run_structs) > 1:
+            raise NotImplementedError(
+                "Run time is not supported with multiple generator runs per trial."
+            )
+        return trial._generator_run_structs[0].generator_run
+    if isinstance(trial, Trial):
+        return none_throws(trial.generator_run)
+    raise ValueError("Unexpected trial type")  # pragma: no cover
+
+
+def get_model_trace_of_times(
+    experiment: Experiment,
+) -> Tuple[List[Optional[float]], List[Optional[float]]]:
+    """
+    Get time spent fitting the model and generating candidates during each trial.
+    Not cumulative.
+
+    Returns:
+        List of fit times, list of gen times.
+    """
+    generator_runs = [
+        _extract_generator_run(trial=trial) for trial in experiment.trials.values()
+    ]
+    fit_times = [gr.fit_time for gr in generator_runs]
+    gen_times = [gr.gen_time for gr in generator_runs]
+    return fit_times, gen_times
+
+
 def get_model_times(experiment: Experiment) -> Tuple[float, float]:  # pragma: no cover
     """Get total times spent fitting the model and generating candidates in the
     course of the experiment.
     """
-    fit_time = 0.0
-    gen_time = 0.0
-    for trial in experiment.trials.values():
-        if isinstance(trial, BatchTrial):  # pragma: no cover
-            gr = trial._generator_run_structs[0].generator_run
-        elif isinstance(trial, Trial):
-            gr = not_none(trial.generator_run)
-        else:
-            raise ValueError("Unexpected trial type")  # pragma: no cover
-        if gr.fit_time is not None:
-            fit_time += not_none(gr.fit_time)
-        if gr.gen_time is not None:
-            gen_time += not_none(gr.gen_time)
+    fit_times, gen_times = get_model_trace_of_times(experiment)
+    fit_time = sum((t for t in fit_times if t is not None))
+    gen_time = sum((t for t in gen_times if t is not None))
     return fit_time, gen_time
