@@ -213,8 +213,9 @@ class ModelBridge(ABC):
                 search_space=search_space,
                 observations=observations,
             )
-            self.fit_time += time.monotonic() - t_fit_start + time_so_far
-            self.fit_time_since_gen += self.fit_time
+            increment = time.monotonic() - t_fit_start + time_so_far
+            self.fit_time += increment
+            self.fit_time_since_gen += increment
         except NotImplementedError:
             pass
 
