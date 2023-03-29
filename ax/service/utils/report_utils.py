@@ -145,8 +145,8 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    max_num_slice_plots: int = 100,
-    max_num_contour_plots: int = 100,
+    max_num_slice_plots: int = 50,
+    max_num_contour_plots: int = 20,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
 
