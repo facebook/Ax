@@ -312,6 +312,29 @@ class BaseModelBridgeTest(TestCase):
             modelbridge.status_quo.features.parameters, {"x1": 0.0, "x2": 0.0}
         )
 
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    @mock.patch("ax.modelbridge.base.ModelBridge._gen", autospec=True)
+    def test_timing(self, mock_fit: Mock, mock_gen: Mock) -> None:
+        search_space = get_search_space_for_value()
+        modelbridge = ModelBridge(
+            search_space=search_space, model=Model(), fit_on_init=False
+        )
+        self.assertEqual(modelbridge.fit_time, 0.0)
+        modelbridge._fit_if_implemented(
+            search_space=search_space, observations=[], time_so_far=3.0
+        )
+        modelbridge._fit_if_implemented(
+            search_space=search_space, observations=[], time_so_far=2.0
+        )
+        modelbridge._fit_if_implemented(
+            search_space=search_space, observations=[], time_so_far=1.0
+        )
+        self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
+        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 6.0, places=3)
+        modelbridge.gen(1)
+        self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
+        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 0.0, places=3)
+
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
         autospec=True,
