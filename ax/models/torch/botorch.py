@@ -247,6 +247,7 @@ class BotorchModel(TorchModel):
     Ys: List[Tensor]
     Yvars: List[Tensor]
     model: Optional[Model]
+    _search_space_digest: Optional[SearchSpaceDigest] = None
 
     def __init__(
         self,
@@ -302,9 +303,10 @@ class BotorchModel(TorchModel):
     ) -> None:
         if len(datasets) == 0:
             raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
-        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
+        self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.metric_names = metric_names
-        self.Xs, self.Ys, self.Yvars = Xs, Ys, Yvars
+        # Store search space info for later use (e.g. during generation)
+        self._search_space_digest = search_space_digest
         self.dtype = self.Xs[0].dtype
         self.device = self.Xs[0].device
         self.task_features = normalize_indices(
@@ -521,6 +523,18 @@ class BotorchModel(TorchModel):
 
     def feature_importances(self) -> np.ndarray:
         return get_feature_importances_from_botorch_model(model=self.model)
+
+    @property
+    def search_space_digest(self) -> SearchSpaceDigest:
+        if self._search_space_digest is None:
+            raise RuntimeError(
+                "`search_space_digest` is not initialized. Please fit the model first."
+            )
+        return self._search_space_digest
+
+    @search_space_digest.setter
+    def search_space_digest(self, value: SearchSpaceDigest) -> None:
+        raise RuntimeError("Setting search_space_digest manually is disallowed.")
 
 
 def get_rounding_func(

@@ -67,17 +67,25 @@ class BotorchModelTest(TestCase):
             FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
             FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
+        with self.assertRaises(RuntimeError):
+            model.search_space_digest
+
+        search_space_digest = SearchSpaceDigest(
+            feature_names=fns,
+            bounds=bounds,
+            task_features=[0],
+        )
+        with self.assertRaises(RuntimeError):
+            model.search_space_digest = search_space_digest
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=datasets,
                 metric_names=["y", "w"],
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
-                    bounds=bounds,
-                    task_features=[0],
-                ),
+                search_space_digest=search_space_digest,
             )
+            self.assertTrue(isinstance(model.search_space_digest, SearchSpaceDigest))
+            self.assertEqual(model.search_space_digest, search_space_digest)
             _mock_fit_model.assert_called_once()
 
         # Check ranks
