@@ -4,16 +4,22 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+import numpy as np
 
 import torch
+
+from ax.modelbridge.torch import TorchModelBridge
+from ax.models.torch.botorch import BotorchModel
 from ax.utils.common.typeutils import checked_cast
 from botorch.models.model import Model
+from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
-from torch._tensor import Tensor
+from torch import Tensor
 
 
 class SobolSensitivity(object):
@@ -56,10 +62,12 @@ class SobolSensitivity(object):
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
         if input_qmc:
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.A = draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1).squeeze(1)
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.B = draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1).squeeze(1)
+            sobol_kwargs = {"bounds": bounds, "n": num_mc_samples, "q": 1}
+            seed_A, seed_B = 1234, 5678  # to make it reproducible
+            # pyre-ignore
+            self.A = draw_sobol_samples(**sobol_kwargs, seed=seed_A).squeeze(1)
+            # pyre-ignore
+            self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
         else:
             self.A = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
             self.B = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
@@ -526,9 +534,9 @@ class SobolSensitivityGPSampling(object):
 
         Returns:
             if num_bootstrap_samples>1
-                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim
+                Tensor: (values, var_gp, stderr_gp, var_mc, stderr_mc) x dim
             else
-                Tensor: (values,var,stderr)x dim
+                Tensor: (values, var, stderr) x dim
         """
         first_order_idxs_list = []
         for j in range(self.num_gp_samples):
@@ -581,9 +589,9 @@ class SobolSensitivityGPSampling(object):
 
         Returns:
             if num_bootstrap_samples>1
-                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim
+                Tensor: (values, var_gp, stderr_gp, var_mc, stderr_mc) x dim
             else
-                Tensor: (values,var,stderr)x dim
+                Tensor: (values, var, stderr) x dim
         """
         total_order_idxs_list = []
         for j in range(self.num_gp_samples):
@@ -632,9 +640,9 @@ class SobolSensitivityGPSampling(object):
 
         Returns:
             if num_bootstrap_samples>1
-                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim(dim-1)/2
+                Tensor: (values, var_gp, stderr_gp, var_mc, stderr_mc) x dim(dim-1) / 2
             else
-                Tensor: (values,var,stderr)x dim(dim-1)/2
+                Tensor: (values, var, stderr) x dim(dim-1) / 2
         """
         if not (self.bootstrap):
             second_order_idxs_list = []
@@ -693,3 +701,103 @@ class SobolSensitivityGPSampling(object):
                 dim=0,
             )
             return second_order_idxs_mean_vargp_segp_varmc_segp
+
+
+def compute_sobol_indices_from_model_list(
+    model_list: List[Model],
+    bounds: Tensor,
+    order: str = "first",
+    **sobol_kwargs: Any,
+) -> Tensor:
+    """
+    Computes Sobol indices of a list of models on a bounded domain.
+
+    Args:
+        model_list: A list of botorch.models.model.Model types for which to compute
+            the Sobol indices.
+        bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
+        order: A string specifying the order of the Sobol indices to be computed.
+            Supports "first" and "total" and defaults to "first".
+        sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean.
+
+    Returns:
+        With m GPs, returns a (m x d) tensor of `order`-order Sobol indices.
+    """
+    indices = []
+    method = getattr(SobolSensitivityGPMean, f"{order}_order_indices")
+    for model in model_list:
+        sens_class = SobolSensitivityGPMean(
+            model=model,
+            bounds=bounds,
+            **sobol_kwargs,
+        )
+        indices.append(method(sens_class))
+    return torch.stack(indices)
+
+
+def ax_parameter_sens(
+    model_bridge: TorchModelBridge,
+    metrics: Optional[List[str]] = None,
+    order: str = "first",
+    **sobol_kwargs: Any,
+) -> Dict[str, Dict[str, np.ndarray]]:
+    """
+    Compute sensitivity for all metrics on an TorchModelBridge.
+
+    Args:
+        model_bridge: A ModelBridge object with models that were fit.
+        metrics: The names of the metrics and outcomes for which to compute
+            sensitivities. This should preferably be metrics with a good model fit.
+            Defaults to model_bridge.outcomes.
+        order: A string specifying the order of the Sobol indices to be computed.
+            Supports "first" and "total" and defaults to "first".
+        sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean.
+
+    Returns:
+        Dictionary {'metric_name': {'parameter_name': sensitivity_value}}, where the
+            `sensitivity` value is cast to a Numpy array in order to be compatible with
+            `plot_feature_importance_by_feature`.
+    """
+    if metrics is None:
+        metrics = model_bridge.outcomes
+    if not isinstance(model_bridge, TorchModelBridge):
+        raise NotImplementedError(
+            f"{type(model_bridge) = } but only TorchModelBridge is supported."
+        )
+    torch_model = model_bridge.model  # should be of type TorchModel
+    if not isinstance(torch_model, BotorchModel):  # TODO: support ModularBoTorchModel
+        raise NotImplementedError(
+            f"{type(model_bridge.model) = } but only BotorchModel is supported."
+        )
+    # can safely access _search_space_digest after type check
+    digest = torch_model.search_space_digest
+    params = digest.feature_names
+    gp_model = torch_model.model  # gp_model is assumed to be a ModelListGP
+    if not isinstance(gp_model, ModelListGP):  # could we allow batched models?
+        raise NotImplementedError(
+            f"{type(model_bridge.model.model) = } but only ModelListGP is supported."
+        )
+    model_idx = [model_bridge.outcomes.index(m) for m in metrics]
+    model_list = [gp_model.models[i] for i in model_idx]
+    ind = compute_sobol_indices_from_model_list(
+        model_list=model_list,
+        bounds=torch.tensor(digest.bounds).T,  # transposing to make it 2 x d
+        order=order,
+        **sobol_kwargs,
+    )
+    return _array_with_string_indices_to_dict(rows=metrics, cols=params, A=ind.numpy())
+
+
+def _array_with_string_indices_to_dict(
+    rows: List[str], cols: List[str], A: np.ndarray
+) -> Dict[str, Dict[str, np.ndarray]]:
+    """
+    Args:
+        - rows: A list of strings with which to index rows of A.
+        - cols: A list of strings with which to index columns of A.
+        - A: A matrix, with `len(rows)` rows and `len(cols)` columns.
+
+    Returns:
+        A dictionary dict that satisfies dict[rows[i]][cols[j]] = A[i, j].
+    """
+    return {r: dict(zip(cols, a)) for r, a in zip(rows, A)}
