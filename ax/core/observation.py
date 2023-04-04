@@ -270,9 +270,11 @@ def _observations_from_dataframe(
     Returns:
         List of Observation objects.
     """
+    if len(cols) == 0:
+        return []
     observations = []
     abandoned_arms_dict = {}
-    for g, d in df.groupby(by=cols):
+    for g, d in df.groupby(by=cols if len(cols) > 1 else cols[0]):
         obs_kwargs = {}
         if arm_name_only:
             features = {"arm_name": g}
@@ -492,7 +494,11 @@ def observations_from_map_data(
         incomplete_df = None
     else:
         # The groupby and filter is expensive, so do it only if we have to.
-        grouped = map_data.map_df.groupby(by=complete_feature_cols)
+        grouped = map_data.map_df.groupby(
+            by=complete_feature_cols
+            if len(complete_feature_cols) > 1
+            else complete_feature_cols[0]
+        )
         complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
         incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())
 
