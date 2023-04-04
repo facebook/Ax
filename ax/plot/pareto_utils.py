@@ -129,7 +129,7 @@ def _extract_sq_data(
         sq_df = data.df[
             data.df["arm_name"] == experiment.status_quo.name  # pyre-ignore
         ]
-        for metric, metric_df in sq_df.groupby(["metric_name"]):
+        for metric, metric_df in sq_df.groupby("metric_name"):
             sq_means[metric] = metric_df["mean"].values[0]
             sq_sems[metric] = metric_df["sem"].values[0]
     return sq_means, sq_sems
