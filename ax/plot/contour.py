@@ -156,6 +156,7 @@ def plot_contour_plotly(
         generator_runs_dict=generator_runs_dict,
         density=density,
         slice_values=slice_values,
+        fixed_features=fixed_features,
     )
     config = {
         "arm_data": data,
