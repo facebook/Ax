@@ -41,7 +41,7 @@ class TestScheduler(TestCase):
             arms_per_trial=1,
             early_stopping_strategy_cls=None,
             global_stopping_strategy_cls=None,
-            transformed_dimensionality=-1,
+            transformed_dimensionality=2,
         )
         self.assertEqual(record, expected)
 
@@ -58,7 +58,7 @@ class TestScheduler(TestCase):
             "arms_per_trial": 1,
             "early_stopping_strategy_cls": None,
             "global_stopping_strategy_cls": None,
-            "transformed_dimensionality": -1,
+            "transformed_dimensionality": 2,
         }
         self.assertEqual(flat, expected_dict)
 

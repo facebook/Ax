@@ -14,9 +14,12 @@ from functools import partial
 
 from logging import Logger
 from typing import (
+    Any,
     Callable,
     Dict,
+    Iterable,
     List,
+    Mapping,
     MutableMapping,
     Optional,
     Tuple,
@@ -55,7 +58,7 @@ from ax.core.search_space import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TBounds, TCandidateMetadata
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
@@ -1420,3 +1423,31 @@ def _unpack_observations(
         obs_data.append(ob.data)
         arm_names.append(ob.arm_name)
     return obs_feats, obs_data, arm_names
+
+
+def transform_search_space(
+    search_space: SearchSpace,
+    transforms: Iterable[Type[Transform]],
+    transform_configs: Mapping[str, Any],
+) -> SearchSpace:
+    """
+    Apply all given transforms to a copy of the SearchSpace iteratively.
+    """
+    search_space = search_space.clone()
+
+    for t in transforms:
+        try:
+            t_instance = t(
+                search_space=search_space,
+                observations=[],
+                modelbridge=None,
+                config=transform_configs.get(t.__name__),
+            )
+
+            search_space = t_instance.transform_search_space(search_space=search_space)
+        except DataRequiredError:
+            # Skip this transform if data is required. Data is only required for
+            # transforms that operate on Observations.
+            pass
+
+    return search_space

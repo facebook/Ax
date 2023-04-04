@@ -12,8 +12,9 @@ from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.risk_measures import RiskMeasure
-from ax.core.search_space import RobustSearchSpace
+from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.modelbridge_utils import (
@@ -22,7 +23,9 @@ from ax.modelbridge.modelbridge_utils import (
     extract_robust_digest,
     feasible_hypervolume,
     RISK_MEASURE_NAME_TO_CLASS,
+    transform_search_space,
 )
+from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_robust_search_space, get_search_space
@@ -211,3 +214,56 @@ class TestModelBridgeUtils(TestCase):
             },
         )
         self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
+
+    def test_get_transformed_dimensionality(self) -> None:
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="range",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=1,
+                    upper=8,
+                ),
+                ChoiceParameter(
+                    name="choice",
+                    parameter_type=ParameterType.INT,
+                    values=[11, 18, 1998],
+                    is_ordered=False,
+                ),
+            ]
+        )
+
+        transformed_search_space = transform_search_space(
+            search_space=search_space,
+            transforms=Cont_X_trans + Y_trans,
+            transform_configs={},
+        )
+
+        expected = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="range", parameter_type=ParameterType.FLOAT, lower=0, upper=1
+                ),
+                RangeParameter(
+                    name="choice_OH_PARAM__0",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0,
+                    upper=1,
+                ),
+                RangeParameter(
+                    name="choice_OH_PARAM__1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0,
+                    upper=1,
+                ),
+                RangeParameter(
+                    name="choice_OH_PARAM__2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0,
+                    upper=1,
+                ),
+            ],
+            parameter_constraints=[],
+        )
+
+        self.assertEqual(transformed_search_space, expected)
