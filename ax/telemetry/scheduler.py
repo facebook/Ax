@@ -6,7 +6,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type
+
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+
+from ax.modelbridge.modelbridge_utils import (
+    extract_search_space_digest,
+    transform_search_space,
+)
+from ax.modelbridge.registry import ModelRegistryBase, SearchSpace
+from ax.modelbridge.transforms.base import Transform
 
 from ax.service.scheduler import Scheduler
 
@@ -62,7 +71,10 @@ class SchedulerCreatedRecord:
                 if scheduler.options.global_stopping_strategy is None
                 else scheduler.options.global_stopping_strategy.__class__.__name__
             ),
-            transformed_dimensionality=-1,  # TODO[T147907632]
+            transformed_dimensionality=_get_max_transformed_dimensionality(
+                search_space=scheduler.experiment.search_space,
+                generation_strategy=scheduler.generation_strategy,
+            ),
         )
 
     def flatten(self) -> Dict[str, Any]:
@@ -122,3 +134,64 @@ class SchedulerCompletedRecord:
             **self_dict,
             **experiment_completed_record_dict,
         }
+
+
+def _get_max_transformed_dimensionality(
+    search_space: SearchSpace, generation_strategy: GenerationStrategy
+) -> int:
+    """
+    Get dimensionality of transformed SearchSpace for all steps in the
+    GenerationStrategy and return the maximum.
+    """
+
+    transforms_by_step = [
+        _extract_transforms_and_configs(step=step)
+        for step in generation_strategy._steps
+    ]
+
+    transformed_search_spaces = [
+        transform_search_space(
+            search_space=search_space,
+            transforms=transforms,
+            transform_configs=transform_configs,
+        )
+        for transforms, transform_configs in transforms_by_step
+    ]
+
+    # The length of the bounds of a SearchSpaceDigest is equal to the number of
+    # dimensions present.
+    dimensionalities = [
+        len(
+            extract_search_space_digest(
+                search_space=tf_search_space,
+                param_names=list(tf_search_space.parameters.keys()),
+            ).bounds
+        )
+        for tf_search_space in transformed_search_spaces
+    ]
+
+    return max(dimensionalities)
+
+
+def _extract_transforms_and_configs(
+    step: GenerationStep,
+) -> Tuple[List[Type[Transform]], Dict[str, Any]]:
+    """
+    Extract Transforms and their configs from the GenerationStep. Prefer kwargs
+    provided over the model's defaults.
+    """
+
+    kwargs = step.model_spec.model_kwargs or {}
+    transforms = kwargs.get("transforms")
+    transform_configs = kwargs.get("transform_configs")
+
+    if transforms is not None and transform_configs is not None:
+        return transforms, transform_configs
+
+    model = step.model
+    if isinstance(model, ModelRegistryBase):
+        _, bridge_kwargs = model.view_defaults()
+        transforms = transforms or bridge_kwargs.get("transforms")
+        transform_configs = transform_configs or bridge_kwargs.get("transform_configs")
+
+    return (transforms or [], transform_configs or {})
