@@ -4,7 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional
+
+from typing import Any, Callable, cast, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -12,13 +13,14 @@ import torch
 
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.utils.common.typeutils import checked_cast
 from botorch.models.model import Model
-from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
+from gpytorch.models import IndependentModelList
 from torch import Tensor
 
 
@@ -386,7 +388,7 @@ def ProbitLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
 class SobolSensitivityGPMean(object):
     def __init__(
         self,
-        model: Model,
+        model: Model,  # TODO: narrow type down. E.g. ModelListGP does not work.
         bounds: torch.Tensor,
         num_mc_samples: int = 10**4,
         second_order: bool = False,
@@ -760,32 +762,68 @@ def ax_parameter_sens(
     """
     if metrics is None:
         metrics = model_bridge.outcomes
-    if not isinstance(model_bridge, TorchModelBridge):
-        raise NotImplementedError(
-            f"{type(model_bridge) = } but only TorchModelBridge is supported."
-        )
-    torch_model = model_bridge.model  # should be of type TorchModel
-    if not isinstance(torch_model, BotorchModel):  # TODO: support ModularBoTorchModel
-        raise NotImplementedError(
-            f"{type(model_bridge.model) = } but only BotorchModel is supported."
-        )
     # can safely access _search_space_digest after type check
+    torch_model = _get_torch_model(model_bridge)
     digest = torch_model.search_space_digest
-    params = digest.feature_names
-    gp_model = torch_model.model  # gp_model is assumed to be a ModelListGP
-    if not isinstance(gp_model, ModelListGP):  # could we allow batched models?
-        raise NotImplementedError(
-            f"{type(model_bridge.model.model) = } but only ModelListGP is supported."
-        )
-    model_idx = [model_bridge.outcomes.index(m) for m in metrics]
-    model_list = [gp_model.models[i] for i in model_idx]
     ind = compute_sobol_indices_from_model_list(
-        model_list=model_list,
+        model_list=_get_model_per_metric(torch_model, metrics),
         bounds=torch.tensor(digest.bounds).T,  # transposing to make it 2 x d
         order=order,
         **sobol_kwargs,
     )
-    return _array_with_string_indices_to_dict(rows=metrics, cols=params, A=ind.numpy())
+    return _array_with_string_indices_to_dict(
+        rows=metrics, cols=digest.feature_names, A=ind.numpy()
+    )
+
+
+def _get_torch_model(
+    model_bridge: TorchModelBridge,
+) -> Union[BotorchModel, ModularBoTorchModel]:
+    """Returns the TorchModel of the model_bridge, if it is a type that stores
+    SearchSpaceDigest during model fitting. At this point, this is BotorchModel, and
+    ModularBoTorchModel.
+    """
+    if not isinstance(model_bridge, TorchModelBridge):
+        raise NotImplementedError(
+            f"{type(model_bridge) = }, but only TorchModelBridge is supported."
+        )
+    model = model_bridge.model  # should be of type TorchModel
+    if not (isinstance(model, BotorchModel) or isinstance(model, ModularBoTorchModel)):
+        raise NotImplementedError(
+            f"{type(model_bridge.model) = }, but only "
+            "Union[BotorchModel, ModularBoTorchModel] is supported."
+        )
+    return model
+
+
+def _get_model_per_metric(
+    model: Union[BotorchModel, ModularBoTorchModel], metrics: List[str]
+) -> List[Model]:
+    """For a given TorchModel model, returns a list of botorch.models.model.Model
+    objects corresponding to - and in the same order as - the given metrics.
+    """
+    if isinstance(model, BotorchModel):
+        # guaranteed not to be None after accessing search_space_digest
+        gp_model = cast(Model, model.model)
+        model_idx = [model.metric_names.index(m) for m in metrics]
+        if not isinstance(gp_model, IndependentModelList):
+            if gp_model.num_outputs == 1:  # can accept single output models
+                return [gp_model for _ in model_idx]
+            raise NotImplementedError(
+                f"type(model_bridge.model.model) = {type(gp_model)}, "
+                "but only IndependentModelList is supported."
+            )
+        return [gp_model.models[i] for i in model_idx]
+    else:  # isinstance(model, ModularBoTorchModel):
+        model_list = []
+        for m in metrics:
+            for label, outcomes in model.outcomes_by_surrogate_label.items():
+                if m in outcomes:
+                    metric_model = model.surrogates[label].model
+                    # if metric_model.num_outputs > 1:
+                    #     raise RuntimeError("Batched models currently not supported.")
+                    model_list.append(metric_model)
+        return model_list
 
 
 def _array_with_string_indices_to_dict(
