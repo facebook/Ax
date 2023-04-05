@@ -405,13 +405,13 @@ class Surrogate(Base):
                     [
                         "covar_module",
                         self.covar_module_class,
-                        self.covar_module_options,
+                        deepcopy(self.covar_module_options),
                         None,
                     ],
                     [
                         "likelihood",
                         self.likelihood_class,
-                        self.likelihood_options,
+                        deepcopy(self.likelihood_options),
                         None,
                     ],
                     [

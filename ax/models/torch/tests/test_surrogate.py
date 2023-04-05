@@ -10,7 +10,6 @@ from typing import Any, Dict, Tuple, Type
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -21,6 +20,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
@@ -49,6 +49,7 @@ from gpytorch.likelihoods import (  # noqa: F401
 )
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from torch import Tensor
+from torch.nn import ModuleList  # @manual
 
 
 ACQUISITION_PATH = f"{Acquisition.__module__}"
@@ -68,6 +69,7 @@ class SurrogateTest(TestCase):
     def setUp(self) -> None:
         self.device = torch.device("cpu")
         self.dtype = torch.float
+        self.tkwargs = {"device": self.device, "dtype": self.dtype}
         self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype
         )
@@ -136,6 +138,72 @@ class SurrogateTest(TestCase):
             refit=self.refit,
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
+
+    @fast_botorch_optimize
+    def test_copy_options(self) -> None:
+        training_data = [
+            SupervisedDataset(X=self.Xs[0], Y=self.Ys[0]),
+            SupervisedDataset(X=2 * self.Xs[0], Y=2 * self.Ys[0]),
+        ]
+        d = self.Xs[0].shape[-1]
+        surrogate = Surrogate(
+            botorch_model_class=SingleTaskGP,
+            likelihood_class=GaussianLikelihood,
+            likelihood_options={"noise_constraint": GreaterThan(1e-3)},
+            mll_class=ExactMarginalLogLikelihood,
+            covar_module_class=ScaleKernel,
+            covar_module_options={"base_kernel": MaternKernel(ard_num_dims=d)},
+            input_transform=Normalize(d=d),
+            outcome_transform=Standardize(m=1),
+            allow_batched_models=False,
+        )
+        surrogate.fit(
+            datasets=training_data,
+            metric_names=["m1", "m2"],
+            search_space_digest=self.search_space_digest,
+            refit=True,
+        )
+        models = checked_cast(ModuleList, surrogate.model.models)
+        # Change the lengthscales of one model and make sure the other isn't changed
+        models[0].covar_module.base_kernel.lengthscale += 1
+        self.assertTrue(
+            torch.allclose(
+                models[0].covar_module.base_kernel.lengthscale,
+                models[1].covar_module.base_kernel.lengthscale + 1.0,  # pyre-ignore
+            )
+        )
+        # Test the same thing with the likelihood noise constraint
+        models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound.fill_(1e-4)
+        self.assertEqual(
+            models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-4
+        )
+        self.assertEqual(
+            models[1].likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-3
+        )
+        # Check input transform
+        self.assertTrue(
+            torch.allclose(
+                models[0].input_transform.offset,
+                torch.tensor([1, 2, 3], **self.tkwargs),
+            )
+        )
+        self.assertTrue(
+            torch.allclose(
+                models[1].input_transform.offset,
+                torch.tensor([2, 4, 6], **self.tkwargs),
+            )
+        )
+        # Check outcome transform
+        self.assertTrue(
+            torch.allclose(
+                models[0].outcome_transform.means, torch.tensor([3.5], **self.tkwargs)
+            )
+        )
+        self.assertTrue(
+            torch.allclose(
+                models[1].outcome_transform.means, torch.tensor([7], **self.tkwargs)
+            )
+        )
 
     def test_botorch_transforms(self) -> None:
         # Successfully passing down the transforms
