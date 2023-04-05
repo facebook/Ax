@@ -410,6 +410,12 @@ class SurrogateTest(TestCase):
             )
             # Checking that model is None before `fit` (and `construct`) calls.
             self.assertIsNone(surrogate._model)
+            with self.assertRaisesRegex(RuntimeError, "outcomes not initialized."):
+                surrogate.outcomes
+            with self.assertRaisesRegex(
+                RuntimeError, "Setting outcomes manually is disallowed."
+            ):
+                surrogate.outcomes = self.metric_names
             # Should instantiate mll and `fit_gpytorch_mll` when `state_dict`
             # is `None`.
             surrogate.fit(
@@ -446,7 +452,7 @@ class SurrogateTest(TestCase):
                 refit=self.refit,
                 original_metric_names=self.original_metric_names,
             )
-            self.assertEqual(surrogate._outcomes, self.original_metric_names)
+            self.assertEqual(surrogate.outcomes, self.original_metric_names)
             mock_state_dict.reset_mock()
             mock_MLL.reset_mock()
             mock_fit.reset_mock()

@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from copy import deepcopy
 from typing import Dict
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
@@ -262,12 +262,21 @@ class BoTorchModelTest(TestCase):
     def test_fit(self, mock_fit: Mock) -> None:
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogates = {}
+        with self.assertRaises(RuntimeError):
+            self.model.search_space_digest  # can't access before fit
+
+        with self.assertRaises(RuntimeError):  # can't manually assign
+            self.model.search_space_digest = self.mf_search_space_digest
+
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
+
+        self.assertIsInstance(self.model.search_space_digest, SearchSpaceDigest)
+        self.assertEqual(self.model.search_space_digest, self.mf_search_space_digest)
 
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
@@ -288,6 +297,16 @@ class BoTorchModelTest(TestCase):
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )
+        # since Surrogate.fit is mocked, it didn't actually assign the outcomes
+        with patch.object(
+            self.model.surrogate,
+            "_outcomes",
+            self.metric_names,
+        ):
+            labels_to_outcomes = self.model.outcomes_by_surrogate_label
+        self.assertIsInstance(labels_to_outcomes, dict)
+        self.assertEqual(len(labels_to_outcomes), 1)
+        self.assertEqual(next(iter(labels_to_outcomes.values())), self.metric_names)
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.update")
     def test_update(self, mock_update: Mock) -> None:

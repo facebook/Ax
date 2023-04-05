@@ -4,8 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import cast, List
-from unittest.mock import patch
+from typing import cast
+from unittest.mock import patch, PropertyMock
 
 import torch
 from ax.modelbridge.base import ModelBridge
@@ -16,6 +16,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import GpDGSMGpMean, GpDGSMGpSampling
 from ax.utils.sensitivity.sobol_measures import (
+    _get_model_per_metric,
     ax_parameter_sens,
     compute_sobol_indices_from_model_list,
     ProbitLinkMean,
@@ -23,17 +24,16 @@ from ax.utils.sensitivity.sobol_measures import (
     SobolSensitivityGPSampling,
 )
 from ax.utils.testing.core_stubs import get_branin_experiment
-from botorch.models.gpytorch import GPyTorchModel
-from botorch.models.model import Model
+from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
-def get_modelbridge() -> ModelBridge:
+def get_modelbridge(modular: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return Models.BOTORCH(
+    return (Models.BOTORCH_MODULAR if modular else Models.BOTORCH)(
         # Model bridge kwargs
         experiment=exp,
         data=exp.fetch_data(),
@@ -192,53 +192,65 @@ class SensitivityAnanlysisTest(TestCase):
                 )
 
         # testing ax sensitivity utils
-        model_bridge = cast(TorchModelBridge, get_modelbridge())
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "but only TorchModelBridge is supported",
-        ):
-            # pyre-ignore
-            ax_parameter_sens(1, model_bridge.outcomes)
-
-        with patch.object(model_bridge, "model", return_value=None):
+        # model_bridge = cast(TorchModelBridge, get_modelbridge())
+        for modular in [False, True]:
+            model_bridge = cast(TorchModelBridge, get_modelbridge(modular=modular))
             with self.assertRaisesRegex(
                 NotImplementedError,
-                "but only BotorchModel is supported",
+                "but only TorchModelBridge is supported",
             ):
-                ax_parameter_sens(model_bridge, model_bridge.outcomes)
+                # pyre-ignore
+                ax_parameter_sens(1, model_bridge.outcomes)
 
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "but only ModelListGP is supported",
-        ):
-            ax_parameter_sens(model_bridge, model_bridge.outcomes)
+            with patch.object(model_bridge, "model", return_value=None):
+                with self.assertRaisesRegex(
+                    NotImplementedError,
+                    r"but only Union\[BotorchModel, ModularBoTorchModel\] is supported",
+                ):
+                    ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-        torch_model = cast(BotorchModel, model_bridge.model)
-        gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
-        torch_model.model = gpytorch_model
-        for order in ["first", "total"]:
-            with self.subTest(order=order):
-                ind_dict = ax_parameter_sens(
-                    model_bridge,
-                    input_qmc=True,
-                    num_mc_samples=num_mc_samples,
-                    order=order,
-                )
-                self.assertIsInstance(ind_dict, dict)
+            torch_model = cast(BotorchModel, model_bridge.model)
+            if not modular:
+                with self.assertRaisesRegex(
+                    NotImplementedError,
+                    "but only IndependentModelList is supported",
+                ):
+                    # only applies if the number of outputs of model is greater than 1
+                    with patch.object(
+                        BatchedMultiOutputGPyTorchModel,
+                        "num_outputs",
+                        new_callable=PropertyMock,
+                    ) as mock:
+                        mock.return_value = 2
+                        ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-                ind_tensor = compute_sobol_indices_from_model_list(
-                    cast(List[Model], gpytorch_model.models),
-                    torch.tensor(torch_model.search_space_digest.bounds).T,
-                    input_qmc=True,
-                    num_mc_samples=num_mc_samples,
-                    order=order,
-                )
-                self.assertIsInstance(ind_tensor, Tensor)
+                # since only IndependentModelList is supported for BotorchModel:
+                gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
+                torch_model.model = gpytorch_model
 
-                # can compare values because we sample with deterministic seeds
-                for i, rows in enumerate(ind_dict):
-                    for j, cols in enumerate(ind_dict[rows]):
-                        self.assertAlmostEqual(ind_dict[rows][cols], ind_tensor[i, j])
+            for order in ["first", "total"]:
+                with self.subTest(order=order):
+                    ind_dict = ax_parameter_sens(
+                        model_bridge,
+                        input_qmc=True,
+                        num_mc_samples=num_mc_samples,
+                        order=order,
+                    )
+                    self.assertIsInstance(ind_dict, dict)
+
+                    ind_tnsr = compute_sobol_indices_from_model_list(
+                        _get_model_per_metric(torch_model, model_bridge.outcomes),
+                        torch.tensor(torch_model.search_space_digest.bounds).T,
+                        input_qmc=True,
+                        num_mc_samples=num_mc_samples,
+                        order=order,
+                    )
+                    self.assertIsInstance(ind_tnsr, Tensor)
+
+                    # can compare values because we sample with deterministic seeds
+                    for i, row in enumerate(ind_dict):
+                        for j, col in enumerate(ind_dict[row]):
+                            self.assertAlmostEqual(ind_dict[row][col], ind_tnsr[i, j])
 
     def testSobolGpSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()

@@ -147,13 +147,13 @@ class Surrogate(Base):
                 "BoTorch `Model` has not yet been constructed, please fit the "
                 "surrogate first (done via `BoTorchModel.fit`)."
             )
-        return not_none(self._model)
+        return self._model
 
     @property
     def training_data(self) -> List[SupervisedDataset]:
         if self._training_data is None:
             raise ValueError(NOT_YET_FIT_MSG)
-        return not_none(self._training_data)
+        return self._training_data
 
     @property
     def Xs(self) -> List[Tensor]:
@@ -799,3 +799,13 @@ class Surrogate(Base):
             submodel_input_transforms = self.input_transform
 
         return list(fidelity_features), task_feature, submodel_input_transforms
+
+    @property
+    def outcomes(self) -> List[str]:
+        if self._outcomes is None:
+            raise RuntimeError("outcomes not initialized. Please call `fit` first.")
+        return self._outcomes
+
+    @outcomes.setter
+    def outcomes(self, value: List[str]) -> None:
+        raise RuntimeError("Setting outcomes manually is disallowed.")

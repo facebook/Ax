@@ -31,7 +31,7 @@ from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.deterministic import FixedSingleSampleModel
@@ -236,7 +236,7 @@ class BoTorchModel(TorchModel, Base):
         """
         if not self._botorch_acqf_class:
             raise ValueError("BoTorch `AcquisitionFunction` has not yet been set.")
-        return not_none(self._botorch_acqf_class)
+        return self._botorch_acqf_class
 
     def fit(
         self,
@@ -437,20 +437,17 @@ class BoTorchModel(TorchModel, Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
     ) -> TorchGenResults:
-        if self._search_space_digest is None:
-            raise RuntimeError("Must `fit` the model before calling `gen`.")
         acq_options, opt_options = construct_acquisition_and_optimizer_options(
             acqf_options=self.acquisition_options,
             model_gen_options=torch_opt_config.model_gen_options,
         )
         # update bounds / target fidelities
-        search_space_digest = not_none(
-            dataclasses.replace(
-                self._search_space_digest,
-                bounds=search_space_digest.bounds,
-                target_fidelities=search_space_digest.target_fidelities or {},
-            )
+        search_space_digest = dataclasses.replace(
+            self.search_space_digest,
+            bounds=search_space_digest.bounds,
+            target_fidelities=search_space_digest.target_fidelities or {},
         )
+
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -687,3 +684,23 @@ class BoTorchModel(TorchModel, Base):
             raise NotImplementedError("Only support a single surrogate model for now")
         surrogate = self.surrogates[Keys.ONLY_SURROGATE]
         return get_feature_importances_from_botorch_model(model=surrogate.model)
+
+    @property
+    def search_space_digest(self) -> SearchSpaceDigest:
+        if self._search_space_digest is None:
+            raise RuntimeError(
+                "`search_space_digest` is not initialized. Must `fit` the model first."
+            )
+        return self._search_space_digest
+
+    @search_space_digest.setter
+    def search_space_digest(self, value: SearchSpaceDigest) -> None:
+        raise RuntimeError("Setting search_space_digest manually is disallowed.")
+
+    @property
+    def outcomes_by_surrogate_label(self) -> Dict[str, List[str]]:
+        """Retuns a dictionary mapping from surrogate label to a list of outcomes."""
+        outcomes_by_surrogate_label = {}
+        for k, v in self.surrogates.items():
+            outcomes_by_surrogate_label[k] = v.outcomes
+        return outcomes_by_surrogate_label
