@@ -357,7 +357,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
             second, Base, "Second argument is not a subclass of Ax `Base`."
         )
         if (
-            first._eq_skip_db_id_check(other=second)
+            not first._eq_skip_db_id_check(other=second)
             if skip_db_id_check
             else first != second
         ):
