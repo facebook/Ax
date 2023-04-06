@@ -475,17 +475,17 @@ def get_fully_bayesian_acqf_nehvi(
 
 
 class FullyBayesianBotorchModelMixin:
-    model: Optional[Model] = None
+    _model: Optional[Model] = None
 
     def feature_importances(self) -> np.ndarray:
-        if self.model is None:
+        if self._model is None:
             raise RuntimeError(
                 "Cannot calculate feature_importances without a fitted model"
             )
-        elif isinstance(self.model, ModelListGP):
-            models = self.model.models
+        elif isinstance(self._model, ModelListGP):
+            models = self._model.models
         else:
-            models = [self.model]
+            models = [self._model]
         lengthscales = []
         for m in models:
             ls = m.covar_module.base_kernel.lengthscale

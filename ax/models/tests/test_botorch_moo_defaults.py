@@ -214,7 +214,7 @@ class BotorchMOODefaultsTest(TestCase):
             get_NEHVI(
                 # pyre-fixme[6]: For 1st param expected `Model` but got
                 #  `Optional[Model]`.
-                model=model.model,
+                model=model._model,
                 objective_weights=weights,
                 objective_thresholds=objective_thresholds,
             )

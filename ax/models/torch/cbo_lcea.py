@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast, Dict, List, Optional, Tuple, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -184,3 +184,7 @@ class LCEABO(BotorchModel):
             model = ModelListGP(*models)
         model.to(Xs[0])
         return model
+
+    @property
+    def model(self) -> Union[LCEAGP, ModelListGP]:
+        return cast(Union[LCEAGP, ModelListGP], super().model)

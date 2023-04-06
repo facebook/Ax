@@ -147,7 +147,6 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
-        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
@@ -250,7 +249,6 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
-        # pyre-fixme[16]: Optional type has no attribute `input_transform`.
         self.assertIsInstance(model.model.input_transform, Warp)
 
         # test loocv pseudo likelihood
@@ -283,7 +281,6 @@ class MaxValueEntropySearchTest(TestCase):
         # test acquisition setting
         X_dummy = torch.ones(1, 3, **self.tkwargs)
         candidate_set = torch.rand(10, 3, **self.tkwargs)
-        # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
         acq_function = _instantiate_MES(model=model.model, candidate_set=candidate_set)
 
         self.assertIsInstance(acq_function, qMaxValueEntropy)
@@ -295,7 +292,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertEqual(acq_function.maximize, True)
 
         acq_function = _instantiate_MES(
-            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             candidate_set=candidate_set,
             X_pending=X_dummy,
@@ -318,7 +314,6 @@ class MaxValueEntropySearchTest(TestCase):
 
         candidate_set = torch.rand(10, 3, **self.tkwargs)
         acq_function = _instantiate_MES(
-            # pyre-fixme[6]: For 1st param expected `Model` but got `Optional[Model]`.
             model=model.model,
             candidate_set=candidate_set,
             target_fidelities={2: 1.0},
@@ -332,8 +327,6 @@ class MaxValueEntropySearchTest(TestCase):
         # test error that target fidelity and fidelity weight indices must match
         with self.assertRaises(RuntimeError):
             _instantiate_MES(
-                # pyre-fixme[6]: For 1st param expected `Model` but got
-                #  `Optional[Model]`.
                 model=model.model,
                 candidate_set=candidate_set,
                 target_fidelities={1: 1.0},

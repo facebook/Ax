@@ -11,7 +11,7 @@ from contextlib import ExitStack
 from itertools import product
 from logging import Logger
 from math import sqrt
-from typing import Any, Dict, Type
+from typing import Any, cast, Dict, Type
 from unittest import mock
 
 import pyro
@@ -33,8 +33,10 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP
 from botorch.models.gp_regression import MIN_INFERRED_NOISE_LEVEL
+from botorch.models.model import ModelList
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
+from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.utils import get_objective_weights_transform
 from botorch.utils.datasets import FixedNoiseDataset
 from gpytorch.constraints import GreaterThan, Positive
@@ -172,7 +174,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 )
 
                 # Check that there are no unexpected constraints on the hyperparameters
-                for _, m in enumerate(model.model.models):  # pyre-fixme[16]
+                for _, m in enumerate(cast(ModelList, model.model).models):
                     if inferred_noise:
                         noise_covar = m.likelihood.noise_covar
                         self.assertEqual(  # pyre-fixme[16]
@@ -240,7 +242,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                     # Check fitting
                     # Note each model in the model list is a batched model, where
                     # the batch dim corresponds to the MCMC samples
-                    model_list = model.model.models
+                    model_list = cast(ModelList, model.model).models
                     # Put model in `eval` mode to transform the train inputs.
                     m = model_list[i].eval()
                     # check mcmc samples
@@ -416,8 +418,9 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 )
 
             # Check the hyperparameters and shapes
-            self.assertEqual(len(model.model.models), 2)
-            m1, m2 = model.model.models[0], model.model.models[1]
+            models = cast(ModelList, model.model).models
+            self.assertEqual(len(models), 2)
+            m1, m2 = models
             # Mean
             self.assertEqual(m1.mean_module.constant.shape, (4,))
             self.assertFalse(
@@ -446,20 +449,17 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             infeasible_cost = (
                 get_infeasible_cost(
                     X=Xs1[0],
-                    # pyre-fixme[6]: For 2nd param expected `Model` but got
-                    #  `Optional[Model]`.
                     model=model.model,
                     objective=objective_transform,
                 )
                 .detach()
                 .clone()
             )
+            posterior = cast(GPyTorchPosterior, model.model.posterior(Xs1[0]))
             expected_infeasible_cost = -1 * torch.min(
                 # pyre-fixme[20]: Argument `1` expected.
                 objective_transform(
-                    # pyre-fixme[16]: Optional type has no attribute `posterior`.
-                    model.model.posterior(Xs1[0]).mean
-                    - 6 * model.model.posterior(Xs1[0]).variance.sqrt()
+                    posterior.mean - 6 * posterior.variance.sqrt()
                 ).min(),
                 torch.tensor(0.0, dtype=dtype, device=device),
             )
@@ -906,8 +906,7 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 )
 
                 for m, X, Y, Yvar in zip(
-                    # pyre-fixme[16]: Optional type has no attribute `models`.
-                    model.model.models,
+                    cast(ModelList, model.model).models,
                     Xs1 + Xs2,
                     Ys1 + Ys2,
                     Yvars1 + Yvars2,
@@ -1016,8 +1015,7 @@ class SingleObjectiveFullyBayesianBotorchModelTest(
             f_mean, f_cov = model.predict(X)
             self.assertTrue(f_mean.shape == torch.Size([2, 1]))
             self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
-            # pyre-fixme[16]: Optional type has no attribute `models`.
-            model_list = model.model.models
+            model_list = cast(ModelList, model.model).models
             self.assertTrue(len(model_list) == 1)
             if use_input_warping:
                 self.assertTrue(hasattr(model_list[0], "input_transform"))

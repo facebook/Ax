@@ -318,7 +318,7 @@ class ModelRegistryTest(TestCase):
             )
             # Botorch model equality is tough to compare and training data
             # is unnecessary to compare, because data passed to model was the same
-            if key in ["model", "warm_start_refitting", "Xs", "Ys"]:
+            if key in ["_model", "warm_start_refitting", "Xs", "Ys"]:
                 continue
             self.assertEqual(original, restored)
 
