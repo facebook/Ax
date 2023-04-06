@@ -5,7 +5,7 @@
 
 from copy import deepcopy
 
-from typing import Any, Callable, cast, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -804,7 +804,7 @@ def _get_model_per_metric(
     """
     if isinstance(model, BotorchModel):
         # guaranteed not to be None after accessing search_space_digest
-        gp_model = cast(Model, model.model)
+        gp_model = model.model
         model_idx = [model.metric_names.index(m) for m in metrics]
         if not isinstance(gp_model, IndependentModelList):
             if gp_model.num_outputs == 1:  # can accept single output models

@@ -104,7 +104,7 @@ class MaxValueEntropySearch(BotorchModel):
         # subset model only to the outcomes we need for the optimization
         if options.get("subset_model", True):
             subset_model_results = subset_model(
-                model=model,  # pyre-ignore [6]
+                model=model,
                 objective_weights=torch_opt_config.objective_weights,
                 outcome_constraints=torch_opt_config.outcome_constraints,
             )
@@ -131,7 +131,7 @@ class MaxValueEntropySearch(BotorchModel):
         candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
         acq_function = _instantiate_MES(
-            model=model,  # pyre-ignore [6]
+            model=model,
             candidate_set=candidate_set,
             num_fantasies=num_fantasies,
             num_trace_observations=options.get("num_trace_observations", 0),

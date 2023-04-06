@@ -35,7 +35,7 @@ from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
@@ -246,7 +246,7 @@ class BotorchModel(TorchModel):
     Xs: List[Tensor]
     Ys: List[Tensor]
     Yvars: List[Tensor]
-    model: Optional[Model]
+    _model: Optional[Model]
     _search_space_digest: Optional[SearchSpaceDigest] = None
 
     def __init__(
@@ -283,7 +283,7 @@ class BotorchModel(TorchModel):
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
         self.prior = prior
-        self.model: Optional[Model] = None
+        self._model: Optional[Model] = None
         self.Xs = []
         self.Ys = []
         self.Yvars = []
@@ -315,7 +315,7 @@ class BotorchModel(TorchModel):
         self.fidelity_features = normalize_indices(
             search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
         )
-        self.model = self.model_constructor(  # pyre-ignore [28]
+        self._model = self.model_constructor(  # pyre-ignore [28]
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
@@ -360,7 +360,7 @@ class BotorchModel(TorchModel):
         # subset model only to the outcomes we need for the optimization	357
         if options.get(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
-                model=model,  # pyre-ignore [6]
+                model=model,
                 objective_weights=torch_opt_config.objective_weights,
                 outcome_constraints=torch_opt_config.outcome_constraints,
             )
@@ -468,8 +468,8 @@ class BotorchModel(TorchModel):
         X_test: Tensor,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
-        if self.model is None:
-            raise RuntimeError("Cannot cross-validate model that has not been fitted")
+        if self._model is None:
+            raise RuntimeError("Cannot cross-validate model that has not been fitted.")
         if self.refit_on_cv:
             state_dict = None
         else:
@@ -497,8 +497,8 @@ class BotorchModel(TorchModel):
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         **kwargs: Any,
     ) -> None:
-        if self.model is None:
-            raise RuntimeError("Cannot update model that has not been fitted")
+        if self._model is None:
+            raise RuntimeError("Cannot update model that has not been fitted.")
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.Xs = Xs
         self.Ys = Ys
@@ -506,8 +506,8 @@ class BotorchModel(TorchModel):
         if self.refit_on_update and not self.warm_start_refitting:
             state_dict = None  # pragma: no cover
         else:
-            state_dict = deepcopy(not_none(self.model).state_dict())
-        self.model = self.model_constructor(  # pyre-ignore: [28]
+            state_dict = deepcopy(self.model.state_dict())
+        self._model = self.model_constructor(  # pyre-ignore: [28]
             Xs=self.Xs,
             Ys=self.Ys,
             Yvars=self.Yvars,
@@ -522,7 +522,7 @@ class BotorchModel(TorchModel):
         )
 
     def feature_importances(self) -> np.ndarray:
-        return get_feature_importances_from_botorch_model(model=self.model)
+        return get_feature_importances_from_botorch_model(model=self._model)
 
     @property
     def search_space_digest(self) -> SearchSpaceDigest:
@@ -535,6 +535,18 @@ class BotorchModel(TorchModel):
     @search_space_digest.setter
     def search_space_digest(self, value: SearchSpaceDigest) -> None:
         raise RuntimeError("Setting search_space_digest manually is disallowed.")
+
+    @property
+    def model(self) -> Model:
+        if self._model is None:
+            raise RuntimeError(
+                "`model` is not initialized. Please fit the model first."
+            )
+        return self._model
+
+    @model.setter
+    def model(self, model: Model) -> None:
+        self._model = model  # there are a few places that set model directly
 
 
 def get_rounding_func(
@@ -567,7 +579,8 @@ def get_feature_importances_from_botorch_model(
     """
     if model is None:
         raise RuntimeError(
-            "Cannot calculate feature_importances without a fitted model"
+            "Cannot calculate feature_importances without a fitted model."
+            "Call `fit` first."
         )
     elif isinstance(model, ModelList):
         models = model.models

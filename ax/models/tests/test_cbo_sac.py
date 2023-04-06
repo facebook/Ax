@@ -5,11 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from typing import cast
+
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.cbo_sac import SACBO, SACGP
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.models.contextual import LCEAGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import FixedNoiseDataset
 
@@ -76,8 +79,9 @@ class SACBOTest(TestCase):
                 bounds=[(0.0, 1.0) for _ in range(4)],
             ),
         )
-        # pyre-fixme[16]: Optional type has no attribute `decomposition`.
-        self.assertDictEqual(m2.model.decomposition, {"1": [0, 2], "2": [1, 3]})
+        self.assertDictEqual(
+            cast(LCEAGP, m2.model).decomposition, {"1": [0, 2], "2": [1, 3]}
+        )
 
         # test decomposition validation in get_and_fit_model
         # the feature_names is not passed

@@ -262,10 +262,10 @@ class BoTorchModelTest(TestCase):
     def test_fit(self, mock_fit: Mock) -> None:
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogates = {}
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(RuntimeError, "is not initialized. Must `fit`"):
             self.model.search_space_digest  # can't access before fit
 
-        with self.assertRaises(RuntimeError):  # can't manually assign
+        with self.assertRaisesRegex(RuntimeError, "manually is disallowed"):
             self.model.search_space_digest = self.mf_search_space_digest
 
         self.model.fit(

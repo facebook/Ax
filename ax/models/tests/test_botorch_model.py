@@ -6,7 +6,7 @@
 
 import dataclasses
 from itertools import chain, product
-from typing import Any, Dict
+from typing import Any, cast, Dict
 from unittest import mock
 
 import numpy as np
@@ -67,7 +67,10 @@ class BotorchModelTest(TestCase):
             FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
             FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(RuntimeError, "Please fit the model first"):
+            model.model
+
+        with self.assertRaisesRegex(RuntimeError, "Please fit the model first"):
             model.search_space_digest
 
         search_space_digest = SearchSpaceDigest(
@@ -75,7 +78,7 @@ class BotorchModelTest(TestCase):
             bounds=bounds,
             task_features=[0],
         )
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(RuntimeError, "manually is disallowed"):
             model.search_space_digest = search_space_digest
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -88,9 +91,9 @@ class BotorchModelTest(TestCase):
             self.assertEqual(model.search_space_digest, search_space_digest)
             _mock_fit_model.assert_called_once()
 
+        model.model = model.model  # property assignment isn't blocked
         # Check ranks
-        # pyre-fixme[16]: Optional type has no attribute `models`.
-        model_list = model.model.models
+        model_list = cast(ModelListGP, model.model).models
         self.assertEqual(model_list[0]._rank, 2)
         self.assertEqual(model_list[1]._rank, 1)
 
@@ -133,8 +136,7 @@ class BotorchModelTest(TestCase):
             _mock_fit_model.assert_called_once()
 
         # Check ranks
-        # pyre-fixme[16]: Optional type has no attribute `models`.
-        model_list = model.model.models
+        model_list = cast(ModelListGP, model.model).models
         for i in range(1):
             self.assertEqual(
                 model_list[i].covar_module.base_kernel.lengthscale_prior.concentration,
@@ -219,8 +221,7 @@ class BotorchModelTest(TestCase):
                 self.assertIsInstance(model.model, ModelListGP)
 
                 # Check fitting
-                # pyre-fixme[16]: Optional type has no attribute `models`.
-                model_list = model.model.models
+                model_list = cast(ModelListGP, model.model).models
                 self.assertTrue(torch.equal(model_list[0].train_inputs[0], Xs1[0]))
                 self.assertTrue(torch.equal(model_list[1].train_inputs[0], Xs2_diff[0]))
                 self.assertTrue(
@@ -499,17 +500,24 @@ class BotorchModelTest(TestCase):
 
             # test unfit model CV, update, and feature_importances
             unfit_model = BotorchModel()
-            with self.assertRaises(RuntimeError):
+            with self.assertRaisesRegex(
+                RuntimeError, r"Cannot cross-validate model that has not been fitted"
+            ):
                 unfit_model.cross_validate(
                     datasets=combined_datasets,
                     metric_names=["y1", "y2"],
                     X_test=Xs1[0],
                 )
-            with self.assertRaises(RuntimeError):
+            with self.assertRaisesRegex(
+                RuntimeError, r"Cannot update model that has not been fitted"
+            ):
                 unfit_model.update(
                     datasets=combined_datasets, metric_names=["y1", "y2"]
                 )
-            with self.assertRaises(RuntimeError):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                r"Cannot calculate feature_importances without a fitted model",
+            ):
                 unfit_model.feature_importances()
 
             # Test loading state dict
@@ -636,7 +644,6 @@ class BotorchModelTest(TestCase):
             self.assertTrue(f_cov.shape == torch.Size([2, 1, 1]))
             if use_input_warping:
                 self.assertTrue(hasattr(model.model, "input_transform"))
-                # pyre-fixme[16]: Optional type has no attribute `input_transform`.
                 self.assertIsInstance(model.model.input_transform, Warp)
             else:
                 self.assertFalse(hasattr(model.model, "input_transform"))
@@ -714,3 +721,9 @@ class BotorchModelTest(TestCase):
             "Failed to extract lengthscales from `m.covar_module.base_kernel`",
         ):
             get_feature_importances_from_botorch_model(simple_gp)
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Cannot calculate feature_importances without a fitted model",
+        ):
+            get_feature_importances_from_botorch_model(None)
