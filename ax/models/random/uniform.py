@@ -22,8 +22,19 @@ class UniformGenerator(RandomModel):
 
     """
 
-    def __init__(self, deduplicate: bool = True, seed: Optional[int] = None) -> None:
-        super().__init__(deduplicate=deduplicate, seed=seed)
+    def __init__(
+        self,
+        deduplicate: bool = True,
+        seed: Optional[int] = None,
+        generated_points: Optional[np.ndarray] = None,
+        fallback_to_sample_polytope: bool = False,
+    ) -> None:
+        super().__init__(
+            deduplicate=deduplicate,
+            seed=seed,
+            generated_points=generated_points,
+            fallback_to_sample_polytope=fallback_to_sample_polytope,
+        )
         self._rs = np.random.RandomState(seed=self.seed)
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
