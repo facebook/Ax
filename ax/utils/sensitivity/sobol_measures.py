@@ -110,16 +110,17 @@ class SobolSensitivity(object):
         self.first_order_idxs_btsp: Optional[torch.Tensor] = None
 
     def generate_all_input_matrix(self) -> torch.Tensor:
-        A_B_ABi = torch.cat((self.A, self.B), dim=0)
+        A_B_ABi_list = [self.A, self.B]
         for i in range(self.dim):
             AB_i = deepcopy(self.A)
             AB_i[:, i] = self.B[:, i]
-            A_B_ABi = torch.cat((A_B_ABi, AB_i), dim=0)
+            A_B_ABi_list.append(AB_i)
         if self.second_order:
             for i in range(self.dim):
                 BA_i = deepcopy(self.B)
                 BA_i[:, i] = self.A[:, i]
-                A_B_ABi = torch.cat((A_B_ABi, BA_i), dim=0)
+                A_B_ABi_list.append(BA_i)
+        A_B_ABi = torch.cat(A_B_ABi_list, dim=0)
         return A_B_ABi
 
     def evalute_function(self, f_A_B_ABi: Optional[torch.Tensor] = None) -> None:
