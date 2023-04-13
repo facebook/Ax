@@ -6,7 +6,7 @@
 
 import itertools
 from collections import namedtuple
-from logging import WARN
+from logging import INFO, WARN
 from typing import Dict, List
 from unittest.mock import patch
 
@@ -324,12 +324,16 @@ class ReportUtilsTest(TestCase):
         )
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
-        plots = get_standard_plots(
-            experiment=exp,
-            model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
-        )
-        self.assertEqual(len(plots), 6)
-        self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+        model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+        for gsa in [False, True]:
+            with self.subTest(global_sensitivity_analysis=gsa):
+                plots = get_standard_plots(
+                    experiment=exp,
+                    model=model,
+                    global_sensitivity_analysis=gsa,
+                )
+                self.assertEqual(len(plots), 6)
+                self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
     @fast_botorch_optimize
     def test_get_standard_plots_moo(self) -> None:
@@ -347,15 +351,23 @@ class ReportUtilsTest(TestCase):
             ),
         ]
         exp.trials[0].run()
-        with self.assertLogs(logger="ax", level=WARN) as log:
+        # NOTE: level set to INFO in this block, because the global sensitivity
+        # analysis raises an INFO level log entry here. Leaving level=WARN here
+        # actually passes on Python 3.8 because of a language internal bug. See
+        # https://bugs.python.org/issue41943 for more information.
+        with self.assertLogs(logger="ax", level=INFO) as log:
             plots = get_standard_plots(
                 experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
             )
-            self.assertEqual(len(log.output), 1)
+            self.assertEqual(len(log.output), 2)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
                 log.output[0],
+            )
+            self.assertIn(
+                "Failed to compute global feature sensitivities:",
+                log.output[1],
             )
         self.assertEqual(len(plots), 6)
 

@@ -40,6 +40,7 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
+from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
 from ax.plot.feature_importances import plot_feature_importance_by_feature_plotly
@@ -61,6 +62,7 @@ from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasi
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from pandas.core.frame import DataFrame
 
 if TYPE_CHECKING:
@@ -284,6 +286,7 @@ def get_standard_plots(
     true_objective_metric_name: Optional[str] = None,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
     limit_points_per_plot: Optional[int] = None,
+    global_sensitivity_analysis: bool = True,
 ) -> List[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
@@ -303,7 +306,9 @@ def get_standard_plots(
             experiment; used for visualizing when curves are stopped.
         - limit_points_per_plot: Limit the number of points used per metric in
             each curve plot. Passed to `_get_curve_plot_dropdown`.
-
+        - global_sensitivity_analysis: If True, plot total Sobol indices for the model
+            parameters. If False, plot sensitivities based on GP kernel lengthscales.
+            Defaults to True.
     Returns:
         - a plot of objective value vs. trial index, to show experiment progression
         - a plot of objective value vs. range parameter values, only included if the
@@ -379,8 +384,25 @@ def get_standard_plots(
                 )
             )
             output_plot_list.extend(_get_cross_validation_plots(model=model))
+
+            # sensitivity plot
+            sens = None
+            importance_measure = ""
+            if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
+                try:
+                    sens = ax_parameter_sens(model, order="total")
+                    importance_measure = "Total Sobol Indices"
+                except NotImplementedError as e:
+                    logger.info(f"Failed to compute global feature sensitivities: {e}")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
-                model=model, relative=False, caption=FEATURE_IMPORTANCE_CAPTION
+                model=model,
+                # pyre-ignore [6]: In call for argument `sensitivity_values`,
+                # expected `Optional[Dict[str, Dict[str, Union[float, ndarray]]]]`
+                # but got `Dict[str, Dict[str, ndarray]]`.
+                sensitivity_values=sens,
+                relative=False,
+                caption=FEATURE_IMPORTANCE_CAPTION if importance_measure == "" else "",
+                importance_measure=importance_measure,
             )
             feature_importance_plot.layout.title = "[ADVANCED] " + str(
                 # pyre-fixme[16]: go.Figure has no attribute `layout`
