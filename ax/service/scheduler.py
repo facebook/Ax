@@ -389,9 +389,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # ----------------- User-defined, optional. -----------------
 
     def completion_criterion(self) -> Tuple[bool, str]:
-        """Optional stopping criterion for optimization, which checks
-        of whether `total_trials` trials have been run and checks whether
-        the global_stopping_strategy suggests stopping the optimization.
+        """Optional stopping criterion for optimization, which checks whether
+        ``total_trials`` trials have been run or the ``global_stopping_strategy``
+        suggests stopping the optimization.
 
         Returns:
             A boolean representing whether the optimization should be stopped,
@@ -422,14 +422,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         if self.options.total_trials is None:
             # We validate that `total_trials` is set in `run_all_trials`,
-            # so it will not run infinitely.
+            # so it will not run indefinitely.
             return False, ""
 
-        expecting_data = sum(  # Number of `RUNNING` + `COMPLETED` trials
-            1 for t in self.experiment.trials.values() if t.status.expecting_data
-        )
-        should_stop = expecting_data >= not_none(self.options.total_trials)
-        return should_stop, "Exceeding the total number of trials."
+        num_trials = len(self.experiment.trials)
+        should_stop = num_trials >= not_none(self.options.total_trials)
+        message = "Exceeding the total number of trials." if should_stop else ""
+        return should_stop, message
 
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
