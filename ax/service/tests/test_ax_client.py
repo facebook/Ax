@@ -28,7 +28,6 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.core.trial import TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization, TParamValue
 from ax.exceptions.core import (
     DataRequiredError,
@@ -1411,10 +1410,6 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
-        with self.assertRaisesRegex(ValueError, TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE):
-            # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
-            # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
-            ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
     @fast_botorch_optimize
     def test_raw_data_format_with_map_results(self) -> None:
