@@ -399,8 +399,9 @@ class BestPointMixin(metaclass=ABCMeta):
         )
         optimization_config = tf.transform_optimization_config(
             optimization_config=optimization_config.clone(),
-            # pyre-ignore -- experiment works here since we only need the status quo.
-            modelbridge=experiment,
+            modelbridge=get_tensor_converter_model(
+                experiment=experiment, data=experiment.lookup_data()
+            ),
             fixed_features=None,
         )
 

@@ -5,8 +5,13 @@
 
 from unittest.mock import Mock
 
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+import pandas as pd
 
+from ax.core.arm import Arm
+from ax.core.data import Data
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.trial import Trial
+from ax.exceptions.core import DataRequiredError
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -55,6 +60,29 @@ class TestBestPointMixin(TestCase):
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
             constrained=True,
         )
+        self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
+
+        # W/ relative constraints & status quo.
+        exp.status_quo = Arm(parameters={"x": 0.5, "y": 0.5}, name="status_quo")
+        exp.optimization_config.outcome_constraints[0].bound = 1.0
+        exp.optimization_config.outcome_constraints[0].relative = True
+        # Fails if there's no data for status quo.
+        with self.assertRaisesRegex(DataRequiredError, "relative constraint"):
+            get_trace(exp)
+        # Add data for status quo.
+        trial = Trial(experiment=exp).add_arm(arm=exp.status_quo)
+        df_dict = [
+            {
+                "trial_index": trial.index,
+                "metric_name": m,
+                "arm_name": "status_quo",
+                "mean": 0.0,
+                "sem": 0.0,
+            }
+            for m in ["m1", "m2", "m3"]
+        ]
+        status_quo_data = Data(df=pd.DataFrame.from_records(df_dict))
+        exp.attach_data(data=status_quo_data)
         self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
 
         # W/ first objective being minimized.
