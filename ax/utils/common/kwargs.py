@@ -9,10 +9,12 @@ from inspect import Parameter, signature
 from logging import Logger
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+import typeguard
 from ax.utils.common.logger import get_logger
-from typeguard import check_type
+from typeguard import check_type, TypeCheckError
 
 logger: Logger = get_logger(__name__)
+typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS
 
 TKwargs = Dict[str, Any]
 
@@ -82,8 +84,8 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
                     # if the keyword is a callable, we only do shallow checks
                     if not (callable(kw_val) and callable(param.annotation)):
                         try:
-                            check_type(kw, kw_val, param.annotation)
-                        except TypeError:
+                            check_type(kw_val, param.annotation)
+                        except TypeCheckError:
                             message = (
                                 f"`{typed_callable}` expected argument `{kw}` to be of"
                                 f" type {param.annotation}. Got {kw_val}"

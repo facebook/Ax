@@ -7,8 +7,11 @@
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
-from typeguard import check_type
+import typeguard
+from typeguard import check_type, TypeCheckError
 
+
+typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -83,9 +86,9 @@ def checked_cast_complex(typ: Type[T], val: V, message: Optional[str] = None) ->
     .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
     """
     try:
-        check_type("val", val, typ)
+        check_type(val, typ)
         return cast(T, val)
-    except TypeError:
+    except TypeCheckError:
         raise ValueError(message or f"Value was not of type {typ}: {val}")
 
 
