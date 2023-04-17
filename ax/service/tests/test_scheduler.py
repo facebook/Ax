@@ -9,8 +9,8 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
-from unittest.mock import patch
+from typing import Any, Callable, Dict, Iterable, Optional, Set
+from unittest.mock import Mock, patch
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -58,6 +58,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_multi_objective_optimization_config,
     get_branin_search_space,
     get_generator_run,
+    get_sobol,
 )
 
 from pyre_extensions import none_throws
@@ -85,13 +86,7 @@ class TestScheduler(Scheduler):
     testing.
     """
 
-    # pyre-fixme[15]: `report_results` overrides method defined in `Scheduler`
-    #  inconsistently.
-    def report_results(
-        self, force_refit: bool = False
-    ) -> Tuple[bool, Dict[str, Set[int]]]:
-        # pyre-fixme[7]: Expected `Tuple[bool, Dict[str, Set[int]]]` but got
-        #  `Dict[str, Set[int]]`.
+    def report_results(self, force_refit: bool = False) -> Dict[str, Any]:
         return {
             # Use `set` constructor to copy the set, else the value
             # will be a pointer and all will be the same.
@@ -107,8 +102,9 @@ class TestScheduler(Scheduler):
 class EarlyStopsInsteadOfNormalCompletionScheduler(TestScheduler):
     """Test scheduler that marks all trials as ones that should be early-stopped."""
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def should_stop_trials_early(self, trial_indices: Set[int]):
+    def should_stop_trials_early(
+        self, trial_indices: Set[int]
+    ) -> Dict[int, Optional[str]]:
         return {i: None for i in trial_indices}
 
 
@@ -150,16 +146,18 @@ class NoReportResultsRunner(SyntheticRunner):
 
 
 class InfinitePollRunner(SyntheticRunner):
-    # pyre-fixme[3]: Return type must be annotated.
-    def poll_trial_status(self, trials: Iterable[BaseTrial]):
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
         return {}
 
 
 class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
     poll_trial_status_count = 0
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def poll_trial_status(self, trials: Iterable[BaseTrial]):
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
         self.poll_trial_status_count += 1
 
         # In the first step, don't complete any trials
@@ -177,11 +175,7 @@ class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
-    # pyre-fixme[14]: `run_multiple` overrides method defined in `Runner`
-    #  inconsistently.
-    # pyre-fixme[15]: `run_multiple` overrides method defined in `Runner`
-    #  inconsistently.
-    def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
+    def run_multiple(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
         self.run_trial_call_count += 1
         raise ValueError("Failing for testing purposes.")
 
@@ -190,11 +184,7 @@ class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
-    # pyre-fixme[14]: `run_multiple` overrides method defined in `Runner`
-    #  inconsistently.
-    # pyre-fixme[15]: `run_multiple` overrides method defined in `Runner`
-    #  inconsistently.
-    def run_multiple(self, trials: List[BaseTrial]) -> Dict[str, Any]:
+    def run_multiple(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
         self.run_trial_call_count += 1
         raise RuntimeError("Failing for testing purposes.")
 
@@ -353,9 +343,7 @@ class TestAxScheduler(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
         return_value=[get_generator_run()],
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_run_multi_arm_generator_run_error(self, mock_gen):
+    def test_run_multi_arm_generator_run_error(self, mock_gen: Mock) -> None:
         scheduler = Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
@@ -372,9 +360,9 @@ class TestAxScheduler(TestCase):
         ),
         side_effect=get_pending_observation_features_based_on_trial_status,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_run_all_trials_using_runner_and_metrics(self, mock_get_pending):
+    def test_run_all_trials_using_runner_and_metrics(
+        self, mock_get_pending: Mock
+    ) -> None:
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -440,9 +428,11 @@ class TestAxScheduler(TestCase):
         scheduler.run_all_trials(idle_callback=write_n_trials)
         self.assertTrue(trials_info["n_completed"] == n_total_trials)
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    def base_run_n_trials(self, idle_callback: Optional[Callable[[Scheduler], Any]]):
+    def base_run_n_trials(
+        self,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+        idle_callback: Optional[Callable[[Scheduler], Any]],
+    ) -> None:
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -978,8 +968,7 @@ class TestAxScheduler(TestCase):
         f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
         side_effect=OptimizationComplete("test error"),
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_optimization_complete(self, _):
+    def test_optimization_complete(self, _) -> None:
         # With runners & metrics, `Scheduler.run_all_trials` should run.
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -1003,9 +992,7 @@ class TestAxScheduler(TestCase):
     @patch(
         f"{WithDBSettingsBase.__module__}._save_experiment", side_effect=StaleDataError
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_suppress_all_storage_errors(self, mock_save_exp, _):
+    def test_suppress_all_storage_errors(self, mock_save_exp: Mock, _) -> None:
         init_test_engine_and_session_factory(force_init=True)
         config = SQAConfig()
         encoder = Encoder(config=config)
@@ -1194,3 +1181,33 @@ class TestAxScheduler(TestCase):
                 )
             )
             self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
+
+    def test_completion_criterion(self) -> None:
+        # Tests non-GSS parts of the completion criterion.
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_GPEI_GS,
+            options=SchedulerOptions(
+                total_trials=None,
+            ),
+        )
+        # With total_trials=None.
+        should_stop, message = scheduler.completion_criterion()
+        self.assertFalse(should_stop)
+        self.assertEqual(message, "")
+
+        # With total_trials=5.
+        scheduler.options = SchedulerOptions(total_trials=5)
+        # Experiment has fewer trials.
+        should_stop, message = scheduler.completion_criterion()
+        self.assertFalse(should_stop)
+        self.assertEqual(message, "")
+        # Experiment has 5 trials.
+        sobol_generator = get_sobol(search_space=self.branin_experiment.search_space)
+        for _ in range(5):
+            sobol_run = sobol_generator.gen(n=1)
+            self.branin_experiment.new_trial(generator_run=sobol_run)
+        self.assertEqual(len(self.branin_experiment.trials), 5)
+        should_stop, message = scheduler.completion_criterion()
+        self.assertTrue(should_stop)
+        self.assertEqual(message, "Exceeding the total number of trials.")
