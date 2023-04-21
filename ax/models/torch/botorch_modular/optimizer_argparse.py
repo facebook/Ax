@@ -47,7 +47,8 @@ optimizer_argparse = Dispatcher(
 @optimizer_argparse.register(AcquisitionFunction)
 def _argparse_base(
     acqf: MaybeType[AcquisitionFunction],
-    num_restarts: int = 40,
+    sequential: bool = True,
+    num_restarts: int = 20,
     raw_samples: int = 1024,
     init_batch_limit: int = 32,
     batch_limit: int = 5,
@@ -64,6 +65,7 @@ def _argparse_base(
 
     Args:
         acqf: The acquisition function being optimized.
+        sequential: Whether we choose one candidate at a time in a sequential manner.
         num_restarts: The number of starting points for multistart acquisition
             function optimization.
         raw_samples: The number of samples for initialization.
@@ -91,6 +93,7 @@ def _argparse_base(
     if optimizer_is_discrete:
         return optimizer_options
     return {
+        "sequential": sequential,
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,
         "options": {
@@ -128,7 +131,7 @@ def _argparse_kg(
     acqf: qKnowledgeGradient,
     q: int,
     bounds: torch.Tensor,
-    num_restarts: int = 40,
+    num_restarts: int = 20,
     raw_samples: int = 1024,
     frac_random: float = 0.1,
     optimizer_options: Optional[Dict[str, Any]] = None,

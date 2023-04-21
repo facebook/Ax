@@ -125,7 +125,7 @@ class AcquisitionTest(TestCase):
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
         self.rounding_func = lambda x: x
-        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
+        self.optimizer_options = {Keys.NUM_RESTARTS: 20, Keys.RAW_SAMPLES: 1024}
         self.tkwargs = tkwargs
         self.torch_opt_config = TorchOptConfig(
             objective_weights=self.objective_weights,
@@ -264,6 +264,7 @@ class AcquisitionTest(TestCase):
         )
         mock_optimize_acqf.assert_called_with(
             acq_function=acquisition.acqf,
+            sequential=True,
             bounds=mock.ANY,
             q=3,
             options={"init_batch_limit": 32, "batch_limit": 5},
@@ -297,6 +298,7 @@ class AcquisitionTest(TestCase):
         )
         mock_optimize_acqf.assert_called_with(
             acq_function=acquisition.acqf,
+            sequential=True,
             bounds=mock.ANY,
             q=3,
             options={"init_batch_limit": 32, "batch_limit": 5},
@@ -492,6 +494,7 @@ class AcquisitionTest(TestCase):
         )
         mock_optimize_acqf_mixed.assert_called_with(
             acq_function=acquisition.acqf,
+            sequential=True,
             bounds=mock.ANY,
             q=3,
             options={"init_batch_limit": 32, "batch_limit": 5},
@@ -524,6 +527,7 @@ class AcquisitionTest(TestCase):
         mock_optimize_acqf.assert_called_once()
         mock_optimize_acqf.assert_called_with(
             acq_function=acquisition.acqf,
+            sequential=True,
             bounds=mock.ANY,
             q=3,
             options={"init_batch_limit": 32, "batch_limit": 5},
