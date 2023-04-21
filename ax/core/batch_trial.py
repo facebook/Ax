@@ -131,6 +131,8 @@ class BatchTrial(BaseTrial):
             trial represents
     """
 
+    DEFAULT_STATUS_QUO_WEIGHT: float = 1.0
+
     def __init__(
         self,
         experiment: core.experiment.Experiment,
@@ -164,9 +166,9 @@ class BatchTrial(BaseTrial):
                 )
             self.set_status_quo_and_optimize_power(status_quo=status_quo)
         else:
-            # Set the status quo for tracking purposes
-            # It will not be included in arm_weights
-            self._status_quo = status_quo
+            self.set_status_quo_with_weight(
+                status_quo=status_quo, weight=self.DEFAULT_STATUS_QUO_WEIGHT
+            )
 
         # Trial status quos are stored in the DB as a generator run
         # with one arm; thus we need to store two `db_id` values
@@ -214,8 +216,8 @@ class BatchTrial(BaseTrial):
         if self.status_quo is not None and self._status_quo_weight_override is not None:
             # If override is specified, this is the weight the status quo gets,
             # regardless of whether it appeared in any generator runs.
-            # If no override is specified, status quo does not appear in arm_weights.
             arm_weights[self.status_quo] = self._status_quo_weight_override
+
         return arm_weights
 
     @property
@@ -350,8 +352,8 @@ class BatchTrial(BaseTrial):
             self.experiment._name_and_store_arm_if_not_exists(
                 arm=status_quo, proposed_name="status_quo_" + str(self.index)
             )
-        self._status_quo = status_quo.clone() if status_quo is not None else None
-        self._status_quo_weight_override = weight
+            self._status_quo = status_quo.clone()
+            self._status_quo_weight_override = weight
         self._refresh_arms_by_name()
         return self
 

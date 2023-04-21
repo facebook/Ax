@@ -1658,7 +1658,7 @@ class SQAStoreTest(TestCase):
             generator_run=GeneratorRun(arms=experiment.trials[0].arms)
         )
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAArm).count(), 7)
+        self.assertEqual(get_session().query(SQAArm).count(), 8)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

@@ -9,6 +9,7 @@ from time import sleep
 from unittest.mock import patch, PropertyMock
 
 import numpy as np
+from ax.core import BatchTrial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import GeneratorRunStruct
@@ -175,8 +176,13 @@ class BatchTrialTest(TestCase):
         # Since optimize_for_power was not set, the weight override should not be
         # And the status quo shoudl not appear in arm_weights
         self.assertIsNone(batch2._status_quo_weight_override)
-        self.assertTrue(batch2.status_quo not in batch2.arm_weights)
-        self.assertEqual(sum(batch2.weights), sum(self.weights))
+        self.assertEqual(
+            batch2.arm_weights[batch2.status_quo], BatchTrial.DEFAULT_STATUS_QUO_WEIGHT
+        )
+        self.assertEqual(
+            sum(batch2.weights),
+            sum(self.weights) + BatchTrial.DEFAULT_STATUS_QUO_WEIGHT,
+        )
 
         # Try setting sq to existing arm with different name
         with self.assertRaises(ValueError):
