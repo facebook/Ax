@@ -102,21 +102,19 @@ class OptimizerArgparseTest(TestCase):
             with self.subTest(acqf=acqf):
                 options = optimizer_argparse(
                     acqf,
-                    sequential=False,
                     optimizer_options=user_options,
                     **inner_options,
                 )
-                self.assertEqual(options.pop("sequential"), False)
+                self.assertEqual(options["sequential"], True)
                 self.assertEqual(options.pop("options"), inner_options)
                 self.assertEqual(options, generic_options)
 
                 # Defaults
                 options = optimizer_argparse(
                     acqf,
-                    sequential=False,
+                    sequential=True,
                     optimizer_options=user_options,
                 )
-                self.assertEqual(options.pop("sequential"), False)
                 self.assertEqual(
                     options.pop("options"), {"init_batch_limit": 32, "batch_limit": 5}
                 )
@@ -149,8 +147,7 @@ class OptimizerArgparseTest(TestCase):
             with self.subTest(acqf=acqf):
                 options = optimizer_argparse(
                     acqf,
-                    sequential=False,
                     optimizer_options=user_options,
                 )
-                self.assertEqual(options.pop("sequential"), False)
+                self.assertEqual(options["sequential"], True)
                 self.assertEqual(options, generic_options)
