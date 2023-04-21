@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import cast, List
+from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -623,8 +624,12 @@ class TestGenerationStrategy(TestCase):
 
         with self.assertRaisesRegex(
             GenerationStrategyRepeatedPoints, "exceeded `MAX_GEN_DRAWS`"
-        ):
+        ), mock.patch("ax.modelbridge.generation_node.logger.info") as mock_logger:
             g = sobol.gen(exp)
+        self.assertEqual(mock_logger.call_count, 5)
+        self.assertIn(
+            "The generator run produced duplicate arms.", mock_logger.call_args[0][0]
+        )
 
     def test_current_generator_run_limit(self) -> None:
         NUM_INIT_TRIALS = 5

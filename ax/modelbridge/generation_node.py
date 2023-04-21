@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from ax.core.arm import Arm
@@ -25,8 +26,10 @@ from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CV
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
+logger: Logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
 CANNOT_SELECT_ONE_MODEL_MSG = """
@@ -187,8 +190,6 @@ class GenerationNode:
         # Keep generating until each of `generator_run.arms` is not a duplicate
         # of a previous arm, if `should_deduplicate is True`
         while should_generate_run:
-            if n_gen_draws > max_gen_draws_for_deduplication:
-                raise GenerationStrategyRepeatedPoints(MAX_GEN_DRAWS_EXCEEDED_MESSAGE)
             generator_run = model_spec.gen(
                 # If `n` is not specified, ensure that the `None` value does not
                 # override the one set in `model_spec.model_gen_kwargs`.
@@ -211,6 +212,18 @@ class GenerationNode:
                 )
             )
             n_gen_draws += 1
+            if should_generate_run:
+                if n_gen_draws > max_gen_draws_for_deduplication:
+                    raise GenerationStrategyRepeatedPoints(
+                        MAX_GEN_DRAWS_EXCEEDED_MESSAGE
+                    )
+                else:
+                    logger.info(
+                        "The generator run produced duplicate arms. Re-running the "
+                        "generation step in an attempt to deduplicate. Candidates "
+                        f"produced in the last generator run: {generator_run.arms}."
+                    )
+
         return not_none(generator_run)
 
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
