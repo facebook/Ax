@@ -7,14 +7,20 @@ from typing import Any, Dict, Iterable, List, Set
 
 import pandas as pd
 import torch
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import (
+    MultiObjectiveBenchmarkProblem,
+    SingleObjectiveBenchmarkProblem,
+)
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 
 from ax.utils.common.base import Base
@@ -40,25 +46,22 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         search_space: SearchSpace,
         surrogate: Surrogate,
         datasets: List[SupervisedDataset],
-        minimize: bool,
         optimal_value: float,
+        optimization_config: OptimizationConfig,
         num_trials: int,
+        metric_names: List[str],
         infer_noise: bool = True,
     ) -> "SurrogateBenchmarkProblem":
         return SurrogateBenchmarkProblem(
             name=name,
             search_space=search_space,
-            optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=SurrogateMetric(infer_noise=infer_noise),
-                    minimize=minimize,
-                )
-            ),
+            optimization_config=optimization_config,
             runner=SurrogateRunner(
                 name=name,
                 surrogate=surrogate,
                 datasets=datasets,
                 search_space=search_space,
+                metric_names=metric_names,
             ),
             optimal_value=optimal_value,
             num_trials=num_trials,
@@ -66,16 +69,68 @@ class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         )
 
 
+class MOOSurrogateBenchmarkProblem(MultiObjectiveBenchmarkProblem):
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if not isinstance(other, MOOSurrogateBenchmarkProblem):
+            return False
+
+        # Checking the whole datasets' equality here would be too expensive to be
+        # worth it; just check names instead
+        return self.name == other.name
+
+    @classmethod
+    def from_surrogate(
+        cls,
+        name: str,
+        search_space: SearchSpace,
+        surrogate: Surrogate,
+        datasets: List[SupervisedDataset],
+        optimization_config: MultiObjectiveOptimizationConfig,
+        maximum_hypervolume: float,
+        reference_point: List[float],
+        num_trials: int,
+        metric_names: List[str],
+        infer_noise: bool = True,
+    ) -> "MOOSurrogateBenchmarkProblem":
+        if not all(
+            isinstance(m, SurrogateMetric)
+            for m in optimization_config.objective.metrics
+        ):
+            raise UnsupportedError(
+                "MOOSurrogateBenchmarkProblem only supports SurrogateMetrics."
+            )
+
+        return MOOSurrogateBenchmarkProblem(
+            name=name,
+            search_space=search_space,
+            optimization_config=optimization_config,
+            runner=SurrogateRunner(
+                name=name,
+                surrogate=surrogate,
+                datasets=datasets,
+                search_space=search_space,
+                metric_names=metric_names,
+            ),
+            maximum_hypervolume=maximum_hypervolume,
+            reference_point=reference_point,
+            num_trials=num_trials,
+            infer_noise=infer_noise,
+        )
+
+
 class SurrogateMetric(Metric):
-    def __init__(self, infer_noise: bool = True) -> None:
-        super().__init__(name="prediction")
+    def __init__(
+        self, name: str, lower_is_better: bool, infer_noise: bool = True
+    ) -> None:
+        super().__init__(name=name, lower_is_better=lower_is_better)
         self.infer_noise = infer_noise
 
     # pyre-fixme[2]: Parameter must be annotated.
     def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> MetricFetchResult:
         try:
             prediction = [
-                trial.run_metadata["prediction"][name]
+                trial.run_metadata[self.name][name]
                 for name, arm in trial.arms_by_name.items()
             ]
             df = pd.DataFrame(
@@ -105,9 +160,11 @@ class SurrogateRunner(Runner):
         surrogate: Surrogate,
         datasets: List[SupervisedDataset],
         search_space: SearchSpace,
+        metric_names: List[str],
     ) -> None:
         self.name = name
         self.surrogate = surrogate
+        self.metric_names = metric_names
         self.datasets = datasets
         self.search_space = search_space
 
@@ -116,15 +173,17 @@ class SurrogateRunner(Runner):
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         self.statuses[trial.index] = TrialStatus.COMPLETED
+        preds = {  # Cache predictions for each arm
+            arm.name: self.surrogate.predict(
+                X=torch.tensor([*arm.parameters.values()]).reshape(
+                    [1, len(arm.parameters)]
+                )
+            )[0].squeeze(0)
+            for arm in trial.arms
+        }
         return {
-            "prediction": {
-                arm.name: self.surrogate.predict(
-                    X=torch.tensor([*arm.parameters.values()]).reshape(
-                        [1, len(arm.parameters)]
-                    )
-                )[0].item()
-                for arm in trial.arms
-            }
+            metric_name: {arm_name: pred[i] for arm_name, pred in preds.items()}
+            for i, metric_name in enumerate(self.metric_names)
         }
 
     def poll_trial_status(
