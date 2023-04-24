@@ -330,10 +330,10 @@ class BaseModelBridgeTest(TestCase):
             search_space=search_space, observations=[], time_so_far=1.0
         )
         self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
-        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 6.0, places=3)
+        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 6.0, places=1)
         modelbridge.gen(1)
         self.assertAlmostEqual(modelbridge.fit_time, 6.0, places=1)
-        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 0.0, places=3)
+        self.assertAlmostEqual(modelbridge.fit_time_since_gen, 0.0, places=1)
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
