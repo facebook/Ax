@@ -1302,11 +1302,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
-            if self.experiment.optimization_config is not None:
-                if self.experiment.optimization_config.is_moo_problem:
-                    raise UnsupportedError(
-                        "Early stopping is not supported on multi-objective problems."
-                    )
 
     def _get_max_pending_trials(self) -> int:
         return self.options.max_pending_trials

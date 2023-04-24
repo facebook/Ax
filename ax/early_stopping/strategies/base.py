@@ -16,6 +16,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import MultiObjective
 from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
@@ -367,8 +368,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     ) -> Tuple[str, bool]:
         if self.metric_names is None:
             optimization_config = not_none(experiment.optimization_config)
-            metric_name = optimization_config.objective.metric.name
-            minimize = optimization_config.objective.minimize
+            objective = optimization_config.objective
+
+            # if multi-objective optimization, infer as first objective
+            # although it is recommended to specify a metric name(s) explicitly.
+            if isinstance(objective, MultiObjective):
+                objective = objective.objectives[0]
+
+            metric_name = objective.metric.name
+            minimize = objective.minimize
         else:
             metric_name = list(self.metric_names)[0]
             minimize = experiment.metrics[metric_name].lower_is_better or False
