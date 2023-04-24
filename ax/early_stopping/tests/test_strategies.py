@@ -30,8 +30,10 @@ from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
     get_branin_experiment_with_timestamp_map_metric,
+    get_experiment_with_multi_objective,
     get_test_map_data_experiment,
 )
+from libfb.py.pyre import none_throws
 
 
 class TestBaseEarlyStoppingStrategy(TestCase):
@@ -41,6 +43,95 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             # pyre-fixme[45]: Cannot instantiate abstract class
             #  `BaseEarlyStoppingStrategy`.
             BaseEarlyStoppingStrategy()
+
+    def test_default_objective_and_direction(self) -> None:
+        class FakeStrategy(BaseEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: Set[int],
+                experiment: Experiment,
+                **kwargs: Dict[str, Any],
+            ) -> Dict[int, Optional[str]]:
+                return {}
+
+        test_experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        test_objective = none_throws(test_experiment.optimization_config).objective
+        with self.subTest("provide metric names"):
+            es_strategy = FakeStrategy(metric_names=[test_objective.metric.name])
+            (
+                actual_metric_name,
+                actual_minimize,
+            ) = es_strategy._default_objective_and_direction(experiment=test_experiment)
+
+            self.assertEqual(
+                actual_metric_name,
+                test_objective.metric.name,
+            )
+            self.assertEqual(
+                actual_minimize,
+                test_objective.minimize,
+            )
+
+        with self.subTest("infer from optimization config"):
+            # should be the same as above
+            es_strategy = FakeStrategy()
+            (
+                actual_metric_name,
+                actual_minimize,
+            ) = es_strategy._default_objective_and_direction(experiment=test_experiment)
+
+            self.assertEqual(
+                actual_metric_name,
+                test_objective.metric.name,
+            )
+            self.assertEqual(
+                actual_minimize,
+                test_objective.minimize,
+            )
+
+        test_multi_objective_experiment = get_experiment_with_multi_objective()
+        test_multi_objective = none_throws(
+            test_multi_objective_experiment.optimization_config
+        ).objective
+        with self.subTest("infer from optimization config -- multi-objective"):
+            es_strategy = FakeStrategy()
+            (
+                actual_metric_name,
+                actual_minimize,
+            ) = es_strategy._default_objective_and_direction(
+                experiment=test_multi_objective_experiment
+            )
+            self.assertEqual(
+                actual_metric_name,
+                # pyre-fixme[16]: we know this is a MultiObjective
+                # which has attribute `objectives`
+                test_multi_objective.objectives[0].metric.name,
+            )
+            self.assertEqual(
+                actual_minimize,
+                test_multi_objective.objectives[0].minimize,
+            )
+
+        with self.subTest("provide metric names -- multi-objective"):
+            es_strategy = FakeStrategy(
+                metric_names=[test_multi_objective.objectives[1].metric.name]
+            )
+            (
+                actual_metric_name,
+                actual_minimize,
+            ) = es_strategy._default_objective_and_direction(
+                experiment=test_multi_objective_experiment
+            )
+            self.assertEqual(
+                actual_metric_name,
+                test_multi_objective.objectives[1].metric.name,
+            )
+            self.assertEqual(
+                actual_minimize,
+                test_multi_objective.objectives[1].minimize,
+            )
 
     def test_is_eligible(self) -> None:
         class FakeStrategy(BaseEarlyStoppingStrategy):

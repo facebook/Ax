@@ -316,20 +316,6 @@ class TestAxScheduler(TestCase):
                 ),
             )
 
-        with patch.object(
-            OptimizationConfig, "is_moo_problem", return_value=True
-        ), self.assertRaisesRegex(
-            UnsupportedError,
-            "Early stopping is not supported on multi-objective problems",
-        ):
-            Scheduler(
-                experiment=self.branin_experiment,
-                generation_strategy=self.sobol_GPEI_GS,
-                options=SchedulerOptions(
-                    early_stopping_strategy=DummyEarlyStoppingStrategy()
-                ),
-            )
-
         # should not error
         Scheduler(
             experiment=self.branin_experiment,
