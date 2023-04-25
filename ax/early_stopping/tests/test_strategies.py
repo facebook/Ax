@@ -33,7 +33,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_test_map_data_experiment,
 )
-from libfb.py.pyre import none_throws
+from pyre_extensions import none_throws
 
 
 class TestBaseEarlyStoppingStrategy(TestCase):
