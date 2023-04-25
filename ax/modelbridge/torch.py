@@ -62,7 +62,7 @@ from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
 from torch import Tensor
 
@@ -184,15 +184,27 @@ class TorchModelBridge(ModelBridge):
                 "`infer_objective_thresholds` does not support risk measures."
             )
         # Infer objective thresholds.
-        model = checked_cast(MultiObjectiveBotorchModel, self.model)
+        if isinstance(self.model, MultiObjectiveBotorchModel):
+            model = self.model.model
+            Xs = self.model.Xs
+        elif isinstance(self.model, BoTorchModel):
+            model = self.model.surrogate.model
+            Xs = self.model.surrogate.Xs
+        else:
+            raise UnsupportedError(  # pragma: no cover
+                "Model must be a MultiObjectiveBotorchModel or an appropriate Modular "
+                "Botorch Model to infer_objective_thresholds. Found "
+                f"{type(self.model)}."
+            )
+
         obj_thresholds = infer_objective_thresholds(
-            model=not_none(model.model),
+            model=not_none(model),
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
-            Xs=model.Xs,
+            Xs=Xs,
         )
 
         return self._untransform_objective_thresholds(

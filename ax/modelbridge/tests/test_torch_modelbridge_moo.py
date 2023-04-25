@@ -31,6 +31,7 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
 from ax.modelbridge.torch import TorchModelBridge
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
@@ -686,6 +687,41 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             )
         mock_untransform.assert_called_once()
         self.assertEqual(wrapped_cast.call_count, 0)
+        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
+        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertFalse(obj_thresholds[0].relative)
+        self.assertFalse(obj_thresholds[1].relative)
+
+        # test with MBM
+        exp = get_branin_experiment_with_multi_objective(
+            has_optimization_config=True,
+            with_batch=True,
+            with_status_quo=True,
+        )
+        for trial in exp.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+        exp.attach_data(
+            get_branin_data_multi_objective(trial_indices=exp.trials.keys())
+        )
+        data = exp.fetch_data()
+        modelbridge = TorchModelBridge(
+            search_space=exp.search_space,
+            model=BoTorchModel(),
+            optimization_config=exp.optimization_config,
+            transforms=Cont_X_trans + Y_trans,
+            torch_device=torch.device("cuda" if cuda else "cpu"),
+            experiment=exp,
+            data=data,
+            # [T143911996] The trials get ignored without fit_out_of_design.
+            fit_out_of_design=True,
+        )
+        obj_thresholds = modelbridge.infer_objective_thresholds(
+            search_space=exp.search_space,
+            optimization_config=exp.optimization_config,
+            fixed_features=None,
+        )
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
