@@ -33,7 +33,6 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_test_map_data_experiment,
 )
-from libfb.py.pyre import none_throws
 
 
 class TestBaseEarlyStoppingStrategy(TestCase):
@@ -57,7 +56,8 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         test_experiment = get_test_map_data_experiment(
             num_trials=3, num_fetches=5, num_complete=3
         )
-        test_objective = none_throws(test_experiment.optimization_config).objective
+        # pyre-fixme[16]: none type has no attribute `objective`
+        test_objective = test_experiment.optimization_config.objective
         with self.subTest("provide metric names"):
             es_strategy = FakeStrategy(metric_names=[test_objective.metric.name])
             (
@@ -92,9 +92,9 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
 
         test_multi_objective_experiment = get_experiment_with_multi_objective()
-        test_multi_objective = none_throws(
-            test_multi_objective_experiment.optimization_config
-        ).objective
+        test_multi_objective = (
+            test_multi_objective_experiment.optimization_config.objective
+        )
         with self.subTest("infer from optimization config -- multi-objective"):
             es_strategy = FakeStrategy()
             (
@@ -105,8 +105,6 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
             self.assertEqual(
                 actual_metric_name,
-                # pyre-fixme[16]: we know this is a MultiObjective
-                # which has attribute `objectives`
                 test_multi_objective.objectives[0].metric.name,
             )
             self.assertEqual(
