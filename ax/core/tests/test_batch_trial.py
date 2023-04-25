@@ -96,10 +96,13 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 3)
 
-    def testAddGeneratorRun(self) -> None:
+    def test_add_generator_run(self) -> None:
         self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
+
+        # Overwrite the GS index to not-None.
+        self.batch._generation_step_index = 0
 
         # one of these arms already exists on the BatchTrial,
         # so we should just update its weight
@@ -114,6 +117,8 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(self.batch.arms), len(self.arms) + 1)
         self.assertEqual(len(self.batch.generator_run_structs), 2)
         self.assertEqual(sum(self.batch.weights), sum(self.weights) + 2)
+        # Check the GS index was not overwritten to None.
+        self.assertEqual(self.batch._generation_step_index, 0)
 
     def testInitWithGeneratorRun(self) -> None:
         generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
