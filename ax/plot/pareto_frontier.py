@@ -274,7 +274,7 @@ def _get_single_pareto_trace(
         arm_names = [f"Arm {name}" for name in frontier.arm_names]
 
     if CI_level is not None:
-        Z = 0.5 * norm.ppf(1 - (1 - CI_level) / 2)
+        Z = norm.ppf(1 - (1 - CI_level) / 2)
     else:
         Z = None
 
