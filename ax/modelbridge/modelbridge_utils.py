@@ -1331,7 +1331,15 @@ def observation_data_to_array(
     means = []
     cov = []
     for obsd in observation_data:
-        metric_idxs = np.array([obsd.metric_names.index(m) for m in outcomes])
+        try:
+            metric_idxs = np.array([obsd.metric_names.index(m) for m in outcomes])
+        except ValueError:
+            missing = set(outcomes).difference(set(obsd.metric_names))
+            logger.warning(
+                f"{obsd} is missing the metrics {missing}. Ignoring the data "
+                "for the remaining metrics."
+            )
+            continue
         means.append(obsd.means[metric_idxs])
         cov.append(obsd.covariance[metric_idxs][:, metric_idxs])
     return np.array(means), np.array(cov)
