@@ -26,7 +26,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.types import TParameterization
-from ax.exceptions.core import AxError, UnsupportedError
+from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.modelbridge.modelbridge_utils import (
     _get_modelbridge_training_data,
     get_pareto_frontier_and_configs,
@@ -187,6 +187,7 @@ def get_observed_pareto_frontiers(
             data from experiment.
         rel: Relativize results wrt experiment status quo. If None, then rel will be
             taken for each objective separately from its own objective threshold.
+            `rel` must be specified if there are missing objective thresholds.
         arm_names: If provided, computes Pareto frontier only from among the provided
             list of arm names, plus status quo if set on experiment.
 
@@ -229,13 +230,16 @@ def get_observed_pareto_frontiers(
             rel_objth[objth.metric.name] = objth.relative
             objective_thresholds[objth.metric.name] = objth.bound
 
-    for name in obj_metr_list:
-        if name not in objective_thresholds:
-            raise ValueError(f"Objective threshold missing for {name}")
     # Identify which metrics should be relativized
     if rel in [True, False]:
         metric_is_rel = {name: rel for name in pfr_means}
     else:
+        if len(rel_objth) != len(pfr_means):
+            raise UserInputError(
+                "At least one objective is missing an objective threshold. "
+                "`rel` must be specified as True or False when there are missing "
+                "objective thresholds."
+            )
         # Default to however the threshold is specified
         metric_is_rel = rel_objth
 
@@ -251,7 +255,7 @@ def get_observed_pareto_frontiers(
                 sems=pfr_sems[name],
                 sq_sem=sq_sems[name],
             )
-            if not rel_objth[name]:
+            if name in objective_thresholds and not rel_objth[name]:
                 # Metric is rel but obj th is not.
                 # Need to relativize the objective threshold
                 objective_thresholds[name] = _relativize_values(
@@ -260,7 +264,7 @@ def get_observed_pareto_frontiers(
                     sems=[np.nan],
                     sq_sem=np.nan,
                 )[0][0]
-        elif rel_objth[name]:
+        elif name in objective_thresholds and rel_objth[name]:
             # Metric is not rel but obj th is, so need to derelativize obj th
             objective_thresholds[name] = (
                 1 + objective_thresholds[name] / 100.0
