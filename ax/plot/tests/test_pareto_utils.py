@@ -16,6 +16,7 @@ from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UserInputError
 from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.modelbridge.registry import Models
 from ax.plot.pareto_frontier import (
@@ -51,7 +52,7 @@ class ParetoUtilsTest(TestCase):
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
 
-    def testObservedParetoFrontiers(self) -> None:
+    def test_get_observed_pareto_frontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             with_batch=True, has_optimization_config=False, with_status_quo=True
         )
@@ -152,6 +153,23 @@ class ParetoUtilsTest(TestCase):
         )
         for pfr in pfrs:
             self.assertTrue("status_quo" in pfr.arm_names)  # pyre-ignore
+
+        # Test with missing objective thresholds.
+        optimization_config._objective_thresholds = []
+        with self.assertRaisesRegex(UserInputError, "`rel` must be"):
+            get_observed_pareto_frontiers(experiment=experiment, data=data)
+        pfr = get_observed_pareto_frontiers(
+            experiment=experiment, data=data, rel=False
+        )[0]
+        self.assertEqual(pfr.absolute_metrics, ["m1", "m2", "m3"])
+        self.assertEqual(pfr.primary_metric, "m1")
+        self.assertEqual(pfr.secondary_metric, "m2")
+        self.assertEqual(len(pfr.means["m1"]), sum(df["metric_name"] == "m1"))
+        self.assertEqual(pfr.objective_thresholds, {})
+        pfr = get_observed_pareto_frontiers(experiment=experiment, data=data, rel=True)[
+            0
+        ]
+        self.assertEqual(pfr.absolute_metrics, [])
 
     def testPlotParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
