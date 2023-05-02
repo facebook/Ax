@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest import mock
 from unittest.mock import patch
 
 import numpy as np
@@ -606,7 +607,7 @@ class TestModelbridgeUtils(TestCase):
                 outcomes=outcomes,
             )
 
-    def testObservationDataToArray(self) -> None:
+    def test_observation_data_to_array(self) -> None:
         outcomes = ["a", "b", "c"]
         obsd = ObservationData(
             metric_names=["c", "a", "b"],
@@ -618,3 +619,19 @@ class TestModelbridgeUtils(TestCase):
         self.assertTrue(
             np.array_equal(Ycov, np.array([[[5, 6, 4], [8, 9, 7], [2, 3, 1]]]))
         )
+
+        # With missing metrics.
+        obsd2 = ObservationData(
+            metric_names=["c", "a"],
+            means=np.array([1, 2]),
+            covariance=np.array([[1, 2], [4, 5]]),
+        )
+        with mock.patch("ax.modelbridge.modelbridge_utils.logger.warning") as mock_warn:
+            Y, Ycov = observation_data_to_array(
+                outcomes=outcomes, observation_data=[obsd, obsd2]
+            )
+        self.assertTrue(np.array_equal(Y, np.array([[2, 3, 1]])))
+        self.assertTrue(
+            np.array_equal(Ycov, np.array([[[5, 6, 4], [8, 9, 7], [2, 3, 1]]]))
+        )
+        mock_warn.assert_called_once()
