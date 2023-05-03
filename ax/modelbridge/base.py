@@ -256,6 +256,7 @@ class ModelBridge(ABC):
         search_space: SearchSpace,
         transforms: Optional[List[Type[Transform]]],
         transform_configs: Optional[Dict[str, TConfig]],
+        assign_transforms: bool = True,
     ) -> Tuple[List[Observation], SearchSpace]:
         """Initialize transforms and apply them to provided data."""
         # Initialize transforms
@@ -273,7 +274,8 @@ class ModelBridge(ABC):
                 )
                 search_space = t_instance.transform_search_space(search_space)
                 observations = t_instance.transform_observations(observations)
-                self.transforms[t.__name__] = t_instance
+                if assign_transforms:
+                    self.transforms[t.__name__] = t_instance
 
         return observations, search_space
 
