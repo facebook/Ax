@@ -18,14 +18,16 @@ def compare_obs(
     test.assertEqual(obs1.data.metric_names, obs2.data.metric_names)
     test.assertTrue(np.array_equal(obs1.data.means, obs2.data.means))
     discrep = np.max(np.abs(obs1.data.covariance - obs2.data.covariance))
-    test.assertTrue(discrep <= discrepancy_tol)
-    test.assertTrue(obs1.features.parameters == obs2.features.parameters)
+    test.assertLessEqual(discrep, discrepancy_tol)
+    test.assertEqual(obs1.features.parameters, obs2.features.parameters)
 
 
 class MergeRepeatedMeasurementsTransformTest(TestCase):
     def testTransform(self) -> None:
         obs_feats1 = ObservationFeatures(parameters={"a": 0.0})
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(
+            RuntimeError, "MergeRepeatedMeasurements requires observations"
+        ):
             # test that observations are required
             MergeRepeatedMeasurements()
         # test nan in covariance
@@ -37,7 +39,9 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             ),
             features=obs_feats1,
         )
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaisesRegex(
+            NotImplementedError, "All metrics must have noise observations."
+        ):
             MergeRepeatedMeasurements(observations=[observation])
         # test full covariance
         observation = Observation(
@@ -48,7 +52,9 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
             ),
             features=obs_feats1,
         )
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaisesRegex(
+            NotImplementedError, "Only independent metrics are currently supported."
+        ):
             MergeRepeatedMeasurements(observations=[observation])
 
         # test noiseless, different means
@@ -71,7 +77,11 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 features=obs_feats1,
             ),
         ]
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            ValueError,
+            "All repeated arms with noiseless measurements "
+            "must have the same means.",
+        ):
             MergeRepeatedMeasurements(observations=observations)
         # test noiseless, same means
         observations = [
