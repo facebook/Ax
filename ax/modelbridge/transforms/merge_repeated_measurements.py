@@ -44,7 +44,6 @@ class MergeRepeatedMeasurements(Transform):
             str, DefaultDict[str, DefaultDict[str, List[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         observation_features, observation_data = separate_observations(observations)
-        #
         for j, obsd in enumerate(observation_data):
             # This intentionally ignores the trial index
             key = Arm.md5hash(observation_features[j].parameters)
