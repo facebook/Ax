@@ -496,7 +496,7 @@ class WinsorizeTransformTest(TestCase):
                     f"manually if you want to winsorize metric m{['1', '3'][i]}."
                     in [str(w.message) for w in ws]
                 )
-        # Multi-objective without objective thresholds (should print a warning)
+        # Multi-objective without objective thresholds should warn and winsorize
         moo_objective = MultiObjective(
             [Objective(m1, minimize=False), Objective(m2, minimize=True)]
         )
@@ -507,15 +507,15 @@ class WinsorizeTransformTest(TestCase):
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
-            for i in range(2):
+            for _ in range(2):
                 self.assertTrue(
-                    "Automatic winsorization isn't supported for an objective in "
-                    "`MultiObjective` without objective thresholds. Specify the "
-                    "winsorization settings manually if you want to winsorize "
-                    f"metric m{i + 1}." in [str(w.message) for w in ws]
+                    "Encountered a `MultiObjective` without objective thresholds. We "
+                    "will winsorize each objective separately. We strongly recommend "
+                    "specifying the objective thresholds when using multi-objective "
+                    "optimization." in [str(w.message) for w in ws]
                 )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-6.5, float("inf")))
+        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))
         self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
         # Add relative objective thresholds (should raise an error)
         objective_thresholds = [
