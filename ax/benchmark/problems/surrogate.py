@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Iterable, List, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pandas as pd
 import torch
@@ -14,18 +14,24 @@ from ax.benchmark.benchmark_problem import (
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.parameter import RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
+from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.log import Log
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.result import Err, Ok
+from ax.utils.common.typeutils import not_none
 from botorch.utils.datasets import SupervisedDataset
 
 
@@ -171,13 +177,42 @@ class SurrogateRunner(Runner):
         self.results: Dict[int, float] = {}
         self.statuses: Dict[int, TrialStatus] = {}
 
+        # If there are log scale parameters, these need to be transformed.
+        if any(
+            isinstance(p, RangeParameter) and p.log_scale
+            for p in search_space.parameters.values()
+        ):
+            int_to_float_tf = IntToFloat(search_space=search_space)
+            log_tf = Log(
+                search_space=int_to_float_tf.transform_search_space(
+                    search_space.clone()
+                )
+            )
+            self.transforms: Optional[Tuple[IntToFloat, Log]] = (
+                int_to_float_tf,
+                log_tf,
+            )
+        else:
+            self.transforms = None
+
+    def _get_transformed_parameters(
+        self, parameters: TParameterization
+    ) -> TParameterization:
+        if self.transforms is None:
+            return parameters
+
+        obs_ft = ObservationFeatures(parameters=parameters)
+        for t in not_none(self.transforms):
+            obs_ft = t.transform_observation_features([obs_ft])[0]
+        return obs_ft.parameters
+
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         self.statuses[trial.index] = TrialStatus.COMPLETED
         preds = {  # Cache predictions for each arm
             arm.name: self.surrogate.predict(
-                X=torch.tensor([*arm.parameters.values()]).reshape(
-                    [1, len(arm.parameters)]
-                )
+                X=torch.tensor(
+                    [*self._get_transformed_parameters(arm.parameters).values()]
+                ).reshape([1, len(arm.parameters)])
             )[0].squeeze(0)
             for arm in trial.arms
         }
