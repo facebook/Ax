@@ -128,7 +128,7 @@ class TutorialHome extends React.Component {
             </ul>
             <ul>
               <li>
-                <a href="early_stopping.html">
+                <a href="early_stopping/early_stopping.html">
                   Trial-Level Early Stopping
                 </a>
                 &nbsp; shows how to use trial-level early stopping on an ML
