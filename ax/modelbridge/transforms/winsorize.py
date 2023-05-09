@@ -9,7 +9,7 @@ from logging import Logger
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -272,12 +272,22 @@ def _get_auto_winsorization_cutoffs_multi_objective(
             metric_values=metric_values,
             outcome_constraints=objective_threshold,
         )
-    warnings.warn(
-        "Automatic winsorization isn't supported for an objective in `MultiObjective` "
-        "without objective thresholds. Specify the winsorization settings manually if "
-        f"you want to winsorize metric {metric_name}."
-    )
-    return DEFAULT_CUTOFFS  # Don't winsorize if there is no threshold
+    else:
+        warnings.warn(
+            "Encountered a `MultiObjective` without objective thresholds. We will "
+            "winsorize each objective separately. We strongly recommend specifying "
+            "the objective thresholds when using multi-objective optimization."
+        )
+        objectives = checked_cast(MultiObjective, optimization_config.objective)
+        minimize = [
+            objective.minimize
+            for objective in objectives.objectives
+            if objective.metric.name == metric_name
+        ][0]
+        return _get_auto_winsorization_cutoffs_single_objective(
+            metric_values=metric_values,
+            minimize=minimize,
+        )
 
 
 def _obtain_cutoffs_from_outcome_constraints(
