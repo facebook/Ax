@@ -61,7 +61,10 @@ function require(deps, fxn) {
 
 
 def gen_tutorials(
-    repo_dir: str, exec_tutorials: bool, kernel_name: Optional[str] = None
+    repo_dir: str,
+    exec_tutorials: bool,
+    kernel_name: Optional[str] = None,
+    name: Optional[str] = None,
 ) -> None:
     """Generate HTML tutorials for Docusaurus Ax site from Jupyter notebooks.
 
@@ -76,6 +79,11 @@ def gen_tutorials(
     tutorial_configs = [
         config for category in tutorial_config.values() for config in category
     ]
+    # Running only the tutorial described by "name"
+    if name is not None:
+        tutorial_configs = [d for d in tutorial_configs if d["id"] == name]
+        if len(tutorial_configs) == 0:
+            raise RuntimeError(f"No tutorial found with name {name}.")
 
     # prepare paths for converted tutorials & files
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
@@ -227,5 +235,12 @@ if __name__ == "__main__":
         type=str,
         help="Name of IPython / Jupyter kernel to use for executing notebooks.",
     )
+    parser.add_argument(
+        "-n",
+        "--name",
+        help="Run a specific tutorial by name. The name should not include the "
+        ".ipynb extension. If the tutorial is on the ignore list, you still need "
+        "to specify --include-ignored.",
+    )
     args = parser.parse_args()
-    gen_tutorials(args.repo_dir, args.exec_tutorials, args.kernel_name)
+    gen_tutorials(args.repo_dir, args.exec_tutorials, args.kernel_name, name=args.name)

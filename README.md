@@ -168,7 +168,7 @@ pip install git+https://github.com/pytorch/botorch.git
 export ALLOW_BOTORCH_LATEST=true
 git clone https://github.com/facebook/ax.git --depth 1
 cd ax
-pip install -e .[unittest]
+pip install -e .[tutorial]
 ```
 
 See recommendation for installing PyTorch for MacOS users above.
