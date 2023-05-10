@@ -1903,7 +1903,7 @@ class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         super().__init__(min_trials=min_trials)
         self.trial_to_stop = trial_to_stop
 
-    def should_stop_optimization(
+    def _should_stop_optimization(
         self, experiment: Experiment, **kwargs: Dict[str, Any]
     ) -> Tuple[bool, str]:
         num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
