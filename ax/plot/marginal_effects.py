@@ -36,7 +36,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
         arm_df["mean"] = arm.y_hat[metric]
         arm_df["sem"] = arm.se_hat[metric]
         arm_dfs.append(arm_df)
-    effect_table = marginal_effects(pd.concat(arm_dfs, 0))
+    effect_table = marginal_effects(pd.concat(arm_dfs, axis=0))
 
     varnames = effect_table["Name"].unique()
     # pyre-fixme[33]: Given annotation cannot contain `Any`.
