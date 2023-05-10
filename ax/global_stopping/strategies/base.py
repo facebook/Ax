@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
 
@@ -38,15 +39,14 @@ class BaseGlobalStoppingStrategy(ABC, Base):
         self.inactive_when_pending_trials = inactive_when_pending_trials
 
     @abstractmethod
-    def should_stop_optimization(
-        self,
-        experiment: Experiment,
-        **kwargs: Any,
+    def _should_stop_optimization(
+        self, experiment: Experiment, **kwargs: Any
     ) -> Tuple[bool, str]:
-        """Decide whether to stop optimization.
+        """
+        Decide whether to stop optimization.
 
-        Typical examples include stopping the optimization loop when the objective
-        appears to not improve anymore.
+        Must be implemented by the subclass. Typical examples include stopping
+        the optimization loop when the objective appears to not improve anymore.
 
         Args:
             experiment: Experiment that contains the trials and other contextual data.
@@ -55,4 +55,30 @@ class BaseGlobalStoppingStrategy(ABC, Base):
             A Tuple with a boolean determining whether the optimization should stop,
             and a str declaring the reason for stopping.
         """
-        pass  # pragma: nocover
+
+    def should_stop_optimization(
+        self,
+        experiment: Experiment,
+        **kwargs: Any,
+    ) -> Tuple[bool, str]:
+        """Decide whether to stop optimization.
+
+        Args:
+            experiment: Experiment that contains the trials and other contextual data.
+
+        Returns:
+            A Tuple with a boolean determining whether the optimization should stop,
+            and a str declaring the reason for stopping.
+        """
+        if (
+            self.inactive_when_pending_trials
+            and len(experiment.trials_by_status[TrialStatus.RUNNING]) > 0
+        ):
+            message = "There are pending trials in the experiment."
+            return False, message
+
+        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
+            message = "There are no completed trials yet."
+            return False, message
+
+        return self._should_stop_optimization(experiment, **kwargs)

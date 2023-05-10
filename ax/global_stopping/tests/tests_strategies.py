@@ -271,10 +271,12 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
 
         stop, message = gss.should_stop_optimization(experiment=exp, trial_to_check=5)
         self.assertTrue(stop)
+
         self.assertEqual(
             message,
-            "The improvement in hypervolume in the past 3 trials (=0.000) is less than "
-            "0.1.",
+            "The improvement in hypervolume in the past 3 trials (=0.000) is "
+            "less than improvement_bar (=0.1) times the hypervolume at the "
+            "start of the window (=0.055).",
         )
 
         # Now we select a very far custom reference point against which the pareto front
@@ -306,8 +308,9 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertTrue(stop)
         self.assertEqual(
             message,
-            "The improvement in hypervolume in the past 3 trials (=0.033) is less than "
-            "0.1.",
+            "The improvement in hypervolume in the past 3 trials (=0.033) is "
+            "less than improvement_bar (=0.1) times the hypervolume at the "
+            "start of the window (=108.640).",
         )
 
         # Test with no objective thresholds specified.
@@ -343,7 +346,8 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertEqual(
             message,
             "The improvement in best objective in the past 3 trials (=0.000) is "
-            "less than 0.1.",
+            "less than 0.1 times the interquartile range (IQR) of objectives "
+            "attained so far (IQR=0.100).",
         )
 
     def test_safety_check(self) -> None:
