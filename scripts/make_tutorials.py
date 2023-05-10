@@ -4,13 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict
 import argparse
 import json
 import os
 import tarfile
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 import nbformat
 from bs4 import BeautifulSoup
@@ -90,7 +89,7 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
         )
         py_path = os.path.join(
             repo_dir, "website", "static", "files", "{}.py".format(tid)
-        ) 
+        )
 
     paths = {
         "tutorial_dir": tutorial_dir,
@@ -98,7 +97,7 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
         "html_path": html_path,
         "js_path": js_path,
         "ipynb_path": ipynb_path,
-        "py_path": py_path
+        "py_path": py_path,
     }
     if t_dir is not None:
         paths["tar_path"] = os.path.join(py_dir, "{}.tar.gz".format(tid))
@@ -227,7 +226,10 @@ def gen_tutorials(
         # create .tar archive (if necessary)
         if t_dir is not None:
             with tarfile.open(paths["tar_path"], "w:gz") as tar:
-                tar.add(paths["tutorial_dir"], arcname=os.path.basename(paths["tutorial_dir"]))
+                tar.add(
+                    paths["tutorial_dir"],
+                    arcname=os.path.basename(paths["tutorial_dir"]),
+                )
 
     if has_errors:
         raise Exception("There are errors in tutorials, will not continue to publish")
@@ -267,5 +269,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     gen_tutorials(
-        args.repo_dir, args.exec_tutorials, args.kernel_name, smoke_test=args.smoke, name=args.name
+        args.repo_dir,
+        args.exec_tutorials,
+        args.kernel_name,
+        smoke_test=args.smoke,
+        name=args.name,
     )
