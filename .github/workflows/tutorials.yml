@@ -17,3 +17,5 @@ jobs:
   build-tutorials-with-pinned-botorch:
     name: Tutorials with pinned BoTorch
     uses: ./.github/workflows/reusable_tutorials.yml
+    with:
+      smoke_test: true

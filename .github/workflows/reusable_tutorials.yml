@@ -2,6 +2,10 @@ name: Reusable Tutorials Workflow
 
 on:
   workflow_call:
+    inputs:
+      smoke_test:
+        required: true
+        type: boolean
 
 jobs:
 
@@ -18,6 +22,11 @@ jobs:
       run: |
         # will install the version of Botorch that is pinned in setup.py
         pip install -e ".[tutorial]"
-    - name: Build tutorials
+    - if: ${{ inputs.smoke_test }}
+      name: Build tutorials with smoke test
       run: |
         python scripts/make_tutorials.py -w $(pwd) -e
+    - if: ${{ !inputs.smoke_test }}
+      name: Build tutorials without smoke test
+      run: |
+        python scripts/make_tutorials.py -w $(pwd) -e -s
