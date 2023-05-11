@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
@@ -755,23 +756,10 @@ class Experiment(Base):
                 else OrderedDict()
             )
             if combine_with_last_data and len(current_trial_data) > 0:
-                last_ts, last_data = list(current_trial_data.items())[-1]
-                last_data_type = type(last_data)
-                merge_keys = ["trial_index", "metric_name", "arm_name"] + (
-                    last_data.map_keys if issubclass(last_data_type, MapData) else []
+                last_data_type, last_data = self._get_last_data_without_similar_rows(
+                    current_trial_data=current_trial_data, new_df=trial_df
                 )
-                merged = pd.merge(
-                    last_data.true_df,
-                    trial_df,
-                    on=merge_keys,
-                    how="inner",
-                )
-                if not merged.empty:
-                    raise ValueError(
-                        f"Last data for trial {trial_index} already contained an "
-                        f"observation for metric {merged.head()['metric_name']}."
-                    )
-                del current_trial_data[last_ts]
+                current_trial_data.popitem()
                 current_trial_data[cur_time_millis] = last_data_type.from_multiple_data(
                     [
                         last_data,
@@ -798,6 +786,66 @@ class Experiment(Base):
             self._data_by_trial[trial_index] = current_trial_data
 
         return cur_time_millis
+
+    @staticmethod
+    def _get_last_data_without_similar_rows(
+        current_trial_data: OrderedDict[int, Data], new_df: pd.DataFrame
+    ) -> Tuple[Type[Data], Data]:
+        """Get a copy of last data with rows filtered out sharing values for
+        "trial_index", "metric_name", and "arm_name" with the new data so we
+        can cleanly combine them.
+
+        Args:
+            current_trial_data: The data currently attached to a trial
+            new_df: A DataFrame containing new data to be attached
+
+        Returns:
+            A tuple of two things:
+                - The type of the last data that was attached
+                - A Data object with the most recent data attached, minus the
+                    rows that share the same values
+                    for "trial_index", "metric_name", and "arm_name" in new_df
+        """
+        last_ts, last_data = list(current_trial_data.items())[-1]
+        # Get the init args other than 'df' for last data
+        # in case it was a child class of `Data`
+        last_data_init_args = last_data.deserialize_init_args(
+            last_data.serialize_init_args(last_data)
+        )
+        del last_data_init_args["df"]
+
+        last_data_type = type(last_data)
+        merge_keys = ["trial_index", "metric_name", "arm_name"] + (
+            # pyre-ignore[16]
+            last_data.map_keys
+            if issubclass(last_data_type, MapData)
+            else []
+        )
+        # this merge is like a SQL left join on merge keys
+        # it will return a dataframe with the columns in merge_keys
+        # plus "_merge" and any other columns in last_data.true_df with _left appended
+        # plus any other columns in new_df with _right appended
+        merged = pd.merge(
+            last_data.true_df,
+            new_df,
+            on=merge_keys,
+            how="left",
+            indicator=True,
+            suffixes=("_left", "_right"),
+        )
+        # Filter out all rows that are also present in new_df
+        last_df = merged[merged["_merge"] == "left_only"]
+
+        # Drop the _merge column
+        last_df = last_df.drop(columns=["_merge"])
+        # Drop columns ending with "_right", which should all have null values
+        right_columns = [c for c in last_df.columns if re.match(r".*_right$", c)]
+        last_df = last_df.drop(columns=right_columns)
+
+        # Remove the "_left" suffix from the column names
+        last_df.columns = last_df.columns.str.replace(r"_left$", "", regex=True)
+
+        return type(last_data), last_data_type(df=last_df, **last_data_init_args)
 
     def attach_fetch_results(
         self,
