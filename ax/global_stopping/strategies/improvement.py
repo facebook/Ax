@@ -31,12 +31,17 @@ logger: Logger = get_logger(__name__)
 
 class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
     """
-    A stopping strategy which stops the optimization if there is no significant
-    improvement over the iterations. For single-objective optimizations, this
-    strategy stops the loop if the feasible (mean) objective has not improved
-    over the past "window_size" iterations. In MOO loops, it stops the optimization
-    loop if the hyper-volume of the pareto front has not improved in the past
-    "window_size" iterations.
+    A Global Stopping Strategy which recommends stopping optimization if there
+    is no significant improvement over recent iterations.
+
+    This stopping strategy recommends stopping if there is no significant improvement
+    over the past `window_size` trials, among those that are feasible
+    (satisfying constraints). The meaning of a "significant"
+    improvement differs between single-objective and multi-objective optimizations.
+    For single-objective optimizations, improvement is as a fraction of the
+    interquartile range (IQR) of the objective values seen so far. For
+    multi-objective optimizations (MOO), improvement is as a fraction of the hypervolume
+    obtained `window_size` iterations ago.
     """
 
     def __init__(
@@ -50,8 +55,12 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         Initialize an improvement-based stopping strategy.
 
         Args:
-            min_trials: Minimum number of trials before the stopping strategy kicks in.
+            min_trials: Minimum number of trials before the stopping strategy
+                kicks in.
             window_size: Number of recent trials to check the improvement in.
+                The first trial that could be used for analysis is
+                `min_trials - window_size`; the first trial for which stopping
+                might be recommended is `min_trials`.
             improvement_bar: Threshold (in [0,1]) for considering relative improvement
                 over the best point.
             inactive_when_pending_trials: If set, the optimization will not stopped as
@@ -65,7 +74,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.improvement_bar = improvement_bar
         self.hv_by_trial: Dict[int, float] = {}
 
-    def should_stop_optimization(
+    def _should_stop_optimization(
         self,
         experiment: Experiment,
         trial_to_check: Optional[int] = None,
@@ -73,11 +82,14 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         **kwargs: Dict[str, Any],
     ) -> Tuple[bool, str]:
         """
-        Check if the optimization has improved in the past "window_size" iterations.
+        Check if the objective has improved significantly in the past
+        "window_size" iterations.
+
         For single-objective optimization experiments, it will call
         _should_stop_single_objective() and for MOO experiments, it will call
         _should_stop_moo(). Before making either of these calls, this function carries
-        out some sanity checks to handle obvious/invalid cases.
+        out some sanity checks to handle obvious/invalid cases. For more detail
+        on what it means to "significantly" improve, see the class docstring.
 
         Args:
             experiment: The experiment to apply the strategy on.
@@ -92,16 +104,6 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             A Tuple with a boolean determining whether the optimization should stop,
             and a str declaring the reason for stopping.
         """
-        if (
-            self.inactive_when_pending_trials
-            and len(experiment.trials_by_status[TrialStatus.RUNNING]) > 0
-        ):
-            message = "There are pending trials in the experiment."
-            return False, message
-
-        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
-            message = "There are no completed trials yet."
-            return False, message
 
         max_completed_trial = max(
             experiment.trial_indices_by_status[TrialStatus.COMPLETED]
@@ -147,10 +149,18 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
     ) -> Tuple[bool, str]:
         """
-        This is just the "should_stop_optimization" method of the class specialized to
-        MOO experiments. It computes the (feasible) hypervolume of the pareto front at
-        "trial_to_check" trial and "window_size" trials before, and suggest to stop the
-        optimization if there is no significant improvement.
+        This is the "should_stop_optimization" method of this class, specialized
+        to MOO experiments.
+
+        It computes the (feasible) hypervolume of the Pareto front at
+        `trial_to_check` trial and `window_size` trials before, and suggest to stop the
+        optimization if the improvment in hypervolume over the past
+        `window_size` trials, as a fraction of the hypervolume at the start of
+        the window, is less than `self.improvement_bar`. When the hypervolume is
+        zero at the beginning of the window, stopping is never recommended.
+
+        Becaues hypervolume computations are expensive, these are stored to
+        increase the speed of future checks.
 
         Args:
             experiment: The experiment to apply the strategy on.
@@ -204,7 +214,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if stop:
             message = (
                 f"The improvement in hypervolume in the past {self.window_size} "
-                f"trials (={hv_improvement:.3f}) is less than {self.improvement_bar}."
+                f"trials (={hv_improvement:.3f}) is less than improvement_bar "
+                f"(={self.improvement_bar}) times the hypervolume at the start "
+                f"of the window (={hv_reference:.3f})."
             )
         else:
             message = ""
@@ -214,10 +226,13 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self, experiment: Experiment, trial_to_check: int
     ) -> Tuple[bool, str]:
         """
-        This is the "should_stop_optimization" method of the class specialized to
-        single-objective experiments. It computes the best feasible objective  at
-        "trial_to_check" trial and "window_size" trials before, and suggest to stop
-        the trial if there is no significant improvement.
+        This is the `_should_stop_optimization` method of this class,
+        specialized to single-objective experiments.
+
+        It computes the interquartile range (IQR) of feasible objective values
+        found so far, then computes the improvement in the best seen over the
+        last `window_size` trials. If the recent improvement as a fraction of
+        the IQR is less than `self.improvement_bar`, it recommends stopping.
 
         Args:
             experiment: The experiment to apply the strategy on.
@@ -265,7 +280,8 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             message = (
                 f"The improvement in best objective in the past {self.window_size} "
                 f"trials (={relative_improvement:.3f}) is less than "
-                f"{self.improvement_bar}."
+                f"{self.improvement_bar} times the interquartile range (IQR) of "
+                f"objectives attained so far (IQR={iqr:.3f})."
             )
         else:
             message = ""
