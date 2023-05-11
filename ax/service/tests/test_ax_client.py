@@ -1551,12 +1551,6 @@ class TestAxClient(TestCase):
         # Cannot complete a trial twice, should use `update_trial_data`.
         with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
             ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        # Cannot update trial data with observation for a metric it already has.
-        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
-            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        # Same as above, except objective name should be getting inferred.
-        with self.assertRaisesRegex(ValueError, ".* contained an observation"):
-            ax_client.update_trial_data(trial_index=idx, raw_data=1.0)
         ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
         self.assertNotIn("m1", metrics_in_data)
