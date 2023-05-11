@@ -775,13 +775,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "broken."
                 )
 
-            raise FailureRateExceededError(
-                FAILURE_EXCEEDED_MSG.format(
-                    f_rate=self.options.tolerated_trial_failure_rate,
-                    n_failed=num_bad_in_scheduler,
-                    n_ran=num_ran_in_scheduler,
-                    min_failed=self.options.min_failed_trials_for_failure_rate_check,
-                )
+            raise self._get_failure_rate_exceeded_error(
+                num_bad_in_scheduler=num_bad_in_scheduler,
+                num_ran_in_scheduler=num_ran_in_scheduler,
             )
 
     def run_trials_and_yield_results(
@@ -1745,3 +1741,17 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         trial.mark_failed(unsafe=True)
 
         return TrialStatus.FAILED
+
+    def _get_failure_rate_exceeded_error(
+        self,
+        num_bad_in_scheduler: int,
+        num_ran_in_scheduler: int,
+    ) -> FailureRateExceededError:
+        return FailureRateExceededError(
+            FAILURE_EXCEEDED_MSG.format(
+                f_rate=self.options.tolerated_trial_failure_rate,
+                n_failed=num_bad_in_scheduler,
+                n_ran=num_ran_in_scheduler,
+                min_failed=self.options.min_failed_trials_for_failure_rate_check,
+            )
+        )
