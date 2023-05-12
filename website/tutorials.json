@@ -60,6 +60,10 @@
       "dir": "early_stopping",
       "id": "early_stopping",
       "title": "Trial-Level Early Stopping"
+    },
+    {
+      "id": "gss",
+      "title": "Global Stopping (Experiment-Level Early Stopping)"
     }
   ],
   "Field Experiments": [
