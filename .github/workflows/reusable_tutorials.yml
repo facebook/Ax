@@ -25,8 +25,8 @@ jobs:
     - if: ${{ inputs.smoke_test }}
       name: Build tutorials with smoke test
       run: |
-        python scripts/make_tutorials.py -w $(pwd) -e
+        python scripts/make_tutorials.py -w $(pwd) -e -s
     - if: ${{ !inputs.smoke_test }}
       name: Build tutorials without smoke test
       run: |
-        python scripts/make_tutorials.py -w $(pwd) -e -s
+        python scripts/make_tutorials.py -w $(pwd) -e
