@@ -448,20 +448,25 @@ class ExperimentTest(TestCase):
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
 
-        with self.assertRaisesRegex(ValueError, ".* for metric"):
-            exp.attach_data(batch_data, combine_with_last_data=True)
-
         self.assertEqual(len(full_dict[0]), 5)  # 5 data objs for batch 0
         new_data = Data(
             df=pd.DataFrame.from_records(
                 [
                     {
                         "arm_name": "0_0",
+                        # but now it is
+                        "metric_name": "not_yet_on_experiment",
+                        "mean": 3,
+                        "sem": 0,
+                        "trial_index": 0,
+                    },
+                    {
+                        "arm_name": "0_0",
                         "metric_name": "z",
                         "mean": 3,
                         "sem": 0,
                         "trial_index": 0,
-                    }
+                    },
                 ]
             )
         )
