@@ -12,6 +12,7 @@
 import contextlib
 import io
 import linecache
+import logging
 import signal
 import sys
 import types
@@ -298,6 +299,18 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
+
+    def setUp(self) -> None:
+        """
+        Only show log messages of WARNING or higher while testing.
+
+        Ax prints a lot of INFO logs that are not relevant for unit tests.
+        """
+        logger = get_logger(__name__, level=logging.WARNING)
+        # Parent handlers are shared, so setting the level this
+        # way applies it to all Ax loggers.
+        if logger.parent is not None and hasattr(logger.parent, "handlers"):
+            logger.parent.handlers[0].setLevel(logging.WARNING)
 
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
