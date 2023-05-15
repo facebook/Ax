@@ -9,7 +9,7 @@ import json
 import os
 import tarfile
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 import nbformat
 from bs4 import BeautifulSoup
@@ -60,11 +60,56 @@ function require(deps, fxn) {
 """
 
 
+def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
+    if t_dir is not None:
+        tutorial_dir = os.path.join(repo_dir, "tutorials", t_dir)
+        html_dir = os.path.join(repo_dir, "website", "_tutorials", t_dir)
+        js_dir = os.path.join(repo_dir, "website", "pages", "tutorials", t_dir)
+        py_dir = os.path.join(repo_dir, "website", "static", "files", t_dir)
+
+        for d in [tutorial_dir, html_dir, js_dir, py_dir]:
+            os.makedirs(d, exist_ok=True)
+
+        tutorial_path = os.path.join(tutorial_dir, "{}.ipynb".format(tid))
+        html_path = os.path.join(html_dir, "{}.html".format(tid))
+        js_path = os.path.join(js_dir, "{}.js".format(tid))
+        ipynb_path = os.path.join(py_dir, "{}.ipynb".format(tid))
+        py_path = os.path.join(py_dir, "{}.py".format(tid))
+    else:
+        tutorial_dir = os.path.join(repo_dir, "tutorials")
+        tutorial_path = os.path.join(repo_dir, "tutorials", "{}.ipynb".format(tid))
+        html_path = os.path.join(
+            repo_dir, "website", "_tutorials", "{}.html".format(tid)
+        )
+        js_path = os.path.join(
+            repo_dir, "website", "pages", "tutorials", "{}.js".format(tid)
+        )
+        ipynb_path = os.path.join(
+            repo_dir, "website", "static", "files", "{}.ipynb".format(tid)
+        )
+        py_path = os.path.join(
+            repo_dir, "website", "static", "files", "{}.py".format(tid)
+        )
+
+    paths = {
+        "tutorial_dir": tutorial_dir,
+        "tutorial_path": tutorial_path,
+        "html_path": html_path,
+        "js_path": js_path,
+        "ipynb_path": ipynb_path,
+        "py_path": py_path,
+    }
+    if t_dir is not None:
+        paths["tar_path"] = os.path.join(py_dir, "{}.tar.gz".format(tid))
+    return paths
+
+
 def gen_tutorials(
     repo_dir: str,
     exec_tutorials: bool,
     kernel_name: Optional[str] = None,
     name: Optional[str] = None,
+    smoke_test: bool = False,
 ) -> None:
     """Generate HTML tutorials for Docusaurus Ax site from Jupyter notebooks.
 
@@ -72,6 +117,7 @@ def gen_tutorials(
     download.
     """
     has_errors = False
+
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
 
@@ -88,6 +134,8 @@ def gen_tutorials(
     # prepare paths for converted tutorials & files
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
     os.makedirs(os.path.join(repo_dir, "website", "static", "files"), exist_ok=True)
+    if smoke_test:
+        os.environ["SMOKE_TEST"] = str(smoke_test)
 
     for config in tutorial_configs:
         tid = config["id"]
@@ -96,39 +144,10 @@ def gen_tutorials(
 
         print("Generating {} tutorial".format(tid))
 
-        if t_dir is not None:
-            tutorial_dir = os.path.join(repo_dir, "tutorials", t_dir)
-            html_dir = os.path.join(repo_dir, "website", "_tutorials", t_dir)
-            js_dir = os.path.join(repo_dir, "website", "pages", "tutorials", t_dir)
-            py_dir = os.path.join(repo_dir, "website", "static", "files", t_dir)
-
-            for d in [tutorial_dir, html_dir, js_dir, py_dir]:
-                os.makedirs(d, exist_ok=True)
-
-            tutorial_path = os.path.join(tutorial_dir, "{}.ipynb".format(tid))
-            html_path = os.path.join(html_dir, "{}.html".format(tid))
-            js_path = os.path.join(js_dir, "{}.js".format(tid))
-            ipynb_path = os.path.join(py_dir, "{}.ipynb".format(tid))
-            py_path = os.path.join(py_dir, "{}.py".format(tid))
-            tar_path = os.path.join(py_dir, "{}.tar.gz".format(tid))
-        else:
-            tutorial_dir = os.path.join(repo_dir, "tutorials")
-            tutorial_path = os.path.join(repo_dir, "tutorials", "{}.ipynb".format(tid))
-            html_path = os.path.join(
-                repo_dir, "website", "_tutorials", "{}.html".format(tid)
-            )
-            js_path = os.path.join(
-                repo_dir, "website", "pages", "tutorials", "{}.js".format(tid)
-            )
-            ipynb_path = os.path.join(
-                repo_dir, "website", "static", "files", "{}.ipynb".format(tid)
-            )
-            py_path = os.path.join(
-                repo_dir, "website", "static", "files", "{}.py".format(tid)
-            )
+        paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
 
         # load notebook
-        with open(tutorial_path, "r") as infile:
+        with open(paths["tutorial_path"], "r") as infile:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
 
@@ -138,8 +157,8 @@ def gen_tutorials(
         if exec_tutorials and exec_on_build:
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
-            # 2.5 hours, in seconds
-            timeout = int(60 * 60 * 2.5)
+            # 2.5 hours, in seconds; 1 hour if smoke test mode
+            timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)
             ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
@@ -147,7 +166,7 @@ def gen_tutorials(
             # will re-raise at the end
             try:
                 # execute notebook, using `tutorial_dir` as working directory
-                ep.preprocess(nb, {"metadata": {"path": tutorial_dir}})
+                ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
@@ -162,7 +181,7 @@ def gen_tutorials(
 
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")
-        html, meta = exporter.from_notebook_node(nb)
+        html, _ = exporter.from_notebook_node(nb)
 
         # pull out html div for notebook
         soup = BeautifulSoup(html, "html.parser")
@@ -184,7 +203,7 @@ def gen_tutorials(
         html_out = MOCK_JS_REQUIRES + str(nb_meat)
 
         # generate HTML file
-        with open(html_path, "w") as html_outfile:
+        with open(paths["html_path"], "w") as html_outfile:
             html_outfile.write(html_out)
 
         # generate JS file
@@ -194,20 +213,23 @@ def gen_tutorials(
             tid=tid,
             total_time=total_time if total_time is not None else "null",
         )
-        with open(js_path, "w") as js_outfile:
+        with open(paths["js_path"], "w") as js_outfile:
             js_outfile.write(script)
 
         # output tutorial in both ipynb & py form
-        nbformat.write(nb, ipynb_path)
+        nbformat.write(nb, paths["ipynb_path"])
         exporter = ScriptExporter()
-        script, meta = exporter.from_notebook_node(nb)
-        with open(py_path, "w") as py_outfile:
+        script, _ = exporter.from_notebook_node(nb)
+        with open(paths["py_path"], "w") as py_outfile:
             py_outfile.write(script)
 
         # create .tar archive (if necessary)
         if t_dir is not None:
-            with tarfile.open(tar_path, "w:gz") as tar:
-                tar.add(tutorial_dir, arcname=os.path.basename(tutorial_dir))
+            with tarfile.open(paths["tar_path"], "w:gz") as tar:
+                tar.add(
+                    paths["tutorial_dir"],
+                    arcname=os.path.basename(paths["tutorial_dir"]),
+                )
 
     if has_errors:
         raise Exception("There are errors in tutorials, will not continue to publish")
@@ -219,6 +241,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-w", "--repo_dir", metavar="path", required=True, help="Ax repo directory."
+    )
+    parser.add_argument(
+        "-s", "--smoke", action="store_true", help="Run in smoke test mode."
     )
     parser.add_argument(
         "-e",
@@ -243,4 +268,10 @@ if __name__ == "__main__":
         "to specify --include-ignored.",
     )
     args = parser.parse_args()
-    gen_tutorials(args.repo_dir, args.exec_tutorials, args.kernel_name, name=args.name)
+    gen_tutorials(
+        args.repo_dir,
+        args.exec_tutorials,
+        args.kernel_name,
+        smoke_test=args.smoke,
+        name=args.name,
+    )
