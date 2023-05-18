@@ -99,3 +99,24 @@ class TestBestPointMixin(TestCase):
         # W/ empty data.
         exp = get_experiment_with_trial()
         self.assertEqual(BestPointMixin._get_hypervolume(exp, Mock()), 0.0)
+
+    def test_get_best_observed_value(self) -> None:
+        # Alias for easier access.
+        get_best = BestPointMixin._get_best_observed_value
+
+        # Single objective, minimize.
+        exp = get_experiment_with_observations(
+            observations=[[11], [10], [9], [15], [5]], minimize=True
+        )
+        self.assertEqual(get_best(exp), 5)
+        # Same experiment with maximize via new optimization config.
+        opt_conf = not_none(exp.optimization_config).clone()
+        opt_conf.objective.minimize = False
+        self.assertEqual(get_best(exp, opt_conf), 15)
+
+        # Scalarized.
+        exp = get_experiment_with_observations(
+            observations=[[1, 1], [2, 2], [3, 3]],
+            scalarized=True,
+        )
+        self.assertEqual(get_best(exp), 6)

@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -292,6 +293,53 @@ class BestPointMixin(metaclass=ABCMeta):
             optimization_config=optimization_config,
             trial_indices=trial_indices,
         )
+
+    @staticmethod
+    def _get_best_observed_value(
+        experiment: Experiment,
+        optimization_config: Optional[OptimizationConfig] = None,
+        trial_indices: Optional[Iterable[int]] = None,
+    ) -> Optional[float]:
+        """Identifies the best objective value observed in the experiment
+        among the trials indicated by `trial_indices`.
+
+        Args:
+            experiment: The experiment to get the best objective value for.
+            optimization_config: Optimization config to use in place of the one stored
+                on the experiment.
+            trial_indices: Indices of trials for which to retrieve data. If None will
+                retrieve data from all available trials.
+
+        Returns:
+            The best objective value so far.
+        """
+        if optimization_config is None:
+            optimization_config = not_none(experiment.optimization_config)
+        if optimization_config.is_moo_problem:
+            raise NotImplementedError(  # pragma: no cover
+                "Please use `get_hypervolume` for multi-objective problems."
+            )
+
+        res = best_point_utils.get_best_by_raw_objective_with_trial_index(
+            experiment=experiment,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+        )
+
+        predictions = res[2] if res is not None else None
+        if predictions is None:
+            return None  # pragma: no cover
+
+        means = not_none(predictions)[0]
+        objective = optimization_config.objective
+        if isinstance(objective, ScalarizedObjective):
+            value = 0
+            for metric, weight in objective.metric_weights:
+                value += means[metric.name] * weight
+            return value
+        else:
+            name = objective.metric_names[0]
+            return means[name]
 
     @staticmethod
     def _get_pareto_optimal_parameters(
