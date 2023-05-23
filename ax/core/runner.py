@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional, Set, TYPE_CHECKING
+from typing import Any, Dict, Iterable, List, Optional, Set, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
@@ -25,6 +25,13 @@ class Runner(Base, SerializationMixin, ABC):
     def staging_required(self) -> bool:
         """Whether the trial goes to staged or running state once deployed."""
         return False
+
+    @property
+    def run_metadata_report_keys(self) -> List[str]:
+        """A list of keys of the metadata dict returned by `run()` that are
+        relevant outside the runner-internal impolementation. These can e.g.
+        be reported in `Scheduler.report_results()`."""
+        return []
 
     @abstractmethod
     def run(self, trial: core.base_trial.BaseTrial) -> Dict[str, Any]:
