@@ -49,3 +49,6 @@ class RunnerTest(TestCase):
 
     def test_poll_available_capacity(self) -> None:
         self.assertEqual(self.dummy_runner.poll_available_capacity(), -1)
+
+    def test_run_metadata_report_keys(self) -> None:
+        self.assertEqual(self.dummy_runner.run_metadata_report_keys, [])
