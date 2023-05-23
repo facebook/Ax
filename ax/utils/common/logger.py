@@ -162,7 +162,7 @@ class disable_logger(ClassDecorator):
     def decorate_callable(self, func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> T:
-            logger = get_logger(self.name)
+            logger = logging.getLogger(self.name)
             prev_level = logger.getEffectiveLevel()
             logger.setLevel(self.level)
             t = self._call_func(func, *args, **kwargs)
@@ -185,12 +185,12 @@ class disable_loggers(ClassDecorator):
         def inner(*args: Any, **kwargs: Any) -> T:
             prev_levels = {}
             for name in self.names:
-                logger = get_logger(name)
+                logger = logging.getLogger(name)
                 prev_levels[name] = logger.getEffectiveLevel()
                 logger.setLevel(self.level)
             t = self._call_func(func, *args, **kwargs)
             for name in self.names:
-                get_logger(name).setLevel(prev_levels[name])
+                logging.getLogger(name).setLevel(prev_levels[name])
             return t
 
         return inner
