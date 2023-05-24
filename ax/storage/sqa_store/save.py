@@ -12,7 +12,10 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.runner import Runner
+from ax.exceptions.core import UserInputError
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope, SQABase
@@ -21,6 +24,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_classes import (
     SQAData,
     SQAGeneratorRun,
+    SQAMetric,
     SQARunner,
     SQATrial,
 )
@@ -379,6 +383,42 @@ def update_runner_on_experiment(
         obj=runner,
         encode_func=encoder.runner_to_sqa,
         decode_func=decoder.runner_from_sqa,
+        modify_sqa=add_experiment_id,
+    )
+
+
+def update_outcome_constraint_on_experiment(
+    experiment: Experiment,
+    outcome_constraint: OutcomeConstraint,
+    encoder: Encoder,
+    decoder: Decoder,
+) -> None:
+    oc_sqa_class = encoder.config.class_to_sqa_class[Metric]
+
+    exp_id = experiment.db_id
+    if exp_id is None:
+        raise UserInputError("Experiment must be saved before being updated.")
+    oc_id = outcome_constraint.db_id
+    if oc_id is not None:
+        with session_scope() as session:
+            session.query(oc_sqa_class).filter_by(experiment_id=exp_id).filter_by(
+                id=oc_id
+            ).delete()
+
+    # pyre-fixme[53]: Captured variable `exp_id` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
+    def add_experiment_id(sqa: SQAMetric):
+        sqa.experiment_id = exp_id
+
+    encode_func = (
+        encoder.objective_threshold_to_sqa
+        if isinstance(outcome_constraint, ObjectiveThreshold)
+        else encoder.outcome_constraint_to_sqa
+    )
+    _merge_into_session(
+        obj=outcome_constraint,
+        encode_func=encode_func,
+        decode_func=decoder.metric_from_sqa,
         modify_sqa=add_experiment_id,
     )
 
