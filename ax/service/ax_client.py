@@ -1465,6 +1465,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return set(self.experiment.metrics)
 
     @property
+    def early_stopping_strategy(self) -> Optional[BaseEarlyStoppingStrategy]:
+        """The early stopping strategy used on the experiment."""
+        return self._early_stopping_strategy
+
+    @early_stopping_strategy.setter
+    def early_stopping_strategy(self, ess: BaseEarlyStoppingStrategy) -> None:
+        """Update the early stopping strategy."""
+        self._early_stopping_strategy = ess
+
+    @property
     def global_stopping_strategy(self) -> Optional[BaseGlobalStoppingStrategy]:
         """The global stopping strategy used on the experiment."""
         return self._global_stopping_strategy
