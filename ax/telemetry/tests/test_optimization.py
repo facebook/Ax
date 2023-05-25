@@ -33,6 +33,7 @@ class TestOptimization(TestCase):
 
         record = OptimizationCreatedRecord.from_scheduler(
             scheduler=scheduler,
+            unique_identifier="foo",
             product_surface="Axolotl",
             launch_surface="web",
             deployed_job_id=1118,
@@ -44,6 +45,7 @@ class TestOptimization(TestCase):
 
         expected_dict = {
             **SchedulerCreatedRecord.from_scheduler(scheduler=scheduler).flatten(),
+            "unique_identifier": "foo",
             "product_surface": "Axolotl",
             "launch_surface": "web",
             "deployed_job_id": 1118,
@@ -69,6 +71,7 @@ class TestOptimization(TestCase):
 
         record = OptimizationCreatedRecord.from_ax_client(
             ax_client=ax_client,
+            unique_identifier="foo",
             product_surface="Axolotl",
             launch_surface="web",
             deployed_job_id=1118,
@@ -80,6 +83,7 @@ class TestOptimization(TestCase):
 
         expected_dict = {
             **AxClientCreatedRecord.from_ax_client(ax_client=ax_client).flatten(),
+            "unique_identifier": "foo",
             "product_surface": "Axolotl",
             "launch_surface": "web",
             "deployed_job_id": 1118,
@@ -107,6 +111,7 @@ class TestOptimization(TestCase):
 
         record = OptimizationCompletedRecord.from_scheduler(
             scheduler=scheduler,
+            unique_identifier="foo",
             deployed_job_id=1118,
             estimated_early_stopping_savings=19,
             estimated_global_stopping_savings=98,
@@ -114,6 +119,7 @@ class TestOptimization(TestCase):
 
         expected_dict = {
             **SchedulerCompletedRecord.from_scheduler(scheduler=scheduler).flatten(),
+            "unique_identifier": "foo",
             "deployed_job_id": 1118,
             "estimated_early_stopping_savings": 19,
             "estimated_global_stopping_savings": 98,
@@ -135,6 +141,7 @@ class TestOptimization(TestCase):
 
         record = OptimizationCompletedRecord.from_ax_client(
             ax_client=ax_client,
+            unique_identifier="foo",
             deployed_job_id=1118,
             estimated_early_stopping_savings=19,
             estimated_global_stopping_savings=98,
@@ -142,6 +149,7 @@ class TestOptimization(TestCase):
 
         expected_dict = {
             **AxClientCompletedRecord.from_ax_client(ax_client=ax_client).flatten(),
+            "unique_identifier": "foo",
             "deployed_job_id": 1118,
             "estimated_early_stopping_savings": 19,
             "estimated_global_stopping_savings": 98,

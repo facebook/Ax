@@ -22,6 +22,8 @@ class OptimizationCreatedRecord:
     optimization results to a tabular database (i.e. one row per Record).
     """
 
+    unique_identifier: str
+
     # ExperimentCreatedRecord fields
     experiment_name: Optional[str]
     experiment_type: Optional[str]
@@ -75,6 +77,7 @@ class OptimizationCreatedRecord:
     def from_scheduler(
         cls,
         scheduler: Scheduler,
+        unique_identifier: str,
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
@@ -158,6 +161,7 @@ class OptimizationCreatedRecord:
                 scheduler_created_record.scheduler_max_pending_trials
             ),
             arms_per_trial=scheduler_created_record.arms_per_trial,
+            unique_identifier=unique_identifier,
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
@@ -171,6 +175,7 @@ class OptimizationCreatedRecord:
     def from_ax_client(
         cls,
         ax_client: AxClient,
+        unique_identifier: str,
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
@@ -252,6 +257,7 @@ class OptimizationCreatedRecord:
                 ax_client_created_record.transformed_dimensionality
             ),
             arms_per_trial=ax_client_created_record.arms_per_trial,
+            unique_identifier=unique_identifier,
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
@@ -268,10 +274,12 @@ class OptimizationCreatedRecord:
 @dataclass(frozen=True)
 class OptimizationCompletedRecord:
     """
-     Record of the "Optimization" completion event. This can come from either an
+    Record of the "Optimization" completion event. This can come from either an
     AxClient or a Scheduler. This Record is especially useful for logging Ax-backed
     optimization results to a tabular database (i.e. one row per Record)
     """
+
+    unique_identifier: str
 
     # ExperimentCompletedRecord fields
     num_initialization_trials: int
@@ -305,6 +313,7 @@ class OptimizationCompletedRecord:
     def from_scheduler(
         cls,
         scheduler: Scheduler,
+        unique_identifier: str,
         deployed_job_id: Optional[int],
         estimated_early_stopping_savings: float,
         estimated_global_stopping_savings: float,
@@ -338,6 +347,7 @@ class OptimizationCompletedRecord:
             num_trials_bad_due_to_err=(
                 scheduler_completed_record.num_trials_bad_due_to_err
             ),
+            unique_identifier=unique_identifier,
             deployed_job_id=deployed_job_id,
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
@@ -347,6 +357,7 @@ class OptimizationCompletedRecord:
     def from_ax_client(
         cls,
         ax_client: AxClient,
+        unique_identifier: str,
         deployed_job_id: Optional[int],
         estimated_early_stopping_savings: float,
         estimated_global_stopping_savings: float,
@@ -374,6 +385,7 @@ class OptimizationCompletedRecord:
             total_gen_time=experiment_completed_record.total_gen_time,
             best_point_quality=ax_client_completed_record.best_point_quality,
             model_fit_quality=ax_client_completed_record.model_fit_quality,
+            unique_identifier=unique_identifier,
             deployed_job_id=deployed_job_id,
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
