@@ -9,6 +9,7 @@
 """Support functions for tests
 """
 
+import builtins
 import contextlib
 import io
 import linecache
@@ -259,12 +260,23 @@ def _build_comparison_str(
 
 
 def setup_import_mocks(mocked_import_paths: List[str]) -> None:
+    # pyre-fixme[3]
+    def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        for import_path in mocked_import_paths:
+            if name == import_path or name.startswith(f"{import_path}."):
+                return MagicMock()
+        return original_import(name, *args, **kwargs)
+
     for import_path in mocked_import_paths:
         if import_path in sys.modules and not isinstance(
             sys.modules[import_path], MagicMock
         ):
             raise Exception(f"{import_path} has already been imported!")
-        sys.modules[import_path] = MagicMock()
+
+    # Replace the original import with the custom one
+    # pyre-fixme[61]
+    original_import = builtins.__import__
+    builtins.__import__ = custom_import
 
 
 class TestCase(fake_filesystem_unittest.TestCase):
