@@ -8,18 +8,17 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 
-from ax.service.scheduler import Scheduler
+from ax.service.ax_client import AxClient
 from ax.telemetry.common import _get_max_transformed_dimensionality
-
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 
 
 @dataclass(frozen=True)
-class SchedulerCreatedRecord:
+class AxClientCreatedRecord:
     """
-    Record of the Scheduler creation event. This can be used for telemetry in settings
-    where many Schedulers are being created either manually or programatically. In
+    Record of the AxClient creation event. This can be used for telemetry in settings
+    where many AxClients are being created either manually or programatically. In
     order to facilitate easy serialization only include simple types: numbers, strings,
     bools, and None.
     """
@@ -27,9 +26,6 @@ class SchedulerCreatedRecord:
     experiment_created_record: ExperimentCreatedRecord
     generation_strategy_created_record: GenerationStrategyCreatedRecord
 
-    # SchedulerOptions info
-    scheduler_total_trials: Optional[int]
-    scheduler_max_pending_trials: int
     arms_per_trial: int
     early_stopping_strategy_cls: Optional[str]
     global_stopping_strategy_cls: Optional[str]
@@ -39,33 +35,38 @@ class SchedulerCreatedRecord:
     transformed_dimensionality: int
 
     @classmethod
-    def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCreatedRecord:
+    def from_ax_client(cls, ax_client: AxClient) -> AxClientCreatedRecord:
+        # Some AxClients may implement `batch_size`, those that do not use
+        # one trial arms.
+        if getattr(ax_client, "batch_size", None) is not None:
+            # pyre-fixme[16] `AxClient` has no attribute `batch_size`
+            arms_per_trial = ax_client.batch_size  # pragma: no cover
+        else:
+            arms_per_trial = 1
+
         return cls(
             experiment_created_record=ExperimentCreatedRecord.from_experiment(
-                experiment=scheduler.experiment
+                experiment=ax_client.experiment
             ),
             generation_strategy_created_record=(
                 GenerationStrategyCreatedRecord.from_generation_strategy(
-                    generation_strategy=scheduler.generation_strategy
+                    generation_strategy=ax_client.generation_strategy
                 )
             ),
-            scheduler_total_trials=scheduler.options.total_trials,
-            scheduler_max_pending_trials=scheduler.options.max_pending_trials,
-            # If batch_size is None then we are using single-Arm trials
-            arms_per_trial=scheduler.options.batch_size or 1,
+            arms_per_trial=arms_per_trial,
             early_stopping_strategy_cls=(
                 None
-                if scheduler.options.early_stopping_strategy is None
-                else scheduler.options.early_stopping_strategy.__class__.__name__
+                if ax_client.early_stopping_strategy is None
+                else ax_client.early_stopping_strategy.__class__.__name__
             ),
             global_stopping_strategy_cls=(
                 None
-                if scheduler.options.global_stopping_strategy is None
-                else scheduler.options.global_stopping_strategy.__class__.__name__
+                if ax_client.global_stopping_strategy is None
+                else ax_client.global_stopping_strategy.__class__.__name__
             ),
             transformed_dimensionality=_get_max_transformed_dimensionality(
-                search_space=scheduler.experiment.search_space,
-                generation_strategy=scheduler.generation_strategy,
+                search_space=ax_client.experiment.search_space,
+                generation_strategy=ax_client.generation_strategy,
             ),
         )
 
@@ -88,9 +89,9 @@ class SchedulerCreatedRecord:
 
 
 @dataclass(frozen=True)
-class SchedulerCompletedRecord:
+class AxClientCompletedRecord:
     """
-    Record of the Scheduler completion event. This will have information only available
+    Record of the AxClient completion event. This will have information only available
     after the optimization has completed.
     """
 
@@ -99,19 +100,14 @@ class SchedulerCompletedRecord:
     best_point_quality: float
     model_fit_quality: float
 
-    num_metric_fetch_e_encountered: int
-    num_trials_bad_due_to_err: int
-
     @classmethod
-    def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCompletedRecord:
+    def from_ax_client(cls, ax_client: AxClient) -> AxClientCompletedRecord:
         return cls(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
-                experiment=scheduler.experiment
+                experiment=ax_client.experiment
             ),
             best_point_quality=-1,  # TODO[T147907632]
             model_fit_quality=-1,  # TODO[T147907632]
-            num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
-            num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
         )
 
     def flatten(self) -> Dict[str, Any]:
