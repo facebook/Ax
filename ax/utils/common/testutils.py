@@ -259,12 +259,17 @@ def _build_comparison_str(
     return msg
 
 
-def setup_import_mocks(mocked_import_paths: List[str]) -> None:
+def setup_import_mocks(
+    mocked_import_paths: List[str], mock_config_dict: Optional[Dict[str, Any]] = None
+) -> None:
     # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
         for import_path in mocked_import_paths:
             if name == import_path or name.startswith(f"{import_path}."):
-                return MagicMock()
+                mymock = MagicMock()
+                if mock_config_dict is not None:
+                    mymock.configure_mock(**mock_config_dict)
+                return mymock
         return original_import(name, *args, **kwargs)
 
     for import_path in mocked_import_paths:
