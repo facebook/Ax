@@ -12,11 +12,12 @@ Ax has extensible support for saving and loading experiments in both JSON and SQ
 To save an experiment to JSON, specify the filepath:
 
 ```py
-from ax import Experiment, save
+from ax import Experiment
+from ax.storage.json_store.save import save_experiment
 
 experiment = Experiment(...)
 filepath = "experiments/experiment.json"
-save(experiment, filepath)
+save_experiment(experiment, filepath)
 ```
 
 The experiment (including attached data) will be serialized and saved to the specified file.
@@ -30,26 +31,45 @@ To update a JSON-backed experiment, re-save to the same file.
 To load an experiment from JSON, specify the filepath again:
 
 ```py
-from ax import load
+from ax.storage.json_store.load import load_experiment
 experiment = load_experiment(filepath)
 ```
 
 ### Customizing
 
-If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, simply call [`register_metric`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric) or [`register_runner`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner):
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to JSON properly, create a [`RegistryBundle`](/api/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
 
 ```py
-from ax.storage.metric_registry import register_metric
-from ax.storage.runner_registry import register_runner
+from ax import Experiment, Metric, Runner, SearchSpace
+from ax.storage.json_store.load import load_experiment
+from ax.storage.json_store.save import save_experiment
+from ax.storage.registry_bundle import RegistryBundle
 
+# Minimal custom runner/metric.
 class MyRunner(Runner):
-    pass
+    def run():
+        pass
 
 class MyMetric(Metric):
     pass
 
-register_metric(MyMetric)
-register_runner(MyRunner)
+# Minimal experiment must have a search space, plus our custom classes.
+experiment = Experiment(
+    search_space=SearchSpace(parameters=[]),
+    runner=MyRunner(),
+    tracking_metrics=[MyMetric(name="my_metric")]
+)
+
+# A RegistryBundle allows Ax to encode/decode the custom classes.
+bundle = RegistryBundle(
+    runner_clss={MyRunner: None}
+    metric_clss={MyMetric: None},
+)
+
+filepath = "experiments/experiment.json"
+save_experiment(experiment=experiment, filepath=filepath, encoder_registry=bundle.encoder_registry)
+
+loaded_experiment=load_experiment(filepath=filepath, decoder_registry=bundle.decoder_registry)
 ```
 
 ## SQL
@@ -117,12 +137,15 @@ experiment = load_experiment(experiment_name)
 
 **Adding a new metric or runner:**
 
-If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, simply call [`register_metric`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric) or [`register_runner`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner):
+If you add a custom [`Metric`](/api/core.html#module-ax.core.metric) or [`Runner`](../api/core.html#ax.core.runner.Runner) and want to ensure it is saved to SQL properly, create a [`RegistryBundle`](/api/storage.html#ax.storage.registry_bundle.RegistryBundle), which bundles together encoding and decoding logic for use in the various save/load functions as follows:
 
 ```py
-from ax.storage.metric_registry import register_metric
-from ax.storage.runner_registry import register_runner
+from ax import Experiment, RangeParameter, ParameterType
+from ax.storage.sqa_store.load import load_experiment
+from ax.storage.sqa_store.save import save_experiment
+from ax.storage.sqa_store.sqa_config import SQAConfig
 
+# Minimal custom runner/metric.
 class MyRunner(Runner):
     def run():
         pass
@@ -130,8 +153,40 @@ class MyRunner(Runner):
 class MyMetric(Metric):
     pass
 
-register_metric(MyMetric)
-register_runner(MyRunner)
+# Minimal experiment for SQA must have a name and a nonempty SearchSpace, plus our custom classes.
+experiment = Experiment(
+    name="my_experiment",
+    search_space=SearchSpace(
+        parameters=[
+            RangeParameter(
+                lower=0,
+                upper=1,
+                name="my_parameter",
+                parameter_type=ParameterType.FLOAT
+            )
+        ]
+    ),
+    runner=MyRunner(),
+    tracking_metrics=[MyMetric(name="my_metric")],
+)
+
+# The RegistryBundle contains our custom classes.
+bundle = RegistryBundle(
+    metric_clss={MyMetric: None},
+    runner_clss={MyRunner: None}
+)
+
+# Abstract this into a SQAConfig as follows, to make loading/saving a bit simpler.
+sqa_config = SQAConfig(
+    json_encoder_registry=bundle.encoder_registry,
+    json_decoder_registry=bundle.decoder_registry,
+    metric_registry=bundle.metric_registry,
+    runner_registry=bundle.runner_registry,
+)
+
+save_experiment(experiment, config=sqa_config)
+
+loaded_experiment = load_experiment(experiment_name="my_experiment", config=sqa_config)
 ```
 
 **Specifying experiment types:**
