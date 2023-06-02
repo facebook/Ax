@@ -302,6 +302,7 @@ def relativize_data(
     status_quo_name: str = "status_quo",
     as_percent: bool = False,
     include_sq: bool = False,
+    bias_correction: bool = True,
 ) -> Data:
     """Relativize a data object w.r.t. a status_quo arm.
 
@@ -310,6 +311,10 @@ def relativize_data(
         status_quo_name: The name of the status_quo arm.
         as_percent: If True, return results as percentage change.
         include_sq: Include status quo in final df.
+        bias_correction: Whether to apply bias correction when computing relativized
+            metric values. Uses a second-order Taylor expansion for approximating
+            the means and standard errors or the ratios, see
+            ax.utils.stats.statstools.relativize for more details.
 
     Returns:
         The new data object with the relativized metrics (excluding the
@@ -337,6 +342,7 @@ def relativize_data(
             mean_c=sq_mean,
             sem_c=sq_sem,
             as_percent=as_percent,
+            bias_correction=bias_correction,
         )
         dfs.append(
             pd.concat(
