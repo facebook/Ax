@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import json
+from abc import abstractmethod
 from functools import reduce
 from hashlib import md5
-from typing import Any, Dict, Iterable, Optional, Set, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -22,8 +23,10 @@ from ax.utils.common.serialization import (
 )
 from ax.utils.common.typeutils import checked_cast, not_none
 
+TBaseData = TypeVar("TBaseData", bound="BaseData")
 
-class Data(Base, SerializationMixin):
+
+class BaseData(Base, SerializationMixin):
     """Class storing data for an experiment.
 
     The dataframe is retrieved via the `df` property. The data can be stored
@@ -32,25 +35,27 @@ class Data(Base, SerializationMixin):
 
 
     Attributes:
-        df: DataFrame with underlying data, and required columns.
+        df: DataFrame with underlying data, and required columns. For BaseData, the
+            one required column is "arm_name".
         description: Human-readable description of data.
 
     """
 
-    # Note: Although the SEM (standard error of the mean) is a required column in data,
-    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
-    # either in your Metric class or in Data explicitly.
-    REQUIRED_COLUMNS = {"arm_name", "metric_name", "mean", "sem"}
+    REQUIRED_COLUMNS = {"arm_name"}
 
-    COLUMN_DATA_TYPES = {
+    COLUMN_DATA_TYPES: Dict[str, Any] = {
+        # Ubiquitous columns.
         "arm_name": str,
+        # Metric data-related columns.
         "metric_name": str,
         "mean": np.float64,
         "sem": np.float64,
+        # Metadata columns available for all subclasses.
         "trial_index": np.int64,
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
         "n": np.int64,
+        # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
         "random_split": np.int64,
         "fidelities": str,  # Dictionary stored as json
@@ -59,7 +64,7 @@ class Data(Base, SerializationMixin):
     _df: pd.DataFrame
 
     def __init__(
-        self,
+        self: TBaseData,
         df: Optional[pd.DataFrame] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -94,7 +99,7 @@ class Data(Base, SerializationMixin):
 
     @classmethod
     def _safecast_df(
-        cls,
+        cls: Type[TBaseData],
         df: pd.DataFrame,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
@@ -175,12 +180,12 @@ class Data(Base, SerializationMixin):
         """Serialize the class-dependent properties needed to initialize this Data.
         Used for storage and to help construct new similar Data.
         """
-        data = checked_cast(Data, obj)
+        data = checked_cast(cls, obj)
         return serialize_init_args(object=data)
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Given a dictionary, extract the properties needed to initialize the metric.
+        """Given a dictionary, extract the properties needed to initialize the object.
         Used for storage.
         """
         # Extract `df` only if present, since certain inputs to this fn, e.g.
@@ -220,6 +225,238 @@ class Data(Base, SerializationMixin):
         """
         return md5(not_none(self.df.to_json()).encode("utf-8")).hexdigest()
 
+    def get_filtered_results(
+        self: TBaseData, **filters: Dict[str, Any]
+    ) -> pd.DataFrame:
+        """Return filtered subset of data.
+
+        Args:
+            filter: Column names and values they must match.
+
+        Returns
+            df: The filtered DataFrame.
+        """
+        df = self.df.copy()
+        if df.empty:
+            return df
+
+        columns = df.columns
+        for colname, value in filters.items():
+            if colname not in columns:
+                raise ValueError(
+                    f"{colname} not in the set of columns: {columns}"
+                    f"in this data object of type: {str(type(self))}."
+                )
+            df = df[df[colname] == value]
+        return df
+
+    @classmethod
+    def from_multiple(
+        cls: Type[TBaseData],
+        data: Iterable[TBaseData],
+    ) -> TBaseData:
+        """Combines multiple objects into one (with the concatenated
+        underlying dataframe).
+
+        Args:
+            data: Iterable of Ax objects of this class to combine.
+        """
+        incompatible_types = {
+            type(datum) for datum in data if not isinstance(datum, cls)
+        }
+        if incompatible_types:
+            raise TypeError(
+                f"All data objects must be instances of class {cls}. Got "
+                f"{incompatible_types}."
+            )
+        dfs = [datum.df for datum in data]
+
+        if len(dfs) == 0:
+            return cls()
+
+        return cls(df=pd.concat(dfs, axis=0, sort=True))
+
+    @classmethod
+    def from_evaluations(
+        cls: Type[TBaseData],
+        evaluations: Dict[str, TTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[Union[int, str]] = None,
+        end_time: Optional[Union[int, str]] = None,
+    ) -> TBaseData:
+        """
+        Convert dict of evaluations to Ax data object.
+
+        Args:
+            evaluations: Map from arm name to outcomes, which itself is a mapping of
+                outcome names to values, means, or tuples of mean and SEM. If SEM is
+                not specified, it will be set to None and inferred from data.
+            trial_index: Trial index to which this data belongs.
+            sample_sizes: Number of samples collected for each arm.
+            start_time: Optional start time of run of the trial that produced this
+                data, in milliseconds or iso format.  Milliseconds will be automatically
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
+            end_time: Optional end time of run of the trial that produced this
+                data, in milliseconds or iso format.  Milliseconds will be automatically
+                converted to iso format because iso format automatically works with the
+                pandas column type `Timestamp`.
+
+        Returns:
+            Ax object of the enclosing class.
+        """
+        records = cls._get_records(evaluations=evaluations, trial_index=trial_index)
+        records = cls._add_cols_to_records(
+            records=records,
+            sample_sizes=sample_sizes,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return cls(df=pd.DataFrame(records))
+
+    @staticmethod
+    @abstractmethod
+    def _get_records(
+        evaluations: Dict[str, TTrialEvaluation], trial_index: int
+    ) -> List[Dict[str, Any]]:
+        pass  # pragma: no cover
+
+    @classmethod
+    def from_fidelity_evaluations(
+        cls: Type[TBaseData],
+        evaluations: Dict[str, TFidelityTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+    ) -> TBaseData:
+        """
+        Convert dict of fidelity evaluations to Ax data object.
+
+        Args:
+            evaluations: Map from arm name to list of (fidelity, outcomes)
+                where outcomes is itself a mapping of outcome names to values, means,
+                or tuples of mean and SEM. If SEM is not specified, it will be set
+                to None and inferred from data.
+            trial_index: Trial index to which this data belongs.
+            sample_sizes: Number of samples collected for each arm.
+            start_time: Optional start time of run of the trial that produced this
+                data, in milliseconds.
+            end_time: Optional end time of run of the trial that produced this
+                data, in milliseconds.
+
+        Returns:
+            Ax object of type ``cls``.
+        """
+        records = cls._get_fidelity_records(
+            evaluations=evaluations, trial_index=trial_index
+        )
+        records = cls._add_cols_to_records(
+            records=records,
+            sample_sizes=sample_sizes,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return cls(df=pd.DataFrame(records))
+
+    @staticmethod
+    @abstractmethod
+    def _get_fidelity_records(
+        evaluations: Dict[str, TFidelityTrialEvaluation], trial_index: int
+    ) -> List[Dict[str, Any]]:
+        pass  # pragma: no cover
+
+    @staticmethod
+    def _add_cols_to_records(
+        records: List[Dict[str, Any]],
+        sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[Union[int, str]] = None,
+        end_time: Optional[Union[int, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Adds to records metadata columns that are available for all
+        BaseData subclasses.
+        """
+        if start_time is not None or end_time is not None:
+            if isinstance(start_time, int):
+                start_time = _ms_epoch_to_isoformat(start_time)
+            if isinstance(end_time, int):
+                end_time = _ms_epoch_to_isoformat(end_time)
+
+            for record in records:
+                record.update({"start_time": start_time, "end_time": end_time})
+        if sample_sizes:
+            for record in records:
+                record["n"] = sample_sizes[str(record["arm_name"])]
+
+        return records
+
+    def copy_structure_with_df(self: TBaseData, df: pd.DataFrame) -> TBaseData:
+        """Serialize the structural properties needed to initialize this class.
+        Used for storage and to help construct new similar objects. All kwargs
+        other than ``df`` and ``description`` are considered structural.
+        """
+        cls = type(self)
+        return cls(df=df, **cls.serialize_init_args(self))
+
+
+class Data(BaseData):
+    """Class storing numerical data for an experiment.
+
+    The dataframe is retrieved via the `df` property. The data can be stored
+    to an external store for future use by attaching it to an experiment using
+    `experiment.attach_data()` (this requires a description to be set.)
+
+
+    Attributes:
+        df: DataFrame with underlying data, and required columns. For BaseData, the
+            required columns are "arm_name", "metric_name", "mean", and "sem", the
+            latter two of which must be numeric.
+        description: Human-readable description of data.
+
+    """
+
+    # Note: Although the SEM (standard error of the mean) is a required column in data,
+    # downstream models can infer missing SEMs. Simply specify NaN as the SEM value,
+    # either in your Metric class or in Data explicitly.
+    REQUIRED_COLUMNS: Set[str] = BaseData.REQUIRED_COLUMNS.union(
+        {"metric_name", "mean", "sem"}
+    )
+
+    @staticmethod
+    def _get_records(
+        evaluations: Dict[str, TTrialEvaluation], trial_index: int
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "arm_name": name,
+                "metric_name": metric_name,
+                "mean": value[0] if isinstance(value, tuple) else value,
+                "sem": value[1] if isinstance(value, tuple) else None,
+                "trial_index": trial_index,
+            }
+            for name, evaluation in evaluations.items()
+            for metric_name, value in evaluation.items()
+        ]
+
+    @staticmethod
+    def _get_fidelity_records(
+        evaluations: Dict[str, TFidelityTrialEvaluation], trial_index: int
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "arm_name": name,
+                "metric_name": metric_name,
+                "mean": value[0] if isinstance(value, tuple) else value,
+                "sem": value[1] if isinstance(value, tuple) else None,
+                "trial_index": trial_index,
+                "fidelities": json.dumps(fidelity),
+            }
+            for name, fidelity_and_metrics_list in evaluations.items()
+            for fidelity, evaluation in fidelity_and_metrics_list
+            for metric_name, value in evaluation.items()
+        ]
+
     @property
     def metric_names(self) -> Set[str]:
         """Set of metric names that appear in the underlying dataframe of
@@ -232,12 +469,12 @@ class Data(Base, SerializationMixin):
         trial_indices: Optional[Iterable[int]] = None,
         metric_names: Optional[Iterable[str]] = None,
     ) -> Data:
-        """Construct a new Data object with the subset of rows corresponding to the
+        """Construct a new object with the subset of rows corresponding to the
         provided trial indices AND metric names. If either trial_indices or
         metric_names are not provided, that dimension will not be filtered.
         """
 
-        return Data(
+        return self.__class__(
             df=self._filter_df(
                 df=self.df, trial_indices=trial_indices, metric_names=metric_names
             )
@@ -269,165 +506,34 @@ class Data(Base, SerializationMixin):
 
         return df.loc[trial_indices_mask & metric_names_mask]
 
-    def get_filtered_results(self, **filters: Dict[str, Any]) -> pd.DataFrame:
-        """Return filtered subset of data.
-
-        Args:
-            filter: Column names and values they must match.
-
-        Returns
-            df: The filtered DataFrame.
-        """
-        df = self.df.copy()
-        if df.empty:
-            return df
-
-        columns = df.columns
-        for colname, value in filters.items():
-            if colname not in columns:
-                raise ValueError(
-                    f"{colname} not in the set of columns: {columns}"
-                    f"in this data object of type: {str(type(self))}."
-                )
-            df = df[df[colname] == value]
-        return df
-
     @staticmethod
     def from_multiple_data(
         data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
     ) -> Data:
-        """Combines multiple data objects into one (with the concatenated
+        """Combines multiple objects into one (with the concatenated
         underlying dataframe).
 
         Args:
-            data: Iterable of Ax `Data` objects to combine.
-            subset_metrics: If specified, combined `Data` will only contain
+            data: Iterable of Ax objects of this class to combine.
+            subset_metrics: If specified, combined object will only contain
                 metrics, names of which appear in this iterable,
                 in the underlying dataframe.
         """
-        dfs = [datum.df for datum in data]
-
-        if len(dfs) == 0:
-            return Data()
-
+        data_out = Data.from_multiple(data=data)
+        if len(data_out.df.index) == 0:
+            return data_out
         if subset_metrics:
-            dfs = [df.loc[df["metric_name"].isin(subset_metrics)] for df in dfs]
+            data_out._df = data_out.df.loc[
+                data_out.df["metric_name"].isin(subset_metrics)
+            ]
 
-        return Data(df=pd.concat(dfs, axis=0, sort=True))
-
-    @staticmethod
-    def from_evaluations(
-        evaluations: Dict[str, TTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Optional[Dict[str, int]] = None,
-        start_time: Optional[Union[int, str]] = None,
-        end_time: Optional[Union[int, str]] = None,
-    ) -> Data:
-        """
-        Convert dict of evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to metric outcomes, which itself is  a
-                mapping of metric names to means or tuples of mean and an SEM). If
-                SEM is not specified, it will be set to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds or iso format.  Milliseconds will be automatically
-                converted to iso format because iso format automatically works with the
-                pandas column type `Timestamp`.
-
-        Returns:
-            Ax Data object.
-        """
-        records = [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-            }
-            for name, evaluation in evaluations.items()
-            for metric_name, value in evaluation.items()
-        ]
-        if start_time is not None or end_time is not None:
-            if isinstance(start_time, int):
-                start_time = _ms_epoch_to_isoformat(start_time)
-            if isinstance(end_time, int):
-                end_time = _ms_epoch_to_isoformat(end_time)
-
-            for record in records:
-                record.update({"start_time": start_time, "end_time": end_time})
-        if sample_sizes:
-            for record in records:
-                record["n"] = sample_sizes[str(record["arm_name"])]
-        return Data(df=pd.DataFrame(records))
-
-    @staticmethod
-    def from_fidelity_evaluations(
-        evaluations: Dict[str, TFidelityTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Optional[Dict[str, int]] = None,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-    ) -> Data:
-        """
-        Convert dict of fidelity evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to list of (fidelity, metric outcomes)
-                where metric outcomes is itself a mapping of metric names to means
-                or tuples of mean and SEM. If SEM is not specified, it will be set
-                to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
-
-        Returns:
-            Ax Data object.
-        """
-        records = [
-            {
-                "arm_name": name,
-                "metric_name": metric_name,
-                "mean": value[0] if isinstance(value, tuple) else value,
-                "sem": value[1] if isinstance(value, tuple) else None,
-                "trial_index": trial_index,
-                "fidelities": json.dumps(fidelity),
-            }
-            for name, fidelity_and_metrics_list in evaluations.items()
-            for fidelity, evaluation in fidelity_and_metrics_list
-            for metric_name, value in evaluation.items()
-        ]
-        if start_time is not None or end_time is not None:
-            for record in records:
-                record.update({"start_time": start_time, "end_time": end_time})
-        if sample_sizes:
-            for record in records:
-                record["n"] = sample_sizes[str(record["arm_name"])]
-        return Data(df=pd.DataFrame(records))
-
-    def copy_structure_with_df(self, df: pd.DataFrame) -> Data:
-        """Serialize the structural properties needed to initialize this Data.
-        Used for storage and to help construct new similar Data. All kwargs
-        other than ``df`` and ``description`` are considered structural.
-        """
-        cls = type(self)
-        return cls(df=df, **cls.serialize_init_args(self))
+        return data_out
 
 
 def set_single_trial(data: Data) -> Data:
     """Returns a new Data object where we set all rows to have the same
     trial index (i.e. 0). This is meant to be used with our IVW transform,
-    which will combine multiple observations of the same metric.
+    which will combine multiple observations of the same outcome.
     """
     df = data._df.copy()
     if "trial_index" in df:
@@ -436,7 +542,7 @@ def set_single_trial(data: Data) -> Data:
 
 
 def clone_without_metrics(data: Data, excluded_metric_names: Iterable[str]) -> Data:
-    """Returns a new data object where rows containing the metrics specified by
+    """Returns a new data object where rows containing the outcomes specified by
     `metric_names` are filtered out. Used to sanitize data before using it as
     training data for a model that requires data rectangularity.
 
