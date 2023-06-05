@@ -22,11 +22,13 @@ from ax.models.torch.alebo import (
 )
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import FixedNoiseDataset
+from torch.nn.parameter import Parameter
 
 
 class ALEBOTest(TestCase):
@@ -47,7 +49,9 @@ class ALEBOTest(TestCase):
         self.assertEqual(k.Uvec.shape, torch.Size([3]))
 
         k.Uvec.requires_grad_(False)
-        k.Uvec.copy_(torch.tensor([1.0, 2.0, 3.0], dtype=torch.double))
+        checked_cast(Parameter, k.Uvec).copy_(
+            torch.tensor([1.0, 2.0, 3.0], dtype=torch.double)
+        )
         k.Uvec.requires_grad_(True)
         x1 = torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.double)
         x2 = torch.tensor([[1.0, 1.0], [0.0, 0.0]], dtype=torch.double)
