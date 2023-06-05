@@ -24,6 +24,7 @@ from ax.models.torch.utils import _datasets_to_legacy_inputs
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.objective import PosteriorTransform
@@ -43,6 +44,7 @@ from gpytorch.kernels.scale_kernel import ScaleKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from scipy.optimize import approx_fprime
 from torch import Tensor
+from torch.nn.parameter import Parameter
 
 
 logger: Logger = get_logger(__name__)
@@ -98,7 +100,7 @@ class ALEBOKernel(Kernel):
         # Unpack Uvec into an upper triangular matrix U
         shapeU = self.Uvec.shape[:-1] + torch.Size([self.d, self.d])
         U_t = torch.zeros(shapeU, dtype=self.B.dtype, device=self.B.device)
-        U_t[..., self.triu_indx[1], self.triu_indx[0]] = self.Uvec
+        U_t[..., self.triu_indx[1], self.triu_indx[0]] = checked_cast(Tensor, self.Uvec)
         # Compute kernel distance
         z1 = torch.matmul(x1, U_t)
         z2 = torch.matmul(x2, U_t)
@@ -394,11 +396,11 @@ def get_batch_model(
     m_b.mean_module.raw_constant.requires_grad_(True)
     # Set output scale
     m_b.covar_module.raw_outputscale.requires_grad_(False)
-    m_b.covar_module.raw_outputscale.copy_(output_scale_batch)
+    checked_cast(Parameter, m_b.covar_module.raw_outputscale).copy_(output_scale_batch)
     m_b.covar_module.raw_outputscale.requires_grad_(True)
     # Set Uvec
     m_b.covar_module.base_kernel.Uvec.requires_grad_(False)
-    m_b.covar_module.base_kernel.Uvec.copy_(Uvec_batch)
+    checked_cast(Parameter, m_b.covar_module.base_kernel.Uvec).copy_(Uvec_batch)
     m_b.covar_module.base_kernel.Uvec.requires_grad_(True)
     m_b.eval()
     return m_b

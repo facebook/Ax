@@ -16,6 +16,7 @@ from ax.models.torch.botorch_defaults import (
     get_warping_transform,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.models import FixedNoiseGP, SingleTaskGP
@@ -384,14 +385,20 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        self.assertEqual(covar_module.outputscale_prior.concentration, 2.0)
-        self.assertEqual(covar_module.outputscale_prior.rate, 0.15)
+        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        self.assertEqual(prior.concentration, 2.0)
+        self.assertEqual(prior.rate, 0.15)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        self.assertIsInstance(covar_module.base_kernel.lengthscale_prior, GammaPrior)
-        self.assertEqual(covar_module.base_kernel.lengthscale_prior.concentration, 3.0)
-        self.assertEqual(covar_module.base_kernel.lengthscale_prior.rate, 6.0)
-        self.assertEqual(covar_module.base_kernel.ard_num_dims, ard_num_dims)
-        self.assertEqual(covar_module.base_kernel.batch_shape, batch_shape)
+        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
+        self.assertEqual(
+            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 3.0
+        )
+        self.assertEqual(
+            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 6.0
+        )
+        self.assertEqual(base_kernel.ard_num_dims, ard_num_dims)
+        self.assertEqual(base_kernel.batch_shape, batch_shape)
 
         covar_module = _get_customized_covar_module(
             covar_module_prior_dict={
@@ -405,14 +412,20 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(covar_module, Module)
         self.assertIsInstance(covar_module, ScaleKernel)
         self.assertIsInstance(covar_module.outputscale_prior, GammaPrior)
-        self.assertEqual(covar_module.outputscale_prior.concentration, 2.0)
-        self.assertEqual(covar_module.outputscale_prior.rate, 12.0)
+        prior = checked_cast(GammaPrior, covar_module.outputscale_prior)
+        self.assertEqual(prior.concentration, 2.0)
+        self.assertEqual(prior.rate, 12.0)
         self.assertIsInstance(covar_module.base_kernel, MaternKernel)
-        self.assertIsInstance(covar_module.base_kernel.lengthscale_prior, GammaPrior)
-        self.assertEqual(covar_module.base_kernel.lengthscale_prior.concentration, 12.0)
-        self.assertEqual(covar_module.base_kernel.lengthscale_prior.rate, 2.0)
-        self.assertEqual(covar_module.base_kernel.ard_num_dims, ard_num_dims - 1)
-        self.assertEqual(covar_module.base_kernel.batch_shape, batch_shape)
+        base_kernel = checked_cast(MaternKernel, covar_module.base_kernel)
+        self.assertIsInstance(base_kernel.lengthscale_prior, GammaPrior)
+        self.assertEqual(
+            checked_cast(GammaPrior, base_kernel.lengthscale_prior).concentration, 12.0
+        )
+        self.assertEqual(
+            checked_cast(GammaPrior, base_kernel.lengthscale_prior).rate, 2.0
+        )
+        self.assertEqual(base_kernel.ard_num_dims, ard_num_dims - 1)
+        self.assertEqual(base_kernel.batch_shape, batch_shape)
 
     def test_get_warping_transform(self) -> None:
         warp_tf = get_warping_transform(d=4)

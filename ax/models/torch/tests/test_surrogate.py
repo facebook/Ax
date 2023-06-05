@@ -722,16 +722,44 @@ class SurrogateTest(TestCase):
         self.assertEqual(surrogate.model._ignore_X_dims_scaling_check, [0])
         covar_module = checked_cast(Kernel, surrogate.model.covar_module)
         self.assertEqual(
-            covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(), [0]
+            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
+            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
+            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
+            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
+            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
+            # module.Module]` is not a function.
+            covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(),
+            [0],
         )
         self.assertEqual(
-            covar_module.kernels[0].base_kernel.kernels[0].active_dims.tolist(), [1, 2]
+            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
+            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
+            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
+            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
+            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
+            # module.Module]` is not a function.
+            covar_module.kernels[0].base_kernel.kernels[0].active_dims.tolist(),
+            [1, 2],
         )
         self.assertEqual(
-            covar_module.kernels[1].base_kernel.kernels[1].active_dims.tolist(), [0]
+            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
+            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
+            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
+            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
+            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
+            # module.Module]` is not a function.
+            covar_module.kernels[1].base_kernel.kernels[1].active_dims.tolist(),
+            [0],
         )
         self.assertEqual(
-            covar_module.kernels[1].base_kernel.kernels[0].active_dims.tolist(), [1, 2]
+            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
+            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
+            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
+            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
+            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
+            # module.Module]` is not a function.
+            covar_module.kernels[1].base_kernel.kernels[0].active_dims.tolist(),
+            [1, 2],
         )
         # With modellist.
         training_data = [self.training_data[0], self.training_data[0]]
