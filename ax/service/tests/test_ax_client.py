@@ -2782,8 +2782,7 @@ class TestAxClient(TestCase):
 
         plot_config = ax_client.get_optimization_trace()
 
-        print(ax_client.get_trial(2).objective_mean)
-        assert plot_config.data["data"][0]["y"] == [3.0, 2.0, 2.0, 2.0]
+        self.assertListEqual(plot_config.data["data"][0]["y"], [3.0, 2.0, 2.0, 2.0])
 
 
 # Utility functions for testing get_model_predictions without calling
