@@ -1441,13 +1441,13 @@ class TestAxClient(TestCase):
             )
 
     def test_keep_generating_without_data(self) -> None:
-        # Check that normally numebr of arms to generate is enforced.
+        # Check that normally number of arms to generate is enforced.
         ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
         with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
             ax_client.get_next_trial()
-        # Check thatwith enforce_sequential_optimization off, we can keep
+        # Check that with enforce_sequential_optimization off, we can keep
         # generating.
         ax_client = AxClient(enforce_sequential_optimization=False)
         ax_client.create_experiment(
