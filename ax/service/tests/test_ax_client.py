@@ -2562,61 +2562,6 @@ class TestAxClient(TestCase):
                 return {0, 1}
             return {0, 2}
 
-            ax_client = get_client_with_simple_discrete_moo_problem(
-                minimize=minimize,
-                use_y0_threshold=use_y0_threshold,
-                use_y2_constraint=use_y2_constraint,
-            )
-
-            pareto_obs = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=False
-            )
-            sol = get_solution(
-                use_y0_threshold=use_y0_threshold,
-                use_y2_constraint=use_y2_constraint,
-            )
-
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-            )
-            pareto_mod = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            # since this is a noise-free problem, using predicted values shouldn't
-            # change the answer
-            self.assertEqual(len(sol), len(pareto_mod))
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-            )
-
-            # take another step. This will change the generation strategy from
-            # Sobol to MOO. Shouldn't affect results since we already had data
-            # on all 3 points.
-            parameterization, trial_index = ax_client.get_next_trial()
-            x = parameterization["x"]
-
-            metrics = y_values_for_simple_discrete_moo_problem[x]
-            if minimize:
-                metrics = [-m for m in metrics]
-            y0, y1, y2 = metrics
-            raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
-
-            ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
-
-            # Check frontier again
-            pareto_obs = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-            )
-            pareto_mod = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-            )
-
     @fast_botorch_optimize
     def test_get_hypervolume(self) -> None:
         # First check that hypervolume gets returned for observed data
