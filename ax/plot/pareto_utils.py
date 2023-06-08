@@ -629,6 +629,7 @@ def infer_reference_point_from_experiment(
         observation_data=obs_data,
         objective_thresholds=dummy_rp,
         use_model_predictions=False,
+        transform_outcomes_and_configs=False,
     )
 
     # Need to reshuffle columns of `f` and `obj_w` to be consistent
