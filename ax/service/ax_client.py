@@ -56,6 +56,7 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -924,11 +925,19 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "for multi-objective experiments"
             )
 
+        # We wan't to show the objective value for a trial only if it satisfies
+        # the constraints
+        def _constrained_trial_objective_mean(trial: Trial) -> float:
+            if constraint_satisfaction(trial):
+                return checked_cast(Trial, trial).objective_mean
+            else:
+                return np.inf if objective.minimize else -np.inf
+
         objective_name = self.objective_name
         best_objectives = np.array(
             [
                 [
-                    checked_cast(Trial, trial).objective_mean
+                    _constrained_trial_objective_mean(trial)
                     for trial in self.experiment.trials.values()
                     if trial.status.is_completed
                 ]

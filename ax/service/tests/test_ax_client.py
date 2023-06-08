@@ -2871,3 +2871,34 @@ def _attach_not_completed_trials(ax_client) -> None:
 def _evaluate_test_metrics(parameters) -> Dict[str, Tuple[float, float]]:
     x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}
+
+
+def test_get_optimization_trace_discard_unfeasible_trials():
+    ax_client = AxClient()
+    ax_client.create_experiment(
+        name="test_experiment",
+        parameters=[
+            {
+                "name": "x",
+                "type": "range",
+                "bounds": [1.0, 4.0],
+            },
+        ],
+        objectives={"y": ObjectiveProperties(minimize=True)},
+        outcome_constraints=["z >= 1.5"],
+        is_test=True,
+    )
+
+    _, idx = ax_client.attach_trial({"x": 3.0})
+    ax_client.complete_trial(idx, raw_data={"y": 3.0, "z": 3.0})  # feasible
+    _, idx = ax_client.attach_trial({"x": 2.0})
+    ax_client.complete_trial(idx, raw_data={"y": 2.0, "z": 2.0})  # feasible / best
+    _, idx = ax_client.attach_trial({"x": 4.0})
+    ax_client.complete_trial(idx, raw_data={"y": 4.0, "z": 4.0})  # feasible
+    _, idx = ax_client.attach_trial({"x": 1.0})
+    ax_client.complete_trial(idx, raw_data={"y": 1.0, "z": 1.0})  # infeasible
+
+    plot_config = ax_client.get_optimization_trace()
+
+    print(ax_client.get_trial(2).objective_mean)
+    assert plot_config.data["data"][0]["y"] == [3.0, 2.0, 2.0, 2.0]
