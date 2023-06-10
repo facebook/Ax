@@ -694,7 +694,7 @@ class HierarchicalSearchSpace(SearchSpace):
         """
 
         def _height_from_parameter(parameter: Parameter) -> int:
-            if len(parameter.dependents) == 0:
+            if not parameter.is_hierarchical:
                 return 1
 
             return (

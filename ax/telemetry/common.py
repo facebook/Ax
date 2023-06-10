@@ -14,6 +14,7 @@ from ax.modelbridge.modelbridge_utils import (
 
 from ax.modelbridge.registry import ModelRegistryBase, Models, SearchSpace
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.cast import Cast
 
 # Models whose generated trails will count towards initialization_trials
 INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
@@ -38,7 +39,7 @@ def _get_max_transformed_dimensionality(
     transformed_search_spaces = [
         transform_search_space(
             search_space=search_space,
-            transforms=transforms,
+            transforms=[Cast] + transforms,
             transform_configs=transform_configs,
         )
         for transforms, transform_configs in transforms_by_step
