@@ -1171,7 +1171,8 @@ class Experiment(Base):
         Args:
             old_experiment: The experiment from which to transfer trials and data
             copy_run_metadata_keys: A list of keys denoting which items to copy over
-                from each trial's run_metadata.
+                from each trial's run_metadata. Defaults to
+                ``old_experiment.runner.run_metadata_report_keys``.
             trial_statuses_to_copy: All trials with a status in this list will be
                 copied. By default, copies all ``RUNNING``, ``COMPLETED``,
                 ``ABANDONED``, and ``EARLY_STOPPED`` trials.
@@ -1187,6 +1188,9 @@ class Experiment(Base):
                 f"Can only warm-start experiments that don't yet have trials. "
                 f"Experiment {self._name} has {len(self.trials)} trials."
             )
+
+        if copy_run_metadata_keys is None and old_experiment.runner is not None:
+            copy_run_metadata_keys = old_experiment.runner.run_metadata_report_keys
 
         old_parameter_names = set(old_experiment.search_space.parameters.keys())
         parameter_names = set(self.search_space.parameters.keys())

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from typing import Dict, Type
+from typing import Dict, List, Type
 from unittest.mock import patch
 
 import pandas as pd
@@ -49,6 +49,12 @@ DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
 DUMMY_RUN_METADATA: Dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 DUMMY_ARM_NAME = "test_arm_name"
+
+
+class SyntheticRunnerWithMetadataKeys(SyntheticRunner):
+    @property
+    def run_metadata_report_keys(self) -> List[str]:
+        return [DUMMY_RUN_METADATA_KEY]
 
 
 class ExperimentTest(TestCase):
@@ -835,6 +841,7 @@ class ExperimentTest(TestCase):
         i_abandoned_trial = 3
         i_running_trial = 5
         old_experiment = get_branin_experiment()
+        old_experiment.runner = SyntheticRunnerWithMetadataKeys()
         for i_old_trial in range(len_old_trials):
             sobol_run = get_sobol(search_space=old_experiment.search_space).gen(n=1)
             trial = old_experiment.new_trial(generator_run=sobol_run)
@@ -872,7 +879,6 @@ class ExperimentTest(TestCase):
         old_experiment.trials[0].arm._name = DUMMY_ARM_NAME
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
-            copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY],
         )
         self.assertEqual(len(new_experiment.trials), len(old_experiment.trials) - 1)
         i_old_trial = 0
