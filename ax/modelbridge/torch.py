@@ -351,14 +351,11 @@ class TorchModelBridge(ModelBridge):
             raise ValueError(  # pragma: no cover
                 FIT_MODEL_ERROR.format(action="_cross_validate")
             )
-        if parameters is None:
-            parameters = self.parameters
-        observation_features, observation_data = separate_observations(cv_training_data)
-        datasets, candidate_metadata = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
-            outcomes=self.outcomes,
+        datasets, candidate_metadata, search_space_digest = self._get_fit_args(
+            search_space=search_space,
+            observations=cv_training_data,
             parameters=parameters,
+            update_outcomes_and_parameters=False,
         )
         for outcome, dataset in zip(self.outcomes, datasets):
             if dataset is None:
@@ -366,9 +363,8 @@ class TorchModelBridge(ModelBridge):
                     f"{self.__class__._cross_validate} requires observations "
                     f"for all outcomes, but no observations for {outcome}"
                 )
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
-        )
+        if parameters is None:
+            parameters = self.parameters
         X_test = torch.tensor(
             [[obsf.parameters[p] for p in parameters] for obsf in cv_test_points],
             dtype=self.dtype,
@@ -489,6 +485,59 @@ class TorchModelBridge(ModelBridge):
         )
         return evals.tolist()
 
+    def _get_fit_args(
+        self,
+        search_space: SearchSpace,
+        observations: List[Observation],
+        parameters: Optional[List[str]],
+        update_outcomes_and_parameters: bool,
+    ) -> Tuple[
+        List[Optional[SupervisedDataset]],
+        Optional[List[List[TCandidateMetadata]]],
+        SearchSpaceDigest,
+    ]:
+        """Helper for consolidating some common argument processing between
+        fit and cross validate methods. Extracts datasets and candidate metadate
+        from observations and the search space digest from the search space.
+
+        Args:
+            search_space: A transformed search space for fitting the model.
+            observations: The observations to fit the model with. These should
+                also be transformed.
+            parameters: Names of parameters to be used in the model. Defaults to
+                all parameters in the search space.
+            update_outcomes_and_parameters: Whether to update `self.outcomes` with
+                all outcomes found in the observations and `self.parameters` with
+                all parameters in the search space. Typically only used in `_fit`.
+
+        Returns:
+            The datasets & metadata extracted from the observations and the
+            search space digest.
+        """
+        self._last_observations = observations
+        if update_outcomes_and_parameters:
+            self.parameters = list(search_space.parameters.keys())
+        if parameters is None:
+            parameters = self.parameters
+        all_metric_names: Set[str] = set()
+        observation_features, observation_data = separate_observations(observations)
+        if update_outcomes_and_parameters:
+            for od in observation_data:
+                all_metric_names.update(od.metric_names)
+            self.outcomes = sorted(all_metric_names)  # Deterministic order
+        # Convert observations to datasets
+        datasets, candidate_metadata = self._convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            outcomes=self.outcomes,
+            parameters=parameters,
+        )
+        # Get all relevant information on the parameters
+        search_space_digest = extract_search_space_digest(
+            search_space=search_space, param_names=self.parameters
+        )
+        return datasets, candidate_metadata, search_space_digest
+
     def _fit(
         self,
         model: TorchModel,
@@ -503,25 +552,11 @@ class TorchModelBridge(ModelBridge):
                 "used to fit the model. Skipping model fitting."
             )
             return
-        self._last_observations = observations
-        self.parameters = list(search_space.parameters.keys())
-        if parameters is None:
-            parameters = self.parameters
-        all_metric_names: Set[str] = set()
-        observation_features, observation_data = separate_observations(observations)
-        for od in observation_data:
-            all_metric_names.update(od.metric_names)
-        self.outcomes = sorted(all_metric_names)  # Deterministic order
-        # Convert observations to datasets
-        datasets, candidate_metadata = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
-            outcomes=self.outcomes,
+        datasets, candidate_metadata, search_space_digest = self._get_fit_args(
+            search_space=search_space,
+            observations=observations,
             parameters=parameters,
-        )
-        # Get all relevant information on the parameters
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
+            update_outcomes_and_parameters=True,
         )
         # Fit
         self.model = model

@@ -372,10 +372,11 @@ class Surrogate(Base):
             task_feature,
             submodel_input_transforms,
         ) = self._extract_construct_model_list_kwargs(
-            fidelity_features=kwargs.get(Keys.FIDELITY_FEATURES, []),
-            task_features=kwargs.get(Keys.TASK_FEATURES, []),
-            robust_digest=kwargs.get("robust_digest", None),
+            fidelity_features=kwargs.pop(Keys.FIDELITY_FEATURES, []),
+            task_features=kwargs.pop(Keys.TASK_FEATURES, []),
+            robust_digest=kwargs.pop("robust_digest", None),
         )
+        input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
 
         submodels = []
         for m, dataset in zip(metric_names, datasets):
@@ -391,8 +392,7 @@ class Surrogate(Base):
                 training_data=dataset,
                 fidelity_features=fidelity_features,
                 task_feature=task_feature,
-                categorical_features=kwargs.get("categorical_features", None),
-                **self.model_options,
+                **input_constructor_kwargs,
             )
             # Add input / outcome transforms.
             # TODO: The use of `inspect` here is not ideal. We should find a better

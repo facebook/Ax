@@ -859,6 +859,7 @@ class SurrogateWithModelListTest(TestCase):
             datasets=self.fixed_noise_training_data,
             metric_names=self.outcomes,
             task_features=self.task_features,
+            output_tasks=[2],
         )
         # Should construct inputs for MTGP twice.
         self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
@@ -870,15 +871,11 @@ class SurrogateWithModelListTest(TestCase):
                 {
                     "fidelity_features": [],
                     "task_feature": self.task_features[0],
-                    "categorical_features": None,
-                    # TODO: Figure out how to handle Multitask GPs and construct-inputs.
-                    # I believe this functionality with modlular botorch model is
-                    # currently broken as MultiTaskGP.construct_inputs expects a dict
-                    # mapping string keys (outcomes) to input datasets
                     "training_data": FixedNoiseDataset(
                         X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
                     ),
                     "rank": 1,
+                    "output_tasks": [2],
                 },
             )
 
