@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import inspect
 import pydoc
 from abc import ABC
@@ -122,8 +124,7 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
 
 class SerializationMixin(ABC):
     @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: SerializationMixin) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the object.
         Used for storage.
         """
