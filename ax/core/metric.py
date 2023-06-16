@@ -108,6 +108,10 @@ class Metric(SortableBase, SerializationMixin):
         # pyre-fixme[4]: Attribute must be annotated.
         self.properties = properties or {}
 
+    # ---------- Properties and methods that subclasses often override. ----------
+
+    # NOTE: Override this if your metric can be fetched before the trial is complete,
+    # especially if new data is available over time while the trial continues running.
     @classmethod
     def is_available_while_running(cls) -> bool:
         """Whether metrics of this class are available while the trial is running.
@@ -122,11 +126,11 @@ class Metric(SortableBase, SerializationMixin):
         """
         return False
 
-    @property
-    def name(self) -> str:
-        """Get name of metric."""
-        return self._name
-
+    # NOTE: This is rarely overridden –– oonly if you want to fetch data in groups
+    # consisting of multiple different metric classes, for data to be fetched together.
+    # This makes sense only if `fetch_trial data_multi` or `fetch_experiment_data_multi`
+    # leverages fetching multiple metrics at once instead of fetching each serially,
+    # and that fetching logic is shared across the metric group.
     @property
     def fetch_multi_group_by_metric(self) -> Type[Metric]:
         """Metric class, with which to group this metric in
@@ -140,6 +144,8 @@ class Metric(SortableBase, SerializationMixin):
         """
         return self.__class__
 
+    # NOTE: This is always overridden by subclasses, sometimes along with `fetch_trial_
+    # data_multi` and/or `fetch_experiment_data_multi`.`
     def fetch_trial_data(
         self, trial: core.base_trial.BaseTrial, **kwargs: Any
     ) -> MetricFetchResult:
@@ -148,20 +154,11 @@ class Metric(SortableBase, SerializationMixin):
             f"Metric {self.name} does not implement data-fetching logic."
         )  # pragma: no cover
 
-    def fetch_experiment_data(
-        self, experiment: core.experiment.Experiment, **kwargs: Any
-    ) -> Dict[int, MetricFetchResult]:
-        """Fetch this metric's data for an experiment.
-
-        Returns Dict of trial_index => Result
-        """
-
-        return {
-            trial.index: self.fetch_trial_data(trial=trial, **kwargs)
-            for trial in experiment.trials.values()
-            if trial.status.expecting_data
-        }
-
+    # NOTE: This should be overridden if there is a benefit to fetching multiple
+    # metrics that all share the `fetch_multi_group_by_metric` setting, at once.
+    # This gives an opportunity to perform a given operation (e.g. retrieve results
+    # of some remote job) only once, and then use the result to fetch each metric's
+    # value (via `fetch_trial_data` for that metric).
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
@@ -172,12 +169,13 @@ class Metric(SortableBase, SerializationMixin):
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
-
         return {
             metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
             for metric in metrics
         }
 
+    # NOTE: Same note as for `fetch_trial_data_multi`, except for the case where
+    # fetching data multiple trials is beneficial.
     @classmethod
     def fetch_experiment_data_multi(
         cls,
@@ -199,6 +197,48 @@ class Metric(SortableBase, SerializationMixin):
             )
             for trial in (trials if trials is not None else experiment.trials.values())
             if trial.status.expecting_data
+        }
+
+    # NOTE: Override this if your metric requires custom string representation with
+    # more attributes included than just the name.
+    def __repr__(self) -> str:
+        return "{class_name}('{metric_name}')".format(
+            class_name=self.__class__.__name__, metric_name=self.name
+        )
+
+    # NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,
+    # which are inherited from the `SerializationMixin` base class.
+    # Override those iff your metric requires custom serialization; e.g. if
+    # some of its attributes are not readily serializable and require pre-processing.
+    # Note that all these serialized attributes will be deserialized by the
+    # `deserialize_init_args` method on the same class.
+
+    # ---------- Properties and methods that should not be overridden. ----------
+
+    @property
+    def name(self) -> str:
+        """Get name of metric."""
+        return self._name
+
+    def clone(self) -> Metric:
+        """Create a copy of this Metric."""
+        cls = type(self)
+        return cls(
+            **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
+        )
+
+    def fetch_experiment_data(
+        self, experiment: core.experiment.Experiment, **kwargs: Any
+    ) -> Dict[int, MetricFetchResult]:
+        """Fetch this metric's data for an experiment.
+
+        Returns Dict of trial_index => Result
+        """
+        return {
+            trial_index: results_by_metric_name[self.name]
+            for trial_index, results_by_metric_name in self.fetch_experiment_data_multi(
+                experiment, [self], **kwargs
+            ).items()
         }
 
     @classmethod
@@ -274,6 +314,9 @@ class Metric(SortableBase, SerializationMixin):
                 )
             except NotImplementedError:
                 # Metric does not implement fetching logic and only uses lookup.
+                # TODO: This is only useful for base `Metric` –– all other metrics
+                # do implement fetching logic. Should this exist then or is it only
+                # adding complexity?
                 fetched_trial_data = {}
 
             trials_results[trial.index] = {
@@ -291,18 +334,6 @@ class Metric(SortableBase, SerializationMixin):
                 for trial_index, results_by_metric_name in trials_results.items()
             },
             contains_new_data,
-        )
-
-    def clone(self) -> Metric:
-        """Create a copy of this Metric."""
-        cls = type(self)
-        return cls(
-            **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
-        )
-
-    def __repr__(self) -> str:
-        return "{class_name}('{metric_name}')".format(
-            class_name=self.__class__.__name__, metric_name=self.name
         )
 
     @property
