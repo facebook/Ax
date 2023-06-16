@@ -10,7 +10,6 @@ import numpy as np
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import (
     checked_cast,
-    checked_cast_complex,
     checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
@@ -36,12 +35,6 @@ class TestTypeUtils(TestCase):
             checked_cast(
                 float, 2, exception=NotImplementedError("foo() doesn't support ints")
             )
-
-    def test_checked_cast_complex(self) -> None:
-        t = Dict[int, str]
-        self.assertEqual(checked_cast_complex(t, {1: "one"}), {1: "one"})
-        with self.assertRaises(ValueError):
-            checked_cast_complex(t, {"one": 1})
 
     def test_checked_cast_list(self) -> None:
         self.assertEqual(checked_cast_list(float, [1.0, 2.0]), [1.0, 2.0])

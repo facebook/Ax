@@ -28,13 +28,17 @@ from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.generator_run import ArmWeight, GeneratorRun, GeneratorRunType
 from ax.core.trial import immutable_once_run
-from ax.core.types import TCandidateMetadata, TEvaluationOutcome
+from ax.core.types import (
+    TCandidateMetadata,
+    TEvaluationOutcome,
+    validate_evaluation_outcome,
+)
 from ax.exceptions.core import AxError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_complex, not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 logger: Logger = get_logger(__name__)
@@ -568,23 +572,28 @@ class BatchTrial(BaseTrial):
             complete_trial: Whether to mark trial as complete after
                 attaching data. Defaults to False.
         """
+        # Validate type of raw_data
+        if not isinstance(raw_data, dict):
+            raise ValueError(BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE)
+
+        for key, value in raw_data.items():
+            if not isinstance(key, str):
+                raise ValueError(BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE)
+
+            try:
+                validate_evaluation_outcome(outcome=value)
+            except TypeError:
+                raise ValueError(BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE)
 
         # Format the data to save.
-        raw_data_by_arm = checked_cast_complex(
-            Dict[str, TEvaluationOutcome],
-            raw_data,
-            message=BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE,
-        )
-        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
-            self.arms_by_name.keys()
-        )
+        not_trial_arm_names = set(raw_data.keys()) - set(self.arms_by_name.keys())
         if not_trial_arm_names:
             raise UserInputError(  # pragma: no cover
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 
         evaluations, data = self._make_evaluations_and_data(
-            raw_data=raw_data_by_arm, metadata=metadata, sample_sizes=sample_sizes
+            raw_data=raw_data, metadata=metadata, sample_sizes=sample_sizes
         )
         self._validate_batch_trial_data(data=data)
 
