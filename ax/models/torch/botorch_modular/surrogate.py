@@ -11,6 +11,7 @@ import inspect
 import warnings
 from copy import deepcopy
 from logging import Logger
+
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
 
 import torch
@@ -18,6 +19,9 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
+from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
+    covar_module_argparse,
+)
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
@@ -461,7 +465,21 @@ class Surrogate(Base):
                 raise RuntimeError(f"Got both a class and an object for {input_name}.")
             if input_class is not None:
                 input_options = input_options or {}
-                formatted_model_inputs[input_name] = input_class(**input_options)
+
+                if input_name == "covar_module":
+                    covar_module_with_defaults = covar_module_argparse(
+                        input_class,
+                        dataset=dataset,
+                        botorch_model_class=self.botorch_model_class,
+                        **input_options,
+                    )
+
+                    formatted_model_inputs[input_name] = input_class(
+                        **covar_module_with_defaults
+                    )
+                else:
+                    formatted_model_inputs[input_name] = input_class(**input_options)
+
             else:
                 formatted_model_inputs[input_name] = input_object
 
