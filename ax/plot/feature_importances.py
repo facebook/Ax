@@ -76,7 +76,7 @@ def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
     df = df.reindex(columns=(["index"] + [a for a in df.columns if a != "index"]))
 
     plot_fi = plot_feature_importance_plotly(
-        df, "Absolute Feature Importances by Metric"
+        df, "Absolute Parameter Importances by Metric"
     )
     num_subplots = len(df.columns)
     num_features = len(df)
@@ -198,7 +198,9 @@ def plot_feature_importance_by_feature_plotly(
     ]
     features = traces[0].y
     title = (
-        "Relative Feature Importances" if relative else "Absolute Feature Importances"
+        "Relative Parameter Importances"
+        if relative
+        else "Absolute Parameter Importances"
     )
     if importance_measure:
         title = title + " based on " + importance_measure
@@ -264,9 +266,9 @@ def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
         margin=go.layout.Margin(l=250),  # noqa E741
         barmode="group",
         yaxis={"title": ""},
-        xaxis={"title": "Relative Feature importance"},
+        xaxis={"title": "Relative Parameter importance"},
         showlegend=False,
-        title="Relative Feature Importance per Metric",
+        title="Relative Parameter Importance per Metric",
     )
     return go.Figure(data=data, layout=layout)
 
