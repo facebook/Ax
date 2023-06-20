@@ -306,9 +306,9 @@ def get_standard_plots(
             experiment; used for visualizing when curves are stopped.
         - limit_points_per_plot: Limit the number of points used per metric in
             each curve plot. Passed to `_get_curve_plot_dropdown`.
-        - global_sensitivity_analysis: If True, plot total Sobol indices for the model
-            parameters. If False, plot sensitivities based on GP kernel lengthscales.
-            Defaults to True.
+        - global_sensitivity_analysis: If True, plot total Variance-based sensitivity
+            analysis for the model parameters. If False, plot sensitivities based on
+            GP kernel lengthscales. Defaults to True.
     Returns:
         - a plot of objective value vs. trial index, to show experiment progression
         - a plot of objective value vs. range parameter values, only included if the
@@ -391,7 +391,7 @@ def get_standard_plots(
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
                 try:
                     sens = ax_parameter_sens(model, order="total")
-                    importance_measure = "Total Sobol Indices"
+                    importance_measure = '<a href="https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis">Variance-based sensitivity analysis</a>'
                 except NotImplementedError as e:
                     logger.info(f"Failed to compute global feature sensitivities: {e}")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
