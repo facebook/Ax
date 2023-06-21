@@ -272,6 +272,14 @@ ax.models.torch.botorch_modular.kernels module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.input_constructors.covar_modules module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.input_constructors.covar_modules
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.cbo_lcea module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
