@@ -391,7 +391,10 @@ def get_standard_plots(
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
                 try:
                     sens = ax_parameter_sens(model, order="total")
-                    importance_measure = '<a href="https://en.wikipedia.org/wiki/Variance-based_sensitivity_analysis">Variance-based sensitivity analysis</a>'
+                    importance_measure = (
+                        '<a href="https://en.wikipedia.org/wiki/Variance-based_'
+                        'sensitivity_analysis">Variance-based sensitivity analysis</a>'
+                    )
                 except NotImplementedError as e:
                     logger.info(f"Failed to compute global feature sensitivities: {e}")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
