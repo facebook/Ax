@@ -264,6 +264,14 @@ ax.models.torch.botorch_modular.utils module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.kernels module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.kernels
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.cbo_lcea module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
