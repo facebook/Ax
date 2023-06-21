@@ -16,3 +16,22 @@ class TestProblems(TestCase):
                 continue  # Skip these as they cause the test to take a long time
 
             get_problem(problem_name=name)
+
+    def test_name(self) -> None:
+        expected_names = [
+            ("branin", "Branin"),
+            ("hartmann3", "Hartmann_3d"),
+            ("hartmann6", "Hartmann_6d"),
+            ("hartmann30", "Hartmann_30d"),
+            ("branin_currin_fixed_noise", "BraninCurrin_fixed_noise"),
+            ("branin_currin30_fixed_noise", "BraninCurrin_fixed_noise_30d"),
+            ("levy4", "Levy_4d"),
+        ]
+        for registry_key, problem_name in expected_names:
+            problem = get_problem(problem_name=registry_key)
+            self.assertEqual(problem.name, problem_name)
+
+    def test_no_duplicates(self) -> None:
+        keys = [elt for elt in BENCHMARK_PROBLEM_REGISTRY.keys() if "MNIST" not in elt]
+        names = {get_problem(problem_name=key).name for key in keys}
+        self.assertEqual(len(keys), len(names))

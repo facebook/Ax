@@ -5,7 +5,7 @@
 
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 from ax.core.metric import Metric
 
@@ -30,6 +30,20 @@ from botorch.test_functions.synthetic import SyntheticTestFunction
 # `annotations` postpones evaluation of types and will break FBLearner's usage of
 # `BenchmarkProblem` as return type annotation, used for serialization and rendering
 # in the UI.
+
+
+def _get_name(
+    test_problem: BaseTestProblem, infer_noise: bool, dim: Optional[int] = None
+) -> str:
+    """
+    Get a string name describing the problem, in a format such as
+    "hartmann_fixed_noise_6d" or "jenatton" (where the latter would
+    not have fixed noise and have the default dimensionality).
+    """
+    base_name = f"{test_problem.__class__.__name__}"
+    fixed_noise = "" if infer_noise else "_fixed_noise"
+    dim_str = "" if dim is None else f"_{dim}d"
+    return f"{base_name}{fixed_noise}{dim_str}"
 
 
 @dataclass(frozen=True)
@@ -74,10 +88,13 @@ class BenchmarkProblem(Base):
             ]
         )
 
+        dim = test_problem_kwargs.get("dim", None)
+        name = _get_name(test_problem, infer_noise, dim)
+
         optimization_config = OptimizationConfig(
             objective=Objective(
                 metric=BotorchTestProblemMetric(
-                    name=f"{test_problem.__class__.__name__}",
+                    name=name,
                     noise_sd=None if infer_noise else (test_problem.noise_std or 0),
                 ),
                 minimize=True,
@@ -85,7 +102,7 @@ class BenchmarkProblem(Base):
         )
 
         return cls(
-            name=f"{test_problem.__class__.__name__}",
+            name=name,
             search_space=search_space,
             optimization_config=optimization_config,
             runner=BotorchTestProblemRunner(
@@ -132,8 +149,11 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             infer_noise=infer_noise,
         )
 
+        dim = test_problem_kwargs.get("dim", None)
+        name = _get_name(test_problem, infer_noise, dim)
+
         return cls(
-            name=f"{test_problem.__class__.__name__}",
+            name=name,
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
             runner=problem.runner,
@@ -186,9 +206,12 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             infer_noise=infer_noise,
         )
 
+        dim = test_problem_kwargs.get("dim", None)
+        name = _get_name(test_problem, infer_noise, dim)
+
         metrics = [
             BotorchTestProblemMetric(
-                name=f"{test_problem.__class__.__name__}_{i}",
+                name=f"{name}_{i}",
                 noise_sd=None if infer_noise else (test_problem.noise_std or 0),
                 index=i,
             )
@@ -207,8 +230,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             objective_thresholds=[
                 ObjectiveThreshold(
                     metric=metrics[i],
-                    # pyre-fixme[6]: For 2nd param expected `float` but got `Tensor`.
-                    bound=test_problem.ref_point[i],
+                    bound=test_problem.ref_point[i].item(),
                     relative=False,
                     op=ComparisonOp.LEQ,
                 )
@@ -217,7 +239,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         )
 
         return cls(
-            name=f"{test_problem.__class__.__name__}",
+            name=name,
             search_space=problem.search_space,
             optimization_config=optimization_config,
             runner=problem.runner,
