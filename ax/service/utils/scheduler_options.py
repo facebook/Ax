@@ -115,7 +115,7 @@ class SchedulerOptions:
     min_seconds_before_poll: float = 1.0
     seconds_between_polls_backoff_factor: float = 1.5
     timeout_hours: Optional[float] = None
-    run_trials_in_batches: bool = False
+    run_trials_in_batches: bool = True
     debug_log_run_metadata: bool = False
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
     global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
