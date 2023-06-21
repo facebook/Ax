@@ -4,7 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.core.types import merge_model_predict
+from ax.core.types import (
+    merge_model_predict,
+    validate_evaluation_outcome,
+    validate_floatlike,
+    validate_map_dict,
+    validate_param_value,
+    validate_parameterization,
+    validate_single_metric_data,
+    validate_trial_evaluation,
+)
 from ax.utils.common.testutils import TestCase
 
 
@@ -40,3 +49,37 @@ class TypesTest(TestCase):
         cov_append = {"m1": {"m1": [0.0], "m2": [0.0]}}
         with self.assertRaises(ValueError):
             merge_model_predict(self.predict, (mu_append, cov_append))
+
+    def testValidate(self) -> None:
+        trial_evaluation = {"foo": 0.0}
+        trial_evaluation_with_noise = {"foo": (0.0, 0.0)}
+        fidelity_trial_evaluation = [({"a": 0.0}, trial_evaluation)]
+        map_trial_evaluation = [({"a": 0.0}, trial_evaluation)]
+
+        validate_evaluation_outcome(outcome=trial_evaluation)  # pyre-ignore[6]
+        validate_evaluation_outcome(
+            outcome=trial_evaluation_with_noise  # pyre-ignore[6]
+        )
+        validate_evaluation_outcome(outcome=fidelity_trial_evaluation)  # pyre-ignore[6]
+        validate_evaluation_outcome(outcome=map_trial_evaluation)  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_floatlike(floatlike="foo")  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_single_metric_data(data=(0, 1, 2))  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_trial_evaluation(evaluation={0: 0})  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_param_value(param_value=[])  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_parameterization(parameterization={0: 0})  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_map_dict(map_dict={0: 0})  # pyre-ignore[6]
+
+        with self.assertRaises(TypeError):
+            validate_map_dict(map_dict={"foo": []})  # pyre-ignore[6]
