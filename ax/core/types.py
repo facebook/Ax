@@ -35,7 +35,7 @@ TModelPredict = Tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]
 
-FloatLike = Union[float, np.floating, np.integer]
+FloatLike = Union[int, float, np.floating, np.integer]
 SingleMetricDataTuple = Tuple[FloatLike, Optional[FloatLike]]
 SingleMetricData = Union[FloatLike, Tuple[FloatLike, Optional[FloatLike]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
@@ -110,3 +110,103 @@ def merge_model_predict(
                 cov_values + cov_append[metric_name][co_metric_name]
             )
     return mu, cov
+
+
+def validate_floatlike(floatlike: FloatLike) -> None:
+    if not (
+        isinstance(floatlike, float)
+        or isinstance(floatlike, int)
+        or isinstance(floatlike, np.floating)
+        or isinstance(floatlike, np.integer)
+    ):
+        raise TypeError(f"Expected FloatLike, found {floatlike}")
+
+
+def validate_single_metric_data(data: SingleMetricData) -> None:
+    if isinstance(data, tuple):
+        if len(data) != 2:
+            raise TypeError(
+                f"Tuple-valued SingleMetricData must have len == 2, found {data}"
+            )
+
+        mean, sem = data
+        validate_floatlike(floatlike=mean)
+
+        if sem is not None:
+            validate_floatlike(floatlike=sem)
+
+    else:
+        validate_floatlike(floatlike=data)
+
+
+def validate_trial_evaluation(evaluation: TTrialEvaluation) -> None:
+    for key, value in evaluation.items():
+        if type(key) != str:
+            raise TypeError(f"Keys must be strings in TTrialEvaluation, found {key}.")
+
+        validate_single_metric_data(data=value)
+
+
+def validate_param_value(param_value: TParamValue) -> None:
+    if not (
+        isinstance(param_value, str)
+        or isinstance(param_value, bool)
+        or isinstance(param_value, float)
+        or isinstance(param_value, int)
+        or param_value is None
+    ):
+        raise TypeError(f"Expected None, bool, float, int, or str, found {param_value}")
+
+
+def validate_parameterization(parameterization: TParameterization) -> None:
+    for key, value in parameterization.items():
+        if type(key) != str:
+            raise TypeError(f"Keys must be strings in TParameterization, found {key}.")
+
+        validate_param_value(param_value=value)
+
+
+def validate_map_dict(map_dict: TMapDict) -> None:
+    for key, value in map_dict.items():
+        if type(key) != str:
+            raise TypeError(f"Keys must be strings in TMapDict, found {key}.")
+
+        if not isinstance(value, Hashable):
+            raise TypeError(f"Values must be Hashable in TMapDict, found {value}.")
+
+
+def validate_fidelity_trial_evaluation(evaluation: TFidelityTrialEvaluation) -> None:
+    for parameterization, trial_evaluation in evaluation:
+        validate_parameterization(parameterization=parameterization)
+        validate_trial_evaluation(evaluation=trial_evaluation)
+
+
+def validate_map_trial_evaluation(evaluation: TMapTrialEvaluation) -> None:
+    for map_dict, trial_evaluation in evaluation:
+        validate_map_dict(map_dict=map_dict)
+        validate_trial_evaluation(evaluation=trial_evaluation)
+
+
+def validate_evaluation_outcome(outcome: TEvaluationOutcome) -> None:
+    """Runtime validate that the supplied outcome has correct structure."""
+
+    if isinstance(outcome, dict):
+        # Check if outcome is TTrialEvaluation
+        validate_trial_evaluation(evaluation=outcome)
+
+    elif isinstance(outcome, list):
+        # Check if outcome is TFidelityTrialEvaluation or TMapTrialEvaluation
+        try:
+            validate_fidelity_trial_evaluation(evaluation=outcome)  # pyre-ignore[6]
+        except Exception:
+            try:
+                validate_map_trial_evaluation(evaluation=outcome)  # pyre-ignore[6]
+            except Exception:
+                raise TypeError(
+                    "Expected either TFidelityTrialEvaluation or TMapTrialEvaluation, "
+                    f"found {type(outcome)}"
+                )
+
+    else:
+        # Check if outcome is SingleMetricData
+        validate_single_metric_data(data=outcome)
