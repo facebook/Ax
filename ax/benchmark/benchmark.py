@@ -17,10 +17,9 @@ Key terms used:
 
 """
 
-from functools import partial
 from itertools import product
 from time import time
-from typing import Any, Iterable, List
+from typing import Iterable, List
 
 import numpy as np
 
@@ -111,11 +110,12 @@ def benchmark_test(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
-    **kwargs: Any,
 ) -> AggregatedBenchmarkResult:
-    base_case = partial(benchmark_replication, problem=problem, method=method, **kwargs)
     return AggregatedBenchmarkResult.from_benchmark_results(
-        results=[base_case(seed=seed) for seed in seeds]
+        results=[
+            benchmark_replication(problem=problem, method=method, seed=seed)
+            for seed in seeds
+        ]
     )
 
 
@@ -123,7 +123,8 @@ def benchmark_full_run(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
-    **kwargs: Any,
 ) -> List[AggregatedBenchmarkResult]:
-    test_env = partial(benchmark_test, seeds=seeds, **kwargs)
-    return [test_env(problem=p, method=m) for p, m in product(problems, methods)]
+    return [
+        benchmark_test(problem=p, method=m, seeds=seeds)
+        for p, m in product(problems, methods)
+    ]
