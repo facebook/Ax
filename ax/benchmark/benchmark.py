@@ -18,6 +18,7 @@ Key terms used:
 """
 
 from itertools import product
+from logging import Logger
 from time import time
 from typing import Iterable, List
 
@@ -33,7 +34,45 @@ from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkRe
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
+from ax.utils.common.logger import get_logger
 from botorch.utils.sampling import manual_seed
+
+logger: Logger = get_logger(__name__)
+
+
+def compute_score_trace(
+    optimization_trace: np.ndarray,
+    num_baseline_trials: int,
+    problem: BenchmarkProblem,
+) -> np.ndarray:
+    """Computes a score trace from the optimization trace."""
+
+    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
+    # a timeout) the first GenerationStep will not have not completed and we will not
+    # have enough trials; in this case we do not score.
+    baseline = (
+        optimization_trace[num_baseline_trials - 1]
+        if len(optimization_trace) > num_baseline_trials
+        else None
+    )
+
+    if isinstance(problem, SingleObjectiveBenchmarkProblem):
+        optimum = problem.optimal_value
+    elif isinstance(problem, MultiObjectiveBenchmarkProblem):
+        optimum = problem.maximum_hypervolume
+    else:
+        # If no known optimum exists scoring cannot take place in a meaningful way
+        optimum = None
+
+    if optimum is None or baseline is None:
+        return np.full(len(optimization_trace), np.nan)
+    score_trace = 100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
+    if score_trace.max() > 100:
+        logger.info(
+            "Observed scores above 100. This indicates that we found a trial that is "
+            "better than the optimum. Clipping scores to 100 for now."
+        )
+    return score_trace.clip(min=0, max=100)
 
 
 def benchmark_replication(
@@ -68,29 +107,11 @@ def benchmark_replication(
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
     optimization_trace = np.array(scheduler.get_trace())
-
-    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
-    # a timeout) the first GenerationStep will not have not completed and we will not
-    # have enough trials; in this case we do not score.
     num_baseline_trials = scheduler.generation_strategy._steps[0].num_trials
-    baseline = (
-        optimization_trace[num_baseline_trials - 1]
-        if len(optimization_trace) > num_baseline_trials
-        else None
-    )
-
-    if isinstance(problem, SingleObjectiveBenchmarkProblem):
-        optimum = problem.optimal_value
-    elif isinstance(problem, MultiObjectiveBenchmarkProblem):
-        optimum = problem.maximum_hypervolume
-    else:
-        # If no known optimum exists scoring cannot take place in a meaningful way
-        optimum = None
-
-    score_trace = (
-        (100 * (1 - (optimization_trace - optimum) / (baseline - optimum))).clip(min=0)
-        if optimum is not None and baseline is not None
-        else np.full(len(optimization_trace), np.nan)
+    score_trace = compute_score_trace(
+        optimization_trace=optimization_trace,
+        num_baseline_trials=num_baseline_trials,
+        problem=problem,
     )
 
     fit_time, gen_time = get_model_times(experiment=scheduler.experiment)
