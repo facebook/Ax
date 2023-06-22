@@ -91,6 +91,7 @@ from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
+from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
@@ -2004,6 +2005,10 @@ def get_mll_type() -> Type[MarginalLogLikelihood]:
 
 def get_acquisition_function_type() -> Type[AcquisitionFunction]:
     return qExpectedImprovement
+
+
+def get_sebo_acquisition_class() -> Type[SEBOAcquisition]:
+    return SEBOAcquisition
 
 
 def get_winsorization_config() -> WinsorizationConfig:
