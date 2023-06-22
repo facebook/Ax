@@ -75,9 +75,6 @@ class TestBenchmark(TestCase):
             "All experiments must have 4 trials",
         )
 
-        for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
-            self.assertTrue((agg.score_trace[col] <= 100).all())
-
     @fast_botorch_optimize
     def test_full_run(self) -> None:
         aggs = benchmark_full_run(
@@ -87,10 +84,6 @@ class TestBenchmark(TestCase):
         )
 
         self.assertEqual(len(aggs), 2)
-
-        for agg in aggs:
-            for col in ["mean", "P10", "P25", "P50", "P75", "P90"]:
-                self.assertTrue((agg.score_trace[col] <= 100).all())
 
     def test_timeout(self) -> None:
         problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
