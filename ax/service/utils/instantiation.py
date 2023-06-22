@@ -116,7 +116,23 @@ class InstantiationBase:
     """
 
     @staticmethod
+    def _get_deserialized_metric_kwargs(
+        metric_class: Type[Metric],
+        name: str,
+        metric_definitions: Optional[Dict[str, Dict[str, Any]]],
+    ) -> Dict[str, Any]:
+        """Get metric kwargs from metric_definitions if available and deserialize
+        if so.  Deserialization is necessary because they were serialized on creation"""
+        metric_kwargs = (metric_definitions or {}).get(name, {})
+        metric_class = metric_kwargs.pop("metric_class", metric_class)
+        metric_kwargs["name"] = name
+        metric_kwargs = metric_class.deserialize_init_args(metric_kwargs)
+        metric_kwargs.pop("name")
+        return metric_kwargs
+
+    @classmethod
     def _make_metric(
+        cls,
         name: str,
         lower_is_better: Optional[bool] = None,
         metric_class: Type[Metric] = Metric,
@@ -126,7 +142,11 @@ class InstantiationBase:
         return metric_class(
             name=name,
             lower_is_better=lower_is_better,
-            **(metric_definitions or {}).get(name, {}),
+            **cls._get_deserialized_metric_kwargs(
+                name=name,
+                metric_definitions=metric_definitions,
+                metric_class=metric_class,
+            ),
         )
 
     @staticmethod
@@ -441,6 +461,7 @@ class InstantiationBase:
                 name=tokens[0],
                 for_opt_config=True,
                 metric_definitions=metric_definitions,
+                lower_is_better=op is ComparisonOp.LEQ,
             ),
             op=op,
             bound=bound,

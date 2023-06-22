@@ -366,7 +366,7 @@ class TestAxClient(TestCase):
             # pyre-fixme[16]: `Optional` has no attribute `objective_thresholds`.
             opt_config.objective_thresholds[0],
             ObjectiveThreshold(
-                metric=Metric(name="foo"),
+                metric=Metric(name="foo", lower_is_better=True),
                 bound=3.1,
                 relative=False,
                 op=ComparisonOp.LEQ,
@@ -375,7 +375,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             opt_config.objective_thresholds[1],
             ObjectiveThreshold(
-                metric=Metric(name="bar"),
+                metric=Metric(name="bar", lower_is_better=False),
                 bound=1.0,
                 relative=False,
                 op=ComparisonOp.GEQ,
@@ -385,7 +385,10 @@ class TestAxClient(TestCase):
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             opt_config.outcome_constraints[0],
             OutcomeConstraint(
-                metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
+                metric=Metric(name="baz", lower_is_better=False),
+                bound=7.2,
+                relative=True,
+                op=ComparisonOp.GEQ,
             ),
         )
 
@@ -419,7 +422,10 @@ class TestAxClient(TestCase):
             # pyre-fixme[16]: `Optional` has no attribute `outcome_constraints`.
             opt_config.outcome_constraints[0],
             OutcomeConstraint(
-                metric=Metric(name="baz"), bound=7.2, relative=True, op=ComparisonOp.GEQ
+                metric=Metric(name="baz", lower_is_better=False),
+                bound=7.2,
+                relative=True,
+                op=ComparisonOp.GEQ,
             ),
         )
 
@@ -813,7 +819,7 @@ class TestAxClient(TestCase):
             # pyre-fixme[16]: `Optional` has no attribute `optimization_config`.
             ax_client._experiment.optimization_config.outcome_constraints[0],
             OutcomeConstraint(
-                metric=Metric(name="some_metric"),
+                metric=Metric(name="some_metric", lower_is_better=False),
                 op=ComparisonOp.GEQ,
                 bound=3.0,
                 relative=False,
@@ -822,7 +828,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client._experiment.optimization_config.outcome_constraints[1],
             OutcomeConstraint(
-                metric=Metric(name="some_metric"),
+                metric=Metric(name="some_metric", lower_is_better=True),
                 op=ComparisonOp.LEQ,
                 bound=4.0,
                 relative=False,
@@ -1345,7 +1351,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             optimization_config.outcome_constraints[0],
             OutcomeConstraint(
-                metric=Metric(name="some_metric"),
+                metric=Metric(name="some_metric", lower_is_better=False),
                 op=ComparisonOp.GEQ,
                 bound=3.0,
                 relative=False,
@@ -1354,7 +1360,7 @@ class TestAxClient(TestCase):
         self.assertEqual(
             optimization_config.outcome_constraints[1],
             OutcomeConstraint(
-                metric=Metric(name="some_metric"),
+                metric=Metric(name="some_metric", lower_is_better=True),
                 op=ComparisonOp.LEQ,
                 bound=4.0,
                 relative=False,
