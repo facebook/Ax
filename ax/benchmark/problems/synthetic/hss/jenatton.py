@@ -60,8 +60,10 @@ def get_jenatton_benchmark_problem(
         )
     )
 
+    name = "Jenatton" + ("" if infer_noise else "_fixed_noise")
+
     return SingleObjectiveBenchmarkProblem(
-        name="Jenatton",
+        name=name,
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
