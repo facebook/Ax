@@ -10,6 +10,7 @@ import torch
 
 # Ax `Acquisition` imports
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -216,3 +217,6 @@ def register_acquisition_function(acqf_class: Type[AcquisitionFunction]) -> None
     class_name = acqf_class.__name__
     CLASS_TO_REGISTRY[AcquisitionFunction].update({acqf_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[AcquisitionFunction].update({class_name: acqf_class})
+
+
+register_acquisition(SEBOAcquisition)
