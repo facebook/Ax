@@ -642,9 +642,10 @@ class BaseTrial(ABC, SortableBase):
         """Mark trial has started running.
 
         Args:
-            no_runner_required: Whether to skip the check for presence of a ``Runner``
-            on experiment.
+            no_runner_required: Whether to skip the check for presence of a
+                ``Runner`` on the experiment.
             unsafe: Ignore sanity checks on state transitions.
+
         Returns:
             The trial instance.
         """

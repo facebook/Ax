@@ -1474,7 +1474,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         def _process_trial(trial):
             if trial.index in metadata:
                 trial.update_run_metadata(metadata=metadata[trial.index])
-                trial.mark_running(no_runner_required=True)
+                try:
+                    trial.mark_running(no_runner_required=True)
+                except ValueError as e:
+                    self.logger.warn(
+                        "Unable to mark trial as RUNNING due to the following error:\n"
+                        + str(e)
+                    )
             else:
                 self.logger.debug(
                     f"Trial {trial.index} did not deploy, status: {trial.status}."
