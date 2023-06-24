@@ -127,7 +127,7 @@ def benchmark_replication(
     )
 
 
-def benchmark_test(
+def benchmark_one_method_problem(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seeds: Iterable[int],
@@ -140,12 +140,18 @@ def benchmark_test(
     )
 
 
-def benchmark_full_run(
+def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
 ) -> List[AggregatedBenchmarkResult]:
+    """
+    For each `problem` and `method` in the Cartesian product of `problems` and
+    `methods`, run the replication on each seed in `seeds` and get the results
+    as an `AggregatedBenchmarkResult`, then return a list of each
+    `AggregatedBenchmarkResult`.
+    """
     return [
-        benchmark_test(problem=p, method=m, seeds=seeds)
+        benchmark_one_method_problem(problem=p, method=m, seeds=seeds)
         for p, m in product(problems, methods)
     ]

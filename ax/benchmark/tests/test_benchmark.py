@@ -5,9 +5,9 @@
 
 import numpy as np
 from ax.benchmark.benchmark import (
-    benchmark_full_run,
+    benchmark_multiple_problems_methods,
+    benchmark_one_method_problem,
     benchmark_replication,
-    benchmark_test,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
@@ -58,9 +58,9 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
-    def test_test(self) -> None:
+    def test_benchmark_one_method_problem(self) -> None:
         problem = get_single_objective_benchmark_problem()
-        agg = benchmark_test(
+        agg = benchmark_one_method_problem(
             problem=problem,
             method=get_sobol_benchmark_method(),
             seeds=(0, 1),
@@ -79,8 +79,8 @@ class TestBenchmark(TestCase):
             self.assertTrue((agg.score_trace[col] <= 100).all())
 
     @fast_botorch_optimize
-    def test_full_run(self) -> None:
-        aggs = benchmark_full_run(
+    def test_benchmark_multiple_problems_methods(self) -> None:
+        aggs = benchmark_multiple_problems_methods(
             problems=[get_single_objective_benchmark_problem()],
             methods=[get_sobol_benchmark_method(), get_sobol_gpei_benchmark_method()],
             seeds=(0, 1),
@@ -123,7 +123,9 @@ class TestBenchmark(TestCase):
         )
 
         # Each replication will have a different number of trials
-        result = benchmark_test(problem=problem, method=method, seeds=(0, 1, 2, 3))
+        result = benchmark_one_method_problem(
+            problem=problem, method=method, seeds=(0, 1, 2, 3)
+        )
 
         # Test the traces get composited correctly. The AggregatedResult's traces
         # should be the length of the shortest trace in the BenchmarkResults
