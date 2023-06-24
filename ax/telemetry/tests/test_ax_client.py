@@ -118,7 +118,7 @@ class TestAxClient(TestCase):
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
-            best_point_quality=-1,
-            model_fit_quality=-1,
+            best_point_quality=float("-inf"),
+            model_fit_quality=float("-inf"),
         )
         self.assertEqual(record, expected)

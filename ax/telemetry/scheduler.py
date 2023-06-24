@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
+from warnings import warn
 
-from ax.service.scheduler import Scheduler
+from ax.service.scheduler import get_fitted_model_bridge, Scheduler
 from ax.telemetry.common import _get_max_transformed_dimensionality
 
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
@@ -104,12 +105,31 @@ class SchedulerCompletedRecord:
 
     @classmethod
     def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCompletedRecord:
+        try:
+            model_bridge = get_fitted_model_bridge(scheduler)
+            model_fit_dict = model_bridge.compute_model_fit_metrics(
+                experiment=scheduler.experiment
+            )
+            # We'd ideally log the entire `model_fit_dict` as a single model fit metric
+            # can't capture the nuances of multiple experimental metrics, but this might
+            # lead to database performance issues. So instead, we take the worst
+            # coefficient of determination as model fit quality and store the full data
+            # in Manifold (TODO).
+            model_fit_quality = min(
+                model_fit_dict["coefficient_of_determination"].values()
+            )
+
+        except Exception as e:
+            warn("Encountered exception in computing model fit quality: " + str(e))
+            model_fit_quality = float("-inf")
+            # model_std_quality = float("-inf")
+
         return cls(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ),
-            best_point_quality=-1,  # TODO[T147907632]
-            model_fit_quality=-1,  # TODO[T147907632]
+            best_point_quality=float("-inf"),  # TODO[T147907632]
+            model_fit_quality=model_fit_quality,
             num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
             num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
         )

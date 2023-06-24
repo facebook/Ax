@@ -9,11 +9,12 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, Dict, Iterable, Optional, Set
-from unittest.mock import Mock, patch
+from typing import Any, Callable, cast, Dict, Iterable, Optional, Set
+from unittest.mock import Mock, patch, PropertyMock
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
+
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -31,6 +32,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
     ExperimentStatusProperties,
     FailureRateExceededError,
+    get_fitted_model_bridge,
     OptimizationResult,
     Scheduler,
     SchedulerInternalError,
@@ -1197,3 +1199,79 @@ class TestAxScheduler(TestCase):
         should_stop, message = scheduler.completion_criterion()
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
+
+    def test_get_fitted_model_bridge(self) -> None:
+        # setting up experiment and generation strategy
+        branin_experiment = Experiment(
+            name="branin_test_experiment",
+            search_space=get_branin_search_space(),
+            runner=SyntheticRunner(),
+            optimization_config=OptimizationConfig(
+                objective=Objective(
+                    metric=BraninMetric(name="branin", param_names=["x1", "x2"]),
+                    minimize=True,
+                ),
+            ),
+            is_test=True,
+        )
+        branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
+        # generation strategy
+        NUM_SOBOL = 5
+        generation_strategy = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
+                ),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        scheduler = Scheduler(
+            experiment=branin_experiment,
+            generation_strategy=generation_strategy,
+            options=SchedulerOptions(),
+        )
+        # need to run some trials to initialize the ModelBridge
+        scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
+
+        # testing path that refits the _model, if it is not already initialized
+        with patch.object(
+            GenerationStrategy,
+            "model",
+            new_callable=PropertyMock,
+            return_value=None,
+        ):
+            with patch.object(
+                GenerationStrategy,
+                "_fit_or_update_current_model",
+                wraps=scheduler.generation_strategy._fit_or_update_current_model,
+            ) as fit_model:
+                get_fitted_model_bridge(scheduler)
+                fit_model.assert_called_once()
+
+        # testing get_fitted_model_bridge
+        model_bridge = get_fitted_model_bridge(scheduler)
+
+        # testing compatibility with model_bridge.compute_model_fit_metrics
+        fit_metrics = model_bridge.compute_model_fit_metrics(
+            experiment=scheduler.experiment
+        )
+        r2 = fit_metrics.get("coefficient_of_determination")
+        self.assertIsInstance(r2, dict)
+        r2 = cast(Dict[str, float], r2)
+        self.assertTrue("branin" in r2)
+        r2_branin = r2["branin"]
+        self.assertIsInstance(r2_branin, float)
+
+        std = fit_metrics.get("std_of_the_standardized_error")
+        self.assertIsInstance(std, dict)
+        std = cast(Dict[str, float], std)
+        self.assertTrue("branin" in std)
+        std_branin = std["branin"]
+        self.assertIsInstance(std_branin, float)
+
+        # testing with empty metrics dict
+        empty_metrics = model_bridge.compute_model_fit_metrics(
+            experiment=scheduler.experiment, fit_metrics_dict={}
+        )
+        self.assertIsInstance(empty_metrics, dict)
+        self.assertTrue(len(empty_metrics) == 0)

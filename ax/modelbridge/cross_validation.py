@@ -11,14 +11,37 @@ from functools import partial
 
 from logging import Logger
 from numbers import Number
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
-from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
+
+from ax.utils.stats.model_fit_stats import (
+    _correlation_coefficient,
+    _fisher_exact_test_p,
+    _log_likelihood,
+    _mape,
+    _mean_prediction_ci,
+    _rank_correlation,
+    _total_raw_effect,
+    compute_model_fit_metrics,
+    ModelFitMetricProtocol,
+)
 
 logger: Logger = get_logger(__name__)
 
@@ -225,27 +248,36 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
             k = res.predicted.metric_names.index(metric_name)
             y_pred[metric_name].append(res.predicted.means[k])
             se_pred[metric_name].append(np.sqrt(res.predicted.covariance[k, k]))
+    y_obs = _arrayify_dict_values(y_obs)
+    y_pred = _arrayify_dict_values(y_pred)
+    se_pred = _arrayify_dict_values(se_pred)
 
-    diagnostic_fns = {
-        MEAN_PREDICTION_CI: _mean_prediction_ci,
-        MAPE: _mape,
-        TOTAL_RAW_EFFECT: _total_raw_effect,
-        CORRELATION_COEFFICIENT: _correlation_coefficient,
-        RANK_CORRELATION: _rank_correlation,
-        FISHER_EXACT_TEST_P: _fisher_exact_test_p,
-        LOG_LIKELIHOOD: _log_likelihood,
-    }
-
-    diagnostics: Dict[str, Dict[str, float]] = defaultdict(dict)
-    # Get all per-metric diagnostics.
-    for metric_name in y_obs:
-        for name, fn in diagnostic_fns.items():
-            diagnostics[name][metric_name] = fn(
-                y_obs=np.array(y_obs[metric_name]),
-                y_pred=np.array(y_pred[metric_name]),
-                se_pred=np.array(se_pred[metric_name]),
-            )
+    # We need to cast here since pyre infers specific types T < ModelFitMetricProtocol
+    # for the dict values, which is type variant upon initialization, leading
+    # diagnostic_fns to not be recognized as a Mapping[str, ModelFitMetricProtocol],
+    # see the last tip in the Pyre docs on [9] Incompatible Variable Type:
+    # https://staticdocs.internalfb.com/pyre/docs/errors/#9-incompatible-variable-type
+    diagnostic_fns = cast(
+        Mapping[str, ModelFitMetricProtocol],
+        {
+            MEAN_PREDICTION_CI: _mean_prediction_ci,
+            MAPE: _mape,
+            TOTAL_RAW_EFFECT: _total_raw_effect,
+            CORRELATION_COEFFICIENT: _correlation_coefficient,
+            RANK_CORRELATION: _rank_correlation,
+            FISHER_EXACT_TEST_P: _fisher_exact_test_p,
+            LOG_LIKELIHOOD: _log_likelihood,
+        },
+    )
+    diagnostics = compute_model_fit_metrics(
+        y_obs=y_obs, y_pred=y_pred, se_pred=se_pred, fit_metrics_dict=diagnostic_fns
+    )
     return diagnostics
+
+
+def _arrayify_dict_values(d: Dict[str, List[float]]) -> Dict[str, np.ndarray]:
+    """Helper to convert dictionary values to numpy arrays."""
+    return {k: np.array(v) for k, v in d.items()}
 
 
 def assess_model_fit(
@@ -337,63 +369,6 @@ def _gen_train_test_split(
         arm_names = np.roll(arm_names, test_size)
         n_test = test_size if fold < folds - 1 else final_size
         yield set(arm_names[:-n_test]), set(arm_names[-n_test:])
-
-
-def _mean_prediction_ci(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    # Pyre does not allow float * np.ndarray.
-    return float(np.mean(1.96 * 2 * se_pred / np.abs(y_obs)))
-
-
-def _log_likelihood(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    return float(np.sum(norm.logpdf(y_obs, loc=y_pred, scale=se_pred)))
-
-
-def _mape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
-    return float(np.mean(np.abs((y_pred - y_obs) / y_obs)))
-
-
-def _total_raw_effect(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    min_y_obs = np.min(y_obs)
-    return float((np.max(y_obs) - min_y_obs) / min_y_obs)
-
-
-def _correlation_coefficient(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    with np.errstate(invalid="ignore"):
-        rho, _ = pearsonr(y_pred, y_obs)
-    return float(rho)
-
-
-def _rank_correlation(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    with np.errstate(invalid="ignore"):
-        rho, _ = spearmanr(y_pred, y_obs)
-    return float(rho)
-
-
-def _fisher_exact_test_p(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-) -> float:
-    n_half = len(y_obs) // 2
-    top_obs = y_obs.argsort(axis=0)[-n_half:]
-    top_est = y_pred.argsort(axis=0)[-n_half:]
-    # Construct contingency table
-    tp = len(set(top_est).intersection(top_obs))
-    fp = n_half - tp
-    fn = n_half - tp
-    tn = (len(y_obs) - n_half) - (n_half - tp)
-    table = np.array([[tp, fp], [fn, tn]])
-    # Compute the test statistic
-    _, p = fisher_exact(table, alternative="greater")
-    return float(p)
 
 
 class BestModelSelector(ABC):
