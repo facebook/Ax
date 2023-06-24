@@ -195,7 +195,7 @@ def relativize(
 
     Returns:
         rel_hat: Inferred means of the sampling distribution of
-            the relative change `(mean_t / mean_c) - 1`
+            the relative change `(mean_t - mean_c) / abs(mean_c)`
         sem_hat: Inferred standard deviation of the sampling
             distribution of rel_hat -- i.e. the standard error.
 
