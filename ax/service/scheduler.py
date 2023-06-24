@@ -47,6 +47,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 
 from ax.modelbridge.modelbridge_utils import (
@@ -1761,3 +1762,22 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 min_failed=self.options.min_failed_trials_for_failure_rate_check,
             )
         )
+
+
+def get_fitted_model_bridge(scheduler: Scheduler) -> ModelBridge:
+    """Returns a fitted ModelBridge object. If the model is fit already, directly
+    returns the already fitted model. Otherwise, fits and returns a new one.
+
+    Args:
+        scheduler: The scheduler object from which to get the fitted model.
+
+    Returns:
+        A ModelBridge object fitted to the observations of the scheduler's experiment.
+    """
+    gs = scheduler.generation_strategy  # GenerationStrategy
+    model_bridge = gs.model  # Optional[ModelBridge]
+    if model_bridge is None:  # Need to re-fit the model.
+        data = scheduler.experiment.fetch_data()
+        gs._fit_or_update_current_model(data=data)
+        model_bridge = cast(ModelBridge, gs.model)
+    return model_bridge

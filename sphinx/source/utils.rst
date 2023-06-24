@@ -213,6 +213,14 @@ Statstools
     :undoc-members:
     :show-inheritance:
 
+Model Fit Metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.stats.model_fit_stats
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Storage
 ---------------
 

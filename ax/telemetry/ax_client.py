@@ -106,8 +106,8 @@ class AxClientCompletedRecord:
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
-            best_point_quality=-1,  # TODO[T147907632]
-            model_fit_quality=-1,  # TODO[T147907632]
+            best_point_quality=float("-inf"),  # TODO[T147907632]
+            model_fit_quality=float("-inf"),  # TODO[T147907632]
         )
 
     def flatten(self) -> Dict[str, Any]:

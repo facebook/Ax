@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from ax.service.ax_client import AxClient
 from ax.service.scheduler import Scheduler
@@ -340,7 +340,7 @@ class OptimizationCompletedRecord:
             total_fit_time=experiment_completed_record.total_fit_time,
             total_gen_time=experiment_completed_record.total_gen_time,
             best_point_quality=scheduler_completed_record.best_point_quality,
-            model_fit_quality=scheduler_completed_record.model_fit_quality,
+            **_extract_model_fit_dict(scheduler_completed_record),
             num_metric_fetch_e_encountered=(
                 scheduler_completed_record.num_metric_fetch_e_encountered
             ),
@@ -384,7 +384,7 @@ class OptimizationCompletedRecord:
             total_fit_time=experiment_completed_record.total_fit_time,
             total_gen_time=experiment_completed_record.total_gen_time,
             best_point_quality=ax_client_completed_record.best_point_quality,
-            model_fit_quality=ax_client_completed_record.model_fit_quality,
+            **_extract_model_fit_dict(ax_client_completed_record),
             unique_identifier=unique_identifier,
             deployed_job_id=deployed_job_id,
             estimated_early_stopping_savings=estimated_early_stopping_savings,
@@ -393,3 +393,12 @@ class OptimizationCompletedRecord:
             num_metric_fetch_e_encountered=-1,
             num_trials_bad_due_to_err=-1,
         )
+
+
+def _extract_model_fit_dict(
+    completed_record: Union[SchedulerCompletedRecord, AxClientCompletedRecord],
+) -> Dict[str, float]:
+    model_fit_names = [
+        "model_fit_quality",  # TODO: add calibration, generalization.
+    ]
+    return {n: getattr(completed_record, n) for n in model_fit_names}
