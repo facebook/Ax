@@ -315,6 +315,23 @@ class ChoiceParameterTest(TestCase):
                 dependents={"not_a_value": "other_param"},
             )
 
+    def testMaxValuesValidation(self) -> None:
+        ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.INT,
+            values=list(range(999)),  # pyre-ignore
+        )
+        with self.assertRaisesRegex(
+            UserInputError,
+            "`ChoiceParameter` with more than 1000 values is not supported! Use a "
+            "`RangeParameter` instead.",
+        ):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                values=list(range(1001)),  # pyre-ignore
+            )
+
     def testHierarchical(self) -> None:
         # Test case where only some of the values entail dependents.
         hierarchical_param = ChoiceParameter(

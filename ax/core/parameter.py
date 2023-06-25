@@ -22,7 +22,7 @@ from ax.utils.common.typeutils import not_none
 # TODO: Do a more comprehensive audit of how floating point precision issues
 # may creep up and implement a more principled fix
 EPS = 1.5e-7
-
+MAX_VALUES_CHOICE_PARAM = 1000
 FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "
     "Please use FixedParameter instead when setting a single possible value."
@@ -474,6 +474,12 @@ class ChoiceParameter(Parameter):
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
+        # Cap the number of possible values
+        if len(values) > MAX_VALUES_CHOICE_PARAM:
+            raise UserInputError(
+                f"`ChoiceParameter` with more than {MAX_VALUES_CHOICE_PARAM} values "
+                "is not supported! Use a `RangeParameter` instead."
+            )
         # pyre-fixme[4]: Attribute must be annotated.
         self._values = self._cast_values(values)
         # pyre-fixme[4]: Attribute must be annotated.
