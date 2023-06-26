@@ -25,7 +25,7 @@ from ax.modelbridge.factory import (
     get_MOO_NEHVI,
     get_MOO_PAREGO,
     get_MOO_RS,
-    get_MTGP,
+    get_MTGP_LEGACY,
     get_MTGP_NEHVI,
     get_MTGP_PAREGO,
     get_sobol,
@@ -97,11 +97,11 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         self.assertEqual(len(gpei_run.arms), 1)
 
     @fast_botorch_optimize
-    def test_MTGP(self) -> None:
+    def test_MTGP_LEGACY(self) -> None:
         """Tests MTGP instantiation."""
         # Test Multi-type MTGP
         exp = get_multi_type_experiment(add_trials=True)
-        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data())
+        mtgp = get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(mtgp, TorchModelBridge)
 
         # Test Single-type MTGP
@@ -114,14 +114,14 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
             t = exp.new_batch_trial().add_generator_run(sobol_run)
             t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
             t.run().mark_completed()
-        mtgp = get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
+        mtgp = get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data(), trial_index=0)
         self.assertIsInstance(mtgp, TorchModelBridge)
         # mtgp_run = mtgp.gen(
         #     n=1
         # )  # TODO[T110948251]: This is broken at the ChoiceEncode level
 
         with self.assertRaises(ValueError):
-            get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=9)
+            get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data(), trial_index=9)
 
         exp = get_branin_experiment()
         sobol = get_sobol(search_space=exp.search_space)
@@ -131,7 +131,7 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
         t.run().mark_completed()
 
         with self.assertRaises(ValueError):
-            get_MTGP(experiment=exp, data=exp.fetch_data(), trial_index=0)
+            get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data(), trial_index=0)
 
     @fast_botorch_optimize
     def test_GPKG(self) -> None:

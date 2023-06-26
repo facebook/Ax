@@ -29,6 +29,7 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
@@ -43,8 +44,17 @@ from ax.utils.testing.core_stubs import (
     get_factorial_experiment,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.acquisition.monte_carlo import qExpectedImprovement
+from botorch.acquisition.monte_carlo import (
+    qExpectedImprovement,
+    qNoisyExpectedImprovement,
+)
 from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import FixedNoiseMultiTaskGP
+from botorch.utils.types import DEFAULT
+from gpytorch.kernels.matern_kernel import MaternKernel
+from gpytorch.kernels.scale_kernel import ScaleKernel
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior
 
 
@@ -335,7 +345,7 @@ class ModelRegistryTest(TestCase):
             self.assertEqual(model_args & bridge_args, set())
 
     @fast_botorch_optimize
-    def test_ST_MTGP(self) -> None:
+    def test_ST_MTGP_LEGACY(self) -> None:
         """Tests single type MTGP instantiation."""
         # Test Single-type MTGP
         exp = get_branin_experiment()
@@ -347,12 +357,10 @@ class ModelRegistryTest(TestCase):
             t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
             t.run().mark_completed()
         status_quo_features = ObservationFeatures(
-            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
-            parameters=exp.trials[0].status_quo.parameters,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
-            trial_index=0,
+            parameters=exp.trials[0].status_quo.parameters,  # pyre-ignore[16]
+            trial_index=0,  # pyre-ignore[6]
         )
-        mtgp = Models.ST_MTGP(
+        mtgp = Models.ST_MTGP_LEGACY(
             experiment=exp,
             data=exp.fetch_data(),
             status_quo_features=status_quo_features,
@@ -370,10 +378,9 @@ class ModelRegistryTest(TestCase):
         with self.assertRaises(ValueError):
             status_quo_features = ObservationFeatures(
                 parameters=exp.trials[0].status_quo.parameters,
-                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
-                trial_index=0,
+                trial_index=0,  # pyre-ignore[6]
             )
-            Models.ST_MTGP(
+            Models.ST_MTGP_LEGACY(
                 experiment=exp,
                 data=exp.fetch_data(),
                 status_quo_features=status_quo_features,
@@ -474,3 +481,94 @@ class ModelRegistryTest(TestCase):
         t = multi_obj_exp.new_batch_trial().add_generator_run(mtgp_run)
         t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
         t.run().mark_completed()
+
+    @fast_botorch_optimize
+    def test_ST_MTGP(self) -> None:
+        """Tests single type MTGP via Modular BoTorch instantiation."""
+        # Test Single-type MTGP using MBM setup
+        single_obj_exp = get_branin_experiment()
+
+        multi_obj_exp = get_branin_experiment_with_multi_objective(
+            with_batch=True,
+            with_status_quo=True,
+        )
+
+        # testing single- and multi-objective optimization
+        for exp in [single_obj_exp, multi_obj_exp]:
+            sobol = Models.SOBOL(search_space=exp.search_space)
+            self.assertIsInstance(sobol, RandomModelBridge)
+            for _ in range(2):
+                sobol_run = sobol.gen(5)
+                t = exp.new_batch_trial().add_generator_run(sobol_run)
+                t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+                t.run().mark_completed()
+
+            status_quo_features = ObservationFeatures(
+                # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
+                parameters=exp.trials[0].status_quo.parameters,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
+                trial_index=0,
+            )
+
+            # testing custom and default kernel for a surrogate
+            surrogates = [
+                Surrogate(
+                    botorch_model_class=FixedNoiseMultiTaskGP,
+                    mll_class=ExactMarginalLogLikelihood,
+                    covar_module_class=ScaleMaternKernel,
+                    covar_module_options={
+                        "ard_num_dims": DEFAULT,
+                        "lengthscale_prior": GammaPrior(6.0, 3.0),
+                        "outputscale_prior": GammaPrior(2.0, 0.15),
+                        "batch_shape": DEFAULT,
+                    },
+                    allow_batched_models=False,
+                    model_options={},
+                ),
+                None,
+            ]
+
+            lengthscale_priors = [
+                GammaPrior(6.0, 3.0),
+                GammaPrior(3.0, 6.0),
+            ]
+
+            for surrogate, lengthscale_prior in zip(surrogates, lengthscale_priors):
+                mtgp = Models.ST_MTGP(
+                    experiment=exp,
+                    data=exp.fetch_data(),
+                    status_quo_features=status_quo_features,
+                    botorch_acqf_class=qNoisyExpectedImprovement,
+                    surrogate=surrogate,
+                )
+                self.assertIsInstance(mtgp, TorchModelBridge)
+                self.assertIsInstance(mtgp.model, BoTorchModel)
+                self.assertEqual(mtgp.model.acquisition_class, Acquisition)
+                self.assertEqual(
+                    mtgp.model.botorch_acqf_class, qNoisyExpectedImprovement
+                )
+
+                self.assertIsInstance(mtgp.model.surrogate.model, ModelListGP)
+                models = mtgp.model.surrogate.model.models
+
+                for i in range(len(models)):
+                    self.assertIsInstance(models[i], FixedNoiseMultiTaskGP)
+                    self.assertIsInstance(models[i].covar_module, ScaleKernel)
+                    base_kernel = models[i].covar_module.base_kernel
+                    self.assertIsInstance(base_kernel, MaternKernel)
+                    self.assertEqual(
+                        base_kernel.lengthscale_prior.concentration,
+                        lengthscale_prior.concentration,
+                    )
+                    self.assertEqual(
+                        base_kernel.lengthscale_prior.rate,
+                        lengthscale_prior.rate,
+                    )
+
+                gr = mtgp.gen(
+                    n=1,
+                    fixed_features=ObservationFeatures(
+                        {}, trial_index=1  # pyre-ignore[6]
+                    ),
+                )
+                self.assertEqual(len(gr.arms), 1)

@@ -219,9 +219,15 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
-    "ST_MTGP": ModelSetup(
+    "ST_MTGP_LEGACY": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
+        transforms=ST_MTGP_trans,
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
+    "ST_MTGP": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=ModularBoTorchModel,
         transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
@@ -448,6 +454,7 @@ class Models(ModelRegistryBase):
     UNIFORM = "Uniform"
     MOO = "MOO"
     MOO_MODULAR = "MOO_Modular"
+    ST_MTGP_LEGACY = "ST_MTGP_LEGACY"
     ST_MTGP = "ST_MTGP"
     ALEBO = "ALEBO"
     BO_MIXED = "BO_MIXED"

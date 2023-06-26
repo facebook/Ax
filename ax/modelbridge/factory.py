@@ -329,7 +329,7 @@ def get_GPKG(
 # a MultiTypeExperiment, so we would need validation for that, but more importantly,
 # we need to create `trial_index_to_type` as in the factory function below.
 # Maybe `MultiTypeExperiment` could have that mapping as a property?
-def get_MTGP(
+def get_MTGP_LEGACY(
     experiment: Experiment,
     data: Data,
     search_space: Optional[SearchSpace] = None,
