@@ -403,9 +403,9 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(batch_data.df), n)
 
         exp_data = exp.fetch_data()
-        exp_data2 = Metric._unwrap_experiment_data(
-            results=exp.metrics["b"].fetch_experiment_data(exp)
-        )
+        res = exp.fetch_data_results(metrics=[exp.metrics["b"]])
+        res_one_metric = {k: v["b"] for k, v in res.items()}
+        exp_data2 = Metric._unwrap_experiment_data(results=res_one_metric)
         self.assertEqual(len(exp_data2.df), 4 * n)
         self.assertEqual(len(exp_data.df), 4 * n)
         self.assertEqual(len(exp.arms_by_name), 4 * n)
@@ -445,7 +445,7 @@ class ExperimentTest(TestCase):
 
         full_dict = exp.data_by_trial
         self.assertEqual(len(full_dict), 2)  # data for 2 trials
-        self.assertEqual(len(full_dict[0]), 5)  # 5 data objs for batch 0
+        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0
 
         # Test retrieving original batch 0 data
         self.assertEqual(len(exp.lookup_data_for_ts(t1).df), n)
@@ -454,7 +454,7 @@ class ExperimentTest(TestCase):
         # Test retrieving full exp data
         self.assertEqual(len(exp.lookup_data_for_ts(t2).df), 4 * n)
 
-        self.assertEqual(len(full_dict[0]), 5)  # 5 data objs for batch 0
+        self.assertEqual(len(full_dict[0]), 6)  # 6 data objs for batch 0
         new_data = Data(
             df=pd.DataFrame.from_records(
                 [
@@ -477,8 +477,8 @@ class ExperimentTest(TestCase):
             )
         )
         t3 = exp.attach_data(new_data, combine_with_last_data=True)
-        # still 5 data objs, since we combined last one
-        self.assertEqual(len(full_dict[0]), 5)
+        # still 6 data objs, since we combined last one
+        self.assertEqual(len(full_dict[0]), 6)
         self.assertIn("z", exp.lookup_data_for_ts(t3).df["metric_name"].tolist())
 
         # Verify we don't get the data if the trial is abandoned

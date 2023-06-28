@@ -190,7 +190,6 @@ class Metric(SortableBase, SerializationMixin):
         Default behavior calls `fetch_trial_data_multi` for each trial.
         Subclasses should override to batch data computation across trials + metrics.
         """
-
         return {
             trial.index: cls.fetch_trial_data_multi(
                 trial=trial, metrics=metrics, **kwargs
@@ -226,20 +225,6 @@ class Metric(SortableBase, SerializationMixin):
         return cls(
             **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )
-
-    def fetch_experiment_data(
-        self, experiment: core.experiment.Experiment, **kwargs: Any
-    ) -> Dict[int, MetricFetchResult]:
-        """Fetch this metric's data for an experiment.
-
-        Returns Dict of trial_index => Result
-        """
-        return {
-            trial_index: results_by_metric_name[self.name]
-            for trial_index, results_by_metric_name in self.fetch_experiment_data_multi(
-                experiment, [self], **kwargs
-            ).items()
-        }
 
     @classmethod
     def lookup_or_fetch_experiment_data_multi(
