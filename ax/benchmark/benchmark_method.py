@@ -25,14 +25,20 @@ class BenchmarkMethod(Base):
     scheduler_options: SchedulerOptions
 
 
-def get_sequential_optimization_scheduler_options() -> SchedulerOptions:
-    """The typical SchedulerOptions used in benchmarking."""
+def get_sequential_optimization_scheduler_options(
+    timeout_hours: int = 4,
+) -> SchedulerOptions:
+    """The typical SchedulerOptions used in benchmarking.
+
+    Args:
+        timeout_hours: The maximum amount of time (in hours) to run each
+            benchmark replication. Defaults to 4 hours.
+    """
     return SchedulerOptions(
         # Enforce sequential trials by default
         max_pending_trials=1,
         # Do not throttle, as is often necessary when polling real endpoints
         init_seconds_between_polls=0,
         min_seconds_before_poll=0,
-        # Time the experiment out after 4 hours
-        timeout_hours=4,
+        timeout_hours=timeout_hours,
     )
