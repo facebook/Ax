@@ -216,3 +216,10 @@ def register_acquisition_function(acqf_class: Type[AcquisitionFunction]) -> None
     class_name = acqf_class.__name__
     CLASS_TO_REGISTRY[AcquisitionFunction].update({acqf_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[AcquisitionFunction].update({class_name: acqf_class})
+
+
+def register_model(model_class: Type[Model]) -> None:
+    """Add a custom model class to the SQA and JSON registries."""
+    class_name = model_class.__name__
+    CLASS_TO_REGISTRY[Model].update({model_class: class_name})
+    CLASS_TO_REVERSE_REGISTRY[Model].update({class_name: model_class})
