@@ -320,8 +320,6 @@ class MaxValueEntropySearchTest(TestCase):
         )
         self.assertIsInstance(acq_function, qMultiFidelityMaxValueEntropy)
         Xs = [self.training_data[0].X()]
-        # pyre-fixme[29]: `Union[torch._tensor.Tensor,
-        #  torch.nn.modules.module.Module]` is not a function.
         self.assertEqual(acq_function.expand(Xs), Xs)
 
         # test error that target fidelity and fidelity weight indices must match

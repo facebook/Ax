@@ -19,7 +19,7 @@ def get_KXX_inv(gp: Model) -> Tensor:
     Returns:
         The inverse of K(X,X).
     """
-    L_inv_upper = gp.prediction_strategy.covar_cache.detach()  # pyre-ignore
+    L_inv_upper = gp.prediction_strategy.covar_cache.detach()
     return L_inv_upper @ L_inv_upper.transpose(0, 1)
 
 
@@ -32,13 +32,13 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     Returns:
         Tensor (n x D) The derivative of the kernel K(x,X) w.r.t. x.
     """
-    X = gp.train_inputs[0]  # pyre-ignore
+    X = gp.train_inputs[0]
     D = X.shape[1]
     N = X.shape[0]
     n = x.shape[0]
-    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()  # pyre-ignore
+    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
     if kernel_type == "rbf":
-        K_xX = gp.covar_module(x, X).evaluate()  # pyre-ignore
+        K_xX = gp.covar_module(x, X).evaluate()
         part1 = -torch.eye(D, device=x.device, dtype=x.dtype) / lengthscale**2
         part2 = x.view(n, 1, D) - X.view(1, N, D)
         return part1 @ (part2 * K_xX.view(n, N, 1)).transpose(1, 2)
@@ -47,14 +47,12 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     x1_ = (x - mean).div(lengthscale)
     x2_ = (X - mean).div(lengthscale)
     matern_norml2 = kernel_type == "matern_l2"
-    distance = gp.covar_module.covar_dist(  # pyre-ignore
-        x1_, x2_, square_dist=matern_norml2
-    )
+    distance = gp.covar_module.covar_dist(x1_, x2_, square_dist=matern_norml2)
     exp_component = torch.exp(-math.sqrt(5.0) * distance)  # pyre-ignore
     constant_component = (-5.0 / 3.0) * distance - (5.0 * math.sqrt(5.0) / 3.0) * (
         distance**2
     )
-    sigma_f = gp.covar_module.outputscale.detach()  # pyre-ignore
+    sigma_f = gp.covar_module.outputscale.detach()
     if matern_norml2:
         part1 = torch.eye(D, device=lengthscale.device) / lengthscale**2
         part2 = 2 * (x.view(n, 1, D) - X.view(1, N, D))
@@ -74,11 +72,11 @@ def get_Kxx_dx2(gp: Model, kernel_type: str = "rbf") -> Tensor:
     Returns:
         Tensor (n x D x D) The second derivative of the kernel w.r.t. the training data.
     """
-    X = gp.train_inputs[0]  # pyre-ignore
+    X = gp.train_inputs[0]
     D = X.shape[1]
-    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()  # pyre-ignore
+    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
     if kernel_type == "rbf":
-        sigma_f = gp.covar_module.outputscale.detach()  # pyre-ignore
+        sigma_f = gp.covar_module.outputscale.detach()
         return (torch.eye(D, device=lengthscale.device) / lengthscale**2) * sigma_f
     if kernel_type == "matern_l2":
         return torch.zeros(D, D, device=lengthscale.device)

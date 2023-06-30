@@ -460,7 +460,6 @@ class ConvertToBlockDesignTest(TestCase):
         chained_tf = ChainedInputTransform(
             normalize=normalize, perturbation=perturbation
         )
-        # pyre-ignore [16]
         mm.input_transform = deepcopy(chained_tf)
         with self.assertRaisesRegex(UnsupportedError, "ChainedInputTransforms"):
             with disable_one_to_many_transforms(model=mm):

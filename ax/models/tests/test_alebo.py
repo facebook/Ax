@@ -185,7 +185,6 @@ class ALEBOTest(TestCase):
             noiseless=True,
         )
         self.assertIsInstance(acq, ExpectedImprovement)
-        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase.ite...
         self.assertEqual(acq.best_f.item(), 3.0)
 
         objective_weights = torch.tensor([-1.0], dtype=torch.double)
@@ -198,7 +197,6 @@ class ALEBOTest(TestCase):
             q=1,
             noiseless=True,
         )
-        # pyre-fixme[29]: `Union[BoundMethod[typing.Callable(torch._C._TensorBase.ite...
         self.assertEqual(acq.best_f.item(), 1.0)
         with mock.patch(
             "ax.models.torch.alebo.optimize_acqf",

@@ -587,7 +587,7 @@ class BoTorchModelTest(TestCase):
                     "mean": torch.randn(3, **self.tkwargs),
                     "noise": torch.rand(3, **self.tkwargs),
                 }
-                model.surrogate.model.load_mcmc_samples(mcmc_samples)  # pyre-ignore
+                model.surrogate.model.load_mcmc_samples(mcmc_samples)
                 importances = model.feature_importances()
                 self.assertTrue(
                     np.allclose(importances, np.array([6 / 13, 4 / 13, 3 / 13]))

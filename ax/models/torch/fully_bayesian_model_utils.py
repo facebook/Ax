@@ -177,15 +177,10 @@ def pyro_sample_input_warping(
 def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None:
     """Load MCMC samples into GPyTorchModel."""
     if "noise" in mcmc_samples:
-        # pyre-ignore Undefined attribute [16]: `torch._tensor.Tensor` has
-        # no attribute `noise`.
         model.likelihood.noise_covar.noise = (
             mcmc_samples["noise"]
             .detach()
             .clone()
-            # pyre-ignore Undefined attribute [16]: Item `torch._tensor.Tensor` of
-            # `typing.Union[torch._tensor.Tensor, torch.nn.modules.module.Module]`
-            # has no attribute `noise`.
             .view(model.likelihood.noise_covar.noise.shape)
             .clamp_min(MIN_INFERRED_NOISE_LEVEL)
         )
@@ -193,36 +188,29 @@ def load_mcmc_samples_to_model(model: GPyTorchModel, mcmc_samples: Dict) -> None
         mcmc_samples["lengthscale"]
         .detach()
         .clone()
-        .view(model.covar_module.base_kernel.lengthscale.shape)  # pyre-ignore
+        .view(model.covar_module.base_kernel.lengthscale.shape)
     )
-    model.covar_module.outputscale = (  # pyre-ignore
+    model.covar_module.outputscale = (
         mcmc_samples["outputscale"]
         .detach()
         .clone()
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `outputscale`.
         .view(model.covar_module.outputscale.shape)
     )
     model.mean_module.constant.data = (
-        mcmc_samples["mean"]
-        .detach()
-        .clone()
-        .view(model.mean_module.constant.shape)  # pyre-ignore
+        mcmc_samples["mean"].detach().clone().view(model.mean_module.constant.shape)
     )
     if "c0" in mcmc_samples:
-        model.input_transform._set_concentration(  # pyre-ignore
+        model.input_transform._set_concentration(
             i=0,
             value=mcmc_samples["c0"]
             .detach()
             .clone()
-            .view(model.input_transform.concentration0.shape),  # pyre-ignore
+            .view(model.input_transform.concentration0.shape),
         )
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `_set_concentration`.
         model.input_transform._set_concentration(
             i=1,
             value=mcmc_samples["c1"]
             .detach()
             .clone()
-            .view(model.input_transform.concentration1.shape),  # pyre-ignore
+            .view(model.input_transform.concentration1.shape),
         )

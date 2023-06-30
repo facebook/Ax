@@ -428,8 +428,7 @@ class SurrogateTest(TestCase):
             # BoTorch `Model`.
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_inputs[0],  # pyre-ignore
-                    surrogate_kwargs.get("train_X"),
+                    surrogate.model.train_inputs[0], surrogate_kwargs.get("train_X")
                 )
             )
             self.assertTrue(
@@ -635,8 +634,7 @@ class SurrogateTest(TestCase):
             )
             self.assertTrue(
                 torch.equal(
-                    surrogate.model.train_inputs[0],  # pyre-ignore
-                    surrogate_kwargs.get("train_X"),
+                    surrogate.model.train_inputs[0], surrogate_kwargs.get("train_X")
                 )
             )
             self.assertTrue(
@@ -722,42 +720,18 @@ class SurrogateTest(TestCase):
         self.assertEqual(surrogate.model._ignore_X_dims_scaling_check, [0])
         covar_module = checked_cast(Kernel, surrogate.model.covar_module)
         self.assertEqual(
-            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
-            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
-            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
-            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
-            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
-            # module.Module]` is not a function.
             covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(),
             [0],
         )
         self.assertEqual(
-            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
-            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
-            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
-            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
-            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
-            # module.Module]` is not a function.
             covar_module.kernels[0].base_kernel.kernels[0].active_dims.tolist(),
             [1, 2],
         )
         self.assertEqual(
-            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
-            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
-            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
-            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
-            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
-            # module.Module]` is not a function.
             covar_module.kernels[1].base_kernel.kernels[1].active_dims.tolist(),
             [0],
         )
         self.assertEqual(
-            # pyre-ignore Call error [29]: `typing.Union[BoundMethod[typing.Callable
-            # (torch._C._TensorBase.__getitem__)[[Named(self, torch._C._TensorBase),
-            # Named(indices, typing.Union[None, typing.List[typing.Any], int, slice,
-            # torch._tensor.Tensor, typing.Tuple[typing.Any, ...]])], torch._tensor.
-            # Tensor], torch._tensor.Tensor], torch._tensor.Tensor, torch.nn.modules.
-            # module.Module]` is not a function.
             covar_module.kernels[1].base_kernel.kernels[0].active_dims.tolist(),
             [1, 2],
         )
@@ -1086,7 +1060,6 @@ class SurrogateWithModelListTest(TestCase):
             datasets=self.supervised_training_data,
             metric_names=self.outcomes,
         )
-        # pyre-ignore [9]
         models: torch.nn.modules.container.ModuleList = surrogate.model.models
         for i in range(2):
             self.assertIsInstance(models[i].outcome_transform, Standardize)
@@ -1219,7 +1192,7 @@ class SurrogateWithModelListTest(TestCase):
             metric_names=self.outcomes,
             robust_digest=robust_digest,
         )
-        for m in surrogate.model.models:  # pyre-ignore
+        for m in surrogate.model.models:
             intf = checked_cast(InputPerturbation, m.input_transform)
             self.assertIsInstance(intf, InputPerturbation)
             self.assertTrue(torch.equal(intf.perturbation_set, torch.zeros(2, 2)))
