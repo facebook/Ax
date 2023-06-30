@@ -420,8 +420,6 @@ class KnowledgeGradientTest(TestCase):
             target_fidelities={2: 1.0},
         )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `sampler`.
         self.assertIsInstance(acq_function.acq_func.sampler, SobolQMCNormalSampler)
         self.assertEqual(non_fixed_idcs, [0, 1])
 
@@ -433,8 +431,6 @@ class KnowledgeGradientTest(TestCase):
             qmc=False,
         )
         self.assertIsInstance(acq_function, FixedFeatureAcquisitionFunction)
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `sampler`.
         self.assertIsInstance(acq_function.acq_func.sampler, IIDNormalSampler)
         self.assertEqual(non_fixed_idcs, [0, 1])
 

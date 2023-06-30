@@ -43,11 +43,8 @@ class BotorchDefaultsTest(TestCase):
         model = _get_model(X=x, Y=y, Yvar=var)
         self.assertIsInstance(model, FixedNoiseGP)
         self.assertEqual(
-            # pyre-ignore
-            model.covar_module.base_kernel.lengthscale_prior.concentration,
-            3.0,
+            model.covar_module.base_kernel.lengthscale_prior.concentration, 3.0
         )
-        # pyre-ignore
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 6.0)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
         self.assertTrue(type(model) == MultiTaskGP)  # Don't accept subclasses.
@@ -77,25 +74,15 @@ class BotorchDefaultsTest(TestCase):
         #  Union[Type[LKJCovariancePrior], float, GammaPrior]]`.
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, **kwargs)
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
             model.task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
-            2.0,
+            model.task_covar_module.IndexKernelPrior.sd_prior.concentration, 2.0
         )
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `IndexKernelPrior`.
         self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.44)
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
-            model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
-            0.6,
+            model.task_covar_module.IndexKernelPrior.correlation_prior.eta, 0.6
         )
 
         kwargs2 = {"prior": {"type": LKJCovariancePrior}}
@@ -111,23 +98,15 @@ class BotorchDefaultsTest(TestCase):
             **kwargs2,
         )
         self.assertIsInstance(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
             model.task_covar_module.IndexKernelPrior,
             LKJCovariancePrior,
         )
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
             model.task_covar_module.IndexKernelPrior.sd_prior.concentration,
             1.0,
         )
-        # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no attribute
-        #  `IndexKernelPrior`.
         self.assertEqual(model.task_covar_module.IndexKernelPrior.sd_prior.rate, 0.15)
         self.assertEqual(
-            # pyre-fixme[16]: Item `Tensor` of `Union[Tensor, Module]` has no
-            #  attribute `IndexKernelPrior`.
             model.task_covar_module.IndexKernelPrior.correlation_prior.eta,
             0.5,
         )
@@ -164,11 +143,8 @@ class BotorchDefaultsTest(TestCase):
         model = _get_model(X=x, Y=y, Yvar=var, **deepcopy(kwargs6))  # pyre-ignore
         self.assertIsInstance(model, FixedNoiseGP)
         self.assertEqual(
-            # pyre-ignore
-            model.covar_module.base_kernel.lengthscale_prior.concentration,
-            12.0,
+            model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
-        # pyre-ignore
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
         model = _get_model(
             X=x,
@@ -191,16 +167,11 @@ class BotorchDefaultsTest(TestCase):
         )
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
         self.assertEqual(
-            # pyre-ignore
-            model.covar_module.base_kernel.lengthscale_prior.concentration,
-            12.0,
+            model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
-        # pyre-ignore
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
         self.assertIsInstance(
-            # pyre-ignore
-            model.task_covar_module.IndexKernelPrior,
-            LKJCovariancePrior,
+            model.task_covar_module.IndexKernelPrior, LKJCovariancePrior
         )
         # test passing customized prior
         kwargs7 = {
@@ -328,7 +299,7 @@ class BotorchDefaultsTest(TestCase):
             refit_model=False,
             **kwarg,  # pyre-ignore
         )
-        for m in model.models:  # pyre-ignore
+        for m in model.models:
             self.assertTrue(type(m) == FixedNoiseMultiTaskGP)
             self.assertEqual(
                 m.covar_module.base_kernel.lengthscale_prior.concentration,

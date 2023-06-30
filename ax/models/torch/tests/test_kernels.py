@@ -24,12 +24,8 @@ class KernelsTest(TestCase):
         self.assertTrue(isinstance(covar.base_kernel, MaternKernel))
         self.assertTrue(isinstance(covar.base_kernel, MaternKernel))
         self.assertEqual(covar.base_kernel.ard_num_dims, 10)
-        self.assertEqual(
-            covar.base_kernel.lengthscale_prior.rate, 3.0  # pyre-ignore[16]
-        )
-        self.assertEqual(
-            covar.base_kernel.lengthscale_prior.concentration, 6.0  # pyre-ignore[16]
-        )
-        self.assertEqual(covar.outputscale_prior.rate, 0.15)  # pyre-ignore[16]
-        self.assertEqual(covar.outputscale_prior.concentration, 2.0)  # pyre-ignore[16]
+        self.assertEqual(covar.base_kernel.lengthscale_prior.rate, 3.0)
+        self.assertEqual(covar.base_kernel.lengthscale_prior.concentration, 6.0)
+        self.assertEqual(covar.outputscale_prior.rate, 0.15)
+        self.assertEqual(covar.outputscale_prior.concentration, 2.0)
         self.assertEqual(covar.base_kernel.batch_shape[0], 2)
