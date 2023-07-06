@@ -425,8 +425,9 @@ class Acquisition(Base):
                     raise ValueError(f"Invalid fixed_feature index: {i}")
 
         # 1. Handle the fully continuous search space.
-        if not discrete_features or optimizer_options_with_defaults.pop(
-            "force_use_optimize_acqf", False
+        if (
+            optimizer_options_with_defaults.pop("force_use_optimize_acqf", False)
+            or not discrete_features
         ):
             return optimize_acqf(
                 acq_function=self.acqf,
