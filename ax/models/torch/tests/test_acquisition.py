@@ -287,6 +287,8 @@ class AcquisitionTest(TestCase):
         post_processing_func = Mock(side_effect=lambda x: x**2)
         optimizer_options = self.optimizer_options.copy()
         optimizer_options["post_processing_func"] = post_processing_func
+        # Check that `force_use_optimize_acqf` does not lead to errors.
+        optimizer_options["force_use_optimize_acqf"] = True
         mock_optimize_acqf.reset_mock()
         acquisition.optimize(
             n=3,
