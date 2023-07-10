@@ -273,11 +273,16 @@ def fit_botorch_model(
     mll_options: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Fit a BoTorch model."""
+    mll_options = mll_options or {}
     models = model.models if isinstance(model, ModelList) else [model]
     for m in models:
         # TODO: Support deterministic models when we support `ModelList`
         if is_fully_bayesian(m):
-            fit_fully_bayesian_model_nuts(m, disable_progbar=True)
+            fit_fully_bayesian_model_nuts(
+                m,
+                disable_progbar=True,
+                jit_compile=mll_options.get("jit_compile", False),
+            )
         elif isinstance(m, (GPyTorchModel, PairwiseGP)):
             mll_options = mll_options or {}
             mll = mll_class(likelihood=m.likelihood, model=m, **mll_options)
