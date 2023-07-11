@@ -42,7 +42,6 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_experiment_with_repeated_arms,
     get_non_monolithic_branin_moo_data,
-    get_optimization_config,
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
     get_search_space_for_range_values,
@@ -648,26 +647,6 @@ class BaseModelBridgeTest(TestCase):
             ),
             pending_observations={},
         )
-
-    def test_transform_optimization_config(self) -> None:
-        """
-        The tested functionality is unused and is likely to be deprecated or
-        removed, hence this test exists only to unbreak
-        a failing codecov test. It is not an ideal test since we are using
-        empty `fixed_features` and `transforms`.
-        """
-        ss = get_search_space_for_range_value()
-        modelbridge = ModelBridge(search_space=ss, model=Model)
-
-        fixed_features = ObservationFeatures(parameters={})
-        optimization_config = get_optimization_config()
-        new_cfg = modelbridge.transform_optimization_config(
-            optimization_config, fixed_features
-        )
-        # In this case no transformations were applied, so config doesn't change
-        self.assertEqual(optimization_config, new_cfg)
-        # Even if no transforms were applied, method should return a new object
-        self.assertFalse(optimization_config is new_cfg)
 
     @mock.patch(
         "ax.modelbridge.base.ModelBridge._gen",

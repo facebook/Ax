@@ -1056,31 +1056,6 @@ class ModelBridge(ABC):
         """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError  # pragma: no cover
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
-    def transform_optimization_config(
-        self,
-        optimization_config: OptimizationConfig,
-        fixed_features: ObservationFeatures,
-    ) -> Any:
-        """Applies transforms to given optimization config.
-
-        Args:
-            optimization_config: OptimizationConfig to transform.
-            fixed_features: features which should not be transformed.
-
-        Returns:
-            Transformed values. This could be e.g. a torch Tensor, depending
-            on the ModelBridge subclass.
-        """
-        optimization_config = optimization_config.clone()
-        for t in self.transforms.values():
-            optimization_config = t.transform_optimization_config(
-                optimization_config=optimization_config,
-                modelbridge=self,
-                fixed_features=fixed_features,
-            )
-        return optimization_config
-
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
     """Converts observation data to the format for model prediction outputs.
