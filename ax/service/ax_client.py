@@ -68,7 +68,11 @@ from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.instantiation import InstantiationBase, ObjectiveProperties
+from ax.service.utils.instantiation import (
+    FixedFeatures,
+    InstantiationBase,
+    ObjectiveProperties,
+)
 from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
 from ax.storage.json_store.decoder import (
@@ -1684,6 +1688,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             suppress_all_errors=suppress_all_errors,
         )
 
+    def _get_last_completed_trial_index(self) -> int:
+        # infer last completed trial as the trial_index to use
+        # TODO: use Experiment.completed_trials once D46484953 lands.
+        completed_indices = [
+            t.index for t in self.experiment.trials_by_status[TrialStatus.COMPLETED]
+        ]
+        completed_indices.append(0)  # handle case of no completed trials
+        return max(completed_indices)
+
     def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
         """Generate new generator run for this experiment.
 
@@ -1696,6 +1709,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # so if we just set the seed without the context manager, it can have
         # serious negative impact on the performance of the models that employ
         # stochasticity.
+
+        fixed_feats = InstantiationBase.make_fixed_observation_features(
+            fixed_features=FixedFeatures(
+                parameters={}, trial_index=self._get_last_completed_trial_index()
+            )
+        )
         with manual_seed(seed=self._random_seed):
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
@@ -1703,6 +1722,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 pending_observations=self._get_pending_observation_features(
                     experiment=self.experiment
                 ),
+                fixed_features=fixed_feats,
             )
 
     def _find_last_trial_with_parameterization(

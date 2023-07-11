@@ -402,6 +402,7 @@ class GenerationStep(GenerationNode, SortableBase):
             pending_observations=pending_observations,
             max_gen_draws_for_deduplication=max_gen_draws_for_deduplication,
             arms_by_signature_for_deduplication=arms_by_signature_for_deduplication,
+            **model_gen_kwargs,
         )
         gr._generation_step_index = self.index
         return gr

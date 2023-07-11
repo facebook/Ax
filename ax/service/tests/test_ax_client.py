@@ -10,6 +10,7 @@ import time
 from itertools import product
 from math import ceil
 from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from unittest import mock
 from unittest.mock import patch
 
 import numpy as np
@@ -2815,6 +2816,24 @@ class TestAxClient(TestCase):
         self.assertEqual(
             ax_client.__repr__(), f"AxClient(experiment=Experiment({experiment_name}))"
         )
+
+    def test_gen_fixed_features(self) -> None:
+        ax_client = AxClient(random_seed=RANDOM_SEED)
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            name="fixed_features",
+        )
+        with mock.patch.object(
+            GenerationStrategy, "gen", wraps=ax_client.generation_strategy.gen
+        ) as mock_gen:
+            params, idx = ax_client.get_next_trial()
+            call_kwargs = mock_gen.call_args_list[0][1]
+            ff = call_kwargs["fixed_features"]
+            self.assertEqual(ff.parameters, {})
+            self.assertEqual(ff.trial_index, 0)
 
 
 # Utility functions for testing get_model_predictions without calling

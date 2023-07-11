@@ -10,11 +10,14 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Dict, List, Optional, Sequence, Type, Union
 
+import numpy as np
+
 from ax.core.arm import Arm
 from ax.core.experiment import DataType, DEFAULT_OBJECTIVE_NAME, Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     ObjectiveThreshold,
@@ -106,6 +109,14 @@ class ObjectiveProperties:
     """
     minimize: bool
     threshold: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class FixedFeatures:
+    """Class for representing fixed features via the Service API."""
+
+    parameters: TParameterization
+    trial_index: Optional[int] = None
 
 
 class InstantiationBase:
@@ -940,3 +951,22 @@ class InstantiationBase:
         """
         operator = "<=" if objective_properties.minimize else ">="
         return f"{objective} {operator} {objective_properties.threshold}"
+
+    @staticmethod
+    def make_fixed_observation_features(
+        fixed_features: FixedFeatures,
+    ) -> ObservationFeatures:
+        """Construct ObservationFeatures from FixedFeatures.
+
+        Args:
+            fixed_features: The fixed features for generation.
+
+        Returns:
+            The new ObservationFeatures object.
+        """
+        return ObservationFeatures(
+            parameters=fixed_features.parameters,
+            trial_index=None
+            if fixed_features.trial_index is None
+            else np.int64(fixed_features.trial_index),
+        )
