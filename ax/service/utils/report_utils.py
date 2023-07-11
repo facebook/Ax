@@ -413,9 +413,8 @@ def get_standard_plots(
             )
             output_plot_list.append(feature_importance_plot)
             output_plot_list.append(interact_fitted_plotly(model=model, rel=False))
-        except NotImplementedError:
-            # Model does not implement `predict` method.
-            pass
+        except (NotImplementedError, AttributeError) as e:
+            logger.exception(f"Feature importance plot failed with error: {e}")
 
     # Get plots for MapMetrics
     map_metrics = [m for m in experiment.metrics.values() if isinstance(m, MapMetric)]
