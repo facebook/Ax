@@ -248,6 +248,14 @@ ax.models.torch.botorch_modular.optimizer_argparse module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.sebo module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.sebo
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.botorch_modular.surrogate module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
