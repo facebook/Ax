@@ -171,17 +171,14 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     """
 
     maximum_hypervolume: float = field()
-    reference_point: List[float] = field()
 
     def __init__(
         self,
         maximum_hypervolume: float,
-        reference_point: List[float],
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         object.__setattr__(self, "maximum_hypervolume", maximum_hypervolume)
-        object.__setattr__(self, "reference_point", reference_point)
 
     @classmethod
     def from_botorch_multi_objective(
@@ -246,5 +243,4 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             num_trials=num_trials,
             infer_noise=infer_noise,
             maximum_hypervolume=test_problem.max_hv,
-            reference_point=test_problem._ref_point,
         )
