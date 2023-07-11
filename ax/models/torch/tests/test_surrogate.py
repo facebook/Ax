@@ -104,8 +104,14 @@ class SurrogateTest(TestCase):
     def _get_surrogate(
         self, botorch_model_class: Type[Model]
     ) -> Tuple[Surrogate, Dict[str, Any]]:
+        if botorch_model_class is SaasFullyBayesianSingleTaskGP:
+            mll_options = {"jit_compile": True}
+        else:
+            mll_options = None
         surrogate = Surrogate(
-            botorch_model_class=botorch_model_class, mll_class=self.mll_class
+            botorch_model_class=botorch_model_class,
+            mll_class=self.mll_class,
+            mll_options=mll_options,
         )
         surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data[0])
         return surrogate, surrogate_kwargs
@@ -440,6 +446,8 @@ class SurrogateTest(TestCase):
             mock_state_dict.assert_not_called()
             mock_fit.assert_called_once()
             mock_state_dict.reset_mock()
+            if botorch_model_class is SaasFullyBayesianSingleTaskGP:
+                self.assertTrue(mock_fit.call_kwargs["jit_compile"])
             mock_MLL.reset_mock()
             mock_fit.reset_mock()
             # Check that the optional original_metric_names arg propagates
