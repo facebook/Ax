@@ -395,7 +395,7 @@ def get_standard_plots(
                         '<a href="https://en.wikipedia.org/wiki/Variance-based_'
                         'sensitivity_analysis">Variance-based sensitivity analysis</a>'
                     )
-                except NotImplementedError as e:
+                except Exception as e:
                     logger.info(f"Failed to compute global feature sensitivities: {e}")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
                 model=model,
@@ -413,7 +413,7 @@ def get_standard_plots(
             )
             output_plot_list.append(feature_importance_plot)
             output_plot_list.append(interact_fitted_plotly(model=model, rel=False))
-        except (NotImplementedError, AttributeError) as e:
+        except Exception as e:
             logger.exception(f"Feature importance plot failed with error: {e}")
 
     # Get plots for MapMetrics

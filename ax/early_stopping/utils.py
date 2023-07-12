@@ -81,6 +81,8 @@ def align_partial_results(
     for tidx in df.index.levels[0]:  # this could be slow if there are many trials
         for metric in df.index.levels[1]:
             # grab trial+metric sub-df and reindex to common index
+            # NOTE (FIXME?): The following line can lead to a
+            # "PerformanceWarning: indexing past lexsort depth may impact performance."
             df_ridx = df.loc[(tidx, metric)].reindex(index_union)
             # interpolate / fill missing results
             # TODO: Allow passing of additional kwargs to `interpolate`

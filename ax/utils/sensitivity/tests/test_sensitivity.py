@@ -16,6 +16,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import GpDGSMGpMean, GpDGSMGpSampling
 from ax.utils.sensitivity.sobol_measures import (
+    _get_input_dimensionality,
     _get_model_per_metric,
     ax_parameter_sens,
     compute_sobol_indices_from_model_list,
@@ -213,7 +214,7 @@ class SensitivityAnanlysisTest(TestCase):
             if not modular:
                 with self.assertRaisesRegex(
                     NotImplementedError,
-                    "but only IndependentModelList is supported",
+                    "but only ModelList is supported",
                 ):
                     # only applies if the number of outputs of model is greater than 1
                     with patch.object(
@@ -224,9 +225,12 @@ class SensitivityAnanlysisTest(TestCase):
                         mock.return_value = 2
                         ax_parameter_sens(model_bridge, model_bridge.outcomes)
 
-                # since only IndependentModelList is supported for BotorchModel:
+                # since only ModelList is supported for BotorchModel:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
                 torch_model.model = gpytorch_model
+
+                input_dim = _get_input_dimensionality(gpytorch_model)
+                self.assertEqual(input_dim, 2)
 
             for order in ["first", "total"]:
                 with self.subTest(order=order):

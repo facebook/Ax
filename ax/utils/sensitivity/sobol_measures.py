@@ -15,12 +15,11 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.utils.common.typeutils import checked_cast
-from botorch.models.model import Model
+from botorch.models.model import Model, ModelList
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
-from gpytorch.models import IndependentModelList
 from torch import Tensor
 
 
@@ -414,7 +413,7 @@ class SobolSensitivityGPMean(object):
                 to be specified.
         """
         self.model = model
-        self.dim = model.train_inputs[0].shape[-1]  # pyre-ignore
+        self.dim: int = _get_input_dimensionality(model)
         self.second_order = second_order
         self.input_qmc = input_qmc
         # pyre-fixme[4]: Attribute must be annotated.
@@ -503,7 +502,7 @@ class SobolSensitivityGPSampling(object):
                 to be specified.
         """
         self.model = model
-        self.dim = model.train_inputs[0].shape[-1]  # pyre-ignore
+        self.dim: int = _get_input_dimensionality(model)
         self.second_order = second_order
         self.input_qmc = input_qmc
         self.gp_sample_qmc = gp_sample_qmc
@@ -807,23 +806,28 @@ def _get_model_per_metric(
         # guaranteed not to be None after accessing search_space_digest
         gp_model = model.model
         model_idx = [model.metric_names.index(m) for m in metrics]
-        if not isinstance(gp_model, IndependentModelList):
+        if not isinstance(gp_model, ModelList):
             if gp_model.num_outputs == 1:  # can accept single output models
                 return [gp_model for _ in model_idx]
             raise NotImplementedError(
                 f"type(model_bridge.model.model) = {type(gp_model)}, "
-                "but only IndependentModelList is supported."
+                "but only ModelList is supported."
             )
         return [gp_model.models[i] for i in model_idx]
     else:  # isinstance(model, ModularBoTorchModel):
         model_list = []
-        for m in metrics:
+        for m in metrics:  # for each metric, find a corresponding surrogate
             for label, outcomes in model.outcomes_by_surrogate_label.items():
                 if m in outcomes:
+                    i = outcomes.index(m)
                     metric_model = model.surrogates[label].model
-                    # if metric_model.num_outputs > 1:
-                    #     raise RuntimeError("Batched models currently not supported.")
+                    # since model is a ModularBoTorchModel, metric_model will be a
+                    # `botorch.models.model.Model` object, which have the `num_outputs`
+                    # property and `subset_outputs` method.
+                    if metric_model.num_outputs > 1:  # subset to relevant output
+                        metric_model = metric_model.subset_output([i])
                     model_list.append(metric_model)
+                    continue  # found surrogate for `m`, so we can move on to next `m`.
         return model_list
 
 
@@ -840,3 +844,17 @@ def _array_with_string_indices_to_dict(
         A dictionary dict that satisfies dict[rows[i]][cols[j]] = A[i, j].
     """
     return {r: dict(zip(cols, a)) for r, a in zip(rows, A)}
+
+
+def _get_input_dimensionality(model: Model) -> int:
+    """Returns the input dimensionality of a Model based on the model's `train_inputs`.
+
+    Args:
+        model: A BoTorch.model.Model object whose input dimensionality to determine.
+
+    Returns:
+        An integer equal to the input dimensionality of the model.
+    """
+    while isinstance(model, ModelList):
+        model = model.models[0]
+    return model.train_inputs[0].shape[-1]
