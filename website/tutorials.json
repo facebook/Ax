@@ -57,6 +57,10 @@
       "title": "Fully Bayesian, High-Dimensional, Multi-Objective Optimization"
     },
     {
+      "id": "sebo",
+      "title": "Sparsity Exploration Bayesian Optimization (SEBO)"
+    },
+    {
       "dir": "early_stopping",
       "id": "early_stopping",
       "title": "Trial-Level Early Stopping"
