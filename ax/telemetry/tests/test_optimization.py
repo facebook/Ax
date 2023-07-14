@@ -41,6 +41,7 @@ class TestOptimization(TestCase):
             is_manual_generation_strategy=True,
             warm_started_from=None,
             num_custom_trials=0,
+            support_tier="good!",
         )
 
         expected_dict = {
@@ -53,6 +54,7 @@ class TestOptimization(TestCase):
             "is_manual_generation_strategy": True,
             "warm_started_from": None,
             "num_custom_trials": 0,
+            "support_tier": "good!",
         }
 
         self.assertEqual(asdict(record), expected_dict)
@@ -94,6 +96,7 @@ class TestOptimization(TestCase):
             # Extra fields
             "scheduler_max_pending_trials": -1,
             "scheduler_total_trials": None,
+            "support_tier": "",
         }
 
         self.assertEqual(asdict(record), expected_dict)
