@@ -72,6 +72,7 @@ class OptimizationCreatedRecord:
     is_manual_generation_strategy: bool
     warm_started_from: Optional[str]
     num_custom_trials: int
+    support_tier: str
 
     @classmethod
     def from_scheduler(
@@ -85,6 +86,7 @@ class OptimizationCreatedRecord:
         is_manual_generation_strategy: bool,
         warm_started_from: Optional[str],
         num_custom_trials: int,
+        support_tier: str,
     ) -> OptimizationCreatedRecord:
         scheduler_created_record = SchedulerCreatedRecord.from_scheduler(
             scheduler=scheduler
@@ -169,6 +171,7 @@ class OptimizationCreatedRecord:
             is_manual_generation_strategy=is_manual_generation_strategy,
             warm_started_from=warm_started_from,
             num_custom_trials=num_custom_trials,
+            support_tier=support_tier,
         )
 
     @classmethod
@@ -268,6 +271,7 @@ class OptimizationCreatedRecord:
             # The following are not applicable for AxClient
             scheduler_total_trials=None,
             scheduler_max_pending_trials=-1,
+            support_tier="",  # This support may be added in the future
         )
 
 
