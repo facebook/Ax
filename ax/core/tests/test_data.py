@@ -8,6 +8,7 @@ import random
 
 import pandas as pd
 from ax.core.data import (
+    ArtifactData,
     clone_without_metrics,
     custom_data_class,
     Data,
@@ -344,5 +345,176 @@ class DataTest(TestCase):
         self.assertNotIn("fidelities", columns)
         self.assertNotIn("foo", columns)
         for c, t in Data.COLUMN_DATA_TYPES.items():
+            if c not in excluded_columns:
+                self.assertEqual(columns[c], t)
+
+
+class ArtifactDataTest(TestCase):
+    def setUp(self) -> None:
+        self.df_hash = "6ec61f40838caa43428f2461b09b3ca5"
+        self.df = pd.DataFrame(
+            [
+                {
+                    "arm_name": "0_0",
+                    "artifact_name": "a",
+                    "value": "a_0_0",
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_0",
+                    "artifact_name": "b",
+                    "value": True,
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_1",
+                    "artifact_name": "a",
+                    "value": "a_0_1",
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_1",
+                    "artifact_name": "b",
+                    "value": False,
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_2",
+                    "artifact_name": "a",
+                    "value": "a_0_2",
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+                {
+                    "arm_name": "0_2",
+                    "artifact_name": "b",
+                    "value": True,
+                    "trial_index": 1,
+                    "start_time": "2018-01-01",
+                    "end_time": "2018-01-02",
+                },
+            ]
+        )
+
+    def testData(self) -> None:
+        self.assertEqual(ArtifactData(), ArtifactData())
+        data = ArtifactData(df=self.df)
+        self.assertEqual(data, data)
+        self.assertEqual(data.df_hash, self.df_hash)
+
+        df = data.df
+        self.assertEqual(
+            df[df["arm_name"] == "0_0"][df["artifact_name"] == "a"]["value"][0], "a_0_0"
+        )
+
+    def testBadData(self) -> None:
+        df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
+        with self.assertRaises(ValueError):
+            ArtifactData(df=df)
+
+    def testEmptyData(self) -> None:
+        df = ArtifactData().df
+        self.assertTrue(df.empty)
+        # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got `bool`.
+        self.assertTrue(set(df.columns == ArtifactData.REQUIRED_COLUMNS))
+        self.assertTrue(ArtifactData.from_multiple_artifact_data([]).df.empty)
+
+    def testFromEvaluationsIsoFormat(self) -> None:
+        now = pd.Timestamp.now()
+        day = now.day
+        eval1 = 3.7
+        data = ArtifactData.from_evaluations(
+            evaluations={"0_1": {"b": eval1}},
+            trial_index=0,
+            sample_sizes={"0_1": 2},
+            start_time=now.isoformat(),
+            end_time=now.isoformat(),
+        )
+        self.assertEqual(len(data.df), 1)
+        self.assertNotEqual(data, ArtifactData(self.df))
+        self.assertEqual(data.df["start_time"][0].day, day)
+        self.assertEqual(data.df["end_time"][0].day, day)
+
+    def testFromEvaluationsMillisecondFormat(self) -> None:
+        now_ms = current_timestamp_in_millis()
+        day = pd.Timestamp(now_ms, unit="ms").day
+        eval1 = 3.7
+        data = ArtifactData.from_evaluations(
+            evaluations={"0_1": {"b": eval1}},
+            trial_index=0,
+            sample_sizes={"0_1": 2},
+            start_time=now_ms,
+            end_time=now_ms,
+        )
+        self.assertEqual(len(data.df), 1)
+        self.assertNotEqual(data, ArtifactData(self.df))
+        self.assertEqual(data.df["start_time"][0].day, day)
+        self.assertEqual(data.df["end_time"][0].day, day)
+
+    def testGetFilteredResults(self) -> None:
+        data = ArtifactData(df=self.df)
+        # pyre-fixme[6]: For 1st param expected `Dict[str, typing.Any]` but got `str`.
+        # pyre-fixme[6]: For 2nd param expected `Dict[str, typing.Any]` but got `str`.
+        actual_filtered = data.get_filtered_results(arm_name="0_0", artifact_name="a")
+        # Create new ArtifactData to replicate timestamp casting.
+        expected_filtered = ArtifactData(
+            pd.DataFrame(
+                [
+                    {
+                        "arm_name": "0_0",
+                        "artifact_name": "a",
+                        "value": "a_0_0",
+                        "trial_index": 1,
+                        "start_time": "2018-01-01",
+                        "end_time": "2018-01-02",
+                    },
+                ]
+            )
+        ).df
+        print(actual_filtered)
+        print(expected_filtered)
+        self.assertTrue(actual_filtered.equals(expected_filtered))
+
+    def test_data_column_data_types_default(self) -> None:
+        self.assertEqual(
+            ArtifactData.column_data_types(), ArtifactData.COLUMN_DATA_TYPES
+        )
+
+    def test_data_column_data_types_with_extra_columns(self) -> None:
+        bartype = random.choice([str, int, float])
+        columns = ArtifactData.column_data_types(extra_column_types={"foo": bartype})
+        for c, t in ArtifactData.COLUMN_DATA_TYPES.items():
+            self.assertEqual(columns[c], t)
+        self.assertEqual(columns["foo"], bartype)
+
+    def test_data_column_data_types_with_removed_columns(self) -> None:
+        columns = ArtifactData.column_data_types(excluded_columns=["fidelities"])
+        self.assertNotIn("fidelities", columns)
+        for c, t in ArtifactData.COLUMN_DATA_TYPES.items():
+            if c != "fidelities":
+                self.assertEqual(columns[c], t)
+
+    # there isn't really a point in doing this
+    # this test just documents expected behavior
+    # that excluded_columns wins out
+    def test_data_column_data_types_with_extra_columns_also_deleted(self) -> None:
+        bartype = random.choice([str, int, float])
+        excluded_columns = ["fidelities", "foo"]
+        columns = ArtifactData.column_data_types(
+            extra_column_types={"foo": bartype},
+            excluded_columns=excluded_columns,
+        )
+        self.assertNotIn("fidelities", columns)
+        self.assertNotIn("foo", columns)
+        for c, t in ArtifactData.COLUMN_DATA_TYPES.items():
             if c not in excluded_columns:
                 self.assertEqual(columns[c], t)

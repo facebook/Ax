@@ -24,6 +24,7 @@ from ax.utils.common.serialization import (
 from ax.utils.common.typeutils import checked_cast, not_none
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
+TArtifactData = TypeVar("TArtifactData", bound="ArtifactData")
 
 
 class BaseData(Base, SerializationMixin):
@@ -50,6 +51,9 @@ class BaseData(Base, SerializationMixin):
         "metric_name": str,
         "mean": np.float64,
         "sem": np.float64,
+        # Artifact data-related columns.
+        "artifact_name": str,
+        "value": object,
         # Metadata columns available for all subclasses.
         "trial_index": np.int64,
         "start_time": pd.Timestamp,
@@ -322,51 +326,6 @@ class BaseData(Base, SerializationMixin):
     ) -> List[Dict[str, Any]]:
         pass  # pragma: no cover
 
-    @classmethod
-    def from_fidelity_evaluations(
-        cls: Type[TBaseData],
-        evaluations: Dict[str, TFidelityTrialEvaluation],
-        trial_index: int,
-        sample_sizes: Optional[Dict[str, int]] = None,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-    ) -> TBaseData:
-        """
-        Convert dict of fidelity evaluations to Ax data object.
-
-        Args:
-            evaluations: Map from arm name to list of (fidelity, outcomes)
-                where outcomes is itself a mapping of outcome names to values, means,
-                or tuples of mean and SEM. If SEM is not specified, it will be set
-                to None and inferred from data.
-            trial_index: Trial index to which this data belongs.
-            sample_sizes: Number of samples collected for each arm.
-            start_time: Optional start time of run of the trial that produced this
-                data, in milliseconds.
-            end_time: Optional end time of run of the trial that produced this
-                data, in milliseconds.
-
-        Returns:
-            Ax object of type ``cls``.
-        """
-        records = cls._get_fidelity_records(
-            evaluations=evaluations, trial_index=trial_index
-        )
-        records = cls._add_cols_to_records(
-            records=records,
-            sample_sizes=sample_sizes,
-            start_time=start_time,
-            end_time=end_time,
-        )
-        return cls(df=pd.DataFrame(records))
-
-    @staticmethod
-    @abstractmethod
-    def _get_fidelity_records(
-        evaluations: Dict[str, TFidelityTrialEvaluation], trial_index: int
-    ) -> List[Dict[str, Any]]:
-        pass  # pragma: no cover
-
     @staticmethod
     def _add_cols_to_records(
         records: List[Dict[str, Any]],
@@ -439,6 +398,44 @@ class Data(BaseData):
             for metric_name, value in evaluation.items()
         ]
 
+    @classmethod
+    def from_fidelity_evaluations(
+        cls,
+        evaluations: Dict[str, TFidelityTrialEvaluation],
+        trial_index: int,
+        sample_sizes: Optional[Dict[str, int]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+    ) -> Data:
+        """
+        Convert dict of fidelity evaluations to Ax data object.
+
+        Args:
+            evaluations: Map from arm name to list of (fidelity, outcomes)
+                where outcomes is itself a mapping of outcome names to values, means,
+                or tuples of mean and SEM. If SEM is not specified, it will be set
+                to None and inferred from data.
+            trial_index: Trial index to which this data belongs.
+            sample_sizes: Number of samples collected for each arm.
+            start_time: Optional start time of run of the trial that produced this
+                data, in milliseconds.
+            end_time: Optional end time of run of the trial that produced this
+                data, in milliseconds.
+
+        Returns:
+            Ax object of type ``cls``.
+        """
+        records = cls._get_fidelity_records(
+            evaluations=evaluations, trial_index=trial_index
+        )
+        records = cls._add_cols_to_records(
+            records=records,
+            sample_sizes=sample_sizes,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return cls(df=pd.DataFrame(records))
+
     @staticmethod
     def _get_fidelity_records(
         evaluations: Dict[str, TFidelityTrialEvaluation], trial_index: int
@@ -473,7 +470,6 @@ class Data(BaseData):
         provided trial indices AND metric names. If either trial_indices or
         metric_names are not provided, that dimension will not be filtered.
         """
-
         return self.__class__(
             df=self._filter_df(
                 df=self.df, trial_indices=trial_indices, metric_names=metric_names
@@ -486,25 +482,12 @@ class Data(BaseData):
         trial_indices: Optional[Iterable[int]] = None,
         metric_names: Optional[Iterable[str]] = None,
     ) -> pd.DataFrame:
-        trial_indices_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["trial_index"] == trial_index for trial_index in trial_indices],
-            )
-            if trial_indices is not None
-            else pd.Series([True] * len(df))
+        return _filter_df_by_output_key(
+            df=df,
+            output_key="metric_name",
+            trial_indices=trial_indices,
+            output_names=metric_names,
         )
-
-        metric_names_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["metric_name"] == metric_name for metric_name in metric_names],
-            )
-            if metric_names is not None
-            else pd.Series([True] * len(df))
-        )
-
-        return df.loc[trial_indices_mask & metric_names_mask]
 
     @staticmethod
     def from_multiple_data(
@@ -525,6 +508,87 @@ class Data(BaseData):
         if subset_metrics:
             data_out._df = data_out.df.loc[
                 data_out.df["metric_name"].isin(subset_metrics)
+            ]
+
+        return data_out
+
+
+class ArtifactData(BaseData):
+    REQUIRED_COLUMNS: Set[str] = BaseData.REQUIRED_COLUMNS.union(
+        {"artifact_name", "value"}
+    )
+
+    @staticmethod
+    def _get_records(
+        evaluations: Dict[str, TTrialEvaluation], trial_index: int
+    ) -> List[Dict[str, Any]]:
+        return [
+            {
+                "arm_name": name,
+                "artifact_name": artifact_name,
+                "value": value,
+                "trial_index": trial_index,
+            }
+            for name, evaluation in evaluations.items()
+            for artifact_name, value in evaluation.items()
+        ]
+
+    @property
+    def artifact_names(self) -> Set[str]:
+        """Set of artifact names that appear in the underlying dataframe of
+        this object.
+        """
+        return set() if self.df.empty else set(self.df["artifact_name"].values)
+
+    def filter(
+        self: TArtifactData,
+        trial_indices: Optional[Iterable[int]] = None,
+        artifact_names: Optional[Iterable[str]] = None,
+    ) -> TArtifactData:
+        """Construct a new object with the subset of rows corresponding to the
+        provided trial indices AND artifact names. If either trial_indices or
+        artifact_names are not provided, that dimension will not be filtered.
+        """
+        return self.__class__(
+            df=self._filter_df(
+                df=self.df, trial_indices=trial_indices, artifact_names=artifact_names
+            )
+        )
+
+    @staticmethod
+    def _filter_df(
+        df: pd.DataFrame,
+        trial_indices: Optional[Iterable[int]] = None,
+        artifact_names: Optional[Iterable[str]] = None,
+    ) -> pd.DataFrame:
+        return _filter_df_by_output_key(
+            df=df,
+            output_key="artifact_name",
+            trial_indices=trial_indices,
+            output_names=artifact_names,
+        )
+
+    @classmethod
+    def from_multiple_artifact_data(
+        cls: Type[TArtifactData],
+        data: Iterable[TArtifactData],
+        subset_artifacts: Optional[Iterable[str]] = None,
+    ) -> TArtifactData:
+        """Combines multiple objects into one (with the concatenated
+        underlying dataframe).
+
+        Args:
+            data: Iterable of Ax objects of this class to combine.
+            subset_artifacts: If specified, combined object will only contain
+                artifacts, names of which appear in this iterable,
+                in the underlying dataframe.
+        """
+        data_out = cls.from_multiple(data=data)
+        if len(data_out.df.index) == 0:
+            return data_out
+        if subset_artifacts:
+            data_out._df = data_out.df.loc[
+                data_out.df["artifact_name"].isin(subset_artifacts)
             ]
 
         return data_out
@@ -599,3 +663,30 @@ def custom_data_class(
             )
 
     return CustomData
+
+
+def _filter_df_by_output_key(
+    df: pd.DataFrame,
+    output_key: str,
+    trial_indices: Optional[Iterable[int]] = None,
+    output_names: Optional[Iterable[str]] = None,
+) -> pd.DataFrame:
+    trial_indices_mask = (
+        reduce(
+            lambda left, right: left | right,
+            [df["trial_index"] == trial_index for trial_index in trial_indices],
+        )
+        if trial_indices is not None
+        else pd.Series([True] * len(df))
+    )
+
+    output_names_mask = (
+        reduce(
+            lambda left, right: left | right,
+            [df[output_key] == output_name for output_name in output_names],
+        )
+        if output_names is not None
+        else pd.Series([True] * len(df))
+    )
+
+    return df.loc[trial_indices_mask & output_names_mask]
