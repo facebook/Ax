@@ -61,7 +61,10 @@ from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_kg import KnowledgeGradient
 from ax.models.torch.botorch_mes import MaxValueEntropySearch
-from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.models.torch.botorch_modular.model import (
+    BoTorchModel as ModularBoTorchModel,
+    SurrogateSpec,
+)
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.cbo_sac import SACBO
 from ax.models.torch.fully_bayesian import (
@@ -77,6 +80,7 @@ from ax.utils.common.kwargs import (
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 
 logger: Logger = get_logger(__name__)
 
@@ -149,6 +153,7 @@ class ModelSetup(NamedTuple):
     bridge_class: Type[ModelBridge]
     model_class: Type[Model]
     transforms: List[Type[Transform]]
+    default_model_kwargs: Optional[Dict[str, Any]] = None
     standard_bridge_kwargs: Optional[Dict[str, Any]] = None
     not_saved_model_kwargs: Optional[List[str]] = None
 
@@ -248,6 +253,19 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Mixed_transforms + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "SAASBO": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=ModularBoTorchModel,
+        transforms=Cont_X_trans + Y_trans,
+        default_model_kwargs={
+            "surrogate_specs": {
+                "SAASBO_Surrogate": SurrogateSpec(
+                    botorch_model_class=SaasFullyBayesianSingleTaskGP
+                )
+            },
+        },
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "FullyBayesian": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=FullyBayesianBotorchModel,
@@ -328,7 +346,11 @@ class ModelRegistryBase(Enum):
 
         # Create model with consolidated arguments: defaults + passed in kwargs.
         model_kwargs = consolidate_kwargs(
-            kwargs_iterable=[get_function_default_arguments(model_class), kwargs],
+            kwargs_iterable=[
+                get_function_default_arguments(model_class),
+                model_setup_info.default_model_kwargs,
+                kwargs,
+            ],
             keywords=get_function_argument_names(model_class),
         )
         model = model_class(**model_kwargs)
@@ -443,6 +465,7 @@ class Models(ModelRegistryBase):
     GPKG = "GPKG"
     GPMES = "GPMES"
     FACTORIAL = "Factorial"
+    SAASBO = "SAASBO"
     FULLYBAYESIAN = "FullyBayesian"
     FULLYBAYESIANMOO = "FullyBayesianMOO"
     FULLYBAYESIAN_MTGP = "FullyBayesian_MTGP"
