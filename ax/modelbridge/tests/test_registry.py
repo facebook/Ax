@@ -30,7 +30,7 @@ from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.constants import Keys
@@ -48,6 +48,7 @@ from botorch.acquisition.monte_carlo import (
     qExpectedImprovement,
     qNoisyExpectedImprovement,
 )
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP
@@ -85,6 +86,32 @@ class ModelRegistryTest(TestCase):
 
         gr = gpei.gen(n=1)
         self.assertIsNotNone(gr.best_arm_predictions)
+
+    @fast_botorch_optimize
+    def test_SAASBO(self) -> None:
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        self.assertIsInstance(sobol, RandomModelBridge)
+        for _ in range(5):
+            sobol_run = sobol.gen(n=1)
+            self.assertEqual(sobol_run._model_key, "Sobol")
+            exp.new_batch_trial().add_generator_run(sobol_run).run()
+        saasbo = Models.SAASBO(experiment=exp, data=exp.fetch_data())
+        self.assertIsInstance(saasbo, TorchModelBridge)
+        self.assertEqual(saasbo._model_key, "SAASBO")
+        self.assertIsInstance(saasbo.model, BoTorchModel)
+        surrogate_specs = saasbo.model.surrogate_specs
+        self.assertEqual(
+            surrogate_specs,
+            {
+                "SAASBO_Surrogate": SurrogateSpec(
+                    botorch_model_class=SaasFullyBayesianSingleTaskGP
+                )
+            },
+        )
+        self.assertEqual(
+            saasbo.model.surrogate.botorch_model_class, SaasFullyBayesianSingleTaskGP
+        )
 
     @fast_botorch_optimize
     def test_enum_sobol_GPEI(self) -> None:
