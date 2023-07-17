@@ -30,7 +30,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
 from ax.utils.common.serialization import SerializationMixin
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
 
@@ -152,7 +152,7 @@ class Metric(SortableBase, SerializationMixin):
         """Fetch data for one trial."""
         raise NotImplementedError(
             f"Metric {self.name} does not implement data-fetching logic."
-        )  # pragma: no cover
+        )
 
     # NOTE: This should be overridden if there is a benefit to fetching multiple
     # metrics that all share the `fetch_multi_group_by_metric` setting, at once.

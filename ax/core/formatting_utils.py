@@ -28,7 +28,7 @@ def raw_data_to_evaluation(
     `BatchedTrial`.
     """
     if isinstance(raw_data, dict):
-        if any(isinstance(x, dict) for x in raw_data.values()):  # pragma: no cover
+        if any(isinstance(x, dict) for x in raw_data.values()):
             raise ValueError("Raw data is expected to be just for one arm.")
         for metric_name, dat in raw_data.items():
             if not isinstance(dat, tuple):
@@ -113,7 +113,7 @@ def data_and_evaluations_from_raw_data(
             trial_index=trial_index,
         )
     else:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             "Evaluations included a mixture of no-fidelity and with-fidelity "
             "evaluations, which is not currently supported."
         )

@@ -19,7 +19,7 @@ from ax.utils.common.typeutils import not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 class Derelativize(Transform):
@@ -74,7 +74,7 @@ class Derelativize(Transform):
                 f, _ = unwrap_observation_data([sq_data])
             else:
                 # Should have worked.
-                raise  # pragma: no cover
+                raise
 
         # Plug in the status quo value to each relative constraint.
         for c in optimization_config.all_constraints:

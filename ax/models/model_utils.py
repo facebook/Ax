@@ -50,9 +50,7 @@ def rejection_sample(
     # in order to deduplicate in the original search space.
     # The transformation is applied above.
     if deduplicate and rounding_func is None:
-        raise ValueError(
-            "Rounding function must be provided for deduplication."  # pragma: no cover
-        )
+        raise ValueError("Rounding function must be provided for deduplication.")
 
     failed_constraint_dict: TParamCounter = defaultdict(lambda: 0)
     # Rejection sample with parameter constraints.
@@ -370,7 +368,7 @@ def best_in_sample_point(
         # TODO[T131759268]: We need to apply the risk measure. Instead of doing obj_w @,
         # we could use `get_botorch_objective_and_transform` to get the objective
         # then apply it, though we also need to decide how to deal with constraints.
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
     # Parse options
     if options is None:
         options = {}
@@ -380,7 +378,7 @@ def best_in_sample_point(
     nsamp: int = options.get("feasibility_mc_samples", 10000)
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
-        return None  # pragma: no cover
+        return None
     objective_weights_np = as_array(objective_weights)
     X_obs = get_observed(
         Xs=Xs,
@@ -446,9 +444,7 @@ def as_array(
     elif torch.is_tensor(x):
         return x.detach().cpu().double().numpy()
     else:
-        raise ValueError(
-            "Input to as_array must be numpy array or torch tensor"
-        )  # pragma: no cover
+        raise ValueError("Input to as_array must be numpy array or torch tensor")
 
 
 def get_observed(

@@ -45,7 +45,7 @@ def get_missing_metrics(
         A NamedTuple(missing_objective, Dict[str, missing_outcome_constraint])
     """
     objective = optimization_config.objective
-    if isinstance(objective, MultiObjective):  # pragma: no cover
+    if isinstance(objective, MultiObjective):
         objective_metric_names = [m.name for m in objective.metrics]
     else:
         objective_metric_names = [optimization_config.objective.metric.name]
@@ -117,7 +117,7 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> Set[TArmTrial]
 # -------------------- Experiment result extraction utils. ---------------------
 
 
-def best_feasible_objective(  # pragma: no cover
+def best_feasible_objective(
     optimization_config: OptimizationConfig, values: Dict[str, np.ndarray]
 ) -> np.ndarray:
     """Compute the best feasible objective value found by each iteration.
@@ -137,7 +137,7 @@ def best_feasible_objective(  # pragma: no cover
     infeas_val = np.Inf if objective.minimize else -np.Inf
     for oc in optimization_config.outcome_constraints:
         if oc.relative:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
         g = values[oc.metric.name]
@@ -159,7 +159,7 @@ def _extract_generator_run(trial: BaseTrial) -> GeneratorRun:
         return trial._generator_run_structs[0].generator_run
     if isinstance(trial, Trial):
         return none_throws(trial.generator_run)
-    raise ValueError("Unexpected trial type")  # pragma: no cover
+    raise ValueError("Unexpected trial type")
 
 
 def get_model_trace_of_times(
@@ -180,7 +180,7 @@ def get_model_trace_of_times(
     return fit_times, gen_times
 
 
-def get_model_times(experiment: Experiment) -> Tuple[float, float]:  # pragma: no cover
+def get_model_times(experiment: Experiment) -> Tuple[float, float]:
     """Get total times spent fitting the model and generating candidates in the
     course of the experiment.
     """

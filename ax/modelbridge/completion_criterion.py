@@ -19,11 +19,11 @@ class CompletionCriterion(Base, SerializationMixin):
     """
 
     def __init__(self) -> None:
-        pass  # pragma: no cover
+        pass
 
     @abstractmethod
     def is_met(self, experiment: Experiment) -> bool:
-        pass  # pragma: no cover
+        pass
 
 
 class MinimumTrialsInStatus(CompletionCriterion):

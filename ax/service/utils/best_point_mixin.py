@@ -120,7 +120,7 @@ class BestPointMixin(metaclass=ABCMeta):
         )
 
         if res is None:
-            return res  # pragma: no cover
+            return res
 
         _, parameterization, vals = res
         return parameterization, vals
@@ -259,7 +259,7 @@ class BestPointMixin(metaclass=ABCMeta):
             experiment.optimization_config
         )
         if optimization_config.is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 "Please use `get_pareto_optimal_parameters` for multi-objective "
                 "problems."
             )
@@ -286,7 +286,7 @@ class BestPointMixin(metaclass=ABCMeta):
                 )
 
                 if res is not None:
-                    return res  # pragma: no cover
+                    return res
 
         return best_point_utils.get_best_by_raw_objective_with_trial_index(
             experiment=experiment,
@@ -316,7 +316,7 @@ class BestPointMixin(metaclass=ABCMeta):
         if optimization_config is None:
             optimization_config = not_none(experiment.optimization_config)
         if optimization_config.is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 "Please use `get_hypervolume` for multi-objective problems."
             )
 
@@ -328,7 +328,7 @@ class BestPointMixin(metaclass=ABCMeta):
 
         predictions = res[2] if res is not None else None
         if predictions is None:
-            return None  # pragma: no cover
+            return None
 
         means = not_none(predictions)[0]
         objective = optimization_config.objective
@@ -353,7 +353,7 @@ class BestPointMixin(metaclass=ABCMeta):
             experiment.optimization_config
         )
         if not optimization_config.is_moo_problem:
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 "Please use `get_best_parameters` for single-objective problems."
             )
         return best_point_utils.get_pareto_optimal_parameters(

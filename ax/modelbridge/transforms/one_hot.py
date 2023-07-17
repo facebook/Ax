@@ -22,7 +22,7 @@ from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 OH_PARAM_INFIX = "_OH_PARAM_"
@@ -163,11 +163,9 @@ class OneHot(Transform):
                     p in obsf.parameters for p in self.encoded_parameters[p_name]
                 ]
                 if not all(has_params):
-                    if any(has_params):  # pragma: no cover
-                        raise ValueError(  # pragma: no cover
-                            f"Missing some parameters for {p_name}"
-                        )
-                    continue  # pragma: no cover
+                    if any(has_params):
+                        raise ValueError(f"Missing some parameters for {p_name}")
+                    continue
                 x = np.array(
                     [obsf.parameters.pop(p) for p in self.encoded_parameters[p_name]]
                 )

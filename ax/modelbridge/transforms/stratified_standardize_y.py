@@ -23,7 +23,7 @@ from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 logger: Logger = get_logger(__name__)
 
@@ -153,13 +153,13 @@ class StratifiedStandardizeY(Transform):
         fixed_features: Optional[ObservationFeatures] = None,
     ) -> List[OutcomeConstraint]:
         if fixed_features is None or self.p_name not in fixed_features.parameters:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"StratifiedStandardizeY requires {self.p_name} to be fixed here"
             )
         v = fixed_features.parameters[self.p_name]
         for c in outcome_constraints:
             if c.relative:
-                raise ValueError(  # pragma: no cover
+                raise ValueError(
                     "StratifiedStandardizeY does not support relative constraints"
                 )
             c.bound = float(

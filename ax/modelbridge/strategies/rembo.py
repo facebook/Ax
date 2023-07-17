@@ -65,7 +65,7 @@ def get_REMBO(
     """Instantiates a BotorchModel."""
     if search_space is None:
         search_space = experiment.search_space
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("REMBO model requires non-empty data.")
     return TorchModelBridge(
         experiment=experiment,

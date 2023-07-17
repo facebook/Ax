@@ -37,7 +37,7 @@ logger: logging.Logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import core  # noqa F401  # pragma: no cover
+    from ax import core  # noqa F401
 
 
 def batch_trial_from_json(
@@ -153,7 +153,7 @@ def trial_from_json(
 def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     """Load the transform type from JSON."""
     index_in_registry = object_json.pop("index_in_registry")
-    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:  # pragma: no cover
+    if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:
         raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
 
@@ -166,7 +166,7 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     for _class in CLASS_TO_REVERSE_REGISTRY:
         if class_path == f"{_class}":
             reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]
-            if index_in_registry not in reverse_registry:  # pragma: no cover
+            if index_in_registry not in reverse_registry:
                 raise ValueError(
                     f"Index '{index_in_registry}'"
                     " is not registered in the reverse registry."

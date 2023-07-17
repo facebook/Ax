@@ -113,9 +113,7 @@ class Decoder:
             parameter_constraints_sqa=experiment_sqa.parameter_constraints,
         )
         if search_space is None:
-            raise SQADecodeError(  # pragma: no cover
-                "Experiment SearchSpace cannot be None."
-            )
+            raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
                 parameters=experiment_sqa.status_quo_parameters,
@@ -136,7 +134,7 @@ class Decoder:
                 runner_sqa=experiment_sqa.runners[0], runner_kwargs=runner_kwargs
             )
         else:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Multiple runners on experiment "
                 "only supported for MultiTypeExperiment."
             )
@@ -170,9 +168,7 @@ class Decoder:
             parameter_constraints_sqa=experiment_sqa.parameter_constraints,
         )
         if search_space is None:
-            raise SQADecodeError(  # pragma: no cover
-                "Experiment SearchSpace cannot be None."
-            )
+            raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
                 parameters=experiment_sqa.status_quo_parameters,
@@ -285,7 +281,7 @@ class Decoder:
         """Convert SQLAlchemy Parameter to Ax Parameter."""
         if parameter_sqa.domain_type == DomainType.RANGE:
             if parameter_sqa.lower is None or parameter_sqa.upper is None:
-                raise SQADecodeError(  # pragma: no cover
+                raise SQADecodeError(
                     "`lower` and `upper` must be set for RangeParameter; one or both "
                     f"not found on parameter {parameter_sqa.name}."
                 )
@@ -306,7 +302,7 @@ class Decoder:
             )
         elif parameter_sqa.domain_type == DomainType.CHOICE:
             if parameter_sqa.choice_values is None:
-                raise SQADecodeError(  # pragma: no cover
+                raise SQADecodeError(
                     "`values` must be set for ChoiceParameter; not found on"
                     f" parameter {parameter_sqa.name}."
                 )
@@ -409,7 +405,7 @@ class Decoder:
         num_samples = None
         for parameter_constraint_sqa in parameter_constraint_sqa_list:
             if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION:
-                raise SQADecodeError(  # pragma: no cover
+                raise SQADecodeError(
                     "Parameter distribution must have type `DISTRIBUTION`. "
                     "Received type "
                     f"{ParameterConstraintType(parameter_constraint_sqa.type).name}."
@@ -428,7 +424,7 @@ class Decoder:
         """Convert SQLAlchemy Parameter to Ax environmental variable."""
         if parameter_sqa.domain_type == DomainType.ENVIRONMENTAL_RANGE:
             if parameter_sqa.lower is None or parameter_sqa.upper is None:
-                raise SQADecodeError(  # pragma: no cover
+                raise SQADecodeError(
                     "`lower` and `upper` must be set for RangeParameter."
                 )
             parameter = RangeParameter(
@@ -441,7 +437,7 @@ class Decoder:
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
             )
-        else:  # pragma: no cover
+        else:
             raise SQADecodeError(
                 f"Cannot decode SQAParameter because {parameter_sqa.domain_type} "
                 "is an invalid domain type."
@@ -635,9 +631,7 @@ class Decoder:
                 metrics_sqa=generator_run_sqa.metrics
             )
             if len(tracking_metrics) > 0:
-                raise SQADecodeError(  # pragma: no cover
-                    "GeneratorRun should not have tracking metrics."
-                )
+                raise SQADecodeError("GeneratorRun should not have tracking metrics.")
 
             search_space = self.search_space_from_sqa(
                 parameters_sqa=generator_run_sqa.parameters,
@@ -874,7 +868,7 @@ class Decoder:
             )
             if trial_sqa.generator_runs:
                 if len(trial_sqa.generator_runs) != 1:
-                    raise SQADecodeError(  # pragma: no cover
+                    raise SQADecodeError(
                         "Cannot decode SQATrial to Trial because trial is not batched "
                         "but has more than one generator run."
                     )
@@ -985,11 +979,11 @@ class Decoder:
 
     def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
         if metric_sqa.minimize is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to Objective because minimize is None."
             )
         if metric_sqa.scalarized_objective_weight is not None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 f"The metric {metric.name} corresponding to regular objective does not "
                 "have weight attribute"
             )
@@ -1006,7 +1000,7 @@ class Decoder:
             )
 
         if metrics_sqa_children is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to MultiObjective \
                 because the parent metric has no children metrics."
             )
@@ -1026,7 +1020,7 @@ class Decoder:
 
     def _scalarized_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
         if parent_metric_sqa.minimize is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to Scalarized Objective "
                 "because minimize is None."
             )
@@ -1041,7 +1035,7 @@ class Decoder:
             )
 
         if metrics_sqa_children is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to Scalarized Objective \
                 because the parent metric has no children metrics."
             )
@@ -1072,7 +1066,7 @@ class Decoder:
             or metric_sqa.op is None
             or metric_sqa.relative is None
         ):
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to OutcomeConstraint because "
                 "bound, op, or relative is None."
             )
@@ -1091,7 +1085,7 @@ class Decoder:
             or metric_sqa.op is None
             or metric_sqa.relative is None
         ):
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to Scalarized OutcomeConstraint because "
                 "bound, op, or relative is None."
             )
@@ -1106,7 +1100,7 @@ class Decoder:
             )
 
         if metrics_sqa_children is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to Scalarized OutcomeConstraint \
                 because the parent metric has no children metrics."
             )
@@ -1135,7 +1129,7 @@ class Decoder:
         self, metric: Metric, metric_sqa: SQAMetric
     ) -> ObjectiveThreshold:
         if metric_sqa.bound is None or metric_sqa.relative is None:
-            raise SQADecodeError(  # pragma: no cover
+            raise SQADecodeError(
                 "Cannot decode SQAMetric to ObjectiveThreshold because "
                 "bound, op, or relative is None."
             )

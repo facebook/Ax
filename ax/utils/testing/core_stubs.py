@@ -580,7 +580,7 @@ def get_experiment_with_observations(
             optimization_config = OptimizationConfig(
                 objective=ScalarizedObjective(metrics)
             )
-            if constrained:  # pragma: no cover
+            if constrained:
                 raise NotImplementedError
         else:
             optimization_config = MultiObjectiveOptimizationConfig(
@@ -608,7 +608,7 @@ def get_experiment_with_observations(
                 else None,
             )
     else:
-        if scalarized:  # pragma: no cover
+        if scalarized:
             raise NotImplementedError
         objective = Objective(metric=Metric(name="m1"), minimize=minimize)
         if constrained:
@@ -934,7 +934,7 @@ def get_robust_search_space(
         ChoiceParameter("c", ParameterType.STRING, ["red", "panda"]),
     ]
     if multivariate:
-        if use_discrete:  # pragma: no cover
+        if use_discrete:
             raise UserInputError(
                 "`multivariate` and `use_discrete` are not supported together."
             )

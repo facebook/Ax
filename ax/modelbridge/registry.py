@@ -378,8 +378,8 @@ class ModelRegistryBase(Enum):
         )
 
         if model_setup_info.not_saved_model_kwargs:
-            for key in model_setup_info.not_saved_model_kwargs:  # pragma: no cover
-                model_kwargs.pop(key, None)  # pragma: no cover
+            for key in model_setup_info.not_saved_model_kwargs:
+                model_kwargs.pop(key, None)
 
         # Store all kwargs on model bridge, to be saved on generator run.
         model_bridge._set_kwargs_to_save(
@@ -515,7 +515,7 @@ def get_model_from_generator_run(
             optimization, rather than to recreate its state at the time of
             generation. TO recreate state at the time of generation, set to `False`.
     """
-    if not generator_run._model_key:  # pragma: no cover
+    if not generator_run._model_key:
         raise ValueError(
             "Cannot restore model from generator run as no model key was "
             "on the generator run stored."
@@ -531,7 +531,7 @@ def get_model_from_generator_run(
     bridge_kwargs = _decode_callables_from_references(bridge_kwargs)
     model_keywords = list(model_kwargs.keys())
     for key in model_keywords:
-        if key in bridge_kwargs:  # pragma: no cover
+        if key in bridge_kwargs:
             logger.debug(
                 f"Keyword argument `{key}` occurs in both model and model bridge "
                 f"kwargs stored in the generator run. Assuming the `{key}` kwarg "
@@ -553,7 +553,7 @@ def _combine_model_kwargs_and_state(
     """
     model_kwargs = model_kwargs or generator_run._model_kwargs or {}
     if generator_run._model_state_after_gen is None:
-        return model_kwargs  # pragma: no cover
+        return model_kwargs
 
     # We don't want to update `model_kwargs` on the `GenerationStep`,
     # just to add to them for the purpose of this function.

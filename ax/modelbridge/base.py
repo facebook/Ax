@@ -418,7 +418,7 @@ class ModelBridge(ABC):
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
             elif len(sq_obs) > 1:
-                logger.warning(  # pragma: no cover
+                logger.warning(
                     f"Status quo {status_quo_name} found in data with multiple "
                     "features. Use status_quo_features to specify which to use."
                 )
@@ -493,7 +493,7 @@ class ModelBridge(ABC):
         observations: List[Observation],
     ) -> None:
         """Apply terminal transform and fit model."""
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def _batch_predict(
         self, observation_features: List[ObservationFeatures]
@@ -613,7 +613,7 @@ class ModelBridge(ABC):
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def update(self, new_data: Data, experiment: Experiment) -> None:
         """Update the model bridge and the underlying model with new data. This
@@ -658,7 +658,7 @@ class ModelBridge(ABC):
             observation_features: All observation features observed so far.
             observation_data: All observation data observed so far.
         """
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def _get_transformed_gen_args(
         self,
@@ -810,7 +810,7 @@ class ModelBridge(ABC):
                 best_point_predictions = extract_arm_predictions(
                     model_predictions=self.predict([best_obsf]), arm_idx=0
                 )
-        except NotImplementedError:  # pragma: no cover
+        except NotImplementedError:
             model_predictions = None
 
         if best_obsf is None:
@@ -865,7 +865,7 @@ class ModelBridge(ABC):
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def cross_validate(
         self,
@@ -924,7 +924,7 @@ class ModelBridge(ABC):
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def compute_model_fit_metrics(
         self,
@@ -996,10 +996,8 @@ class ModelBridge(ABC):
     def _deserialize_model_state(
         self, serialized_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        model = not_none(self.model)  # pragma: no cover
-        return model.deserialize_state(  # pragma: no cover
-            serialized_state=serialized_state
-        )
+        model = not_none(self.model)
+        return model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
         raise NotImplementedError(
@@ -1027,7 +1025,7 @@ class ModelBridge(ABC):
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observations(self, observations: List[Observation]) -> Any:
         """Apply terminal transform to given observations and return result."""
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observation_features(
@@ -1054,7 +1052,7 @@ class ModelBridge(ABC):
         self, observation_features: List[ObservationFeatures]
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:

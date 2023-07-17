@@ -81,11 +81,11 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     @abstractmethod
     def validate(self, value: TParamValue) -> bool:
-        pass  # pragma: no cover
+        pass
 
     @abstractmethod
     def cardinality(self) -> float:
-        pass  # pragma: no cover
+        pass
 
     @property
     def python_type(self) -> TParameterType:
@@ -135,7 +135,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     def clone(self) -> Parameter:
         # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
-        pass  # pragma: no cover
+        pass
 
     @property
     def _unique_id(self) -> str:

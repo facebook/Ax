@@ -120,7 +120,7 @@ def object_to_json(  # noqa C901
             for k, v in obj.items()
         }
     elif _is_named_tuple(obj):
-        return {  # pragma: no cover
+        return {
             "__type": _type.__name__,
             **{
                 k: object_to_json(

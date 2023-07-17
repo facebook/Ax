@@ -22,7 +22,7 @@ from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
+    from ax.modelbridge import base as base_modelbridge  # noqa F401
 
 
 logger: Logger = get_logger(__name__)
@@ -132,13 +132,11 @@ class StandardizeY(Transform):
     ) -> List[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.relative:
-                raise ValueError(  # pragma: no cover
+                raise ValueError(
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
             if isinstance(c, ScalarizedOutcomeConstraint):
-                raise ValueError(  # pragma: no cover
-                    "ScalarizedOutcomeConstraint not supported"
-                )
+                raise ValueError("ScalarizedOutcomeConstraint not supported")
             c.bound = float(
                 c.bound * self.Ystd[c.metric.name] + self.Ymean[c.metric.name]
             )

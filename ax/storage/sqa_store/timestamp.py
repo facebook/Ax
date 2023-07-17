@@ -21,7 +21,7 @@ class IntTimestamp(TypeDecorator):
         self, value: Optional[datetime.datetime], dialect: Dialect
     ) -> Optional[int]:
         if value is None:
-            return None  # pragma: no cover
+            return None
         else:
             return int(value.timestamp())
 

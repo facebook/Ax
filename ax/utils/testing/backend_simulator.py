@@ -138,7 +138,7 @@ class BackendSimulator:
             verbose_logging: If False, sets the logging level to WARNING.
         """
         if not verbose_logging:
-            logger.setLevel(logging.WARNING)  # pragma: no cover
+            logger.setLevel(logging.WARNING)
 
         if options is None:
             options = BackendSimulatorOptions()

@@ -85,13 +85,13 @@ class GenerationStrategy(Base):
         for idx, step in enumerate(self._steps):
             if step.num_trials == -1 and len(step.completion_criteria) < 1:
                 if idx < len(self._steps) - 1:
-                    raise UserInputError(  # pragma: no cover
+                    raise UserInputError(
                         "Only last step in generation strategy can have `num_trials` "
                         "set to -1 to indicate that the model in the step should "
                         "be used to generate new trials indefinitely unless "
                         "completion critera present."
                     )
-            elif step.num_trials < 1 and step.num_trials != -1:  # pragma: no cover
+            elif step.num_trials < 1 and step.num_trials != -1:
                 raise UserInputError(
                     "`num_trials` must be positive or -1 (indicating unlimited) "
                     "for all generation steps."
@@ -140,7 +140,7 @@ class GenerationStrategy(Base):
     @property
     def current_step(self) -> GenerationStep:
         """Current generation step."""
-        return self._curr  # pragma: no cover
+        return self._curr
 
     @property
     def model(self) -> Optional[ModelBridge]:
@@ -152,7 +152,7 @@ class GenerationStrategy(Base):
     @property
     def experiment(self) -> Experiment:
         """Experiment, currently set on this generation strategy."""
-        if self._experiment is None:  # pragma: no cover
+        if self._experiment is None:
             raise ValueError("No experiment set on generation strategy.")
         return not_none(self._experiment)
 
@@ -165,7 +165,7 @@ class GenerationStrategy(Base):
         """
         if self._experiment is None or experiment._name == self.experiment._name:
             self._experiment = experiment
-        else:  # pragma: no cover
+        else:
             raise ValueError(
                 "This generation strategy has been used for experiment "
                 f"{self.experiment._name} so far; cannot reset experiment"
@@ -365,7 +365,7 @@ class GenerationStrategy(Base):
         if to_gen < -1:
             # `_num_trials_to_gen_and_complete_in_curr_step()` should return value
             # of -1 or greater always.
-            raise RuntimeError(  # pragma: no cover
+            raise RuntimeError(
                 "Number of trials left to generate in current generation step is "
                 f"{to_gen}. This is an unexpected state of the generation strategy."
             )
@@ -402,7 +402,7 @@ class GenerationStrategy(Base):
             )
             try:
                 model_name = step.model_name
-            except TypeError:  # pragma: no cover
+            except TypeError:
                 model_name = "model with unknown name"
 
             repr += f"{model_name} for {num_trials} trials, "
@@ -487,10 +487,10 @@ class GenerationStrategy(Base):
                 # Model needs more data, so we log the error and return
                 # as many generator runs as we were able to produce, unless
                 # no trials were produced at all (in which case its safe to raise).
-                if len(generator_runs) == 0:  # pragma: no cover
-                    raise  # pragma: no cover
-                logger.debug(f"Model required more data: {err}.")  # pragma: no cover
-                break  # pragma: no cover
+                if len(generator_runs) == 0:
+                    raise
+                logger.debug(f"Model required more data: {err}.")
+                break
 
             self._generator_runs.append(generator_run)
             generator_runs.append(generator_run)
@@ -610,7 +610,7 @@ class GenerationStrategy(Base):
                 ]
             ):
                 if len(self._steps) == self._curr.index + 1:
-                    raise GenerationStrategyCompleted(  # pragma: no cover
+                    raise GenerationStrategyCompleted(
                         f"Generation strategy {self} generated all the trials as "
                         "specified in its steps."
                     )
@@ -685,7 +685,7 @@ class GenerationStrategy(Base):
                     model_class=model_cls,
                 )
             else:
-                logger.warning(  # pragma: no cover
+                logger.warning(
                     "While model state after last call to `gen` was recorded on the "
                     "las generator run produced by this generation strategy, it could"
                     " not be applied because model for this generation step is defined"
@@ -732,7 +732,7 @@ class GenerationStrategy(Base):
             else:
                 data = self.experiment.lookup_data()
         else:
-            data = passed_in_data  # pragma: no cover
+            data = passed_in_data
         # By the time we get here, we will have already transitioned
         # to a new step, but if previous step required observed data,
         # we should raise an error even if enough trials were completed.
@@ -744,7 +744,7 @@ class GenerationStrategy(Base):
             and self._steps[self._curr.index - 1].min_trials_observed > 0
         )
         if data.df.empty and previous_step_required_observations:
-            raise NoDataError(  # pragma: no cover
+            raise NoDataError(
                 f"Observed data is required for generation step #{self._curr.index} "
                 f"(model {self._curr.model_name}), but fetched data was empty. "
                 "Something is wrong with experiment setup -- likely metrics do not "
@@ -758,9 +758,7 @@ class GenerationStrategy(Base):
         completed since the last call to `GenerationStrategy.gen`).
         """
         if self._model is None:  # Should not be reachable.
-            raise ValueError(  # pragma: no cover
-                "Cannot update if no model instantiated."
-            )
+            raise ValueError("Cannot update if no model instantiated.")
         trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
         logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
         # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
@@ -783,13 +781,11 @@ class GenerationStrategy(Base):
                     "No new data is attached to experiment; no need for model update."
                 )
                 return None
-            return new_data  # pragma: no cover
+            return new_data
 
         elif passed_in_data.df.empty:
-            logger.info(  # pragma: no cover
-                "Manually supplied data is empty; no need for model update."
-            )
-            return None  # pragma: no cover
+            logger.info("Manually supplied data is empty; no need for model update.")
+            return None
 
         return Data(
             # pyre-ignore[6]: Expected `Optional[pd.core.frame.DataFrame]`
@@ -834,7 +830,7 @@ class GenerationStrategy(Base):
         # to `model_update`. This information does not need to be stored, since when
         # restoring generation strategy from serialized form, all data will is
         # refetched and the underlying model is re-fit.
-        if any(s.use_update for s in self._steps):  # pragma: no cover
+        if any(s.use_update for s in self._steps):
             raise NotImplementedError(
                 "Updating completed trials with new data is not yet supported for "
                 "generation strategies that leverage `model.update` functionality."

@@ -151,9 +151,9 @@ class ObservationFeatures(Base):
         parameters = self.parameters.copy()
         for k, v in parameters.items():
             if type(v) is np.int64:
-                parameters[k] = int(v)  # pragma: no cover
+                parameters[k] = int(v)
             elif type(v) is np.float32:
-                parameters[k] = float(v)  # pragma: no cover
+                parameters[k] = float(v)
         return hash(
             (
                 json.dumps(parameters, sort_keys=True),

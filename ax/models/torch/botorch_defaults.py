@@ -617,7 +617,7 @@ def _get_model(
 
     if len(fidelity_features) > 0:
         if task_feature:
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 "multi-task multi-fidelity models not yet available"
             )
         # at this point we can assume that there is only a single fidelity parameter

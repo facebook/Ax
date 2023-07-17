@@ -624,7 +624,7 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
         elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
             mean = posterior.mean.cpu().detach()
             var = posterior.variance.cpu().detach().clamp_min(0)
-        else:  # pragma: no cover
+        else:
             raise UnsupportedError(
                 "Non-Gaussian posteriors are currently not supported."
             )

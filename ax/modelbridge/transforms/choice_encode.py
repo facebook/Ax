@@ -20,7 +20,7 @@ from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 class ChoiceEncode(Transform):
@@ -81,7 +81,7 @@ class ChoiceEncode(Transform):
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
-                    raise ValueError(  # pragma: no cover
+                    raise ValueError(
                         f"Cannot choice-encode fidelity parameter {p_name}"
                     )
                 tvals, ptype = transform_choice_values(p)

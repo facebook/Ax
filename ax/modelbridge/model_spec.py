@@ -44,7 +44,7 @@ class ModelSpecJSONEncoder(json.JSONEncoder):
 
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def default(self, o: Any) -> str:
-        return repr(o)  # pragma: no cover
+        return repr(o)
 
 
 @dataclass
@@ -99,7 +99,7 @@ class ModelSpec(Base):
         Fixed generation features to pass into the Model's `.gen` function.
         """
         if self.model_gen_kwargs is None:
-            self.model_gen_kwargs = {}  # pragma: no cover
+            self.model_gen_kwargs = {}
         self.model_gen_kwargs["fixed_features"] = value
 
     @property
@@ -228,7 +228,7 @@ class ModelSpec(Base):
         """`ModelSpec` is both a spec and an object that performs actions.
         Copying is useful to avoid changes to a singleton model spec.
         """
-        return self.__class__(  # pragma: no cover
+        return self.__class__(
             model_enum=self.model_enum,
             model_kwargs=deepcopy(self.model_kwargs),
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
@@ -286,7 +286,7 @@ class ModelSpec(Base):
         )
 
     def __hash__(self) -> int:
-        return hash(repr(self))  # pragma: no cover
+        return hash(repr(self))
 
     def __eq__(self, other: ModelSpec) -> bool:
         return repr(self) == repr(other)
@@ -300,12 +300,12 @@ class FactoryFunctionModelSpec(ModelSpec):
 
     def __post_init__(self) -> None:
         if self.model_enum is not None:
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 "Use regular `ModelSpec` when it's possible to describe the "
                 "model as `ModelRegistryBase` subclass enum member."
             )
         if self.factory_function is None:
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 "Please specify a valid function returning a `ModelBridge` instance "
                 "as the required `factory_function` argument to "
                 "`FactoryFunctionModelSpec`."
@@ -321,8 +321,8 @@ class FactoryFunctionModelSpec(ModelSpec):
         try:
             # `model` is defined via a factory function.
             return not_none(self.factory_function).__name__  # pyre-ignore[16]
-        except Exception:  # pragma: no cover
-            raise TypeError(  # pragma: no cover
+        except Exception:
+            raise TypeError(
                 f"{self.factory_function} is not a valid function, cannot extract name."
             )
 

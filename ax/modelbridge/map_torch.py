@@ -108,7 +108,7 @@ class MapTorchModelBridge(TorchModelBridge):
         """
 
         if not isinstance(data, MapData):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "`MapTorchModelBridge expects `MapData` instead of `Data`."
             )
         # pyre-fixme[4]: Attribute must be annotated.
@@ -145,7 +145,7 @@ class MapTorchModelBridge(TorchModelBridge):
         features do not contain map_keys, it will insert them based on
         `target_map_values`.
         """
-        if not self.model:  # pragma: no cover
+        if not self.model:
             raise ValueError(FIT_MODEL_ERROR.format(action="_model_predict"))
         # The fitted model expects map_keys. If they do not exist, we use the
         # target values.
@@ -233,7 +233,7 @@ class MapTorchModelBridge(TorchModelBridge):
         """The difference b/t this method and TorchModelBridge._update(...) is
         that this one makes use of `self.parameters_with_map_keys`.
         """
-        return super()._update(  # pragma: no cover
+        return super()._update(
             search_space=search_space,
             observations=observations,
             parameters=self.parameters_with_map_keys,
@@ -246,7 +246,7 @@ class MapTorchModelBridge(TorchModelBridge):
         is that this one uses `observations_from_map_data`.
         """
         if experiment is None or data is None:
-            return []  # pragma: no cover
+            return []
         return observations_from_map_data(
             experiment=experiment,
             map_data=data,  # pyre-ignore[6]: Checked in __init__.
@@ -263,7 +263,7 @@ class MapTorchModelBridge(TorchModelBridge):
         is that this one correctly excludes map_keys when checking membership in
         search space (as map_keys are not explicitly in the search space).
         """
-        return [  # pragma: no cover
+        return [
             search_space.check_membership(
                 # Exclude map key features when checking
                 {
@@ -385,7 +385,7 @@ class MapTorchModelBridge(TorchModelBridge):
         """
         target_map_values = self._default_model_gen_options.get("target_map_values")
         if target_map_values is None:
-            target_map_values = DEFAULT_TARGET_MAP_VALUES  # pragma: no cover
+            target_map_values = DEFAULT_TARGET_MAP_VALUES
         param_and_map = self.parameters_with_map_keys
         map_dim_to_target = {
             param_and_map.index(p): target_map_values[p]  # pyre-ignore[16]

@@ -195,7 +195,7 @@ def object_from_json(
                 class_decoder_registry=class_decoder_registry,
             )
         elif _class == TorchvisionBenchmarkProblem:
-            return TorchvisionBenchmarkProblem.from_dataset_name(  # pragma: no cover
+            return TorchvisionBenchmarkProblem.from_dataset_name(
                 name=object_json["name"],
                 num_trials=object_json["num_trials"],
                 infer_noise=object_json["infer_noise"],
@@ -582,9 +582,9 @@ def _convert_generation_step_keys_for_backwards_compatibility(
     # 'arms'.
     keys = list(object_json.keys())
     for k in keys:
-        if "arms" in k:  # pragma: no cover
+        if "arms" in k:
             object_json[k.replace("arms", "trials")] = object_json.pop(k)
-        if k == "recommended_max_parallelism":  # pragma: no cover
+        if k == "recommended_max_parallelism":
             object_json["max_parallelism"] = object_json.pop(k)
     return object_json
 

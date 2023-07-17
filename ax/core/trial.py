@@ -41,7 +41,7 @@ round_floats_for_logging = partial(
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import core  # noqa F401  # pragma: no cover
+    from ax import core  # noqa F401
 
 
 class Trial(BaseTrial):
@@ -108,7 +108,7 @@ class Trial(BaseTrial):
         if len(generator_run.arms) == 0:
             return None
         elif len(generator_run.arms) > 1:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Generator run associated with this trial included multiple "
                 "arms, but trial expects only one."
             )
@@ -215,7 +215,7 @@ class Trial(BaseTrial):
 
         opt_config = self.experiment.optimization_config
         if opt_config is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Experiment optimization config (and thus the objective) is not set."
             )
         return self.get_metric_mean(metric_name=opt_config.objective.metric.name)
@@ -230,7 +230,7 @@ class Trial(BaseTrial):
         try:
             df = fetch_result.df
             return df.loc[df["metric_name"] == metric_name].iloc[0]["mean"]
-        except IndexError:  # pragma: no cover
+        except IndexError:
             raise ValueError(f"Metric {metric_name} not yet in data for trial.")
 
     def __repr__(self) -> str:
@@ -307,7 +307,7 @@ class Trial(BaseTrial):
             self.arms_by_name.keys()
         )
         if not_trial_arm_names:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 

@@ -40,7 +40,7 @@ class AxClientCreatedRecord:
         # one trial arms.
         if getattr(ax_client, "batch_size", None) is not None:
             # pyre-fixme[16] `AxClient` has no attribute `batch_size`
-            arms_per_trial = ax_client.batch_size  # pragma: no cover
+            arms_per_trial = ax_client.batch_size
         else:
             arms_per_trial = 1
 

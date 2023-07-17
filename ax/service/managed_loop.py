@@ -134,7 +134,7 @@ class OptimizationLoop:
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
         # NOTE: Could use `Scheduler` to implement this if needed.
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
     def _call_evaluation_function(
         self, parameterization: TParameterization, weight: Optional[float] = None

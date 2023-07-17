@@ -175,7 +175,7 @@ class SyntheticFunction(ABC):
         Returns:
             numpy.ndarray: an n-dimensional array.
         """
-        ...  # pragma: no cover
+        ...
 
 
 class FromBotorch(SyntheticFunction):

@@ -125,7 +125,7 @@ def _save_generation_strategy(
         # if has been saved and create a relationship b/w GS and experiment if so.
         experiment_id = experiment.db_id
         if experiment_id is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Experiment {experiment.name} should be saved before "
                 "generation strategy."
             )
@@ -320,7 +320,7 @@ def _update_generation_strategy(
 
     experiment_id = generation_strategy.experiment.db_id
     if experiment_id is None:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             f"Experiment {generation_strategy.experiment.name} "
             "should be saved before generation strategy."
         )

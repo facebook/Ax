@@ -24,7 +24,7 @@ from sklearn.preprocessing import PowerTransformer
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 logger: Logger = get_logger(__name__)
@@ -102,7 +102,7 @@ class PowerTransformY(Transform):
                     l, u = self.inv_bounds[m]
                     transform = self.power_transforms[m].inverse_transform
                     if not self.clip_mean and (obsd.means[i] < l or obsd.means[i] > u):
-                        raise ValueError(  # pragma: no cover
+                        raise ValueError(
                             "Can't untransform mean outside the bounds without clipping"
                         )
                     obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
@@ -148,9 +148,7 @@ class PowerTransformY(Transform):
     ) -> List[OutcomeConstraint]:
         for c in outcome_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
-                raise ValueError(  # pragma: no cover
-                    "ScalarizedOutcomeConstraint not supported here"
-                )
+                raise ValueError("ScalarizedOutcomeConstraint not supported here")
             elif c.metric.name in self.metric_names:
                 if c.relative:
                     raise ValueError("Relative constraints not supported here.")

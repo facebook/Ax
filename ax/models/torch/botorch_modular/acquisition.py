@@ -222,7 +222,7 @@ class Acquisition(Base):
         ):
             if torch_opt_config.risk_measure is not None:
                 # TODO[T131759263]: modify the heuristic to support risk measures.
-                raise NotImplementedError(  # pragma: no cover
+                raise NotImplementedError(
                     "Objective thresholds must be provided when using risk measures."
                 )
             self._objective_thresholds = infer_objective_thresholds(
@@ -326,7 +326,7 @@ class Acquisition(Base):
 
         dtypes_list = list(dtypes.values())
         if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Expected all Surrogates to have same dtype, found {dtypes}"
             )
 
@@ -344,7 +344,7 @@ class Acquisition(Base):
 
         devices_list = list(devices.values())
         if devices_list.count(devices_list[0]) != len(devices_list):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Expected all Surrogates to have same device, found {devices}"
             )
 

@@ -70,7 +70,7 @@ try:  # We don't require SQLAlchemy by default.
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
-except (ModuleNotFoundError, IncompatibleDependencyVersion):  # pragma: no cover
+except (ModuleNotFoundError, IncompatibleDependencyVersion):
     DBSettings = None
     Decoder = None
     Encoder = None

@@ -27,7 +27,7 @@ from ax.utils.stats.statstools import relativize
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 class Relativize(Transform):
@@ -184,8 +184,8 @@ class Relativize(Transform):
                 j = next(
                     k for k in range(L) if status_quo_data.metric_names[k] == metric
                 )
-            except (IndexError, StopIteration):  # pragma: no cover
-                raise ValueError(  # pragma: no cover
+            except (IndexError, StopIteration):
+                raise ValueError(
                     "Relativization cannot be performed because "
                     "ObservationData for status quo is missing metrics"
                 )

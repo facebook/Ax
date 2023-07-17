@@ -153,13 +153,13 @@ def init_engine_and_session_factory(
         if force_init:
             SESSION_FACTORY.bind.dispose()
         else:
-            return  # pragma: no cover
+            return
     if url is not None:
         engine = create_mysql_engine_from_url(url=url, echo=echo, **kwargs)
     elif creator is not None:
         engine = create_mysql_engine_from_creator(creator=creator, echo=echo, **kwargs)
     else:
-        raise ValueError("Must specify either `url` or `creator`.")  # pragma: no cover
+        raise ValueError("Must specify either `url` or `creator`.")
     SESSION_FACTORY = scoped_session(
         sessionmaker(bind=engine, expire_on_commit=EXPIRE_ON_COMMIT)
     )
@@ -223,7 +223,7 @@ def create_all_tables(engine: Engine) -> None:
         engine.dialect.name == "mysql"
         and engine.dialect.default_schema_name == "adaptive_experiment"
     ):
-        raise Exception("Cannot mutate tables in XDB. Use AOSC.")  # pragma: no cover
+        raise Exception("Cannot mutate tables in XDB. Use AOSC.")
     Base.metadata.create_all(engine)
 
 
@@ -240,7 +240,7 @@ def get_session() -> Session:
     """
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
-        init_engine_and_session_factory()  # pragma: no cover
+        init_engine_and_session_factory()
     assert SESSION_FACTORY is not None
     # pyre-fixme[29]: `Session` is not a function.
     return SESSION_FACTORY()
@@ -258,7 +258,7 @@ def get_engine() -> Engine:
     """
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
-        raise ValueError("Engine must be initialized first.")  # pragma: no cover
+        raise ValueError("Engine must be initialized first.")
     return SESSION_FACTORY.bind
 
 
@@ -269,9 +269,9 @@ def session_scope() -> Generator[Session, None, None]:
     try:
         yield session
         session.commit()
-    except Exception:  # pragma: no cover
-        session.rollback()  # pragma: no cover
-        raise  # pragma: no cover
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

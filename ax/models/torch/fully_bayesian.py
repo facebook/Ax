@@ -373,7 +373,7 @@ def run_inference(
     try:
         from pyro.infer.mcmc import MCMC, NUTS
         from pyro.infer.mcmc.util import print_summary
-    except ImportError:  # pragma: no cover
+    except ImportError:
         raise RuntimeError("Cannot call run_inference without pyro installed!")
     kernel = NUTS(
         pyro_model,

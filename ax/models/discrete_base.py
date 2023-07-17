@@ -142,4 +142,4 @@ class DiscreteModel(Model):
             value according to the model prediction. None if this function
             is not implemented for the given model.
         """
-        return None  # pragma: no cover TODO[bletham, drfreund]
+        return None

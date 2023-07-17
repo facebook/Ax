@@ -46,7 +46,7 @@ logger: Logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import core  # noqa F401  # pragma: no cover
+    from ax import core  # noqa F401
 
 BATCH_TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE = (
     "Raw data must be a dict for batched trials."
@@ -417,9 +417,7 @@ class BatchTrial(BaseTrial):
         self._arms_by_name = {}
         for arm in self.arms:
             if not arm.has_name:
-                raise ValueError(  # pragma: no cover
-                    "Arms attached to a trial must have a name."
-                )
+                raise ValueError("Arms attached to a trial must have a name.")
             self._arms_by_name[arm.name] = arm
 
     @property
@@ -588,7 +586,7 @@ class BatchTrial(BaseTrial):
         # Format the data to save.
         not_trial_arm_names = set(raw_data.keys()) - set(self.arms_by_name.keys())
         if not_trial_arm_names:
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
             )
 

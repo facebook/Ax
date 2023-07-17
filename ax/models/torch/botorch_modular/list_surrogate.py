@@ -4,12 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 
-raise DeprecationWarning(  # pragma: no cover
+raise DeprecationWarning(
     "`ListSurrogate` has been deprecated. Please use Surrogate instead, which may now "
     "utilize individual BoTorch models per outcome that will get wrapped into a "
     "ModelList as in ListSurrogate."
 )
 
 
-class ListSurrogate:  # pragma: no cover
+class ListSurrogate:
     pass

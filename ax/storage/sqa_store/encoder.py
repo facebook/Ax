@@ -264,7 +264,7 @@ class Encoder:
             raise SQAEncodeError(
                 "Cannot encode parameter to SQLAlchemy because parameter's "
                 f"subclass ({type(parameter)}) is invalid."
-            )  # pragma: no cover
+            )
 
     def parameter_constraint_to_sqa(
         self, parameter_constraint: ParameterConstraint
@@ -370,7 +370,7 @@ class Encoder:
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
             )
-        else:  # pragma: no cover
+        else:
             raise SQAEncodeError(
                 "Cannot encode environmental variable to SQLAlchemy because "
                 f"the corresponding parameter type ({type(parameter)}) is invalid."
@@ -415,7 +415,7 @@ class Encoder:
                 "The metric registry currently contains the following: "
                 f"{','.join(map(str, self.config.metric_registry.keys()))} "
                 f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
-            )  # pragma: no cover
+            )
 
         properties = metric_class.serialize_init_args(obj=metric)
         return metric_type, object_to_json(
@@ -530,7 +530,7 @@ class Encoder:
         """
         metrics, weights = objective.metrics, objective.weights
         if (not (metrics and weights)) or len(metrics) != len(weights):
-            raise SQAEncodeError(  # pragma: no cover
+            raise SQAEncodeError(
                 "Metrics and weights in scalarized objective "
                 "must be lists of equal length."
             )
@@ -605,7 +605,7 @@ class Encoder:
             raise SQAEncodeError(
                 "Metrics and weights in scalarized OutcomeConstraint \
                 must be lists of equal length."
-            )  # pragma: no cover
+            )
 
         metrics_by_name = self.get_children_metrics_by_name(
             metrics=metrics, weights=weights
@@ -882,7 +882,7 @@ class Encoder:
                 "The runner registry currently contains the following: "
                 f"{','.join(map(str, self.config.runner_registry.keys()))} "
                 f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
-            )  # pragma: no cover
+            )
         properties = runner_class.serialize_init_args(obj=runner)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.

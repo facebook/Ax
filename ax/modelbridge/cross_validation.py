@@ -377,7 +377,7 @@ class BestModelSelector(ABC):
         """
         Return the index of the best diagnostic.
         """
-        pass  # pragma: no cover
+        pass
 
 
 class CallableEnum(Enum):
