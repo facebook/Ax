@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
@@ -66,15 +66,20 @@ class TrialAsTask(Transform):
             )
         # Get trial level map
         if config is not None and "trial_level_map" in config:
-            # pyre: Attribute `trial_level_map` declared in class `ax.
-            # pyre: modelbridge.transforms.trial_as_task.TrialAsTask` has type
-            # pyre: `Dict[str, Dict[int, str]]` but is used as type `typing.
-            # pyre-fixme[8]: Union[float, int, str]`.
-            self.trial_level_map: Dict[str, Dict[int, str]] = config["trial_level_map"]
+            # pyre-ignore [9]
+            trial_level_map: Dict[str, Dict[Union[int, str], str]] = config[
+                "trial_level_map"
+            ]
             # Validate
-            for _p_name, level_dict in self.trial_level_map.items():
+            self.trial_level_map: Dict[str, Dict[int, str]] = {}
+            for _p_name, level_dict in trial_level_map.items():
+                # cast trial index as an integer
+                int_keyed_level_dict = {
+                    int(trial_index): v for trial_index, v in level_dict.items()
+                }
+                self.trial_level_map[_p_name] = int_keyed_level_dict
                 # Check that trials match those in data
-                level_map = set(level_dict.keys())
+                level_map = set(int_keyed_level_dict.keys())
                 if not trials.issubset(level_map):
                     raise ValueError(
                         f"Not all trials in data ({trials}) contained "

@@ -64,6 +64,16 @@ class TrialAsTaskTransformTest(TestCase):
             observations=self.training_obs,
             config={"trial_level_map": {}},
         )
+        # test string trial indices
+        self.bm2 = {
+            p_name: {str(k): v for k, v in value_dict.items()}
+            for p_name, value_dict in self.bm.items()
+        }
+        self.t4 = TrialAsTask(
+            search_space=self.search_space,
+            observations=self.training_obs,
+            config={"trial_level_map": self.bm2},
+        )
 
     def testInit(self) -> None:
         self.assertEqual(
@@ -72,6 +82,9 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(self.t.inverse_map, {str(i): i for i in range(3)})
         self.assertEqual(self.t2.trial_level_map, self.bm)
         self.assertIsNone(self.t2.inverse_map)
+        # check that strings were converted to integers
+        self.assertEqual(self.t4.trial_level_map, self.bm)
+        self.assertIsNone(self.t4.inverse_map)
         # Test validation
         obsf = ObservationFeatures({"x": 2})
         obs = Observation(
