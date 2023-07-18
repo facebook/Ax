@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 from unittest import mock
 from unittest.mock import Mock
 
@@ -20,6 +20,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition import PosteriorMean
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -50,11 +51,9 @@ class TestSebo(TestCase):
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
-        self.fidelity_features = [2]
         self.surrogates.construct(
             datasets=self.training_data,
             metric_names=["m1"],
-            fidelity_features=self.fidelity_features,
         )
         self.surrogates._outcomes = ["m1"]
         self.search_space_digest = SearchSpaceDigest(
@@ -96,9 +95,11 @@ class TestSebo(TestCase):
             fixed_features=self.fixed_features,
         )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def get_acquisition_function(self, fixed_features=None, options=None):
+    def get_acquisition_function(
+        self,
+        fixed_features: Optional[Dict[int, float]] = None,
+        options: Optional[Dict[str, Union[str, float]]] = None,
+    ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
             surrogates={Keys.ONLY_SURROGATE: self.surrogates},
@@ -115,14 +116,15 @@ class TestSebo(TestCase):
         )
         # Check that determinstic metric is added to surrogate
         surrogate = acquisition1.surrogates["sebo"]
-        self.assertIsInstance(surrogate._model, ModelList)
-        self.assertIsInstance(surrogate._model.models[0], SingleTaskGP)
-        self.assertIsInstance(surrogate._model.models[1], GenericDeterministicModel)
+        model_list = not_none(surrogate._model)
+        self.assertIsInstance(model_list, ModelList)
+        self.assertIsInstance(model_list.models[0], SingleTaskGP)
+        self.assertIsInstance(model_list.models[1], GenericDeterministicModel)
         self.assertEqual(acquisition1.det_metric_indx, -1)
 
         # Check right penalty term is instantiated
         self.assertEqual(acquisition1.penalty_name, "L0_norm")
-        self.assertIsInstance(surrogate._model.models[1]._f, L0Approximation)
+        self.assertIsInstance(model_list.models[1]._f, L0Approximation)
 
         # Check transformed objective threshold
         self.assertTrue(
@@ -132,7 +134,8 @@ class TestSebo(TestCase):
         )
         self.assertTrue(
             torch.equal(
-                acquisition1.objective_thresholds, self.objective_thresholds_sebo
+                not_none(acquisition1.objective_thresholds),
+                self.objective_thresholds_sebo,
             )
         )
         self.assertEqual(acquisition1.sparsity_threshold, self.X.shape[-1])
@@ -142,12 +145,10 @@ class TestSebo(TestCase):
             options={"penalty": "L1_norm", "target_point": self.target_point},
         )
         self.assertEqual(acquisition2.penalty_name, "L1_norm")
-        self.assertIsInstance(
-            acquisition2.surrogates["sebo"]._model.models[1]._f, functools.partial
-        )
-        self.assertIs(
-            acquisition2.surrogates["sebo"]._model.models[1]._f.func, L1_norm_func
-        )
+        surrogate = acquisition2.surrogates["sebo"]
+        model_list = not_none(surrogate._model)
+        self.assertIsInstance(model_list.models[1]._f, functools.partial)
+        self.assertIs(model_list.models[1]._f.func, L1_norm_func)
 
         # assert error raise when constructing non L0/L1 penalty terms
         with self.assertRaisesRegex(
@@ -180,10 +181,8 @@ class TestSebo(TestCase):
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
     def test_optimize_l1(self, mock_optimize_acqf: Mock) -> None:
         mock_optimize_acqf.return_value = (
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
-            torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], **{"dtype": torch.double}),
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
-            torch.tensor([1.0, 2.0], **{"dtype": torch.double}),
+            torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.double),
+            torch.tensor([1.0, 2.0], dtype=torch.double),
         )
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
@@ -215,7 +214,7 @@ class TestSebo(TestCase):
         mock_homotopy: Mock,
         mock_get_batch_initial_conditions: Mock,
     ) -> None:
-        tkwargs = {"dtype": torch.double}
+        tkwargs: Dict[str, Any] = {"dtype": torch.double}
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
             options={"penalty": "L0_norm", "target_point": self.target_point},
@@ -225,7 +224,7 @@ class TestSebo(TestCase):
         acqf = PosteriorMean(model=model)
         acquisition.acqf = acqf
 
-        p = Parameter(-2 * torch.ones(1, **tkwargs))  # pyre-ignore
+        p = Parameter(-2 * torch.ones(1, **tkwargs))
         hp = HomotopyParameter(
             parameter=p,
             schedule=LinearHomotopySchedule(start=4, end=0, num_steps=5),
@@ -245,16 +244,14 @@ class TestSebo(TestCase):
                 "raw_samples": 16,
             },
         )
-        self.assertEqual(candidate, torch.zeros(1, **tkwargs))  # pyre-ignore
-        self.assertEqual(acqf_val, 5 * torch.ones(1, **tkwargs))  # pyre-ignore
+        self.assertEqual(candidate, torch.zeros(1, **tkwargs))
+        self.assertEqual(acqf_val, 5 * torch.ones(1, **tkwargs))
 
     @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")
     def test_optimize_l0(self, mock_optimize_acqf_homotopy: Mock) -> None:
         mock_optimize_acqf_homotopy.return_value = (
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
-            torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], **{"dtype": torch.double}),
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `dtype`.
-            torch.tensor([1.0, 2.0], **{"dtype": torch.double}),
+            torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.double),
+            torch.tensor([1.0, 2.0], dtype=torch.double),
         )
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
