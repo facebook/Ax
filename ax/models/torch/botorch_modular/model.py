@@ -158,7 +158,7 @@ class BoTorchModel(TorchModel, Base):
     ) -> None:
         # Ensure only surrogate_specs or surrogate is provided
         if surrogate_specs and surrogate:
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 "Only one of `surrogate_specs` and `surrogate` arguments is expected."
             )
 
@@ -170,7 +170,7 @@ class BoTorchModel(TorchModel, Base):
             if sum(
                 len(outcomes) for outcomes in outcomes_by_surrogate_label.values()
             ) != len(set(*outcomes_by_surrogate_label.values())):
-                raise UserInputError(  # pragma: no cover
+                raise UserInputError(
                     "Each outcome may be modeled by only one Surrogate, found "
                     f"{outcomes_by_surrogate_label}"
                 )
@@ -183,7 +183,7 @@ class BoTorchModel(TorchModel, Base):
             )
             < 2
         ):
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 f"SurrogateSpecs may not be labeled {Keys.ONLY_SURROGATE} or "
                 f"{Keys.AUTOSET_SURROGATE}, these are reserved."
             )
@@ -610,7 +610,7 @@ class BoTorchModel(TorchModel, Base):
 
         dtypes_list = list(dtypes.values())
         if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 f"Expected all Surrogates to have same dtype, found {dtypes}"
             )
 
@@ -628,7 +628,7 @@ class BoTorchModel(TorchModel, Base):
 
         devices_list = list(devices.values())
         if devices_list.count(devices_list[0]) != len(devices_list):
-            raise NotImplementedError(  # pragma: no cover
+            raise NotImplementedError(
                 f"Expected all Surrogates to have same device, found {devices}"
             )
 
@@ -647,7 +647,7 @@ class BoTorchModel(TorchModel, Base):
             A BoTorch ``AcquisitionFunction`` instance.
         """
         if not self._botorch_acqf_class:
-            if torch_opt_config.risk_measure is not None:  # pragma: no cover
+            if torch_opt_config.risk_measure is not None:
                 # TODO[T131759261]: Implement selection of acqf for robust opt.
                 # This will depend on the properties of the robust search space and
                 # the risk measure being used.

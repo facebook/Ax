@@ -26,12 +26,12 @@ class BaseNullableEnum(types.TypeDecorator):
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if value is None:
-            return value  # pragma: no cover
+            return value
         if not isinstance(value, enum.Enum):
-            raise TypeError("Value is not an instance of Enum.")  # pragma: no cover
+            raise TypeError("Value is not an instance of Enum.")
         val = self._member_map.get(value.name)
         if val is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Member '{value}' is not a supported enum: {members}".format(
                     value=value, members=list(self._member_map.keys())
                 )
@@ -42,10 +42,10 @@ class BaseNullableEnum(types.TypeDecorator):
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is None:
-            return value  # pragma: no cover
+            return value
         member = self._value2member_map.get(value)
         if member is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Value '{value}' is not one of the supported "
                 + "enum values: {supported_values}".format(
                     supported_values=list(self._value2member_map.keys())

@@ -22,7 +22,7 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 logger: Logger = get_logger(__name__)

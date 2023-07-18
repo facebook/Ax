@@ -117,7 +117,7 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
                 )
             else:
                 # Constructor will use default value
-                continue  # pragma: no cover
+                continue
         init_args[arg] = value
     return init_args
 

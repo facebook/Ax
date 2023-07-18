@@ -212,9 +212,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # strategy, as `GenerationStep.max_parallelism`.
         self.generation_strategy = generation_strategy
 
-        if not isinstance(experiment, Experiment):  # pragma: no cover
+        if not isinstance(experiment, Experiment):
             raise TypeError("{experiment} is not an Ax experiment.")
-        if not isinstance(generation_strategy, GenerationStrategy):  # pragma: no cover
+        if not isinstance(generation_strategy, GenerationStrategy):
             raise TypeError("{generation_strategy} is not a generation strategy.")
         self._validate_options(options=options)
 
@@ -258,7 +258,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @classmethod
     def get_default_db_settings(cls) -> DBSettings:
-        raise NotImplementedError(  # pragma: no cover
+        raise NotImplementedError(
             "Base `Scheduler` does not specify default `DBSettings`. "
             "DBSettings are required to leverage SQL storage functionality "
             "and can be specified as argument to `Scheduler` constructor or "
@@ -297,10 +297,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         if db_settings:
             kwargs = {**kwargs, "db_settings": db_settings}
-        if not exp:  # pragma: no cover
+        if not exp:
             raise ValueError(f"Experiment {experiment_name} not found.")
 
-        if not gs and not generation_strategy:  # pragma: no cover
+        if not gs and not generation_strategy:
             raise ValueError(
                 f"Experiment {experiment_name} did not have a generation "
                 "strategy associated with in in database, so a new "
@@ -312,7 +312,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # NOTE: In the future we may want to allow overriding of GS,
             # in which case we can add a flag to this function and allow
             # the override with warning.
-            raise UnsupportedError(  # pragma: no cover
+            raise UnsupportedError(
                 "Experiment was associated with generation strategy "
                 f"{gs.name} in DB, but a new generation strategy "
                 f"{generation_strategy.name} was provided. To use "
@@ -377,7 +377,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
-        if not hasattr(self, "experiment"):  # pragma: no cover
+        if not hasattr(self, "experiment"):
             # Experiment, generation strategy, etc. attributes have not
             # yet been set.
             return f"{self.__class__.__name__}"
@@ -521,7 +521,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Get some summary of result: which trial did best, what
         were the metric values, what were encountered failures, etc.
         """
-        return OptimizationResult()  # pragma: no cover, TODO[T61776778]
+        return OptimizationResult()
 
     # ---------- Methods below should generally not be modified in subclasses. ---------
 
@@ -633,7 +633,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.options.init_seconds_between_polls is None
             and self.options.early_stopping_strategy is None
         ):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Default `wait_for_completed_trials_and_report_results` in base "
                 "`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "
                 "option or for an EarlyStoppingStrategy to be specified."
@@ -817,7 +817,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
 
         if timeout_hours is not None:
-            if timeout_hours < 0:  # pragma: no cover
+            if timeout_hours < 0:
                 raise UserInputError(
                     f"Expected `timeout_hours` >= 0, got {timeout_hours}."
                 )
@@ -992,7 +992,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if self.options.total_trials is None:
             # NOTE: Capping on number of trials will likely be needed as fallback
             # for most stopping criteria, so we ensure `num_trials` is specified.
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Please either specify `num_trials` in `SchedulerOptions` input "
                 "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
@@ -1049,7 +1049,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 return False
 
             if len(self.pending_trials) < 1:
-                raise SchedulerInternalError(  # pragma: no cover
+                raise SchedulerInternalError(
                     "No trials are running but model requires more data. This is an "
                     "invalid state of the scheduler, as no more trials can be produced "
                     "but also no more data is expected as there are no running trials."

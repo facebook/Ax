@@ -197,7 +197,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
         if not verbose_logging:
-            logger.setLevel(logging.WARNING)  # pragma: no cover
+            logger.setLevel(logging.WARNING)
         else:
             logger.info(
                 "Starting optimization with verbose logging. To disable logging, "
@@ -701,7 +701,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             sample_size: Number of samples collected for the underlying arm,
                 optional.
         """
-        if not isinstance(trial_index, int):  # pragma: no cover
+        if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         if not self.experiment.default_data_type == DataType.MAP_DATA:
             raise ValueError(
@@ -758,7 +758,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # Validate that trial can be completed.
         trial = self.get_trial(trial_index)
         trial._validate_can_attach_data()
-        if not isinstance(trial_index, int):  # pragma: no cover
+        if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index,
@@ -793,7 +793,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             sample_size: Number of samples collected for the underlying arm,
                 optional.
         """
-        if not isinstance(trial_index, int):  # pragma: no cover
+        if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self.get_trial(trial_index)
         if not trial.status.is_completed:
@@ -1097,7 +1097,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             experiment, f"Experiment by name '{experiment_name}' not found."
         )
         logger.info(f"Loaded {experiment}.")
-        if generation_strategy is None:  # pragma: no cover
+        if generation_strategy is None:
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
@@ -1173,7 +1173,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         # Ensure there are metrics specified
         if metric_names is None and self.experiment.metrics is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "No metrics to retrieve specified on the experiment or as "
                 "argument to `get_model_predictions`."
             )
@@ -1303,7 +1303,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Save a JSON-serialized snapshot of this `AxClient`'s settings and state
         to a .json file by the given path.
         """
-        with open(filepath, "w+") as file:  # pragma: no cover
+        with open(filepath, "w+") as file:
             file.write(json.dumps(self.to_json_snapshot()))
             logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
 
@@ -1317,7 +1317,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
         """
-        with open(filepath, "r") as file:  # pragma: no cover
+        with open(filepath, "r") as file:
             serialized = json.loads(file.read())
             return cls.from_json_snapshot(serialized=serialized, **kwargs)
 
@@ -1601,7 +1601,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         name = experiment._name
 
         if self.db_settings_set and not name:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Must give the experiment a name if `db_settings` is not None."
             )
         if self.db_settings_set:

@@ -27,7 +27,7 @@ from ax.utils.common.typeutils import not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import core  # noqa F401  # pragma: no cover
+    from ax import core  # noqa F401
 
 
 class TrialStatus(int, Enum):
@@ -547,7 +547,7 @@ class BaseTrial(ABC, SortableBase):
             and generation_step_index is not None
             and self._generation_step_index != generation_step_index
         ):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Cannot add generator runs from different generation steps to a "
                 "single trial."
             )
@@ -555,25 +555,25 @@ class BaseTrial(ABC, SortableBase):
 
     @abstractproperty
     def arms(self) -> List[Arm]:
-        pass  # pragma: no cover
+        pass
 
     @abstractproperty
     def arms_by_name(self) -> Dict[str, Arm]:
-        pass  # pragma: no cover
+        pass
 
     @abstractmethod
     def __repr__(self) -> str:
-        pass  # pragma: no cover
+        pass
 
     @abstractproperty
     def abandoned_arms(self) -> List[Arm]:
         """All abandoned arms, associated with this trial."""
-        pass  # pragma: no cover
+        pass
 
     @abstractproperty
     def generator_runs(self) -> List[GeneratorRun]:
         """All generator runs associated with this trial."""
-        pass  # pragma: no cover
+        pass
 
     @abstractmethod
     def _get_candidate_metadata_from_all_generator_runs(

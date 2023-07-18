@@ -16,7 +16,7 @@ from ax.utils.common.typeutils import not_none
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 class ConvertMetricNames(Transform):

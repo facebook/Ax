@@ -23,7 +23,7 @@ from scipy.stats import norm
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
+    from ax.modelbridge import base as base_modelbridge  # noqa F401
 
 
 logger: Logger = get_logger(__name__)
@@ -144,14 +144,12 @@ class LogY(Transform):
         outcome_constraints: List[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
     ) -> List[OutcomeConstraint]:
-        for c in outcome_constraints:  # pragma: no cover
-            if c.metric.name in self.metric_names:  # pragma: no cover
-                if c.relative:  # pragma: no cover
-                    raise ValueError(  # pragma: no cover
-                        "Unexpected relative transform."
-                    )
-                c.bound = np.exp(c.bound)  # pragma: no cover
-        return outcome_constraints  # pragma: no cover
+        for c in outcome_constraints:
+            if c.metric.name in self.metric_names:
+                if c.relative:
+                    raise ValueError("Unexpected relative transform.")
+                c.bound = np.exp(c.bound)
+        return outcome_constraints
 
 
 def match_ci_width(

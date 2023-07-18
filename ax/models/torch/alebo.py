@@ -165,7 +165,7 @@ class ALEBOGP(FixedNoiseGP):
         # Else, approximately integrate over batches with moment matching.
         # Take X as (b) x q x d, and expand to (b) x ns x q x d
         if x.ndim > 3:
-            raise ValueError("Don't know how to predict this shape")  # pragma: no cover
+            raise ValueError("Don't know how to predict this shape")
         x = x.unsqueeze(-3).expand(
             x.shape[:-2]
             + torch.Size([self._aug_batch_shape[0]])  # pyre-ignore
@@ -427,9 +427,7 @@ def extract_map_statedict(
         if is_modellist:
             g = re.match(r"^models\.([0-9]+)\.(.*)$", k)
             if g is None:
-                raise Exception(
-                    "Unable to parse ModelList structure"
-                )  # pragma: no cover
+                raise Exception("Unable to parse ModelList structure")
             model_idx = int(g.group(1))
             param_name = g.group(2)
         else:
@@ -701,9 +699,7 @@ class ALEBO(BotorchModel):
         **kwargs: Any,
     ) -> None:
         if self.model is None:
-            raise RuntimeError(
-                "Cannot update model that has not been fit"
-            )  # pragma: no cover
+            raise RuntimeError("Cannot update model that has not been fit")
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         self.Xs = [(self.B @ X.t()).t() for X in Xs]  # Project down.
         self.Ys = Ys
@@ -726,9 +722,7 @@ class ALEBO(BotorchModel):
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if self.model is None:
-            raise RuntimeError(
-                "Cannot cross-validate model that has not been fit"
-            )  # pragma: no cover
+            raise RuntimeError("Cannot cross-validate model that has not been fit")
         if self.refit_on_cv:
             state_dicts = None
         else:

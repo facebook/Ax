@@ -155,7 +155,7 @@ class REMBO(BotorchModel):
         # embedding, so can project down with pseudoinverse.
         if X.shape[1] == self.A.shape[1]:
             # X is in low-d space
-            X_d = X  # pragma: no cover
+            X_d = X
         else:
             # Project down to low-d space
             X_d = X @ torch.t(self._pinvA)

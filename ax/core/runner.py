@@ -13,7 +13,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
 
@@ -43,7 +43,7 @@ class Runner(Base, SerializationMixin, ABC):
         Returns:
             Dict of run metadata from the deployment process.
         """
-        pass  # pragma: no cover
+        pass
 
     def run_multiple(
         self, trials: Iterable[core.base_trial.BaseTrial]

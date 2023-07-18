@@ -21,7 +21,7 @@ from scipy import stats
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 logger: Logger = get_logger(__name__)
@@ -77,7 +77,7 @@ class PercentileY(Transform):
             }
         for obsd in observation_data:
             for idx, metric_name in enumerate(obsd.metric_names):
-                if metric_name not in self.percentiles:  # pragma: no cover
+                if metric_name not in self.percentiles:
                     raise ValueError(
                         f"Cannot map value to percentile"
                         f" for unknown metric {metric_name}"

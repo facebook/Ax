@@ -23,7 +23,7 @@ from scipy.stats import norm
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
@@ -40,9 +40,9 @@ class ClosestLookupDict(dict):
     def __setitem__(self, key: Number, val: Any) -> None:
         if not isinstance(key, Number):
             raise ValueError("ClosestLookupDict only allows numerical keys.")
-        super().__setitem__(key, val)  # pragma: no cover
-        ipos = np.searchsorted(self._keys, key)  # pragma: no cover
-        self._keys.insert(ipos, key)  # pragma: no cover
+        super().__setitem__(key, val)
+        ipos = np.searchsorted(self._keys, key)
+        self._keys.insert(ipos, key)
 
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def __getitem__(self, key: Number) -> Any:
@@ -60,7 +60,7 @@ class ClosestLookupDict(dict):
             if np.abs(key - lkey) <= np.abs(key - rkey):  # pyre-ignore [58]
                 return super().__getitem__(lkey)
             else:
-                return super().__getitem__(rkey)  # pragma: no cover
+                return super().__getitem__(rkey)
 
 
 def get_data(

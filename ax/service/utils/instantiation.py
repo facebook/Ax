@@ -342,9 +342,7 @@ class InstantiationBase:
                 parameter_type=parameter_type,
             )
         else:
-            raise ValueError(  # pragma: no cover (this is unreachable)
-                f"Unrecognized parameter type {parameter_class}."
-            )
+            raise ValueError(f"Unrecognized parameter type {parameter_class}.")
 
     @staticmethod
     def constraint_from_str(

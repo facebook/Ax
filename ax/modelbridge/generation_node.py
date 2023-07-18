@@ -104,7 +104,7 @@ class GenerationNode:
     @property
     def fitted_model(self) -> ModelBridge:
         """fitted_model from self.model_spec_to_gen_from for convenience"""
-        return self.model_spec_to_gen_from.fitted_model  # pragma: no cover
+        return self.model_spec_to_gen_from.fitted_model
 
     @property
     def fixed_features(self) -> Optional[ObservationFeatures]:
@@ -151,7 +151,7 @@ class GenerationNode:
 
     def update(self, experiment: Experiment, new_data: Data) -> None:
         """Updates the specified models on the given experiment + new data."""
-        raise NotImplementedError("`update` is not supported yet.")  # pragma: no cover
+        raise NotImplementedError("`update` is not supported yet.")
 
     def gen(
         self,
@@ -357,7 +357,7 @@ class GenerationStep(GenerationNode, SortableBase):
             )
         if not isinstance(self.model, ModelRegistryBase):
             if not callable(self.model):
-                raise UserInputError(  # pragma: no cover
+                raise UserInputError(
                     "`model` in generation step must be either a `ModelRegistryBase` "
                     "enum subclass entry or a callable factory function returning a "
                     "model bridge instance."

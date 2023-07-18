@@ -18,7 +18,7 @@ from scipy.stats import norm
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax.modelbridge import base as base_modelbridge  # noqa F401  # pragma: no cover
+    from ax.modelbridge import base as base_modelbridge  # noqa F401
 
 
 logger: Logger = get_logger(__name__)

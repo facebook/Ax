@@ -164,7 +164,7 @@ class SobolGenerator(RandomModel):
                 particular value.
         """
         if self.engine is None:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Sobol Engine must be initialized before candidate generation."
             )
         return not_none(self.engine).draw(n, dtype=torch.double).numpy()

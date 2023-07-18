@@ -1143,7 +1143,7 @@ class Experiment(Base):
                 raise ValueError("BatchTrial already attached to experiment.")
 
         if index is not None and index in self._trials:
-            logger.debug(  # pragma: no cover
+            logger.debug(
                 f"Trial index {index} already exists on the experiment. Overwriting."
             )
         index = (
@@ -1184,7 +1184,7 @@ class Experiment(Base):
             List of trials successfully copied from old_experiment to this one
         """
         if len(self.trials) > 0:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Can only warm-start experiments that don't yet have trials. "
                 f"Experiment {self._name} has {len(self.trials)} trials."
             )
@@ -1195,7 +1195,7 @@ class Experiment(Base):
         old_parameter_names = set(old_experiment.search_space.parameters.keys())
         parameter_names = set(self.search_space.parameters.keys())
         if old_parameter_names.symmetric_difference(parameter_names):
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 f"Cannot warm-start experiment '{self._name}' from experiment "
                 f"'{old_experiment._name}' due to mismatch in search space parameters."
                 f"Parameters in '{self._name}' but not in '{old_experiment._name}': "
@@ -1217,7 +1217,7 @@ class Experiment(Base):
         copied_trials = []
         for trial in warm_start_trials:
             if not isinstance(trial, Trial):
-                raise NotImplementedError(  # pragma: no cover
+                raise NotImplementedError(
                     "Only experiments with 1-arm trials currently supported."
                 )
             self.search_space.check_membership(

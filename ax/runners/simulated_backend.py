@@ -35,7 +35,7 @@ class SimulatedBackendRunner(Runner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:  # pragma: no cover
+    ) -> Dict[TrialStatus, Set[int]]:
         """Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``
         currently marks trials as running when they are created, but some of these
         trials may actually be in queued on the ``BackendSimulator``.
@@ -51,7 +51,7 @@ class SimulatedBackendRunner(Runner):
             trial_status[status].add(t_index)
         return dict(trial_status)
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:  # pragma: no cover
+    def run(self, trial: BaseTrial) -> Dict[str, Any]:
         """Start a trial on the BackendSimulator.
 
         Args:
@@ -90,4 +90,4 @@ def sample_runtime_unif(trial: BaseTrial, low: float = 1.0, high: float = 5.0) -
     Returns:
         A float representing the simulated trial runtime.
     """
-    return np.random.uniform(low, high)  # pragma: no cover
+    return np.random.uniform(low, high)

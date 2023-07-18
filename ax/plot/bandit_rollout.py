@@ -24,9 +24,7 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     index = 0
     for trial in sorted(experiment.trials.values(), key=lambda trial: trial.index):
         if not isinstance(trial, BatchTrial):
-            raise ValueError(
-                "Bandit rollout graph is not supported for BaseTrial."
-            )  # pragma: no cover
+            raise ValueError("Bandit rollout graph is not supported for BaseTrial.")
 
         category = f"Round {trial.index}"
         categories.append(category)

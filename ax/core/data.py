@@ -320,7 +320,7 @@ class BaseData(Base, SerializationMixin):
     def _get_records(
         evaluations: Dict[str, TTrialEvaluation], trial_index: int
     ) -> List[Dict[str, Any]]:
-        pass  # pragma: no cover
+        pass
 
     @classmethod
     def from_fidelity_evaluations(
@@ -365,7 +365,7 @@ class BaseData(Base, SerializationMixin):
     def _get_fidelity_records(
         evaluations: Dict[str, TFidelityTrialEvaluation], trial_index: int
     ) -> List[Dict[str, Any]]:
-        pass  # pragma: no cover
+        pass
 
     @staticmethod
     def _add_cols_to_records(

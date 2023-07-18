@@ -34,7 +34,7 @@ from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 logger: Logger = get_logger(__name__)
 
@@ -158,7 +158,7 @@ class Winsorize(Transform):
         """Winsorize observation data in place."""
         for obsd in observation_data:
             for idx, metric_name in enumerate(obsd.metric_names):
-                if metric_name not in self.cutoffs:  # pragma: no cover
+                if metric_name not in self.cutoffs:
                     raise ValueError(f"Cannot winsorize unknown metric {metric_name}")
                 # Clip on the winsorization bounds.
                 obsd.means[idx] = max(obsd.means[idx], self.cutoffs[metric_name][0])
@@ -188,7 +188,7 @@ def _get_cutoffs(
     if isinstance(winsorization_config, dict) and metric_name in winsorization_config:
         metric_config = winsorization_config[metric_name]
         if not isinstance(metric_config, WinsorizationConfig):
-            raise UserInputError(  # pragma: no cover
+            raise UserInputError(
                 "Expected winsorization config of type "
                 f"`WinsorizationConfig` but got {metric_config} of type "
                 f"{type(metric_config)} for metric {metric_name}."
@@ -391,9 +391,7 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
         elif oc.op == ComparisonOp.GEQ:
             lower_cutoff = min(q1, bnd) - 1.5 * (q3 - min(q1, bnd))
         else:
-            raise ValueError(  # pragma: no cover
-                "Exected outcome_constraint to use operator LEQ or GEQ"
-            )
+            raise ValueError("Exected outcome_constraint to use operator LEQ or GEQ")
     return lower_cutoff, upper_cutoff
 
 
@@ -413,7 +411,7 @@ def _quantiles_to_cutoffs(
         and upper != AUTO_WINS_QUANTILE
         and lower >= 1 - upper
     ):
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             f"Lower bound: {lower} was greater than the inverse of the "
             f"upper bound: {1 - upper} for metric {metric_name}. Decrease "
             f"one or both of `lower_quantile_margin` and "
@@ -468,8 +466,8 @@ def _get_cutoffs_from_legacy_transform_config(
         if isinstance(percentile_bounds, dict):
             if metric_name in percentile_bounds:
                 output_percentile_bounds = percentile_bounds[metric_name]
-        elif isinstance(percentile_bounds, tuple):  # pragma: no cover
-            output_percentile_bounds = percentile_bounds  # pragma: no cover
+        elif isinstance(percentile_bounds, tuple):
+            output_percentile_bounds = percentile_bounds
         if len(output_percentile_bounds) != 2 or not all(
             isinstance(pb, (int, float)) or pb is None
             for pb in output_percentile_bounds

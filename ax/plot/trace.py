@@ -358,7 +358,7 @@ def model_transitions_scatter(
         go.Scatter: plotly graph objects for the lines representing generator
             changes
     """
-    if len(y_range) != 2:  # pragma: no cover
+    if len(y_range) != 2:
         raise ValueError("y_range should have two values, lower and upper.")
     data: List[go.Scatter] = []
     for change in model_transitions:
@@ -463,7 +463,7 @@ def optimization_trace_single_method_plotly(
             )
         )
 
-    if model_transitions is not None:  # pragma: no cover
+    if model_transitions is not None:
         if plot_trial_points:
             y_lower = np.percentile(y, 25, axis=0).min()
             y_upper = np.percentile(y, 75, axis=0).max()

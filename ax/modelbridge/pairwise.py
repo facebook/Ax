@@ -33,9 +33,7 @@ class PairwiseModelBridge(TorchModelBridge):
         candidate metadata.
         """
         if len(observation_features) != len(observation_data):
-            raise ValueError(  # pragma: no cover
-                "Observation features and data must have the same length!"
-            )
+            raise ValueError("Observation features and data must have the same length!")
         ordered_idx = np.argsort([od.trial_index for od in observation_features])
         observation_features = [observation_features[i] for i in ordered_idx]
         observation_data = [observation_data[i] for i in ordered_idx]
@@ -95,7 +93,7 @@ def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:
 def _consolidate_comparisons(X: Tensor, Y: Tensor) -> Tuple[Tensor, Tensor]:
     """Drop duplicated Xs and update the indices in Ys accordingly"""
     if Y.shape[-1] != 2:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             "The last dimension of Y must contain 2 elements "
             "representing the pairwise comparison."
         )
@@ -111,7 +109,7 @@ def _validate_Y_values(Y: Tensor) -> None:
     """Check if Ys have valid values"""
     # Y must have even number of elements
     if Y.shape[-1] != 2:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             f"Trailing dimension of `Y` should be size 2 but is {Y.shape[-1]}"
         )
 

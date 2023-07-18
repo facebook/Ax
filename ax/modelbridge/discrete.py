@@ -126,12 +126,12 @@ class DiscreteModelBridge(ModelBridge):
         The outcome constraints should be transformed to no longer be relative.
         """
         # Validation
-        if not self.parameters:  # pragma: no cover
+        if not self.parameters:
             raise ValueError(FIT_MODEL_ERROR.format(action="_gen"))
         # Extract parameter values
         parameter_values = _get_parameter_values(search_space, self.parameters)
         # Extract objective and outcome constraints
-        if len(self.outcomes) == 0 or optimization_config is None:  # pragma: no cover
+        if len(self.outcomes) == 0 or optimization_config is None:
             objective_weights = None
             outcome_constraints = None
         else:

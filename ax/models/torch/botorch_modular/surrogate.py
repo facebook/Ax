@@ -461,7 +461,7 @@ class Surrogate(Base):
                     f"The BoTorch model class {self.botorch_model_class} does not "
                     f"support the input {input_name}."
                 )
-            if input_class is not None and input_object is not None:  # pragma: no cover
+            if input_class is not None and input_object is not None:
                 raise RuntimeError(f"Got both a class and an object for {input_name}.")
             if input_class is not None:
                 input_options = input_options or {}
@@ -735,13 +735,11 @@ class Surrogate(Base):
             - tensor of points in the feature space,
             - tensor of corresponding (multiple) outcomes.
         """
-        raise NotImplementedError(
-            "Pareto frontier not yet implemented."
-        )  # pragma: no cover
+        raise NotImplementedError("Pareto frontier not yet implemented.")
 
     def compute_diagnostics(self) -> Dict[str, Any]:
         """Computes model diagnostics like cross-validation measure of fit, etc."""
-        return {}  # pragma: no cover
+        return {}
 
     def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
         """Serialize attributes of this surrogate, to be passed back to it

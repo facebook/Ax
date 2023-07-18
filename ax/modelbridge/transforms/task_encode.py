@@ -16,7 +16,7 @@ from ax.models.types import TConfig
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
-    from ax import modelbridge as modelbridge_module  # noqa F401  # pragma: no cover
+    from ax import modelbridge as modelbridge_module  # noqa F401
 
 
 class TaskEncode(OrderedChoiceEncode):
@@ -65,7 +65,7 @@ class TaskEncode(OrderedChoiceEncode):
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
-                    raise ValueError(  # pragma: no cover
+                    raise ValueError(
                         f"Cannot choice-encode fidelity parameter {p_name}."
                     )
                 # Choice(|K|) => Choice(0, K-1, is_task=True)

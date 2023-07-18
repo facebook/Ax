@@ -444,7 +444,7 @@ def choose_generation_strategy(
         bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
 
     if not no_bayesian_optimization and suggested_model is not None:
-        if not enforce_sequential_optimization and (  # pragma: no cover
+        if not enforce_sequential_optimization and (
             max_parallelism_override or max_parallelism_cap
         ):
             logger.info(

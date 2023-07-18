@@ -32,13 +32,13 @@ class MultiFidelityAcquisition(Acquisition):
         torch_opt_config: TorchOptConfig,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if torch_opt_config.risk_measure is not None:  # pragma: no cover
+        if torch_opt_config.risk_measure is not None:
             raise UnsupportedError(
                 f"{self.__class__.__name__} does not support risk measures."
             )
         target_fidelities = search_space_digest.target_fidelities
         if not target_fidelities:
-            raise ValueError(  # pragma: no cover
+            raise ValueError(
                 "Target fidelities are required for {self.__class__.__name__}."
             )
 

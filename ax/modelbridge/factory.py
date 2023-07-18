@@ -247,7 +247,7 @@ def get_botorch(
     optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a BotorchModel."""
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("`BotorchModel` requires non-empty data.")
     return checked_cast(
         TorchModelBridge,
@@ -278,7 +278,7 @@ def get_GPEI(
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> TorchModelBridge:
     """Instantiates a GP model that generates points with EI."""
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("GP+EI BotorchModel requires non-empty data.")
     return checked_cast(
         TorchModelBridge,
@@ -306,7 +306,7 @@ def get_GPKG(
     """Instantiates a GP model that generates points with KG."""
     if search_space is None:
         search_space = experiment.search_space
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("GP+KG BotorchModel requires non-empty data.")
 
     inputs = {
@@ -415,7 +415,7 @@ def get_empirical_bayes_thompson(
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates an empirical Bayes / Thompson sampling model."""
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("Empirical Bayes Thompson sampler requires non-empty data.")
     return checked_cast(
         DiscreteModelBridge,
@@ -440,7 +440,7 @@ def get_thompson(
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates a Thompson sampling model."""
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("Thompson sampler requires non-empty data.")
     return checked_cast(
         DiscreteModelBridge,
@@ -470,7 +470,7 @@ def get_GPMES(
     """Instantiates a GP model that generates points with MES."""
     if search_space is None:
         search_space = experiment.search_space
-    if data.df.empty:  # pragma: no cover
+    if data.df.empty:
         raise ValueError("GP + MES BotorchModel requires non-empty data.")
 
     inputs = {

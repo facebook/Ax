@@ -18,7 +18,7 @@ class ModelFitMetricProtocol(Protocol):
 
     @staticmethod
     def __call__(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
-        pass  # pragma: no cover  # pyre-ignore[7]
+        ...
 
 
 def compute_model_fit_metrics(

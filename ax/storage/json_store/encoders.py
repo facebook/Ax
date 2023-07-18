@@ -428,7 +428,7 @@ def generation_strategy_to_dict(
 ) -> Dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
     if generation_strategy.uses_non_registered_models:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             "Generation strategies that use custom models provided through "
             "callables cannot be serialized and stored."
         )
@@ -512,7 +512,7 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
         if issubclass(class_type, _class):
             registry = CLASS_TO_REGISTRY[_class]
             if class_type not in registry:
-                raise ValueError(  # pragma: no cover
+                raise ValueError(
                     f"Class `{class_type.__name__}` not in Type[{_class.__name__}] "
                     "registry, please add it. BoTorch object registries are "
                     "located in `ax/storage/botorch_modular_registry.py`."
@@ -554,7 +554,7 @@ def botorch_input_transform_to_init_args(
     else:
         try:
             return input_transform.get_init_args()  # pyre-fixme [16]
-        except AttributeError:  # pragma: no cover
+        except AttributeError:
             raise JSONEncodeError(
                 f"{input_transform.__class__.__name__} does not define `get_init_args` "
                 "method. Please implement it to enable storage."
@@ -631,7 +631,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     problem: PyTorchCNNTorchvisionBenchmarkProblem,
 ) -> Dict[str, Any]:
     # unit tests for this in benchmark suite
-    return {  # pragma: no cover
+    return {
         "__type": problem.__class__.__name__,
         "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
         "num_trials": problem.num_trials,
