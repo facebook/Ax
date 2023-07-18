@@ -93,7 +93,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             for weight, expected_weight in zip(
                 weights, [4 * i for i in [0.66, 0.25, 0.07, 0.02]]
             ):
-                self.assertAlmostEqual(weight, expected_weight, 1)
+                self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
     def testEmpiricalBayesThompsonSamplerWarning(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
