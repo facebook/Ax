@@ -250,6 +250,9 @@ class GenerationNode:
         )
         return self.model_specs[best_model_index]
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(model_specs={self.model_specs})"
+
 
 @dataclass
 class GenerationStep(GenerationNode, SortableBase):
