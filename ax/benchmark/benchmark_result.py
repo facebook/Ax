@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 from ax.core.experiment import Experiment
@@ -21,16 +21,14 @@ from scipy.stats import sem
 PERCENTILES = [0.25, 0.5, 0.75]
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class BenchmarkResult(Base):
     """The result of a single optimization loop from one
-    (BenchmarkProblem, BenchmarkMethod) pair. More information will be added to the
-    BenchmarkResult as the suite develops.
+    (BenchmarkProblem, BenchmarkMethod) pair.
     """
 
     name: str
     seed: int
-    experiment: Experiment
 
     # Tracks best point if single-objective problem, max hypervolume if MOO
     optimization_trace: ndarray
@@ -38,6 +36,22 @@ class BenchmarkResult(Base):
 
     fit_time: float
     gen_time: float
+
+    experiment: Optional[Experiment] = None
+    # Pointer to location where experiment data can be read
+    experiment_storage_id: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.experiment is not None and self.experiment_storage_id is not None:
+            raise ValueError(
+                "Cannot specify both an `experiment` and an "
+                "`experiment_storage_id` for the experiment."
+            )
+        if self.experiment is None and self.experiment_storage_id is None:
+            raise ValueError(
+                "Must provide an `experiment` or `experiment_storage_id` "
+                "to construct a BenchmarkResult."
+            )
 
 
 @dataclass(frozen=True, eq=False)
