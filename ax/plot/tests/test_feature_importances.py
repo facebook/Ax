@@ -49,7 +49,6 @@ def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
         ls = ls.mean(dim=0)
     # pyre-fixme[16]: `float` has no attribute `detach`.
     importances_tensor = torch.stack([(1 / ls).detach().cpu()])
-    # pyre-fixme[16]: `ModelBridge` has no attribute `outcomes`.
     importances_dict = dict(zip(ax_model.outcomes, importances_tensor))
     res = {}
     for metric_name in ax_model.outcomes:

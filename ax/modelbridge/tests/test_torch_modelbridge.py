@@ -6,6 +6,7 @@
 
 from contextlib import ExitStack
 from unittest import mock
+from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -32,6 +33,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
     get_branin_search_space,
+    get_experiment_with_observations,
     get_search_space_for_range_value,
 )
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
@@ -59,6 +61,7 @@ class TorchModelBridgeTest(TestCase):
             torch_dtype=dtype,
             torch_device=device,
         )
+        ma._fit_tracking_metrics = True
         dtype = dtype or torch.double
         self.assertEqual(ma.dtype, dtype)
         self.assertEqual(ma.device, device)
@@ -335,6 +338,7 @@ class TorchModelBridgeTest(TestCase):
             torch_dtype=torch.float64,
             torch_device=torch.device("cpu"),
         )
+        ma._fit_tracking_metrics = True
         # These attributes would've been set by `ModelBridge` __init__, but it's mocked.
         ma.model = mock_torch_model()
         t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
@@ -745,3 +749,29 @@ class TorchModelBridgeTest(TestCase):
         modelbridge.update(
             experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
         )
+
+    @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
+    def test_fit_tracking_metrics(self, mock_model_fit: Mock) -> None:
+        exp = get_experiment_with_observations(
+            observations=[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]],
+            with_tracking_metrics=True,
+        )
+        for fit_tracking_metrics in (True, False):
+            mock_model_fit.reset_mock()
+            modelbridge = TorchModelBridge(
+                experiment=exp,
+                search_space=exp.search_space,
+                data=exp.lookup_data(),
+                model=TorchModel(),
+                transforms=[],
+                fit_tracking_metrics=fit_tracking_metrics,
+            )
+            mock_model_fit.assert_called_once()
+            call_kwargs = mock_model_fit.call_args.kwargs
+            if fit_tracking_metrics:
+                expected_outcomes = ["m1", "m2", "m3"]
+            else:
+                expected_outcomes = ["m1", "m2"]
+            self.assertEqual(modelbridge.outcomes, expected_outcomes)
+            self.assertEqual(call_kwargs["metric_names"], expected_outcomes)
+            self.assertEqual(len(call_kwargs["datasets"]), len(expected_outcomes))

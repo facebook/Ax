@@ -569,6 +569,7 @@ def get_experiment_with_observations(
     minimize: bool = False,
     scalarized: bool = False,
     constrained: bool = False,
+    with_tracking_metrics: bool = False,
 ) -> Experiment:
     multi_objective = (len(observations[0]) - constrained) > 1
     if multi_objective:
@@ -626,6 +627,11 @@ def get_experiment_with_observations(
     exp = Experiment(
         search_space=get_search_space_for_range_values(min=0.0, max=1.0),
         optimization_config=optimization_config,
+        tracking_metrics=[
+            Metric(name=f"m{len(observations[0])}", lower_is_better=False)
+        ]
+        if with_tracking_metrics
+        else None,
         runner=SyntheticRunner(),
         is_test=True,
     )

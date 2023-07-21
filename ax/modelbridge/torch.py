@@ -107,6 +107,7 @@ class TorchModelBridge(ModelBridge):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
+        fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
         default_model_gen_options: Optional[TConfig] = None,
     ) -> None:
@@ -134,6 +135,7 @@ class TorchModelBridge(ModelBridge):
             optimization_config=optimization_config,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
+            fit_tracking_metrics=fit_tracking_metrics,
             fit_on_init=fit_on_init,
         )
 
@@ -519,7 +521,10 @@ class TorchModelBridge(ModelBridge):
             parameters = self.parameters
         all_metric_names: Set[str] = set()
         observation_features, observation_data = separate_observations(observations)
-        if update_outcomes_and_parameters:
+        # Only update outcomes if fitting a model on tracking metrics. Otherwise,
+        # we will only fit models to the outcomes that are extracted from optimization
+        # config in ModelBridge.__init__.
+        if update_outcomes_and_parameters and self._fit_tracking_metrics:
             for od in observation_data:
                 all_metric_names.update(od.metric_names)
             self.outcomes = sorted(all_metric_names)  # Deterministic order

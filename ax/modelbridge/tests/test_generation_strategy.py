@@ -305,6 +305,7 @@ class TestGenerationStrategy(TestCase):
                         "transforms": Cont_X_trans,
                         "fit_out_of_design": False,
                         "fit_abandoned": False,
+                        "fit_tracking_metrics": True,
                         "fit_on_init": True,
                     },
                 )

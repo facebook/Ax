@@ -31,7 +31,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
@@ -104,6 +104,7 @@ class ModelBridge(ABC):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
+        fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
     ) -> None:
         """
@@ -133,6 +134,11 @@ class ModelBridge(ABC):
             fit_abandoned: Whether data for abandoned arms or trials should be
                 included in model training data. If ``False``, only
                 non-abandoned points are returned.
+            fit_tracking_metrics: Whether to fit a model for tracking metrics.
+                Setting this to False will improve runtime at the expense of
+                models not being available for predicting tracking metrics.
+                NOTE: This can only be set to False when the optimization config
+                is provided.
             fit_on_init: Whether to fit the model on initialization. This can
                 be used to skip model fitting when a fitted model is not needed.
                 To fit the model afterwards, use `_process_and_transform_data`
@@ -161,6 +167,8 @@ class ModelBridge(ABC):
         self._transform_configs: Optional[Dict[str, TConfig]] = transform_configs
         self._fit_out_of_design = fit_out_of_design
         self._fit_abandoned = fit_abandoned
+        self._fit_tracking_metrics = fit_tracking_metrics
+        self.outcomes: List[str] = []
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
@@ -168,6 +176,14 @@ class ModelBridge(ABC):
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
+
+        if self._fit_tracking_metrics is False:
+            if self._optimization_config is None:
+                raise UserInputError(
+                    "Optimization config is required when "
+                    "`fit_tracking_metrics` is False."
+                )
+            self.outcomes = sorted(self._optimization_config.metrics.keys())
 
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
@@ -676,6 +692,18 @@ class ModelBridge(ABC):
                 else None
             )
         else:
+            if not self._fit_tracking_metrics:
+                # Check that the optimization config has the same metrics as
+                # the original one. Otherwise, we may attempt to optimize over
+                # metrics that do not have a fitted model.
+                outcomes = set(optimization_config.metrics.keys())
+                if not outcomes.issubset(self.outcomes):
+                    raise UnsupportedError(
+                        "When fit_tracking_metrics is False, the optimization config "
+                        "can only include metrics that were included in the "
+                        "optimization config used while initializing the ModelBridge. "
+                        f"Metrics {outcomes} is not a subset of {self.outcomes}."
+                    )
             optimization_config = optimization_config.clone()
 
         # TODO(T34225037): replace deepcopy with native clone() in Ax
