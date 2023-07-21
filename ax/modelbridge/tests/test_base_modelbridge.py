@@ -23,7 +23,7 @@ from ax.core.observation import (
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import (
     clamp_observation_features,
     gen_arms,
@@ -285,6 +285,29 @@ class BaseModelBridgeTest(TestCase):
             fit_on_init=False,
         )
         self.assertEqual(mock_fit.call_count, 0)
+
+        # Test error when fit_tracking_metrics is False and optimization
+        # config is not specified.
+        with self.assertRaisesRegex(UserInputError, "fit_tracking_metrics"):
+            ModelBridge(
+                search_space=ss,
+                model=Model(),
+                fit_tracking_metrics=False,
+            )
+
+        # Test error when fit_tracking_metrics is False and optimization
+        # config is updated to include new metrics.
+        modelbridge = ModelBridge(
+            search_space=ss,
+            model=Model(),
+            optimization_config=oc,
+            fit_tracking_metrics=False,
+        )
+        new_oc = OptimizationConfig(
+            objective=Objective(metric=Metric(name="test_metric2"))
+        )
+        with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
+            modelbridge.gen(n=1, optimization_config=new_oc)
 
     @mock.patch(
         "ax.modelbridge.base.gen_arms",
