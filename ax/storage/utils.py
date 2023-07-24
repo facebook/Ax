@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import enum
+from hashlib import md5
 
 from ax.core.experiment import DataType  # noqa F401
 
@@ -44,3 +45,16 @@ class ParameterConstraintType(enum.Enum):
     ORDER: int = 1
     SUM: int = 2
     DISTRIBUTION: int = 3
+
+
+def stable_hash(s: str) -> int:
+    """Return an integer hash of a string that is consistent across re-invocations
+    of the interpreter (unlike the built-in hash, which is salted by default).
+
+    Args:
+        s (str): String to hash.
+    Returns:
+
+        int: Hash, converted to an integer.
+    """
+    return int(md5(s.encode("utf-8")).hexdigest(), 16)
