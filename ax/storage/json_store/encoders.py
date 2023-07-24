@@ -9,6 +9,11 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Type
 
+from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
+    MultiObjectiveBenchmarkProblem,
+    SingleObjectiveBenchmarkProblem,
+)
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
@@ -118,6 +123,54 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "optimize_for_power": batch.optimize_for_power,
         "generation_step_index": batch._generation_step_index,
         "properties": batch._properties,
+    }
+
+
+def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, Any]:
+    """Convert Ax benchmark problem to a dictionary."""
+    return {
+        "__type": benchmark_problem.__class__.__name__,
+        "name": benchmark_problem.name,
+        "search_space": benchmark_problem.search_space,
+        "optimization_config": benchmark_problem.optimization_config,
+        "runner": benchmark_problem.runner,
+        "num_trials": benchmark_problem.num_trials,
+        "infer_noise": benchmark_problem.infer_noise,
+        "tracking_metrics": benchmark_problem.tracking_metrics,
+    }
+
+
+def multi_objective_benchmark_problem_to_dict(
+    moo_benchmark_problem: MultiObjectiveBenchmarkProblem,
+) -> Dict[str, Any]:
+    """Convert Ax multi-objective benchmark problem to a dictionary."""
+    return {
+        "__type": moo_benchmark_problem.__class__.__name__,
+        "name": moo_benchmark_problem.name,
+        "search_space": moo_benchmark_problem.search_space,
+        "optimization_config": moo_benchmark_problem.optimization_config,
+        "runner": moo_benchmark_problem.runner,
+        "num_trials": moo_benchmark_problem.num_trials,
+        "infer_noise": moo_benchmark_problem.infer_noise,
+        "tracking_metrics": moo_benchmark_problem.tracking_metrics,
+        "maximum_hypervolume": moo_benchmark_problem.maximum_hypervolume,
+        "reference_point": moo_benchmark_problem.reference_point,
+    }
+
+
+def single_objective_benchmark_problem_to_dict(
+    soo_benchmark_problem: SingleObjectiveBenchmarkProblem,
+) -> Dict[str, Any]:
+    return {
+        "__type": soo_benchmark_problem.__class__.__name__,
+        "name": soo_benchmark_problem.name,
+        "search_space": soo_benchmark_problem.search_space,
+        "optimization_config": soo_benchmark_problem.optimization_config,
+        "runner": soo_benchmark_problem.runner,
+        "num_trials": soo_benchmark_problem.num_trials,
+        "infer_noise": soo_benchmark_problem.infer_noise,
+        "tracking_metrics": soo_benchmark_problem.tracking_metrics,
+        "optimal_value": soo_benchmark_problem.optimal_value,
     }
 
 

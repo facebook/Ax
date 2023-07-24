@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import asdict
+import copy
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.core.parameter import ParameterType, RangeParameter
@@ -48,8 +48,7 @@ def embed_higher_dimension(
     )
     new_name = f"{orig_name_without_dimensionality}_{total_dimensionality}d"
 
-    problem_kwargs = asdict(problem)
-    problem_kwargs["name"] = new_name
-    problem_kwargs["search_space"] = search_space
-
-    return problem.__class__(**problem_kwargs)
+    new_problem = copy.copy(problem)
+    new_problem.name = new_name
+    new_problem.search_space = search_space
+    return new_problem

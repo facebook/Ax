@@ -1451,7 +1451,7 @@ def get_map_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(objective=objective)
 
 
-def get_multi_objective_optimization_config() -> OptimizationConfig:
+def get_multi_objective_optimization_config() -> MultiObjectiveOptimizationConfig:
     objective = get_multi_objective()
     outcome_constraints = [get_outcome_constraint()]
     objective_thresholds = [

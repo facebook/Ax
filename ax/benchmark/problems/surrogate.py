@@ -3,14 +3,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import pandas as pd
 import torch
-from ax.benchmark.benchmark_problem import (
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblemBase
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
@@ -23,7 +20,6 @@ from ax.core.parameter import RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
-from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.log import Log
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -35,94 +31,152 @@ from ax.utils.common.typeutils import not_none
 from botorch.utils.datasets import SupervisedDataset
 
 
-class SurrogateBenchmarkProblem(SingleObjectiveBenchmarkProblem):
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, SurrogateBenchmarkProblem):
-            return False
+class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
+    """
+    Base class for SOOSurrogateBenchmarkProblem and MOOSurrogateBenchmarkProblem.
 
-        # Checking the whole datasets' equality here would be too expensive to be
-        # worth it; just check names instead
-        return self.name == other.name
+    Allows for lazy creation of objects needed to construct a `runner`,
+    including a surrogate and datasets.
+    """
 
-    @classmethod
-    def from_surrogate(
-        cls,
+    def __init__(
+        self,
+        *,
         name: str,
         search_space: SearchSpace,
-        surrogate: Surrogate,
-        datasets: List[SupervisedDataset],
-        optimal_value: float,
         optimization_config: OptimizationConfig,
         num_trials: int,
+        infer_noise: bool,
         metric_names: List[str],
-        infer_noise: bool = True,
-    ) -> "SurrogateBenchmarkProblem":
-        return SurrogateBenchmarkProblem(
-            name=name,
-            search_space=search_space,
-            optimization_config=optimization_config,
-            runner=SurrogateRunner(
-                name=name,
-                surrogate=surrogate,
-                datasets=datasets,
-                search_space=search_space,
-                metric_names=metric_names,
-            ),
-            optimal_value=optimal_value,
-            num_trials=num_trials,
-            infer_noise=infer_noise,
+        get_surrogate_and_datasets: Optional[
+            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+        ] = None,
+        tracking_metrics: Optional[List[Metric]] = None,
+        _runner: Optional[Runner] = None,
+    ) -> None:
+        if get_surrogate_and_datasets is None and _runner is None:
+            raise ValueError(
+                "Either `get_surrogate_and_datasets` or `_runner` required."
+            )
+        self.name = name
+        self.search_space = search_space
+        self.optimization_config = optimization_config
+        self.num_trials = num_trials
+        self.infer_noise = infer_noise
+        self.metric_names = metric_names
+        self.get_surrogate_and_datasets = get_surrogate_and_datasets
+        self.tracking_metrics: List[Metric] = (
+            [] if tracking_metrics is None else tracking_metrics
         )
+        self._runner = _runner
 
-
-class MOOSurrogateBenchmarkProblem(MultiObjectiveBenchmarkProblem):
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, MOOSurrogateBenchmarkProblem):
+        if not type(other) == type(self):
             return False
 
         # Checking the whole datasets' equality here would be too expensive to be
         # worth it; just check names instead
         return self.name == other.name
 
-    @classmethod
-    def from_surrogate(
-        cls,
+    def set_runner(self) -> None:
+        surrogate, datasets = not_none(self.get_surrogate_and_datasets)()
+        self._runner = SurrogateRunner(
+            name=self.name,
+            surrogate=surrogate,
+            datasets=datasets,
+            search_space=self.search_space,
+            metric_names=self.metric_names,
+        )
+
+    @property
+    def runner(self) -> Runner:
+        if self._runner is None:
+            self.set_runner()
+        return not_none(self._runner)
+
+
+class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
+    """
+    Has the same attributes/properties as a `SingleObjectiveBenchmarkProblem`,
+    but allows for constructing from a surrogate.
+    """
+
+    def __init__(
+        self,
+        *,
         name: str,
         search_space: SearchSpace,
-        surrogate: Surrogate,
-        datasets: List[SupervisedDataset],
-        optimization_config: MultiObjectiveOptimizationConfig,
-        maximum_hypervolume: float,
-        reference_point: List[float],
+        optimization_config: OptimizationConfig,
         num_trials: int,
+        infer_noise: bool,
+        optimal_value: float,
         metric_names: List[str],
-        infer_noise: bool = True,
-    ) -> "MOOSurrogateBenchmarkProblem":
-        if not all(
-            isinstance(m, SurrogateMetric)
-            for m in optimization_config.objective.metrics
-        ):
-            raise UnsupportedError(
-                "MOOSurrogateBenchmarkProblem only supports SurrogateMetrics."
-            )
-
-        return MOOSurrogateBenchmarkProblem(
+        get_surrogate_and_datasets: Optional[
+            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+        ] = None,
+        tracking_metrics: Optional[List[Metric]] = None,
+        _runner: Optional[Runner] = None,
+    ) -> None:
+        super().__init__(
             name=name,
             search_space=search_space,
             optimization_config=optimization_config,
-            runner=SurrogateRunner(
-                name=name,
-                surrogate=surrogate,
-                datasets=datasets,
-                search_space=search_space,
-                metric_names=metric_names,
-            ),
-            maximum_hypervolume=maximum_hypervolume,
-            reference_point=reference_point,
             num_trials=num_trials,
             infer_noise=infer_noise,
+            metric_names=metric_names,
+            get_surrogate_and_datasets=get_surrogate_and_datasets,
+            tracking_metrics=tracking_metrics,
+            _runner=_runner,
         )
+        self.optimization_config = optimization_config
+        self.optimal_value = optimal_value
+
+
+class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
+    """
+    Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
+    but its runner is not constructed until needed, to allow for deferring
+    constructing the surrogate.
+
+    Simple aspects of the problem problem such as its search space
+    are defined immediately, while the surrogate is only defined when [TODO]
+    in order to avoid expensive operations like downloading files and fitting
+    a model.
+    """
+
+    optimization_config: MultiObjectiveOptimizationConfig
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        search_space: SearchSpace,
+        optimization_config: MultiObjectiveOptimizationConfig,
+        num_trials: int,
+        infer_noise: bool,
+        maximum_hypervolume: float,
+        reference_point: List[float],
+        metric_names: List[str],
+        get_surrogate_and_datasets: Optional[
+            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+        ] = None,
+        tracking_metrics: Optional[List[Metric]] = None,
+        _runner: Optional[Runner] = None,
+    ) -> None:
+        super().__init__(
+            name=name,
+            search_space=search_space,
+            optimization_config=optimization_config,
+            num_trials=num_trials,
+            infer_noise=infer_noise,
+            metric_names=metric_names,
+            get_surrogate_and_datasets=get_surrogate_and_datasets,
+            tracking_metrics=tracking_metrics,
+            _runner=_runner,
+        )
+        self.reference_point = reference_point
+        self.maximum_hypervolume = maximum_hypervolume
 
 
 class SurrogateMetric(Metric):

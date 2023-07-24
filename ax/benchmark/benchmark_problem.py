@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from dataclasses import dataclass, field
+import abc
 from typing import Any, Dict, List, Optional, Type
 
 from ax.core.metric import Metric
@@ -46,19 +46,54 @@ def _get_name(
     return f"{base_name}{fixed_noise}{dim_str}"
 
 
-@dataclass(frozen=True)
-class BenchmarkProblem(Base):
-    """Benchmark problem, represented in terms of Ax search space, optimization
-    config, and runner.
+class BenchmarkProblemBase(abc.ABC):
+    """
+    Specifies the interface any benchmark problem must adhere to.
+
+    Subclasses include BenchmarkProblem, SurrogateBenchmarkProblem, and
+    MOOSurrogateBenchmarkProblem.
     """
 
     name: str
     search_space: SearchSpace
     optimization_config: OptimizationConfig
-    runner: Runner
     num_trials: int
     infer_noise: bool
-    tracking_metrics: List[Metric] = field(default_factory=list)
+    tracking_metrics: List[Metric]
+
+    @abc.abstractproperty
+    def runner(self) -> Runner:
+        pass  # pragma: no cover
+
+
+class BenchmarkProblem(Base, BenchmarkProblemBase):
+    """Benchmark problem, represented in terms of Ax search space, optimization
+    config, and runner.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        search_space: SearchSpace,
+        optimization_config: OptimizationConfig,
+        runner: Runner,
+        num_trials: int,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
+    ) -> None:
+        self.name = name
+        self.search_space = search_space
+        self.optimization_config = optimization_config
+        self._runner = runner
+        self.num_trials = num_trials
+        self.infer_noise = infer_noise
+        self.tracking_metrics: List[Metric] = (
+            [] if tracking_metrics is None else tracking_metrics
+        )
+
+    @property
+    def runner(self) -> Runner:
+        return self._runner
 
     @classmethod
     def from_botorch(
@@ -68,9 +103,22 @@ class BenchmarkProblem(Base):
         num_trials: int,
         infer_noise: bool = True,
     ) -> "BenchmarkProblem":
-        """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
-        Metrics and Runners. The test problem's result will be computed on the Runner
-        and retrieved by the Metric.
+        """
+        Create a BenchmarkProblem from a BoTorch BaseTestProblem using
+        specialized Metrics and Runners. The test problem's result will be
+        computed on the Runner and retrieved by the Metric.
+
+        Args:
+            test_problem_class: The BoTorch test problem class which will be
+                used to define the `search_space`, `optimization_config`, and
+                `runner`.
+            test_problem_kwargs: Keyword arguments used to instantiate the
+                `test_problem_class`.
+            num_trials: Simply the `num_trials` of the `BenchmarkProblem`
+                created.
+            infer_noise: Whether noise will be inferred. This is separate from
+                whether synthetic noise is added to the problem, which is
+                controlled by the `noise_std` of the test problem.
         """
 
         # pyre-fixme [45]: Invalid class instantiation
@@ -114,17 +162,33 @@ class BenchmarkProblem(Base):
         )
 
 
-@dataclass(frozen=True, init=False)
 class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
     """The most basic BenchmarkProblem, with a single objective and a known optimal
     value.
     """
 
-    optimal_value: float = field()
-
-    def __init__(self, optimal_value: float, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        object.__setattr__(self, "optimal_value", optimal_value)
+    def __init__(
+        self,
+        optimal_value: float,
+        *,
+        name: str,
+        search_space: SearchSpace,
+        optimization_config: OptimizationConfig,
+        runner: Runner,
+        num_trials: int,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
+    ) -> None:
+        super().__init__(
+            name=name,
+            search_space=search_space,
+            optimization_config=optimization_config,
+            runner=runner,
+            num_trials=num_trials,
+            infer_noise=infer_noise,
+            tracking_metrics=tracking_metrics,
+        )
+        self.optimal_value = optimal_value
 
     @classmethod
     def from_botorch_synthetic(
@@ -163,25 +227,36 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         )
 
 
-@dataclass(frozen=True, init=False)
 class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     """A BenchmarkProblem support multiple objectives. Rather than knowing each
     objective's optimal value we track a known maximum hypervolume computed from a
     given reference point.
     """
 
-    maximum_hypervolume: float = field()
-    reference_point: List[float] = field()
-
     def __init__(
         self,
         maximum_hypervolume: float,
         reference_point: List[float],
-        **kwargs: Any,
+        *,
+        name: str,
+        search_space: SearchSpace,
+        optimization_config: OptimizationConfig,
+        runner: Runner,
+        num_trials: int,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
     ) -> None:
-        super().__init__(**kwargs)
-        object.__setattr__(self, "maximum_hypervolume", maximum_hypervolume)
-        object.__setattr__(self, "reference_point", reference_point)
+        self.maximum_hypervolume = maximum_hypervolume
+        self.reference_point = reference_point
+        super().__init__(
+            name=name,
+            search_space=search_space,
+            optimization_config=optimization_config,
+            runner=runner,
+            num_trials=num_trials,
+            infer_noise=infer_noise,
+            tracking_metrics=tracking_metrics,
+        )
 
     @classmethod
     def from_botorch_multi_objective(
