@@ -84,14 +84,13 @@ class Surrogate(Base):
         input_transform: BoTorch input transforms. Passed down to the
             BoTorch ``Model``. Multiple input transforms can be chained
             together using ``ChainedInputTransform``.
-        covar_module_class: Covariance module class, not yet used. Will be
-            used to construct custom BoTorch ``Model`` in the future.
-        covar_module_options: Covariance module kwargs, not yet used. Will be
-            used to construct custom BoTorch ``Model`` in the future.
-        likelihood: ``Likelihood`` class, not yet used. Will be used to
-            construct custom BoTorch ``Model`` in the future.
-        likelihood_options: Likelihood options, not yet used. Will be used to
-            construct custom BoTorch ``Model`` in the future.
+        covar_module_class: Covariance module class. This gets initialized after
+            parsing the ``covar_module_options`` in ``covar_module_argparse``,
+            and gets passed to the model constructor as ``covar_module``.
+        covar_module_options: Covariance module kwargs.
+        likelihood: ``Likelihood`` class. This gets initialized with
+            ``likelihood_options`` and gets passed to the model constructor.
+        likelihood_options: Likelihood options.
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
     """
