@@ -3,8 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import replace
-
 import numpy as np
 
 from ax.benchmark.benchmark import benchmark_replication
@@ -39,6 +37,6 @@ class TestMethods(TestCase):
         )
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
         # Only run one non-Sobol trial
-        problem = replace(problem, num_trials=n_sobol_trials + 1)
+        problem = get_problem(problem_name="ackley4", num_trials=n_sobol_trials + 1)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())

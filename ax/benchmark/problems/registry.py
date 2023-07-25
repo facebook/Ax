@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
@@ -219,8 +220,8 @@ BENCHMARK_PROBLEM_REGISTRY = {
 }
 
 
-def get_problem(
-    problem_name: str,
-) -> BenchmarkProblem:
+def get_problem(problem_name: str, **additional_kwargs: Any) -> BenchmarkProblem:
     entry = BENCHMARK_PROBLEM_REGISTRY[problem_name]
-    return entry.factory_fn(**entry.factory_kwargs)
+    kwargs = copy.copy(entry.factory_kwargs)
+    kwargs.update(additional_kwargs)
+    return entry.factory_fn(**kwargs)

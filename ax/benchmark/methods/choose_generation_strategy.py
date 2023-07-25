@@ -7,11 +7,13 @@ from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_sequential_optimization_scheduler_options,
 )
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblemBase
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 
 
-def get_choose_generation_strategy_method(problem: BenchmarkProblem) -> BenchmarkMethod:
+def get_choose_generation_strategy_method(
+    problem: BenchmarkProblemBase,
+) -> BenchmarkMethod:
     generation_strategy = choose_generation_strategy(
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,

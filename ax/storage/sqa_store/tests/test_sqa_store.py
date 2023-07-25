@@ -756,7 +756,6 @@ class SQAStoreTest(TestCase):
         objective_threshold2 = get_objective_threshold(
             "m3", bound=3.0, comparison_op=ComparisonOp.LEQ
         )
-        # pyre-fixme[16]: `OptimizationConfig` has no attribute `objective_thresholds`.
         optimization_config.objective_thresholds = [
             objective_threshold,
             objective_threshold2,
