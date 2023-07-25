@@ -105,8 +105,17 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnehvi() -> BenchmarkMethod:
 
 
 def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei() -> BenchmarkMethod:  # noqa
+    return get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
+        qNoisyExpectedImprovement
+    )
+
+
+def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
+    botorch_acqf_class: Type[AcquisitionFunction],
+) -> BenchmarkMethod:  # noqa
     generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedImprovement",  # noqa
+        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_"
+        + botorch_acqf_class.__name__,  # noqa
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
             GenerationStep(
@@ -117,7 +126,7 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei() -> Bench
                     "surrogate": Surrogate(
                         botorch_model_class=SaasFullyBayesianSingleTaskGP
                     ),
-                    "botorch_acqf_class": qNoisyExpectedImprovement,
+                    "botorch_acqf_class": botorch_acqf_class,
                 },
             ),
         ],
