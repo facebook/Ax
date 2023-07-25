@@ -18,6 +18,7 @@ from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
+from ax.storage.utils import stable_hash
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
@@ -68,7 +69,7 @@ def register_metric(
     """
     metric_registry = metric_registry or {Metric: 0}
 
-    registered_val = val or abs(hash(metric_cls.__name__)) % (10**5)
+    registered_val = val or abs(stable_hash(metric_cls.__name__)) % (10**5)
 
     new_metric_registry = {metric_cls: registered_val, **metric_registry}
     new_encoder_registry = {metric_cls: metric_to_dict, **encoder_registry}
@@ -104,7 +105,9 @@ def register_metrics(
 
     new_metric_registry = {
         **{
-            metric_cls: val if val else abs(hash(metric_cls.__name__)) % (10**5)
+            metric_cls: val
+            if val
+            else abs(stable_hash(metric_cls.__name__)) % (10**5)
             for metric_cls, val in metric_clss.items()
         },
         **metric_registry,

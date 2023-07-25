@@ -11,6 +11,7 @@ from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
+from ax.storage.utils import stable_hash
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
@@ -51,7 +52,7 @@ def register_runner(
     """Add a custom runner class to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    registered_val = val or abs(hash(runner_cls.__name__)) % (10**5)
+    registered_val = val or abs(stable_hash(runner_cls.__name__)) % (10**5)
 
     new_runner_registry = {runner_cls: registered_val, **runner_registry}
     new_encoder_registry = {runner_cls: runner_to_dict, **encoder_registry}
@@ -85,7 +86,9 @@ def register_runners(
     """
     new_runner_registry = {
         **{
-            runner_cls: val if val else abs(hash(runner_cls.__name__)) % (10**5)
+            runner_cls: val
+            if val
+            else abs(stable_hash(runner_cls.__name__)) % (10**5)
             for runner_cls, val in runner_clss.items()
         },
         **runner_registry,
