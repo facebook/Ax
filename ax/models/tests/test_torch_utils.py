@@ -14,6 +14,8 @@ from ax.models.torch.utils import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
@@ -25,6 +27,7 @@ from botorch.acquisition.multi_objective.multi_output_risk_measures import (
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
+    GenericMCObjective,
     ScalarizedPosteriorTransform,
 )
 from botorch.acquisition.risk_measures import Expectation
@@ -81,15 +84,27 @@ class TorchUtilsTest(TestCase):
         return_value=1.0,
     )
     def test_get_botorch_objective(self, _) -> None:
-        # If there are outcome constraints, use a ConstrainedMCObjective
+        # For KG with outcome constraints, use a ConstrainedMCObjective
         obj, tf = get_botorch_objective_and_transform(
-            botorch_acqf_class=qNoisyExpectedImprovement,
+            botorch_acqf_class=qKnowledgeGradient,
             model=self.mock_botorch_model,
             outcome_constraints=self.outcome_constraints,
             objective_weights=self.objective_weights,
             X_observed=self.X_dummy,
         )
         self.assertIsInstance(obj, ConstrainedMCObjective)
+        self.assertIsNone(tf)
+
+        # SampleReducingMCAcquisitionFunctions with outcome constraints, handle
+        # the constraints separately
+        obj, tf = get_botorch_objective_and_transform(
+            botorch_acqf_class=qLogNoisyExpectedImprovement,
+            model=self.mock_botorch_model,
+            outcome_constraints=self.outcome_constraints,
+            objective_weights=self.objective_weights,
+            X_observed=self.X_dummy,
+        )
+        self.assertIsInstance(obj, GenericMCObjective)
         self.assertIsNone(tf)
 
         # By default, `ScalarizedPosteriorTransform` should be picked in absence of
