@@ -25,7 +25,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
@@ -194,7 +194,7 @@ class BoTorchModelUtilsTest(TestCase):
         )
 
     def test_choose_botorch_acqf_class(self) -> None:
-        self.assertEqual(qNoisyExpectedImprovement, choose_botorch_acqf_class())
+        self.assertEqual(qLogNoisyExpectedImprovement, choose_botorch_acqf_class())
         self.assertEqual(
             qNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
@@ -204,7 +204,7 @@ class BoTorchModelUtilsTest(TestCase):
             choose_botorch_acqf_class(objective_weights=torch.tensor([0.5, 0.5])),
         )
         self.assertEqual(
-            qNoisyExpectedImprovement,
+            qLogNoisyExpectedImprovement,
             choose_botorch_acqf_class(objective_weights=torch.tensor([1.0, 0.0])),
         )
 

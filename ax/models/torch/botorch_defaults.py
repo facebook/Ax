@@ -305,6 +305,7 @@ def _get_acquisition_func(
         objective = constrained_mc_objective(
             objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
         )
+    # TODO: Either pass `con_tfs` to `get_acquisition_function` or move to MBM.
     return get_acquisition_function(
         acquisition_function_name=acquisition_function_name,
         model=model,
