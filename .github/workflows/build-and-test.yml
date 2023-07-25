@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.9", "3.11"]
       fail-fast: false
 
     steps:
@@ -47,7 +47,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       # Pin ufmt deps so they match intermal pyfmt.
       run: |
@@ -74,7 +74,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
