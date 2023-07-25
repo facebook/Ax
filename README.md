@@ -63,7 +63,7 @@ artificial evaluation function):
 ## Installation
 
 ### Requirements
-You need Python 3.8 or later to run Ax.
+You need Python 3.9 or later to run Ax.
 
 The required Python dependencies are:
 
@@ -84,7 +84,7 @@ conda install pytorch torchvision -c pytorch  # OSX only (details below)
 pip install ax-platform
 ```
 
-Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
+Installation will use  wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
 
 *Note*: Make sure the `pip` being used to install `ax-platform` is actually the one from the newly created Conda environment.
 If you're using a Unix-based OS, you can use `which pip` to check.
