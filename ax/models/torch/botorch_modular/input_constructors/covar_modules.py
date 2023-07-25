@@ -13,6 +13,7 @@ from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.optimizer_argparse import (
     _optimizerArgparse_encoder,
 )
+from botorch.models import MultiTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 
 from botorch.models.model import Model
@@ -102,7 +103,9 @@ def _covar_module_argparse_scale_matern(
         A dictionary with covar module kwargs.
     """
 
-    if issubclass(botorch_model_class, FixedNoiseMultiTaskGP):
+    if issubclass(botorch_model_class, FixedNoiseMultiTaskGP) or issubclass(
+        botorch_model_class, MultiTaskGP
+    ):
         if ard_num_dims is DEFAULT:
             ard_num_dims = dataset.X.shape[-1] - 1
 
