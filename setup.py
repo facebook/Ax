@@ -102,7 +102,7 @@ def setup_package() -> None:
         ],
         long_description=long_description,
         long_description_content_type="text/markdown",
-        python_requires=">=3.8",
+        python_requires=">=3.9",
         install_requires=REQUIRES,
         packages=find_packages(),
         package_data={
