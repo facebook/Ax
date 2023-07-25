@@ -27,6 +27,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
+from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
     get_acqf_input_constructor,
@@ -675,7 +676,7 @@ class BoTorchModelTest(TestCase):
     )
     @mock.patch(f"{CURRENT_PATH}.Acquisition", autospec=True)
     def test_evaluate_acquisition_function(
-        self, mock_ei: Mock, _mock_construct_options: Mock
+        self, mock_acquisition: Mock, _mock_construct_options: Mock
     ) -> None:
         model = BoTorchModel(
             surrogate=self.surrogate,
@@ -697,9 +698,12 @@ class BoTorchModelTest(TestCase):
             torch_opt_config=self.torch_opt_config,
             acq_options=self.acquisition_options,
         )
-        # `mock_ei` is a mock of class, so to check the mock `evaluate` on
-        # instance of that class, we use `mock_ei.return_value.evaluate`
-        mock_ei.return_value.evaluate.assert_called()
+        # testing that the new setup chooses qLogNEI by default
+        self.assertEqual(model._botorch_acqf_class, qLogNoisyExpectedImprovement)
+        # `mock_acquisition` is a mock of the Acquisition class, so to check the mock's
+        # `evaluate` on an instance of that class, we use
+        # `mock_acquisition.return_value.evaluate`.
+        mock_acquisition.return_value.evaluate.assert_called()
 
     @mock.patch(f"{MODEL_PATH}.Surrogate.__init__", return_value=None)
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)

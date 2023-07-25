@@ -14,10 +14,20 @@ from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 
 # BoTorch `AcquisitionFunction` imports
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import ExpectedImprovement
+
+from botorch.acquisition.analytic import (
+    ExpectedImprovement,
+    LogExpectedImprovement,
+    LogNoisyExpectedImprovement,
+    NoisyExpectedImprovement,
+)
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
     qMultiFidelityKnowledgeGradient,
+)
+from botorch.acquisition.logei import (
+    qLogExpectedImprovement,
+    qLogNoisyExpectedImprovement,
 )
 from botorch.acquisition.max_value_entropy_search import (
     qMaxValueEntropy,
@@ -96,6 +106,9 @@ Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
     ExpectedImprovement: "ExpectedImprovement",
+    LogExpectedImprovement: "LogExpectedImprovement",
+    NoisyExpectedImprovement: "NoisyExpectedImprovement",
+    LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
     qExpectedHypervolumeImprovement: "qExpectedHypervolumeImprovement",
     qNoisyExpectedHypervolumeImprovement: "qNoisyExpectedHypervolumeImprovement",
     qExpectedImprovement: "qExpectedImprovement",
@@ -104,6 +117,8 @@ ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
     qMultiFidelityKnowledgeGradient: "qMultiFidelityKnowledgeGradient",
     qMultiFidelityMaxValueEntropy: "qMultiFidelityMaxValueEntropy",
     qNoisyExpectedImprovement: "qNoisyExpectedImprovement",
+    qLogExpectedImprovement: "qLogExpectedImprovement",
+    qLogNoisyExpectedImprovement: "qLogNoisyExpectedImprovement",
 }
 
 

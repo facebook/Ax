@@ -21,7 +21,10 @@ from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
-from botorch.acquisition.monte_carlo import qSimpleRegret
+from botorch.acquisition.monte_carlo import (
+    qSimpleRegret,
+    SampleReducingMCAcquisitionFunction,
+)
 from botorch.acquisition.multi_objective.analytic import (
     MultiObjectiveAnalyticAcquisitionFunction,
 )
@@ -38,6 +41,7 @@ from botorch.acquisition.multi_objective.objective import (
 )
 from botorch.acquisition.objective import (
     ConstrainedMCObjective,
+    GenericMCObjective,
     IdentityMCObjective,
     LinearMCObjective,
     MCAcquisitionObjective,
@@ -472,12 +476,18 @@ def get_botorch_objective_and_transform(
         def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
             return obj_tf(samples, X)
 
-        con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
-        objective = ConstrainedMCObjective(
-            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
-        )
-        return objective, None
+        # SampleReducingMCAcquisitionFunctions take care of the constraint handling
+        # directly, and the constraints get passed in the constructor of an MBM
+        # Acquisition object.
+        if issubclass(botorch_acqf_class, SampleReducingMCAcquisitionFunction):
+            return GenericMCObjective(objective=objective), None
+        else:  # this is still used by KG
+            con_tfs = get_outcome_constraint_transforms(outcome_constraints)
+            inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=obj_tf)
+            objective = ConstrainedMCObjective(
+                objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+            )
+            return objective, None
     # Case of linear weights - use ScalarizedPosteriorTransform
     transform = ScalarizedPosteriorTransform(weights=objective_weights)
     return None, transform

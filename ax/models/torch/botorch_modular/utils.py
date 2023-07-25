@@ -17,7 +17,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
@@ -160,7 +160,7 @@ def choose_botorch_acqf_class(
     ):
         acqf_class = qNoisyExpectedHypervolumeImprovement
     else:
-        acqf_class = qNoisyExpectedImprovement
+        acqf_class = qLogNoisyExpectedImprovement
 
     logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
     return acqf_class
