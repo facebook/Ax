@@ -1051,7 +1051,7 @@ def get_figure_and_callback(
         try:
             new_fig = plot_fn(scheduler)
         except RuntimeError as e:
-            logging.warn(
+            logging.warning(
                 f"Plotting function called via callback failed with error {e}."
                 "Skipping plot update."
             )
