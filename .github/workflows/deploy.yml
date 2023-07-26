@@ -20,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies (latest Botorch)
       env:
         ALLOW_BOTORCH_LATEST: true
@@ -53,7 +53,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       run: |
         # use stable Botorch
@@ -74,7 +74,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       run: |
         # use stable Botorch

@@ -27,7 +27,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies (full requirements, stable Botorch)
       run: |
         # will install the version of Botorch that is pinned in setup.py
@@ -79,7 +79,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
@@ -106,7 +106,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.9"
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
