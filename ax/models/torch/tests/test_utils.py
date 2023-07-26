@@ -21,9 +21,10 @@ from ax.models.torch.botorch_modular.utils import (
     disable_one_to_many_transforms,
     use_model_list,
 )
+from ax.models.torch.utils import _to_inequality_constraints
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -487,3 +488,19 @@ class ConvertToBlockDesignTest(TestCase):
                 self.assertFalse(mm.input_transform.transform_on_eval)
         for mm in mm_list.models:
             self.assertTrue(mm.input_transform.transform_on_eval)
+
+    def test_to_inequality_constraints(self) -> None:
+        A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])
+        b = torch.tensor([[1], [2]])
+        ineq_constraints = not_none(
+            _to_inequality_constraints(linear_constraints=(A, b))
+        )
+        self.assertEqual(len(ineq_constraints), 2)
+        self.assertTrue(torch.allclose(ineq_constraints[0][0], torch.tensor([1, 2, 3])))
+        self.assertTrue(
+            torch.allclose(ineq_constraints[0][1], torch.tensor([-1, 2, -3]))
+        )
+        self.assertEqual(ineq_constraints[0][2], -1.0)
+        self.assertTrue(torch.allclose(ineq_constraints[1][0], torch.tensor([1])))
+        self.assertTrue(torch.allclose(ineq_constraints[1][1], torch.tensor([-1])))
+        self.assertEqual(ineq_constraints[1][2], -2.0)
