@@ -8,6 +8,7 @@
 import functools
 import time
 from logging import WARN
+from typing import Optional, Tuple
 
 import numpy as np
 from ax.core.types import TEvaluationOutcome
@@ -24,13 +25,24 @@ class TestInteractiveLoop(TestCase):
 
     @fast_botorch_optimize
     def test_interactive_loop(self) -> None:
-        def _elicit(parameterization: TParameterization) -> TEvaluationOutcome:
+        def _elicit(
+            parameterization_with_trial_index: Tuple[TParameterization, int]
+        ) -> Optional[Tuple[int, TEvaluationOutcome]]:
+            parameterization, trial_index = parameterization_with_trial_index
             x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
 
-            return {
-                "hartmann6": (hartmann6(x), 0.0),
-                "l2norm": (np.sqrt((x**2).sum()), 0.0),
-            }
+            return (
+                trial_index,
+                {
+                    "hartmann6": (hartmann6(x), 0.0),
+                    "l2norm": (np.sqrt((x**2).sum()), 0.0),
+                },
+            )
+
+        def _aborted_elicit(
+            parameterization_with_trial_index: Tuple[TParameterization, int]
+        ) -> Optional[Tuple[int, TEvaluationOutcome]]:
+            return None
 
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -49,25 +61,43 @@ class TestInteractiveLoop(TestCase):
             minimize=True,
         )
 
-        interactive_optimize_with_client(
+        optimization_completed = interactive_optimize_with_client(
             ax_client=ax_client,
             num_trials=15,
             candidate_queue_maxsize=3,
+            # pyre-fixme[6]
             elicitation_function=_elicit,
         )
 
+        self.assertTrue(optimization_completed)
         self.assertEqual(len(ax_client.experiment.trials), 15)
 
+        # test failed experiment
+        optimization_completed = interactive_optimize_with_client(
+            ax_client=ax_client,
+            num_trials=15,
+            candidate_queue_maxsize=3,
+            # pyre-fixme[6]
+            elicitation_function=_aborted_elicit,
+        )
+        self.assertFalse(optimization_completed)
+
     def test_candidate_pregeneration_errors_raised(self) -> None:
-        def _elicit(parameterization: TParameterization) -> TEvaluationOutcome:
+        def _elicit(
+            parameterization_with_trial_index: Tuple[TParameterization, int]
+        ) -> Tuple[int, TEvaluationOutcome]:
+            parameterization, trial_index = parameterization_with_trial_index
             time.sleep(0.15)  # Sleep to induce MaxParallelismException in loop
 
             x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
 
-            return {
-                "hartmann6": (hartmann6(x), 0.0),
-                "l2norm": (np.sqrt((x**2).sum()), 0.0),
-            }
+            return (
+                trial_index,
+                {
+                    "hartmann6": (hartmann6(x), 0.0),
+                    "l2norm": (np.sqrt((x**2).sum()), 0.0),
+                },
+            )
 
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -94,6 +124,7 @@ class TestInteractiveLoop(TestCase):
                 ax_client=ax_client,
                 num_trials=3,
                 candidate_queue_maxsize=3,
+                # pyre-fixme[6]
                 elicitation_function=_elicit,
             )
 
