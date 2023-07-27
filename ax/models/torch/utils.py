@@ -339,10 +339,10 @@ def _to_inequality_constraints(
         inequality_constraints = []
         k, d = A.shape
         for i in range(k):
-            indicies = A[i, :].nonzero(as_tuple=False).squeeze()
-            coefficients = -A[i, indicies]
-            rhs = -b[i, 0]
-            inequality_constraints.append((indicies, coefficients, rhs))
+            indices = torch.atleast_1d(A[i, :].nonzero(as_tuple=False).squeeze())
+            coefficients = torch.atleast_1d(-A[i, indices])
+            rhs = -b[i, 0].item()
+            inequality_constraints.append((indices, coefficients, rhs))
     else:
         inequality_constraints = None
     return inequality_constraints
