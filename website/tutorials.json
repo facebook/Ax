@@ -33,7 +33,7 @@
   ],
   "Bayesian Optimization": [
     {
-      "id": "tune_cnn",
+      "id": "tune_cnn_service",
       "title": "Hyperparameter Optimization for PyTorch"
     },
     {
