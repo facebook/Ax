@@ -408,13 +408,27 @@ class TestBestPointUtils(TestCase):
 
         # Error with missing data.
         with self.assertRaisesRegex(
-            UserInputError, "single data point for each metric"
+            UserInputError, "Trial 2 is missing data on metrics {'foo'}."
         ):
             # Skipping first 5 data points since first two trials are not completed.
+
             extract_Y_from_data(
                 experiment=experiment,
                 metric_names=["foo", "bar"],
                 data=Data(df=pd.DataFrame.from_records(df_dicts[5:])),
+            )
+
+        # Error with extra data.
+        with self.assertRaisesRegex(
+            UserInputError, "Trial data has more than one row per metric. "
+        ):
+            # Skipping first 5 data points since first two trials are not completed.
+            base_df = pd.DataFrame.from_records(df_dicts[5:])
+
+            extract_Y_from_data(
+                experiment=experiment,
+                metric_names=["foo", "bar"],
+                data=Data(df=pd.concat((base_df, base_df))),
             )
 
         # Check that it errors with BatchTrial.

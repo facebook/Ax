@@ -4,13 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from collections import defaultdict
 from functools import reduce
 
 from logging import Logger
 from typing import Dict, Iterable, List, Optional, Tuple, Type
 
-import numpy as np
 import pandas as pd
 import torch
 from ax.core.base_trial import TrialStatus
@@ -774,7 +772,7 @@ def extract_Y_from_data(
 ) -> Tensor:
     r"""Converts the experiment observation data into a tensor.
 
-    NOTE: This assumes block design for observations. It will
+    NOTE: This requires block design for observations. It will
     error out if any trial is missing data for any of the given
     metrics or if the data is missing the `trial_index`.
 
@@ -792,29 +790,42 @@ def extract_Y_from_data(
     df = data.df if data is not None else experiment.lookup_data().df
     if len(df) == 0:
         return torch.empty(0, len(metric_names), dtype=torch.double)
-    trial_indices = np.sort(np.unique(df["trial_index"].values))
-    Y_lists_dict = defaultdict(list)
-    data_by_trial = df.groupby("trial_index")
-    for trial_idx in trial_indices:
+
+    trials_to_use = []
+    data_to_use = df[df["metric_name"].isin(metric_names)]
+
+    for trial_idx, trial_data in data_to_use.groupby("trial_index"):
         trial = experiment.trials[trial_idx]
         if trial.status not in [TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]:
             # Skip trials that are not completed or early stopped.
             continue
         if isinstance(trial, BatchTrial):
             raise UnsupportedError("BatchTrials are not supported.")
-        trial_data = data_by_trial.get_group(trial_idx)
-        try:
-            for m in metric_names:
-                Y_lists_dict[m].append(
-                    float(trial_data.loc[trial_data["metric_name"] == m, "mean"])
-                )
-        except (KeyError, TypeError):
+        trials_to_use.append(trial_idx)
+        if len(trial_data) > len(set(trial_data["metric_name"])):
             raise UserInputError(
-                "Expected each trial to have a single data point for each metric. "
+                "Trial data has more than one row per metric. "
                 f"Got\n\n{trial_data}\n\nfor trial {trial_idx}."
             )
+        # We have already ensured that `trial_data` has no metrics not in
+        # `metric_names` and that there are no duplicate metrics, so if
+        # len(trial_data) < len(metric_names), the only possibility is that
+        if len(trial_data) < len(metric_names):
+            raise UserInputError(
+                f"Trial {trial_idx} is missing data on metrics "
+                f"{set(metric_names) - set(trial_data['metric_name'])}."
+            )
 
-    return torch.tensor([Y_lists_dict[m] for m in metric_names], dtype=torch.double).T
+    keeps = df["trial_index"].isin(trials_to_use)
+
+    if not keeps.any():
+        return torch.empty(0, len(metric_names), dtype=torch.double)
+
+    data_as_wide = df[keeps].pivot(
+        columns="metric_name", index="trial_index", values="mean"
+    )[metric_names]
+
+    return torch.tensor(data_as_wide.to_numpy()).to(torch.double)
 
 
 def _objective_threshold_from_nadir(
