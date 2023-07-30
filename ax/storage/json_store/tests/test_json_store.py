@@ -364,7 +364,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-        # Key error on desearialization.
+        # Key error on deserialization.
         x_json = object_to_json(
             x,
             encoder_registry=CORE_ENCODER_REGISTRY,

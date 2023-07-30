@@ -1666,7 +1666,7 @@ def get_data(
         "trial_index": trial_index,
         "metric_name": metric_name,
         "arm_name": arm_names,
-        "mean": [1, 3, 2, 2.25, 1.75][:num_arms],
+        "mean": [-0.03730201721191406, 3, 2, 2.25, 1.75][:num_arms],
         "sem": [0, 0.5, 0.25, 0.40, 0.15][:num_arms],
         "n": [100, 100, 100, 100, 100][:num_arms],
     }

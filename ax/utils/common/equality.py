@@ -75,6 +75,8 @@ def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
     return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
 
 
+# TODO: can use pd.testing.assert_equal to generalize this for Series,
+# DataFrame, ExtensionArray
 def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     """Compare equality of two pandas dataframes."""
     try:
@@ -82,7 +84,7 @@ def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
             equal = True
         else:
             pd.testing.assert_frame_equal(
-                df1.sort_index(axis=1), df2.sort_index(axis=1), check_exact=False
+                df1.sort_index(axis=1), df2.sort_index(axis=1), check_exact=True
             )
             equal = True
     except AssertionError:
