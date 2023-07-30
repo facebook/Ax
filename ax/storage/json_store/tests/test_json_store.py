@@ -333,6 +333,36 @@ class JSONStoreTest(TestCase):
                 else:
                     raise e
 
+    def test_EncodeDecode_Experiment(self) -> None:
+        class_ = "Experiment"
+        fake_func = get_experiment_with_data
+
+        original_object = fake_func()
+
+        # Compare enconding and decoding of a Data object
+        data = next(iter(original_object._data_by_trial[0].values()))
+        self.assertEqual(
+            data,
+            object_from_json(object_to_json(data)),
+        )
+
+        json_object = object_to_json(
+            original_object,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+        converted_object = object_from_json(
+            json_object,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+
+        self.assertEqual(
+            original_object,
+            converted_object,
+            msg=f"Error encoding/decoding {class_}.",
+        )
+
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
