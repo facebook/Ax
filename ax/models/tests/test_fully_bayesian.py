@@ -1043,7 +1043,7 @@ class TestKernels(TestCase):
             .div_(-lengthscale)
             .exp()
         )
-        self.assertLess(torch.norm(res - actual), 1e-3)
+        self.assertLess(torch.linalg.norm(res - actual), 1e-3)
         # matern test 3/2
         # pyre-fixme[6]: For 4th param expected `Tensor` but got `int`.
         res = matern_kernel(a, b, nu=1.5, lengthscale=lengthscale)
@@ -1051,7 +1051,7 @@ class TestKernels(TestCase):
             sqrt(3) / lengthscale
         )
         actual = (dist + 1).mul(torch.exp(-dist))
-        self.assertLess(torch.norm(res - actual), 1e-3)
+        self.assertLess(torch.linalg.norm(res - actual), 1e-3)
         # matern test 5/2
         # pyre-fixme[6]: For 4th param expected `Tensor` but got `int`.
         res = matern_kernel(a, b, nu=2.5, lengthscale=lengthscale)
@@ -1060,7 +1060,7 @@ class TestKernels(TestCase):
         )
         # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and `int`.
         actual = (dist**2 / 3 + dist + 1).mul(torch.exp(-dist))
-        self.assertLess(torch.norm(res - actual), 1e-3)
+        self.assertLess(torch.linalg.norm(res - actual), 1e-3)
 
         # test k(x,x) with no gradients
         # pyre-fixme[6]: For 4th param expected `Tensor` but got `float`.
@@ -1068,7 +1068,7 @@ class TestKernels(TestCase):
         actual = (
             torch.tensor([[0, 2], [2, 0]], dtype=torch.float).div_(-lengthscale).exp()
         )
-        self.assertLess(torch.norm(res - actual), 1e-3)
+        self.assertLess(torch.linalg.norm(res - actual), 1e-3)
 
         # test unsupported nu
         with self.assertRaises(AxError):
@@ -1088,7 +1088,7 @@ class TestKernels(TestCase):
             .mul_(-0.5 / (lengthscale**2))
             .exp()
         )
-        self.assertLess(torch.norm(res - actual), 1e-3)
+        self.assertLess(torch.linalg.norm(res - actual), 1e-3)
 
 
 class TestPyroCatchNumericalErrors(TestCase):
