@@ -17,6 +17,7 @@ import pandas as pd
 from ax.core.types import TFidelityTrialEvaluation, TTrialEvaluation
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import (
+    dataframe_from_json,
     extract_init_args,
     SerializationMixin,
     serialize_init_args,
@@ -191,9 +192,7 @@ class BaseData(Base, SerializationMixin):
         # Extract `df` only if present, since certain inputs to this fn, e.g.
         # SQAData.structure_metadata_json, don't have a `df` attribute.
         if "df" in args and not isinstance(args["df"], pd.DataFrame):
-            # NOTE: Need dtype=False, otherwise infers arm_names like
-            # "4_1" should be int 41.
-            args["df"] = pd.read_json(args["df"]["value"], dtype=False)
+            args["df"] = dataframe_from_json(args["df"]["value"])
         return extract_init_args(args=args, class_=cls)
 
     @property

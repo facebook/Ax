@@ -12,7 +12,6 @@ from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Type
 
 import numpy as np
-import pandas as pd
 import torch
 from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem as TorchvisionBenchmarkProblem,
@@ -119,10 +118,6 @@ def object_from_json(
                     for k, v in object_json["value"]
                 ]
             )
-        elif _type == "DataFrame":
-            # Need dtype=False, otherwise infers arm_names like "4_1"
-            # should be int 41
-            return pd.read_json(object_json["value"], dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
         elif _type == "Tensor":

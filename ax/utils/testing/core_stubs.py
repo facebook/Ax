@@ -1652,12 +1652,14 @@ def get_synthetic_runner() -> SyntheticRunner:
 ##############################
 
 
-def get_data(
+def get_DataFrame(
+    *,
     metric_name: str = "ax_test_metric",
     trial_index: int = 0,
     num_non_sq_arms: int = 4,
     include_sq: bool = True,
-) -> Data:
+) -> pd.DataFrame:
+
     assert num_non_sq_arms < 5, "Only up to 4 arms currently handled."
     arm_names = ["status_quo"] if include_sq else []
     arm_names += [f"{trial_index}_{i}" for i in range(num_non_sq_arms)]
@@ -1666,11 +1668,29 @@ def get_data(
         "trial_index": trial_index,
         "metric_name": metric_name,
         "arm_name": arm_names,
+        # chosen to ensure proper storage of floats
         "mean": [-0.03730201721191406, 3, 2, 2.25, 1.75][:num_arms],
         "sem": [0, 0.5, 0.25, 0.40, 0.15][:num_arms],
         "n": [100, 100, 100, 100, 100][:num_arms],
     }
-    return Data(df=pd.DataFrame.from_records(df_dict))
+    return pd.DataFrame.from_records(df_dict)
+
+
+def get_data(
+    metric_name: str = "ax_test_metric",
+    trial_index: int = 0,
+    num_non_sq_arms: int = 4,
+    include_sq: bool = True,
+) -> Data:
+
+    df = get_DataFrame(
+        metric_name=metric_name,
+        trial_index=trial_index,
+        num_non_sq_arms=num_non_sq_arms,
+        include_sq=include_sq,
+    )
+
+    return Data(df=df)
 
 
 def get_non_monolithic_branin_moo_data() -> Data:

@@ -37,6 +37,7 @@ from ax.storage.json_store.registry import (
 )
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
+from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
@@ -64,6 +65,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_chained_input_transform,
     get_choice_parameter,
+    get_DataFrame,
     get_default_scheduler_options,
     get_dict_lookup_metric,
     get_experiment_with_batch_and_single_trial,
@@ -333,35 +335,18 @@ class JSONStoreTest(TestCase):
                 else:
                     raise e
 
-    def test_EncodeDecode_Experiment(self) -> None:
-        class_ = "Experiment"
-        fake_func = get_experiment_with_data
+    def test_encode_decode_DataFrame(self) -> None:
+        # Legacy format
+        df = get_DataFrame()
+        encoded = {"__type": "DataFrame", "value": df.to_json()}
 
-        original_object = fake_func()
+        decoded = object_from_json(encoded)
+        self.assertTrue(dataframe_equals(df1=df, df2=decoded, check_exact=False))
 
-        # Compare enconding and decoding of a Data object
-        data = next(iter(original_object._data_by_trial[0].values()))
-        self.assertEqual(
-            data,
-            object_from_json(object_to_json(data)),
-        )
-
-        json_object = object_to_json(
-            original_object,
-            encoder_registry=CORE_ENCODER_REGISTRY,
-            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-        )
-        converted_object = object_from_json(
-            json_object,
-            decoder_registry=CORE_DECODER_REGISTRY,
-            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-        )
-
-        self.assertEqual(
-            original_object,
-            converted_object,
-            msg=f"Error encoding/decoding {class_}.",
-        )
+        # Current format; preserves full float info
+        encoded = object_to_json(df)
+        decoded = object_from_json(encoded)
+        self.assertTrue(df.equals(decoded))
 
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(

@@ -7,7 +7,10 @@
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, Union
+
+import numpy as np
+import pandas as pd
 
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
@@ -64,6 +67,34 @@ from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from torch import Tensor
+
+
+def dataframe_to_dict(df: pd.DataFrame) -> Dict[str, Union[str, Dict[str, str]]]:
+    """
+    Encode a DataFrame, using `repr` to represent floats as strings without
+    precision loss.
+
+    `repr` represents a float as a string with the guarantee that
+    float(repr(value)) == value, using the minimum number of digits needed.
+
+    Example:
+        >>> df = pd.DataFrame({"x": [0.12341234123412341234]})
+        >>> df.iloc[0, 0]
+        0.12341234123412341
+        >>> dataframe_to_dict(df)
+        {'__type': 'DataFrame', 'value': {'values': '{"x":{"0":"0.12341234123412341"}}', 'dtypes': '{"x":"float64"}'}}
+    """  # noqa: E501
+    new_df = df.copy()
+    for col_name, dtype in new_df.dtypes.items():
+        if np.issubdtype(dtype, float):
+            new_df[col_name] = new_df[col_name].apply(repr)
+    return {
+        "__type": "DataFrame",
+        "value": {
+            "values": new_df.to_json(),
+            "dtypes": df.dtypes.to_json(default_handler=str),
+        },
+    }
 
 
 def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
