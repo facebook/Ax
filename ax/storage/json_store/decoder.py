@@ -535,7 +535,6 @@ def _load_experiment_info(
     ] = CORE_CLASS_DECODER_REGISTRY,
 ) -> None:
     """Loads `Experiment` object with basic information."""
-    # Look here
     exp._time_created = object_from_json(
         exp_info.get("time_created_json"),
         decoder_registry=decoder_registry,
