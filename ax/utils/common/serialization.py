@@ -43,7 +43,7 @@ def _is_named_tuple(x: Any) -> bool:
     f = getattr(t, "_fields", None)
     if not isinstance(f, tuple):
         return False  # pragma nocover
-    return all(type(n) == str for n in f)
+    return all(isinstance(n, str) for n in f)
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.

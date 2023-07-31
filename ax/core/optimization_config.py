@@ -174,7 +174,7 @@ class OptimizationConfig(Base):
             outcome_constraints: Constraints to validate.
             risk_measure: An optional risk measure to validate.
         """
-        if type(objective) == MultiObjective:
+        if type(objective) is MultiObjective:
             # Raise error on exact equality; `ScalarizedObjective` is OK
             raise ValueError(
                 (

@@ -6,6 +6,7 @@
 
 from copy import deepcopy
 from unittest import mock
+from unittest.mock import Mock
 
 import torch
 from ax.models.torch.botorch_defaults import (
@@ -47,7 +48,7 @@ class BotorchDefaultsTest(TestCase):
         )
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 6.0)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
-        self.assertTrue(type(model) == MultiTaskGP)  # Don't accept subclasses.
+        self.assertIs(type(model), MultiTaskGP)  # Don't accept subclasses.
         model = _get_model(X=x, Y=y, Yvar=var, task_feature=1)
         self.assertIsInstance(model, FixedNoiseMultiTaskGP)
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1)
@@ -153,7 +154,7 @@ class BotorchDefaultsTest(TestCase):
             task_feature=1,
             **deepcopy(kwargs6),  # pyre-ignore
         )
-        self.assertTrue(type(model) == MultiTaskGP)
+        self.assertIs(type(model), MultiTaskGP)
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
@@ -252,9 +253,7 @@ class BotorchDefaultsTest(TestCase):
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     @fast_botorch_optimize
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_pass_customized_prior(self, get_model_mock):
+    def test_pass_customized_prior(self, get_model_mock: Mock) -> None:
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
         yvars = [torch.ones(2, 1)]
@@ -277,14 +276,12 @@ class BotorchDefaultsTest(TestCase):
             refit_model=False,
             **kwarg,  # pyre-ignore
         )
-        self.assertTrue(type(model) == FixedNoiseGP)
+        self.assertIs(type(model), FixedNoiseGP)
         self.assertEqual(
-            # pyre-ignore
             model.covar_module.base_kernel.lengthscale_prior.concentration,
             12.0,
         )
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 2.0)
-        # pyre-ignore
         self.assertEqual(model.covar_module.outputscale_prior.concentration, 2.0)
         self.assertEqual(model.covar_module.outputscale_prior.rate, 12.0)
 
@@ -300,7 +297,7 @@ class BotorchDefaultsTest(TestCase):
             **kwarg,  # pyre-ignore
         )
         for m in model.models:
-            self.assertTrue(type(m) == FixedNoiseMultiTaskGP)
+            self.assertIs(type(m), FixedNoiseMultiTaskGP)
             self.assertEqual(
                 m.covar_module.base_kernel.lengthscale_prior.concentration,
                 12.0,
