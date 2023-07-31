@@ -212,9 +212,9 @@ def _save_or_update_trials(
     will also be added to the experiment, but existing data objects in the
     database will *not* be updated or removed.
     """
-    experiment_id: int = experiment._db_id
-    if experiment_id is None:
+    if experiment._db_id is None:
         raise ValueError("Must save experiment first.")
+    experiment_id: int = experiment._db_id
 
     def add_experiment_id(sqa: Union[SQATrial, SQAData]) -> None:
         sqa.experiment_id = experiment_id
@@ -311,9 +311,10 @@ def _update_generation_strategy(
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
 
-    gs_id: int = generation_strategy.db_id
-    if gs_id is None:
+    if generation_strategy.db_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
+
+    gs_id: int = generation_strategy.db_id
 
     experiment_id = generation_strategy.experiment.db_id
     if experiment_id is None:

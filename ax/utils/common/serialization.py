@@ -160,9 +160,8 @@ def dataframe_from_json(value: Union[str, Dict[str, str]]) -> pd.DataFrame:
         >>> object_json = '{"x":{"0":"0.12341234123412341"}}'
         >>> dataframe_from_json(object_json)
     """
-
-    is_legacy_format = "dtypes" not in value
-    if is_legacy_format:
+    # legacy format
+    if isinstance(value, str):
         # Turn off automatic dtype inference so that arm names like "3_1" are
         # not parsed as 31. (As per PEP 515, 3_1 is the same as 31.)
         return pd.read_json(value, dtype=False)
