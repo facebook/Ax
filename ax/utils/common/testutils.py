@@ -234,7 +234,8 @@ def _build_comparison_str(
             bul = "*"
         else:
             raise RuntimeError(
-                "Reached level > `COMPARISON_STR_MAX_LEVEL`, which should've been "
+                "While building comparison error message, "
+                "reached level > `COMPARISON_STR_MAX_LEVEL`, which should've been "
                 "unreachable."
             )
         msg += f"\n{indent}{bul} {field}: {_unequal_str(first=first, second=second)}\n"

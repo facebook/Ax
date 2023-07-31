@@ -10,7 +10,9 @@ import inspect
 import pydoc
 from abc import ABC
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type, Union
+
+import pandas as pd
 
 
 # https://stackoverflow.com/a/39235373
@@ -136,3 +138,40 @@ class SerializationMixin(ABC):
         object. Used for storage.
         """
         return extract_init_args(args=args, class_=cls)
+
+
+def dataframe_from_json(value: Union[str, Dict[str, str]]) -> pd.DataFrame:
+    """
+    Two different input formats are permitted.
+
+    The currently-recommended format, produced by `dataframe_to_dict`, stores
+    dtype information as well as DataFrame values. The "legacy" format does not
+    store dtypes explicitly and may not exactly recover inputs, especially
+    high-precision floats.
+
+    Example:
+
+        Current format:
+        >>> object_json = {'values': '{"x":{"0":"0.12341234123412341"}}',
+        ... 'dtypes': '{"x":"float64"}'}}
+        >>> dataframe_from_json(object_json)
+
+        Legacy format:
+        >>> object_json = '{"x":{"0":"0.12341234123412341"}}'
+        >>> dataframe_from_json(object_json)
+    """
+    # legacy format
+    if isinstance(value, str):
+        # Turn off automatic dtype inference so that arm names like "3_1" are
+        # not parsed as 31. (As per PEP 515, 3_1 is the same as 31.)
+        return pd.read_json(value, dtype=False)
+
+    dtypes = pd.read_json(value["dtypes"], typ="series")
+    return pd.read_json(
+        value["values"],
+        dtype=dict(dtypes),
+        # Don't convert columns with names like "timestamp" to timestamps, since
+        # `dtypes` may have specified otherwise
+        keep_default_dates=False,
+        precise_float=True,
+    )

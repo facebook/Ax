@@ -75,20 +75,19 @@ def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
     return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
 
 
-def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
+def dataframe_equals(
+    df1: pd.DataFrame, df2: pd.DataFrame, check_exact: bool = True
+) -> bool:
     """Compare equality of two pandas dataframes."""
+    if df1.empty and df2.empty:
+        return True
     try:
-        if df1.empty and df2.empty:
-            equal = True
-        else:
-            pd.testing.assert_frame_equal(
-                df1.sort_index(axis=1), df2.sort_index(axis=1), check_exact=False
-            )
-            equal = True
+        pd.testing.assert_frame_equal(
+            df1.sort_index(axis=1), df2.sort_index(axis=1), check_exact=check_exact
+        )
+        return True
     except AssertionError:
-        equal = False
-
-    return equal
+        return False
 
 
 def object_attribute_dicts_equal(

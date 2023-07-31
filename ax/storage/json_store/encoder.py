@@ -165,8 +165,6 @@ def object_to_json(  # noqa C901
             "__type": _type.__name__,
             "value": datetime.datetime.strftime(obj, "%Y-%m-%d %H:%M:%S.%f"),
         }
-    elif _type is pd.DataFrame:
-        return {"__type": _type.__name__, "value": obj.to_json()}
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": obj.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):

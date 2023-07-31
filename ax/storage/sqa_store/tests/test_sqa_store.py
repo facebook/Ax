@@ -85,6 +85,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_experiment_with_batch_trial,
     get_experiment_with_custom_runner_and_metric,
+    get_experiment_with_data,
     get_experiment_with_map_data_type,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
@@ -176,6 +177,7 @@ class SQAStoreTest(TestCase):
 
     def testExperimentSaveAndLoad(self) -> None:
         for exp in [
+            get_experiment_with_data(),
             self.experiment,
             get_experiment_with_map_data_type(),
             get_experiment_with_multi_objective(),
@@ -186,6 +188,13 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+            # Test data and dataframes explicitly
+            if len(exp._data_by_trial) > 0:
+                k = next(iter(exp._data_by_trial[0].keys()))
+                original_data = exp._data_by_trial[0][k]
+                loaded_data = loaded_experiment._data_by_trial[0][k]
+                self.assertTrue(original_data._df.equals(loaded_data._df))
 
     def testLoadExperimentTrialsInBatches(self) -> None:
         print(self.experiment.trials)
@@ -515,11 +524,17 @@ class SQAStoreTest(TestCase):
                 # for parity with the expected decoded (converted) object.
                 original_object._properties.pop(Keys.SUBCLASS)
 
-            self.assertEqual(
-                original_object,
-                converted_object,
-                msg=f"Error encoding/decoding {class_}.",
-            )
+            try:
+                self.assertEqual(
+                    original_object,
+                    converted_object,
+                    msg=f"Error encoding/decoding {class_}.",
+                )
+            except RuntimeError as e:
+                self.assertFalse(
+                    "The following RuntimeError was raised while testing "
+                    f"equalty for class {class_}: {e}"
+                )
 
     def testEncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
