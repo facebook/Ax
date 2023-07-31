@@ -212,21 +212,18 @@ def _save_or_update_trials(
     will also be added to the experiment, but existing data objects in the
     database will *not* be updated or removed.
     """
-    experiment_id = experiment._db_id
+    experiment_id: int = experiment._db_id
     if experiment_id is None:
         raise ValueError("Must save experiment first.")
 
-    # pyre-fixme[53]: Captured variable `experiment_id` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_experiment_id(sqa: Union[SQATrial, SQAData]):
+    def add_experiment_id(sqa: Union[SQATrial, SQAData]) -> None:
         sqa.experiment_id = experiment_id
 
     if reduce_state_generator_runs:
         latest_trial = trials[-1]
         trials_to_reduce_state = trials[0:-1]
 
-        # pyre-fixme[3]: Return type must be annotated.
-        def trial_to_reduced_state_sqa_encoder(t: BaseTrial):
+        def trial_to_reduced_state_sqa_encoder(t: BaseTrial) -> SQATrial:
             return encoder.trial_to_sqa(t, generator_run_reduced_state=True)
 
         _bulk_merge_into_session(
@@ -314,7 +311,7 @@ def _update_generation_strategy(
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
 
-    gs_id = generation_strategy.db_id
+    gs_id: int = generation_strategy.db_id
     if gs_id is None:
         raise ValueError("GenerationStrategy must be saved before being updated.")
 
@@ -333,9 +330,7 @@ def _update_generation_strategy(
             }
         )
 
-    # pyre-fixme[53]: Captured variable `gs_id` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_generation_strategy_id(sqa: SQAGeneratorRun):
+    def add_generation_strategy_id(sqa: SQAGeneratorRun) -> None:
         sqa.generation_strategy_id = gs_id
 
     # pyre-fixme[3]: Return type must be annotated.
@@ -522,7 +517,7 @@ def _bulk_merge_into_session(
     # https://stackoverflow.com/a/312464
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def split_into_batches(lst, n):
+    def split_into_batches(lst, n: int):
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 

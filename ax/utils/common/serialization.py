@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 import pydoc
 from abc import ABC
 from types import FunctionType
@@ -168,5 +167,12 @@ def dataframe_from_json(value: Union[str, Dict[str, str]]) -> pd.DataFrame:
         # not parsed as 31. (As per PEP 515, 3_1 is the same as 31.)
         return pd.read_json(value, dtype=False)
 
-    dtypes = json.loads(value["dtypes"])
-    return pd.read_json(value["values"], dtype=dtypes)
+    dtypes = pd.read_json(value["dtypes"], typ="series")
+    return pd.read_json(
+        value["values"],
+        dtype=dict(dtypes),
+        # Don't convert columns with names like "timestamp" to timestamps, since
+        # `dtypes` may have specified otherwise
+        keep_default_dates=False,
+        precise_float=True,
+    )
