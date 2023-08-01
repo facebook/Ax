@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
@@ -175,6 +175,25 @@ class TestGenerationStep(TestCase):
             self.sobol_generation_step.model_specs,
             [self.model_spec],
         )
+        self.assertEqual(self.sobol_generation_step.model_name, "Sobol")
+
+        named_generation_step = GenerationStep(
+            model=Models.SOBOL,
+            num_trials=5,
+            model_kwargs=self.model_kwargs,
+            model_name="Custom Sobol",
+        )
+        self.assertEqual(named_generation_step.model_name, "Custom Sobol")
+
+        with patch.object(
+            ModelSpec, "model_key", new=PropertyMock(side_effect=TypeError)
+        ):
+            unknown_generation_step = GenerationStep(
+                model=Models.SOBOL,
+                num_trials=5,
+                model_kwargs=self.model_kwargs,
+            )
+        self.assertEqual(unknown_generation_step.model_name, "Unknown ModelSpec")
 
     def test_min_trials_observed(self) -> None:
         with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):
@@ -200,7 +219,6 @@ class TestGenerationStep(TestCase):
 
     def test_properties(self) -> None:
         self.assertEqual(self.sobol_generation_step.model_spec, self.model_spec)
-        self.assertEqual(self.sobol_generation_step.model_name, "Sobol")
         self.assertEqual(self.sobol_generation_step._unique_id, "-1")
 
 
