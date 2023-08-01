@@ -150,7 +150,7 @@ def object_attribute_dicts_find_unequal_fields(
         one_val = numpy_type_to_python_type(one_val)
         other_val = numpy_type_to_python_type(other_val)
         skip_type_check = skip_db_id_check and field == "_db_id"
-        if not skip_type_check and (type(one_val) != type(other_val)):
+        if not skip_type_check and (type(one_val) is not type(other_val)):
             unequal_type[field] = (one_val, other_val)
             if fast_return:
                 return unequal_type, unequal_value

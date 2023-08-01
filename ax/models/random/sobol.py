@@ -34,8 +34,6 @@ class SobolGenerator(RandomModel):
 
     """
 
-    engine: Optional[SobolEngine] = None
-
     def __init__(
         self,
         seed: Optional[int] = None,

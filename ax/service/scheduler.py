@@ -1569,7 +1569,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise UnsupportedError(msg)
         else:
             base_metrics = {
-                m_name for m_name, m in experiment.metrics.items() if type(m) == Metric
+                m_name for m_name, m in experiment.metrics.items() if type(m) is Metric
             }
             if base_metrics:
                 msg += f" Metrics {base_metrics} do not implement fetching logic."
