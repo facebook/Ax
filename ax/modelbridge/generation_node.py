@@ -346,6 +346,9 @@ class GenerationStep(GenerationNode, SortableBase):
     should_deduplicate: bool = False
     index: int = -1  # Index of this step, set internally.
 
+    # Optional model name. Defaults to `model_spec.model_key`.
+    model_name: str = field(default_factory=str)
+
     def __post_init__(self) -> None:
         if (
             self.enforce_num_trials
@@ -376,6 +379,12 @@ class GenerationStep(GenerationNode, SortableBase):
                 model_kwargs=self.model_kwargs,
                 model_gen_kwargs=self.model_gen_kwargs,
             )
+        if self.model_name == "":
+            try:
+                self.model_name = model_spec.model_key
+            except TypeError:
+                # Factory functions may not always have a model key defined.
+                self.model_name = f"Unknown {model_spec.__class__.__name__}"
         super().__init__(
             model_specs=[model_spec], should_deduplicate=self.should_deduplicate
         )
@@ -383,10 +392,6 @@ class GenerationStep(GenerationNode, SortableBase):
     @property
     def model_spec(self) -> ModelSpec:
         return self.model_specs[0]
-
-    @property
-    def model_name(self) -> str:
-        return self.model_spec.model_key
 
     @property
     def _unique_id(self) -> str:
