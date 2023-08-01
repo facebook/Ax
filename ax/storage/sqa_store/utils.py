@@ -67,7 +67,7 @@ def copy_db_ids(source: Any, target: Any, path: Optional[List[str]] = None) -> N
         # introducing infinite loops
         raise SQADecodeError(error_message_prefix + "Encountered path of length > 10.")
 
-    if type(source) != type(target):
+    if type(source) is not type(target):
         if not issubclass(type(target), type(source)):
             if source is None and isinstance(target, SearchSpace):
                 warnings.warn(

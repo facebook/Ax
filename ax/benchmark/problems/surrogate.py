@@ -72,7 +72,7 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
-        if not type(other) == type(self):
+        if type(other) is not type(self):
             return False
 
         # Checking the whole datasets' equality here would be too expensive to be

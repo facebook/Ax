@@ -141,7 +141,7 @@ def validate_single_metric_data(data: SingleMetricData) -> None:
 
 def validate_trial_evaluation(evaluation: TTrialEvaluation) -> None:
     for key, value in evaluation.items():
-        if type(key) != str:
+        if not isinstance(key, str):
             raise TypeError(f"Keys must be strings in TTrialEvaluation, found {key}.")
 
         validate_single_metric_data(data=value)
@@ -160,7 +160,7 @@ def validate_param_value(param_value: TParamValue) -> None:
 
 def validate_parameterization(parameterization: TParameterization) -> None:
     for key, value in parameterization.items():
-        if type(key) != str:
+        if not isinstance(key, str):
             raise TypeError(f"Keys must be strings in TParameterization, found {key}.")
 
         validate_param_value(param_value=value)
@@ -168,7 +168,7 @@ def validate_parameterization(parameterization: TParameterization) -> None:
 
 def validate_map_dict(map_dict: TMapDict) -> None:
     for key, value in map_dict.items():
-        if type(key) != str:
+        if not isinstance(key, str):
             raise TypeError(f"Keys must be strings in TMapDict, found {key}.")
 
         if not isinstance(value, Hashable):

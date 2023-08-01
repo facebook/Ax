@@ -348,7 +348,7 @@ def L1_norm_func(X: Tensor, init_point: Tensor) -> Tensor:
     to a `batch_shape x n x 1`-dimensional L1 norm tensor. To be used
     for constructing a GenericDeterministicModel.
     """
-    return torch.norm((X - init_point), p=1, dim=-1, keepdim=True)
+    return torch.linalg.norm((X - init_point), ord=1, dim=-1, keepdim=True)
 
 
 def clamp_candidates(

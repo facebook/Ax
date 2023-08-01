@@ -565,7 +565,7 @@ class Decoder:
         if objective is None:
             return None, tracking_metrics
 
-        if objective_thresholds or type(objective) == MultiObjective:
+        if objective_thresholds or type(objective) is MultiObjective:
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=objective,
                 outcome_constraints=outcome_constraints,

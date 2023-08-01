@@ -23,7 +23,7 @@ def generic_equals(first: Any, second: Any) -> bool:
             sorted(first.items()), sorted(second.items())
         )
     if isinstance(first, (tuple, list)):
-        if type(first) != type(second) or len(first) != len(second):
+        if type(first) is not type(second) or len(first) != len(second):
             return False
         for f, s in zip(first, second):
             if not generic_equals(f, s):
