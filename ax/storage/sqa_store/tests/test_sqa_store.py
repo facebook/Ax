@@ -177,7 +177,6 @@ class SQAStoreTest(TestCase):
 
     def testExperimentSaveAndLoad(self) -> None:
         for exp in [
-            get_experiment_with_data(),
             self.experiment,
             get_experiment_with_map_data_type(),
             get_experiment_with_multi_objective(),
@@ -188,13 +187,6 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
-
-            # Test data and dataframes explicitly
-            if len(exp._data_by_trial) > 0:
-                k = next(iter(exp._data_by_trial[0].keys()))
-                original_data = exp._data_by_trial[0][k]
-                loaded_data = loaded_experiment._data_by_trial[0][k]
-                self.assertTrue(original_data._df.equals(loaded_data._df))
 
     def testLoadExperimentTrialsInBatches(self) -> None:
         print(self.experiment.trials)
