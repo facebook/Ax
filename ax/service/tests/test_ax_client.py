@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -166,9 +167,20 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 def get_branin_optimization(
     generation_strategy: Optional[GenerationStrategy] = None,
     torch_device: Optional[torch.device] = None,
+    with_db: bool = False,
 ) -> AxClient:
+    if with_db:
+        init_test_engine_and_session_factory(force_init=True)
+        config = SQAConfig()
+        encoder = Encoder(config=config)
+        decoder = Decoder(config=config)
+        db_settings = DBSettings(encoder=encoder, decoder=decoder)
+    else:
+        db_settings = None
     ax_client = AxClient(
-        generation_strategy=generation_strategy, torch_device=torch_device
+        generation_strategy=generation_strategy,
+        db_settings=db_settings,
+        torch_device=torch_device,
     )
     ax_client.create_experiment(
         name="test_experiment",
@@ -1624,6 +1636,59 @@ class TestAxClient(TestCase):
             # for the observation features
             self.assertEqual(features.start_time.day, 1)
             self.assertEqual(features.end_time.day, 5)
+
+    def test_unsafe_trial_completion(self) -> None:
+        ax_client = get_branin_optimization(with_db=True)
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        # Complete the trial for a second time.
+        with self.assertRaisesRegex(UnsupportedError, "has already been completed"):
+            ax_client.complete_trial(
+                trial_index=idx, raw_data={"branin": (0, 0.0)}, unsafe=False
+            )
+        ax_client.complete_trial(
+            trial_index=idx, raw_data={"branin": (0, 0.0)}, unsafe=True
+        )
+        # Complete the trial again and overwrite its data.
+        ax_client.complete_trial(
+            trial_index=idx, raw_data={"branin": (1.0, 0.0)}, unsafe=True
+        )
+        data = ax_client.experiment.fetch_data()
+        self.assertEqual(len(data.df.index), 1)
+        self.assertEqual(data.df["mean"].values[0], 1.0)
+
+        # Complete a trial that was previously failed / abandoned.
+        for fail_or_abandon in (True, False):
+            params, idx = ax_client.get_next_trial()
+            trial = ax_client.get_trial(idx)
+            if fail_or_abandon:
+                trial.mark_failed()
+            else:
+                trial.mark_abandoned()
+            with self.assertRaisesRegex(UnsupportedError, "has been marked"):
+                ax_client.complete_trial(
+                    trial_index=idx, raw_data={"branin": (0, 0.0)}, unsafe=False
+                )
+            ax_client.complete_trial(
+                trial_index=idx, raw_data={"branin": (5.0, 0.0)}, unsafe=True
+            )
+            data = ax_client.experiment.fetch_trials_data(trial_indices=[idx])
+            self.assertEqual(data.df["mean"].values[0], 5.0)
+            self.assertTrue(ax_client.get_trial(idx).status.is_completed)
+        # Check that we have data for and only for the 3 trials.
+        data = ax_client.experiment.fetch_data()
+        self.assertEqual(len(data.df.index), 3)
+
+        # Check that the DB also has the correct trials.
+        new_client = AxClient(db_settings=ax_client._db_settings)
+        new_client.load_experiment_from_database("test_experiment")
+        self.assertEqual(len(new_client.experiment.trials), 3)
+        self.assertEqual(
+            len(new_client.experiment.trials_by_status[TrialStatus.COMPLETED]), 3
+        )
+        self.assertEqual(
+            new_client.experiment.fetch_data(), ax_client.experiment.fetch_data()
+        )
 
     def test_abandon_trial(self) -> None:
         ax_client = get_branin_optimization()

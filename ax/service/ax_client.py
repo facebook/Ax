@@ -725,6 +725,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         raw_data: TEvaluationOutcome,
         metadata: Optional[Dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
+        unsafe: bool = False,
     ) -> None:
         """
         Completes the trial with given metric values and adds optional metadata
@@ -754,10 +755,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             metadata: Additional metadata to track about this run.
             sample_size: Number of samples collected for the underlying arm,
                 optional.
+            unsafe: If True, this will skip all the validation steps, mark the
+                trial as completed regardless of its previous status, and overwrite
+                its data with the newly provided raw data (ignoring any previously
+                attached data).
         """
         # Validate that trial can be completed.
         trial = self.get_trial(trial_index)
-        trial._validate_can_attach_data()
+        if not unsafe:
+            trial._validate_can_attach_data()
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         data_update_repr = self._update_trial_with_raw_data(
@@ -766,7 +772,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             metadata=metadata,
             sample_size=sample_size,
             complete_trial=True,
-            combine_with_last_data=True,
+            combine_with_last_data=not unsafe,
+            unsafe=unsafe,
         )
         logger.info(f"Completed trial {trial_index} with data: " f"{data_update_repr}.")
 
@@ -1563,6 +1570,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         sample_size: Optional[int] = None,
         complete_trial: bool = False,
         combine_with_last_data: bool = False,
+        unsafe: bool = False,
     ) -> str:
         """Helper method attaches data to a trial, returns a str of update."""
         # Format the data to save.
@@ -1575,7 +1583,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
         if complete_trial:
-            trial.mark_completed()
+            trial.mark_completed(unsafe=unsafe)
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
