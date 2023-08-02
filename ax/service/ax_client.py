@@ -873,6 +873,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return not_none(self.get_trial(trial_index).arm).parameters
 
     def get_trials_data_frame(self) -> pd.DataFrame:
+        """Get a Pandas DataFrame representation of this experiment. The columns
+        will include all the parameters in the search space and all the metrics
+        on this experiment. The rows will each correspond to a trial (if using
+        one-arm trials, which is the case in base ``AxClient``; will correspond
+        to arms in trials in the batch-trial case).
+        """
         return exp_to_df(exp=self.experiment)
 
     def get_max_parallelism(self) -> List[Tuple[int, int]]:
