@@ -6,7 +6,7 @@
 
 import logging
 from typing import Dict, List, Type
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from ax.core import BatchTrial, Trial
@@ -397,6 +397,7 @@ class ExperimentTest(TestCase):
         exp = self._setupBraninExperiment(n)
         batch = exp.trials[0]
         batch.mark_completed()
+        self.assertEqual(exp.completed_trials, [batch])
 
         # Test fetch data
         batch_data = batch.fetch_data()
@@ -784,20 +785,22 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(exp._metrics_by_class(), {Metric: [m]})
 
-    @patch(
-        # No-op mock just to record calls to `fetch_experiment_data_multi`.
-        f"{BraninMetric.__module__}.BraninMetric.fetch_experiment_data_multi",
-        side_effect=BraninMetric.fetch_experiment_data_multi,
+    @patch(  # pyre-ignore[56]: Cannot infer function type
+        # No-op mock just to record calls to `bulk_fetch_experiment_data`.
+        f"{BraninMetric.__module__}.BraninMetric.bulk_fetch_experiment_data",
+        side_effect=BraninMetric(
+            name="branin", param_names=["x1", "x2"]
+        ).bulk_fetch_experiment_data,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_prefer_lookup_where_possible(self, mock_fetch_exp_data_multi):
+    def test_prefer_lookup_where_possible(
+        self, mock_bulk_fetch_experiment_data: MagicMock
+    ) -> None:
         # By default, `BraninMetric` is available while trial is running.
         exp = self._setupBraninExperiment(n=5)
         exp.fetch_data()
         # Since metric is available while trial is running, we should be
         # refetching the data and no data should be attached to experiment.
-        mock_fetch_exp_data_multi.assert_called_once()
+        mock_bulk_fetch_experiment_data.assert_called_once()
         self.assertEqual(len(exp._data_by_trial), 2)
 
         with patch(
@@ -807,30 +810,30 @@ class ExperimentTest(TestCase):
             exp = self._setupBraninExperiment(n=5)
             exp.fetch_data()
             # 1. No completed trials => no fetch case.
-            mock_fetch_exp_data_multi.reset_mock()
+            mock_bulk_fetch_experiment_data.reset_mock()
             dat = exp.fetch_data()
-            mock_fetch_exp_data_multi.assert_not_called()
+            mock_bulk_fetch_experiment_data.assert_not_called()
             # Data should be empty since there are no completed trials.
             self.assertTrue(dat.df.empty)
 
             # 2. Newly completed trials => fetch case.
-            mock_fetch_exp_data_multi.reset_mock()
+            mock_bulk_fetch_experiment_data.reset_mock()
             # pyre-fixme[16]: Optional type has no attribute `mark_completed`.
             exp.trials.get(0).mark_completed()
             exp.trials.get(1).mark_completed()
             dat = exp.fetch_data()
-            # `fetch_experiment_data_multi` should be called N=number of trials times.
-            self.assertEqual(len(mock_fetch_exp_data_multi.call_args_list), 2)
+            # `bulk_fetch_experiment_data` should be called N=number of trials times.
+            self.assertEqual(len(mock_bulk_fetch_experiment_data.call_args_list), 2)
             # Data should no longer be empty since there are completed trials.
             self.assertFalse(dat.df.empty)
             # Data for two trials should get attached.
             self.assertEqual(len(exp._data_by_trial), 2)
 
             # 3. Previously fetched => look up in cache case.
-            mock_fetch_exp_data_multi.reset_mock()
+            mock_bulk_fetch_experiment_data.reset_mock()
             # All fetched data should get cached, so no fetch should happen next time.
             exp.fetch_data()
-            mock_fetch_exp_data_multi.assert_not_called()
+            mock_bulk_fetch_experiment_data.assert_not_called()
             # No new data should be attached to the experiment
             self.assertEqual(len(exp._data_by_trial), 2)
 

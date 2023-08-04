@@ -10,6 +10,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_data,
+    get_experiment,
     get_factorial_metric,
 )
 
@@ -21,11 +22,11 @@ class MetricTest(TestCase):
     def setUp(self) -> None:
         pass
 
-    def testInit(self) -> None:
+    def test_init(self) -> None:
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
-    def testEq(self) -> None:
+    def test_eq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric2)
@@ -33,7 +34,7 @@ class MetricTest(TestCase):
         metric3 = Metric(name="m1", lower_is_better=True)
         self.assertNotEqual(metric1, metric3)
 
-    def testClone(self) -> None:
+    def test_clone(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
 
@@ -43,12 +44,12 @@ class MetricTest(TestCase):
         metric3 = get_factorial_metric(name="factorial")
         self.assertEqual(metric3, metric3.clone())
 
-    def testSortable(self) -> None:
+    def test_sortable(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)
         metric2 = Metric(name="m2", lower_is_better=False)
         self.assertTrue(metric1 < metric2)
 
-    def testWrapUnwrap(self) -> None:
+    def test_wrap_unwrap(self) -> None:
         data = get_data()
 
         trial_multi = Metric._unwrap_trial_data_multi(
@@ -66,7 +67,7 @@ class MetricTest(TestCase):
         )
         self.assertEqual(experiment_multi, data)
 
-    def testWrapErr(self) -> None:
+    def test_wrap_err(self) -> None:
         err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))
 
         with self.assertRaisesRegex(Exception, "panic"):
@@ -78,7 +79,7 @@ class MetricTest(TestCase):
         with self.assertRaisesRegex(Exception, "panic"):
             Metric._unwrap_trial_data_multi(results={"foo": err})
 
-    def testMetricFetchE(self) -> None:
+    def test_MetricFetchE(self) -> None:
         def foo() -> bool:
             raise ValueError("bad value")
 
@@ -89,7 +90,6 @@ class MetricTest(TestCase):
         try:
             bar()
         except Exception as e:
-            print(e)
             exception = e
 
         metric_fetch_e = MetricFetchE(message="foo", exception=exception)
@@ -99,3 +99,13 @@ class MetricTest(TestCase):
         self.assertIn("in foo", metric_fetch_e.__repr__())
         self.assertIn("in bar", metric_fetch_e.__repr__())
         self.assertIn("ValueError: bad value", metric_fetch_e.__repr__())
+
+    def test_bulk_fetch_experiment_data_validation(self) -> None:
+        exp_1 = get_experiment()
+        exp_2 = get_experiment()
+        exp_2.new_trial()
+        m = Metric(name="test")
+        with self.assertRaisesRegex(ValueError, "from the input experiment"):
+            m.bulk_fetch_experiment_data(
+                experiment=exp_1, trials=list(exp_2.trials.values()), metrics=[m]
+            )
