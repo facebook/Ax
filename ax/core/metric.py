@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import traceback
+import warnings
 
 from dataclasses import dataclass
 from functools import reduce
@@ -105,8 +106,7 @@ class Metric(SortableBase, SerializationMixin):
         """
         self._name = name
         self.lower_is_better = lower_is_better
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.properties = properties or {}
+        self.properties: Dict[str, Any] = properties or {}
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -144,8 +144,11 @@ class Metric(SortableBase, SerializationMixin):
         """
         return self.__class__
 
-    # NOTE: This is always overridden by subclasses, sometimes along with `fetch_trial_
-    # data_multi` and/or `fetch_experiment_data_multi`.`
+    # NOTE: This is always overridden by subclasses, sometimes along with `bulk_fetch
+    # trial_data` and/or `bulk_fetch_experiment_data`. The entrypoint to metric
+    # fetching is tupically `fetch_data_prefer_lookup`, which calls `bulk_fetch_
+    # experiment_data`, so it can be sufficient to override just that method, then
+    # use it to implement this one.
     def fetch_trial_data(
         self, trial: core.base_trial.BaseTrial, **kwargs: Any
     ) -> MetricFetchResult:
@@ -154,50 +157,6 @@ class Metric(SortableBase, SerializationMixin):
             f"Metric {self.name} does not implement data-fetching logic."
         )
 
-    # NOTE: This should be overridden if there is a benefit to fetching multiple
-    # metrics that all share the `fetch_multi_group_by_metric` setting, at once.
-    # This gives an opportunity to perform a given operation (e.g. retrieve results
-    # of some remote job) only once, and then use the result to fetch each metric's
-    # value (via `fetch_trial_data` for that metric).
-    @classmethod
-    def fetch_trial_data_multi(
-        cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
-        """Fetch multiple metrics data for one trial.
-
-        Returns Dict of metric_name => Result
-        Default behavior calls `fetch_trial_data` for each metric.
-        Subclasses should override this to trial data computation for multiple metrics.
-        """
-        return {
-            metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
-            for metric in metrics
-        }
-
-    # NOTE: Same note as for `fetch_trial_data_multi`, except for the case where
-    # fetching data multiple trials is beneficial.
-    @classmethod
-    def fetch_experiment_data_multi(
-        cls,
-        experiment: core.experiment.Experiment,
-        metrics: Iterable[Metric],
-        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
-        **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
-        """Fetch multiple metrics data for an experiment.
-
-        Returns Dict of trial_index => (metric_name => Result)
-        Default behavior calls `fetch_trial_data_multi` for each trial.
-        Subclasses should override to batch data computation across trials + metrics.
-        """
-        return {
-            trial.index: cls.fetch_trial_data_multi(
-                trial=trial, metrics=metrics, **kwargs
-            )
-            for trial in (trials if trials is not None else experiment.trials.values())
-            if trial.status.expecting_data
-        }
-
     # NOTE: Override this if your metric requires custom string representation with
     # more attributes included than just the name.
     def __repr__(self) -> str:
@@ -205,14 +164,75 @@ class Metric(SortableBase, SerializationMixin):
             class_name=self.__class__.__name__, metric_name=self.name
         )
 
+    # NOTE: This should be overridden if there is a benefit to fetching multiple
+    # metrics that all share the `fetch_multi_group_by_metric` setting, at once.
+    # This gives an opportunity to perform a given operation (e.g. retrieve results
+    # of some remote job) only once, and then use the result to fetch each metric's
+    # value (via `fetch_trial_data` if that is how this method is implemented on the
+    # subclass, or in other ways).
+    # NOTE: this replaces a now-deprecated classmethod `fetch_trial_data_multi`;
+    # in the base implementation, it currently still calls `cls.fetch_experiment_data_
+    # multi` to avoid backward incompatibility. A `DeprecationWarning` is raised if
+    # this is not overridden but `fetch_trial_data_multi` is.
+    def bulk_fetch_trial_data(
+        self, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
+    ) -> Dict[str, MetricFetchResult]:
+        """Fetch multiple metrics data for one trial, using instance attributes
+        of the metrics.
+
+        Returns Dict of metric_name => Result
+        Default behavior calls `fetch_trial_data` for each metric. Subclasses should
+        override this to perform trial data computation for multiple metrics.
+        """
+        # By default, use the legacy classmethods that served the same function.
+        # Overriding the instance methods instead will allow to leverage
+        # instance-level configurations of the metric.
+        self.maybe_raise_deprecation_warning_on_class_methods()
+
+        return self.__class__.fetch_experiment_data_multi(
+            experiment=trial.experiment, trials=[trial], metrics=metrics, **kwargs
+        )[trial.index]
+
+    # NOTE: This should be overridden if there is a benefit to fetching multiple
+    # metrics that all share the `fetch_multi_group_by_metric` setting, at once,
+    # AND ALSO FOR MULTIPLE TRIALS AT ONCE.
+    # This gives an opportunity to perform a given operation (e.g. retrieve results
+    # of some set of remote jobs, each representing a trial) only once, and then
+    # use the result to fetch each metric's value for a set of trials.
+    # NOTE: this replaces a now-deprecated classmethod `fetch_experiment_data_multi`;
+    # in the base implementation, it calls `bulk_fetch_trial_data`.
+    def bulk_fetch_experiment_data(
+        self,
+        experiment: core.experiment.Experiment,
+        metrics: Iterable[Metric],
+        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        **kwargs: Any,
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        """Fetch multiple metrics data for multiple trials on an experiment, using
+        instance attributes of the metrics.
+
+        Returns Dict of metric_name => Result
+        Default behavior calls `fetch_trial_data` for each metric.
+        Subclasses should override this to trial data computation for multiple metrics.
+        """
+        trials = experiment.trials.values() if trials is None else trials
+        experiment.validate_trials(trials=trials)
+        return {
+            trial.index: self.bulk_fetch_trial_data(
+                trial=trial, metrics=metrics, **kwargs
+            )
+            for trial in trials
+            if trial.status.expecting_data
+        }
+
     # NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,
     # which are inherited from the `SerializationMixin` base class.
-    # Override those iff your metric requires custom serialization; e.g. if
+    # Override those if and only if your metric requires custom serialization; e.g. if
     # some of its attributes are not readily serializable and require pre-processing.
     # Note that all these serialized attributes will be deserialized by the
     # `deserialize_init_args` method on the same class.
 
-    # ---------- Properties and methods that should not be overridden. ----------
+    # ---------- Properties and metrods that should not be overridden. ----------
 
     @property
     def name(self) -> str:
@@ -226,9 +246,8 @@ class Metric(SortableBase, SerializationMixin):
             **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )
 
-    @classmethod
-    def lookup_or_fetch_experiment_data_multi(
-        cls,
+    def fetch_data_prefer_lookup(
+        self,
         experiment: core.experiment.Experiment,
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
@@ -251,26 +270,30 @@ class Metric(SortableBase, SerializationMixin):
         """
         # If this metric is available while trial is running, just default to
         # `fetch_experiment_data_multi`.
-        if cls.is_available_while_running():
-            fetched_data = cls.fetch_experiment_data_multi(
+        if self.is_available_while_running():
+            fetched_data = self.bulk_fetch_experiment_data(
                 experiment=experiment, metrics=metrics, trials=trials, **kwargs
             )
             return fetched_data, True
 
         # If this metric is available only upon trial completion, look up data
         # on experiment and only fetch data that is not already cached.
-        if trials is None:
-            completed_trials = experiment.trials_by_status[
-                core.base_trial.TrialStatus.COMPLETED
-            ]
-        else:
-            completed_trials = [t for t in trials if t.status.is_completed]
+        completed_trials = (
+            experiment.completed_trials
+            if trials is None
+            else [t for t in trials if t.status.is_completed]
+        )
 
         if not completed_trials:
             return {}, False
 
         trials_results = {}
         contains_new_data = False
+
+        # TODO: Refactor this to not fetch data for each trial individually.
+        # Since we use `bulk_fetch_experiment_data`, we should be able to
+        # first identify trial + metric combos to fetch, then fetch them all
+        # at once.
         for trial in completed_trials:
             cached_trial_data = experiment.lookup_data_for_trial(
                 trial_index=trial.index,
@@ -281,13 +304,13 @@ class Metric(SortableBase, SerializationMixin):
             if not metrics_to_fetch:
                 # If all needed data fetched from cache, no need to fetch any other data
                 # for trial.
-                trials_results[trial.index] = cls._wrap_trial_data_multi(
+                trials_results[trial.index] = self._wrap_trial_data_multi(
                     data=cached_trial_data
                 )
                 continue
 
             try:
-                fetched_trial_data = cls.fetch_experiment_data_multi(
+                fetched_trial_data = self.bulk_fetch_experiment_data(
                     experiment=experiment,
                     metrics=metrics_to_fetch,
                     trials=[trial],
@@ -305,25 +328,105 @@ class Metric(SortableBase, SerializationMixin):
                 fetched_trial_data = {}
 
             trials_results[trial.index] = {
-                **cls._wrap_trial_data_multi(data=cached_trial_data),
+                **self._wrap_trial_data_multi(data=cached_trial_data),
                 **fetched_trial_data,
             }
 
-        return (
-            {
-                trial_index: {
-                    metric_name: results
-                    for metric_name, results in results_by_metric_name.items()
-                    if metric_name in [metric.name for metric in metrics]
-                }
-                for trial_index, results_by_metric_name in trials_results.items()
-            },
-            contains_new_data,
-        )
+        results = {
+            trial_index: {
+                metric_name: results
+                for metric_name, results in results_by_metric_name.items()
+                # We subset the metrics because cached results might have more
+                # metrics than requested in arguments passed to this method.
+                if metric_name in [metric.name for metric in metrics]
+            }
+            for trial_index, results_by_metric_name in trials_results.items()
+        }
+        return results, contains_new_data
 
     @property
     def _unique_id(self) -> str:
         return str(self)
+
+    # ---------------- Legacy class methods for backward compatibility ----------------
+    # ------------------- with previously implemented subclasses  ---------------------
+
+    @classmethod
+    def fetch_trial_data_multi(
+        cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
+    ) -> Dict[str, MetricFetchResult]:
+        """Fetch multiple metrics data for one trial.
+
+        Returns Dict of metric_name => Result
+        Default behavior calls `fetch_trial_data` for each metric.
+        Subclasses should override this to trial data computation for multiple metrics.
+        """
+        return {
+            metric.name: metric.fetch_trial_data(trial=trial, **kwargs)
+            for metric in metrics
+        }
+
+    @classmethod
+    def fetch_experiment_data_multi(
+        cls,
+        experiment: core.experiment.Experiment,
+        metrics: Iterable[Metric],
+        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        **kwargs: Any,
+    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+        """Fetch multiple metrics data for an experiment.
+
+        Returns Dict of trial_index => (metric_name => Result)
+        Default behavior calls `fetch_trial_data_multi` for each trial.
+        Subclasses should override to batch data computation across trials + metrics.
+        """
+        trials = experiment.trials.values() if trials is None else trials
+        experiment.validate_trials(trials=trials)
+        return {
+            trial.index: cls.fetch_trial_data_multi(
+                trial=trial, metrics=metrics, **kwargs
+            )
+            for trial in trials
+            if trial.status.expecting_data
+        }
+
+    def maybe_raise_deprecation_warning_on_class_methods(self) -> None:
+        # This is a temporary hack to allow us to deprecate old metric class method
+        # implementations. There does not seem to be another way of checking whether
+        # base class' classmethods are overridden in subclasses.
+        is_fetch_trial_data_multi_overriden = (
+            getattr(self.__class__.fetch_trial_data_multi, "__code__", "DEFAULT")
+            != Metric.fetch_trial_data_multi.__code__  # pyre-ignore[16]
+        )
+        is_fetch_experiment_data_multi_overriden = (
+            getattr(
+                self.__class__.fetch_experiment_data_multi,
+                "__code__",
+                "DEFAULT",
+            )
+            != Metric.fetch_experiment_data_multi.__code__  # pyre-ignore[16]
+        )
+        # Raise deprecation warning if this method from the base class is used (meaning
+        # that it is not overridden and the classmethod is overridden instead), unless
+        # the only overridden method is `fetch_trial_data` (in which case the setup is
+        # not changing for that metric with the deprecation of the classmethods).
+        if (
+            is_fetch_trial_data_multi_overriden
+            or is_fetch_experiment_data_multi_overriden
+        ):
+            warnings.warn(  # noqa B028 (level 1 stack trace is ok in this case)
+                DeprecationWarning(
+                    "Data-fetching class-methods: `fetch_trial_data_multi` and "
+                    "`fetch_experiment_data_multi`, will soon be deprecated in Ax. "
+                    "please leverage instance-methods like `bulk_fetch_trial_data` "
+                    "or `bulk_fetch_experiment_data` instead going forward. "
+                    f"Metric {self.name} (class: {self.__class__} in {self.__module__})"
+                    " implementation overrides the class methods."
+                )
+            )
+
+    # -------- Wrapping and unwrapping of data into insulated `Result` objects, --------
+    # ----------- which enforce proper handling of these errors downstream. ------------
 
     @classmethod
     def _unwrap_experiment_data(cls, results: Mapping[int, MetricFetchResult]) -> Data:

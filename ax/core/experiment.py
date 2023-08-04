@@ -632,11 +632,12 @@ class Experiment(Base):
         results: Dict[int, Dict[str, MetricFetchResult]] = {}
         contains_new_data = False
 
-        for metric_cls in metrics_by_class:
+        for metric_cls, metrics in metrics_by_class.items():
+            first_metric_of_group = metrics[0]
             (
                 new_fetch_results,
                 new_results_contains_new_data,
-            ) = metric_cls.lookup_or_fetch_experiment_data_multi(
+            ) = first_metric_of_group.fetch_data_prefer_lookup(
                 experiment=self,
                 metrics=metrics_by_class[metric_cls],
                 trials=trials,
@@ -665,6 +666,7 @@ class Experiment(Base):
                     overwrite_existing_data=overwrite_existing_data,
                 )
             except ValueError as e:
+                # TODO: Log and track these unexpected errors.
                 logger.error(
                     f"Encountered ValueError {e} while attaching results. Proceeding "
                     "and returning Results fetched without attaching."
@@ -1004,6 +1006,13 @@ class Experiment(Base):
         return [trial for trial in self.trials.values() if trial.status.expecting_data]
 
     @property
+    def completed_trials(self) -> List[BaseTrial]:
+        """List[BaseTrial]: the list of all trials for which data has arrived
+        or is expected to arrive.
+        """
+        return self.trials_by_status[TrialStatus.COMPLETED]
+
+    @property
     def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
         """Indices of trials associated with the experiment, grouped by trial
         status.
@@ -1153,6 +1162,18 @@ class Experiment(Base):
         )
         self._trials[index] = trial
         return index
+
+    def validate_trials(self, trials: Iterable[BaseTrial]) -> None:
+        """Raise ValueError if any of the trials in the input are not from
+        this experiment.
+        """
+        for t in trials:
+            if t.experiment is not self:
+                raise ValueError(
+                    "All trials must be from the input experiment (name: "
+                    f"{self.name}), but trial #{t.index} is from "
+                    f"another experiment (name: {t.experiment.name})."
+                )
 
     def warm_start_from_old_experiment(
         self,
