@@ -1028,6 +1028,25 @@ class ModelBridge(ABC):
         return model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> Dict[str, float]:
+        """Computes feature importances for a single metric.
+
+        Depending on the type of the model, this method will approach sensitivity
+        analysis (calculating the sensitivity of the metric to changes in the search
+        space's parameters, a.k.a. features) differently.
+
+        For Bayesian optimization models (BoTorch models), this method uses parameter
+        inverse lengthscales to compute normalized feature importances.
+
+        NOTE: Currently, this is only implemented for GP models.
+
+        Args:
+            metric_name: Name of metric to compute feature importances for.
+
+        Returns:
+            A dictionary mapping parameter names to their corresponding feature
+            importances.
+
+        """
         raise NotImplementedError(
             "Feature importance not available for this model type"
         )
