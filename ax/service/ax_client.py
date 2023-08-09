@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective, Objective
@@ -56,6 +56,7 @@ from ax.exceptions.core import (
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -934,11 +935,19 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "for multi-objective experiments"
             )
 
+        # Setting the objective values of infeasible points to be infinitely
+        # bad prevents them from increasing or decreasing the
+        # optimization trace.
+        def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
+            if constraint_satisfaction(trial):
+                return checked_cast(Trial, trial).objective_mean
+            return float("inf") if self.objective.minimize else float("-inf")
+
         objective_name = self.objective_name
         best_objectives = np.array(
             [
                 [
-                    checked_cast(Trial, trial).objective_mean
+                    _constrained_trial_objective_mean(trial)
                     for trial in self.experiment.trials.values()
                     if trial.status.is_completed
                 ]

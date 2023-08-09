@@ -299,7 +299,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
         trial: A single-arm Trial at which we want to check the constraint.
 
     Returns:
-        A boolean which is True iff all outcome constraints are satisifed.
+        A boolean which is True iff all outcome constraints are satisfied.
     """
     outcome_constraints = not_none(
         trial.experiment.optimization_config
