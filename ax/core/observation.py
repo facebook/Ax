@@ -554,10 +554,17 @@ def separate_observations(
 def recombine_observations(
     observation_features: List[ObservationFeatures],
     observation_data: List[ObservationData],
+    arm_names: Optional[List[str]] = None,
 ) -> List[Observation]:
     if len(observation_features) != len(observation_data):
         raise ValueError("Got features and data of different lengths")
+    if arm_names is not None and len(observation_features) != len(arm_names):
+        raise ValueError("Got features and arm_names of different lengths")
     return [
-        Observation(features=observation_features[i], data=obsd)
+        Observation(
+            features=observation_features[i],
+            data=obsd,
+            arm_name=None if arm_names is None else arm_names[i],
+        )
         for i, obsd in enumerate(observation_data)
     ]

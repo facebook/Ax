@@ -58,11 +58,13 @@ class RelativizeDataTest(TestCase):
                             covariance=np.array([[0.1]]),
                         ),
                         features=ObservationFeatures(parameters={"x": 1}),
+                        arm_name="0_0",
                     )
                 ],
             )
 
     def test_relativize_transform_observations(self) -> None:
+        arm_names = ["status_quo", "0_0"]
         obs_data = [
             ObservationData(
                 metric_names=["foobar", "foobaz"],
@@ -81,11 +83,10 @@ class RelativizeDataTest(TestCase):
             # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
         ]
-        observations = recombine_observations(obs_features, obs_data)
+        observations = recombine_observations(obs_features, obs_data, arm_names)
         modelbridge = Mock(
             status_quo=Mock(
-                data=obs_data[0],
-                features=obs_features[0],
+                data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
             )
         )
         tf = Relativize(
@@ -139,6 +140,7 @@ class RelativizeDataTest(TestCase):
         assume(abs(sq_mean) >= 1e-10)
         assume(abs(sq_mean) != sq_sem)
 
+        arm_names = ["status_quo", "0_0"]
         obs_data = [
             ObservationData(
                 metric_names=["foo"],
@@ -159,11 +161,10 @@ class RelativizeDataTest(TestCase):
         ]
         modelbridge = Mock(
             status_quo=Mock(
-                data=obs_data[0],
-                features=obs_features[0],
+                data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
             )
         )
-        observations = recombine_observations(obs_features, obs_data)
+        observations = recombine_observations(obs_features, obs_data, arm_names)
         transform = Relativize(
             search_space=None,
             observations=observations,
@@ -204,6 +205,7 @@ class RelativizeDataTest(TestCase):
                 features=ObservationFeatures(
                     parameters=not_none(experiment.status_quo).parameters
                 ),
+                arm_name="status_quo",
             )
         )
 

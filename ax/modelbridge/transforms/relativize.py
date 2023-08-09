@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 import warnings
 from math import sqrt
 from typing import Dict, List, Optional, TYPE_CHECKING
@@ -19,6 +18,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none
@@ -58,16 +58,16 @@ class Relativize(Transform):
             config=config,
         )
         # self.modelbridge should NOT be modified
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.modelbridge = not_none(
+        self.modelbridge: ModelBridge = not_none(
             modelbridge, "Relativize transform requires a modelbridge"
         )
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.status_quo_by_trial = self._get_status_quo_by_trial(
+        self.status_quo_by_trial: Dict[
+            int, ObservationData
+        ] = self._get_status_quo_by_trial(
             observations=observations,
-            status_quo_feature=not_none(
+            status_quo=not_none(
                 self.modelbridge.status_quo, self.MISSING_STATUS_QUO_ERROR
-            ).features,
+            ),
         )
 
     def transform_optimization_config(
@@ -149,7 +149,9 @@ class Relativize(Transform):
                 data=self._get_relative_data(
                     data=obs.data,
                     status_quo_data=not_none(
-                        self.status_quo_by_trial.get(obs.features.trial_index, None),
+                        self.status_quo_by_trial.get(
+                            int(not_none(obs.features.trial_index)), None
+                        ),
                         self.MISSING_STATUS_QUO_ERROR,
                     ),
                 ),
@@ -213,12 +215,14 @@ class Relativize(Transform):
     @staticmethod
     def _get_status_quo_by_trial(
         observations: List[Observation],
-        status_quo_feature: ObservationFeatures,
+        status_quo: Observation,
     ) -> Dict[int, ObservationData]:
-        status_quo_signature = json.dumps(status_quo_feature.parameters, sort_keys=True)
+        r"""
+        Given a status quo observation, return a map of trial index to the status quo
+        observation data of each trial.
+        """
         return {
             int(not_none(obs.features.trial_index)): obs.data
             for obs in observations
-            if json.dumps(obs.features.parameters, sort_keys=True)
-            == status_quo_signature
+            if obs.arm_name == status_quo.arm_name
         }

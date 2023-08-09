@@ -665,12 +665,13 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, cname_truth[i])
 
     def testSeparateObservations(self) -> None:
+        obs_arm_name = "0_0"
         obs = Observation(
             features=ObservationFeatures(parameters={"x": 20}),
             data=ObservationData(
                 means=np.array([1]), covariance=np.array([[2]]), metric_names=["a"]
             ),
-            arm_name="0_0",
+            arm_name=obs_arm_name,
         )
         obs_feats, obs_data = separate_observations(observations=[obs])
         self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
@@ -682,9 +683,14 @@ class ObservationsTest(TestCase):
         )
         with self.assertRaises(ValueError):
             recombine_observations(observation_features=obs_feats, observation_data=[])
-        new_obs = recombine_observations(obs_feats, obs_data)[0]
+        with self.assertRaises(ValueError):
+            recombine_observations(
+                observation_features=obs_feats, observation_data=obs_data, arm_names=[]
+            )
+        new_obs = recombine_observations(obs_feats, obs_data, [obs_arm_name])[0]
         self.assertEqual(new_obs.features, obs.features)
         self.assertEqual(new_obs.data, obs.data)
+        self.assertEqual(new_obs.arm_name, obs_arm_name)
         obs_feats, obs_data = separate_observations(observations=[obs], copy=True)
         self.assertEqual(obs.features, ObservationFeatures(parameters={"x": 20}))
         self.assertEqual(
