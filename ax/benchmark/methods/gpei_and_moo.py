@@ -3,15 +3,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Optional
+
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_sequential_optimization_scheduler_options,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.service.scheduler import SchedulerOptions
 
 
-def get_gpei_default() -> BenchmarkMethod:
+def get_gpei_default(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+GPEI::default",
         steps=[
@@ -27,11 +32,14 @@ def get_gpei_default() -> BenchmarkMethod:
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
-def get_moo_default() -> BenchmarkMethod:
+def get_moo_default(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+MOO::default",
         steps=[
@@ -47,5 +55,6 @@ def get_moo_default() -> BenchmarkMethod:
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
