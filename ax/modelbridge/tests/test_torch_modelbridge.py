@@ -29,6 +29,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -37,7 +38,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_value,
 )
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class TorchModelBridgeTest(TestCase):
@@ -77,12 +78,12 @@ class TorchModelBridgeTest(TestCase):
         )
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         datasets = {
-            "y1": FixedNoiseDataset(
+            "y1": SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[3.0], [1.0]], **tkwargs),
                 Yvar=torch.tensor([[4.0], [2.0]], **tkwargs),
             ),
-            "y2": FixedNoiseDataset(
+            "y2": SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[2.0], [0.0]], **tkwargs),
                 Yvar=torch.tensor([[2.0], [1.0]], **tkwargs),
@@ -101,8 +102,8 @@ class TorchModelBridgeTest(TestCase):
             for y1, y2, yvar1, yvar2 in zip(
                 datasets["y1"].Y().tolist(),
                 datasets["y2"].Y().tolist(),
-                datasets["y1"].Yvar().tolist(),
-                datasets["y2"].Yvar().tolist(),
+                not_none(datasets["y1"].Yvar)().tolist(),
+                not_none(datasets["y2"].Yvar)().tolist(),
             )
         ]
         observations = recombine_observations(observation_features, observation_data)

@@ -13,6 +13,7 @@ from ax.core.types import TCandidateMetadata
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
+from botorch.utils.containers import DenseContainer
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
@@ -250,7 +251,9 @@ class REMBO(BotorchModel):
         X_D = _get_single_X([dataset.X() for dataset in datasets])
         X_d_01 = self.to_01(self.project_down(X_D))
         # Fit model in low-d space (adjusted to [0, 1]^d)
-        return [dataclasses.replace(dataset, X=X_d_01) for dataset in datasets]
+        for dataset in datasets:
+            dataset.X = DenseContainer(values=X_d_01, event_shape=X_d_01.shape[-1:])
+        return datasets
 
 
 def _get_single_X(Xs: List[Tensor]) -> Tensor:

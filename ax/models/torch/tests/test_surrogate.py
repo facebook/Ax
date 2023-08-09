@@ -39,7 +39,7 @@ from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLik
 from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, MaternKernel, RBFKernel, ScaleKernel  # noqa: F401
 from gpytorch.likelihoods import (  # noqa: F401
@@ -781,14 +781,14 @@ class SurrogateWithModelListTest(TestCase):
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
                 datasets=[
-                    FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
                     for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
                 ],
                 search_space_digest=self.search_space_digest,
             ),
             self.outcomes[1]: choose_model_class(
                 datasets=[
-                    FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
                     for X, Y, Yvar in zip(Xs2, Ys2, Yvars2)
                 ],
                 search_space_digest=self.search_space_digest,
@@ -801,7 +801,7 @@ class SurrogateWithModelListTest(TestCase):
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
         self.fixed_noise_training_data = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
         ]
         self.supervised_training_data = [
@@ -853,7 +853,7 @@ class SurrogateWithModelListTest(TestCase):
                 {
                     "fidelity_features": [],
                     "task_feature": self.task_features[0],
-                    "training_data": FixedNoiseDataset(
+                    "training_data": SupervisedDataset(
                         X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
                     ),
                     "rank": 1,
@@ -879,8 +879,8 @@ class SurrogateWithModelListTest(TestCase):
             metric_names=self.outcomes,
         )
         for ds in not_none(surrogate._training_data):
-            self.assertTrue(isinstance(ds, SupervisedDataset))
-            self.assertFalse(isinstance(ds, FixedNoiseDataset))
+            self.assertIsInstance(ds, SupervisedDataset)
+            self.assertIsNone(ds.Yvar)
         self.assertEqual(len(not_none(surrogate._training_data)), 2)
 
     @patch.object(

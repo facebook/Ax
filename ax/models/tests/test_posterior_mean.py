@@ -12,7 +12,7 @@ from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 # TODO (jej): Streamline testing for a simple acquisition function.
@@ -44,7 +44,7 @@ class PosteriorMeanTest(TestCase):
 
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = BotorchModel(acqf_constructor=get_PosteriorMean)
-        dataset = FixedNoiseDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        dataset = SupervisedDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)
         model.fit(
             datasets=[dataset],
             metric_names=["y"],

@@ -45,7 +45,7 @@ from botorch.models.transforms.input import (
     InputTransform,
     Normalize,
 )
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockModel, MockPosterior
 
 
@@ -57,7 +57,7 @@ class BoTorchModelUtilsTest(TestCase):
             dtype=self.dtype, offset=1.0  # Making this data different.
         )
         self.fixed_noise_datasets = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
         ]
         self.supervised_datasets = [
@@ -376,18 +376,19 @@ class ConvertToBlockDesignTest(TestCase):
         # simple case: block design, fixed
         Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
         datasets = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar) for Y, Yvar in zip(Ys, Yvars)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar) for Y, Yvar in zip(Ys, Yvars)
         ]
         new_datasets, new_metric_names = convert_to_block_design(
             datasets=datasets,
             metric_names=metric_names,
         )
         self.assertEqual(len(new_datasets), 1)
-        self.assertIsInstance(new_datasets[0], FixedNoiseDataset)
+        self.assertIsNotNone(new_datasets[0].Yvar)
         self.assertTrue(torch.equal(new_datasets[0].X(), X))
         self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
-        # pyre-fixme[16]: `SupervisedDataset` has no attribute `Yvar`.
-        self.assertTrue(torch.equal(new_datasets[0].Yvar(), torch.cat(Yvars, dim=-1)))
+        self.assertTrue(
+            torch.equal(not_none(new_datasets[0].Yvar)(), torch.cat(Yvars, dim=-1))
+        )
         self.assertEqual(new_metric_names, ["y1_y2"])
 
         # test error is raised if not block design and force=False
@@ -413,7 +414,7 @@ class ConvertToBlockDesignTest(TestCase):
             )
         )
         self.assertEqual(len(new_datasets), 1)
-        self.assertIsInstance(new_datasets[0], SupervisedDataset)
+        self.assertIsNone(new_datasets[0].Yvar)
         self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
         self.assertTrue(
             torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
@@ -422,7 +423,7 @@ class ConvertToBlockDesignTest(TestCase):
 
         # test warning is issued if not block design and force=True (fixed)
         datasets = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip((X, X2), Ys, Yvars)
         ]
         with warnings.catch_warnings(record=True) as ws:
@@ -438,14 +439,15 @@ class ConvertToBlockDesignTest(TestCase):
             )
         )
         self.assertEqual(len(new_datasets), 1)
-        self.assertIsInstance(new_datasets[0], FixedNoiseDataset)
+        self.assertIsNotNone(new_datasets[0].Yvar)
         self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
         self.assertTrue(
             torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
         self.assertTrue(
             torch.equal(
-                new_datasets[0].Yvar(), torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1)
+                not_none(new_datasets[0].Yvar)(),
+                torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1),
             )
         )
         self.assertEqual(new_metric_names, ["y1_y2"])

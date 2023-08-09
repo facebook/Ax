@@ -22,7 +22,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.utils.common.testutils import TestCase
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.sampling import manual_seed
 from botorch.utils.testing import MockModel, MockPosterior
@@ -74,7 +74,7 @@ class FrontierEvaluatorTest(TestCase):
         self.model = MultiObjectiveBotorchModel(model_predictor=dummy_predict)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             self.model.fit(
-                datasets=[FixedNoiseDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)],
+                datasets=[SupervisedDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)],
                 metric_names=["a", "b", "c"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x1", "x2"],

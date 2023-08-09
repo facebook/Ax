@@ -8,12 +8,12 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.testutils import TestCase
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class TorchModelTest(TestCase):
     def setUp(self) -> None:
-        self.dataset = FixedNoiseDataset(
+        self.dataset = SupervisedDataset(
             X=torch.zeros(1), Y=torch.zeros(1), Yvar=torch.ones(1)
         )
         self.search_space_digest = SearchSpaceDigest(

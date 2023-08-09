@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
+from typing import Any, Dict
 from unittest import mock
 
 import torch
@@ -24,7 +25,7 @@ from botorch.acquisition.objective import (
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -33,14 +34,11 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 class KnowledgeGradientTest(TestCase):
     def setUp(self) -> None:
-        self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
-        self.dataset = FixedNoiseDataset(
-            # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-            #  `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but
-            #  got `Union[device, dtype]`.
-            # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device,
-            #  dtype]`.
+        self.tkwargs: Dict[str, Any] = {
+            "device": torch.device("cpu"),
+            "dtype": torch.double,
+        }
+        self.dataset = SupervisedDataset(
             X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
             Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
             Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),

@@ -57,7 +57,7 @@ from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.posteriors.posterior_list import PosteriorList
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.sampling import sample_hypersphere, sample_simplex
 from torch import Tensor
@@ -687,7 +687,7 @@ def _datasets_to_legacy_inputs(
             raise UnsupportedError("Legacy setup only supports `SupervisedDataset`s")
         Xs.append(dataset.X())
         Ys.append(dataset.Y())
-        if isinstance(dataset, FixedNoiseDataset):
+        if dataset.Yvar is not None:
             Yvars.append(dataset.Yvar())
         else:
             Yvars.append(torch.full_like(Ys[-1], float("nan")))

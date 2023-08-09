@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
+from typing import Any, Dict
 from unittest import mock
 
 import torch
@@ -20,20 +21,17 @@ from botorch.acquisition.max_value_entropy_search import (
 from botorch.exceptions.errors import UnsupportedError
 from botorch.models.transforms.input import Warp
 from botorch.sampling.normal import SobolQMCNormalSampler
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class MaxValueEntropySearchTest(TestCase):
     def setUp(self) -> None:
-        self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
+        self.tkwargs: Dict[str, Any] = {
+            "device": torch.device("cpu"),
+            "dtype": torch.double,
+        }
         self.training_data = [
-            FixedNoiseDataset(
-                # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-                #  `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]`
-                #  but got `Union[device, dtype]`.
-                # pyre-fixme[6]: For 2nd param expected `bool` but got
-                #  `Union[device, dtype]`.
+            SupervisedDataset(
                 X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
                 Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
                 Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),
@@ -54,8 +52,6 @@ class MaxValueEntropySearchTest(TestCase):
     def test_MaxValueEntropySearch(self) -> None:
         model = MaxValueEntropySearch()
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -139,8 +135,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -153,8 +147,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -169,8 +161,6 @@ class MaxValueEntropySearchTest(TestCase):
         )
         model = MaxValueEntropySearch()
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=search_space_digest,
@@ -213,7 +203,6 @@ class MaxValueEntropySearchTest(TestCase):
             )
 
         # check generation
-
         n = 1
         gen_results = model.gen(
             n=n,
@@ -237,8 +226,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_input_warping)
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -255,8 +242,6 @@ class MaxValueEntropySearchTest(TestCase):
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=search_space_digest,
@@ -268,8 +253,6 @@ class MaxValueEntropySearchTest(TestCase):
 
         model = MaxValueEntropySearch()
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -301,8 +284,6 @@ class MaxValueEntropySearchTest(TestCase):
         # multi-fidelity tests
         model = MaxValueEntropySearch()
         model.fit(
-            # pyre-fixme[6]: For 1st param expected `List[SupervisedDataset]` but
-            #  got `List[FixedNoiseDataset]`.
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(

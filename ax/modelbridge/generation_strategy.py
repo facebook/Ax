@@ -604,10 +604,8 @@ class GenerationStrategy(Base):
         to_gen, to_complete = self._num_trials_to_gen_and_complete_in_curr_step()
         if to_gen == to_complete == -1:  # Unlimited trials, check completion_criteria
             if len(self._curr.completion_criteria) > 0 and all(
-                [
-                    criterion.is_met(experiment=self.experiment)
-                    for criterion in self._curr.completion_criteria
-                ]
+                criterion.is_met(experiment=self.experiment)
+                for criterion in self._curr.completion_criteria
             ):
                 if len(self._steps) == self._curr.index + 1:
                     raise GenerationStrategyCompleted(

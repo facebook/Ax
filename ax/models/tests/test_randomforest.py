@@ -8,13 +8,13 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.randomforest import RandomForest
 from ax.utils.common.testutils import TestCase
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class RandomForestTest(TestCase):
     def testRFModel(self) -> None:
         datasets = [
-            FixedNoiseDataset(
+            SupervisedDataset(
                 X=torch.rand(10, 2), Y=torch.rand(10, 1), Yvar=torch.rand(10, 1)
             )
             for _ in range(2)

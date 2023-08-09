@@ -15,7 +15,7 @@ from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -34,7 +34,7 @@ from botorch.models.model import Model, ModelList
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import ChainedInputTransform
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
@@ -100,7 +100,7 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    is_fixed_noise = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
+    is_fixed_noise = [ds.Yvar is not None for ds in datasets]
     all_inferred = not any(is_fixed_noise)
     if not all_inferred and not all(is_fixed_noise):
         raise ValueError(
@@ -194,7 +194,7 @@ def convert_to_block_design(
     # Convert data to "block design". TODO: Figure out a better
     # solution for this using the data containers (pass outcome
     # names as properties of the data containers)
-    is_fixed = [isinstance(ds, FixedNoiseDataset) for ds in datasets]
+    is_fixed = [ds.Yvar is not None for ds in datasets]
     if any(is_fixed) and not all(is_fixed):
         raise UnsupportedError(
             "Cannot convert mixed data with and without variance "
@@ -226,7 +226,7 @@ def convert_to_block_design(
                 [ds.Yvar()[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
-            datasets = [FixedNoiseDataset(X=X_shared, Y=Y, Yvar=Yvar)]
+            datasets = [SupervisedDataset(X=X_shared, Y=Y, Yvar=Yvar)]
         else:
             datasets = [SupervisedDataset(X=X_shared, Y=Y)]
         return datasets, metric_names
@@ -234,8 +234,8 @@ def convert_to_block_design(
     # data complies to block design, can concat with impunity
     Y = torch.cat([ds.Y() for ds in datasets], dim=-1)
     if is_fixed:
-        Yvar = torch.cat([ds.Yvar() for ds in datasets], dim=-1)  # pyre-ignore [16]
-        datasets = [FixedNoiseDataset(X=Xs[0], Y=Y, Yvar=Yvar)]
+        Yvar = torch.cat([not_none(ds.Yvar)() for ds in datasets], dim=-1)
+        datasets = [SupervisedDataset(X=Xs[0], Y=Y, Yvar=Yvar)]
     else:
         datasets = [SupervisedDataset(X=Xs[0], Y=Y)]
     return datasets, metric_names
