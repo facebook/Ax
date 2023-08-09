@@ -11,21 +11,20 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class REMBOTest(TestCase):
     @fast_botorch_optimize
-    def testREMBOModel(self) -> None:
+    def test_REMBOModel(self) -> None:
         A = torch.cat((torch.eye(2), -(torch.eye(2))))
         initial_X_d = torch.tensor([[0.25, 0.5], [1, 0], [0, -1]])
-        bounds_d = [(-2, 2), (-2, 2)]
+        bounds_d = [(-2.0, 2.0), (-2.0, 2.0)]
         my_metric_names = ["a", "b"]
 
         # Test setting attributes
-        # pyre-fixme[6]: For 3rd param expected `List[Tuple[float, float]]` but got
-        #  `List[Tuple[int, int]]`.
         m = REMBO(A=A, initial_X_d=initial_X_d, bounds_d=bounds_d)
         self.assertTrue(torch.allclose(A, m.A))
         self.assertTrue(torch.allclose(torch.pinverse(A), m._pinvA))
@@ -36,34 +35,26 @@ class REMBOTest(TestCase):
         # Create high-D data
         X_D = torch.t(torch.mm(A, torch.t(initial_X_d)))
         datasets = [
-            FixedNoiseDataset(X=X_D, Y=torch.randn(3, 1), Yvar=0.1 * torch.ones(3, 1)),
+            SupervisedDataset(X=X_D, Y=torch.randn(3, 1), Yvar=0.1 * torch.ones(3, 1)),
         ] * 2
 
         Xs = [X_D, X_D.clone()]
         Ys = [torch.randn(3, 1)] * 2
         Yvars = [0.1 * torch.ones(3, 1)] * 2
         datasets = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)
         ]
 
-        bounds = [(-1, 1)] * 4
+        bounds = [(-1.0, 1.0)] * 4
         with self.assertRaises(AssertionError):
             m.fit(
                 datasets=datasets,
                 metric_names=my_metric_names,
                 search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,
-                    #  int], Union[float, int]]]` but got `List[Tuple[int, int]]`.
-                    bounds=[(0, 1)] * 4,
+                    feature_names=[], bounds=[(0.0, 1.0)] * 4
                 ),
             )
-        search_space_digest = SearchSpaceDigest(
-            feature_names=[],
-            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
-            #  Union[float, int]]]` but got `List[Tuple[int, int]]`.
-            bounds=bounds,
-        )
+        search_space_digest = SearchSpaceDigest(feature_names=[], bounds=bounds)
         m.fit(
             datasets=datasets,
             metric_names=my_metric_names,
@@ -99,16 +90,15 @@ class REMBOTest(TestCase):
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
         )
-        # pyre-fixme[6]: For 1st param expected `Sized` but got `Optional[Tensor]`.
-        self.assertEqual(len(x_best), 4)
+        self.assertEqual(len(not_none(x_best)), 4)
 
         # Test cross_validate
         f, var = m.cross_validate(
             datasets=[
-                FixedNoiseDataset(
+                SupervisedDataset(
                     X=X_D[:-1, :], Y=Ys[0][:-1, :], Yvar=Yvars[0][:-1, :]
                 ),
-                FixedNoiseDataset(
+                SupervisedDataset(
                     X=X_D[:-1, :], Y=Ys[1][:-1, :], Yvar=Yvars[1][:-1, :]
                 ),
             ],
@@ -135,14 +125,14 @@ class REMBOTest(TestCase):
 
         # Test update
         with self.assertRaises(ValueError):
-            new_dataset = FixedNoiseDataset(
+            new_dataset = SupervisedDataset(
                 X=torch.tensor([[0.1, 0.2, 0.3, 0.4]]),
                 Y=torch.randn(1, 1),
                 Yvar=torch.ones(1, 1),
             )
             m.update(datasets=[new_dataset, new_dataset])
 
-        new_dataset = FixedNoiseDataset(
+        new_dataset = SupervisedDataset(
             X=gen_results.points,
             Y=torch.randn(2, 1),
             Yvar=torch.ones(2, 1),

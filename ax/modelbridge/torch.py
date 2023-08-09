@@ -63,7 +63,7 @@ from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -329,7 +329,7 @@ class TorchModelBridge(ModelBridge):
             if Yvar.isnan().all():
                 dataset = SupervisedDataset(X=X, Y=Y)
             else:
-                dataset = FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar.clamp_min(1e-6))
+                dataset = SupervisedDataset(X=X, Y=Y, Yvar=Yvar.clamp_min(1e-6))
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
 

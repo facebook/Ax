@@ -30,7 +30,7 @@ from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf_list
 from botorch.sampling.normal import IIDNormalSampler
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
 from botorch.utils.testing import MockModel, MockPosterior
@@ -128,8 +128,8 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         n = 3
@@ -246,8 +246,8 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         n = 3
@@ -318,8 +318,8 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         n = 3
@@ -442,8 +442,8 @@ class BotorchMOOModelTest(TestCase):
             Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
             Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
             training_data_multiple = [
-                FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                FixedNoiseDataset(X=Xs1[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                SupervisedDataset(X=Xs1[0], Y=Ys2[0], Yvar=Yvars2[0]),
             ]
             model.fit(
                 datasets=training_data_multiple,
@@ -606,8 +606,8 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         n = 2
@@ -668,8 +668,8 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         n = 2
@@ -735,9 +735,9 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
-            FixedNoiseDataset(X=Xs3[0], Y=Ys3[0], Yvar=Yvars3[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs3[0], Y=Ys3[0], Yvar=Yvars3[0]),
         ]
 
         n = 3

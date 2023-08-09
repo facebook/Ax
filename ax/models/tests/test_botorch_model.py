@@ -32,7 +32,7 @@ from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import FixedNoiseGP, ModelListGP, SingleTaskGP
 from botorch.models.transforms.input import Warp
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
@@ -64,8 +64,8 @@ class BotorchModelTest(TestCase):
         )
         model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
         datasets = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
         with self.assertRaisesRegex(RuntimeError, "Please fit the model first"):
             model.model
@@ -119,8 +119,8 @@ class BotorchModelTest(TestCase):
         }
         model = BotorchModel(**kwargs)  # pyre-ignore [6]
         datasets = [
-            FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
         ]
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -191,8 +191,8 @@ class BotorchModelTest(TestCase):
                 # make training data different for each output
                 Xs2_diff = [Xs2[0] + 0.1]
                 datasets = [
-                    FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                    FixedNoiseDataset(X=Xs2_diff[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                    SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                    SupervisedDataset(X=Xs2_diff[0], Y=Ys2[0], Yvar=Yvars2[0]),
                 ]
                 with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                     model.fit(
@@ -243,8 +243,8 @@ class BotorchModelTest(TestCase):
 
             # Test batched multi-output FixedNoiseGP
             datasets_block = [
-                FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
             ]
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
@@ -453,8 +453,8 @@ class BotorchModelTest(TestCase):
 
             # Test cross-validation
             combined_datasets = [
-                FixedNoiseDataset(Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
             ]
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
@@ -477,7 +477,7 @@ class BotorchModelTest(TestCase):
             # Test update
             model.refit_on_update = False
             model.update(
-                datasets=[FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                datasets=[SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
                 metric_names=["y1", "y2"],
             )
 
@@ -494,7 +494,7 @@ class BotorchModelTest(TestCase):
             model.refit_on_update = True
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.update(
-                    datasets=[FixedNoiseDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                    datasets=[SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
                     metric_names=["y1", "y2"],
                 )
 
@@ -621,7 +621,7 @@ class BotorchModelTest(TestCase):
             )
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
-                    datasets=[FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0])],
+                    datasets=[SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0])],
                     metric_names=mns[:1],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
@@ -670,8 +670,8 @@ class BotorchModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=[
-                    FixedNoiseDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                    FixedNoiseDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                    SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
+                    SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
                 ],
                 metric_names=mns,
                 search_space_digest=search_space_digest,

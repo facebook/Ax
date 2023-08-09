@@ -14,7 +14,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.contextual import LCEAGP
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.utils.datasets import FixedNoiseDataset
+from botorch.utils.datasets import SupervisedDataset
 
 
 class SACBOTest(TestCase):
@@ -25,7 +25,7 @@ class SACBOTest(TestCase):
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]])
         train_Yvar = 0.1 * torch.ones(3, 1)
-        dataset = FixedNoiseDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
+        dataset = SupervisedDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
 
         # test setting attributes
         decomposition = {"1": ["0", "1"], "2": ["2", "3"]}

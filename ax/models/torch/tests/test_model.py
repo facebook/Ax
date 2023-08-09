@@ -42,7 +42,7 @@ from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model import ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
-from botorch.utils.datasets import FixedNoiseDataset, SupervisedDataset
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
@@ -86,7 +86,7 @@ class BoTorchModelTest(TestCase):
             SupervisedDataset(X=X, Y=Y) for X, Y in zip(Xs1, Ys1)
         ]
         self.non_block_design_training_data = [
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
         ]
         self.search_space_digest = SearchSpaceDigest(
@@ -116,7 +116,7 @@ class BoTorchModelTest(TestCase):
         self.pending_observations = None
         self.rounding_func = "func"
         self.moo_training_data = [  # block design
-            FixedNoiseDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
             for X, Y, Yvar in zip(Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3)
         ]
         self.moo_metric_names = ["y1", "y2", "y3"]
@@ -825,7 +825,7 @@ class BoTorchModelTest(TestCase):
         self.assertIsInstance(m, FixedNoiseGP)
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
-        self.assertIsInstance(training_data, FixedNoiseDataset)
+        self.assertIsNotNone(training_data.Yvar)
         self.assertTrue(torch.equal(training_data.X(), self.Xs[0]))
         self.assertTrue(
             torch.equal(
