@@ -30,7 +30,13 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.trial import TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
-from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization, TParamValue
+from ax.core.types import (
+    ComparisonOp,
+    TEvaluationOutcome,
+    TModelPredictArm,
+    TParameterization,
+    TParamValue,
+)
 from ax.exceptions.core import (
     DataRequiredError,
     OptimizationComplete,
@@ -1448,13 +1454,13 @@ class TestAxClient(TestCase):
             )
 
     def test_keep_generating_without_data(self) -> None:
-        # Check that normally numebr of arms to generate is enforced.
+        # Check that normally number of arms to generate is enforced.
         ax_client = get_branin_optimization()
         for _ in range(5):
             parameterization, trial_index = ax_client.get_next_trial()
         with self.assertRaisesRegex(DataRequiredError, "All trials for current model"):
             ax_client.get_next_trial()
-        # Check thatwith enforce_sequential_optimization off, we can keep
+        # Check that with enforce_sequential_optimization off, we can keep
         # generating.
         ax_client = AxClient(enforce_sequential_optimization=False)
         ax_client.create_experiment(
@@ -2569,60 +2575,58 @@ class TestAxClient(TestCase):
                 return {0, 1}
             return {0, 2}
 
-            ax_client = get_client_with_simple_discrete_moo_problem(
-                minimize=minimize,
-                use_y0_threshold=use_y0_threshold,
-                use_y2_constraint=use_y2_constraint,
-            )
+        ax_client = get_client_with_simple_discrete_moo_problem(
+            minimize=minimize,
+            use_y0_threshold=use_y0_threshold,
+            use_y2_constraint=use_y2_constraint,
+        )
 
-            pareto_obs = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=False
-            )
-            sol = get_solution(
-                use_y0_threshold=use_y0_threshold,
-                use_y2_constraint=use_y2_constraint,
-            )
+        pareto_obs = ax_client.get_pareto_optimal_parameters(
+            use_model_predictions=False
+        )
+        sol = get_solution(
+            use_y0_threshold=use_y0_threshold,
+            use_y2_constraint=use_y2_constraint,
+        )
 
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-            )
-            pareto_mod = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            # since this is a noise-free problem, using predicted values shouldn't
-            # change the answer
-            self.assertEqual(len(sol), len(pareto_mod))
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-            )
+        self.assertSetEqual(
+            sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+        )
+        pareto_mod = ax_client.get_pareto_optimal_parameters(use_model_predictions=True)
+        # since this is a noise-free problem, using predicted values shouldn't
+        # change the answer
+        self.assertEqual(len(sol), len(pareto_mod))
+        self.assertSetEqual(
+            sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+        )
 
-            # take another step. This will change the generation strategy from
-            # Sobol to MOO. Shouldn't affect results since we already had data
-            # on all 3 points.
-            parameterization, trial_index = ax_client.get_next_trial()
-            x = parameterization["x"]
+        # take another step. This will change the generation strategy from
+        # Sobol to MOO. Shouldn't affect results since we already had data
+        # on all 3 points.
+        parameterization, trial_index = ax_client.get_next_trial()
+        x = parameterization["x"]
 
-            metrics = y_values_for_simple_discrete_moo_problem[x]
-            if minimize:
-                metrics = [-m for m in metrics]
-            y0, y1, y2 = metrics
-            raw_data = {"y0": (y0, 0.0), "y1": (y1, 0.0), "y2": (y2, 0.0)}
+        metrics = y_values_for_simple_discrete_moo_problem[x]
+        if minimize:
+            metrics = [-m for m in metrics]
+        y0, y1, y2 = metrics
+        raw_data: TEvaluationOutcome = {
+            "y0": (y0, 0.0),
+            "y1": (y1, 0.0),
+            "y2": (y2, 0.0),
+        }
 
-            ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+        ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
 
-            # Check frontier again
-            pareto_obs = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
-            )
-            pareto_mod = ax_client.get_pareto_optimal_parameters(
-                use_model_predictions=True
-            )
-            self.assertSetEqual(
-                sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
-            )
+        # Check frontier again
+        pareto_obs = ax_client.get_pareto_optimal_parameters(use_model_predictions=True)
+        self.assertSetEqual(
+            sol, _get_parameterizations_from_pareto_frontier(pareto_obs)
+        )
+        pareto_mod = ax_client.get_pareto_optimal_parameters(use_model_predictions=True)
+        self.assertSetEqual(
+            sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
+        )
 
     @fast_botorch_optimize
     def test_get_hypervolume(self) -> None:
@@ -2834,6 +2838,35 @@ class TestAxClient(TestCase):
             ff = call_kwargs["fixed_features"]
             self.assertEqual(ff.parameters, {})
             self.assertEqual(ff.trial_index, 0)
+
+    def test_get_optimization_trace_discard_unfeasible_trials(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [1.0, 4.0],
+                },
+            ],
+            objectives={"y": ObjectiveProperties(minimize=True)},
+            outcome_constraints=["z >= 1.5"],
+            is_test=True,
+        )
+
+        _, idx = ax_client.attach_trial({"x": 3.0})
+        ax_client.complete_trial(idx, raw_data={"y": 3.0, "z": 3.0})  # feasible
+        _, idx = ax_client.attach_trial({"x": 2.0})
+        ax_client.complete_trial(idx, raw_data={"y": 2.0, "z": 2.0})  # feasible / best
+        _, idx = ax_client.attach_trial({"x": 4.0})
+        ax_client.complete_trial(idx, raw_data={"y": 4.0, "z": 4.0})  # feasible
+        _, idx = ax_client.attach_trial({"x": 1.0})
+        ax_client.complete_trial(idx, raw_data={"y": 1.0, "z": 1.0})  # infeasible
+
+        plot_config = ax_client.get_optimization_trace()
+
+        self.assertListEqual(plot_config.data["data"][0]["y"], [3.0, 2.0, 2.0, 2.0])
 
 
 # Utility functions for testing get_model_predictions without calling
