@@ -38,6 +38,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
 from torch import Tensor
@@ -117,6 +118,9 @@ class AcquisitionTest(TestCase):
         self.outcome_constraints = (
             torch.tensor([[1.0]], **tkwargs),
             torch.tensor([[0.5]], **tkwargs),
+        )
+        self.constraints = get_outcome_constraint_transforms(
+            outcome_constraints=self.outcome_constraints
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
@@ -225,31 +229,44 @@ class AcquisitionTest(TestCase):
         self.mock_input_constructor.reset_mock()
         mock_botorch_acqf_class.reset_mock()
         self.options[Keys.SUBSET_MODEL] = False
-        acquisition = Acquisition(
-            surrogates={"surrogate": self.surrogate},
-            search_space_digest=self.search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            botorch_acqf_class=self.botorch_acqf_class,
-            options=self.options,
-        )
-        mock_subset_model.assert_not_called()
-        # Check `get_botorch_objective_and_transform` kwargs
-        mock_get_objective_and_transform.assert_called_once()
-        _, ckwargs = mock_get_objective_and_transform.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
-        self.assertIs(ckwargs["objective_weights"], self.objective_weights)
-        self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
-        self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
-        # Check final `acqf` creation
-        model_deps = {Keys.CURRENT_VALUE: 1.2}
-        self.mock_input_constructor.assert_called_once()
-        mock_botorch_acqf_class.assert_called_once()
-        _, ckwargs = self.mock_input_constructor.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
-        self.assertIs(ckwargs["objective"], botorch_objective)
-        self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
-        for k, v in chain(self.options.items(), model_deps.items()):
-            self.assertEqual(ckwargs[k], v)
+        with mock.patch(
+            f"{ACQUISITION_PATH}.get_outcome_constraint_transforms",
+            return_value=self.constraints,
+        ) as mock_get_outcome_constraint_transforms:
+            acquisition = Acquisition(
+                surrogates={"surrogate": self.surrogate},
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=self.botorch_acqf_class,
+                options=self.options,
+            )
+            mock_subset_model.assert_not_called()
+            # Check `get_botorch_objective_and_transform` kwargs
+            mock_get_objective_and_transform.assert_called_once()
+            _, ckwargs = mock_get_objective_and_transform.call_args
+            self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+            self.assertIs(ckwargs["objective_weights"], self.objective_weights)
+            self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
+            self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
+            # Check final `acqf` creation
+            model_deps = {Keys.CURRENT_VALUE: 1.2}
+            self.mock_input_constructor.assert_called_once()
+            mock_botorch_acqf_class.assert_called_once()
+            _, ckwargs = self.mock_input_constructor.call_args
+            self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+            self.assertIs(ckwargs["objective"], botorch_objective)
+            self.assertTrue(
+                torch.equal(ckwargs["X_pending"], self.pending_observations[0])
+            )
+            for k, v in chain(self.options.items(), model_deps.items()):
+                self.assertEqual(ckwargs[k], v)
+            self.assertIs(
+                ckwargs["constraints"],
+                self.constraints,
+            )
+            mock_get_outcome_constraint_transforms.assert_called_once_with(
+                outcome_constraints=self.outcome_constraints
+            )
 
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
     def test_optimize(self, mock_optimize_acqf: Mock) -> None:
