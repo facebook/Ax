@@ -19,7 +19,10 @@ from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.torch.botorch_modular.utils import choose_model_class
+from ax.models.torch.botorch_modular.utils import (
+    choose_model_class,
+    construct_acquisition_and_optimizer_options,
+)
 from ax.models.torch.utils import _filter_X_observed
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
@@ -37,11 +40,13 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
+from botorch.acquisition.objective import GenericMCObjective
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
 from botorch.models.model import ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
@@ -106,11 +111,18 @@ class BoTorchModelTest(TestCase):
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
         self.objective_weights = torch.tensor([1.0], **tkwargs)
+        self.outcome_constraints = (
+            torch.tensor([[1.0]], **tkwargs),
+            torch.tensor([[-5.0]], **tkwargs),
+        )
         self.moo_objective_weights = torch.tensor([1.0, 1.5, 0.0], **tkwargs)
         self.moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **tkwargs
         )
-        self.outcome_constraints = None
+        self.moo_outcome_constraints = (
+            torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
+            torch.tensor([[-5.0]], **tkwargs),
+        )
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
@@ -136,6 +148,7 @@ class BoTorchModelTest(TestCase):
             self.torch_opt_config,
             objective_weights=self.moo_objective_weights,
             objective_thresholds=self.moo_objective_thresholds,
+            outcome_constraints=self.moo_outcome_constraints,
         )
 
     def test_init(self) -> None:
@@ -491,12 +504,9 @@ class BoTorchModelTest(TestCase):
 
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
-        return_value=(
-            ACQ_OPTIONS,
-            {"num_restarts": 40, "raw_samples": 1024},
-        ),
+        wraps=construct_acquisition_and_optimizer_options,
     )
-    @mock.patch(f"{CURRENT_PATH}.Acquisition")
+    @mock.patch(f"{CURRENT_PATH}.Acquisition.optimize")
     @mock.patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
     @mock.patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
     @mock.patch(
@@ -507,10 +517,18 @@ class BoTorchModelTest(TestCase):
         mock_choose_botorch_acqf_class: Mock,
         mock_inequality_constraints: Mock,
         mock_rounding: Mock,
-        mock_acquisition: Mock,
+        mock_optimize: Mock,
         mock_construct_options: Mock,
     ) -> None:
-        mock_acquisition.return_value.optimize.return_value = (
+        qEI_input_constructor = get_acqf_input_constructor(qExpectedImprovement)
+        mock_input_constructor = mock.MagicMock(
+            qEI_input_constructor, side_effect=qEI_input_constructor
+        )
+        _register_acqf_input_constructor(
+            acqf_cls=qExpectedImprovement,
+            input_constructor=mock_input_constructor,
+        )
+        mock_optimize.return_value = (
             torch.tensor([1.0]),
             torch.tensor([2.0]),
         )
@@ -534,10 +552,60 @@ class BoTorchModelTest(TestCase):
             )
         # Add search space digest reference to make the model think it's been fit
         model._search_space_digest = self.mf_search_space_digest
-        model.gen(
-            n=1,
-            search_space_digest=self.mf_search_space_digest,
-            torch_opt_config=self.torch_opt_config,
+        with mock.patch.object(
+            BoTorchModel,
+            "_instantiate_acquisition",
+            wraps=model._instantiate_acquisition,
+        ) as mock_init_acqf:
+            model.gen(
+                n=1,
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+            )
+            # Assert acquisition initialized with expected arguments
+            mock_init_acqf.assert_called_once_with(
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                acq_options=self.acquisition_options,
+            )
+        ckwargs = mock_input_constructor.call_args[1]
+        mock_input_constructor.assert_called_once()
+        m = ckwargs["model"]
+        self.assertIsInstance(m, SingleTaskGP)
+        self.assertEqual(m.num_outputs, 1)
+        training_data = ckwargs["training_data"]
+        self.assertIsInstance(training_data, SupervisedDataset)
+        self.assertTrue(torch.equal(training_data.X(), self.Xs[0]))
+        self.assertTrue(
+            torch.equal(
+                training_data.Y(),
+                torch.cat([ds.Y() for ds in self.block_design_training_data], dim=-1),
+            )
+        )
+        self.assertIsNotNone(ckwargs["constraints"])
+
+        self.assertIsNone(
+            ckwargs["X_pending"],
+        )
+        self.assertIsInstance(
+            ckwargs.get("objective"),
+            GenericMCObjective,
+        )
+        expected_X_baseline = _filter_X_observed(
+            Xs=[dataset.X() for dataset in self.block_design_training_data],
+            objective_weights=self.objective_weights,
+            outcome_constraints=self.outcome_constraints,
+            bounds=self.search_space_digest.bounds,
+            linear_constraints=self.linear_constraints,
+            fixed_features=self.fixed_features,
+        )
+        self.assertTrue(
+            torch.equal(
+                ckwargs.get("X_baseline"),
+                # pyre-fixme[6]: For 2nd param expected `Tensor` but got
+                #  `Optional[Tensor]`.
+                expected_X_baseline,
+            )
         )
 
         # Assert `construct_acquisition_and_optimizer_options` called with kwargs
@@ -548,22 +616,20 @@ class BoTorchModelTest(TestCase):
         # Assert `choose_botorch_acqf_class` is called
         mock_choose_botorch_acqf_class.assert_called_once()
         self.assertEqual(model._botorch_acqf_class, qExpectedImprovement)
-        # Assert `acquisition_class` called with kwargs
-        mock_acquisition.assert_called_with(
-            surrogates={Keys.ONLY_SURROGATE: self.surrogate},
-            botorch_acqf_class=model.botorch_acqf_class,
-            search_space_digest=self.mf_search_space_digest,
-            torch_opt_config=self.torch_opt_config,
-            options=self.acquisition_options,
-        )
+
         # Assert `optimize` called with kwargs
-        mock_acquisition.return_value.optimize.assert_called_with(
+        mock_optimize.assert_called_with(
             n=1,
             search_space_digest=self.mf_search_space_digest,
             inequality_constraints=[],
             fixed_features=self.fixed_features,
             rounding_func="func",
             optimizer_options=self.optimizer_options,
+        )
+
+        _register_acqf_input_constructor(
+            acqf_cls=qExpectedImprovement,
+            input_constructor=qEI_input_constructor,
         )
 
     def test_feature_importances(self) -> None:
@@ -813,11 +879,29 @@ class BoTorchModelTest(TestCase):
         self.assertIsInstance(
             model.surrogates[Keys.AUTOSET_SURROGATE].model, FixedNoiseGP
         )
-        gen_results = model.gen(
-            n=1,
-            search_space_digest=self.mf_search_space_digest,
-            torch_opt_config=self.moo_torch_opt_config,
+        subset_outcome_constraints = (
+            # model is subset since last output is not used
+            self.moo_outcome_constraints[0][:, :2],
+            self.moo_outcome_constraints[1],
         )
+        constraints = get_outcome_constraint_transforms(
+            outcome_constraints=subset_outcome_constraints,
+        )
+        with mock.patch(
+            f"{ACQUISITION_PATH}.get_outcome_constraint_transforms",
+            # Dummy candidates and acquisition function value.
+            return_value=constraints,
+        ) as mock_get_outcome_constraint_transforms:
+            gen_results = model.gen(
+                n=1,
+                search_space_digest=self.mf_search_space_digest,
+                torch_opt_config=self.moo_torch_opt_config,
+            )
+            mock_get_outcome_constraint_transforms.assert_called_once()
+            ckwargs = mock_get_outcome_constraint_transforms.call_args[1]
+            oc = ckwargs["outcome_constraints"]
+            self.assertTrue(torch.equal(oc[0], subset_outcome_constraints[0]))
+            self.assertTrue(torch.equal(oc[1], subset_outcome_constraints[1]))
         ckwargs = mock_input_constructor.call_args[1]
         self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
         mock_input_constructor.assert_called_once()
@@ -844,9 +928,8 @@ class BoTorchModelTest(TestCase):
                 ckwargs["objective_thresholds"], self.moo_objective_thresholds[:2]
             )
         )
-        self.assertIsNone(
-            ckwargs["outcome_constraints"],
-        )
+        self.assertIs(ckwargs["constraints"], constraints)
+
         self.assertIsNone(
             ckwargs["X_pending"],
         )
@@ -860,21 +943,21 @@ class BoTorchModelTest(TestCase):
         )
         self.assertTrue(
             torch.equal(
-                mock_input_constructor.call_args[1].get("objective").weights,
+                ckwargs.get("objective").weights,
                 self.moo_objective_weights[:2],
             )
         )
         expected_X_baseline = _filter_X_observed(
             Xs=[dataset.X() for dataset in self.moo_training_data],
             objective_weights=self.moo_objective_weights,
-            outcome_constraints=self.outcome_constraints,
+            outcome_constraints=self.moo_outcome_constraints,
             bounds=self.search_space_digest.bounds,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
         )
         self.assertTrue(
             torch.equal(
-                mock_input_constructor.call_args[1].get("X_baseline"),
+                ckwargs.get("X_baseline"),
                 # pyre-fixme[6]: For 2nd param expected `Tensor` but got
                 #  `Optional[Tensor]`.
                 expected_X_baseline,
@@ -935,6 +1018,8 @@ class BoTorchModelTest(TestCase):
             obj_t = gen_results.gen_metadata["objective_thresholds"]
             self.assertTrue(torch.equal(obj_t[:2], torch.tensor([9.9, 3.3])))
             self.assertTrue(np.isnan(obj_t[2].item()))
+
+        # test outcome constraints
 
         # Avoid polluting the registry for other tests; re-register correct input
         # contructor for qNEHVI.

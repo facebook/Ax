@@ -48,6 +48,7 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from torch import Tensor
 
 
@@ -277,7 +278,9 @@ class Acquisition(Base):
             "X_baseline": unique_Xs_observed,
             "X_pending": unique_Xs_pending,
             "objective_thresholds": objective_thresholds,
-            "outcome_constraints": outcome_constraints,
+            "constraints": get_outcome_constraint_transforms(
+                outcome_constraints=outcome_constraints
+            ),
             "target_fidelities": search_space_digest.target_fidelities,
             "bounds": search_space_digest.bounds,
             **acqf_model_kwarg,
