@@ -6,6 +6,7 @@
 import numpy as np
 
 from ax.benchmark.benchmark import benchmark_replication
+from ax.benchmark.benchmark_method import get_sequential_optimization_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.registry import Models
@@ -17,6 +18,7 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 class TestMethods(TestCase):
     def test_mbm_acquisition(self) -> None:
         method = get_sobol_botorch_modular_acquisition(
+            scheduler_options=get_sequential_optimization_scheduler_options(),
             acquisition_cls=qKnowledgeGradient,
             acquisition_options={"num_fantasies": 16},
         )
@@ -33,7 +35,8 @@ class TestMethods(TestCase):
     def test_benchmark_replication_runs(self) -> None:
         problem = get_problem(problem_name="ackley4")
         method = get_sobol_botorch_modular_acquisition(
-            acquisition_cls=qKnowledgeGradient
+            scheduler_options=get_sequential_optimization_scheduler_options(),
+            acquisition_cls=qKnowledgeGradient,
         )
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
         # Only run one non-Sobol trial

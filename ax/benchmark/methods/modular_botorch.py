@@ -12,6 +12,7 @@ from ax.benchmark.benchmark_method import (
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
@@ -22,7 +23,9 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 
 
-def get_sobol_botorch_modular_fixed_noise_gp_qnei() -> BenchmarkMethod:
+def get_sobol_botorch_modular_fixed_noise_gp_qnei(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:
     model_gen_kwargs = {
         "model_gen_options": {
             Keys.OPTIMIZER_KWARGS: {
@@ -57,11 +60,14 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnei() -> BenchmarkMethod:
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
-def get_sobol_botorch_modular_fixed_noise_gp_qnehvi() -> BenchmarkMethod:
+def get_sobol_botorch_modular_fixed_noise_gp_qnehvi(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:
     model_gen_kwargs = {
         "model_gen_options": {
             Keys.OPTIMIZER_KWARGS: {
@@ -100,18 +106,24 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnehvi() -> BenchmarkMethod:
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
-def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei() -> BenchmarkMethod:  # noqa
+def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:  # noqa
     return get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
-        qNoisyExpectedImprovement
+        qNoisyExpectedImprovement,
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
 def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
     botorch_acqf_class: Type[AcquisitionFunction],
+    scheduler_options: Optional[SchedulerOptions] = None,
 ) -> BenchmarkMethod:  # noqa
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_"
@@ -135,11 +147,14 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
-def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi() -> BenchmarkMethod:  # noqa
+def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:  # noqa
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedHypervolumeImprovement",  # noqa
         steps=[
@@ -164,11 +179,14 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi() -> Ben
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
-def get_sobol_botorch_modular_default() -> BenchmarkMethod:
+def get_sobol_botorch_modular_default(
+    scheduler_options: Optional[SchedulerOptions] = None,
+) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::default",
         steps=[
@@ -184,13 +202,15 @@ def get_sobol_botorch_modular_default() -> BenchmarkMethod:
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
 
 
 def get_sobol_botorch_modular_acquisition(
     acquisition_cls: Type[AcquisitionFunction],
     acquisition_options: Optional[Dict[str, Any]] = None,
+    scheduler_options: Optional[SchedulerOptions] = None,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name=f"SOBOL+BOTORCH_MODULAR::{acquisition_cls.__name__}",
@@ -215,5 +235,6 @@ def get_sobol_botorch_modular_acquisition(
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options
+        or get_sequential_optimization_scheduler_options(),
     )
