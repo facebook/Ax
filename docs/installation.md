@@ -8,7 +8,7 @@ You need Python 3.9 or later to run Ax.
 
 The required Python dependencies are:
 
-* [botorch](https://www.botorch.org) >=0.1.3
+* [botorch][def]
 * jinja2
 * pandas
 * scipy
@@ -101,3 +101,6 @@ The above example limits the cloned directory size via the
 [`--depth`](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt)
 argument to `git clone`. If you require the entire commit history you may remove this
 argument.
+
+
+[def]: https://www.botorch.org
