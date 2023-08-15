@@ -301,6 +301,9 @@ class OptimizationCompletedRecord:
     # SchedulerCompletedRecord fields
     best_point_quality: float
     model_fit_quality: float
+    model_std_quality: float
+    model_fit_generalization: float
+    model_std_generalization: float
 
     num_metric_fetch_e_encountered: int
     num_trials_bad_due_to_err: int
@@ -403,6 +406,9 @@ def _extract_model_fit_dict(
     completed_record: Union[SchedulerCompletedRecord, AxClientCompletedRecord],
 ) -> Dict[str, float]:
     model_fit_names = [
-        "model_fit_quality",  # TODO: add calibration, generalization.
+        "model_fit_quality",
+        "model_std_quality",
+        "model_fit_generalization",
+        "model_std_generalization",
     ]
     return {n: getattr(completed_record, n) for n in model_fit_names}

@@ -11,19 +11,7 @@ from functools import partial
 
 from logging import Logger
 from numbers import Number
-from typing import (
-    Any,
-    Callable,
-    cast,
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-)
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData
@@ -40,7 +28,6 @@ from ax.utils.stats.model_fit_stats import (
     _rank_correlation,
     _total_raw_effect,
     compute_model_fit_metrics,
-    ModelFitMetricProtocol,
 )
 
 logger: Logger = get_logger(__name__)
@@ -252,23 +239,15 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
     y_pred = _arrayify_dict_values(y_pred)
     se_pred = _arrayify_dict_values(se_pred)
 
-    # We need to cast here since pyre infers specific types T < ModelFitMetricProtocol
-    # for the dict values, which is type variant upon initialization, leading
-    # diagnostic_fns to not be recognized as a Mapping[str, ModelFitMetricProtocol],
-    # see the last tip in the Pyre docs on [9] Incompatible Variable Type:
-    # https://staticdocs.internalfb.com/pyre/docs/errors/#9-incompatible-variable-type
-    diagnostic_fns = cast(
-        Mapping[str, ModelFitMetricProtocol],
-        {
-            MEAN_PREDICTION_CI: _mean_prediction_ci,
-            MAPE: _mape,
-            TOTAL_RAW_EFFECT: _total_raw_effect,
-            CORRELATION_COEFFICIENT: _correlation_coefficient,
-            RANK_CORRELATION: _rank_correlation,
-            FISHER_EXACT_TEST_P: _fisher_exact_test_p,
-            LOG_LIKELIHOOD: _log_likelihood,
-        },
-    )
+    diagnostic_fns = {
+        MEAN_PREDICTION_CI: _mean_prediction_ci,
+        MAPE: _mape,
+        TOTAL_RAW_EFFECT: _total_raw_effect,
+        CORRELATION_COEFFICIENT: _correlation_coefficient,
+        RANK_CORRELATION: _rank_correlation,
+        FISHER_EXACT_TEST_P: _fisher_exact_test_p,
+        LOG_LIKELIHOOD: _log_likelihood,
+    }
     diagnostics = compute_model_fit_metrics(
         y_obs=y_obs, y_pred=y_pred, se_pred=se_pred, fit_metrics_dict=diagnostic_fns
     )

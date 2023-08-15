@@ -99,6 +99,9 @@ class AxClientCompletedRecord:
 
     best_point_quality: float
     model_fit_quality: float
+    model_std_quality: float
+    model_fit_generalization: float
+    model_std_generalization: float
 
     @classmethod
     def from_ax_client(cls, ax_client: AxClient) -> AxClientCompletedRecord:
@@ -108,6 +111,9 @@ class AxClientCompletedRecord:
             ),
             best_point_quality=float("-inf"),  # TODO[T147907632]
             model_fit_quality=float("-inf"),  # TODO[T147907632]
+            model_std_quality=float("-inf"),
+            model_fit_generalization=float("-inf"),  # TODO via cross_validate_by_trial
+            model_std_generalization=float("-inf"),
         )
 
     def flatten(self) -> Dict[str, Any]:

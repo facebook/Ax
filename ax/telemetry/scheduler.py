@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 from warnings import warn
 
+import numpy as np
+
 from ax.service.scheduler import get_fitted_model_bridge, Scheduler
 from ax.telemetry.common import _get_max_transformed_dimensionality
 
@@ -99,6 +101,9 @@ class SchedulerCompletedRecord:
 
     best_point_quality: float
     model_fit_quality: float
+    model_std_quality: float
+    model_fit_generalization: float
+    model_std_generalization: float
 
     num_metric_fetch_e_encountered: int
     num_trials_bad_due_to_err: int
@@ -118,11 +123,14 @@ class SchedulerCompletedRecord:
             model_fit_quality = min(
                 model_fit_dict["coefficient_of_determination"].values()
             )
+            # similar for uncertainty quantification, but distance from 1 matters
+            std = list(model_fit_dict["std_of_the_standardized_error"].values())
+            model_std_quality = _model_std_quality(np.array(std))
 
         except Exception as e:
             warn("Encountered exception in computing model fit quality: " + str(e))
             model_fit_quality = float("-inf")
-            # model_std_quality = float("-inf")
+            model_std_quality = float("-inf")
 
         return cls(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
@@ -130,6 +138,9 @@ class SchedulerCompletedRecord:
             ),
             best_point_quality=float("-inf"),  # TODO[T147907632]
             model_fit_quality=model_fit_quality,
+            model_std_quality=model_std_quality,
+            model_fit_generalization=float("-inf"),  # TODO by cross_validate_by_trial
+            model_std_generalization=float("-inf"),
             num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
             num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
         )
@@ -146,3 +157,26 @@ class SchedulerCompletedRecord:
             **self_dict,
             **experiment_completed_record_dict,
         }
+
+
+def _model_std_quality(std: np.ndarray) -> float:
+    """Quantifies quality of the model uncertainty. A value of one means the
+    uncertainty is perfectly predictive of the true standard deviation of the error.
+    Values larger than one indicate over-estimation and negative values indicate
+    under-estimation of the true standard deviation of the error. In particular, a value
+    of 2 (resp. 1 / 2) represents an over-estimation (resp. under-estimation) of the
+    true standard deviation of the error by a factor of 2.
+
+    Args:
+        std: The standard deviation of the standardized error.
+
+    Returns:
+        The factor corresponding to the worst over- or under-estimation factor of the
+        standard deviation of the error among all experimentally observed metrics.
+    """
+    max_std, min_std = np.max(std), np.min(std)
+    # comparing worst over-estimation factor with worst under-estimation factor
+    inv_model_std_quality = max_std if max_std > 1 / min_std else min_std
+    # reciprocal so that values greater than one indicate over-estimation and
+    # values smaller than indicate underestimation of the uncertainty.
+    return 1 / inv_model_std_quality

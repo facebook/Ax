@@ -12,7 +12,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 from logging import Logger
-from typing import Any, cast, Dict, List, MutableMapping, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
 import numpy as np
 from ax.core.arm import Arm
@@ -990,7 +990,6 @@ class ModelBridge(ABC):
                 "mean_of_the_standardized_error": mean_of_the_standardized_error,
                 "std_of_the_standardized_error": std_of_the_standardized_error,
             }
-            fit_metrics_dict = cast(Dict[str, ModelFitMetricProtocol], fit_metrics_dict)
 
         return compute_model_fit_metrics(
             y_obs=y_obs,

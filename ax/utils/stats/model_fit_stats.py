@@ -16,8 +16,9 @@ from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
 class ModelFitMetricProtocol(Protocol):
     """Structural type for model fit metrics."""
 
-    @staticmethod
-    def __call__(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
+    def __call__(
+        self, y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    ) -> float:
         ...
 
 
