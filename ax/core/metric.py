@@ -175,7 +175,7 @@ class Metric(SortableBase, SerializationMixin):
     # multi` to avoid backward incompatibility. A `DeprecationWarning` is raised if
     # this is not overridden but `fetch_trial_data_multi` is.
     def bulk_fetch_trial_data(
-        self, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
+        self, trial: core.base_trial.BaseTrial, metrics: List[Metric], **kwargs: Any
     ) -> Dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial, using instance attributes
         of the metrics.
@@ -204,8 +204,8 @@ class Metric(SortableBase, SerializationMixin):
     def bulk_fetch_experiment_data(
         self,
         experiment: core.experiment.Experiment,
-        metrics: Iterable[Metric],
-        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        metrics: List[Metric],
+        trials: Optional[List[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
     ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for multiple trials on an experiment, using
@@ -215,7 +215,7 @@ class Metric(SortableBase, SerializationMixin):
         Default behavior calls `fetch_trial_data` for each metric.
         Subclasses should override this to trial data computation for multiple metrics.
         """
-        trials = experiment.trials.values() if trials is None else trials
+        trials = list(experiment.trials.values()) if trials is None else trials
         experiment.validate_trials(trials=trials)
         return {
             trial.index: self.bulk_fetch_trial_data(
@@ -249,8 +249,8 @@ class Metric(SortableBase, SerializationMixin):
     def fetch_data_prefer_lookup(
         self,
         experiment: core.experiment.Experiment,
-        metrics: Iterable[Metric],
-        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        metrics: List[Metric],
+        trials: Optional[List[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
     ) -> Tuple[Dict[int, Dict[str, MetricFetchResult]], bool]:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
@@ -466,7 +466,7 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         results: Mapping[str, MetricFetchResult],
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
-        critical_metric_names: Optional[Iterable[str]] = None,
+        critical_metric_names: Optional[List[str]] = None,
     ) -> Data:
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
         # lose rows)if some MetricFetchResults contain Data not of type
@@ -478,7 +478,7 @@ class Metric(SortableBase, SerializationMixin):
         if len(oks) < len(results):
             # If no critical_metric_names supplied all metrics to be treated as
             # critical
-            critical_metric_names = critical_metric_names or results.keys()
+            critical_metric_names = critical_metric_names or list(results.keys())
 
             # Noncritical Errs should be brought to the user's attention via warnings
             # but not raise an Exception
