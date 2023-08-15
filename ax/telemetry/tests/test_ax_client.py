@@ -120,5 +120,8 @@ class TestAxClient(TestCase):
             ),
             best_point_quality=float("-inf"),
             model_fit_quality=float("-inf"),
+            model_std_quality=float("-inf"),
+            model_fit_generalization=float("-inf"),
+            model_std_generalization=float("-inf"),
         )
         self.assertEqual(record, expected)

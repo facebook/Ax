@@ -92,6 +92,9 @@ class TestScheduler(TestCase):
             ),
             best_point_quality=float("-inf"),
             model_fit_quality=float("-inf"),  # -inf because no model has been fit
+            model_std_quality=float("-inf"),
+            model_fit_generalization=float("-inf"),
+            model_std_generalization=float("-inf"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -104,6 +107,9 @@ class TestScheduler(TestCase):
             ).__dict__,
             "best_point_quality": float("-inf"),
             "model_fit_quality": float("-inf"),
+            "model_std_quality": float("-inf"),
+            "model_fit_generalization": float("-inf"),
+            "model_std_generalization": float("-inf"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
@@ -163,8 +169,8 @@ class TestScheduler(TestCase):
         self.assertTrue("branin" in std)
         std_branin = std["branin"]
         self.assertIsInstance(std_branin, float)
-        # log_std_branin = math.log10(std_branin)
-        # model_std_quality = -log_std_branin  # align positivity with over-estimation
+
+        model_std_quality = 1 / std_branin
 
         expected = SchedulerCompletedRecord(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
@@ -172,6 +178,9 @@ class TestScheduler(TestCase):
             ),
             best_point_quality=float("-inf"),
             model_fit_quality=r2_branin,
+            model_std_quality=model_std_quality,
+            model_fit_generalization=float("-inf"),
+            model_std_generalization=float("-inf"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -184,6 +193,9 @@ class TestScheduler(TestCase):
             ).__dict__,
             "best_point_quality": float("-inf"),
             "model_fit_quality": r2_branin,
+            "model_std_quality": model_std_quality,
+            "model_fit_generalization": float("-inf"),
+            "model_std_generalization": float("-inf"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }

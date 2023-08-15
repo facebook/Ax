@@ -149,7 +149,6 @@ class TestOptimization(TestCase):
             estimated_early_stopping_savings=19,
             estimated_global_stopping_savings=98,
         )
-
         expected_dict = {
             **AxClientCompletedRecord.from_ax_client(ax_client=ax_client).flatten(),
             "unique_identifier": "foo",
