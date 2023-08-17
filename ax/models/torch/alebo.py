@@ -73,7 +73,8 @@ class ALEBOKernel(Kernel):
         )
         # pyre-fixme[4]: Attribute must be annotated.
         self.d, D = B.shape
-        assert self.d < D
+        if not self.d < D:
+            raise ValueError(f"Expected B.shape[0] < B.shape[1], but got {B.shape=}.")
         self.B = B
         # Initialize U
         Arnd = torch.randn(D, D, dtype=B.dtype, device=B.device)
