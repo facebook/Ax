@@ -61,8 +61,8 @@ class SEBOAcquisition(Acquisition):
 
         tkwargs = {"dtype": surrogate.dtype, "device": surrogate.device}
         options = options or {}
-        self.penalty_name: str = options.get("penalty", "L0_norm")
-        self.target_point: Tensor = options.get("target_point", None)
+        self.penalty_name: str = options.pop("penalty", "L0_norm")
+        self.target_point: Tensor = options.pop("target_point", None)
         if self.target_point is None:
             raise ValueError("please provide target point.")
         self.target_point.to(**tkwargs)  # pyre-ignore
@@ -93,6 +93,8 @@ class SEBOAcquisition(Acquisition):
         )
 
         # instantiate botorch_acqf_class
+        if not issubclass(botorch_acqf_class, qExpectedHypervolumeImprovement):
+            raise ValueError("botorch_acqf_class must be qEHVI to use SEBO")
         super().__init__(
             surrogates={"sebo": surrogate_f},
             search_space_digest=search_space_digest,

@@ -193,7 +193,7 @@ class Acquisition(Base):
         ]
 
         # Subset model only to the outcomes we need for the optimization.
-        if self.options.get(Keys.SUBSET_MODEL, True):
+        if self.options.pop(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
                 model=primary_surrogate.model,
                 objective_weights=torch_opt_config.objective_weights,

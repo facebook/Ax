@@ -34,8 +34,6 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnei(
             },
             Keys.ACQF_KWARGS: {
                 "prune_baseline": True,
-                "qmc": True,
-                "mc_samples": 512,
             },
         }
     }
