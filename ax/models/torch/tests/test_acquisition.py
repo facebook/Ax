@@ -20,7 +20,11 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.torch.utils import SubsetModelData
+from ax.models.torch.utils import (
+    _get_X_pending_and_observed,
+    subset_model,
+    SubsetModelData,
+)
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -124,7 +128,7 @@ class AcquisitionTest(TestCase):
         )
         self.linear_constraints = None
         self.fixed_features = {1: 2.0}
-        self.options = {"best_f": 0.0, "cache_root": False, "prune_baseline": False}
+        self.options = {"cache_root": False, "prune_baseline": False}
         self.inequality_constraints = [
             (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
         ]
@@ -159,41 +163,25 @@ class AcquisitionTest(TestCase):
         # Avoid polluting the registry for other tests.
         ACQF_INPUT_CONSTRUCTOR_REGISTRY.pop(DummyAcquisitionFunction)
 
-    @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
-    @mock.patch(
-        f"{ACQUISITION_PATH}.subset_model",
-        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
-        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
-        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
-    )
-    @mock.patch(f"{ACQUISITION_PATH}.get_botorch_objective_and_transform")
-    @mock.patch(
-        f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
-        return_value={"current_value": 1.2},
-    )
-    @mock.patch(
-        f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
-        return_value=None,
-    )
-    def test_init(
-        self,
-        mock_botorch_acqf_class: Mock,
-        mock_compute_model_deps: Mock,
-        mock_get_objective_and_transform: Mock,
-        mock_subset_model: Mock,
-        mock_get_X: Mock,
-    ) -> None:
+    def test_init_raises_when_missing_acqf_cls(self) -> None:
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
-            # pyre-fixme[20]: Argument `botorch_acqf_class` expected.
+            # pyre-ignore[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
 
-        botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
-        mock_get_objective_and_transform.return_value = (botorch_objective, None)
-        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
+    @mock.patch(
+        f"{ACQUISITION_PATH}._get_X_pending_and_observed",
+        wraps=_get_X_pending_and_observed,
+    )
+    @mock.patch(f"{ACQUISITION_PATH}.subset_model", wraps=subset_model)
+    def test_init(
+        self,
+        mock_subset_model: Mock,
+        mock_get_X: Mock,
+    ) -> None:
         acquisition = Acquisition(
             surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
@@ -224,10 +212,36 @@ class AcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
         )
-        mock_subset_model.reset_mock()
-        mock_get_objective_and_transform.reset_mock()
-        self.mock_input_constructor.reset_mock()
-        mock_botorch_acqf_class.reset_mock()
+
+    @mock.patch(f"{ACQUISITION_PATH}._get_X_pending_and_observed")
+    @mock.patch(
+        f"{ACQUISITION_PATH}.subset_model",
+        # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
+        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
+        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
+    )
+    @mock.patch(
+        f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",
+    )
+    @mock.patch(
+        f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
+        return_value={"eta": 0.1},
+    )
+    @mock.patch(
+        f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
+        return_value=None,
+    )
+    def test_init_with_subset_model_false(
+        self,
+        mock_botorch_acqf_class: Mock,
+        mock_compute_model_deps: Mock,
+        mock_get_objective_and_transform: Mock,
+        mock_subset_model: Mock,
+        mock_get_X: Mock,
+    ) -> None:
+        botorch_objective = LinearMCObjective(weights=torch.tensor([1.0]))
+        mock_get_objective_and_transform.return_value = (botorch_objective, None)
+        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         self.options[Keys.SUBSET_MODEL] = False
         with mock.patch(
             f"{ACQUISITION_PATH}.get_outcome_constraint_transforms",
@@ -249,7 +263,7 @@ class AcquisitionTest(TestCase):
             self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
             self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
             # Check final `acqf` creation
-            model_deps = {Keys.CURRENT_VALUE: 1.2}
+            model_deps = {"eta": 0.1}
             self.mock_input_constructor.assert_called_once()
             mock_botorch_acqf_class.assert_called_once()
             _, ckwargs = self.mock_input_constructor.call_args

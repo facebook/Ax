@@ -146,7 +146,10 @@ class GeneratorRun(SortableBase):
         if weights is None:
             weights = [1.0 for i in range(len(arms))]
         if len(arms) != len(weights):
-            raise ValueError("Weights and arms must have the same length.")
+            raise ValueError(
+                "Weights and arms must have the same length. Arms have length "
+                f"{len(arms)}, weights have length {len(weights)}."
+            )
         if bridge_kwargs is not None or model_kwargs is not None:
             if model_key is None:
                 raise ValueError(

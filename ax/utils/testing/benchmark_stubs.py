@@ -30,15 +30,26 @@ def get_benchmark_problem() -> BenchmarkProblem:
     )
 
 
-def get_single_objective_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
+def get_single_objective_benchmark_problem(
+    infer_noise: bool = True,
+    num_trials: int = 4,
+) -> SingleObjectiveBenchmarkProblem:
     return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-        test_problem_class=Branin, test_problem_kwargs={}, num_trials=4
+        test_problem_class=Branin,
+        test_problem_kwargs={},
+        num_trials=num_trials,
+        infer_noise=infer_noise,
     )
 
 
-def get_multi_objective_benchmark_problem() -> MultiObjectiveBenchmarkProblem:
+def get_multi_objective_benchmark_problem(
+    infer_noise: bool = True, num_trials: int = 4
+) -> MultiObjectiveBenchmarkProblem:
     return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-        test_problem_class=BraninCurrin, test_problem_kwargs={}, num_trials=4
+        test_problem_class=BraninCurrin,
+        test_problem_kwargs={},
+        num_trials=num_trials,
+        infer_noise=infer_noise,
     )
 
 
@@ -67,6 +78,8 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                     num_trials=-1,
                     model_kwargs={
                         "surrogate": Surrogate(SingleTaskGP),
+                        # TODO: tests should better reflect defaults and not
+                        # re-implement this logic.
                         "botorch_acqf_class": qNoisyExpectedImprovement,
                     },
                     model_gen_kwargs={
@@ -77,8 +90,6 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                             },
                             Keys.ACQF_KWARGS: {
                                 "prune_baseline": True,
-                                "qmc": True,
-                                "mc_samples": 512,
                             },
                         }
                     },

@@ -14,8 +14,14 @@ from ax.benchmark.benchmark import (
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.benchmark.methods.gpei_and_moo import get_gpei_default
+from ax.benchmark.methods.modular_botorch import (
+    get_sobol_botorch_modular_default,
+    get_sobol_botorch_modular_fixed_noise_gp_qnehvi,
+    get_sobol_botorch_modular_fixed_noise_gp_qnei,
+    get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi,
+    get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei,
+)
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -25,7 +31,6 @@ from ax.utils.testing.benchmark_stubs import (
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_sobol_benchmark_method,
-    get_sobol_gpei_benchmark_method,
 )
 from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -84,12 +89,11 @@ class TestBenchmark(TestCase):
                 gen_time=0.0,
             )
 
-    def test_replication_synthetic(self) -> None:
+    def test_replication_synthetic_sobol(self) -> None:
         problem = get_single_objective_benchmark_problem()
+        method = get_sobol_benchmark_method()
 
-        res = benchmark_replication(
-            problem=problem, method=get_sobol_benchmark_method(), seed=0
-        )
+        res = benchmark_replication(problem=problem, method=method, seed=0)
 
         self.assertEqual(
             problem.num_trials,
@@ -98,7 +102,51 @@ class TestBenchmark(TestCase):
 
         self.assertTrue(np.all(res.score_trace <= 100))
 
-    def test_replication_moo(self) -> None:
+    @fast_botorch_optimize
+    def test_replication_mbm(self) -> None:
+        for method, problem in [
+            (
+                get_sobol_botorch_modular_fixed_noise_gp_qnei(),
+                get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+            ),
+            (
+                get_sobol_botorch_modular_fixed_noise_gp_qnehvi(),
+                get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
+            ),
+            (
+                get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei(),
+                get_single_objective_benchmark_problem(num_trials=6),
+            ),
+            (
+                get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(),
+                get_multi_objective_benchmark_problem(num_trials=6),
+            ),
+        ]:
+            with self.subTest(method=method, problem=problem):
+                res = benchmark_replication(problem=problem, method=method, seed=0)
+                self.assertEqual(
+                    problem.num_trials,
+                    len(not_none(res.experiment).trials),
+                )
+                self.assertTrue(np.all(res.score_trace <= 100))
+
+    @fast_botorch_optimize
+    def test_replication_mbm_default(self) -> None:
+        method = get_sobol_botorch_modular_default()
+        for problem in [
+            get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+            get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
+            get_single_objective_benchmark_problem(num_trials=6),
+            get_multi_objective_benchmark_problem(num_trials=6),
+        ]:
+            with self.subTest(problem=problem):
+                res = benchmark_replication(problem=problem, method=method, seed=0)
+                self.assertEqual(
+                    problem.num_trials,
+                    len(not_none(res.experiment).trials),
+                )
+
+    def test_replication_moo_sobol(self) -> None:
         problem = get_multi_objective_benchmark_problem()
 
         res = benchmark_replication(
@@ -139,13 +187,12 @@ class TestBenchmark(TestCase):
     @fast_botorch_optimize
     def test_benchmark_multiple_problems_methods(self) -> None:
         aggs = benchmark_multiple_problems_methods(
-            problems=[get_single_objective_benchmark_problem()],
-            methods=[get_sobol_benchmark_method(), get_sobol_gpei_benchmark_method()],
+            problems=[get_single_objective_benchmark_problem(num_trials=6)],
+            methods=[get_sobol_benchmark_method(), get_gpei_default()],
             seeds=(0, 1),
         )
 
         self.assertEqual(len(aggs), 2)
-
         for agg in aggs:
             for col in ["mean", "P25", "P50", "P75"]:
                 self.assertTrue((agg.score_trace[col] <= 100).all())
@@ -157,17 +204,7 @@ class TestBenchmark(TestCase):
             num_trials=1000,  # Unachievable num_trials
         )
 
-        generation_strategy = GenerationStrategy(
-            name="SOBOL+GPEI::default",
-            steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-                GenerationStep(
-                    model=Models.GPEI,
-                    num_trials=-1,
-                    max_parallelism=1,
-                ),
-            ],
-        )
+        generation_strategy = get_gpei_default().generation_strategy
 
         method = BenchmarkMethod(
             name=generation_strategy.name,
