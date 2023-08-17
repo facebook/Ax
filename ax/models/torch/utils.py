@@ -644,22 +644,20 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
 
 # TODO(jej): Possibly refactor to use "objective_directions".
 def randomize_objective_weights(
-    objective_weights: Tensor, **acquisition_function_kwargs: Any
+    objective_weights: Tensor,
+    random_scalarization_distribution: str = SIMPLEX,
 ) -> Tensor:
     """Generate a random weighting based on acquisition function settings.
 
     Args:
-        objective_weights: Base weights to multiply by random values..
-        **acquisition_function_kwargs: Kwargs containing weight generation algorithm
-            options.
+        objective_weights: Base weights to multiply by random values.
+        random_scalarization_distribution: "simplex" or "hypersphere".
 
     Returns:
         A normalized list of indices such that each index is between `0` and `d-1`.
     """
     # Set distribution and sample weights.
-    distribution = acquisition_function_kwargs.get(
-        "random_scalarization_distribution", SIMPLEX
-    )
+    distribution = random_scalarization_distribution
     dtype = objective_weights.dtype
     device = objective_weights.device
     if distribution == SIMPLEX:

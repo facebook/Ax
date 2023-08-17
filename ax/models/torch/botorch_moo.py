@@ -316,13 +316,22 @@ class MultiObjectiveBotorchModel(BotorchModel):
         )
         bounds_ = bounds_.transpose(0, 1)
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
-        if acf_options.get("random_scalarization", False) or acf_options.get(
+        if acf_options.pop("random_scalarization", False) or acf_options.get(
             "chebyshev_scalarization", False
         ):
             # If using a list of acquisition functions, the algorithm to generate
             # that list is configured by acquisition_function_kwargs.
+            if "random_scalarization_distribution" in acf_options:
+                randomize_weights_kws = {
+                    "random_scalarization_distribution": acf_options[
+                        "random_scalarization_distribution"
+                    ]
+                }
+                del acf_options["random_scalarization_distribution"]
+            else:
+                randomize_weights_kws = {}
             objective_weights_list = [
-                randomize_objective_weights(objective_weights, **acf_options)
+                randomize_objective_weights(objective_weights, **randomize_weights_kws)
                 for _ in range(n)
             ]
             acquisition_function_list = [

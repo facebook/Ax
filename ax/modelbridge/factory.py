@@ -92,7 +92,6 @@ def get_MOO_NEHVI(
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
                     "options": {"batch_limit": DEFAULT_EHVI_BATCH_LIMIT},
-                    "sequential": True,
                 },
             },
             use_input_warping=use_input_warping,
@@ -174,7 +173,6 @@ def get_MTGP_NEHVI(
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
                     "options": {"batch_limit": DEFAULT_EHVI_BATCH_LIMIT},
-                    "sequential": True,
                 },
             },
             optimization_config=optimization_config,
@@ -522,7 +520,7 @@ def get_MOO_EHVI(
             torch_device=device,
             acqf_constructor=get_EHVI,
             default_model_gen_options={
-                "acquisition_function_kwargs": {"sequential": True},
+                "acquisition_function_kwargs": {},
                 "optimizer_kwargs": {
                     # having a batch limit is very important for avoiding
                     # memory issues in the initialization
@@ -562,7 +560,6 @@ def get_MOO_PAREGO(
             default_model_gen_options={
                 "acquisition_function_kwargs": {
                     "chebyshev_scalarization": True,
-                    "sequential": True,
                 }
             },
             optimization_config=optimization_config,
@@ -599,7 +596,6 @@ def get_MOO_RS(
             default_model_gen_options={
                 "acquisition_function_kwargs": {
                     "random_scalarization": True,
-                    "sequential": True,
                 }
             },
             optimization_config=optimization_config,
@@ -673,7 +669,6 @@ def get_MTGP_PAREGO(
             default_model_gen_options={
                 "acquisition_function_kwargs": {
                     "chebyshev_scalarization": True,
-                    "sequential": True,
                 }
             },
             optimization_config=optimization_config,

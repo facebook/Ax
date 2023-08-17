@@ -521,7 +521,9 @@ class BotorchMOOModelTest(TestCase):
                     "acquisition_function_kwargs": {
                         "cache_root": False,
                         "prune_baseline": False,
-                    },
+                    }
+                    if use_qnehvi
+                    else {},
                 },
             )
             gen_results = model.gen(
