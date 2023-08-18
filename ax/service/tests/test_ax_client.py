@@ -1948,11 +1948,10 @@ class TestAxClient(TestCase):
         gs = ax_client.generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        gs._seen_trial_indices_by_status = None
-        gs._model = None
+        gs._unset_non_persistent_state_fields()
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.

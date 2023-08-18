@@ -156,8 +156,24 @@ def object_attribute_dicts_find_unequal_fields(
                 return unequal_type, unequal_value
 
         if field == "_experiment":
-            # prevent infinite loop when checking equality of Trials
-            equal = one_val is other_val is None or (one_val._name == other_val._name)
+            # Prevent infinite loop when checking equality of Trials (on Experiment,
+            # with back-pointer), GenSteps (on GenerationStrategy), AnalysisRun-s
+            # (on AnalysisScheduler).
+            if one_val is None or other_val is None:
+                equal = one_val is None and other_val is None
+            else:
+                # We compare `_name` because `name` attribute errors if not set.
+                equal = one_val._name == other_val._name
+        elif field == "_generation_strategy":
+            # Prevent infinite loop when checking equality of Trials (on Experiment,
+            # with back-pointer), GenSteps (on GenerationStrategy), AnalysisRun-s
+            # (on AnalysisScheduler).
+            if one_val is None or other_val is None:
+                equal = one_val is None and other_val is None
+            else:
+                # We compare `name` because it is set dynimically in
+                # some cases (see `GenerationStrategy.name` attribute).
+                equal = one_val.name == other_val.name
         elif field == "analysis_scheduler":
             # prevent infinite loop when checking equality of analysis runs
             equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
@@ -199,6 +215,7 @@ def object_attribute_dicts_find_unequal_fields(
             equal = dataframe_equals(one_val, other_val)
         else:
             equal = one_val == other_val
+
         if not equal:
             unequal_value[field] = (one_val, other_val)
             if fast_return:

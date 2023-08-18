@@ -102,6 +102,7 @@ class GenerationStrategy(Base):
                     f" number. Got: {step.max_parallelism} for step {step.model_name}."
                 )
             step.index = idx
+            step._generation_strategy = self
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
         if not self._uses_registered_models:
@@ -115,7 +116,8 @@ class GenerationStrategy(Base):
     @property
     def name(self) -> str:
         """Name of this generation strategy. Defaults to a combination of model
-        names provided in generation steps."""
+        names provided in generation steps.
+        """
         if self._name is not None:
             return not_none(self._name)
 
@@ -390,7 +392,20 @@ class GenerationStrategy(Base):
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
-        return GenerationStrategy(name=self.name, steps=self._steps)
+        # TODO[drfreund]: unset `_generation_strategy`` from steps
+        return GenerationStrategy(name=self.name, steps=deepcopy(self._steps))
+
+    def _unset_non_persistent_state_fields(self) -> None:
+        """Utility for testing convenience: unset fields of generation strategy
+        that are set during candidate generation; these fields are not persisted
+        during storage. To compare a pre-storage and a reloaded generation
+        strategies; call this utility on the pre-storage one first. The rest
+        of the fields should be identical.
+        """
+        self._seen_trial_indices_by_status = None
+        self._model = None
+        for s in self._steps:
+            s._model_spec_to_gen_from = None
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""

@@ -15,6 +15,7 @@ from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.metrics.jenatton import JenattonMetric
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
@@ -319,6 +320,8 @@ class JSONStoreTest(TestCase):
                 )
                 original_object = original_object.state_dict()
                 converted_object = converted_object.state_dict()
+            if isinstance(original_object, GenerationStrategy):
+                original_object._unset_non_persistent_state_fields()
             try:
                 self.assertEqual(
                     original_object,
@@ -414,11 +417,10 @@ class JSONStoreTest(TestCase):
             decoder_registry=CORE_DECODER_REGISTRY,
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
 
@@ -438,11 +440,10 @@ class JSONStoreTest(TestCase):
             decoder_registry=CORE_DECODER_REGISTRY,
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
 
