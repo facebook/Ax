@@ -197,7 +197,7 @@ def _build_comparison_str(
     if level > COMPARISON_STR_MAX_LEVEL:
         # Don't go deeper than 4 levels as the inequality report will not be legible.
         return (
-            f"... also there were unequal fields at levels {level}+; "
+            f"\n... also there were unequal fields at levels {level}+; "
             "to see full comparison past this level, adjust `ax.utils.common.testutils."
             "COMPARISON_STR_MAX_LEVEL`"
         )
@@ -220,7 +220,7 @@ def _build_comparison_str(
     joint_unequal_field_dict = {**unequal_val, **unequal_types_suffixed}
     for idx, (field, (first, second)) in enumerate(joint_unequal_field_dict.items()):
         # For level 0, use numbers as bullets. For 1, use letters. For 2, use "i".
-        # For 3, use "*".
+        # For 3+, use "*".
         bul = "*"
         if level == 0:
             bul = f"{idx + 1})"
@@ -228,7 +228,7 @@ def _build_comparison_str(
             bul = f"{chr(ord('a') + idx)})"
         elif level == 2:
             bul = f"{'i' * (idx + 1)})"
-        elif level < COMPARISON_STR_MAX_LEVEL:
+        elif level <= COMPARISON_STR_MAX_LEVEL:
             # Add default for when setting `COMPARISON_STR_MAX_LEVEL` to higher value
             # during debugging.
             bul = "*"
@@ -392,7 +392,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
             else first != second
         ):
             raise self.failureException(
-                _build_comparison_str(
+                "Encountered unequal objects. "
+                "Attempting in-depth comparison; note that this recurs through the"
+                " attributes of the objects being compared multiple times!\n\n"
+                + _build_comparison_str(
                     first=first, second=second, skip_db_id_check=skip_db_id_check
                 ),
             )

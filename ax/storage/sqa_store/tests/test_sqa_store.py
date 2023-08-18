@@ -188,7 +188,6 @@ class SQAStoreTest(TestCase):
             self.assertEqual(loaded_experiment, exp)
 
     def testLoadExperimentTrialsInBatches(self) -> None:
-        print(self.experiment.trials)
         for _ in range(4):
             self.experiment.new_trial()
         self.assertEqual(len(self.experiment.trials), 5)
@@ -1243,11 +1242,10 @@ class SQAStoreTest(TestCase):
         new_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
@@ -1284,11 +1282,10 @@ class SQAStoreTest(TestCase):
         generation_strategy._generator_runs[0]._model_state_after_gen = None
         generation_strategy._generator_runs[0]._search_space = None
         generation_strategy._generator_runs[0]._optimization_config = None
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         # Now the generation strategies should be equal.
         # Reloaded generation strategy will not have attributes associated with fitting
         # the model until after it's used to fit the model or generate candidates, so
@@ -1351,11 +1348,10 @@ class SQAStoreTest(TestCase):
         # Now experiment on generation strategy should be equal to the original
         # experiment with reduced state.
         self.assertEqual(new_generation_strategy.experiment, experiment)
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
         # the reduced state.
@@ -1379,11 +1375,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add another generator run, save, reload
@@ -1395,11 +1390,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # make sure that we can update the experiment too
@@ -1459,11 +1453,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
         # add even more generator runs, save using batch_size, reload
@@ -1486,11 +1479,10 @@ class SQAStoreTest(TestCase):
         loaded_generation_strategy = load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name
         )
-        # These fields of the reloaded GS are not expected to be set (both will be
+        # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
-        generation_strategy._seen_trial_indices_by_status = None
-        generation_strategy._model = None
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
     def testUpdateRunner(self) -> None:

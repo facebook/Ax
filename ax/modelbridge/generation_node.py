@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
+# Module-level import to avoid circular dependency b/w this file and
+# generation_strategy.py
+from ax import modelbridge
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -25,7 +28,7 @@ from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
-from ax.utils.common.base import SortableBase
+from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -349,6 +352,10 @@ class GenerationStep(GenerationNode, SortableBase):
     # Optional model name. Defaults to `model_spec.model_key`.
     model_name: str = field(default_factory=str)
 
+    _generation_strategy: Optional[
+        modelbridge.generation_strategy.GenerationStrategy
+    ] = None
+
     def __post_init__(self) -> None:
         if (
             self.enforce_num_trials
@@ -414,3 +421,11 @@ class GenerationStep(GenerationNode, SortableBase):
         )
         gr._generation_step_index = self.index
         return gr
+
+    def __eq__(self, other: Base) -> bool:
+        # We need to override `__eq__` to make sure we inherit the one from
+        # the base class and not the one from dataclasses library, since we
+        # want to be comparing equality of generation steps in the same way
+        # as we compare equality of other Ax objects (and we want all the
+        # same special-casing to apply).
+        return SortableBase.__eq__(self, other=other)

@@ -143,6 +143,15 @@ class Surrogate(Base):
         self.likelihood_options = likelihood_options or {}
         self.allow_batched_models = allow_batched_models
 
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__}"
+            f" botorch_model_class={self.botorch_model_class} "
+            f"mll_class={self.mll_class} "
+            f"outcome_transform={self.outcome_transform} "
+            f"input_transform={self.input_transform} "
+        )
+
     @property
     def model(self) -> Model:
         if self._model is None:
