@@ -315,7 +315,6 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
             {
                 "acquisition_function_kwargs": {
                     "random_scalarization": True,
-                    "sequential": True,
                 }
             },
             moo_rs._default_model_gen_options,
@@ -335,7 +334,6 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
             {
                 "acquisition_function_kwargs": {
                     "chebyshev_scalarization": True,
-                    "sequential": True,
                 }
             },
             moo_parego._default_model_gen_options,

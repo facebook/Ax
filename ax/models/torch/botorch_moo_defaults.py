@@ -21,20 +21,17 @@ References
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.exceptions.core import AxError
 from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
-from ax.models.torch.utils import (  # noqa F40
+from ax.models.torch.utils import (
     _get_X_pending_and_observed,
-    _to_inequality_constraints,
     get_outcome_constraint_transforms,
-    predict_from_model,
     subset_model,
 )
 from ax.models.torch_base import TorchModel
-from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
@@ -109,7 +106,12 @@ def get_NEHVI(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
-    **kwargs: Any,
+    *,
+    prune_baseline: bool = True,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
+    marginalize_dim: Optional[int] = None,
+    cache_root: bool = True,
 ) -> AcquisitionFunction:
     r"""Instantiates a qNoisyExpectedHyperVolumeImprovement acquisition function.
 
@@ -128,10 +130,8 @@ def get_NEHVI(
             that have been submitted for evaluation) present for all objective
             outcomes and outcomes that appear in the outcome constraints (if
             there are any).
-        mc_samples: The number of MC samples to use (default: 512).
-        qmc: If True, use qMC instead of MC (default: True).
         prune_baseline: If True, prune the baseline points for NEI (default: True).
-        chebyshev_scalarization: Use augmented Chebyshev scalarization.
+        mc_samples: The number of MC samples to use (default: 512).
 
     Returns:
         qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
@@ -151,6 +151,8 @@ def get_NEHVI(
     else:
         cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
     num_objectives = objective_thresholds.shape[0]
+    if alpha is None:
+        alpha = get_default_partitioning_alpha(num_objectives=num_objectives)
     return get_acquisition_function(
         acquisition_function_name="qNEHVI",
         model=model,
@@ -158,19 +160,15 @@ def get_NEHVI(
         X_observed=X_observed,
         X_pending=X_pending,
         constraints=cons_tfs,
-        prune_baseline=kwargs.get("prune_baseline", True),
-        mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
-        alpha=kwargs.get(
-            "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
-        ),
-        qmc=kwargs.get("qmc", True),
+        prune_baseline=prune_baseline,
+        mc_samples=mc_samples,
+        alpha=alpha,
         # pyre-fixme[6]: Expected `Optional[int]` for 11th param but got
         #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
         ref_point=objective_thresholds.tolist(),
-        marginalize_dim=kwargs.get("marginalize_dim"),
-        match_right_most_batch_dim=kwargs.get("match_right_most_batch_dim", False),
-        cache_root=kwargs.get("cache_root", True),
+        marginalize_dim=marginalize_dim,
+        cache_root=cache_root,
     )
 
 
@@ -181,7 +179,9 @@ def get_EHVI(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
-    **kwargs: Any,
+    *,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
 ) -> AcquisitionFunction:
     r"""Instantiates a qExpectedHyperVolumeImprovement acquisition function.
 
@@ -204,7 +204,6 @@ def get_EHVI(
             outcomes and outcomes that appear in the outcome constraints (if
             there are any).
         mc_samples: The number of MC samples to use (default: 512).
-        qmc: If True, use qMC instead of MC (default: True).
 
     Returns:
         qExpectedHypervolumeImprovement: The instantiated acquisition function.
@@ -233,11 +232,10 @@ def get_EHVI(
         X_observed=X_observed,
         X_pending=X_pending,
         constraints=cons_tfs,
-        mc_samples=kwargs.get("mc_samples", DEFAULT_EHVI_MC_SAMPLES),
-        qmc=kwargs.get("qmc", True),
-        alpha=kwargs.get(
-            "alpha", get_default_partitioning_alpha(num_objectives=num_objectives)
-        ),
+        mc_samples=mc_samples,
+        alpha=get_default_partitioning_alpha(num_objectives=num_objectives)
+        if alpha is None
+        else alpha,
         # pyre-fixme[6]: Expected `Optional[int]` for 10th param but got
         #  `Union[float, int]`.
         seed=torch.randint(1, 10000, (1,)).item(),
@@ -253,7 +251,9 @@ def scipy_optimizer_list(
     inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-    **kwargs: Any,
+    num_restarts: int = 20,
+    raw_samples: Optional[int] = None,
+    options: Optional[Dict[str, Union[bool, float, int, str]]] = None,
 ) -> Tuple[Tensor, Tensor]:
     r"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.
 
@@ -281,22 +281,20 @@ def scipy_optimizer_list(
           values, where `i`-th element is the expected acquisition value
           conditional on having observed candidates `0,1,...,i-1`.
     """
-    num_restarts: int = kwargs.pop(Keys.NUM_RESTARTS, 20)
-    raw_samples: int = kwargs.pop(Keys.RAW_SAMPLES, 50 * num_restarts)
-
     # Use SLSQP by default for small problems since it yields faster wall times.
-    options: Dict[str, Union[bool, float, int, str]] = {
+    optimize_options: Dict[str, Union[bool, float, int, str]] = {
         "batch_limit": 5,
         "init_batch_limit": 32,
         "method": "SLSQP",
     }
-    options.update(kwargs.get("options", {}))
+    if options is not None:
+        optimize_options.update(options)
     X, expected_acquisition_value = optimize_acqf_list(
         acq_function_list=acq_function_list,
         bounds=bounds,
         num_restarts=num_restarts,
-        raw_samples=raw_samples,
-        options=options,
+        raw_samples=50 * num_restarts if raw_samples is None else raw_samples,
+        options=optimize_options,
         inequality_constraints=inequality_constraints,
         fixed_features=fixed_features,
         post_processing_func=rounding_func,

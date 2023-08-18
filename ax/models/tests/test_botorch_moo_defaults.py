@@ -260,7 +260,6 @@ class BotorchMOODefaultsTest(TestCase):
                 X_pending=X_pending,
                 constraints=cons_tfs,
                 mc_samples=128,
-                qmc=True,
                 alpha=0.0,
                 seed=seed,
                 ref_point=new_obj_thresholds.tolist(),
