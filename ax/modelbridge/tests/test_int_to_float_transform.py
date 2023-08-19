@@ -210,6 +210,30 @@ class IntToFloatTransformTest(TestCase):
             )
         )
 
+        # test empty parameters
+        observation_features = [ObservationFeatures(parameters={})]
+        untransformed_t = t.untransform_observation_features(
+            observation_features=observation_features
+        )[0].parameters
+        self.assertEqual(untransformed_t, {})
+        # test wrong number of parameters
+        observation_features = [
+            ObservationFeatures(
+                parameters={
+                    "x": 1,
+                }
+            )
+        ]
+        msg = (
+            "Either all parameters must be provided or no parameters"
+            " should be provided, when there are parameter"
+            " constraints involving integers."
+        )
+        with self.assertRaisesRegex(ValueError, msg):
+            t.untransform_observation_features(
+                observation_features=observation_features
+            )
+
     @mock.patch(
         "ax.modelbridge.transforms.int_to_float.DEFAULT_MAX_ROUND_ATTEMPTS", 100
     )

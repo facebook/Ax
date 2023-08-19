@@ -71,6 +71,9 @@ class IntToFloat(Transform):
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):
             self.rounding = "randomized"
+            self.contains_constrained_integer: bool = True
+        else:
+            self.contains_constrained_integer: bool = False
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -130,6 +133,18 @@ class IntToFloat(Transform):
                     param: float = obsf.parameters.get(p_name)
                     obsf.parameters[p_name] = int(round(param))  # TODO: T41938776
             else:
+                if self.contains_constrained_integer:
+                    if len(present_params) == 0:
+                        continue
+                    elif len(present_params) != len(self.transform_parameters):
+                        # no parameters being present is allowed to handle fixed
+                        # features, but all parameters must be present if there
+                        # are parameter constraints involving integers.
+                        raise ValueError(
+                            "Either all parameters must be provided or no parameters"
+                            " should be provided, when there are parameter"
+                            " constraints involving integers."
+                        )
                 round_attempts = 0
                 rounded_parameters = randomized_round_parameters(
                     obsf.parameters, self.transform_parameters
