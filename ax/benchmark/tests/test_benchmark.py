@@ -11,11 +11,15 @@ from ax.benchmark.benchmark import (
     benchmark_one_method_problem,
     benchmark_replication,
 )
-from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_method import (
+    BenchmarkMethod,
+    get_sequential_optimization_scheduler_options,
+)
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.gpei_and_moo import get_gpei_default
 from ax.benchmark.methods.modular_botorch import (
+    get_sobol_botorch_modular_acquisition,
     get_sobol_botorch_modular_default,
     get_sobol_botorch_modular_fixed_noise_gp_qnehvi,
     get_sobol_botorch_modular_fixed_noise_gp_qnei,
@@ -34,6 +38,7 @@ from ax.utils.testing.benchmark_stubs import (
 )
 from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from botorch.test_functions.synthetic import Branin
 
 
@@ -105,6 +110,13 @@ class TestBenchmark(TestCase):
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
         for method, problem in [
+            (
+                get_sobol_botorch_modular_acquisition(
+                    acquisition_cls=qMaxValueEntropy,
+                    scheduler_options=get_sequential_optimization_scheduler_options(),
+                ),
+                get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+            ),
             (
                 get_sobol_botorch_modular_fixed_noise_gp_qnei(),
                 get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
