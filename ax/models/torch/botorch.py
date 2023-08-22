@@ -21,6 +21,7 @@ from ax.models.torch.botorch_defaults import (
     get_NEI,
     recommend_best_observed_point,
     scipy_optimizer,
+    TAcqfConstructor,
 )
 from ax.models.torch.utils import (
     _datasets_to_legacy_inputs,
@@ -62,18 +63,8 @@ TModelConstructor = Callable[
     Model,
 ]
 TModelPredictor = Callable[[Model, Tensor], Tuple[Tensor, Tensor]]
-# pyre-fixme[33]: Aliased annotation cannot contain `Any`.
-TAcqfConstructor = Callable[
-    [
-        Model,
-        Tensor,
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Tensor],
-        Optional[Tensor],
-        Any,
-    ],
-    AcquisitionFunction,
-]
+
+
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizer = Callable[
     [
@@ -253,11 +244,6 @@ class BotorchModel(TorchModel):
         self,
         model_constructor: TModelConstructor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
-        # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
-        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
-        #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
-        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
-        #  **(Any)], AcquisitionFunction]`.
         acqf_constructor: TAcqfConstructor = get_NEI,
         # pyre-fixme[9]: acqf_optimizer declared/used type mismatch
         acqf_optimizer: TOptimizer = scipy_optimizer,
@@ -391,7 +377,7 @@ class BotorchModel(TorchModel):
         # pyre-fixme[53]: Captured variable `outcome_constraints` is not annotated.
         def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
             add_kwargs = {"qmc": False} if override_qmc else {}
-            acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+            acquisition_function = self.acqf_constructor(
                 model=model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,

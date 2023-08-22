@@ -4,8 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import functools
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from random import randint
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Type, Union
 
 import torch
 from ax.models.model_utils import best_observed_point, get_observed
@@ -232,24 +234,106 @@ def get_and_fit_model(
     return model
 
 
-def get_NEI(
-    model: Model,
-    objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    X_observed: Optional[Tensor] = None,
-    X_pending: Optional[Tensor] = None,
-    **kwargs: Any,
-) -> AcquisitionFunction:
-    r"""Instantiates a qNoisyExpectedImprovement acquisition function."""
-    return _get_acquisition_func(
-        model=model,
-        acquisition_function_name="qNEI",
-        objective_weights=objective_weights,
-        outcome_constraints=outcome_constraints,
-        X_observed=X_observed,
-        X_pending=X_pending,
-        **kwargs,
-    )
+class TAcqfConstructor(Protocol):
+    def __call__(
+        self,  # making this a static method makes Pyre unhappy, better to keep `self`
+        model: Model,
+        objective_weights: Tensor,
+        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        X_observed: Optional[Tensor] = None,
+        X_pending: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> AcquisitionFunction:
+        ...  # pragma: no cover
+
+
+def get_acqf(
+    acquisition_function_name: str,
+) -> Callable[[Callable[[], None]], TAcqfConstructor]:
+    """Returns a decorator whose wrapper function instantiates an acquisition function.
+
+    NOTE: This is a decorator factory instead of a simple factory as serialization
+    of Botorch model kwargs requires callables to be have module-level paths, and
+    closures created by a simple factory do not have such paths. We solve this by
+    wrapping "empty" module-level functions with this decorator, we ensure that they
+    are serialized correctly, in addition to reducing code duplication.
+
+    Example:
+        >>> @get_acqf("qEI")
+        ... def get_qEI() -> None:
+        ...     pass
+        >>> acqf = get_qEI(
+        ...     model=model,
+        ...     objective_weights=objective_weights,
+        ...     outcome_constraints=outcome_constraints,
+        ...     X_observed=X_observed,
+        ...     X_pending=X_pending,
+        ...     **kwargs,
+        ... )
+        >>> type(acqf)
+        ... botorch.acquisition.monte_carlo.qExpectedImprovement
+
+    Args:
+        acquisition_function_name: The name of the acquisition function to be
+            instantiated by the returned function.
+
+    Returns:
+        A decorator whose wrapper function is a TAcqfConstructor, i.e. it requires a
+        `model`, `objective_weights`, and optional `outcome_constraints`, `X_observed`,
+        and `X_pending` as inputs, as well as `kwargs`, and returns an
+        `AcquisitionFunction` instance that corresponds to `acquisition_function_name`.
+    """
+
+    def decorator(empty_acqf_getter: Callable[[], None]) -> TAcqfConstructor:
+        # `wraps` allows the function to keep its original, module-level name, enabling
+        # serialization via `callable_to_reference`. `empty_acqf_getter` is otherwise
+        # not used in the wrapper.
+        @functools.wraps(empty_acqf_getter)
+        def wrapper(
+            model: Model,
+            objective_weights: Tensor,
+            outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+            X_observed: Optional[Tensor] = None,
+            X_pending: Optional[Tensor] = None,
+            **kwargs: Any,
+        ) -> AcquisitionFunction:
+
+            return _get_acquisition_func(
+                model=model,
+                acquisition_function_name=acquisition_function_name,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                X_pending=X_pending,
+                **kwargs,
+            )
+
+        return wrapper
+
+    return decorator
+
+
+@get_acqf("qEI")
+def get_qEI() -> None:
+    """A TAcqfConstructor to instantiate a qEI acquisition function. The function body
+    is filled in by the decorator function `get_acqf` to simultaneously reduce code
+    duplication and allow serialization in Ax. TODO: Deprecate with legacy Ax model.
+    """
+
+
+@get_acqf("qLogEI")
+def get_qLogEI() -> None:
+    """TAcqfConstructor instantiating qLogEI. See docstring of get_qEI for details."""
+
+
+@get_acqf("qNEI")
+def get_NEI() -> None:  # no "q" in method name for backward compatibility
+    """TAcqfConstructor instantiating qNEI. See docstring of get_qEI for details."""
+
+
+@get_acqf("qLogNEI")
+def get_qLogNEI() -> None:
+    """TAcqfConstructor instantiating qLogNEI. See docstring of get_qEI for details."""
 
 
 def _get_acquisition_func(
@@ -305,6 +389,16 @@ def _get_acquisition_func(
     Returns:
         The instantiated acquisition function.
     """
+    if acquisition_function_name not in [
+        "qSR",
+        "qEI",
+        "qLogEI",
+        "qPI",
+        "qNEI",
+        "qLogNEI",
+    ]:
+        raise NotImplementedError(f"{acquisition_function_name=} not implemented yet.")
+
     if X_observed is None:
         raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
@@ -322,22 +416,29 @@ def _get_acquisition_func(
     if outcome_constraints is None:
         mc_objective_kwargs = {} if mc_objective_kwargs is None else mc_objective_kwargs
         objective = mc_objective(objective=objective, **mc_objective_kwargs)
+        con_tfs = None
     else:
-        if constrained_mc_objective is None:
-            raise ValueError(
-                "constrained_mc_objective cannot be set to None "
-                "when applying outcome constraints."
-            )
-        if issubclass(mc_objective, PenalizedMCObjective):
-            raise RuntimeError(
-                "Outcome constraints are not supported for PenalizedMCObjective."
-            )
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        inf_cost = get_infeasible_cost(X=X_observed, model=model, objective=objective)
-        objective = constrained_mc_objective(
-            objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
-        )
-    # TODO: Either pass `con_tfs` to `get_acquisition_function` or move to MBM.
+        # All acquisition functions registered in BoTorch's `get_acquisition_function`
+        # except qSR and qUCB support a principled treatment of the constraints by
+        # directly passing them to the constructor.
+        if acquisition_function_name == "qSR":
+            if constrained_mc_objective is None:
+                raise ValueError(
+                    "constrained_mc_objective cannot be set to None "
+                    "when applying outcome constraints."
+                )
+            if issubclass(mc_objective, PenalizedMCObjective):
+                raise RuntimeError(
+                    "Outcome constraints are not supported for PenalizedMCObjective."
+                )
+            inf_cost = get_infeasible_cost(
+                X=X_observed, model=model, objective=objective
+            )
+            objective = constrained_mc_objective(
+                objective=objective, constraints=con_tfs or [], infeasible_cost=inf_cost
+            )
+
     return get_acquisition_function(
         acquisition_function_name=acquisition_function_name,
         model=model,
@@ -346,10 +447,9 @@ def _get_acquisition_func(
         X_pending=X_pending,
         prune_baseline=prune_baseline,
         mc_samples=mc_samples,
-        # pyre-fixme[6]: Expected `Optional[int]` for 9th param but got
-        #  `Union[float, int]`.
-        seed=torch.randint(1, 10000, (1,)).item(),
+        seed=randint(1, 10000),
         marginalize_dim=marginalize_dim,
+        constraints=con_tfs,
     )
 
 

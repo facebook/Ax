@@ -335,7 +335,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 for _ in range(n)
             ]
             acquisition_function_list = [
-                self.acqf_constructor(  # pyre-ignore: [28]
+                self.acqf_constructor(
                     model=model,
                     objective_weights=objective_weights,
                     outcome_constraints=outcome_constraints,
@@ -363,7 +363,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 **optimizer_options,
             )
         else:
-            acquisition_function = self.acqf_constructor(  # pyre-ignore: [28]
+            acquisition_function = self.acqf_constructor(
                 model=model,
                 objective_weights=objective_weights,
                 objective_thresholds=objective_thresholds,

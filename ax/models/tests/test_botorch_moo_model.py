@@ -141,7 +141,6 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -198,7 +197,6 @@ class BotorchMOOModelTest(TestCase):
         # test input warping
         self.assertFalse(model.use_input_warping)
         model = MultiObjectiveBotorchModel(
-            # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[T...
             acqf_constructor=get_NEI,
             use_input_warping=True,
         )
@@ -218,7 +216,6 @@ class BotorchMOOModelTest(TestCase):
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MultiObjectiveBotorchModel(
-            # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[T...
             acqf_constructor=get_NEI,
             use_loocv_pseudo_likelihood=True,
         )
@@ -259,7 +256,6 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
@@ -615,7 +611,6 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         search_space_digest = SearchSpaceDigest(
@@ -677,7 +672,6 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
 
         search_space_digest = SearchSpaceDigest(
