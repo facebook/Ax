@@ -14,11 +14,12 @@ from ax.models.model_utils import best_observed_point, get_observed
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
+from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.penalized import PenalizedMCObjective
-from botorch.acquisition.utils import get_acquisition_function, get_infeasible_cost
+from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_mll
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP

@@ -43,15 +43,15 @@ CHEBYSHEV_SCALARIZATION_PATH = (
     "ax.models.torch.botorch_defaults.get_chebyshev_scalarization"
 )
 NEHVI_ACQF_PATH = (
-    "botorch.acquisition.utils.moo_monte_carlo.qNoisyExpectedHypervolumeImprovement"
+    "botorch.acquisition.factory.moo_monte_carlo.qNoisyExpectedHypervolumeImprovement"
 )
 EHVI_ACQF_PATH = (
-    "botorch.acquisition.utils.moo_monte_carlo.qExpectedHypervolumeImprovement"
+    "botorch.acquisition.factory.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
 NEHVI_PARTITIONING_PATH = (
     "botorch.acquisition.multi_objective.monte_carlo.FastNondominatedPartitioning"
 )
-EHVI_PARTITIONING_PATH = "botorch.acquisition.utils.FastNondominatedPartitioning"
+EHVI_PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -500,7 +500,7 @@ class BotorchMOOModelTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    "botorch.acquisition.utils.get_sampler",
+                    "botorch.acquisition.factory.get_sampler",
                     return_value=IIDNormalSampler(sample_shape=torch.Size([2])),
                 )
             )
