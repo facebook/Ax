@@ -424,16 +424,17 @@ def get_fully_bayesian_acqf(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
-    # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
-    #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
-    #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
-    #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
-    #  **(Any)], AcquisitionFunction]`.
-    acqf_constructor: TAcqfConstructor = get_NEI,
     **kwargs: Any,
 ) -> AcquisitionFunction:
+    """NOTE: An `acqf_constructor` with which the underlying acquisition function
+    is constructed is optionally extracted from `kwargs` and defaults to NEI.
+
+    We did not add `acqf_constructor` directly to the argument list of
+    `get_fully_bayesian_acqf` so that it satisfies the `TAcqfConstructor` Protocol
+    that is shared by all other legacy Ax acquisition function constructors.
+    """
     kwargs["marginalize_dim"] = -3
-    # pyre-ignore [28]
+    acqf_constructor: TAcqfConstructor = kwargs.pop("acqf_constructor", get_NEI)
     acqf = acqf_constructor(
         model=model,
         objective_weights=objective_weights,
@@ -469,7 +470,7 @@ def get_fully_bayesian_acqf_nehvi(
         outcome_constraints=outcome_constraints,
         X_observed=X_observed,
         X_pending=X_pending,
-        acqf_constructor=get_NEHVI,  # pyre-ignore [6]
+        acqf_constructor=get_NEHVI,
         **kwargs,
     )
 
@@ -599,11 +600,6 @@ class FullyBayesianMOOBotorchModel(
         self,
         model_constructor: TModelConstructor = get_and_fit_model_mcmc,
         model_predictor: TModelPredictor = predict_from_model_mcmc,
-        # pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,
-        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],
-        #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
-        #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
-        #  **(Any)], AcquisitionFunction]`.
         acqf_constructor: TAcqfConstructor = get_fully_bayesian_acqf_nehvi,
         # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
         #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],

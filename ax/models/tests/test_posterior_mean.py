@@ -42,7 +42,6 @@ class PosteriorMeanTest(TestCase):
     @fast_botorch_optimize
     def test_GetPosteriorMean(self) -> None:
 
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = BotorchModel(acqf_constructor=get_PosteriorMean)
         dataset = SupervisedDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)
         model.fit(
@@ -76,7 +75,6 @@ class PosteriorMeanTest(TestCase):
         )
 
         # test model.gen() works with chebyshev scalarization.
-        # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=get_PosteriorMean)
         model.fit(
             datasets=[dataset, dataset],

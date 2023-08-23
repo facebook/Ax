@@ -15,15 +15,28 @@ from ax.models.torch.botorch_defaults import (
     _get_model,
     get_and_fit_model,
     get_warping_transform,
+    NO_FEASIBLE_POINTS_MESSAGE,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.acquisition.logei import (
+    qLogExpectedImprovement,
+    qLogNoisyExpectedImprovement,
+)
+from botorch.acquisition.monte_carlo import (
+    qExpectedImprovement,
+    qNoisyExpectedImprovement,
+    qProbabilityOfImprovement,
+    qSimpleRegret,
+)
+from botorch.acquisition.objective import ConstrainedMCObjective
 from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.models import FixedNoiseGP, SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.transforms.input import Warp
+from botorch.utils.constraints import get_outcome_constraint_transforms
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
@@ -307,39 +320,114 @@ class BotorchDefaultsTest(TestCase):
             self.assertEqual(m.covar_module.outputscale_prior.rate, 12.0)
 
     def test_get_acquisition_func(self) -> None:
-        x = torch.zeros(2, 2)
-        y = torch.zeros(2, 1)
+        d, m = 3, 2
+        n = 16
+        x = torch.randn(n, d)
+        y = torch.randn(n, m)
         unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
         model = _get_model(x, y, unknown_var, None)
-        objective_weights = torch.tensor([1.0])
+        objective_weights = torch.tensor([1.0, 0.0])  # first output is objective
         outcome_constraints = (
-            torch.tensor([[0.0, 1.0]]),
-            torch.tensor([[5.0]]),
+            torch.tensor([[0.0, 1.0], [0.0, -1.0], [1.0, 1.0]]),  # k x m
+            torch.tensor([[1.0], [-1.0], [0.0]]),  # k x 1
         )
-        X_observed = torch.zeros(2, 2)
-        with self.assertRaises(ValueError) as cm:
+        X_observed = torch.zeros(2, d)
+        expected_constraints = not_none(
+            get_outcome_constraint_transforms(outcome_constraints)
+        )
+        samples = torch.zeros(n, m)  # to test constraints
+        for acqf_name, acqf_class in zip(
+            ["qEI", "qLogEI", "qPI", "qNEI", "qLogNEI"],
+            [
+                qExpectedImprovement,
+                qLogExpectedImprovement,
+                qProbabilityOfImprovement,
+                qNoisyExpectedImprovement,
+                qLogNoisyExpectedImprovement,
+            ],
+        ):
+            acqf = _get_acquisition_func(
+                model=model,
+                acquisition_function_name=acqf_name,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                # SampleReducingMCAcquisitionFunctions don't need this objective
+                constrained_mc_objective=None,
+            )
+            self.assertIsInstance(acqf, acqf_class)
+            acqf_constraints = acqf._constraints
+            self.assertIsNotNone(acqf_constraints)
+
+            # while the function pointer is different, return value has to be the same
+            for acqf_con, exp_con in zip(acqf_constraints, expected_constraints):
+                self.assertTrue(torch.allclose(acqf_con(samples), exp_con(samples)))
+
+            with self.assertRaisesRegex(ValueError, NO_FEASIBLE_POINTS_MESSAGE):
+                _get_acquisition_func(
+                    model=model,
+                    acquisition_function_name=acqf_name,
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    X_observed=None,  # errors because of no observations
+                )
+
+        acqf_name = "qSR"
+        acqf_class = qSimpleRegret
+        acqf = _get_acquisition_func(
+            model=model,
+            acquisition_function_name=acqf_name,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            # these two need the legacy constrained objective
+            constrained_mc_objective=ConstrainedMCObjective,
+        )
+        self.assertIsInstance(acqf, acqf_class)
+        acqf_constraints = acqf._constraints
+        self.assertIsNone(acqf_constraints)  # because this uses the legacy path
+        self.assertIsInstance(acqf.objective, ConstrainedMCObjective)
+
+        # the following two errors are only thrown when the acquisition function is
+        # not a SampleReducingMCAcquisitionFunction.
+        with self.assertRaisesRegex(
+            ValueError,
+            "constrained_mc_objective cannot be set to None "
+            "when applying outcome constraints.",
+        ):
             _get_acquisition_func(
                 model=model,
-                acquisition_function_name="qNEI",
+                acquisition_function_name=acqf_name,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
                 constrained_mc_objective=None,
             )
-        self.assertEqual(
-            "constrained_mc_objective cannot be set to None "
-            "when applying outcome constraints.",
-            str(cm.exception),
-        )
-        with self.assertRaises(RuntimeError):
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Outcome constraints are not supported for PenalizedMCObjective",
+        ):
             _get_acquisition_func(
                 model=model,
-                acquisition_function_name="qNEI",
+                acquisition_function_name=acqf_name,
                 objective_weights=objective_weights,
                 mc_objective=PenalizedMCObjective,
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
             )
+
+        # these are not yet supported, will require passing additional arguments to
+        # the botorch constructor (i.e. beta for UCB, ref_point and Yfor EHVI.)
+        for acqf_name in ["qUCB", "qEHVI", "qNEHVI"]:
+            with self.assertRaisesRegex(NotImplementedError, "not implemented yet"):
+                _get_acquisition_func(
+                    model=model,
+                    acquisition_function_name=acqf_name,
+                    objective_weights=objective_weights,
+                    outcome_constraints=outcome_constraints,
+                    X_observed=X_observed,
+                )
 
     def test_get_customized_covar_module(self) -> None:
         ard_num_dims = 3

@@ -238,7 +238,7 @@ def get_botorch(
     transform_configs: Optional[Dict[str, TConfig]] = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
-    acqf_constructor: TAcqfConstructor = get_NEI,  # pyre-ignore[9]
+    acqf_constructor: TAcqfConstructor = get_NEI,
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
     refit_on_cv: bool = False,
     refit_on_update: bool = True,
