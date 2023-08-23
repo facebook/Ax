@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import torch
 from ax.models.torch.botorch import BotorchModel
 from botorch.fit import fit_gpytorch_mll
-from botorch.models.contextual_multioutput import FixedNoiseLCEMGP, LCEMGP
+from botorch.models.contextual_multioutput import LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
@@ -78,7 +78,7 @@ class LCEMBO(BotorchModel):
                     embs_dim_list=self.embs_dim_list,
                 )
             else:
-                gp_m = FixedNoiseLCEMGP(
+                gp_m = LCEMGP(
                     train_X=X,
                     train_Y=Ys[i],
                     train_Yvar=Yvar,
