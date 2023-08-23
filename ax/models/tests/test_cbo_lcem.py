@@ -9,7 +9,7 @@ import torch
 from ax.models.torch.cbo_lcem import LCEMBO
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.models.contextual_multioutput import FixedNoiseLCEMGP, LCEMGP
+from botorch.models.contextual_multioutput import LCEMGP
 from botorch.models.model_list_gp_regression import ModelListGP
 
 
@@ -52,7 +52,7 @@ class LCEMBOTest(TestCase):
             metric_names=[],
         )
         self.assertIsInstance(gp, ModelListGP)
-        self.assertIsInstance(gp.models[0], FixedNoiseLCEMGP)
+        self.assertIsInstance(gp.models[0], LCEMGP)
 
         # Verify errors are raised in get_and_fit_model
         train_yvar = np.nan * torch.ones(train_y.shape)
