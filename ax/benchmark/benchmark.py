@@ -26,9 +26,8 @@ import numpy as np
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
+    BenchmarkProblemBase,
+    BenchmarkProblemWithKnownOptimum,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core.experiment import Experiment
@@ -43,29 +42,20 @@ logger: Logger = get_logger(__name__)
 def compute_score_trace(
     optimization_trace: np.ndarray,
     num_baseline_trials: int,
-    problem: BenchmarkProblem,
+    problem: BenchmarkProblemBase,
 ) -> np.ndarray:
     """Computes a score trace from the optimization trace."""
 
     # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
     # a timeout) the first GenerationStep will not have not completed and we will not
     # have enough trials; in this case we do not score.
-    baseline = (
-        optimization_trace[num_baseline_trials - 1]
-        if len(optimization_trace) > num_baseline_trials
-        else None
-    )
-
-    if isinstance(problem, SingleObjectiveBenchmarkProblem):
-        optimum = problem.optimal_value
-    elif isinstance(problem, MultiObjectiveBenchmarkProblem):
-        optimum = problem.maximum_hypervolume
-    else:
-        # If no known optimum exists scoring cannot take place in a meaningful way
-        optimum = None
-
-    if optimum is None or baseline is None:
+    if (len(optimization_trace) <= num_baseline_trials) or not isinstance(
+        problem, BenchmarkProblemWithKnownOptimum
+    ):
         return np.full(len(optimization_trace), np.nan)
+    optimum = problem.optimal_value
+    baseline = optimization_trace[num_baseline_trials - 1]
+
     score_trace = 100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
     if score_trace.max() > 100:
         logger.info(
@@ -76,7 +66,7 @@ def compute_score_trace(
 
 
 def benchmark_replication(
-    problem: BenchmarkProblem,
+    problem: BenchmarkProblemBase,
     method: BenchmarkMethod,
     seed: int,
 ) -> BenchmarkResult:
@@ -128,7 +118,7 @@ def benchmark_replication(
 
 
 def benchmark_one_method_problem(
-    problem: BenchmarkProblem,
+    problem: BenchmarkProblemBase,
     method: BenchmarkMethod,
     seeds: Iterable[int],
 ) -> AggregatedBenchmarkResult:
@@ -141,7 +131,7 @@ def benchmark_one_method_problem(
 
 
 def benchmark_multiple_problems_methods(
-    problems: Iterable[BenchmarkProblem],
+    problems: Iterable[BenchmarkProblemBase],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
 ) -> List[AggregatedBenchmarkResult]:

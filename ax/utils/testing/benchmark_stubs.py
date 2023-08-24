@@ -12,12 +12,21 @@ from ax.benchmark.benchmark_problem import (
     SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.problems.surrogate import (
+    MOOSurrogateBenchmarkProblem,
+    SOOSurrogateBenchmarkProblem,
+)
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
+from ax.utils.testing.core_stubs import (
+    get_branin_multi_objective_optimization_config,
+    get_branin_optimization_config,
+    get_branin_search_space,
+)
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -63,6 +72,37 @@ def get_sobol_benchmark_method() -> BenchmarkMethod:
         scheduler_options=SchedulerOptions(
             total_trials=4, init_seconds_between_polls=0
         ),
+    )
+
+
+def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
+    surrogate = Surrogate(
+        botorch_model_class=SingleTaskGP,
+    )
+    return SOOSurrogateBenchmarkProblem(
+        name="test",
+        search_space=get_branin_search_space(),
+        optimization_config=get_branin_optimization_config(),
+        num_trials=6,
+        infer_noise=False,
+        metric_names=[],
+        get_surrogate_and_datasets=lambda: (surrogate, []),
+        optimal_value=0.0,
+    )
+
+
+def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
+    surrogate = Surrogate(botorch_model_class=SingleTaskGP)
+    return MOOSurrogateBenchmarkProblem(
+        name="test",
+        search_space=get_branin_search_space(),
+        optimization_config=get_branin_multi_objective_optimization_config(),
+        num_trials=10,
+        infer_noise=False,
+        metric_names=[],
+        get_surrogate_and_datasets=lambda: (surrogate, []),
+        maximum_hypervolume=1.0,
+        reference_point=[],
     )
 
 
