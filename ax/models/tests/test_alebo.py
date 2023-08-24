@@ -24,8 +24,8 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.analytic import ExpectedImprovement
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 from torch.nn.parameter import Parameter
@@ -231,7 +231,7 @@ class ALEBOTest(TestCase):
             q=1,
             noiseless=False,
         )
-        self.assertIsInstance(acq, qNoisyExpectedImprovement)
+        self.assertIsInstance(acq, qLogNoisyExpectedImprovement)
 
         with mock.patch(
             "ax.models.torch.alebo.optimize_acqf",
@@ -255,7 +255,7 @@ class ALEBOTest(TestCase):
 
         self.assertEqual(optim_mock.call_count, 2)
         self.assertIsInstance(
-            optim_mock.mock_calls[0][2]["acq_function"], qNoisyExpectedImprovement
+            optim_mock.mock_calls[0][2]["acq_function"], qLogNoisyExpectedImprovement
         )
         self.assertEqual(optim_mock.mock_calls[0][2]["num_restarts"], 5)
         self.assertEqual(optim_mock.mock_calls[0][2]["inequality_constraints"], 5.0)

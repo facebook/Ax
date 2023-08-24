@@ -34,7 +34,11 @@ from ax.models.torch.botorch import (
     TModelPredictor,
     TOptimizer,
 )
-from ax.models.torch.botorch_defaults import get_and_fit_model, get_NEI, scipy_optimizer
+from ax.models.torch.botorch_defaults import (
+    get_and_fit_model,
+    get_qLogNEI,
+    scipy_optimizer,
+)
 from ax.models.torch.botorch_moo_defaults import get_EHVI
 from ax.models.torch.utils import predict_from_model
 from ax.models.types import TConfig
@@ -238,7 +242,7 @@ def get_botorch(
     transform_configs: Optional[Dict[str, TConfig]] = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
-    acqf_constructor: TAcqfConstructor = get_NEI,
+    acqf_constructor: TAcqfConstructor = get_qLogNEI,
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
     refit_on_cv: bool = False,
     refit_on_update: bool = True,
@@ -556,7 +560,7 @@ def get_MOO_PAREGO(
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
-            acqf_constructor=get_NEI,
+            acqf_constructor=get_qLogNEI,
             default_model_gen_options={
                 "acquisition_function_kwargs": {
                     "chebyshev_scalarization": True,
@@ -592,7 +596,7 @@ def get_MOO_RS(
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
-            acqf_constructor=get_NEI,
+            acqf_constructor=get_qLogNEI,
             default_model_gen_options={
                 "acquisition_function_kwargs": {
                     "random_scalarization": True,
@@ -662,7 +666,7 @@ def get_MTGP_PAREGO(
             search_space=search_space or experiment.search_space,
             torch_dtype=dtype,
             torch_device=device,
-            acqf_constructor=get_NEI,
+            acqf_constructor=get_qLogNEI,
             status_quo_features=status_quo_features,
             transforms=transforms,
             transform_configs=transform_configs,

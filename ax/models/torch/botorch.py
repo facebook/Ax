@@ -18,7 +18,7 @@ from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import DataRequiredError
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
-    get_NEI,
+    get_qLogNEI,
     recommend_best_observed_point,
     scipy_optimizer,
     TAcqfConstructor,
@@ -98,9 +98,9 @@ class BotorchModel(TorchModel):
     r"""
     Customizable botorch model.
 
-    By default, this uses a noisy Expected Improvement acquisition function on
-    top of a model made up of separate GPs, one for each outcome. This behavior
-    can be modified by providing custom implementations of the following
+    By default, this uses a noisy Log Expected Improvement (qLogNEI) acquisition
+    function on top of a model made up of separate GPs, one for each outcome. This
+    behavior can be modified by providing custom implementations of the following
     components:
 
     - a `model_constructor` that instantiates and fits a model on data
@@ -185,7 +185,7 @@ class BotorchModel(TorchModel):
     the (linear) outcome constraints, `X_observed` are previously observed points,
     and `X_pending` are points whose evaluation is pending. `acq_function` is a
     BoTorch acquisition function crafted from these inputs. For additional
-    details on the arguments, see `get_NEI`.
+    details on the arguments, see `get_qLogNEI`.
 
     ::
 
@@ -244,7 +244,7 @@ class BotorchModel(TorchModel):
         self,
         model_constructor: TModelConstructor = get_and_fit_model,
         model_predictor: TModelPredictor = predict_from_model,
-        acqf_constructor: TAcqfConstructor = get_NEI,
+        acqf_constructor: TAcqfConstructor = get_qLogNEI,
         # pyre-fixme[9]: acqf_optimizer declared/used type mismatch
         acqf_optimizer: TOptimizer = scipy_optimizer,
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,

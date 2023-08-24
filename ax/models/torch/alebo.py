@@ -19,7 +19,7 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_defaults import get_NEI
+from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.utils import _datasets_to_legacy_inputs
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
@@ -481,7 +481,7 @@ def ei_or_nei(
         return ExpectedImprovement(model=model, best_f=best_f, maximize=maximize)
     else:
         with gpytorch.settings.max_cholesky_size(2000):
-            acq = get_NEI(
+            acq = get_qLogNEI(
                 model=model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,

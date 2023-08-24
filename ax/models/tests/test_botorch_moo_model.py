@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError
-from ax.models.torch.botorch_defaults import get_NEI
+from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
@@ -141,7 +141,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
+        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
@@ -197,7 +197,7 @@ class BotorchMOOModelTest(TestCase):
         # test input warping
         self.assertFalse(model.use_input_warping)
         model = MultiObjectiveBotorchModel(
-            acqf_constructor=get_NEI,
+            acqf_constructor=get_qLogNEI,
             use_input_warping=True,
         )
         model.fit(
@@ -216,7 +216,7 @@ class BotorchMOOModelTest(TestCase):
         # test loocv pseudo likelihood
         self.assertFalse(model.use_loocv_pseudo_likelihood)
         model = MultiObjectiveBotorchModel(
-            acqf_constructor=get_NEI,
+            acqf_constructor=get_qLogNEI,
             use_loocv_pseudo_likelihood=True,
         )
         model.fit(
@@ -256,7 +256,7 @@ class BotorchMOOModelTest(TestCase):
             bounds=bounds,
             task_features=tfs,
         )
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
+        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
@@ -611,7 +611,7 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
+        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
             feature_names=fns,
@@ -672,7 +672,7 @@ class BotorchMOOModelTest(TestCase):
         n = 2
         objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
-        model = MultiObjectiveBotorchModel(acqf_constructor=get_NEI)
+        model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
             feature_names=fns,

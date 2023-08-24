@@ -47,7 +47,7 @@ from ax.models.torch.botorch import (
     TOptimizer,
 )
 from ax.models.torch.botorch_defaults import (
-    get_NEI,
+    get_qLogNEI,
     MIN_OBSERVED_NOISE_LEVEL,
     recommend_best_observed_point,
     scipy_optimizer,
@@ -434,7 +434,7 @@ def get_fully_bayesian_acqf(
     that is shared by all other legacy Ax acquisition function constructors.
     """
     kwargs["marginalize_dim"] = -3
-    acqf_constructor: TAcqfConstructor = kwargs.pop("acqf_constructor", get_NEI)
+    acqf_constructor: TAcqfConstructor = kwargs.pop("acqf_constructor", get_qLogNEI)
     acqf = acqf_constructor(
         model=model,
         objective_weights=objective_weights,

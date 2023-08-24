@@ -136,7 +136,7 @@ class ModelRegistryTest(TestCase):
             {
                 "acqf_constructor": {
                     "is_callable_as_path": True,
-                    "value": f"{botorch_defaults}.get_NEI",
+                    "value": f"{botorch_defaults}.get_qLogNEI",
                 },
                 "acqf_optimizer": {
                     "is_callable_as_path": True,
