@@ -138,7 +138,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
     the (linear) outcome constraints, `X_observed` are previously observed points,
     and `X_pending` are points whose evaluation is pending. `acq_function` is a
     BoTorch acquisition function crafted from these inputs. For additional
-    details on the arguments, see `get_NEI`.
+    details on the arguments, see `get_NEHVI`.
 
     ::
 
