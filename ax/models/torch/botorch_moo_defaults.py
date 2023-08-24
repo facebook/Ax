@@ -33,10 +33,10 @@ from ax.models.torch.utils import (
 )
 from ax.models.torch_base import TorchModel
 from ax.utils.common.typeutils import not_none
+from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.multi_objective.utils import get_default_partitioning_alpha
-from botorch.acquisition.utils import get_acquisition_function
 from botorch.models.model import Model
 from botorch.optim.optimize import optimize_acqf_list
 from botorch.posteriors.gpytorch import GPyTorchPosterior
