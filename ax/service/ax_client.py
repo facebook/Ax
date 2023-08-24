@@ -779,9 +779,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         sample_size: Optional[int] = None,
     ) -> None:
         """
-        Attaches additional data for completed trial (for example, if trial was
-        completed with data for only one of the required metrics and more data
-        needs to be attached).
+        Attaches additional data or updates the existing data for a trial in a
+        terminal state. For example, if trial was completed with data for only
+        one of the required metrics, this can be used to attach data for the
+        remaining metrics.
+
+        NOTE: This does not change the trial status.
 
         Args:
             trial_index: Index of trial within the experiment.
@@ -797,10 +800,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         if not isinstance(trial_index, int):
             raise ValueError(f"Trial index must be an int, got: {trial_index}.")
         trial = self.get_trial(trial_index)
-        if not trial.status.is_completed:
+        if not trial.status.is_terminal:
             raise ValueError(
-                f"Trial {trial.index} has not yet been completed with data."
-                "To complete it, use `ax_client.complete_trial`."
+                f"Trial {trial.index} is not in a terminal state. Use "
+                "`ax_client.complete_trial` to complete the trial with new data "
+                "or use `ax_client.update_running_trial_with_intermediate_data` "
+                "to attach intermediate data to a running trial."
             )
         data_update_repr = self._update_trial_with_raw_data(
             trial_index=trial_index,
@@ -1143,9 +1148,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             List[Tuple[float, float]].
         """
 
-        parameterization_dict = {
-            i: parameterization for i, parameterization in enumerate(parameterizations)
-        }
+        parameterization_dict = dict(enumerate(parameterizations))
 
         predictions_dict = self.get_model_predictions(
             metric_names=metric_names, parameterizations=parameterization_dict

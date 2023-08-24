@@ -292,24 +292,34 @@ class Trial(BaseTrial):
         sample_size: Optional[int] = None,
         combine_with_last_data: bool = False,
     ) -> str:
-        """Utility method that attaches data to a trial,
-        returns a str of the update."""
-        # Format the data to save.
-        sample_sizes = {not_none(self.arm).name: sample_size} if sample_size else {}
+        """Utility method that attaches data to a trial and
+        returns an update message.
 
+        Args:
+            raw_data: Evaluation data for the trial. Can be a mapping from
+                metric name to a tuple of mean and SEM, just a tuple of mean and
+                SEM if only one metric in optimization, or just the mean if SEM is
+                unknown (then Ax will infer observation noise level).
+                Can also be a list of (fidelities, mapping from
+                metric name to a tuple of mean and SEM).
+            metadata: Additional metadata to track about this run, optional.
+            sample_size: Number of samples collected for the underlying arm,
+                optional.
+            combine_with_last_data: Whether to combine the given data with the
+                data that was previously attached to the trial. See
+                `Experiment.attach_data` for a detailed explanation.
+
+        Returns:
+            A string message summarizing the update.
+        """
         arm_name = not_none(self.arm).name
+        sample_sizes = {arm_name: sample_size} if sample_size else {}
+
         try:
             validate_evaluation_outcome(outcome=raw_data)
         except Exception:
             raise ValueError(TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE)
         raw_data_by_arm = {arm_name: raw_data}
-        not_trial_arm_names = set(raw_data_by_arm.keys()) - set(
-            self.arms_by_name.keys()
-        )
-        if not_trial_arm_names:
-            raise ValueError(
-                f"Arms {not_trial_arm_names} are not part of trial #{self.index}."
-            )
 
         evaluations, data = self._make_evaluations_and_data(
             raw_data=raw_data_by_arm,
