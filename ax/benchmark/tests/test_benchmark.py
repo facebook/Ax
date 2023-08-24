@@ -6,6 +6,7 @@
 import tempfile
 
 import numpy as np
+import torch
 from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
@@ -26,20 +27,24 @@ from ax.benchmark.methods.modular_botorch import (
     get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi,
     get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei,
 )
+from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.benchmark_stubs import (
+    get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_sobol_benchmark_method,
+    get_soo_surrogate,
 )
 from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from botorch.test_functions.synthetic import Branin
+from botorch.utils.datasets import SupervisedDataset
 
 
 class TestBenchmark(TestCase):
@@ -94,18 +99,52 @@ class TestBenchmark(TestCase):
                 gen_time=0.0,
             )
 
-    def test_replication_synthetic_sobol(self) -> None:
-        problem = get_single_objective_benchmark_problem()
+    def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method()
-
+        problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(problem=problem, method=method, seed=0)
 
         self.assertEqual(
-            problem.num_trials,
+            min(problem.num_trials, not_none(method.scheduler_options.total_trials)),
             len(not_none(res.experiment).trials),
         )
 
+        self.assertTrue(np.isfinite(res.score_trace).all())
         self.assertTrue(np.all(res.score_trace <= 100))
+
+    def test_replication_sobol_surrogate(self) -> None:
+        method = get_sobol_benchmark_method()
+
+        for name, problem in [
+            ("soo", get_soo_surrogate()),
+            ("moo", get_moo_surrogate()),
+        ]:
+
+            with self.subTest(name, problem=problem):
+                surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
+                datasets = [
+                    SupervisedDataset(X=torch.zeros((2, 2)), Y=torch.zeros((2, 2)))
+                ]
+                surrogate.fit(
+                    datasets,
+                    metric_names=[],
+                    search_space_digest=extract_search_space_digest(
+                        problem.search_space,
+                        param_names=[*problem.search_space.parameters.keys()],
+                    ),
+                )
+                res = benchmark_replication(problem=problem, method=method, seed=0)
+
+                self.assertEqual(
+                    min(
+                        problem.num_trials,
+                        not_none(method.scheduler_options.total_trials),
+                    ),
+                    len(not_none(res.experiment).trials),
+                )
+
+                self.assertTrue(np.isfinite(res.score_trace).all())
+                self.assertTrue(np.all(res.score_trace <= 100))
 
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:

@@ -178,6 +178,10 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
         self.reference_point = reference_point
         self.maximum_hypervolume = maximum_hypervolume
 
+    @property
+    def optimal_value(self) -> float:
+        return self.maximum_hypervolume
+
 
 class SurrogateMetric(Metric):
     def __init__(

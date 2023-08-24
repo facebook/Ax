@@ -4,15 +4,16 @@
 # LICENSE file in the root directory of this source tree.
 
 import copy
+from typing import TypeVar
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 
+TProblem = TypeVar("TProblem", bound=BenchmarkProblem)
 
-def embed_higher_dimension(
-    problem: BenchmarkProblem, total_dimensionality: int
-) -> BenchmarkProblem:
+
+def embed_higher_dimension(problem: TProblem, total_dimensionality: int) -> TProblem:
     """
     Return a new `BenchmarkProblem` with enough `RangeParameter`s added to the
     search space to make its total dimensionality equal to `total_dimensionality`

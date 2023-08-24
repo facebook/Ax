@@ -5,7 +5,7 @@
 
 
 import abc
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type
 
 from ax.core.metric import Metric
 
@@ -46,7 +46,8 @@ def _get_name(
     return f"{base_name}{fixed_noise}{dim_str}"
 
 
-class BenchmarkProblemBase(abc.ABC):
+@runtime_checkable
+class BenchmarkProblemBase(Protocol):
     """
     Specifies the interface any benchmark problem must adhere to.
 
@@ -66,7 +67,12 @@ class BenchmarkProblemBase(abc.ABC):
         pass  # pragma: no cover
 
 
-class BenchmarkProblem(Base, BenchmarkProblemBase):
+@runtime_checkable
+class BenchmarkProblemWithKnownOptimum(Protocol):
+    optimal_value: float
+
+
+class BenchmarkProblem(Base):
     """Benchmark problem, represented in terms of Ax search space, optimization
     config, and runner.
     """
@@ -257,6 +263,10 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             infer_noise=infer_noise,
             tracking_metrics=tracking_metrics,
         )
+
+    @property
+    def optimal_value(self) -> float:
+        return self.maximum_hypervolume
 
     @classmethod
     def from_botorch_multi_objective(
