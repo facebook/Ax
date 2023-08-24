@@ -1557,13 +1557,7 @@ class TestAxClient(TestCase):
     def test_trial_completion(self) -> None:
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
-        # Can't update before completing.
-        with self.assertRaisesRegex(ValueError, ".* not yet"):
-            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        # Cannot complete a trial twice, should use `update_trial_data`.
-        with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
-            ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
         ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
         self.assertNotIn("m1", metrics_in_data)
@@ -1586,6 +1580,41 @@ class TestAxClient(TestCase):
         best_trial_values = ax_client.get_best_parameters()[1]
         self.assertEqual(best_trial_values[0], {"branin": -2.0})
         self.assertTrue(math.isnan(best_trial_values[1]["branin"]["branin"]))
+
+    def test_update_trial_data(self) -> None:
+        ax_client = get_branin_optimization()
+        params, idx = ax_client.get_next_trial()
+        # Can't update before completing.
+        with self.assertRaisesRegex(ValueError, ".* not in a terminal state"):
+            ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        # Cannot complete a trial twice, should use `update_trial_data`.
+        with self.assertRaisesRegex(UnsupportedError, ".* already been completed"):
+            ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+        # Check that the update changes the data.
+        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (1, 0.0)})
+        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df["mean"].item(), 1.0)
+        self.assertTrue(ax_client.get_trial(idx).status.is_completed)
+
+        # With early stopped trial.
+        params, idx = ax_client.get_next_trial()
+        ax_client.stop_trial_early(trial_index=idx)
+        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        self.assertEqual(len(df), 0)
+        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (2, 0.0)})
+        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df["mean"].item(), 2.0)
+        self.assertTrue(ax_client.get_trial(idx).status.is_early_stopped)
+
+        # Failed trial.
+        params, idx = ax_client.get_next_trial()
+        ax_client.log_trial_failure(trial_index=idx)
+        ax_client.update_trial_data(trial_index=idx, raw_data={"branin": (3, 0.0)})
+        df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
+        self.assertEqual(df["mean"].item(), 3.0)
 
     def test_trial_completion_with_metadata_with_iso_times(self) -> None:
         ax_client = get_branin_optimization()
