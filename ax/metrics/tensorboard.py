@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from logging import Logger
-from typing import Dict, Iterable, List, NamedTuple, Union
+from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from ax.core.map_data import MapKeyInfo
@@ -31,9 +31,10 @@ try:
 
         map_key_info: MapKeyInfo[float] = MapKeyInfo(key="steps", default_value=0.0)
 
-        @classmethod
         def get_curves_from_ids(
-            cls, ids: Iterable[Union[int, str]]
+            self,
+            ids: Iterable[Union[int, str]],
+            names: Optional[Set[str]] = None,
         ) -> Dict[Union[int, str], Dict[str, pd.Series]]:
             """Get curve data from tensorboard logs.
 
@@ -43,11 +44,14 @@ try:
 
             Args:
                 ids: A list of string paths to tensorboard log directories.
+                names: (CURRENTLY UNUSED) The names of the tags for which to fetch the
+                    curves. If omitted, all tags are returned.
 
             Returns:
-                A dictionary mapping metric names to pandas Series of data.
+                A nested dictionary mapping ids (first level) and metric names (second
+                level) to pandas Series of data.
             """
-            return {idx: get_tb_from_posix(str(idx)) for idx in ids}
+            return {idx: get_tb_from_posix(path=str(idx)) for idx in ids}
 
     def get_tb_from_posix(path: str) -> Dict[str, pd.Series]:
         r"""Get Tensorboard data from a posix path.
@@ -63,6 +67,7 @@ try:
         mul.AddRunsFromDirectory(path, None)
         mul.Reload()
         scalar_dict = mul.PluginRunToTagToContent("scalars")
+
         raw_result = [
             {"tag": tag, "event": mul.Tensors(run, tag)}
             for run, run_dict in scalar_dict.items()

@@ -14,17 +14,19 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from logging import Logger
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Set, Union
 
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.trial import Trial
 from ax.early_stopping.utils import align_partial_results
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import checked_cast
@@ -68,39 +70,94 @@ class AbstractCurveMetric(MapMetric, ABC):
     def is_available_while_running(cls) -> bool:
         return True
 
+    @abstractmethod
+    def get_ids_from_trials(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[int, Union[int, str]]:
+        """Get backend run ids associated with trials.
+
+        Args:
+            trials: The trials for which to retrieve the associated
+                ids that can be used to to identify the corresponding
+                runs on the backend.
+
+        Returns:
+            A dictionary mapping the trial indices to the identifiers
+            (ints or strings) corresponding to the backend runs associated
+            with the trials. Trials whose corresponding ids could not be
+            found should be omitted.
+        """
+        ...  # pragma: nocover
+
+    @abstractmethod
+    def get_curves_from_ids(
+        self,
+        ids: Iterable[Union[int, str]],
+        names: Optional[Set[str]] = None,
+    ) -> Dict[Union[int, str], Dict[str, pd.Series]]:
+        """Get partial result curves from backend ids.
+
+        Args:
+            ids: The ids of the backend runs for which to fetch the
+                partial result curves.
+            names: The names of the curves to fetch (for each of the runs).
+                If omitted, fetch data for all available curves (this may be slow).
+
+        Returns:
+            A dictionary mapping the backend id to the partial result
+            curves, each of which is represented as a mapping from
+            the metric name to a pandas Series indexed by the progression
+            (which will be mapped to the `map_key_info.key` of the metric class).
+            E.g. if `curve_name=loss` and `map_key_info.key = training_rows`,
+            then a Series should look like:
+
+                 training_rows (index) | loss
+                -----------------------|------
+                                   100 | 0.5
+                                   200 | 0.2
+        """
+        ...  # pragma: nocover
+
+    @property
+    def curve_names(self) -> Set[str]:
+        return {self.curve_name}
+
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         """Fetch data for one trial."""
-        return self.fetch_trial_data_multi(trial=trial, metrics=[self], **kwargs)[
+        return self.bulk_fetch_trial_data(trial=trial, metrics=[self], **kwargs)[
             self.name
         ]
 
-    @classmethod
-    def fetch_trial_data_multi(
-        cls, trial: BaseTrial, metrics: Iterable[Metric], **kwargs: Any
+    def bulk_fetch_trial_data(
+        self, trial: BaseTrial, metrics: Iterable[Metric], **kwargs: Any
     ) -> Dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial."""
-        return cls.fetch_experiment_data_multi(
+        return self.bulk_fetch_experiment_data(
             experiment=trial.experiment, metrics=metrics, trials=[trial], **kwargs
         )[trial.index]
 
-    @classmethod
-    def fetch_experiment_data_multi(
-        cls,
+    def bulk_fetch_experiment_data(
+        self,
         experiment: Experiment,
         metrics: Iterable[Metric],
         trials: Optional[Iterable[BaseTrial]] = None,
         **kwargs: Any,
     ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment."""
-        if trials is None:
-            trials = list(experiment.trials.values())
+        trials = list(experiment.trials.values() if trials is None else trials)
         trials = [trial for trial in trials if trial.status.expecting_data]
-        if any(not isinstance(trial, Trial) for trial in trials):
-            raise RuntimeError(
-                f"Only (non-batch) Trials are supported by {cls.__name__}"
+        if any(isinstance(trial, BatchTrial) for trial in trials):
+            raise UnsupportedError(
+                f"Only (non-batch) Trials are supported by {self.__class__.__name__}"
+            )
+        metrics = list(metrics)
+        if any(not isinstance(metric, AbstractCurveMetric) for metric in metrics):
+            raise UnsupportedError(
+                "Only metrics that subclass AbstractCurveMetric are supported by "
+                + self.__class__.__name__
             )
         try:
-            trial_idx_to_id = cls.get_ids_from_trials(trials=trials)
+            trial_idx_to_id = self.get_ids_from_trials(trials=trials)
             if len(trial_idx_to_id) == 0:
                 logger.debug("Could not get ids from trials. Returning MetricFetchE.")
                 return {
@@ -116,7 +173,14 @@ class AbstractCurveMetric(MapMetric, ABC):
                     for trial in (trials if trials is not None else [])
                 }
 
-            all_curve_series = cls.get_curves_from_ids(ids=trial_idx_to_id.values())
+            curve_names = set.union(
+                *(m.curve_names for m in metrics)  # pyre-ignore[16]
+            )
+            all_curve_series = self.get_curves_from_ids(
+                ids=trial_idx_to_id.values(),
+                names=curve_names,
+            )
+
             if all(id_ not in all_curve_series for id_ in trial_idx_to_id.values()):
                 logger.debug("Could not get curves from ids. Returning Errs.")
                 return {
@@ -134,7 +198,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                     for trial in (trials if trials is not None else [])
                 }
 
-            df = cls.get_df_from_curve_series(
+            df = self.get_df_from_curve_series(
                 experiment=experiment,
                 all_curve_series=all_curve_series,
                 metrics=metrics,
@@ -165,7 +229,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                                     & (df["trial_index"] == trial.index)
                                 ]
                             ),
-                            map_key_infos=[cls.map_key_info],
+                            map_key_infos=[self.map_key_info],
                         )
                     )
                     for metric in metrics
@@ -177,7 +241,7 @@ class AbstractCurveMetric(MapMetric, ABC):
                 trial.index: {
                     metric.name: Err(
                         value=MetricFetchE(
-                            message=f"Failed to fetch {cls}", exception=e
+                            message=f"Failed to fetch {self}", exception=e
                         )
                     )
                     for metric in metrics
@@ -185,100 +249,21 @@ class AbstractCurveMetric(MapMetric, ABC):
                 for trial in (trials if trials is not None else [])
             }
 
-    @classmethod
+    # TODO: Deduplicate this with get_df_from_scalarized_curve_series
     def get_df_from_curve_series(
-        cls,
+        self,
         experiment: Experiment,
         all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
         metrics: Iterable[Metric],
         trial_idx_to_id: Dict[int, Union[int, str]],
     ) -> Optional[pd.DataFrame]:
-        """Convert a `all_curve_series` dict (from `get_curves_from_ids`) into
-        a dataframe. For each metric, we get one curve (of name `curve_name`).
-
-        Args:
-            experiment: The experiment.
-            all_curve_series: A dict containing curve data, as output from
-                `get_curves_from_ids`.
-            metrics: The metrics from which data is being fetched.
-            trial_idx_to_id: A dict mapping trial index to ids.
-
-        Returns:
-            A dataframe containing curve data or None if no curve data could be found.
-        """
-        dfs = []
-        for trial_idx, id_ in trial_idx_to_id.items():
-            if id_ not in all_curve_series:
-                logger.info(f"Could not get curve data for id {id_}. Ignoring.")
-                continue
-            curve_series = all_curve_series[id_]
-            for m in metrics:
-                if m.curve_name in curve_series:  # pyre-ignore[16]
-                    dfi = _get_single_curve(
-                        curve_series=curve_series,
-                        curve_name=m.curve_name,
-                        metric_name=m.name,
-                        map_key=cls.map_key_info.key,
-                        trial=experiment.trials[trial_idx],
-                        cumulative_best=m.cumulative_best,  # pyre-ignore[16]
-                        lower_is_better=m.lower_is_better,  # pyre-ignore[6]
-                        smoothing_window=m.smoothing_window,  # pyre-ignore[16]
-                    )
-                    dfs.append(dfi)
-                else:
-                    logger.info(
-                        f"{m.curve_name} not yet present in curves from {id_}. "
-                        "Returning without this metric."
-                    )
-        if len(dfs) == 0:
-            return None
-        return pd.concat(dfs, axis=0, ignore_index=True)
-
-    @classmethod
-    @abstractmethod
-    def get_ids_from_trials(
-        cls, trials: Iterable[BaseTrial]
-    ) -> Dict[int, Union[int, str]]:
-        """Get backend run ids associated with trials.
-
-        Args:
-            trials: The trials for which to retrieve the associated
-                ids that can be used to to identify the corresponding
-                runs on the backend.
-
-        Returns:
-            A dictionary mapping the trial indices to the identifiers
-            (ints or strings) corresponding to the backend runs associated
-            with the trials. Trials whose corresponding ids could not be
-            found should be omitted.
-        """
-        ...  # pragma: nocover
-
-    @classmethod
-    @abstractmethod
-    def get_curves_from_ids(
-        cls, ids: Iterable[Union[int, str]]
-    ) -> Dict[Union[int, str], Dict[str, pd.Series]]:
-        """Get partial result curves from backend ids.
-
-        Args:
-            ids: The ids of the backend runs for which to fetch the
-                partial result curves.
-
-        Returns:
-            A dictionary mapping the backend id to the partial result
-            curves, each of which is represented as a mapping from
-            the metric name to a pandas Series indexed by the progression
-            (which will be mapped to the `map_key_info.key` of the metric class).
-            E.g. if `curve_name=loss` and `map_key_info.key = training_rows`,
-            then a Series should look like:
-
-                 training_rows (index) | loss
-                -----------------------|------
-                                   100 | 0.5
-                                   200 | 0.2
-        """
-        ...  # pragma: nocover
+        return get_df_from_curve_series(
+            experiment=experiment,
+            all_curve_series=all_curve_series,
+            metrics=metrics,
+            trial_idx_to_id=trial_idx_to_id,
+            map_key=self.map_key_info.key,
+        )
 
 
 class AbstractScalarizedCurveMetric(AbstractCurveMetric):
@@ -321,91 +306,158 @@ class AbstractScalarizedCurveMetric(AbstractCurveMetric):
         self.cumulative_best = cumulative_best
         self.smoothing_window = smoothing_window
 
-    @classmethod
+    @property
+    def curve_names(self) -> Set[str]:
+        return set(self.coefficients.keys())
+
     def get_df_from_curve_series(
-        cls,
+        self,
         experiment: Experiment,
         all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
         metrics: Iterable[Metric],
         trial_idx_to_id: Dict[int, Union[int, str]],
     ) -> Optional[pd.DataFrame]:
-        """Convert a `all_curve_series` dict (from `get_curves_from_ids`) into
-        a dataframe. For each metric, we first get all curves represented in
-        `coefficients` and then perform scalarization.
+        return get_df_from_scalarized_curve_series(
+            experiment=experiment,
+            all_curve_series=all_curve_series,
+            metrics=metrics,
+            trial_idx_to_id=trial_idx_to_id,
+            map_key=self.map_key_info.key,
+        )
 
-        Args:
-            experiment: The experiment.
-            all_curve_series: A dict containing curve data, as output from
-                `get_curves_from_ids`.
-            metrics: The metrics from which data is being fetched.
-            trial_idx_to_id: A dict mapping trial index to ids.
 
-        Returns:
-            A dataframe containing curve data or None if no curve data could be found.
-        """
-        dfs = []
-        complete_metrics_by_trial = {
-            trial_idx: [] for trial_idx in trial_idx_to_id.keys()
-        }
-        for trial_idx, id_ in trial_idx_to_id.items():
-            if id_ not in all_curve_series:
-                logger.info(f"Could not get curve data for id {id_}. Ignoring.")
-                continue
-            curve_series = all_curve_series[id_]
-            for m in metrics:
-                curve_dfs = []
-                for curve_name in m.coefficients.keys():  # pyre-ignore[16]
-                    if curve_name in curve_series:
-                        curve_df = _get_single_curve(
-                            curve_series=curve_series,
-                            curve_name=curve_name,
-                            map_key=cls.map_key_info.key,
-                            trial=experiment.trials[trial_idx],
-                            cumulative_best=m.cumulative_best,  # pyre-ignore[16]
-                            lower_is_better=m.lower_is_better,  # pyre-ignore[6]
-                            smoothing_window=m.smoothing_window,  # pyre-ignore[16]
-                        )
-                        curve_dfs.append(curve_df)
-                    else:
-                        logger.info(
-                            f"{curve_name} not present in curves from {id_}, so the "
-                            f"scalarization for {m.name} cannot be computed. Returning "
-                            "without this metric."
-                        )
-                        break
-                if len(curve_dfs) == len(m.coefficients):
-                    # only keep if all curves needed by the metric are available
-                    dfs.extend(curve_dfs)
-                    # mark metrics who have all underlying curves
-                    complete_metrics_by_trial[trial_idx].append(m)
+def get_df_from_curve_series(
+    experiment: Experiment,
+    all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
+    metrics: Iterable[Metric],
+    trial_idx_to_id: Dict[int, Union[int, str]],
+    map_key: str,
+) -> Optional[pd.DataFrame]:
+    """Convert a `all_curve_series` dict (from `get_curves_from_ids`) into
+    a dataframe. For each metric, we get one curve (of name `curve_name`).
 
-        if len(dfs) == 0:
-            return None
+    Args:
+        experiment: The experiment.
+        all_curve_series: A dict containing curve data, as output from
+            `get_curves_from_ids`.
+        metrics: The metrics from which data is being fetched.
+        trial_idx_to_id: A dict mapping trial index to ids.
 
-        all_data_df = pd.concat(dfs, axis=0, ignore_index=True)
-        sub_dfs = []
-        # Do not create a common index across trials, only across the curves
-        # involved in the scalarized metric.
-        for trial_idx, dfi in all_data_df.groupby("trial_index"):
-            # the `do_forward_fill = True` pads with the latest
-            # observation to handle situations where learning curves
-            # report different amounts of data.
-            trial_curves = dfi["metric_name"].unique().tolist()
-            dfs_mean, dfs_sem = align_partial_results(
-                dfi,
-                progr_key=cls.map_key_info.key,
-                metrics=trial_curves,
-                do_forward_fill=True,
-            )
-            for metric in complete_metrics_by_trial[trial_idx]:
-                sub_df = _get_scalarized_curve_metric_sub_df(
-                    dfs_mean=dfs_mean,
-                    dfs_sem=dfs_sem,
-                    metric=metric,
-                    trial=checked_cast(Trial, experiment.trials[trial_idx]),
+    Returns:
+        A dataframe containing curve data or None if no curve data could be found.
+    """
+    dfs = []
+    for trial_idx, id_ in trial_idx_to_id.items():
+        if id_ not in all_curve_series:
+            logger.info(f"Could not get curve data for id {id_}. Ignoring.")
+            continue
+        curve_series = all_curve_series[id_]
+        for m in metrics:
+            if m.curve_name in curve_series:  # pyre-ignore[16]
+                dfi = _get_single_curve(
+                    curve_series=curve_series,
+                    curve_name=m.curve_name,
+                    metric_name=m.name,
+                    map_key=map_key,
+                    trial=experiment.trials[trial_idx],
+                    cumulative_best=m.cumulative_best,  # pyre-ignore[16]
+                    lower_is_better=m.lower_is_better,  # pyre-ignore[6]
+                    smoothing_window=m.smoothing_window,  # pyre-ignore[16]
                 )
-                sub_dfs.append(sub_df)
-        return pd.concat(sub_dfs, axis=0, ignore_index=True)
+                dfs.append(dfi)
+            else:
+                logger.info(
+                    f"{m.curve_name} not yet present in curves from {id_}. "
+                    "Returning without this metric."
+                )
+    if len(dfs) == 0:
+        return None
+    return pd.concat(dfs, axis=0, ignore_index=True)
+
+
+def get_df_from_scalarized_curve_series(
+    experiment: Experiment,
+    all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
+    metrics: Iterable[Metric],
+    trial_idx_to_id: Dict[int, Union[int, str]],
+    map_key: str,
+) -> Optional[pd.DataFrame]:
+    """Convert a `all_curve_series` dict (from `get_curves_from_ids`) into
+    a dataframe. For each metric, we first get all curves represented in
+    `coefficients` and then perform scalarization.
+
+    Args:
+        experiment: The experiment.
+        all_curve_series: A dict containing curve data, as output from
+            `get_curves_from_ids`.
+        metrics: The metrics from which data is being fetched.
+        trial_idx_to_id: A dict mapping trial index to ids.
+        map_key: The progression key of the metric's MapKeyInfo.
+
+    Returns:
+        A dataframe containing curve data or None if no curve data could be found.
+    """
+    dfs = []
+    complete_metrics_by_trial = {trial_idx: [] for trial_idx in trial_idx_to_id.keys()}
+    for trial_idx, id_ in trial_idx_to_id.items():
+        if id_ not in all_curve_series:
+            logger.info(f"Could not get curve data for id {id_}. Ignoring.")
+            continue
+        curve_series = all_curve_series[id_]
+        for m in metrics:
+            curve_dfs = []
+            for curve_name in m.coefficients.keys():  # pyre-ignore[16]
+                if curve_name in curve_series:
+                    curve_df = _get_single_curve(
+                        curve_series=curve_series,
+                        curve_name=curve_name,
+                        map_key=map_key,
+                        trial=experiment.trials[trial_idx],
+                        cumulative_best=m.cumulative_best,  # pyre-ignore[16]
+                        lower_is_better=m.lower_is_better,  # pyre-ignore[6]
+                        smoothing_window=m.smoothing_window,  # pyre-ignore[16]
+                    )
+                    curve_dfs.append(curve_df)
+                else:
+                    logger.info(
+                        f"{curve_name} not present in curves from {id_}, so the "
+                        f"scalarization for {m.name} cannot be computed. Returning "
+                        "without this metric."
+                    )
+                    break
+            if len(curve_dfs) == len(m.coefficients):
+                # only keep if all curves needed by the metric are available
+                dfs.extend(curve_dfs)
+                # mark metrics who have all underlying curves
+                complete_metrics_by_trial[trial_idx].append(m)
+
+    if len(dfs) == 0:
+        return None
+
+    all_data_df = pd.concat(dfs, axis=0, ignore_index=True)
+    sub_dfs = []
+    # Do not create a common index across trials, only across the curves
+    # involved in the scalarized metric.
+    for trial_idx, dfi in all_data_df.groupby("trial_index"):
+        # the `do_forward_fill = True` pads with the latest
+        # observation to handle situations where learning curves
+        # report different amounts of data.
+        trial_curves = dfi["metric_name"].unique().tolist()
+        dfs_mean, dfs_sem = align_partial_results(
+            dfi,
+            progr_key=map_key,
+            metrics=trial_curves,
+            do_forward_fill=True,
+        )
+        for metric in complete_metrics_by_trial[trial_idx]:
+            sub_df = _get_scalarized_curve_metric_sub_df(
+                dfs_mean=dfs_mean,
+                dfs_sem=dfs_sem,
+                metric=metric,
+                trial=checked_cast(Trial, experiment.trials[trial_idx]),
+            )
+            sub_dfs.append(sub_df)
+    return pd.concat(sub_dfs, axis=0, ignore_index=True)
 
 
 def _get_single_curve(
