@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 import time
 import warnings
 from abc import ABC
@@ -457,6 +458,19 @@ class ModelBridge(ABC):
                 # len(sq_obs) will not be > 1,
                 # unique features verified in _set_training_data.
                 self._status_quo = sq_obs[0]
+
+    @property
+    def status_quo_data_by_trial(self) -> Optional[Dict[int, ObservationData]]:
+        """A map of trial index to the status quo observation data of each trial"""
+        return _get_status_quo_by_trial(
+            observations=self._training_data,
+            status_quo_name=None
+            if self._status_quo is None
+            else self._status_quo.arm_name,
+            status_quo_features=None
+            if self._status_quo is None
+            else self._status_quo.features,
+        )
 
     @property
     def status_quo(self) -> Optional[Observation]:
@@ -1224,3 +1238,47 @@ def _list_of_dicts_to_dict_of_lists(
 ) -> Dict[str, List[float]]:
     """Converts a list of dicts indexed by a string to a dict of lists."""
     return {key: [d[key] for d in list_of_dicts] for key in keys}
+
+
+def _get_status_quo_by_trial(
+    observations: List[Observation],
+    status_quo_name: Optional[str] = None,
+    status_quo_features: Optional[ObservationFeatures] = None,
+) -> Optional[Dict[int, ObservationData]]:
+    r"""
+    Given a status quo observation, return a dictionary of trial index to
+    the status quo observation data of each trial.
+
+    When either `status_quo_name` or `status_quo_features` exists, return the dict;
+    when both exist, use `status_quo_name`;
+    when neither exists, return None.
+
+    Args:
+        observations: List of observations.
+        status_quo_name: Name of the status quo.
+        status_quo_features: ObservationFeatures for the status quo.
+
+    Returns:
+        A map from trial index to status quo observation data, or None
+    """
+    trial_idx_to_sq_data = None
+    if status_quo_name is not None:
+        # identify status quo by arm name
+        trial_idx_to_sq_data = {
+            int(not_none(obs.features.trial_index)): obs.data
+            for obs in observations
+            if obs.arm_name == status_quo_name
+        }
+    elif status_quo_features is not None:
+        # identify status quo by (untransformed) feature
+        status_quo_signature = json.dumps(
+            status_quo_features.parameters, sort_keys=True
+        )
+        trial_idx_to_sq_data = {
+            int(not_none(obs.features.trial_index)): obs.data
+            for obs in observations
+            if json.dumps(obs.features.parameters, sort_keys=True)
+            == status_quo_signature
+        }
+
+    return trial_idx_to_sq_data
