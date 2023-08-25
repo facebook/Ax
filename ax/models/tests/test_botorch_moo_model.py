@@ -43,15 +43,32 @@ CHEBYSHEV_SCALARIZATION_PATH = (
     "ax.models.torch.botorch_defaults.get_chebyshev_scalarization"
 )
 NEHVI_ACQF_PATH = (
-    "botorch.acquisition.factory.moo_monte_carlo.qNoisyExpectedHypervolumeImprovement"
+    "botorch.acquisition.multi_objective.monte_carlo"
+    ".qNoisyExpectedHypervolumeImprovement"
 )
 EHVI_ACQF_PATH = (
-    "botorch.acquisition.factory.moo_monte_carlo.qExpectedHypervolumeImprovement"
+    "botorch.acquisition.multi_objective.monte_carlo.qExpectedHypervolumeImprovement"
 )
+
 NEHVI_PARTITIONING_PATH = (
     "botorch.acquisition.multi_objective.monte_carlo.FastNondominatedPartitioning"
 )
-EHVI_PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
+
+try:
+    # Botorch > 0.9.2
+    from botorch.acquisition.factory.moo_monte_carlo import (  # noqa: F401
+        qNoisyExpectedHypervolumeImprovement,
+    )
+
+    botorch_factory_module_name = "factory"
+
+except ImportError:
+    # Botorch <= 0.9.2
+    botorch_factory_module_name = "utils"
+
+EHVI_PARTITIONING_PATH = (
+    f"botorch.acquisition.{botorch_factory_module_name}.FastNondominatedPartitioning"
+)
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -500,7 +517,7 @@ class BotorchMOOModelTest(TestCase):
             )
             es.enter_context(
                 mock.patch(
-                    "botorch.acquisition.factory.get_sampler",
+                    f"botorch.acquisition.{botorch_factory_module_name}.get_sampler",
                     return_value=IIDNormalSampler(sample_shape=torch.Size([2])),
                 )
             )
