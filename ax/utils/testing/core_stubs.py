@@ -1790,6 +1790,7 @@ def get_branin_data_batch(batch: BatchTrial) -> Data:
     return Data(
         pd.DataFrame(
             {
+                "trial_index": batch.index,
                 "arm_name": [arm.name for arm in batch.arms],
                 "metric_name": "branin",
                 "mean": [

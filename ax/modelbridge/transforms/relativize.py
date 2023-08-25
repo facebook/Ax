@@ -24,7 +24,6 @@ from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize
 
-
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
@@ -60,14 +59,6 @@ class Relativize(Transform):
         # self.modelbridge should NOT be modified
         self.modelbridge: ModelBridge = not_none(
             modelbridge, "Relativize transform requires a modelbridge"
-        )
-        self.status_quo_by_trial: Dict[
-            int, ObservationData
-        ] = self._get_status_quo_by_trial(
-            observations=observations,
-            status_quo=not_none(
-                self.modelbridge.status_quo, self.MISSING_STATUS_QUO_ERROR
-            ),
         )
 
     def transform_optimization_config(
@@ -143,18 +134,25 @@ class Relativize(Transform):
         self,
         observations: List[Observation],
     ) -> List[Observation]:
+        if self.modelbridge.status_quo_data_by_trial is None:
+            raise ValueError("status quo data must be specified to use Relativize.")
+
+        sq_data_by_trial: Dict[int, ObservationData] = not_none(
+            self.modelbridge.status_quo_data_by_trial
+        )
+
+        def _get_relative_data_from_obs(obs: Observation) -> ObservationData:
+            idx = int(not_none(obs.features.trial_index))
+            if idx not in sq_data_by_trial:
+                raise ValueError(self.MISSING_STATUS_QUO_ERROR)
+            return self._get_relative_data(
+                data=obs.data, status_quo_data=sq_data_by_trial[idx]
+            )
+
         return [
             Observation(
                 features=obs.features,
-                data=self._get_relative_data(
-                    data=obs.data,
-                    status_quo_data=not_none(
-                        self.status_quo_by_trial.get(
-                            int(not_none(obs.features.trial_index)), None
-                        ),
-                        self.MISSING_STATUS_QUO_ERROR,
-                    ),
-                ),
+                data=_get_relative_data_from_obs(obs),
                 arm_name=obs.arm_name,
             )
             for obs in observations
@@ -211,18 +209,3 @@ class Relativize(Transform):
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel**2
         return result
-
-    @staticmethod
-    def _get_status_quo_by_trial(
-        observations: List[Observation],
-        status_quo: Observation,
-    ) -> Dict[int, ObservationData]:
-        r"""
-        Given a status quo observation, return a map of trial index to the status quo
-        observation data of each trial.
-        """
-        return {
-            int(not_none(obs.features.trial_index)): obs.data
-            for obs in observations
-            if obs.arm_name == status_quo.arm_name
-        }
