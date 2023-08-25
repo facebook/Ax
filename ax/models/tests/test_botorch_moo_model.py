@@ -10,6 +10,7 @@ from typing import Any, Dict
 from unittest import mock
 
 import ax.models.torch.botorch_moo_defaults as botorch_moo_defaults
+import botorch.acquisition as botorch_acquisition
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -54,15 +55,10 @@ NEHVI_PARTITIONING_PATH = (
     "botorch.acquisition.multi_objective.monte_carlo.FastNondominatedPartitioning"
 )
 
-try:
+if hasattr(botorch_acquisition, "factory"):
     # Botorch > 0.9.2
-    from botorch.acquisition.factory.moo_monte_carlo import (  # noqa: F401
-        qNoisyExpectedHypervolumeImprovement,
-    )
-
     botorch_factory_module_name = "factory"
-
-except ImportError:
+else:
     # Botorch <= 0.9.2
     botorch_factory_module_name = "utils"
 
