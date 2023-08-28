@@ -25,7 +25,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 
-from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
+from ax.exceptions.generation_strategy import (
+    GenerationStrategyRepeatedPoints,
+    MaxParallelismReachedException,
+)
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
@@ -530,3 +533,40 @@ class GenerationStep(GenerationNode, SortableBase):
         left_to_gen = max(self.num_trials - self.num_can_complete, 0)
         left_to_complete = max(self.min_trials_observed - self._num_completed, 0)
         return left_to_gen, left_to_complete
+
+    def num_remaining_trials_until_max_parallelism(
+        self, raise_max_parallelism_reached_exception: bool = True
+    ) -> Optional[int]:
+        """Returns how many generator runs (to be made into a trial each) are left to
+        generate before the `max_parallelism` limit is reached for this generation step.
+
+        Args:
+            raise_max_parallelism_reached_exception: Whether to raise
+                ``MaxParallelismReachedException`` if number of trials running in
+                this generation step exceeds maximum parallelism for it.
+        """
+        max_parallelism = self.max_parallelism
+        num_running = self.num_running_trials
+
+        if max_parallelism is None:
+            return None  # There was no `max_parallelism` limit.
+
+        if raise_max_parallelism_reached_exception and num_running >= max_parallelism:
+            raise MaxParallelismReachedException(
+                step_index=self.index,
+                model_name=self.model_name,
+                num_running=num_running,
+            )
+
+        return max_parallelism - num_running
+
+    @property
+    def num_running_trials(self) -> int:
+        """Number of trials in status `RUNNING` for this generation step of this
+        strategy.
+        """
+        num_running = 0
+        for trial in self.experiment.trials.values():
+            if trial._generation_step_index == self.index and trial.status.is_running:
+                num_running += 1
+        return num_running

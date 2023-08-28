@@ -18,10 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
-from ax.exceptions.generation_strategy import (
-    GenerationStrategyCompleted,
-    MaxParallelismReachedException,
-)
+from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.modelbridge_utils import extend_pending_observations
@@ -232,20 +229,6 @@ class GenerationStrategy(Base):
             ]
         )
 
-    @property
-    def num_running_trials_this_step(self) -> int:
-        """Number of trials in status `RUNNING` for the current generation step
-        of this strategy.
-        """
-        num_running = 0
-        for trial in self.experiment.trials.values():
-            if (
-                trial._generation_step_index == self._curr.index
-                and trial.status.is_running
-            ):
-                num_running += 1
-        return num_running
-
     def gen(
         self,
         experiment: Experiment,
@@ -322,7 +305,7 @@ class GenerationStrategy(Base):
                 f"{to_gen}. This is an unexpected state of the generation strategy."
             )
 
-        until_max_parallelism = self._num_remaining_trials_until_max_parallelism(
+        until_max_parallelism = self._curr.num_remaining_trials_until_max_parallelism(
             raise_max_parallelism_reached_exception=False
         )
 
@@ -426,7 +409,9 @@ class GenerationStrategy(Base):
 
         # Make sure to not make too many generator runs and
         # exceed maximum allowed paralellism for the step.
-        num_until_max_parallelism = self._num_remaining_trials_until_max_parallelism()
+        num_until_max_parallelism = (
+            self._curr.num_remaining_trials_until_max_parallelism()
+        )
         if num_until_max_parallelism is not None:
             num_generator_runs = min(num_generator_runs, num_until_max_parallelism)
 
@@ -486,33 +471,6 @@ class GenerationStrategy(Base):
         else:
             self._fit_current_model(data=self._get_data_for_fit(passed_in_data=data))
         self._save_seen_trial_indices()
-
-    def _num_remaining_trials_until_max_parallelism(
-        self, raise_max_parallelism_reached_exception: bool = True
-    ) -> Optional[int]:
-        """Returns how many generator runs (to be made into a trial each) are left to
-        generate before the `max_parallelism` limit is reached for the current
-        generation step.
-
-        Args:
-            raise_max_parallelism_reached_exception: Whether to raise
-                ``MaxParallelismReachedException`` if number of trials running in
-                this generation step exceeds maximum parallelism for it.
-        """
-        max_parallelism = self._curr.max_parallelism
-        num_running = self.num_running_trials_this_step
-
-        if max_parallelism is None:
-            return None  # There was no `max_parallelism` limit.
-
-        if raise_max_parallelism_reached_exception and num_running >= max_parallelism:
-            raise MaxParallelismReachedException(
-                step_index=self._curr.index,
-                model_name=self._curr.model_name,
-                num_running=num_running,
-            )
-
-        return max_parallelism - num_running
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
         """Moves this generation strategy to next step if conditions for moving are met.
