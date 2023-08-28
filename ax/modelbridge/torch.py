@@ -615,10 +615,11 @@ class TorchModelBridge(ModelBridge):
         )
 
         gen_metadata = gen_results.gen_metadata
-        if is_moo_problem:
+        if is_moo_problem and "objective_thresholds" in gen_metadata:
             # If objective_thresholds are supplied by the user, then the transformed
             # user-specified objective thresholds are in gen_metadata. Otherwise,
-            # inferred objective thresholds are in gen_metadata.
+            # if using a hypervolume based acquisition function, then
+            # the inferred objective thresholds are in gen_metadata.
             opt_config_metrics = (
                 torch_opt_config.opt_config_metrics
                 or not_none(self._optimization_config).metrics

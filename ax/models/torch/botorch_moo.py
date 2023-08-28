@@ -292,24 +292,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
             outcome_constraints = torch_opt_config.outcome_constraints
             objective_thresholds = torch_opt_config.objective_thresholds
             idcs = None
-        if (
-            objective_thresholds is None
-            or objective_thresholds[objective_weights != 0].isnan().any()
-        ):
-            full_objective_thresholds = infer_objective_thresholds(
-                model=model,
-                X_observed=not_none(X_observed),
-                objective_weights=full_objective_weights,
-                outcome_constraints=full_outcome_constraints,
-                subset_idcs=idcs,
-                objective_thresholds=objective_thresholds,
-            )
-            # subset the objective thresholds
-            objective_thresholds = (
-                full_objective_thresholds
-                if idcs is None
-                else full_objective_thresholds[idcs].clone()
-            )
 
         bounds_ = torch.tensor(
             search_space_digest.bounds, dtype=self.dtype, device=self.device
@@ -363,6 +345,24 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 **optimizer_options,
             )
         else:
+            if (
+                objective_thresholds is None
+                or objective_thresholds[objective_weights != 0].isnan().any()
+            ):
+                full_objective_thresholds = infer_objective_thresholds(
+                    model=model,
+                    X_observed=not_none(X_observed),
+                    objective_weights=full_objective_weights,
+                    outcome_constraints=full_outcome_constraints,
+                    subset_idcs=idcs,
+                    objective_thresholds=objective_thresholds,
+                )
+                # subset the objective thresholds
+                objective_thresholds = (
+                    full_objective_thresholds
+                    if idcs is None
+                    else full_objective_thresholds[idcs].clone()
+                )
             acquisition_function = self.acqf_constructor(
                 model=model,
                 objective_weights=objective_weights,
@@ -389,9 +389,10 @@ class MultiObjectiveBotorchModel(BotorchModel):
             )
         gen_metadata = {
             "expected_acquisition_value": expected_acquisition_value.tolist(),
-            "objective_thresholds": not_none(full_objective_thresholds).cpu(),
             "objective_weights": full_objective_weights.cpu(),
         }
+        if full_objective_thresholds is not None:
+            gen_metadata["objective_thresholds"] = full_objective_thresholds.cpu()
         return TorchGenResults(
             points=candidates.detach().cpu(),
             weights=torch.ones(n, dtype=self.dtype),
