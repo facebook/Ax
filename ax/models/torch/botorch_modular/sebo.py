@@ -66,7 +66,7 @@ class SEBOAcquisition(Acquisition):
         if self.target_point is None:
             raise ValueError("please provide target point.")
         self.target_point.to(**tkwargs)  # pyre-ignore
-        self.sparsity_threshold: int = options.get(
+        self.sparsity_threshold: int = options.pop(
             "sparsity_threshold", surrogate.Xs[0].shape[-1]
         )
         # construct determinsitic model for penalty term
