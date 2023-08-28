@@ -6,14 +6,17 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 # Module-level import to avoid circular dependency b/w this file and
 # generation_strategy.py
 from ax import modelbridge
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -31,6 +34,7 @@ from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+
 
 logger: Logger = get_logger(__name__)
 
@@ -322,6 +326,10 @@ class GenerationStep(GenerationNode, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
+
+    Note for developers: by "model" here we really mean an Ax ModelBridge object, which
+    contains an Ax Model under the hood. We call it "model" here to simplify and focus
+    on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
     # Required options:
@@ -351,7 +359,8 @@ class GenerationStep(GenerationNode, SortableBase):
 
     # Optional model name. Defaults to `model_spec.model_key`.
     model_name: str = field(default_factory=str)
-
+    # [TODO] Handle experiment passing more eloquently by enforcing experiment
+    # attribute is set in generation strategies class
     _generation_strategy: Optional[
         modelbridge.generation_strategy.GenerationStrategy
     ] = None
@@ -404,6 +413,18 @@ class GenerationStep(GenerationNode, SortableBase):
     def _unique_id(self) -> str:
         return str(self.index)
 
+    @property
+    def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
+        if self._generation_strategy is None:
+            raise ValueError(
+                "Generation strategy has not been initialized on this step."
+            )
+        return not_none(self._generation_strategy)
+
+    @property
+    def experiment(self) -> Experiment:
+        return self.generation_strategy.experiment
+
     def gen(
         self,
         n: Optional[int] = None,
@@ -429,3 +450,83 @@ class GenerationStep(GenerationNode, SortableBase):
         # as we compare equality of other Ax objects (and we want all the
         # same special-casing to apply).
         return SortableBase.__eq__(self, other=other)
+
+    @property
+    def trial_indices(self) -> Dict[int, Set[int]]:
+        """A mapping from generation step index to the trials of the experiment
+        associated with that GenerationStep. NOTE: This maps all generation steps
+        up to and including the current generation step.
+        """
+        trial_indices_by_step = defaultdict(set)
+
+        for trial_index, trial in self.experiment.trials.items():
+            if (
+                trial._generation_step_index is not None
+                and trial._generation_step_index <= self.index
+            ):
+                trial_indices_by_step[trial._generation_step_index].add(trial_index)
+
+        return trial_indices_by_step
+
+    @property
+    def num_can_complete(self) -> int:
+        """Number of trials in generation strategy that can
+        be completed (so are not in status `FAILED` or `ABANDONED`). Used to keep
+        track of how many generator runs (that become trials) can be produced
+        from this generation step.
+
+        NOTE: This includes `COMPLETED` trials.
+        """
+        step_trials = self.trial_indices[self.index]
+        by_status = self.experiment.trial_indices_by_status
+
+        # Number of trials that will not be `COMPLETED`, used to avoid counting
+        # unsuccessfully terminated trials against the number of generated trials
+        # during determination of whether enough trials have been generated and
+        # completed to proceed to the next generation step.
+        num_will_not_complete = len(
+            step_trials.intersection(
+                by_status[TrialStatus.FAILED].union(by_status[TrialStatus.ABANDONED])
+            )
+        )
+        return len(step_trials) - num_will_not_complete
+
+    @property
+    def _num_completed(self) -> int:
+        """Number of trials in status `COMPLETED` or `EARLY_STOPPED` for
+        this generation step of this strategy. We include early
+        stopped trials because their data will be used in the model,
+        so they are completed from the model's point of view and should
+        count towards that total.
+        """
+        step_trials = self.trial_indices[self.index]
+        by_status = self.experiment.trial_indices_by_status
+
+        return len(
+            step_trials.intersection(
+                by_status[TrialStatus.COMPLETED].union(
+                    by_status[TrialStatus.EARLY_STOPPED]
+                )
+            )
+        )
+
+    def num_trials_to_gen_and_complete(
+        self,
+    ) -> Tuple[int, int]:
+        """Returns how many generator runs (to be made into a trial each) are left to
+        generate in this step and how many are left to be completed in it before
+        the generation strategy can move to the next step.
+
+        NOTE: returns (-1, -1) if the number of trials to be generated from the given
+        step is unlimited (and therefore it must be the last generation step).
+        """
+        if self.num_trials == -1:
+            return -1, -1
+
+        # More than `num_trials` can be generated (if not `enforce_num_trials=False`)
+        # and more than `min_trials_observed` can be completed (if `min_trials_observed
+        # < `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped
+        # to lower bound of 0.
+        left_to_gen = max(self.num_trials - self.num_can_complete, 0)
+        left_to_complete = max(self.min_trials_observed - self._num_completed, 0)
+        return left_to_gen, left_to_complete

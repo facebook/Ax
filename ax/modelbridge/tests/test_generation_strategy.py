@@ -493,7 +493,10 @@ class TestGenerationStrategy(TestCase):
     def test_trials_as_df(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=5)]
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=2),
+                GenerationStep(model=Models.SOBOL, num_trials=3),
+            ]
         )
         # No trials yet, so the DF will be None.
         self.assertIsNone(sobol_generation_strategy.trials_as_df)
@@ -510,6 +513,16 @@ class TestGenerationStrategy(TestCase):
         trial._status = TrialStatus.RUNNING
         self.assertEqual(
             sobol_generation_strategy.trials_as_df.head()["Trial Status"][0], "RUNNING"
+        )
+        # Check that rows are present for step 0 and 1 after moving to step 1
+        for _i in range(3):
+            # attach necessary trials to fill up the Generation Strategy
+            trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
+        self.assertEqual(
+            sobol_generation_strategy.trials_as_df.head()["Generation Step"][0], 0
+        )
+        self.assertEqual(
+            sobol_generation_strategy.trials_as_df.head()["Generation Step"][2], 1
         )
 
     def test_max_parallelism_reached(self) -> None:

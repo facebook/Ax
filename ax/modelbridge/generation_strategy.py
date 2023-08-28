@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from copy import deepcopy
 
 from logging import Logger
@@ -190,21 +189,6 @@ class GenerationStrategy(Base):
         return self._generator_runs[-1] if self._generator_runs else None
 
     @property
-    def trial_indices_by_step(self) -> Dict[int, Set[int]]:
-        """Find trials in experiment that are not mapped to a generation step yet
-        and add them to the mapping of trials by generation step.
-        """
-        trial_indices_by_step = defaultdict(set)
-        for trial_index, trial in self.experiment.trials.items():
-            if (
-                trial._generation_step_index is not None
-                and trial._generation_step_index <= self._curr.index
-            ):
-                trial_indices_by_step[trial._generation_step_index].add(trial_index)
-
-        return trial_indices_by_step
-
-    @property
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
         viewing. For example:
@@ -216,14 +200,17 @@ class GenerationStrategy(Base):
             "points; the values in the dataframe are thus not the exact ones "
             "suggested by Ax in trials."
         )
+
         if self._experiment is None or all(
-            len(trials) == 0 for trials in self.trial_indices_by_step.values()
+            len(trials) == 0
+            for step in self._steps
+            for trials in step.trial_indices.values()
         ):
             return None
         records = [
             {
-                "Generation Step": step_idx,
-                "Generation Model": self._steps[step_idx].model_name,
+                "Generation Step": step.index,
+                "Generation Model": self._steps[step.index].model_name,
                 "Trial Index": trial_idx,
                 "Trial Status": self.experiment.trials[trial_idx].status.name,
                 "Arm Parameterizations": {
@@ -231,7 +218,8 @@ class GenerationStrategy(Base):
                     for arm in self.experiment.trials[trial_idx].arms
                 },
             }
-            for step_idx, trials in self.trial_indices_by_step.items()
+            for step in self._steps
+            for _, trials in step.trial_indices.items()
             for trial_idx in trials
         ]
         return pd.DataFrame.from_records(records).reindex(
@@ -257,44 +245,6 @@ class GenerationStrategy(Base):
             ):
                 num_running += 1
         return num_running
-
-    @property
-    def num_can_complete_this_step(self) -> int:
-        """Number of trials for the current step in generation strategy that can
-        be completed (so are not in status `FAILED` or `ABANDONED`). Used to keep
-        track of how many generator runs (that become trials) can be produced
-        from the current generation step.
-
-        NOTE: This includes `COMPLETED` trials.
-        """
-        step_trials = self.trial_indices_by_step[self._curr.index]
-        by_status = self.experiment.trial_indices_by_status
-        # Number of trials that will not be `COMPLETED`, used to avoid counting
-        # unsuccessfully terminated trials against the number of generated trials
-        # during determination of whether enough trials have been generated and
-        # completed to proceed to the next generation step.
-        num_will_not_complete = len(
-            step_trials.intersection(
-                by_status[TrialStatus.FAILED].union(by_status[TrialStatus.ABANDONED])
-            )
-        )
-        return len(step_trials) - num_will_not_complete
-
-    @property
-    def num_completed_this_step(self) -> int:
-        """Number of trials in status `COMPLETED` or `EARLY_STOPPED` for
-        the current generation step of this strategy. We include early
-        stopped trials because their data will be used in the model,
-        so they are completed from the model's point of view and should
-        count towards that total.
-        """
-        step_trials = self.trial_indices_by_step[self._curr.index]
-        by_status = self.experiment.trial_indices_by_status
-        return len(
-            step_trials.intersection(
-                by_status[TrialStatus.COMPLETED] | by_status[TrialStatus.EARLY_STOPPED]
-            )
-        )
 
     def gen(
         self,
@@ -363,7 +313,7 @@ class GenerationStrategy(Base):
         except GenerationStrategyCompleted:
             return 0, True
 
-        to_gen = self._num_trials_to_gen_and_complete_in_curr_step()[0]
+        to_gen = self._curr.num_trials_to_gen_and_complete()[0]
         if to_gen < -1:
             # `_num_trials_to_gen_and_complete_in_curr_step()` should return value
             # of -1 or greater always.
@@ -484,7 +434,7 @@ class GenerationStrategy(Base):
         if self._curr.enforce_num_trials and self._curr.num_trials > 0:
             num_generator_runs = min(
                 num_generator_runs,
-                self._curr.num_trials - self.num_can_complete_this_step,
+                self._curr.num_trials - self._curr.num_can_complete,
             )
 
         generator_runs = []
@@ -517,7 +467,6 @@ class GenerationStrategy(Base):
                 pending_observations=pending_observations,
                 generator_run=generator_run,
             )
-
         return generator_runs
 
     # ------------------------- Model selection logic helpers. -------------------------
@@ -537,27 +486,6 @@ class GenerationStrategy(Base):
         else:
             self._fit_current_model(data=self._get_data_for_fit(passed_in_data=data))
         self._save_seen_trial_indices()
-
-    def _num_trials_to_gen_and_complete_in_curr_step(self) -> Tuple[int, int]:
-        """Returns how many generator runs (to be made into a trial each) are left to
-        generate in current step and how many are left to be completed in it before
-        this generation strategy can move to the next step.
-
-        NOTE: returns (-1, -1) if the number of trials to be generated from the given
-        step is unlimited (and therefore it must be the last generation step).
-        """
-        if self._curr.num_trials == -1:
-            return -1, -1
-
-        # More than `num_trials` can be generated (if not `enforce_num_trials=False`)
-        # and more than `min_trials_observed` can be completed (if `min_trials_observed
-        # < `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped
-        # to lower bound of 0.
-        left_to_gen = max(self._curr.num_trials - self.num_can_complete_this_step, 0)
-        left_to_complete = max(
-            self._curr.min_trials_observed - self.num_completed_this_step, 0
-        )
-        return left_to_gen, left_to_complete
 
     def _num_remaining_trials_until_max_parallelism(
         self, raise_max_parallelism_reached_exception: bool = True
@@ -616,7 +544,7 @@ class GenerationStrategy(Base):
         Returns:
             Whether generation strategy moved to the next step.
         """
-        to_gen, to_complete = self._num_trials_to_gen_and_complete_in_curr_step()
+        to_gen, to_complete = self._curr.num_trials_to_gen_and_complete()
         if to_gen == to_complete == -1:  # Unlimited trials, check completion_criteria
             if len(self._curr.completion_criteria) > 0 and all(
                 criterion.is_met(experiment=self.experiment)
