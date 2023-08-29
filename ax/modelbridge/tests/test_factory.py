@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest import mock
+
 import pandas as pd
 import torch
 from ax.core.data import Data
@@ -338,7 +340,11 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
             },
             moo_parego._default_model_gen_options,
         )
-        moo_parego_run = moo_parego.gen(n=2)
+        with mock.patch(
+            "ax.models.torch.botorch_moo.infer_objective_thresholds"
+        ) as mock_infer_ot:
+            moo_parego_run = moo_parego.gen(n=2)
+            mock_infer_ot.assert_not_called()
         self.assertEqual(len(moo_parego_run.arms), 2)
 
     @fast_botorch_optimize
