@@ -8,6 +8,7 @@ import itertools
 from collections import namedtuple
 from logging import INFO, WARN
 from typing import Dict, List
+from unittest import mock
 from unittest.mock import patch
 
 import pandas as pd
@@ -19,14 +20,19 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
+    _get_cross_validation_plots,
+    _get_curve_plot_dropdown,
     _get_metric_name_pairs,
+    _get_objective_trace_plot,
     _get_objective_v_param_plots,
     _get_shortest_unique_suffix_dict,
+    _objective_vs_true_objective_scatter,
     compute_maximum_map_values,
     exp_to_df,
     Experiment,
     FEASIBLE_COL_NAME,
     get_standard_plots,
+    plot_feature_importance_by_feature_plotly,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -325,15 +331,41 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
         model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
-        for gsa in [False, True]:
+        for gsa, true_objective_metric_name in itertools.product(
+            [False, True], ["branin", None]
+        ):
             with self.subTest(global_sensitivity_analysis=gsa):
                 plots = get_standard_plots(
                     experiment=exp,
                     model=model,
                     global_sensitivity_analysis=gsa,
+                    true_objective_metric_name=true_objective_metric_name,
                 )
-                self.assertEqual(len(plots), 6)
+                self.assertEqual(len(plots), 8 if true_objective_metric_name else 6)
                 self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
+
+        # Raise an exception in one plot and make sure we generate the others
+        for plot_function, num_expected_plots in [
+            [_get_curve_plot_dropdown, 8],  # Not used
+            [_get_objective_trace_plot, 6],
+            [_objective_vs_true_objective_scatter, 7],
+            [_get_objective_v_param_plots, 6],
+            [_get_cross_validation_plots, 7],
+            [plot_feature_importance_by_feature_plotly, 6],
+        ]:
+            with mock.patch(
+                # pyre-ignore
+                f"ax.service.utils.report_utils.{plot_function.__name__}",
+                side_effect=Exception(),
+            ):
+                plots = get_standard_plots(
+                    experiment=exp,
+                    model=model,
+                    global_sensitivity_analysis=True,
+                    true_objective_metric_name="branin",
+                )
+            self.assertEqual(len(plots), num_expected_plots)
+            self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
     @fast_botorch_optimize
     def test_get_standard_plots_moo(self) -> None:
