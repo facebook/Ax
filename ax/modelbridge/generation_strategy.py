@@ -17,8 +17,9 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
+
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.modelbridge_utils import extend_pending_observations
@@ -469,7 +470,16 @@ class GenerationStrategy(Base):
             if new_data is not None:
                 self._update_current_model(new_data=new_data)
         else:
-            self._fit_current_model(data=self._get_data_for_fit(passed_in_data=data))
+            previous_step_req_observations = (
+                self._curr.index > 0
+                and self._steps[self._curr.index - 1].min_trials_observed > 0
+            )
+            self._fit_current_model(
+                data=self._curr.get_data_for_fit(
+                    passed_in_data=data,
+                    previous_step_required_observations=previous_step_req_observations,
+                )
+            )
         self._save_seen_trial_indices()
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
@@ -599,58 +609,6 @@ class GenerationStrategy(Base):
 
         self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
         self._model = self._curr.model_spec.fitted_model
-
-    def _get_data_for_fit(self, passed_in_data: Optional[Data]) -> Data:
-        if passed_in_data is None:
-            if self._curr.use_update:
-                # If the new step is using `update`, it's important to instantiate
-                # the model with data for completed trials only, so later we can
-                # update it with data for new trials as they become completed.
-                # `experiment.lookup_data` can lookup all available data, including
-                # for non-completed trials (depending on how the experiment's metrics
-                # implement `fetch_experiment_data`). We avoid fetching data for
-                # trials with statuses other than `COMPLETED`, by fetching specifically
-                # for `COMPLETED` trials.
-                avail_while_running_metrics = {
-                    m.name
-                    for m in self.experiment.metrics.values()
-                    if m.is_available_while_running()
-                }
-                if avail_while_running_metrics:
-                    raise NotImplementedError(
-                        f"Metrics {avail_while_running_metrics} are available while "
-                        "trial is running, but use of `update` functionality in "
-                        "generation strategy relies on new data being available upon "
-                        "trial completion."
-                    )
-                data = self.experiment.lookup_data(
-                    trial_indices=self.experiment.trial_indices_by_status[
-                        TrialStatus.COMPLETED
-                    ]
-                )
-            else:
-                data = self.experiment.lookup_data()
-        else:
-            data = passed_in_data
-        # By the time we get here, we will have already transitioned
-        # to a new step, but if previous step required observed data,
-        # we should raise an error even if enough trials were completed.
-        # Such an empty data case does indicate an invalid state; this
-        # check is to improve the experience of detecting and debugging
-        # the invalid state that led to this.
-        previous_step_required_observations = (
-            self._curr.index > 0
-            and self._steps[self._curr.index - 1].min_trials_observed > 0
-        )
-        if data.df.empty and previous_step_required_observations:
-            raise NoDataError(
-                f"Observed data is required for generation step #{self._curr.index} "
-                f"(model {self._curr.model_name}), but fetched data was empty. "
-                "Something is wrong with experiment setup -- likely metrics do not "
-                "implement fetching logic (check your metrics) or no data was "
-                "attached to experiment for completed trials."
-            )
-        return data
 
     def _update_current_model(self, new_data: Data) -> None:
         """Update the current model with new data (data for trials that have been
