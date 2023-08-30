@@ -361,7 +361,6 @@ def get_standard_plots(
     except Exception as e:
         # Allow model-based plotting to proceed if objective_trace plotting fails.
         logger.exception(f"Plotting `objective_trace` failed with error {e}")
-        pass
 
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
@@ -377,30 +376,42 @@ def get_standard_plots(
                         true_objective_metric_name=true_objective_metric_name,
                     )
                 )
+        except Exception as e:
+            logger.exception(f"Scatter plot failed with error: {e}")
+
+        try:
             output_plot_list.extend(
                 _get_objective_v_param_plots(
                     experiment=experiment,
                     model=model,
                 )
             )
-            output_plot_list.extend(_get_cross_validation_plots(model=model))
+        except Exception as e:
+            logger.exception(f"Slice plot failed with error: {e}")
 
-            # sensitivity plot
-            sens = None
-            importance_measure = ""
+        try:
+            output_plot_list.extend(_get_cross_validation_plots(model=model))
+        except Exception as e:
+            logger.exception(f"Cross-validation plot failed with error: {e}")
+
+        # sensitivity plot
+        sens = None
+        importance_measure = ""
+        try:
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
-                try:
-                    sens = ax_parameter_sens(model, order="total")
-                    importance_measure = (
-                        '<a href="https://en.wikipedia.org/wiki/Variance-based_'
-                        'sensitivity_analysis">Variance-based sensitivity analysis</a>'
-                    )
-                except Exception as e:
-                    logger.info(f"Failed to compute global feature sensitivities: {e}")
+                sens = ax_parameter_sens(model, order="total")
+                importance_measure = (
+                    '<a href="https://en.wikipedia.org/wiki/Variance-based_'
+                    'sensitivity_analysis">Variance-based sensitivity analysis</a>'
+                )
+        except Exception as e:
+            logger.info(f"Failed to compute global feature sensitivities: {e}")
+        try:
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
                 model=model,
-                # pyre-ignore [6]: In call for argument `sensitivity_values`,
-                # expected `Optional[Dict[str, Dict[str, Union[float, ndarray]]]]`
+                # pyre-ignore [6]:
+                # In call for argument `sensitivity_values`, expected
+                # `Optional[Dict[str, Dict[str, Union[float, ndarray]]]]`
                 # but got `Dict[str, Dict[str, ndarray]]`.
                 sensitivity_values=sens,
                 relative=False,
@@ -417,24 +428,30 @@ def get_standard_plots(
             logger.exception(f"Feature importance plot failed with error: {e}")
 
     # Get plots for MapMetrics
-    map_metrics = [m for m in experiment.metrics.values() if isinstance(m, MapMetric)]
-    if map_metrics:
-        # Sort so that objective metrics appear first
-        map_metrics.sort(
-            key=lambda e: e.name in [m.name for m in objective.metrics],
-            reverse=True,
-        )
-        for by_walltime in [False, True]:
-            output_plot_list.append(
-                _get_curve_plot_dropdown(
-                    experiment=experiment,
-                    map_metrics=map_metrics,
-                    data=data,  # pyre-ignore
-                    early_stopping_strategy=early_stopping_strategy,
-                    by_walltime=by_walltime,
-                    limit_points_per_plot=limit_points_per_plot,
-                )
+    try:
+        map_metrics = [
+            m for m in experiment.metrics.values() if isinstance(m, MapMetric)
+        ]
+        if map_metrics:
+            # Sort so that objective metrics appear first
+            map_metrics.sort(
+                key=lambda e: e.name in [m.name for m in objective.metrics],
+                reverse=True,
             )
+            for by_walltime in [False, True]:
+                output_plot_list.append(
+                    _get_curve_plot_dropdown(
+                        experiment=experiment,
+                        map_metrics=map_metrics,
+                        data=data,  # pyre-ignore
+                        early_stopping_strategy=early_stopping_strategy,
+                        by_walltime=by_walltime,
+                        limit_points_per_plot=limit_points_per_plot,
+                    )
+                )
+    except Exception as e:
+        logger.exception(f"Curve plot failed with error: {e}")
+
     return [plot for plot in output_plot_list if plot is not None]
 
 
