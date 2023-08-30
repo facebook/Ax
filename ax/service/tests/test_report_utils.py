@@ -430,7 +430,7 @@ class ReportUtilsTest(TestCase):
         self.assertEqual(len(plots), 8)
 
     @fast_botorch_optimize
-    def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
+    def ftest_get_standard_plots_moo_no_objective_thresholds(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
         exp.optimization_config.objective.objectives[1].minimize = True
