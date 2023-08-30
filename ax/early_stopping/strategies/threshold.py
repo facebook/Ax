@@ -48,10 +48,10 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
-            min_curves: There must be `min_curves` number of completed trials and
-                `min_curves` number of trials with curve data to make a stopping
-                decision (i.e., even if there are enough completed trials but not all
-                of them are correctly returning data, then do not apply early stopping).
+            min_curves: Trials will not be stopped until a number of trials
+                `min_curves` have completed with curve data attached. That is, if
+                `min_curves` trials are completed but their curve data was not
+                successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
             true_objective_metric_name: The actual objective to be optimized; used in
                 situations where early stopping uses a proxy objective (such as training
