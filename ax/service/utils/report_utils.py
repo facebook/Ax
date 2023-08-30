@@ -662,10 +662,12 @@ def _merge_results_if_no_duplicates(
             f"`{results}`. Returning arm parameters and metadata only."
         )
         return arms_df
-    # prepare results for merge
-    key_vals = results[key_components[0]].astype("str")
-    for key_component in key_components[1:]:
-        key_vals += results[key_component].astype("str")
+    # prepare results for merge by concattenating the trial index with the arm name
+    # sparated by a comma
+    key_vals = pd.Series(
+        results[key_components].values.astype("str").tolist()
+    ).str.join(",")
+
     results_key_col = "-".join(key_components)
 
     results[results_key_col] = key_vals
