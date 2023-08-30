@@ -23,7 +23,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import NoDataError, UserInputError
 
 from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
@@ -570,3 +570,65 @@ class GenerationStep(GenerationNode, SortableBase):
             if trial._generation_step_index == self.index and trial.status.is_running:
                 num_running += 1
         return num_running
+
+    def get_data_for_fit(
+        self, passed_in_data: Optional[Data], previous_step_required_observations: bool
+    ) -> Data:
+        """
+        Correctly fetches data given this generation step's configuration, and checks
+        for invalid data states before returning it.
+
+        Args:
+            passed_in_data: An optional provided aata object for fitting the model
+                for this generation step
+            previous_step_required_observations: Information about the previous
+                generation step used to check and raise an error if we are in an invalid
+                state due to unexpected empty data
+
+        Returns:
+            Data: Data for fitting a model to generate this generation step
+        """
+        if passed_in_data is None:
+            if self.use_update:
+                # If this step is using `update`, it's important to instantiate
+                # the model with data for completed trials only, so later we can
+                # update it with data for new trials as they become completed.
+                # `experiment.lookup_data` can lookup all available data, including
+                # for non-completed trials (depending on how the experiment's metrics
+                # implement `fetch_experiment_data`). We avoid fetching data for
+                # trials with statuses other than `COMPLETED`, by fetching specifically
+                # for `COMPLETED` trials.
+                avail_while_running_metrics = {
+                    m.name
+                    for m in self.experiment.metrics.values()
+                    if m.is_available_while_running()
+                }
+                if avail_while_running_metrics:
+                    raise NotImplementedError(
+                        f"Metrics {avail_while_running_metrics} are available while "
+                        "trial is running, but use of `update` functionality in "
+                        "generation step relies on new data being available upon "
+                        "trial completion."
+                    )
+                data = self.experiment.lookup_data(
+                    trial_indices=self.experiment.trial_indices_by_status[
+                        TrialStatus.COMPLETED
+                    ]
+                )
+            else:
+                data = self.experiment.lookup_data()
+        else:
+            data = passed_in_data
+        # If previous step required observed data, we should raise an error even if
+        # enough trials were completed. Such an empty data case does indicate an
+        # invalid state; this check is to improve the experience of detecting and
+        # debugging the invalid state that led to this.
+        if data.df.empty and previous_step_required_observations:
+            raise NoDataError(
+                f"Observed data is required for generation step #{self.index} "
+                f"(model {self.model_name}), but fetched data was empty. "
+                "Something is wrong with experiment setup -- likely metrics do not "
+                "implement fetching logic (check your metrics) or no data was "
+                "attached to experiment for completed trials."
+            )
+        return data
