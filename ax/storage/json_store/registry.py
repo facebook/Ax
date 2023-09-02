@@ -7,6 +7,8 @@
 import pathlib
 from typing import Any, Callable, Dict, Type
 
+import pandas as pd
+
 import torch
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -104,6 +106,7 @@ from ax.storage.json_store.encoders import (
     choice_parameter_to_dict,
     completion_criterion_to_dict,
     data_to_dict,
+    dataframe_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generation_step_to_dict,
@@ -143,6 +146,7 @@ from ax.storage.json_store.encoders import (
     winsorization_config_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
+from ax.utils.common.serialization import dataframe_from_json
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
@@ -213,6 +217,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     pathlib.WindowsPath: pathlib_to_dict,
     pathlib.PurePosixPath: pathlib_to_dict,
     pathlib.PureWindowsPath: pathlib_to_dict,
+    pd.DataFrame: dataframe_to_dict,
     PyTorchCNNTorchvisionBenchmarkProblem: pytorch_cnn_torchvision_benchmark_problem_to_dict,  # noqa
     PyTorchCNNMetric: metric_to_dict,
     PyTorchCNNTorchvisionRunner: runner_to_dict,
@@ -277,6 +282,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "ChoiceParameter": ChoiceParameter,
     "ComparisonOp": ComparisonOp,
     "Data": Data,
+    "DataFrame": dataframe_from_json,
     "DataType": DataType,
     "DictLookupMetric": DictLookupMetric,
     "DomainType": DomainType,

@@ -85,6 +85,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_experiment_with_batch_trial,
     get_experiment_with_custom_runner_and_metric,
+    get_experiment_with_data,
     get_experiment_with_map_data_type,
     get_experiment_with_multi_objective,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
@@ -514,11 +515,17 @@ class SQAStoreTest(TestCase):
                 # for parity with the expected decoded (converted) object.
                 original_object._properties.pop(Keys.SUBCLASS)
 
-            self.assertEqual(
-                original_object,
-                converted_object,
-                msg=f"Error encoding/decoding {class_}.",
-            )
+            try:
+                self.assertEqual(
+                    original_object,
+                    converted_object,
+                    msg=f"Error encoding/decoding {class_}.",
+                )
+            except RuntimeError as e:
+                self.assertFalse(
+                    "The following RuntimeError was raised while testing "
+                    f"equalty for class {class_}: {e}"
+                )
 
     def testEncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()

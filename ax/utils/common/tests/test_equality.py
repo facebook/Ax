@@ -21,9 +21,8 @@ from ax.utils.common.testutils import TestCase
 class EqualityTest(TestCase):
     def testEqualityTypechecker(self) -> None:
         @equality_typechecker
-        # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[2]: Parameter must be annotated.
-        def eq(x, y):
+        def eq(x, y) -> bool:
             return x == y
 
         self.assertFalse(eq(5, 5.0))
@@ -41,13 +40,25 @@ class EqualityTest(TestCase):
         self.assertTrue(datetime_equals(now, now))
 
     def testDataframeEquals(self) -> None:
-        pd1 = pd.DataFrame.from_records([{"x": 100, "y": 200}])
-        pd2 = pd.DataFrame.from_records([{"y": 200, "x": 100}])
-        pd3 = pd.DataFrame.from_records([{"x": 100, "y": 300}])
 
+        # emtpy dfs
         self.assertTrue(dataframe_equals(pd.DataFrame(), pd.DataFrame()))
+        pd1 = pd.DataFrame.from_records([{"x": 100, "y": 200}])
+        self.assertFalse(dataframe_equals(pd.DataFrame(), pd1))
+
+        # Same values, different order
+        pd2 = pd.DataFrame.from_records([{"y": 200, "x": 100}])
         self.assertTrue(dataframe_equals(pd1, pd2))
+
+        # different dtypes
+        pd3 = pd.DataFrame.from_records([{"x": 100.0, "y": 200}])
         self.assertFalse(dataframe_equals(pd1, pd3))
+
+        # Approximate equality
+        pd4 = pd.DataFrame.from_records([{"x": 100 + 1e-9, "y": 200}])
+        self.assertTrue(dataframe_equals(pd3, pd4, check_exact=False))
+        self.assertFalse(dataframe_equals(pd3, pd4, check_exact=True))
+        self.assertFalse(dataframe_equals(pd3, pd4))
 
     def test_numpy_equals(self) -> None:
         # Simple check.

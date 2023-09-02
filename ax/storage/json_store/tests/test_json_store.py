@@ -38,6 +38,7 @@ from ax.storage.json_store.registry import (
 )
 from ax.storage.json_store.save import save_experiment
 from ax.storage.registry_bundle import RegistryBundle
+from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
@@ -65,6 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_chained_input_transform,
     get_choice_parameter,
+    get_DataFrame,
     get_default_scheduler_options,
     get_dict_lookup_metric,
     get_experiment_with_batch_and_single_trial,
@@ -336,6 +338,19 @@ class JSONStoreTest(TestCase):
                 else:
                     raise e
 
+    def test_encode_decode_DataFrame(self) -> None:
+        # Legacy format
+        df = get_DataFrame()
+        encoded = {"__type": "DataFrame", "value": df.to_json()}
+
+        decoded = object_from_json(encoded)
+        self.assertTrue(dataframe_equals(df1=df, df2=decoded, check_exact=False))
+
+        # Current format; preserves full float info
+        encoded = object_to_json(df)
+        decoded = object_from_json(encoded)
+        self.assertTrue(df.equals(decoded))
+
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
@@ -367,7 +382,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-        # Key error on desearialization.
+        # Key error on deserialization.
         x_json = object_to_json(
             x,
             encoder_registry=CORE_ENCODER_REGISTRY,
