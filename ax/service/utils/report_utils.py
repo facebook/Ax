@@ -670,6 +670,8 @@ def _merge_results_if_no_duplicates(
 
     results_key_col = "-".join(key_components)
 
+    # Reindex so new column isn't set to NaN.
+    key_vals.index = results.index
     results[results_key_col] = key_vals
     # Don't return results if duplicates remain
     if any(results.duplicated(subset=[results_key_col, "metric_name"])):
