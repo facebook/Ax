@@ -483,83 +483,40 @@ class GenerationStrategy(Base):
         self._save_seen_trial_indices()
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
-        """Moves this generation strategy to next step if conditions for moving are met.
-        This method is safe to use both when generating candidates or simply checking
-        how many generator runs (to be made into trials) can currently be produced.
+        """Moves this generation strategy to next step if the current step is completed,
+        and it is not the last step in this generation strategy. This method is safe to
+        use both when generating candidates or simply checking how many generator runs
+        (to be made into trials) can currently be produced.
 
-        Conditions for moving to next step:
-        1. ``num_trials`` in current generation step have been generated (generation
-            strategy produced that many generator runs, which were then attached to
-            trials),
-        2. ``min_trials_observed`` in current generation step have been completed,
-        3. current step is not the last in this generation strategy.
-
-
-        NOTE: this method raises ``GenerationStrategyCompleted`` error if conditions 1
-        and 2 above are met, but the current step is the last in generation strategy.
-        It also raises ``DataRequiredError`` if all conditions below are true:
-        1. ``raise_data_required_error`` argument is ``True``,
-        2. ``num_trials`` in current generation step have been generated,
-        3. ``min_trials_observed`` in current generation step have not been completed,
-        4. ``enforce_num_trials`` in current generation step is ``True``.
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if the current
+        generation step is complete, but it is also the last in generation strategy.
 
         Args:
             raise_data_required_error: Whether to raise ``DataRequiredError`` in the
-                case detailed above. Not raising the error is useful if just looking to
-                check how many generator runs (to be made into trials) can be produced,
-                but not actually producing them yet.
+                maybe_step_completed method in GenerationStep class.
 
         Returns:
             Whether generation strategy moved to the next step.
         """
-        to_gen, to_complete = self._curr.num_trials_to_gen_and_complete()
-        if to_gen == to_complete == -1:  # Unlimited trials, check completion_criteria
-            if len(self._curr.completion_criteria) > 0 and all(
-                criterion.is_met(experiment=self.experiment)
-                for criterion in self._curr.completion_criteria
-            ):
-                if len(self._steps) == self._curr.index + 1:
-                    raise GenerationStrategyCompleted(
-                        f"Generation strategy {self} generated all the trials as "
-                        "specified in its steps."
-                    )
-                self._curr = self._steps[self._curr.index + 1]
-                self._model = None
-                return True
-
-            return False
-
-        enforcing_num_trials = self._curr.enforce_num_trials
-        trials_left_to_gen = to_gen > 0
-        trials_left_to_complete = to_complete > 0
-
-        # If there is something left to gen or complete, we don't move to next step.
-        if trials_left_to_gen or trials_left_to_complete:
-            # Check that minimum observed_trials is satisfied if it's enforced.
-            raise_error = raise_data_required_error
-            if raise_error and enforcing_num_trials and not trials_left_to_gen:
-                raise DataRequiredError(
-                    "All trials for current model have been generated, but not enough "
-                    "data has been observed to fit next model. Try again when more data"
-                    " are available."
+        move_to_next_step = self._curr.is_step_completed(
+            raise_data_required_error=raise_data_required_error
+        )
+        if move_to_next_step:
+            # If nothing left to gen or complete, move to next step if one is available.
+            if len(self._steps) == self._curr.index + 1:
+                raise GenerationStrategyCompleted(
+                    f"Generation strategy {self} generated all the trials as "
+                    "specified in its steps."
                 )
-            return False
+            self._curr = self._steps[self._curr.index + 1]
+            # Moving to the next step also entails unsetting this GS's model (since
+            # new step's model will be initialized for the first time, so we don't
+            # try to `update` it but rather initialize with all the data even if
+            # `use_update` is true for the new generation step; this is done in
+            # `self._fit_or_update_current_model).
+            self._model = None
 
-        # If nothing left to gen or complete, move to next step if one is available.
-        if len(self._steps) == self._curr.index + 1:
-            raise GenerationStrategyCompleted(
-                f"Generation strategy {self} generated all the trials as "
-                "specified in its steps."
-            )
-
-        self._curr = self._steps[self._curr.index + 1]
-        # Moving to the next step also entails unsetting this GS's model (since
-        # new step's model will be initialized for the first time, so we don't
-        # try to `update` it but rather initialize with all the data even if
-        # `use_update` is true for the new generation step; this is done in
-        # `self._fit_or_update_current_model).
-        self._model = None
-        return True
+        return move_to_next_step
 
     def _fit_current_model(self, data: Data) -> None:
         """Instantiate the current model with all available data."""
