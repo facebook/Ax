@@ -246,21 +246,21 @@ class ReportUtilsTest(TestCase):
         mock_results = dummy_struct(
             df=pd.DataFrame(
                 {
-                    "arm_name": ["0_0"],
-                    "metric_name": [OBJECTIVE_NAME],
-                    "mean": [DUMMY_OBJECTIVE_MEAN],
-                    "sem": [0],
-                    "trial_index": [0],
-                    "n": [123],
-                    "frac_nonnull": [1],
+                    "arm_name": ["0_0", "1_0"],
+                    "metric_name": [OBJECTIVE_NAME] * 2,
+                    "mean": [DUMMY_OBJECTIVE_MEAN] * 2,
+                    "sem": [0] * 2,
+                    "trial_index": [0, 1],
+                    "n": [123] * 2,
+                    "frac_nonnull": [1] * 2,
                 }
             )
         )
+        mock_results.df.index = range(len(exp.trials) * 2, len(exp.trials) * 2 + 2)
         with patch.object(Experiment, "lookup_data", lambda self: mock_results):
             df = exp_to_df(exp=exp)
-
-        # all but one row should have a metric value of NaN
-        self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 1)
+        # all but two rows should have a metric value of NaN
+        self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error
         with patch.object(
