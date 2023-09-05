@@ -23,7 +23,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import NoDataError, UserInputError
+from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 
 from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
@@ -454,6 +454,8 @@ class GenerationStep(GenerationNode, SortableBase):
         # same special-casing to apply).
         return SortableBase.__eq__(self, other=other)
 
+    # ------------------------- Trial logic helpers. -------------------------
+
     @property
     def trial_indices(self) -> Dict[int, Set[int]]:
         """A mapping from generation step index to the trials of the experiment
@@ -570,6 +572,58 @@ class GenerationStep(GenerationNode, SortableBase):
             if trial._generation_step_index == self.index and trial.status.is_running:
                 num_running += 1
         return num_running
+
+    def is_step_completed(self, raise_data_required_error: bool = True) -> bool:
+        """Determines if a generation step is completed if the conditions are met.
+
+        Conditions for marking the step completed:
+        1. ``num_trials`` in this generation step have been generated (generation
+            strategy produced that many generator runs, which were then attached to
+            trials),
+        2. ``min_trials_observed`` in this generation step have been completed,
+
+        NOTE: this method raises ``DataRequiredError`` if all conditions below are true:
+        1. ``raise_data_required_error`` argument is ``True``,
+        2. ``num_trials`` in current generation step have been generated,
+        3. ``min_trials_observed`` in current generation step have not been completed,
+        4. ``enforce_num_trials`` in current generation step is ``True``.
+
+        Args:
+            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
+                case detailed above. Not raising the error is useful if just looking to
+                check how many generator runs (to be made into trials) can be produced,
+                but not actually producing them yet.
+
+        Returns:
+            Whether this generation step is completed.
+        """
+        to_gen, to_complete = self.num_trials_to_gen_and_complete()
+        if to_gen == to_complete == -1:  # Unlimited trials, check completion_criteria
+            if len(self.completion_criteria) > 0 and all(
+                criterion.is_met(experiment=self.experiment)
+                for criterion in self.completion_criteria
+            ):
+                return True
+            return False
+
+        enforcing_num_trials = self.enforce_num_trials
+        trials_left_to_gen = to_gen > 0
+        trials_left_to_complete = to_complete > 0
+
+        # If there is something left to gen or complete, we don't move to next step.
+        if trials_left_to_gen or trials_left_to_complete:
+            # Check that minimum observed_trials is satisfied if it's enforced.
+            raise_error = raise_data_required_error
+            if raise_error and enforcing_num_trials and not trials_left_to_gen:
+                raise DataRequiredError(
+                    "All trials for current model have been generated, but not enough "
+                    "data has been observed to fit next model. Try again when more data"
+                    " are available."
+                )
+            return False
+        return True
+
+    # ------------------------- Model selection logic helpers. -------------------------
 
     def get_data_for_fit(
         self, passed_in_data: Optional[Data], previous_step_required_observations: bool
