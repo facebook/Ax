@@ -53,9 +53,13 @@ jobs:
     - name: Import Ax
       run: |
         python scripts/import_ax.py
-    - name: Tests and coverage
+    - if: ${{ !inputs.minimal_dependencies }}
+      # Only run with full dependencies. Minimal does not include pytest.
+      name: Tests and coverage
       run: |
         pytest -ra --cov=ax
-    - name: Upload coverage
+    - if: ${{ !inputs.minimal_dependencies }}
+      # Using same condition as above since we need the coverage report for upload.
+      name: Upload coverage
       run: |
         bash <(curl -s https://codecov.io/bash)
