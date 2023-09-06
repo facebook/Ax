@@ -1,0 +1,31 @@
+name: Nightly Cron with Pinned BoTorch
+
+on:
+  schedule:
+    # midnight EST
+    - cron:  '0 5 * * *'
+  # allow this to be scheduled manually in addition to cron
+  workflow_dispatch:
+
+jobs:
+
+  tests-and-coverage-minimal:
+    name: Tests with pinned BoTorch & minimal dependencies
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      pinned_botorch: true
+      minimal_dependencies: true
+
+  tests-and-coverage-full:
+    name: Tests with pinned BoTorch & full dependencies
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      pinned_botorch: true
+      minimal_dependencies: false
+
+  build-tutorials:
+    name: Build tutorials with pinned BoTorch
+    uses: ./.github/workflows/reusable_tutorials.yml
+    with:
+      smoke_test: false
+      pinned_botorch: true

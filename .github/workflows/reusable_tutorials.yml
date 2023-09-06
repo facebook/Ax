@@ -6,9 +6,15 @@ on:
       smoke_test:
         required: true
         type: boolean
+      pinned_botorch:
+        required: true
+        type: boolean
   workflow_call:
     inputs:
       smoke_test:
+        required: true
+        type: boolean
+      pinned_botorch:
         required: true
         type: boolean
 
@@ -18,15 +24,27 @@ jobs:
     name: Tutorials with pinned BoTorch
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
-    - name: Install dependencies
+
+    - if: ${{ inputs.pinned_botorch }}
+      name: Install dependencies with pinned BoTorch
       run: |
-        # will install the version of Botorch that is pinned in setup.py
         pip install -e ".[tutorial]"
+
+    - if: ${{ !inputs.pinned_botorch }}
+      name: Install dependencies with latest BoTorch
+      env:
+        ALLOW_BOTORCH_LATEST: true
+        ALLOW_LATEST_GPYTORCH_LINOP: true
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -e ".[tutorial]"
+
     - if: ${{ inputs.smoke_test }}
       name: Build tutorials with smoke test
       run: |

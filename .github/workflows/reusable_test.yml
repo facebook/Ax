@@ -1,0 +1,68 @@
+name: Reusable Test Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      pinned_botorch:
+        required: true
+        type: boolean
+      minimal_dependencies:
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      pinned_botorch:
+        required: true
+        type: boolean
+      minimal_dependencies:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  tests-and-coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10"]
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - if: ${{ inputs.pinned_botorch }}
+      name: Install dependencies with pinned BoTorch (minimal dependencies ${{ inputs.minimal_dependencies }})
+      run: |
+        # The brackets returns '.[unittest_minimal]' if using minimal dependencies and '.[unittest]'
+        # otherwise. This saves us from needing 4 install dependencies blocks by supporting two
+        # different installation options in one line.
+        pip install -e ${{ ((inputs.minimal_dependencies) && '.[unittest_minimal]') || '.[unittest]' }}
+
+    - if: ${{ !inputs.pinned_botorch }}
+      name: Install dependencies with latest BoTorch (minimal dependencies ${{ inputs.minimal_dependencies }})
+      env:
+        ALLOW_BOTORCH_LATEST: true
+        ALLOW_LATEST_GPYTORCH_LINOP: true
+      run: |
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
+        pip install -e ${{ ((inputs.minimal_dependencies) && '.[unittest_minimal]') || '.[unittest]' }}
+
+    - name: Import Ax
+      run: |
+        python scripts/import_ax.py
+    - if: ${{ !inputs.minimal_dependencies }}
+      # Only run with full dependencies. Minimal does not include pytest.
+      name: Tests and coverage
+      run: |
+        pytest -ra --cov=ax
+    - if: ${{ !inputs.minimal_dependencies }}
+      # Using same condition as above since we need the coverage report for upload.
+      name: Upload coverage
+      run: |
+        bash <(curl -s https://codecov.io/bash)
