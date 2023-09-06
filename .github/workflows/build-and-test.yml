@@ -9,43 +9,19 @@ on:
 
 jobs:
   tests-and-coverage:
-
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10"]
-      fail-fast: false
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        # use latest Botorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[unittest]"
-    - name: Tests and coverage
-      run: |
-        pytest -ra --cov=ax
-    - name: Upload coverage
-      run: |
-        bash <(curl -s https://codecov.io/bash)
+    name: Tests with latest BoTorch
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      pinned_botorch: false
 
   lint:
 
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
     - name: Install dependencies
@@ -70,9 +46,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
     - name: Install dependencies

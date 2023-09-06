@@ -14,8 +14,9 @@ on:
 
 jobs:
 
-  build-tutorials-with-pinned-botorch:
-    name: Tutorials with pinned BoTorch
+  build-tutorials-with-latest-botorch:
+    name: Tutorials with latest BoTorch
     uses: ./.github/workflows/reusable_tutorials.yml
     with:
       smoke_test: true
+      pinned_botorch: false

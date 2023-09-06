@@ -13,71 +13,35 @@ on:
 
 jobs:
 
-  tests-and-coverage:
+  tests-and-coverage-minimal:
+    name: Tests with latest BoTorch & minimal dependencies
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      pinned_botorch: false
+      minimal_dependencies: true
 
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        botorch: ['pinned', 'latest']
-        requirements: ['minimal', 'full']
-      fail-fast: false
+  tests-and-coverage-full:
+    name: Tests with latest BoTorch & full dependencies
+    uses: ./.github/workflows/reusable_test.yml
+    with:
+      pinned_botorch: false
+      minimal_dependencies: false
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.9"
-    - name: Install dependencies (full requirements, stable Botorch)
-      run: |
-        # will install the version of Botorch that is pinned in setup.py
-        pip install -e ".[unittest]"
-      if: matrix.botorch == 'pinned' && matrix.requirements == 'full'
-    - name: Install dependencies (minimal requirements, stable Botorch)
-      run: |
-        pip install -e ".[unittest_minimal]"
-      if: matrix.botorch == 'pinned' && matrix.requirements == 'minimal'
-    - name: Install dependencies (full requirements, Botorch main)
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[unittest]"
-      if: matrix.botorch == 'latest' && matrix.requirements == 'full'
-    - name: Install dependencies (minimal requirements, Botorch main)
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[unittest_minimal]"
-      if: matrix.botorch == 'latest' && matrix.requirements == 'minimal'
-    - name: Import Ax
-      run: |
-        python scripts/import_ax.py
-    - name: Tests
-      # run even if previous step (import Ax) failed
-      if: matrix.requirements == 'full'
-      run: |
-        pytest -ra
-
-  build-tutorials-with-pinned-botorch:
-    name: Build tutorials with pinned BoTorch
+  build-tutorials:
+    name: Build tutorials with latest BoTorch
     uses: ./.github/workflows/reusable_tutorials.yml
     with:
       smoke_test: false
+      pinned_botorch: false
 
   publish-latest-website:
 
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
     - name: Install dependencies
@@ -100,11 +64,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
     - name: Install dependencies
