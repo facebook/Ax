@@ -38,7 +38,7 @@ jobs:
     - if: ${{ inputs.pinned_botorch }}
       name: Install dependencies with pinned BoTorch (minimal dependencies ${{ inputs.minimal_dependencies }})
       run: |
-        pip install -e ${{ (inputs.minimal_dependencies) && ".[unittest_minimal]") || ".[unittest]" }}
+        pip install -e ${{ (inputs.minimal_dependencies) && '.[unittest_minimal]') || '.[unittest]' }}
 
     - if: ${{ !inputs.pinned_botorch }}
       name: Install dependencies with latest BoTorch (minimal dependencies ${{ inputs.minimal_dependencies }})
@@ -48,7 +48,7 @@ jobs:
       run: |
         pip install git+https://github.com/cornellius-gp/gpytorch.git
         pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ${{ (inputs.minimal_dependencies) && ".[unittest_minimal]") || ".[unittest]" }}
+        pip install -e ${{ (inputs.minimal_dependencies) && '.[unittest_minimal]') || '.[unittest]' }}
 
     - name: Import Ax
       run: |
