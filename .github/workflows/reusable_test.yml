@@ -38,6 +38,9 @@ jobs:
     - if: ${{ inputs.pinned_botorch }}
       name: Install dependencies with pinned BoTorch (minimal dependencies ${{ inputs.minimal_dependencies }})
       run: |
+        # The brackets returns '.[unittest_minimal]' if using minimal dependencies and '.[unittest]'
+        # otherwise. This saves us from needing 4 install dependencies blocks by supporting two
+        # different installation options in one line.
         pip install -e ${{ ((inputs.minimal_dependencies) && '.[unittest_minimal]') || '.[unittest]' }}
 
     - if: ${{ !inputs.pinned_botorch }}
