@@ -125,7 +125,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
-        ).run()
+        ).run().complete()
         exp.fetch_data()
         # pyre-fixme[16]: Optional type has no attribute `clone`.
         opt_conf = exp.optimization_config.clone()
@@ -205,7 +205,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
-        ).run()
+        ).run().complete()
         exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
 
@@ -223,7 +223,7 @@ class TestBestPointUtils(TestCase):
         self.assertEqual(get_best_parameters(exp, Models), None)
         exp.new_trial(
             generator_run=GeneratorRun(arms=[Arm(parameters={"x1": 5.0, "x2": 5.0})])
-        ).run()
+        ).run().complete()
         exp.fetch_data()
         self.assertEqual(get_best_raw_objective_point(exp)[0], {"x1": 5.0, "x2": 5.0})
 

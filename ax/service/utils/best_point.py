@@ -100,8 +100,15 @@ def get_best_raw_objective_point_with_trial_index(
             logger.warning(
                 "No status quo provided; relative constraints will be ignored."
             )
+
+    # Only COMPLETED trials should be considered when identifying the best point
+    completed_indices = {
+        t.index for t in experiment.trials_by_status[TrialStatus.COMPLETED]
+    }
+    completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
+
     feasible_df = _filter_feasible_rows(
-        df=dat.df,
+        df=completed_df,
         optimization_config=optimization_config,
     )
     objective = optimization_config.objective
