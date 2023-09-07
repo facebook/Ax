@@ -233,18 +233,18 @@ class BoTorchModelTest(TestCase):
             UnsupportedError, "Cannot convert mixed data with and without variance"
         ):
             self.model.fit(
-                datasets=[ds1, SupervisedDataset(X=ds2.X(), Y=ds2.Y())],
+                datasets=[ds1, SupervisedDataset(X=ds2.X, Y=ds2.Y)],
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )
 
         # Ensure non-block design data is converted with warnings
         ds = self.block_design_training_data[0]
-        X1 = ds.X()
+        X1 = ds.X
         X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
         with warnings.catch_warnings(record=True) as ws:
             self.model.fit(
-                datasets=[ds, SupervisedDataset(X=X2, Y=ds.Y())],
+                datasets=[ds, SupervisedDataset(X=X2, Y=ds.Y)],
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )
@@ -575,11 +575,11 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(m.num_outputs, 1)
         training_data = ckwargs["training_data"]
         self.assertIsInstance(training_data, SupervisedDataset)
-        self.assertTrue(torch.equal(training_data.X(), self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
         self.assertTrue(
             torch.equal(
-                training_data.Y(),
-                torch.cat([ds.Y() for ds in self.block_design_training_data], dim=-1),
+                training_data.Y,
+                torch.cat([ds.Y for ds in self.block_design_training_data], dim=-1),
             )
         )
         self.assertIsNotNone(ckwargs["constraints"])
@@ -592,7 +592,7 @@ class BoTorchModelTest(TestCase):
             GenericMCObjective,
         )
         expected_X_baseline = _filter_X_observed(
-            Xs=[dataset.X() for dataset in self.block_design_training_data],
+            Xs=[dataset.X for dataset in self.block_design_training_data],
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             bounds=self.search_space_digest.bounds,
@@ -910,17 +910,17 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
         self.assertIsNotNone(training_data.Yvar)
-        self.assertTrue(torch.equal(training_data.X(), self.Xs[0]))
+        self.assertTrue(torch.equal(training_data.X, self.Xs[0]))
         self.assertTrue(
             torch.equal(
-                training_data.Y(),
-                torch.cat([ds.Y() for ds in self.moo_training_data], dim=-1),
+                training_data.Y,
+                torch.cat([ds.Y for ds in self.moo_training_data], dim=-1),
             )
         )
         self.assertTrue(
             torch.equal(
-                training_data.Yvar(),
-                torch.cat([ds.Yvar() for ds in self.moo_training_data], dim=-1),
+                training_data.Yvar,
+                torch.cat([ds.Yvar for ds in self.moo_training_data], dim=-1),
             )
         )
         self.assertTrue(
@@ -948,7 +948,7 @@ class BoTorchModelTest(TestCase):
             )
         )
         expected_X_baseline = _filter_X_observed(
-            Xs=[dataset.X() for dataset in self.moo_training_data],
+            Xs=[dataset.X for dataset in self.moo_training_data],
             objective_weights=self.moo_objective_weights,
             outcome_constraints=self.moo_outcome_constraints,
             bounds=self.search_space_digest.bounds,
@@ -994,7 +994,7 @@ class BoTorchModelTest(TestCase):
                 ),
             )
             expected_X_baseline = _filter_X_observed(
-                Xs=[dataset.X() for dataset in self.moo_training_data],
+                Xs=[dataset.X for dataset in self.moo_training_data],
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 bounds=self.search_space_digest.bounds,

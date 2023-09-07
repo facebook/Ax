@@ -55,12 +55,12 @@ def use_model_list(
     elif issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
-        return len(datasets) > 1 or datasets[0].Y().shape[-1] > 1
+        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif len(datasets) == 1:
         # Just one outcome, can use single model.
         return False
     elif issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
-        torch.equal(datasets[0].X(), ds.X()) for ds in datasets[1:]
+        torch.equal(datasets[0].X, ds.X) for ds in datasets[1:]
     ):
         # Use batch models if allowed
         return not allow_batched_models
@@ -201,7 +201,7 @@ def convert_to_block_design(
             "observaitons to `block design`."
         )
     is_fixed = all(is_fixed)
-    Xs = [dataset.X() for dataset in datasets]
+    Xs = [dataset.X for dataset in datasets]
     metric_names = ["_".join(metric_names)]  # TODO: Improve this.
 
     if len({X.shape for X in Xs}) != 1 or not all(
@@ -220,10 +220,10 @@ def convert_to_block_design(
             AxWarning,
         )
         X_shared, idcs_shared = _get_shared_rows(Xs=Xs)
-        Y = torch.cat([ds.Y()[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
+        Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
         if is_fixed:
             Yvar = torch.cat(
-                [ds.Yvar()[i] for ds, i in zip(datasets, idcs_shared)],
+                [ds.Yvar[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
             datasets = [SupervisedDataset(X=X_shared, Y=Y, Yvar=Yvar)]
@@ -232,9 +232,9 @@ def convert_to_block_design(
         return datasets, metric_names
 
     # data complies to block design, can concat with impunity
-    Y = torch.cat([ds.Y() for ds in datasets], dim=-1)
+    Y = torch.cat([ds.Y for ds in datasets], dim=-1)
     if is_fixed:
-        Yvar = torch.cat([not_none(ds.Yvar)() for ds in datasets], dim=-1)
+        Yvar = torch.cat([not_none(ds.Yvar) for ds in datasets], dim=-1)
         datasets = [SupervisedDataset(X=Xs[0], Y=Y, Yvar=Yvar)]
     else:
         datasets = [SupervisedDataset(X=Xs[0], Y=Y)]

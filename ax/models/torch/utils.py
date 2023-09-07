@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-
 from logging import Logger
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Type
 
@@ -683,10 +682,10 @@ def _datasets_to_legacy_inputs(
     for dataset in datasets:
         if not isinstance(dataset, SupervisedDataset):
             raise UnsupportedError("Legacy setup only supports `SupervisedDataset`s")
-        Xs.append(dataset.X())
-        Ys.append(dataset.Y())
+        Xs.append(dataset.X)
+        Ys.append(dataset.Y)
         if dataset.Yvar is not None:
-            Yvars.append(dataset.Yvar())
+            Yvars.append(dataset.Yvar)
         else:
             Yvars.append(torch.full_like(Ys[-1], float("nan")))
     return Xs, Ys, Yvars

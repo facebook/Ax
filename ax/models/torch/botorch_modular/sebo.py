@@ -111,8 +111,7 @@ class SEBOAcquisition(Acquisition):
         self._objective_thresholds[-1] = self.sparsity_threshold
 
         Y_pareto = torch.cat(
-            # pyre-ignore[16]
-            [d.Y.values for d in self.surrogates["sebo"].training_data],
+            [d.Y for d in self.surrogates["sebo"].training_data],
             dim=-1,
         )
         ind_pareto = is_non_dominated(Y_pareto * self._full_objective_weights)
