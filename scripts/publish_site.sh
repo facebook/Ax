@@ -66,8 +66,8 @@ if [[ $DOCUSAURUS_BOT == true ]]; then
   git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-main
   git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
 else
-  git clone git@github.com:facebook/Ax.git Ax-main
-  git clone --branch gh-pages git@github.com:facebook/Ax.git Ax-gh-pages
+  git clone https://github.com/facebook/Ax.git Ax-main
+  git clone --branch gh-pages https://github.com/facebook/Ax.git Ax-gh-pages
 fi
 
 # A few notes about the script below:
@@ -148,7 +148,7 @@ if [[ $VERSION == false ]]; then
   git init -b main
   git add --all
   git commit -m 'Update latest version of site'
-  git push --force "git@github.com:facebook/Ax" main:gh-pages
+  git push --force https://github.com/facebook/Ax.git main:gh-pages
 
 else
   echo "-----------------------------------------"
@@ -225,7 +225,7 @@ else
   git init -b main
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force "git@github.com:facebook/Ax" main:gh-pages
+  git push --force https://github.com/facebook/Ax.git main:gh-pages
 
 fi
 
