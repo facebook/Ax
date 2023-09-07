@@ -11,7 +11,6 @@ import inspect
 import warnings
 from copy import deepcopy
 from logging import Logger
-
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
 
 import torch
@@ -178,7 +177,7 @@ class Surrogate(Base):
             ):
                 Xi = dataset.X.values
             else:
-                Xi = dataset.X()
+                Xi = dataset.X
             for _ in range(dataset.Y.shape[-1]):
                 Xs.append(Xi)
         return Xs
@@ -312,7 +311,7 @@ class Surrogate(Base):
                 "variance observations and converting to `SupervisedDataset`.",
                 AxWarning,
             )
-            dataset = SupervisedDataset(X=dataset.X(), Y=dataset.Y())
+            dataset = SupervisedDataset(X=dataset.X, Y=dataset.Y)
 
         self._training_data = [dataset]
 

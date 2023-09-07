@@ -194,7 +194,7 @@ class AcquisitionTest(TestCase):
         mock_get_X.assert_called_once()
         _, ckwargs = mock_get_X.call_args
         for X, dataset in zip(ckwargs["Xs"], self.training_data):
-            self.assertTrue(torch.equal(X, dataset.X()))
+            self.assertTrue(torch.equal(X, dataset.X))
         for attr in (
             "pending_observations",
             "objective_weights",
