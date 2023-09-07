@@ -800,13 +800,22 @@ class TestAxScheduler(TestCase):
         )
         # `BaseBonesScheduler.poll_trial_status` is written to mark one
         # trial as `COMPLETED` at a time, so we should be obtaining results
-        # as many times as `total_trials` and yielding from generator after
-        # obtaining each new result.
-        res_list = list(scheduler.run_trials_and_yield_results(max_trials=total_trials))
-        self.assertEqual(len(res_list), total_trials + 1)
-        self.assertEqual(len(res_list[0]["trials_completed_so_far"]), 1)
-        self.assertEqual(len(res_list[1]["trials_completed_so_far"]), 2)
-        self.assertEqual(len(res_list[2]["trials_completed_so_far"]), 3)
+        # at least as many times as `total_trials` and yielding from generator
+        # after obtaining each new result. Note that
+        # BraninMetric.is_available_while_running evaluates to True, so we may
+        # generate more than `total_trials` results if any intermediate fetching
+        # occurs.
+        total_trials_completed_so_far = 0
+        for res in scheduler.run_trials_and_yield_results(max_trials=total_trials):
+            # The number of trials has either stayed the same or increased by 1.
+            self.assertIn(
+                len(res["trials_completed_so_far"]),
+                [total_trials_completed_so_far, total_trials_completed_so_far + 1],
+            )
+            # If the number of trials has changed, increase our counter.
+            if len(res["trials_completed_so_far"]) == total_trials_completed_so_far + 1:
+                total_trials_completed_so_far += 1
+        self.assertEqual(total_trials_completed_so_far, total_trials)
 
     def test_run_trials_and_yield_results_with_early_stopper(self) -> None:
         total_trials = 3
@@ -1010,11 +1019,18 @@ class TestAxScheduler(TestCase):
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
         )
-        for idx, _ in enumerate(scheduler.run_trials_and_yield_results(max_trials=3)):
-            # Trials should be scheduled one-at-a-time w/ parallelism limit of 1.
-            self.assertEqual(
-                len(self.branin_experiment.trials), idx + 1 if idx < 3 else idx
+        last_n_completed = 0
+        idx = 0
+        for _res in scheduler.run_trials_and_yield_results(max_trials=3):
+            curr_n_completed = len(
+                self.branin_experiment.trial_indices_by_status[TrialStatus.COMPLETED]
             )
+            # Skip if no new trials were completed.
+            if last_n_completed == curr_n_completed:
+                continue
+            idx += 1
+            # Trials should be scheduled one-at-a-time w/ parallelism limit of 1.
+            self.assertEqual(len(self.branin_experiment.trials), idx)
             # Trials also should be getting completed one-at-a-time.
             self.assertEqual(
                 len(
@@ -1022,8 +1038,9 @@ class TestAxScheduler(TestCase):
                         TrialStatus.COMPLETED
                     ]
                 ),
-                idx + 1 if idx < 3 else idx,
+                idx,
             )
+            last_n_completed = curr_n_completed
 
     def test_get_best_trial(self) -> None:
         scheduler = Scheduler(
