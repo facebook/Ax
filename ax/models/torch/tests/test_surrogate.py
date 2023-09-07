@@ -522,7 +522,7 @@ class SurrogateTest(TestCase):
                 mock_best_in_sample.assert_called_once()
                 _, ckwargs = mock_best_in_sample.call_args
                 for X, dataset in zip(ckwargs["Xs"], self.training_data):
-                    self.assertTrue(torch.equal(X, dataset.X()))
+                    self.assertTrue(torch.equal(X, dataset.X))
                 self.assertIs(ckwargs["model"], surrogate)
                 self.assertIs(ckwargs["bounds"], self.search_space_digest.bounds)
                 self.assertIs(ckwargs["options"], self.options)

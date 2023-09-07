@@ -100,10 +100,10 @@ class TorchModelBridgeTest(TestCase):
                 covariance=np.diag(yvar1 + yvar2),  # here yvar is already a list
             )
             for y1, y2, yvar1, yvar2 in zip(
-                datasets["y1"].Y().tolist(),
-                datasets["y2"].Y().tolist(),
-                not_none(datasets["y1"].Yvar)().tolist(),
-                not_none(datasets["y2"].Yvar)().tolist(),
+                datasets["y1"].Y.tolist(),
+                datasets["y2"].Y.tolist(),
+                not_none(datasets["y1"].Yvar).tolist(),
+                not_none(datasets["y2"].Yvar).tolist(),
             )
         ]
         observations = recombine_observations(observation_features, observation_data)
@@ -651,7 +651,7 @@ class TorchModelBridgeTest(TestCase):
             dtype=torch.double,
         )
         for dataset in datasets:
-            self.assertTrue(torch.equal(dataset.X(), X_expected))
+            self.assertTrue(torch.equal(dataset.X, X_expected))
 
         self.assertEqual(
             mock_model_fit.call_args[1].get("candidate_metadata"),
@@ -677,7 +677,7 @@ class TorchModelBridgeTest(TestCase):
         datasets = mock_model_update.call_args[1].get("datasets")
         X_expected = torch.cat((X_expected, torch.tensor([[1, 2]])), dim=-2)
         for dataset in datasets:
-            self.assertTrue(torch.equal(dataset.X(), X_expected))
+            self.assertTrue(torch.equal(dataset.X, X_expected))
 
         self.assertEqual(
             mock_model_update.call_args[1].get("candidate_metadata"),
@@ -710,7 +710,7 @@ class TorchModelBridgeTest(TestCase):
         datasets = mock_model_update.call_args[1].get("datasets")
         X_expected = torch.cat((X_expected, torch.tensor([[2, 4]])), dim=-2)
         for dataset in datasets:
-            self.assertTrue(torch.equal(dataset.X(), X_expected))
+            self.assertTrue(torch.equal(dataset.X, X_expected))
 
         self.assertEqual(
             mock_model_update.call_args[1].get("candidate_metadata"),

@@ -300,7 +300,7 @@ class MaxValueEntropySearchTest(TestCase):
             target_fidelities={2: 1.0},
         )
         self.assertIsInstance(acq_function, qMultiFidelityMaxValueEntropy)
-        Xs = [self.training_data[0].X()]
+        Xs = [self.training_data[0].X]
         self.assertEqual(acq_function.expand(Xs), Xs)
 
         # test error that target fidelity and fidelity weight indices must match

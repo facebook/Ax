@@ -369,8 +369,8 @@ class ConvertToBlockDesignTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsInstance(new_datasets[0], SupervisedDataset)
-        self.assertTrue(torch.equal(new_datasets[0].X(), X))
-        self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
+        self.assertTrue(torch.equal(new_datasets[0].X, X))
+        self.assertTrue(torch.equal(new_datasets[0].Y, torch.cat(Ys, dim=-1)))
         self.assertEqual(new_metric_names, ["y1_y2"])
 
         # simple case: block design, fixed
@@ -384,10 +384,10 @@ class ConvertToBlockDesignTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNotNone(new_datasets[0].Yvar)
-        self.assertTrue(torch.equal(new_datasets[0].X(), X))
-        self.assertTrue(torch.equal(new_datasets[0].Y(), torch.cat(Ys, dim=-1)))
+        self.assertTrue(torch.equal(new_datasets[0].X, X))
+        self.assertTrue(torch.equal(new_datasets[0].Y, torch.cat(Ys, dim=-1)))
         self.assertTrue(
-            torch.equal(not_none(new_datasets[0].Yvar)(), torch.cat(Yvars, dim=-1))
+            torch.equal(not_none(new_datasets[0].Yvar), torch.cat(Yvars, dim=-1))
         )
         self.assertEqual(new_metric_names, ["y1_y2"])
 
@@ -415,9 +415,9 @@ class ConvertToBlockDesignTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNone(new_datasets[0].Yvar)
-        self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
+        self.assertTrue(torch.equal(new_datasets[0].X, X[:3]))
         self.assertTrue(
-            torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
+            torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
         self.assertEqual(new_metric_names, ["y1_y2"])
 
@@ -440,13 +440,13 @@ class ConvertToBlockDesignTest(TestCase):
         )
         self.assertEqual(len(new_datasets), 1)
         self.assertIsNotNone(new_datasets[0].Yvar)
-        self.assertTrue(torch.equal(new_datasets[0].X(), X[:3]))
+        self.assertTrue(torch.equal(new_datasets[0].X, X[:3]))
         self.assertTrue(
-            torch.equal(new_datasets[0].Y(), torch.cat([Y[:3] for Y in Ys], dim=-1))
+            torch.equal(new_datasets[0].Y, torch.cat([Y[:3] for Y in Ys], dim=-1))
         )
         self.assertTrue(
             torch.equal(
-                not_none(new_datasets[0].Yvar)(),
+                not_none(new_datasets[0].Yvar),
                 torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1),
             )
         )
