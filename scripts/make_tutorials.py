@@ -117,12 +117,11 @@ def gen_tutorials(
     download.
     """
     print("In gen_tutorials")
-    return
     has_errors = False
 
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
-
+    print("past json loads")
     # flatten config dict
     tutorial_configs = [
         config for category in tutorial_config.values() for config in category
@@ -132,13 +131,14 @@ def gen_tutorials(
         tutorial_configs = [d for d in tutorial_configs if d["id"] == name]
         if len(tutorial_configs) == 0:
             raise RuntimeError(f"No tutorial found with name {name}.")
-
+    print("making dirs")
     # prepare paths for converted tutorials & files
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
     os.makedirs(os.path.join(repo_dir, "website", "static", "files"), exist_ok=True)
     if smoke_test:
         os.environ["SMOKE_TEST"] = str(smoke_test)
 
+    return
     for config in tutorial_configs:
         tid = config["id"]
         t_dir = config.get("dir")
