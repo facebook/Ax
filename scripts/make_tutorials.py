@@ -158,17 +158,19 @@ def gen_tutorials(
         # track total exec time (non-None if exec_on_build=True)
         total_time = None
 
-        if exec_tutorials and exec_on_build and False:
+        if exec_tutorials and exec_on_build:
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
             # 2.5 hours, in seconds; 1 hour if smoke test mode
             timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)
+            print("initializing execute processor")
             ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
             # try / catch failures for now
             # will re-raise at the end
             try:
+                print("In executing tutorial")
                 # execute notebook, using `tutorial_dir` as working directory
                 ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
                 total_time = time.time() - start_time
@@ -178,6 +180,7 @@ def gen_tutorials(
                     )
                 )
             except Exception as exc:
+                print("CAUGHT AN EXCEPTION")
                 has_errors = True
                 print("Couldn't execute tutorial {}!".format(tid))
                 print(exc)
