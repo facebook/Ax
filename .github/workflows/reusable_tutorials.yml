@@ -20,8 +20,8 @@ on:
 
 jobs:
 
-  build-tutorials-with-pinned-botorch:
-    name: Tutorials with pinned BoTorch
+  build-tutorials:
+    name: Tutorials
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
