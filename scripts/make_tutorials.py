@@ -115,7 +115,7 @@ def run_script(
         capture_output=True,
         text=True,
         env=env,
-        # timeout=timeout_minutes * 60,  # TODO: utilize time out.
+        timeout=timeout_minutes * 60,
     )
     return run_out
 
@@ -171,8 +171,10 @@ def gen_tutorials(
             # try / catch failures for now
             # will re-raise at the end
             try:
-                # Execute notebook. TODO: use timeout in the future.
-                run_script(tutorial=tutorial_path, timeout_minutes=None)
+                # Execute notebook.
+                # TODO: [T163244135] Speed up tutorials and reduce timeout limits.
+                timeout_minutes = 15 if smoke_test else 150
+                run_script(tutorial=tutorial_path, timeout_minutes=timeout_minutes)
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
