@@ -165,9 +165,6 @@ def gen_tutorials(
         if exec_tutorials and exec_on_build:
             tutorial_path = Path(paths["tutorial_path"])
             print("Executing tutorial {}".format(tid))
-            kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
-            # 2.5 hours, in seconds; 1 hour if smoke test mode
-            timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)  # NOTE: unused!
             start_time = time.time()
 
             # try / catch failures for now
