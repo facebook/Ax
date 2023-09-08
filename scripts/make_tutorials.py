@@ -7,14 +7,15 @@
 import argparse
 import json
 import os
+import subprocess
 import tarfile
 import time
+from pathlib import Path
 from typing import Dict, Optional
 
 import nbformat
 from bs4 import BeautifulSoup
 from nbconvert import HTMLExporter, ScriptExporter
-from nbconvert.preprocessors import ExecutePreprocessor
 
 
 TEMPLATE = """const CWD = process.cwd();
@@ -104,6 +105,21 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
     return paths
 
 
+def run_script(
+    tutorial: Path, timeout_minutes: int, env: Optional[Dict[str, str]] = None
+) -> None:
+    if env is not None:
+        env = {**os.environ, **env}
+    run_out = subprocess.run(
+        ["papermill", tutorial, "|"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=timeout_minutes * 60,
+    )
+    return run_out
+
+
 def gen_tutorials(
     repo_dir: str,
     exec_tutorials: bool,
@@ -120,7 +136,6 @@ def gen_tutorials(
 
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
-
     # flatten config dict
     tutorial_configs = [
         config for category in tutorial_config.values() for config in category
@@ -130,7 +145,6 @@ def gen_tutorials(
         tutorial_configs = [d for d in tutorial_configs if d["id"] == name]
         if len(tutorial_configs) == 0:
             raise RuntimeError(f"No tutorial found with name {name}.")
-
     # prepare paths for converted tutorials & files
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
     os.makedirs(os.path.join(repo_dir, "website", "static", "files"), exist_ok=True)
@@ -141,9 +155,7 @@ def gen_tutorials(
         tid = config["id"]
         t_dir = config.get("dir")
         exec_on_build = config.get("exec_on_build", True)
-
         print("Generating {} tutorial".format(tid))
-
         paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
 
         # load notebook
@@ -151,22 +163,18 @@ def gen_tutorials(
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
 
-        # track total exec time (non-None if exec_on_build=True)
-        total_time = None
-
         if exec_tutorials and exec_on_build:
+            tutorial_path = Path(paths["tutorial_path"])
             print("Executing tutorial {}".format(tid))
-            kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
-            # 2.5 hours, in seconds; 1 hour if smoke test mode
-            timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)
-            ep = ExecutePreprocessor(timeout=timeout, **kwargs)
             start_time = time.time()
 
             # try / catch failures for now
             # will re-raise at the end
             try:
-                # execute notebook, using `tutorial_dir` as working directory
-                ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
+                # Execute notebook.
+                # TODO: [T163244135] Speed up tutorials and reduce timeout limits.
+                timeout_minutes = 15 if smoke_test else 150
+                run_script(tutorial=tutorial_path, timeout_minutes=timeout_minutes)
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
@@ -178,6 +186,8 @@ def gen_tutorials(
                 print("Couldn't execute tutorial {}!".format(tid))
                 print(exc)
                 total_time = None
+        else:
+            total_time = None
 
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")

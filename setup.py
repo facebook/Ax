@@ -72,6 +72,7 @@ TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
     "matplotlib",  # Required for building Multi-objective tutorial notebook.
     "pyro-ppl",  # Required for to call run_inference.
     "pytorch-lightning",  # For the early stopping tutorial.
+    "papermill",  # For executing the tutorials.
 ]
 
 
