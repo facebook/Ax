@@ -11,10 +11,10 @@ import tarfile
 import time
 from typing import Dict, Optional
 
-# import nbformat
-# from bs4 import BeautifulSoup
-# from nbconvert import HTMLExporter, ScriptExporter
-# from nbconvert.preprocessors import ExecutePreprocessor
+import nbformat
+from bs4 import BeautifulSoup
+from nbconvert import HTMLExporter, ScriptExporter
+from nbconvert.preprocessors import ExecutePreprocessor
 
 
 TEMPLATE = """const CWD = process.cwd();
@@ -116,6 +116,8 @@ def gen_tutorials(
     Also create ipynb and py versions of tutorial in Docusaurus site for
     download.
     """
+    print("In gen_tutorials")
+    return
     has_errors = False
 
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
@@ -268,10 +270,10 @@ if __name__ == "__main__":
         "to specify --include-ignored.",
     )
     args = parser.parse_args()
-    # gen_tutorials(
-    #     args.repo_dir,
-    #     args.exec_tutorials,
-    #     args.kernel_name,
-    #     smoke_test=args.smoke,
-    #     name=args.name,
-    # )
+    gen_tutorials(
+        args.repo_dir,
+        args.exec_tutorials,
+        args.kernel_name,
+        smoke_test=args.smoke,
+        name=args.name,
+    )
