@@ -7,10 +7,11 @@
 import argparse
 import json
 import os
+import subprocess
 import tarfile
 import time
+from pathlib import Path
 from typing import Dict, Optional
-
 import nbformat
 from bs4 import BeautifulSoup
 from nbconvert import HTMLExporter, ScriptExporter
@@ -104,6 +105,21 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
     return paths
 
 
+def run_script(
+    tutorial: Path, timeout_minutes: int, env: Optional[Dict[str, str]] = None
+) -> None:
+    if env is not None:
+        env = {**os.environ, **env}
+    run_out = subprocess.run(
+        ["papermill", tutorial, "|"],
+        capture_output=True,
+        text=True,
+        env=env,
+        # timeout=timeout_minutes * 60,  # TODO: utilize time out.
+    )
+    return run_out
+
+
 def gen_tutorials(
     repo_dir: str,
     exec_tutorials: bool,
@@ -116,12 +132,10 @@ def gen_tutorials(
     Also create ipynb and py versions of tutorial in Docusaurus site for
     download.
     """
-    print("In gen_tutorials")
     has_errors = False
 
     with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
         tutorial_config = json.loads(infile.read())
-    print("past json loads")
     # flatten config dict
     tutorial_configs = [
         config for category in tutorial_config.values() for config in category
@@ -131,7 +145,6 @@ def gen_tutorials(
         tutorial_configs = [d for d in tutorial_configs if d["id"] == name]
         if len(tutorial_configs) == 0:
             raise RuntimeError(f"No tutorial found with name {name}.")
-    print("making dirs")
     # prepare paths for converted tutorials & files
     os.makedirs(os.path.join(repo_dir, "website", "_tutorials"), exist_ok=True)
     os.makedirs(os.path.join(repo_dir, "website", "static", "files"), exist_ok=True)
@@ -139,40 +152,30 @@ def gen_tutorials(
         os.environ["SMOKE_TEST"] = str(smoke_test)
 
     for config in tutorial_configs:
-        print("entering loop")
         tid = config["id"]
         t_dir = config.get("dir")
         exec_on_build = config.get("exec_on_build", True)
-
         print("Generating {} tutorial".format(tid))
-
         paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
-        print("got paths")
 
         # load notebook
         with open(paths["tutorial_path"], "r") as infile:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
-        print("loaded notebook")
-
-        # track total exec time (non-None if exec_on_build=True)
-        total_time = None
 
         if exec_tutorials and exec_on_build:
+            tutorial_path = Path(paths["tutorial_path"])
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
             # 2.5 hours, in seconds; 1 hour if smoke test mode
-            timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)
-            print("initializing execute processor")
-            ep = ExecutePreprocessor(timeout=timeout, **kwargs)
+            timeout = int(60 * 60) if smoke_test else int(60 * 60 * 2.5)  # NOTE: unused!
             start_time = time.time()
 
             # try / catch failures for now
             # will re-raise at the end
             try:
-                print("In executing tutorial")
-                # execute notebook, using `tutorial_dir` as working directory
-                # ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
+                # Execute notebook. TODO: use timeout in the future.
+                run_script(tutorial=tutorial_path, timeout_minutes=None)
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
@@ -180,23 +183,22 @@ def gen_tutorials(
                     )
                 )
             except Exception as exc:
-                print("CAUGHT AN EXCEPTION")
                 has_errors = True
                 print("Couldn't execute tutorial {}!".format(tid))
                 print(exc)
                 total_time = None
+        else:
+            total_time = None
 
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")
         html, _ = exporter.from_notebook_node(nb)
-        print("converted to html")
 
         # pull out html div for notebook
         soup = BeautifulSoup(html, "html.parser")
         nb_meat = soup.find("div", {"id": "notebook-container"})
         del nb_meat.attrs["id"]
         nb_meat.attrs["class"] = ["notebook"]
-        print("made into soup")
 
         # when output html, iframe it (useful for Ax reports)
         for html_div in nb_meat.findAll("div", {"class": "output_html"}):
@@ -208,14 +210,12 @@ def gen_tutorials(
                 # replace `#` in CSS
                 iframe.attrs["src"] = iframe.attrs["src"].replace("#", "%23")
                 html_div.contents = [iframe]
-        print("made it into iframe")
 
         html_out = MOCK_JS_REQUIRES + str(nb_meat)
 
         # generate HTML file
         with open(paths["html_path"], "w") as html_outfile:
             html_outfile.write(html_out)
-        print("wrote to html outfile")
 
         # generate JS file
         t_dir_js = t_dir if t_dir else ""
@@ -226,7 +226,6 @@ def gen_tutorials(
         )
         with open(paths["js_path"], "w") as js_outfile:
             js_outfile.write(script)
-        print("generated js file")
 
         # output tutorial in both ipynb & py form
         nbformat.write(nb, paths["ipynb_path"])
@@ -234,7 +233,6 @@ def gen_tutorials(
         script, _ = exporter.from_notebook_node(nb)
         with open(paths["py_path"], "w") as py_outfile:
             py_outfile.write(script)
-        print("wrote to py outfile")
 
         # create .tar archive (if necessary)
         if t_dir is not None:
@@ -243,7 +241,6 @@ def gen_tutorials(
                     paths["tutorial_dir"],
                     arcname=os.path.basename(paths["tutorial_dir"]),
                 )
-        print("added to tar")
 
     if has_errors:
         raise Exception("There are errors in tutorials, will not continue to publish")
