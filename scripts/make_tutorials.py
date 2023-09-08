@@ -268,10 +268,10 @@ if __name__ == "__main__":
         "to specify --include-ignored.",
     )
     args = parser.parse_args()
-    gen_tutorials(
-        args.repo_dir,
-        args.exec_tutorials,
-        args.kernel_name,
-        smoke_test=args.smoke,
-        name=args.name,
-    )
+    # gen_tutorials(
+    #     args.repo_dir,
+    #     args.exec_tutorials,
+    #     args.kernel_name,
+    #     smoke_test=args.smoke,
+    #     name=args.name,
+    # )

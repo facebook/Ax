@@ -30,20 +30,20 @@ jobs:
       with:
         python-version: "3.9"
 
-    - if: ${{ inputs.pinned_botorch }}
-      name: Install dependencies with pinned BoTorch
-      run: |
-        pip install -e ".[tutorial]"
+    # - if: ${{ inputs.pinned_botorch }}
+    #   name: Install dependencies with pinned BoTorch
+    #   run: |
+    #     pip install -e ".[tutorial]"
 
-    - if: ${{ !inputs.pinned_botorch }}
-      name: Install dependencies with latest BoTorch
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[tutorial]"
+    # - if: ${{ !inputs.pinned_botorch }}
+    #   name: Install dependencies with latest BoTorch
+    #   env:
+    #     ALLOW_BOTORCH_LATEST: true
+    #     ALLOW_LATEST_GPYTORCH_LINOP: true
+    #   run: |
+    #     pip install git+https://github.com/cornellius-gp/gpytorch.git
+    #     pip install git+https://github.com/pytorch/botorch.git
+    #     pip install -e ".[tutorial]"
 
     - if: ${{ inputs.smoke_test }}
       name: Build tutorials with smoke test
