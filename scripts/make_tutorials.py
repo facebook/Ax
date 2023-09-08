@@ -172,7 +172,7 @@ def gen_tutorials(
             try:
                 print("In executing tutorial")
                 # execute notebook, using `tutorial_dir` as working directory
-                ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
+                # ep.preprocess(nb, {"metadata": {"path": paths["tutorial_dir"]}})
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
