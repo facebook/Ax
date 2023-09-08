@@ -138,8 +138,8 @@ def gen_tutorials(
     if smoke_test:
         os.environ["SMOKE_TEST"] = str(smoke_test)
 
-    return
     for config in tutorial_configs:
+        print("entering loop")
         tid = config["id"]
         t_dir = config.get("dir")
         exec_on_build = config.get("exec_on_build", True)
@@ -147,16 +147,18 @@ def gen_tutorials(
         print("Generating {} tutorial".format(tid))
 
         paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
+        print("got paths")
 
         # load notebook
         with open(paths["tutorial_path"], "r") as infile:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
+        print("loaded notebook")
 
         # track total exec time (non-None if exec_on_build=True)
         total_time = None
 
-        if exec_tutorials and exec_on_build:
+        if exec_tutorials and exec_on_build and False:
             print("Executing tutorial {}".format(tid))
             kwargs = {"kernel_name": kernel_name} if kernel_name is not None else {}
             # 2.5 hours, in seconds; 1 hour if smoke test mode
@@ -184,12 +186,14 @@ def gen_tutorials(
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")
         html, _ = exporter.from_notebook_node(nb)
+        print("converted to html")
 
         # pull out html div for notebook
         soup = BeautifulSoup(html, "html.parser")
         nb_meat = soup.find("div", {"id": "notebook-container"})
         del nb_meat.attrs["id"]
         nb_meat.attrs["class"] = ["notebook"]
+        print("made into soup")
 
         # when output html, iframe it (useful for Ax reports)
         for html_div in nb_meat.findAll("div", {"class": "output_html"}):
@@ -201,12 +205,14 @@ def gen_tutorials(
                 # replace `#` in CSS
                 iframe.attrs["src"] = iframe.attrs["src"].replace("#", "%23")
                 html_div.contents = [iframe]
+        print("made it into iframe")
 
         html_out = MOCK_JS_REQUIRES + str(nb_meat)
 
         # generate HTML file
         with open(paths["html_path"], "w") as html_outfile:
             html_outfile.write(html_out)
+        print("wrote to html outfile")
 
         # generate JS file
         t_dir_js = t_dir if t_dir else ""
@@ -217,6 +223,7 @@ def gen_tutorials(
         )
         with open(paths["js_path"], "w") as js_outfile:
             js_outfile.write(script)
+        print("generated js file")
 
         # output tutorial in both ipynb & py form
         nbformat.write(nb, paths["ipynb_path"])
@@ -224,6 +231,7 @@ def gen_tutorials(
         script, _ = exporter.from_notebook_node(nb)
         with open(paths["py_path"], "w") as py_outfile:
             py_outfile.write(script)
+        print("wrote to py outfile")
 
         # create .tar archive (if necessary)
         if t_dir is not None:
@@ -232,6 +240,7 @@ def gen_tutorials(
                     paths["tutorial_dir"],
                     arcname=os.path.basename(paths["tutorial_dir"]),
                 )
+        print("added to tar")
 
     if has_errors:
         raise Exception("There are errors in tutorials, will not continue to publish")
