@@ -36,17 +36,19 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.Yvar = torch.tensor([[0.0], [2.0]])
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
-        self.surrogate.construct(
-            datasets=self.training_data,
-            metric_names=["metric"],
-            fidelity_features=self.fidelity_features,
-        )
-        self.acquisition_options = {Keys.NUM_FANTASIES: 64}
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
+            fidelity_features=self.fidelity_features,
         )
+        self.surrogate.construct(
+            datasets=self.training_data,
+            metric_names=["metric"],
+            search_space_digest=self.search_space_digest,
+        )
+        self.acquisition_options = {Keys.NUM_FANTASIES: 64}
+
         self.objective_weights = torch.tensor([1.0])
         self.pending_observations = [
             torch.tensor([[1.0, 3.0, 4.0]]),

@@ -7,20 +7,25 @@
 from __future__ import annotations
 
 import dataclasses
+
 import inspect
 import warnings
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type
 
 import torch
-from ax.core.search_space import SearchSpaceDigest
+from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
 )
+from ax.models.torch.botorch_modular.input_constructors.input_transforms import (
+    input_transform_argparse,
+)
+
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
@@ -41,7 +46,11 @@ from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_n
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputPerturbation, InputTransform
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    InputPerturbation,
+    InputTransform,
+)
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import FixedNoiseDataset, RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
@@ -54,7 +63,6 @@ NOT_YET_FIT_MSG = (
     "Underlying BoTorch `Model` has not yet received its training_data. "
     "Please fit the model first."
 )
-
 
 logger: Logger = get_logger(__name__)
 
@@ -80,9 +88,20 @@ class Surrogate(Base):
         outcome_transform: BoTorch outcome transforms. Passed down to the
             BoTorch ``Model``. Multiple outcome transforms can be chained
             together using ``ChainedOutcomeTransform``.
-        input_transform: BoTorch input transforms. Passed down to the
-            BoTorch ``Model``. Multiple input transforms can be chained
-            together using ``ChainedInputTransform``.
+        input_transform_classes: List of BoTorch input transforms classes.
+            Passed down to the BoTorch ``Model``. Multiple input transforms
+            will be chained together using ``ChainedInputTransform``.
+        input_transform_options: Input transform classes kwargs. The keys are
+            class string names and the values are dictionaries of input transform
+            kwargs. For example,
+            `
+            input_transform_classes = [Normalize, Round]
+            input_transform_options = {
+                "Normalize": {"d": 3},
+                "Round": {"integer_indices": [0], "categorical_features": {1: 2}},
+            }
+            `
+            For more input options see `botorch/models/transforms/input.py`.
         covar_module_class: Covariance module class. This gets initialized after
             parsing the ``covar_module_options`` in ``covar_module_argparse``,
             and gets passed to the model constructor as ``covar_module``.
@@ -99,7 +118,8 @@ class Surrogate(Base):
     mll_class: Type[MarginalLogLikelihood]
     mll_options: Dict[str, Any]
     outcome_transform: Optional[OutcomeTransform] = None
-    input_transform: Optional[InputTransform] = None
+    input_transform_classes: Optional[List[Type[InputTransform]]] = None
+    input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None
     covar_module_class: Optional[Type[Kernel]] = None
     covar_module_options: Dict[str, Any]
     likelihood_class: Optional[Type[Likelihood]] = None
@@ -116,14 +136,13 @@ class Surrogate(Base):
 
     def __init__(
         self,
-        # TODO: make optional when BoTorch model factory is checked in.
-        # Construction will then be possible from likelihood, kernel, etc.
         botorch_model_class: Optional[Type[Model]] = None,
         model_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
         outcome_transform: Optional[OutcomeTransform] = None,
-        input_transform: Optional[InputTransform] = None,
+        input_transform_classes: Optional[List[Type[InputTransform]]] = None,
+        input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None,
         covar_module_class: Optional[Type[Kernel]] = None,
         covar_module_options: Optional[Dict[str, Any]] = None,
         likelihood_class: Optional[Type[Likelihood]] = None,
@@ -135,7 +154,8 @@ class Surrogate(Base):
         self.mll_class = mll_class
         self.mll_options = mll_options or {}
         self.outcome_transform = outcome_transform
-        self.input_transform = input_transform
+        self.input_transform_classes = input_transform_classes
+        self.input_transform_options = input_transform_options or {}
         self.covar_module_class = covar_module_class
         self.covar_module_options = covar_module_options or {}
         self.likelihood_class = likelihood_class
@@ -148,7 +168,7 @@ class Surrogate(Base):
             f" botorch_model_class={self.botorch_model_class} "
             f"mll_class={self.mll_class} "
             f"outcome_transform={self.outcome_transform} "
-            f"input_transform={self.input_transform} "
+            f"input_transform_classes={self.input_transform_classes} "
         )
 
     @property
@@ -213,7 +233,7 @@ class Surrogate(Base):
         self,
         datasets: List[SupervisedDataset],
         metric_names: List[str],
-        search_space_digest: Optional[SearchSpaceDigest] = None,
+        search_space_digest: SearchSpaceDigest,
         **kwargs: Any,
     ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -229,12 +249,6 @@ class Surrogate(Base):
                 - "fidelity_features": Indices of columns in X that represent
                 fidelity.
         """
-        if self.botorch_model_class is None and search_space_digest is None:
-            raise UserInputError(
-                "seach_space_digest may not be None if surrogate.botorch_model_class "
-                "is None. The SearchSpaceDigest is used to choose and appropriate "
-                "model class automatically."
-            )
 
         if self._constructed_manually:
             logger.warning("Reconstructing a manually constructed `Model`.")
@@ -272,12 +286,14 @@ class Surrogate(Base):
 
             self._construct_model(
                 dataset=datasets[0],
+                search_space_digest=search_space_digest,
                 **kwargs,
             )
 
     def _construct_model(
         self,
         dataset: SupervisedDataset,
+        search_space_digest: SearchSpaceDigest,
         **kwargs: Any,
     ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -287,6 +303,7 @@ class Surrogate(Base):
                 the default `Surrogate`, with the exception of batched
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
+            search_space_digest: Search space digest used to set up model arguments.
             **kwargs: Optional keyword arguments, expects any of:
                 - "fidelity_features": Indices of columns in X that represent
                 fidelity.
@@ -329,11 +346,16 @@ class Surrogate(Base):
                 ],
                 ["likelihood", self.likelihood_class, self.likelihood_options, None],
                 ["outcome_transform", None, None, self.outcome_transform],
-                ["input_transform", None, None, self.input_transform],
+                [
+                    "input_transform",
+                    self.input_transform_classes,
+                    self.input_transform_options,
+                    None,
+                ],
             ],
             dataset=dataset,
+            search_space_digest=search_space_digest,
             botorch_model_class_args=botorch_model_class_args,
-            robust_digest=kwargs.get("robust_digest", None),
         )
         # pyre-ignore [45]
         self._model = botorch_model_class(**formatted_model_inputs)
@@ -342,7 +364,7 @@ class Surrogate(Base):
         self,
         datasets: List[SupervisedDataset],
         metric_names: Iterable[str],
-        search_space_digest: Optional[SearchSpaceDigest] = None,
+        search_space_digest: SearchSpaceDigest,
         **kwargs: Any,
     ) -> None:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -369,24 +391,20 @@ class Surrogate(Base):
                 - ``robust_digest``: An optional `RobustSearchSpaceDigest` that carries
                     additional attributes if using a `RobustSearchSpace`.
         """
-        if self.botorch_model_class is None and search_space_digest is None:
-            raise UserInputError(
-                "Must either provide `botorch_submodel_class` or "
-                "`search_space_digest` so an appropriate submodel class can be "
-                "chosen."
-            )
 
         self._training_data = datasets
 
         (
             fidelity_features,
             task_feature,
-            submodel_input_transforms,
+            submodel_input_transform_classes,
+            submodel_input_transform_options,
         ) = self._extract_construct_model_list_kwargs(
             fidelity_features=kwargs.pop(Keys.FIDELITY_FEATURES, []),
             task_features=kwargs.pop(Keys.TASK_FEATURES, []),
             robust_digest=kwargs.pop("robust_digest", None),
         )
+
         input_constructor_kwargs = {**self.model_options, **(kwargs or {})}
 
         submodels = []
@@ -398,7 +416,6 @@ class Surrogate(Base):
             if self._outcomes is not None and m not in self._outcomes:
                 logger.warning(f"Metric {m} not in training data.")
                 continue
-
             formatted_model_inputs = model_cls.construct_inputs(
                 training_data=dataset,
                 fidelity_features=fidelity_features,
@@ -433,12 +450,13 @@ class Surrogate(Base):
                     ],
                     [
                         "input_transform",
+                        submodel_input_transform_classes,
+                        deepcopy(submodel_input_transform_options),
                         None,
-                        None,
-                        deepcopy(submodel_input_transforms),
                     ],
                 ],
                 dataset=dataset,
+                search_space_digest=search_space_digest,
                 botorch_model_class_args=model_cls_args,
             )
             # pyre-ignore[45]: Py raises informative error if model is abstract.
@@ -454,7 +472,7 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         botorch_model_class_args: Any,
-        robust_digest: Optional[Dict[str, Any]] = None,
+        search_space_digest: SearchSpaceDigest,
     ) -> None:
         for input_name, input_class, input_options, input_object in inputs:
             if input_class is None and input_object is None:
@@ -484,6 +502,18 @@ class Surrogate(Base):
                     formatted_model_inputs[input_name] = input_class(
                         **covar_module_with_defaults
                     )
+
+                elif input_name == "input_transform":
+
+                    formatted_model_inputs[
+                        input_name
+                    ] = self._make_botorch_input_transform(
+                        input_classes=input_class,
+                        input_options=input_options,
+                        dataset=dataset,
+                        search_space_digest=search_space_digest,
+                    )
+
                 else:
                     formatted_model_inputs[input_name] = input_class(**input_options)
 
@@ -491,20 +521,16 @@ class Surrogate(Base):
                 formatted_model_inputs[input_name] = input_object
 
         # Construct input perturbation if doing robust optimization.
+        robust_digest = search_space_digest.robust_digest
         if robust_digest is not None:
-            if len(robust_digest["environmental_variables"]):
-                # TODO[T131759269]: support env variables.
-                raise NotImplementedError(
-                    "Environmental variable support is not yet implemented."
-                )
-            samples = torch.as_tensor(
-                robust_digest["sample_param_perturbations"](),
-                dtype=self.dtype,
-                device=self.device,
+
+            perturbation = self._make_botorch_input_transform(
+                input_classes=[InputPerturbation],
+                dataset=dataset,
+                search_space_digest=search_space_digest,
+                input_options={},
             )
-            perturbation = InputPerturbation(
-                perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
-            )
+
             if formatted_model_inputs.get("input_transform") is not None:
                 # TODO: Support mixing with user supplied transforms.
                 raise NotImplementedError(
@@ -513,6 +539,51 @@ class Surrogate(Base):
                 )
             else:
                 formatted_model_inputs["input_transform"] = perturbation
+
+    def _make_botorch_input_transform(
+        self,
+        input_classes: List[Type[InputTransform]],
+        dataset: SupervisedDataset,
+        search_space_digest: SearchSpaceDigest,
+        input_options: Dict[str, Dict[str, Any]],
+    ) -> InputTransform:
+        """
+        Makes a BoTorch input transform from the provided input classes and options.
+        """
+        if not (
+            isinstance(input_classes, list)
+            and all(issubclass(c, InputTransform) for c in input_classes)
+        ):
+            raise UserInputError("Expected a list of input transforms.")
+
+        input_transform_kwargs = [
+            input_transform_argparse(
+                single_input_class,
+                dataset=dataset,
+                search_space_digest=search_space_digest,
+                input_transform_options=input_options.get(
+                    single_input_class.__name__, {}
+                ),
+            )
+            for single_input_class in input_classes
+        ]
+
+        input_transforms = [
+            single_input_class(**single_input_transform_kwargs)
+            for single_input_class, single_input_transform_kwargs in zip(
+                input_classes, input_transform_kwargs
+            )
+        ]
+
+        input_instance = (
+            ChainedInputTransform(
+                **{f"tf{i}": input_transforms[i] for i in range(len(input_transforms))}
+            )
+            if len(input_transforms) > 1
+            else input_transforms[0]
+        )
+
+        return input_instance
 
     def fit(
         self,
@@ -582,9 +653,9 @@ class Surrogate(Base):
                 if original_metric_names is not None
                 else metric_names
             )
+
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
-
         if state_dict is None or refit:
             fit_botorch_model(
                 model=self.model, mll_class=self.mll_class, mll_options=self.mll_options
@@ -765,7 +836,8 @@ class Surrogate(Base):
             "mll_class": self.mll_class,
             "mll_options": self.mll_options,
             "outcome_transform": self.outcome_transform,
-            "input_transform": self.input_transform,
+            "input_transform_classes": self.input_transform_classes,
+            "input_transform_options": self.input_transform_options,
             "covar_module_class": self.covar_module_class,
             "covar_module_options": self.covar_module_options,
             "likelihood_class": self.likelihood_class,
@@ -777,8 +849,14 @@ class Surrogate(Base):
         self,
         fidelity_features: Sequence[int],
         task_features: Sequence[int],
-        robust_digest: Optional[Mapping[str, Any]],
-    ) -> Tuple[List[int], Optional[int], Optional[InputTransform]]:
+        robust_digest: Optional[RobustSearchSpaceDigest] = None,
+    ) -> Tuple[
+        List[int],
+        Optional[int],
+        Optional[List[Type[InputTransform]]],
+        Optional[Dict[str, Dict["str", Any]]],
+    ]:
+
         if len(fidelity_features) > 0 and len(task_features) > 0:
             raise NotImplementedError(
                 "Multi-Fidelity GP models with task_features are "
@@ -797,31 +875,36 @@ class Surrogate(Base):
         # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
         # we use the same perturbations for each sub-model.
         if robust_digest is not None:
-            if len(robust_digest["environmental_variables"]) > 0:
-                # TODO[T131759269]: support env variables.
-                raise NotImplementedError(
-                    "Environmental variable support is not yet implemented."
-                )
-            samples = torch.as_tensor(
-                robust_digest["sample_param_perturbations"](),
-                dtype=self.dtype,
-                device=self.device,
-            )
-            perturbation = InputPerturbation(
-                perturbation_set=samples, multiplicative=robust_digest["multiplicative"]
-            )
 
-            if self.input_transform is not None:
+            submodel_input_transform_options = {
+                "InputPerturbation": input_transform_argparse(
+                    InputTransform,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=[], bounds=[], robust_digest=robust_digest
+                    ),
+                )
+            }
+
+            submodel_input_transform_classes: List[Type[InputTransform]] = [
+                InputPerturbation
+            ]
+
+            if self.input_transform_classes is not None:
                 # TODO: Support mixing with user supplied transforms.
                 raise NotImplementedError(
                     "User supplied input transforms are not supported "
                     "in robust optimization."
                 )
-            submodel_input_transforms = perturbation
         else:
-            submodel_input_transforms = self.input_transform
+            submodel_input_transform_classes = self.input_transform_classes
+            submodel_input_transform_options = self.input_transform_options
 
-        return list(fidelity_features), task_feature, submodel_input_transforms
+        return (
+            list(fidelity_features),
+            task_feature,
+            submodel_input_transform_classes,
+            submodel_input_transform_options,
+        )
 
     @property
     def outcomes(self) -> List[str]:

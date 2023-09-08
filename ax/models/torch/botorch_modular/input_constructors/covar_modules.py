@@ -10,9 +10,7 @@ from typing import Any, Dict, Optional, Type, Union
 
 import torch
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.optimizer_argparse import (
-    _optimizerArgparse_encoder,
-)
+from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models import MultiTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 
@@ -26,7 +24,7 @@ from gpytorch.priors.torch_priors import Prior
 
 
 covar_module_argparse = Dispatcher(
-    name="covar_module_argparse", encoder=_optimizerArgparse_encoder
+    name="covar_module_argparse", encoder=_argparse_type_encoder
 )
 
 
@@ -116,7 +114,9 @@ def _covar_module_argparse_scale_matern(
         if ard_num_dims is DEFAULT:
             ard_num_dims = dataset.X.shape[-1]
 
-        if batch_shape is DEFAULT:
+        if (batch_shape is DEFAULT) and (dataset.Y.shape[-1:] == torch.Size([1])):
+            batch_shape = torch.Size([])
+        elif batch_shape is DEFAULT:
             batch_shape = dataset.Y.shape[-1:]
 
     return _covar_module_argparse_base(

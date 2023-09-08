@@ -51,16 +51,18 @@ class TestSebo(TestCase):
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
-        self.surrogates.construct(
-            datasets=self.training_data,
-            metric_names=["m1"],
-        )
-        self.surrogates._outcomes = ["m1"]
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
         )
+        self.surrogates.construct(
+            datasets=self.training_data,
+            metric_names=["m1"],
+            search_space_digest=self.search_space_digest,
+        )
+        self.surrogates._outcomes = ["m1"]
+
         self.botorch_acqf_class = qNoisyExpectedHypervolumeImprovement
         self.objective_weights = torch.tensor([1.0], **tkwargs)
         # new transformed objective weights

@@ -540,7 +540,7 @@ class BoTorchModelTest(TestCase):
         model.surrogates[Keys.ONLY_SURROGATE].construct(
             datasets=self.block_design_training_data,
             metric_names=["metric"],
-            fidelity_features=self.mf_search_space_digest.fidelity_features,
+            search_space_digest=self.mf_search_space_digest,
         )
         model._botorch_acqf_class = None
         # Assert that error is raised if we haven't fit the model
@@ -798,7 +798,8 @@ class BoTorchModelTest(TestCase):
             covar_module_options=None,
             likelihood_class=None,
             likelihood_options=None,
-            input_transform=None,
+            input_transform_classes=None,
+            input_transform_options=None,
             outcome_transform=None,
             allow_batched_models=True,
         )
@@ -824,7 +825,8 @@ class BoTorchModelTest(TestCase):
             covar_module_options=None,
             likelihood_class=None,
             likelihood_options=None,
-            input_transform=None,
+            input_transform_classes=None,
+            input_transform_options=None,
             outcome_transform=None,
             allow_batched_models=False,
         )

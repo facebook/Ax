@@ -119,3 +119,19 @@ def numpy_type_to_python_type(value: Any) -> Any:
     if isinstance(value, np.floating):
         value = float(value)  # pragma: nocover  (covered by generator tests)
     return value
+
+
+# pyre-fixme[2]: Parameter annotation cannot be `Any`.
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+#  avoid runtime subscripting errors.
+def _argparse_type_encoder(arg: Any) -> Type:
+    """
+    Transforms arguments passed to `optimizer_argparse.__call__`
+    at runtime to construct the key used for method lookup as
+    `tuple(map(arg_transform, args))`.
+
+    This custom arg_transform allow type variables to be passed
+    at runtime.
+    """
+    # Allow type variables to be passed as arguments at runtime
+    return arg if isinstance(arg, type) else type(arg)

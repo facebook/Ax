@@ -134,3 +134,16 @@ class CovarModuleArgparseTest(TestCase):
                     covar_module_kwargs_defaults[i][key],
                     places=4,
                 )
+
+        X = torch.randn((10, 10))
+        Y = torch.randn((10, 1))
+        dataset = SupervisedDataset(X=X, Y=Y)
+        covar_module_kwargs = covar_module_argparse(
+            ScaleMaternKernel,
+            botorch_model_class=FixedNoiseGP,
+            dataset=dataset,
+            lengthscale_prior=GammaPrior(6.0, 3.0),
+            outputscale_prior=GammaPrior(2, 0.15),
+        )
+
+        self.assertEqual(covar_module_kwargs["batch_shape"], torch.Size([]))
