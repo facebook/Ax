@@ -30,7 +30,7 @@ from ax.utils.common.kwargs import warn_on_kwargs
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
-from botorch.models.transforms.input import ChainedInputTransform
+from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -156,6 +156,13 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:
         raise ValueError(f"Unknown transform '{object_json.pop('transform_type')}'")
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
+
+
+def input_transform_type_from_json(object_json: Dict[str, Any]) -> Type[InputTransform]:
+    input_transform_type = object_json.pop("index")
+    if input_transform_type not in REVERSE_INPUT_TRANSFORM_REGISTRY:
+        raise ValueError(f"Unknown transform {input_transform_type}.")
+    return REVERSE_INPUT_TRANSFORM_REGISTRY[input_transform_type]
 
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.

@@ -105,16 +105,22 @@ class AcquisitionTest(TestCase):
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
         self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
-        self.surrogate.construct(
-            datasets=self.training_data,
-            metric_names=["metric"],
-            fidelity_features=self.fidelity_features,
-        )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
         )
+        self.surrogate.construct(
+            datasets=self.training_data,
+            metric_names=["metric"],
+            fidelity_features=self.fidelity_features,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.search_space_digest.feature_names[:1],
+                bounds=self.search_space_digest.bounds,
+                target_fidelities=self.search_space_digest.target_fidelities,
+            ),
+        )
+
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
@@ -605,7 +611,9 @@ class AcquisitionTest(TestCase):
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
         self.surrogate.construct(
-            datasets=moo_training_data, metric_names=["m1", "m2", "m3"]
+            datasets=moo_training_data,
+            metric_names=["m1", "m2", "m3"],
+            search_space_digest=self.search_space_digest,
         )
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (

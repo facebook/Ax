@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import torch
-from ax.core.search_space import SearchSpaceDigest
+from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -159,7 +159,7 @@ class SurrogateTest(TestCase):
             mll_class=ExactMarginalLogLikelihood,
             covar_module_class=ScaleKernel,
             covar_module_options={"base_kernel": MaternKernel(ard_num_dims=d)},
-            input_transform=Normalize(d=d),
+            input_transform_classes=[Normalize],
             outcome_transform=Standardize(m=1),
             allow_batched_models=False,
         )
@@ -170,12 +170,17 @@ class SurrogateTest(TestCase):
             refit=True,
         )
         models = checked_cast(ModuleList, surrogate.model.models)
+
+        model1_old_lengtscale = (
+            models[1].covar_module.base_kernel.lengthscale.detach().clone()
+        )
         # Change the lengthscales of one model and make sure the other isn't changed
         models[0].covar_module.base_kernel.lengthscale += 1
+
         self.assertTrue(
             torch.allclose(
-                models[0].covar_module.base_kernel.lengthscale,
-                models[1].covar_module.base_kernel.lengthscale + 1.0,  # pyre-ignore
+                model1_old_lengtscale,
+                models[1].covar_module.base_kernel.lengthscale,
             )
         )
         # Test the same thing with the likelihood noise constraint
@@ -187,16 +192,18 @@ class SurrogateTest(TestCase):
             models[1].likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-3
         )
         # Check input transform
+
+        # bounds will be taken from the search space digest
         self.assertTrue(
             torch.allclose(
                 models[0].input_transform.offset,
-                torch.tensor([1, 2, 3], **self.tkwargs),
+                torch.tensor([0, 1, 2], **self.tkwargs),
             )
         )
         self.assertTrue(
             torch.allclose(
                 models[1].input_transform.offset,
-                torch.tensor([2, 4, 6], **self.tkwargs),
+                torch.tensor([0, 1, 2], **self.tkwargs),
             )
         )
         # Check outcome transform
@@ -213,12 +220,11 @@ class SurrogateTest(TestCase):
 
     def test_botorch_transforms(self) -> None:
         # Successfully passing down the transforms
-        input_transform = Normalize(d=self.Xs[0].shape[-1])
         outcome_transform = Standardize(m=self.Ys[0].shape[-1])
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
             outcome_transform=outcome_transform,
-            input_transform=input_transform,
+            input_transform_classes=[Normalize],
         )
         surrogate.fit(
             datasets=self.training_data,
@@ -227,14 +233,14 @@ class SurrogateTest(TestCase):
             refit=self.refit,
         )
         botorch_model = surrogate.model
-        self.assertIs(botorch_model.input_transform, input_transform)
+        self.assertIsInstance(botorch_model.input_transform, Normalize)
         self.assertIs(botorch_model.outcome_transform, outcome_transform)
 
         # Error handling if the model does not support transforms.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
             outcome_transform=outcome_transform,
-            input_transform=input_transform,
+            input_transform_classes=[Normalize],
         )
         with self.assertRaisesRegex(UserInputError, "BoTorch model"):
             surrogate.fit(
@@ -267,7 +273,7 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             self.assertEqual(self.dtype, surrogate.dtype)
 
@@ -277,7 +283,7 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             self.assertEqual(self.device, surrogate.device)
 
@@ -304,12 +310,12 @@ class SurrogateTest(TestCase):
                 Surrogate(botorch_model_class=Model).construct(
                     datasets=self.training_data,
                     metric_names=self.metric_names,
-                    fidelity_features=self.search_space_digest.fidelity_features,
+                    search_space_digest=self.search_space_digest,
                 )
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             mock_GPs[i].assert_called_once()
             call_kwargs = mock_GPs[i].call_args[1]
@@ -332,25 +338,19 @@ class SurrogateTest(TestCase):
                 surrogate.construct(
                     self.training_data,
                     metric_names=self.metric_names,
+                    search_space_digest=self.search_space_digest,
                 )
                 mock_construct_inputs.assert_called_with(
                     training_data=self.training_data[0], some_option="some_value"
                 )
 
-            # seach_space_digest may not be None if no model_class provided
-            with self.assertRaisesRegex(
-                UserInputError, "seach_space_digest may not be None"
-            ):
-                surrogate = Surrogate()
-                surrogate.construct(
-                    datasets=self.training_data,
-                    metric_names=self.metric_names,
-                )
-
             # botorch_model_class must be set to construct single model Surrogate
             with self.assertRaisesRegex(ValueError, "botorch_model_class must be set"):
                 surrogate = Surrogate()
-                surrogate._construct_model(dataset=self.training_data[0])
+                surrogate._construct_model(
+                    dataset=self.training_data[0],
+                    search_space_digest=self.search_space_digest,
+                )
 
     def test_construct_custom_model(self) -> None:
         # Test error for unsupported covar_module and likelihood.
@@ -364,6 +364,7 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 self.training_data,
                 metric_names=self.metric_names,
+                search_space_digest=self.search_space_digest,
             )
         # Pass custom options to a SingleTaskGP and make sure they are used
         noise_constraint = Interval(1e-6, 1e-1)
@@ -378,6 +379,7 @@ class SurrogateTest(TestCase):
         surrogate.construct(
             self.training_data,
             metric_names=self.metric_names,
+            search_space_digest=self.search_space_digest,
         )
         self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
         self.assertEqual(
@@ -487,6 +489,7 @@ class SurrogateTest(TestCase):
                 datasets=self.training_data,
                 metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             surrogate.predict(X=self.Xs[0])
             mock_predict.assert_called_with(model=surrogate.model, X=self.Xs[0])
@@ -498,6 +501,7 @@ class SurrogateTest(TestCase):
                 datasets=self.training_data,
                 metric_names=self.metric_names,
                 fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             # `best_in_sample_point` requires `objective_weights`
             with patch(
@@ -554,7 +558,7 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             # currently cannot use function with fixed features
             with self.assertRaisesRegex(NotImplementedError, "Fixed features"):
@@ -604,7 +608,7 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
+                search_space_digest=self.search_space_digest,
             )
             # Check that correct arguments are passed to `fit`.
             with patch(f"{SURROGATE_PATH}.Surrogate.fit") as mock_fit:
@@ -681,22 +685,37 @@ class SurrogateTest(TestCase):
         )
         # Error handling.
         with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
+            robust_digest = RobustSearchSpaceDigest(
+                environmental_variables=["a"],
+                sample_param_perturbations=lambda: np.zeros((2, 2)),
+            )
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                robust_digest={"environmental_variables": ["a"]},
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.search_space_digest.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.search_space_digest.task_features,
+                    robust_digest=robust_digest,
+                ),
             )
-        robust_digest = {
-            "sample_param_perturbations": lambda: np.zeros((2, 2)),
-            "environmental_variables": [],
-            "multiplicative": False,
-        }
-        surrogate.input_transform = Normalize(d=2)
+
+        robust_digest = RobustSearchSpaceDigest(
+            sample_param_perturbations=lambda: np.zeros((2, 2)),
+            environmental_variables=[],
+            multiplicative=False,
+        )
+        surrogate.input_transform_classes = [Normalize]
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                robust_digest=robust_digest,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.search_space_digest.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.search_space_digest.task_features,
+                    robust_digest=robust_digest,
+                ),
             )
         # Input perturbation is constructed.
         surrogate = Surrogate(
@@ -705,7 +724,12 @@ class SurrogateTest(TestCase):
         surrogate.construct(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            robust_digest=robust_digest,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.search_space_digest.feature_names,
+                bounds=self.bounds,
+                task_features=self.search_space_digest.task_features,
+                robust_digest=robust_digest,
+            ),
         )
         intf = checked_cast(InputPerturbation, surrogate.model.input_transform)
         self.assertIsInstance(intf, InputPerturbation)
@@ -840,8 +864,9 @@ class SurrogateWithModelListTest(TestCase):
         self.surrogate.construct(
             datasets=self.fixed_noise_training_data,
             metric_names=self.outcomes,
-            task_features=self.task_features,
             output_tasks=[2],
+            search_space_digest=self.search_space_digest,
+            task_features=self.task_features,
         )
         # Should construct inputs for MTGP twice.
         self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
@@ -877,6 +902,10 @@ class SurrogateWithModelListTest(TestCase):
             datasets=self.supervised_training_data,
             task_features=self.task_features,
             metric_names=self.outcomes,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+            ),
         )
         for ds in not_none(surrogate._training_data):
             self.assertIsInstance(ds, SupervisedDataset)
@@ -907,6 +936,10 @@ class SurrogateWithModelListTest(TestCase):
                 metric_names=self.outcomes,
                 task_features=self.task_features,
                 fidelity_features=[1],
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                ),
             )
         with self.assertRaisesRegex(
             NotImplementedError,
@@ -916,16 +949,10 @@ class SurrogateWithModelListTest(TestCase):
                 datasets=self.fixed_noise_training_data,
                 metric_names=self.outcomes,
                 task_features=[0, 1],
-            )
-
-        # must either provide `botorch_submodel_class` or `search_space_digest`
-        with self.assertRaisesRegex(
-            UserInputError, "Must either provide `botorch_submodel_class` or"
-        ):
-            surrogate = Surrogate()
-            surrogate._construct_model_list(
-                datasets=self.fixed_noise_training_data,
-                metric_names=self.outcomes,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                ),
             )
 
     @patch(f"{CURRENT_PATH}.ModelList.load_state_dict", return_value=None)
@@ -1045,28 +1072,43 @@ class SurrogateWithModelListTest(TestCase):
             )
 
     def test_with_botorch_transforms(self) -> None:
-        input_transforms = Normalize(d=3)
         outcome_transforms = Standardize(m=1)
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
             mll_class=ExactMarginalLogLikelihood,
             outcome_transform=outcome_transforms,
-            input_transform=input_transforms,
+            input_transform_classes=[Normalize],
+            input_transform_options={
+                "Normalize": {"d": 3, "bounds": None, "indices": None}
+            },
         )
         with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
             surrogate.construct(
                 datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                ),
             )
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
             mll_class=ExactMarginalLogLikelihood,
             outcome_transform=outcome_transforms,
-            input_transform=input_transforms,
+            input_transform_classes=[Normalize],
+            input_transform_options={
+                "Normalize": {"d": 3, "bounds": None, "indices": None}
+            },
         )
         surrogate.construct(
             datasets=self.supervised_training_data,
             metric_names=self.outcomes,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                task_features=self.task_features,
+            ),
         )
         models: torch.nn.modules.container.ModuleList = surrogate.model.models
         for i in range(2):
@@ -1121,12 +1163,17 @@ class SurrogateWithModelListTest(TestCase):
                 covar_module_options=submodel_covar_module_options,
                 likelihood_class=GaussianLikelihood,
                 likelihood_options=submodel_likelihood_options,
-                input_transform=Normalize(d=3),
+                input_transform_classes=[Normalize],
                 outcome_transform=Standardize(m=1),
             )
             surrogate.construct(
                 datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                ),
             )
             # pyre-fixme[16]: Optional type has no attribute `models`.
             self.assertEqual(len(surrogate._model.models), 2)
@@ -1177,19 +1224,32 @@ class SurrogateWithModelListTest(TestCase):
             surrogate.construct(
                 datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
-                robust_digest={"environmental_variables": ["a"]},
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                    robust_digest=RobustSearchSpaceDigest(
+                        sample_param_perturbations=lambda: np.zeros((2, 2)),
+                        environmental_variables=["a"],
+                    ),
+                ),
             )
-        robust_digest = {
-            "sample_param_perturbations": lambda: np.zeros((2, 2)),
-            "environmental_variables": [],
-            "multiplicative": False,
-        }
-        surrogate.input_transform = Normalize(d=1)
+        robust_digest = RobustSearchSpaceDigest(
+            sample_param_perturbations=lambda: np.zeros((2, 2)),
+            environmental_variables=[],
+            multiplicative=False,
+        )
+        surrogate.input_transform_classes = [Normalize]
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.construct(
                 datasets=self.supervised_training_data,
                 metric_names=self.outcomes,
-                robust_digest=robust_digest,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.feature_names,
+                    bounds=self.bounds,
+                    task_features=self.task_features,
+                    robust_digest=robust_digest,
+                ),
             )
         # Input perturbation is constructed.
         surrogate = Surrogate(
@@ -1198,7 +1258,12 @@ class SurrogateWithModelListTest(TestCase):
         surrogate.construct(
             datasets=self.supervised_training_data,
             metric_names=self.outcomes,
-            robust_digest=robust_digest,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.feature_names,
+                bounds=self.bounds,
+                task_features=self.task_features,
+                robust_digest=robust_digest,
+            ),
         )
         for m in surrogate.model.models:
             intf = checked_cast(InputPerturbation, m.input_transform)

@@ -25,6 +25,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space,
     get_search_space_for_value,
 )
+from botorch.models.transforms.input import InputTransform, Normalize
 
 logger: Logger = get_logger(__name__)
 
@@ -188,6 +189,10 @@ def get_generation_strategy(
 
 def get_transform_type() -> Type[Transform]:
     return IntToFloat
+
+
+def get_input_transform_type() -> Type[InputTransform]:
+    return Normalize
 
 
 def get_experiment_for_value() -> Experiment:

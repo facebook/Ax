@@ -117,6 +117,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
+    get_input_transform_type,
     get_observation_features,
     get_transform_type,
 )
@@ -208,6 +209,7 @@ TEST_CASES = [
     ("Type[Model]", get_model_type),
     ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
+    ("Type[InputTransform]", get_input_transform_type),
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),
@@ -298,6 +300,7 @@ class JSONStoreTest(TestCase):
                 encoder_registry=CORE_ENCODER_REGISTRY,
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
+
             converted_object = object_from_json(
                 json_object,
                 decoder_registry=CORE_DECODER_REGISTRY,

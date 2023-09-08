@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import torch
 from ax.utils.common.constants import Keys
+from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
@@ -23,24 +24,8 @@ T = TypeVar("T")
 MaybeType = Union[T, Type[T]]  # Annotation for a type or instance thereof
 
 
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-def _optimizerArgparse_encoder(arg: Any) -> Type:
-    """
-    Transforms arguments passed to `optimizer_argparse.__call__`
-    at runtime to construct the key used for method lookup as
-    `tuple(map(arg_transform, args))`.
-
-    This custom arg_transform allow type variables to be passed
-    at runtime.
-    """
-    # Allow type variables to be passed as arguments at runtime
-    return arg if isinstance(arg, type) else type(arg)
-
-
 optimizer_argparse = Dispatcher(
-    name="optimizer_argparse", encoder=_optimizerArgparse_encoder
+    name="optimizer_argparse", encoder=_argparse_type_encoder
 )
 
 

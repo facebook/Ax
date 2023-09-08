@@ -711,8 +711,13 @@ def surrogate_from_list_surrogate_json(
             class_decoder_registry=class_decoder_registry,
         ),
         mll_options=list_surrogate_json.get("mll_options"),
-        input_transform=object_from_json(
-            object_json=list_surrogate_json.get("submodel_input_transforms"),
+        input_transform_classes=object_from_json(
+            object_json=list_surrogate_json.get("submodel_input_transform_classes"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        input_transform_options=object_from_json(
+            object_json=list_surrogate_json.get("submodel_input_transform_options"),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),

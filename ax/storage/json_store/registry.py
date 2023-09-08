@@ -91,6 +91,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
+    input_transform_type_from_json,
     pathlib_from_json,
     transform_type_from_json,
 )
@@ -366,4 +367,5 @@ CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[MarginalLogLikelihood]": class_from_json,
     "Type[Model]": class_from_json,
     "Type[Transform]": transform_type_from_json,
+    "Type[InputTransform]": input_transform_type_from_json,
 }

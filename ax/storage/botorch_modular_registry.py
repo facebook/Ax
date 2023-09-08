@@ -56,9 +56,11 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
+    InputPerturbation,
     InputTransform,
     Normalize,
     Round,
+    Warp,
 )
 
 # Miscellaneous BoTorch imports
@@ -147,6 +149,8 @@ INPUT_TRANSFORM_REGISTRY: Dict[Type[InputTransform], str] = {
     ChainedInputTransform: "ChainedInputTransform",
     Normalize: "Normalize",
     Round: "Round",
+    Warp: "Warp",
+    InputPerturbation: "InputPerturbation",
 }
 
 
