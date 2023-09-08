@@ -161,13 +161,7 @@ class Encoder:
             trial_sqa = self.trial_to_sqa(trial=trial)
             trials.append(trial_sqa)
 
-        experiment_data = []
-        for trial_index, data_by_timestamp in experiment.data_by_trial.items():
-            for timestamp, data in data_by_timestamp.items():
-                data = self.data_to_sqa(
-                    data=data, trial_index=trial_index, timestamp=timestamp
-                )
-                experiment_data.append(data)
+        experiment_data = self.experiment_data_to_sqa(experiment=experiment)
 
         experiment_type = self.get_enum_value(
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
@@ -996,6 +990,14 @@ class Encoder:
             lifecycle_stage=lifecycle_stage,
         )
         return trial_sqa
+
+    def experiment_data_to_sqa(self, experiment: Experiment) -> List[SQAData]:
+        """Convert Ax experiment data to SQLAlchemy."""
+        return [
+            self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)
+            for trial_index, data_by_timestamp in experiment.data_by_trial.items()
+            for timestamp, data in data_by_timestamp.items()
+        ]
 
     def data_to_sqa(
         self, data: Data, trial_index: Optional[int], timestamp: int
