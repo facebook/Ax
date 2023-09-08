@@ -15,7 +15,6 @@ from typing import Dict, Optional
 import nbformat
 from bs4 import BeautifulSoup
 from nbconvert import HTMLExporter, ScriptExporter
-from nbconvert.preprocessors import ExecutePreprocessor
 
 
 TEMPLATE = """const CWD = process.cwd();
