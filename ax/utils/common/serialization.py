@@ -68,10 +68,9 @@ def callable_from_reference(path: str) -> Callable:
     return pydoc.locate(path)  # pyre-ignore[7]
 
 
-# TODO: update signature to avoid shadowing python `object` fn.
 def serialize_init_args(
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    object: Any,
+    obj: Any,
     exclude_fields: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Given an object, return a dictionary of the arguments that are
@@ -79,15 +78,15 @@ def serialize_init_args(
     """
     properties = {}
     exclude_args = ["self", "args", "kwargs"] + (exclude_fields or [])
-    signature = inspect.signature(object.__class__.__init__)
+    signature = inspect.signature(obj.__class__.__init__)
     for arg in signature.parameters:
         if arg in exclude_args:
             continue
         try:
-            value = getattr(object, arg)
+            value = getattr(obj, arg)
         except AttributeError:
             raise AttributeError(
-                f"{object.__class__} is missing a value for {arg}, "
+                f"{obj.__class__} is missing a value for {arg}, "
                 f"which is needed by its constructor."
             )
         properties[arg] = value
@@ -128,7 +127,7 @@ class SerializationMixin(ABC):
         """Serialize the properties needed to initialize the object.
         Used for storage.
         """
-        return serialize_init_args(object=obj)
+        return serialize_init_args(obj=obj)
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:

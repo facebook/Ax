@@ -181,7 +181,7 @@ class BaseData(Base, SerializationMixin):
         Used for storage and to help construct new similar Data.
         """
         data = checked_cast(cls, obj)
-        return serialize_init_args(object=data)
+        return serialize_init_args(obj=data)
 
     @classmethod
     def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:

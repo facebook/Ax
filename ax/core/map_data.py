@@ -296,10 +296,10 @@ class MapData(Data):
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
         map_data = checked_cast(MapData, obj)
-        properties = serialize_init_args(object=map_data)
+        properties = serialize_init_args(obj=map_data)
         properties["df"] = map_data.map_df
         properties["map_key_infos"] = [
-            serialize_init_args(object=mki) for mki in properties["map_key_infos"]
+            serialize_init_args(obj=mki) for mki in properties["map_key_infos"]
         ]
         return properties
 
