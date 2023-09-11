@@ -140,6 +140,8 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(set(p.values), {"0", "1", "2"})
         # pyre-fixme[16]: `Parameter` has no attribute `is_task`.
         self.assertTrue(p.is_task)
+        # pyre-fixme[16]: `Parameter` has no attribute `is_ordered`.
+        self.assertFalse(p.is_ordered)
         ss2 = deepcopy(self.search_space)
         ss2 = self.t2.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "bp1", "bp2"})
@@ -148,10 +150,24 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"v1", "v2", "v3"})
         self.assertTrue(p.is_task)
+        self.assertFalse(p.is_ordered)
         p = ss2.parameters["bp2"]
         self.assertTrue(isinstance(p, ChoiceParameter))
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"u1", "u2"})
+        self.assertTrue(p.is_task)
+        self.assertFalse(p.is_ordered)
+        t = TrialAsTask(
+            search_space=self.search_space,
+            observations=self.training_obs,
+            config={"trial_level_map": {"trial_index": {0: 10, 1: 11, 2: 12}}},
+        )
+        ss2 = deepcopy(self.search_space)
+        ss2 = t.transform_search_space(ss2)
+        p = ss2.parameters["trial_index"]
+        self.assertEqual(p.parameter_type, ParameterType.INT)
+        self.assertEqual(set(p.values), {10, 11, 12})
+        self.assertTrue(p.is_ordered)
         self.assertTrue(p.is_task)
 
     def test_w_robust_search_space(self) -> None:

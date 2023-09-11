@@ -447,6 +447,8 @@ def _get_cutoffs_from_legacy_transform_config(
         if isinstance(winsorization_lower, dict):
             if metric_name in winsorization_lower:
                 winsorization_config.lower_quantile_margin = winsorization_lower[
+                    # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
+                    # argument, expected `int` but got `str`.
                     metric_name
                 ]
         elif isinstance(winsorization_lower, (int, float)):
@@ -456,6 +458,8 @@ def _get_cutoffs_from_legacy_transform_config(
         if isinstance(winsorization_upper, dict):
             if metric_name in winsorization_upper:
                 winsorization_config.upper_quantile_margin = winsorization_upper[
+                    # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
+                    # argument, expected `int` but got `str`.
                     metric_name
                 ]
         elif isinstance(winsorization_upper, (int, float)):
@@ -465,6 +469,8 @@ def _get_cutoffs_from_legacy_transform_config(
         output_percentile_bounds = (None, None)
         if isinstance(percentile_bounds, dict):
             if metric_name in percentile_bounds:
+                # pyre-fixme [6]: In call `dict.__getitem__`, for 1st positional
+                # argument, expected `int` but got `str`.
                 output_percentile_bounds = percentile_bounds[metric_name]
         elif isinstance(percentile_bounds, tuple):
             output_percentile_bounds = percentile_bounds

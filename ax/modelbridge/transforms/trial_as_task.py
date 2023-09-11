@@ -52,7 +52,7 @@ class TrialAsTask(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert observations is not None, "TrialAskTask requires observations"
+        assert observations is not None, "TrialAsTask requires observations"
         # Identify values of trial.
         trials = {obs.features.trial_index for obs in observations}
         if isinstance(search_space, RobustSearchSpace):
@@ -67,11 +67,11 @@ class TrialAsTask(Transform):
         # Get trial level map
         if config is not None and "trial_level_map" in config:
             # pyre-ignore [9]
-            trial_level_map: Dict[str, Dict[Union[int, str], str]] = config[
+            trial_level_map: Dict[str, Dict[Union[int, str], Union[int, str]]] = config[
                 "trial_level_map"
             ]
             # Validate
-            self.trial_level_map: Dict[str, Dict[int, str]] = {}
+            self.trial_level_map: Dict[str, Dict[int, Union[int, str]]] = {}
             for _p_name, level_dict in trial_level_map.items():
                 # cast trial index as an integer
                 int_keyed_level_dict = {
@@ -92,7 +92,7 @@ class TrialAsTask(Transform):
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
-            self.inverse_map: Optional[Dict[str, int]] = {
+            self.inverse_map: Optional[Dict[Union[int, str], int]] = {
                 v: k for k, v in level_dict.items()
             }
         else:
@@ -120,16 +120,19 @@ class TrialAsTask(Transform):
                 raise ValueError(
                     f"TrialAsTask transform expects 2+ task params, {details}"
                 )
+            is_int = all(isinstance(val, int) for val in level_values)
             trial_param = ChoiceParameter(
                 name=p_name,
-                parameter_type=ParameterType.STRING,
+                parameter_type=ParameterType.INT if is_int else ParameterType.STRING,
                 # Expected `List[Optional[typing.Union[bool, float, str]]]` for 4th
                 # parameter `values` to call
                 # `ax.core.parameter.ChoiceParameter.__init__` but got
                 # `List[str]`.
                 # pyre-fixme[6]:
                 values=level_values,
-                is_ordered=False,
+                # if all values are integers, retain the original order
+                # they are encoded in TaskEncode
+                is_ordered=is_int,
                 is_task=True,
                 sort_values=True,
             )
