@@ -113,6 +113,8 @@ class TorchModelBridge(ModelBridge):
     ) -> None:
         self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
         self.device = torch_device
+        # pyre-ignore [4]: Attribute `_default_model_gen_options` of class
+        # `TorchModelBridge` must have a type that does not contain `Any`.
         self._default_model_gen_options = default_model_gen_options or {}
 
         # Handle init for multi-objective optimization.

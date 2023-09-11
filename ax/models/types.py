@@ -10,6 +10,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from botorch.acquisition import AcquisitionFunction
 
+# pyre-ignore [33]: `TConfig` cannot alias to a type containing `Any`.
 TConfig = Dict[
     str,
     Union[
@@ -17,6 +18,7 @@ TConfig = Dict[
         float,
         str,
         AcquisitionFunction,
+        Dict[int, Any],
         Dict[str, Any],
         OptimizationConfig,
         WinsorizationConfig,
