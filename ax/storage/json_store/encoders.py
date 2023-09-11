@@ -440,7 +440,7 @@ def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
 # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
 def map_key_info_to_dict(mki: MapKeyInfo) -> Dict[str, Any]:
     """Convert Ax map data metadata to a dictionary."""
-    properties = serialize_init_args(object=mki)
+    properties = serialize_init_args(obj=mki)
     properties["__type"] = mki.__class__.__name__
     return properties
 

@@ -1131,14 +1131,14 @@ class SQAStoreTest(TestCase):
 
     def testGetProperties(self) -> None:
         # Extract default value.
-        properties = serialize_init_args(object=Metric(name="foo"))
+        properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
             properties, {"name": "foo", "lower_is_better": None, "properties": {}}
         )
 
         # Extract passed value.
         properties = serialize_init_args(
-            object=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
+            obj=Metric(name="foo", lower_is_better=True, properties={"foo": "bar"})
         )
         self.assertEqual(
             properties,
