@@ -170,6 +170,28 @@ def _rank_correlation(
 def _fisher_exact_test_p(
     y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
 ) -> float:
+    """Perform a Fisher exact test on the contingency table constructed from
+    agreement/disagreement between the predicted and observed data.
+
+    Null hypothesis: Agreement between the predicted and observed data arises consistent
+    with random chance
+
+    P-value < 0.05 indicates that the null hypothesis may be rejected at the 5% level of
+    significance i.e. the model's predictive performance would be unlikely to arise
+    through random chance.
+
+    Args:
+        y_obs: NumPy array of observed data of shape (n_obs,)
+        y_pred: NumPy array of predicted data of shape (n_obs,)
+        se_pred: NumPy array of standard errors of shape (n_obs,), not used by the
+            calculation but required for interface compatbility.
+    Returns:
+        The p-value of the Fisher exact test on the contingency table.
+    """
+
+    if y_obs.ndim != 1 or y_pred.ndim != 1:
+        raise ValueError("y_obs and y_pred must be 1-dimensional.")
+
     n_half = len(y_obs) // 2
     top_obs = y_obs.argsort(axis=0)[-n_half:]
     top_est = y_pred.argsort(axis=0)[-n_half:]
