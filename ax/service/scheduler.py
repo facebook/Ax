@@ -772,7 +772,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 self.logger.warn(
                     "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
                     "which was primarily caused by failure to fetch metrics. Please "
-                    "check if anything could cause your metrics to be flakey or "
+                    "check if anything could cause your metrics to be flaky or "
                     "broken."
                 )
 
