@@ -45,7 +45,7 @@ from pyfakefs import fake_filesystem_unittest
 
 
 T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
-COMPARISON_STR_MAX_LEVEL = 3
+COMPARISON_STR_MAX_LEVEL = 8
 T = TypeVar("T")
 
 logger: Logger = get_logger(__name__)
