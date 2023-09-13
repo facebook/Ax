@@ -7,7 +7,7 @@
 import enum
 from hashlib import md5
 
-from ax.core.experiment import DataType  # noqa F401
+from ax.core.formatting_utils import DataType  # noqa F401
 
 
 class DomainType(enum.Enum):

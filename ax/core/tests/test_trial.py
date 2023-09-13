@@ -12,9 +12,16 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
+from ax.exceptions.core import UserInputError
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_arms, get_experiment, get_objective
+from ax.utils.testing.core_stubs import (
+    get_arms,
+    get_branin_arms,
+    get_experiment,
+    get_objective,
+    get_test_map_data_experiment,
+)
 
 
 TEST_DATA = Data(
@@ -265,3 +272,31 @@ class TrialTest(TestCase):
 
         self.assertEqual(1.0, data[(arm_name, "m1")]["mean"])
         self.assertEqual(2.0, data[(arm_name, "m2")]["mean"])
+
+        # Try to attach MapData.
+        with self.assertRaisesRegex(
+            UserInputError,
+            "The format of the `raw_data` is not compatible with `Data`. ",
+        ):
+            self.trial.update_trial_data(raw_data=[({"time": 0}, {"m1": 1.0})])
+
+        # Try to attach Data to a MapData experiment.
+        map_experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=2, num_complete=1
+        )
+        map_trial = map_experiment.new_trial().add_arm(
+            arm=get_branin_arms(n=1, seed=0)[0]
+        )
+        map_trial.update_trial_data(raw_data=[({"time": 0}, {"m1": 1.0})])
+        with self.assertRaisesRegex(
+            UserInputError,
+            "The format of the `raw_data` is not compatible with `MapData`. ",
+        ):
+            map_trial.update_trial_data(raw_data={"m1": 1.0})
+
+        # Error if the MapData inputs are not formatted correctly.
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Raw data does not conform to the expected structure.",
+        ):
+            map_trial.update_trial_data(raw_data=[["aa", {"m1": 1.0}]])

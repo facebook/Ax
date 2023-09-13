@@ -204,7 +204,7 @@ def validate_evaluation_outcome(outcome: TEvaluationOutcome) -> None:
             except Exception:
                 raise TypeError(
                     "Expected either TFidelityTrialEvaluation or TMapTrialEvaluation, "
-                    f"found {type(outcome)}"
+                    f"found {outcome}"
                 )
 
     else:

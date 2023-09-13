@@ -4,16 +4,34 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import cast, Dict, List, Optional, Tuple, Union
+from enum import Enum
+from typing import cast, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from ax.core.data import Data
 from ax.core.map_data import MapData
-from ax.core.types import TEvaluationOutcome, TMapTrialEvaluation, TTrialEvaluation
+from ax.core.types import (
+    TEvaluationOutcome,
+    TMapTrialEvaluation,
+    TTrialEvaluation,
+    validate_evaluation_outcome,
+)
+from ax.exceptions.core import UserInputError
 from ax.utils.common.typeutils import numpy_type_to_python_type
 
 
 # -------------------- Data formatting utils. ---------------------
+
+
+class DataType(Enum):
+    DATA = 1
+    MAP_DATA = 3
+
+
+DATA_TYPE_LOOKUP: Dict[DataType, Type[Data]] = {
+    DataType.DATA: Data,
+    DataType.MAP_DATA: MapData,
+}
 
 
 def raw_data_to_evaluation(
@@ -29,24 +47,39 @@ def raw_data_to_evaluation(
     """
     if isinstance(raw_data, dict):
         if any(isinstance(x, dict) for x in raw_data.values()):
-            raise ValueError("Raw data is expected to be just for one arm.")
+            raise UserInputError("Raw data is expected to be just for one arm.")
         for metric_name, dat in raw_data.items():
             if not isinstance(dat, tuple):
                 if not isinstance(dat, (float, int)):
-                    raise ValueError(
+                    raise UserInputError(
                         "Raw data for an arm is expected to either be a tuple of "
                         "numerical mean and SEM or just a numerical mean."
                         f"Got: {dat} for metric '{metric_name}'."
                     )
                 raw_data[metric_name] = (float(dat), None)
         return raw_data
-    elif len(metric_names) > 1:
-        raise ValueError(
-            "Raw data must be a dictionary of metric names to mean "
-            "for multi-objective optimizations."
+    try:
+        validate_evaluation_outcome(outcome=raw_data)
+    except Exception as e:
+        raise UserInputError(
+            "Raw data does not conform to the expected structure. For simple "
+            "evaluations of one or more metrics, `raw_data` is expected to be "
+            "a dictionary of the form `{metric_name -> mean}` or `{metric_name "
+            "-> (mean, SEM)}`. For fidelity or mapping (e.g., early stopping) "
+            "evaluation, the expected format is `[(fidelities, {metric_name -> "
+            "(mean, SEM)})]` or `[({mapping_key, mapping_value}, {metric_name -> "
+            "(mean, SEM)})]`."
+            f"Received {raw_data=}. Original validation error: {e}."
         )
-    elif isinstance(raw_data, list):
+    if isinstance(raw_data, list):
+        validate_evaluation_outcome(raw_data)
         return raw_data
+    elif len(metric_names) > 1:
+        raise UserInputError(
+            "Raw data must be a dictionary of metric names to mean "
+            "for experiments with multiple metrics attached. "
+            f"Got {raw_data=} for {metric_names=}."
+        )
     elif isinstance(raw_data, tuple):
         return {metric_names[0]: raw_data}
     elif isinstance(raw_data, (float, int)):
@@ -54,7 +87,7 @@ def raw_data_to_evaluation(
     elif isinstance(raw_data, (np.float32, np.float64, np.int32, np.int64)):
         return {metric_names[0]: (numpy_type_to_python_type(raw_data), None)}
     else:
-        raise ValueError(
+        raise UserInputError(
             "Raw data has an invalid type. The data must either be in the form "
             "of a dictionary of metric names to mean, sem tuples, "
             "or a single mean, sem tuple, or a single mean."
@@ -66,6 +99,7 @@ def data_and_evaluations_from_raw_data(
     metric_names: List[str],
     trial_index: int,
     sample_sizes: Dict[str, int],
+    data_type: DataType,
     start_time: Optional[Union[int, str]] = None,
     end_time: Optional[Union[int, str]] = None,
 ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
@@ -98,6 +132,15 @@ def data_and_evaluations_from_raw_data(
         for arm_name in raw_data
     }
     if all(isinstance(evaluations[x], dict) for x in evaluations.keys()):
+        if data_type is DataType.MAP_DATA:
+            raise UserInputError(
+                "The format of the `raw_data` is not compatible with `MapData`. "
+                "Possible cause: Did you set default data type to `MapData`, e.g., "
+                "for early stopping, but forgot to provide the `raw_data` "
+                "in the form of `[(fidelities, {metric_name -> (mean, SEM)})]` or "
+                "`[({mapping_key, mapping_value}, {metric_name -> (mean, SEM)})]`? "
+                f"Received: {raw_data=}"
+            )
         # All evaluations are no-fidelity evaluations.
         data = Data.from_evaluations(
             evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
@@ -107,6 +150,13 @@ def data_and_evaluations_from_raw_data(
             end_time=end_time,
         )
     elif all(isinstance(evaluations[x], list) for x in evaluations.keys()):
+        if data_type is DataType.DATA:
+            raise UserInputError(
+                "The format of the `raw_data` is not compatible with `Data`. "
+                "Possible cause: Did you provide data for multi-fidelity evaluations, "
+                "e.g., for early stopping, but forgot to set the default data type "
+                f"to `MapData`? Received: {raw_data=}"
+            )
         # All evaluations are map evaluations.
         data = MapData.from_map_evaluations(
             evaluations=cast(Dict[str, TMapTrialEvaluation], evaluations),

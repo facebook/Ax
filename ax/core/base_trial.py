@@ -833,6 +833,7 @@ class BaseTrial(ABC, SortableBase):
             metric_names=list(set(self.experiment.metrics)),
             trial_index=self.index,
             sample_sizes=sample_sizes or {},
+            data_type=self.experiment.default_data_type,
             start_time=metadata.get("start_time"),
             end_time=metadata.get("end_time"),
         )

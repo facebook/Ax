@@ -11,17 +11,16 @@ import re
 import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
-from enum import Enum
 from functools import partial, reduce
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Type
 
 import ax.core.observation as observation
-
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
+from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -42,19 +41,6 @@ from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 
 logger: logging.Logger = get_logger(__name__)
-
-
-class DataType(Enum):
-    DATA = 1
-    MAP_DATA = 3
-
-
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-DATA_TYPE_LOOKUP: Dict[DataType, Type] = {
-    DataType.DATA: Data,
-    DataType.MAP_DATA: MapData,
-}
 
 DEFAULT_OBJECTIVE_NAME = "objective"
 
