@@ -209,6 +209,7 @@ class OptimizationLoop:
             },
             trial_index=self.current_trial,
             sample_sizes={},
+            data_type=self.experiment.default_data_type,
             metric_names=not_none(
                 self.experiment.optimization_config
             ).objective.metric_names,

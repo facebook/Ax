@@ -29,7 +29,6 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.core.trial import TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,
@@ -42,6 +41,7 @@ from ax.exceptions.core import (
     OptimizationComplete,
     UnsupportedError,
     UnsupportedPlotError,
+    UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
@@ -1424,7 +1424,9 @@ class TestAxClient(TestCase):
             x, y = parameterization.get("x"), parameterization.get("y")
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.complete_trial(trial_index, raw_data=(branin(x, y), 0.0))
-        with self.assertRaisesRegex(ValueError, TRIAL_RAW_DATA_FORMAT_ERROR_MESSAGE):
+        with self.assertRaisesRegex(
+            UserInputError, "Raw data does not conform to the expected structure."
+        ):
             # pyre-fixme[61]: `trial_index` is undefined, or not always defined.
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")

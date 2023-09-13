@@ -5,12 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 from ax.core.formatting_utils import raw_data_to_evaluation
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
 class TestRawDataToEvaluation(TestCase):
     def test_raw_data_is_not_dict_of_dicts(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Raw data is expected to be just for one arm.",
+        ):
             raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
                 raw_data={"arm_0": {"objective_a": 6}},
@@ -35,7 +39,7 @@ class TestRawDataToEvaluation(TestCase):
         self.assertEqual(result["objective_c"], ("some", "tuple"))
 
     def test_dict_entries_must_be_int_float_or_tuple(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(UserInputError, "Raw data for an arm is expected "):
             raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
                 raw_data={"objective_a": [6.0, None]},
@@ -43,14 +47,17 @@ class TestRawDataToEvaluation(TestCase):
             )
 
     def test_it_requires_a_dict_for_multi_objectives(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            UserInputError,
+            "experiments with multiple metrics attached.",
+        ):
             raw_data_to_evaluation(
                 raw_data=(6.0, None),
                 metric_names=["objective_a", "objective_b"],
             )
 
     def test_it_accepts_a_list_for_single_objectives(self) -> None:
-        raw_data = [({"arm__0": {}}, {"objective_a": (1.4, None)})]
+        raw_data = [({"arm__0": (0, 1)}, {"objective_a": (1.4, None)})]
         result = raw_data_to_evaluation(
             # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[Unio...
             raw_data=raw_data,
@@ -84,7 +91,10 @@ class TestRawDataToEvaluation(TestCase):
         self.assertEqual(result["objective_a"], (1.6, None))
 
     def test_it_raises_for_unexpected_types(self) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Raw data does not conform to the expected structure.",
+        ):
             raw_data_to_evaluation(
                 # pyre-fixme[6]: For 1st param expected `Union[Dict[str, Union[Tuple[...
                 raw_data="1.6",
