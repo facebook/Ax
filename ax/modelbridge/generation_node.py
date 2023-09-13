@@ -629,18 +629,18 @@ class GenerationStep(GenerationNode, SortableBase):
         self, passed_in_data: Optional[Data], previous_step_required_observations: bool
     ) -> Data:
         """
-        Correctly fetches data given this generation step's configuration, and checks
-        for invalid data states before returning it.
+        Fetches data given this GenerationStep's configuration, and checks for invalid
+        data states before returning it.
 
         Args:
-            passed_in_data: An optional provided aata object for fitting the model
-                for this generation step
-            previous_step_required_observations: Information about the previous
-                generation step used to check and raise an error if we are in an invalid
-                state due to unexpected empty data
+            passed_in_data: An optional provided Data object for fitting the model for
+                this GenerationStep
+            previous_step_required_observations: Whether the previous GenerationStep
+                required observation data. If this is `True`, raise an error if we are
+                in an invalid state due to unexpected empty data.
 
         Returns:
-            Data: Data for fitting a model to generate this generation step
+            Data: Data for fitting a model to generate this GenerationStep
         """
         if passed_in_data is None:
             if self.use_update:
@@ -686,3 +686,47 @@ class GenerationStep(GenerationNode, SortableBase):
                 "attached to experiment for completed trials."
             )
         return data
+
+    def get_data_for_update(
+        self, passed_in_data: Optional[Data], newly_completed_trials: Set[int]
+    ) -> Optional[Data]:
+        """
+        Get the data that will be used to update the model. This is used if
+        `use_update=True` for this generation step. Only the new data since the
+        last model update / gen call should be used for the update.
+
+        Args:
+            passed_in_data: An optional data object for fitting the model
+                for this generation step. When omitted, data will be retrieved
+                using `experiment.lookup_data`.
+            newly_completed_trials: Indices of trials that have been completed or
+                updated with data since the last call to `GenerationStrategy.gen`.
+                Only the data for these trials are used when updating the model.
+
+        Returns:
+            Data: Data for updating the fitted model for this generation step.
+        """
+        if len(newly_completed_trials) == 0:
+            logger.debug(
+                "There were no newly completed trials since last model update."
+            )
+            return None
+
+        if passed_in_data is None:
+            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
+            if new_data.df.empty:
+                logger.info(
+                    "No new data is attached to experiment; no need for model update."
+                )
+                return None
+            return new_data
+
+        elif passed_in_data.df.empty:
+            logger.info("Manually supplied data is empty; no need for model update.")
+            return None
+
+        return Data(
+            df=passed_in_data.df.loc[
+                passed_in_data.df.trial_index.isin(newly_completed_trials)
+            ]
+        )

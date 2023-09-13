@@ -466,7 +466,10 @@ class GenerationStrategy(Base):
                 strategy will obtain the data via ``experiment.lookup_data``.
         """
         if self._model is not None and self._curr.use_update:
-            new_data = self._get_data_for_update(passed_in_data=data)
+            newly_completed_trials = self._find_trials_completed_since_last_gen()
+            new_data = self._curr.get_data_for_update(
+                passed_in_data=data, newly_completed_trials=newly_completed_trials
+            )
             if new_data is not None:
                 self._update_current_model(new_data=new_data)
         else:
@@ -577,37 +580,6 @@ class GenerationStrategy(Base):
         logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
         # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
         not_none(self._model).update(experiment=self.experiment, new_data=new_data)
-
-    def _get_data_for_update(self, passed_in_data: Optional[Data]) -> Optional[Data]:
-        # Should only pass data that is new since last call to `gen`, to the
-        # underlying model's `update`.
-        newly_completed_trials = self._find_trials_completed_since_last_gen()
-        if len(newly_completed_trials) == 0:
-            logger.debug(
-                "There were no newly completed trials since last model update."
-            )
-            return None
-
-        if passed_in_data is None:
-            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
-            if new_data.df.empty:
-                logger.info(
-                    "No new data is attached to experiment; no need for model update."
-                )
-                return None
-            return new_data
-
-        elif passed_in_data.df.empty:
-            logger.info("Manually supplied data is empty; no need for model update.")
-            return None
-
-        return Data(
-            # pyre-ignore[6]: Expected `Optional[pd.core.frame.DataFrame]`
-            # for 1st param. `df` to `Data.__init__` but got `pd.core.series.Series`
-            df=passed_in_data.df[
-                passed_in_data.df.trial_index.isin(newly_completed_trials)
-            ]
-        )
 
     # ------------------------- State-tracking helpers. -------------------------
 
