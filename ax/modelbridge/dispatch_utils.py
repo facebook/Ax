@@ -79,7 +79,7 @@ def _make_botorch_step(
     disable_progbar: Optional[bool] = None,
     jit_compile: Optional[bool] = None,
     derelativize_with_raw_status_quo: bool = False,
-    use_update: Optional[bool] = None,
+    use_update: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     model_kwargs = model_kwargs or {}
@@ -121,7 +121,7 @@ def _make_botorch_step(
         min_trials_observed=min_trials_observed or ceil(num_trials / 2),
         enforce_num_trials=enforce_num_trials,
         max_parallelism=max_parallelism,
-        use_update=use_update if use_update is not None else is_saasbo(model),
+        use_update=use_update,
         # `model_kwargs` should default to `None` if empty
         model_kwargs=model_kwargs if len(model_kwargs) > 0 else None,
         should_deduplicate=should_deduplicate,
@@ -301,7 +301,7 @@ def choose_generation_strategy(
     disable_progbar: Optional[bool] = None,
     jit_compile: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
-    use_update: Optional[bool] = None,
+    use_update: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -398,11 +398,14 @@ def choose_generation_strategy(
             that experiment). Can also provide `optimization_config` if it is not
             provided as an arg to this function.
         use_update: Whether to use ``ModelBridge.update`` to update the model with
-            new data rather than fitting it from scratch. This is much more efficient,
-            particularly when running trials in parallel. Note that this is not
-            compatible with metrics that are available while running.
-            It will default to True if using SAASBO and the given experiment does not
-            have any metrics that are available while running.
+            new data rather than fitting it from scratch.
+            This changes the behavior of how the model is updated to incorporate the
+            new data before candidate generation. When ``use_update=False``, we fit a
+            new model from scratch. When ``use_update=True``, we update the training
+            data of the model and re-use the hyper-parameters from the previously
+            fitted model. Depending on the ``refit_model`` flag (defaults to True,
+            not exposed in this API), we may further train the hyper-parameters while
+            using the previous values as the starting conditions for optimization.
     """
     if experiment is not None:
         if optimization_config is None:
@@ -410,14 +413,11 @@ def choose_generation_strategy(
         metrics_available_while_running = any(
             m.is_available_while_running() for m in experiment.metrics.values()
         )
-        if metrics_available_while_running:
-            if use_update is True:
-                raise UnsupportedError(
-                    "Got `use_update=True` but the experiment has metrics that are "
-                    "available while running. Set `use_update=False`."
-                )
-            else:
-                use_update = False
+        if metrics_available_while_running and use_update is True:
+            raise UnsupportedError(
+                "Got `use_update=True` but the experiment has metrics that are "
+                "available while running. Set `use_update=False`."
+            )
 
     suggested_model = _suggest_gp_model(
         search_space=search_space,

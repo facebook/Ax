@@ -7,7 +7,6 @@
 import logging
 import warnings
 from typing import Any, Dict
-from unittest import mock
 
 import torch
 from ax.core.objective import MultiObjective
@@ -684,38 +683,14 @@ class TestDispatchUtils(TestCase):
 
     def test_use_update(self) -> None:
         search_space = get_branin_search_space()
-        # No experiment, no SAAS, default to False.
+        # Defaults to False.
         gs = choose_generation_strategy(search_space=search_space)
         self.assertFalse(gs._steps[1].use_update)
         # Pass in True.
         gs = choose_generation_strategy(search_space=search_space, use_update=True)
         self.assertTrue(gs._steps[1].use_update)
-        # With experiment without any metrics available while running.
+        # Metrics available while running.
         experiment = get_branin_experiment()
-        with mock.patch.object(
-            experiment.metrics["branin"],
-            "is_available_while_running",
-            return_value=False,
-        ):
-            # No SAAS, default to False.
-            gs = choose_generation_strategy(
-                search_space=search_space, experiment=experiment
-            )
-            self.assertFalse(gs._steps[1].use_update)
-            # SAAS, default to True.
-            gs = choose_generation_strategy(
-                search_space=search_space, experiment=experiment, use_saasbo=True
-            )
-            self.assertTrue(gs._steps[1].use_update)
-            # SAAS and pass in False.
-            gs = choose_generation_strategy(
-                search_space=search_space,
-                experiment=experiment,
-                use_saasbo=True,
-                use_update=False,
-            )
-            self.assertFalse(gs._steps[1].use_update)
-        # SAAS with metrics available while running.
         gs = choose_generation_strategy(
             search_space=search_space, experiment=experiment, use_saasbo=True
         )
