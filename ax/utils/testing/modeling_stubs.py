@@ -16,15 +16,19 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.completion_criterion import MinimumPreferenceOccurances
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
     get_experiment,
     get_search_space,
     get_search_space_for_value,
 )
+from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.transforms.input import InputTransform, Normalize
 
 logger: Logger = get_logger(__name__)
@@ -236,7 +240,30 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
                 },
                 "mll_options": {},
                 "submodel_outcome_transforms": None,
-                "submodel_input_transforms": None,
+                "submodel_input_transforms": [
+                    {
+                        "__type": "Normalize",
+                        "index": {
+                            "__type": "Type[InputTransform]",
+                            "index": "Normalize",
+                            "class": (
+                                "<class 'botorch.models.transforms.input."
+                                "InputTransform'>"
+                            ),
+                        },
+                        "class": "<class 'botorch.models.transforms.input.Normalize'>",
+                        "state_dict": {
+                            "d": 3,
+                            "indices": None,
+                            "transform_on_train": True,
+                            "transform_on_eval": True,
+                            "transform_on_fantasize": True,
+                            "reverse": False,
+                            "min_range": 1e-08,
+                            "learn_bounds": False,
+                        },
+                    }
+                ],
                 "submodel_covar_module_class": None,
                 "submodel_covar_module_options": {},
                 "submodel_likelihood_class": None,
@@ -249,9 +276,36 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
             },
         },
         "model_gen_kwargs": {},
-        "index": 1,
+        "index": -1,
         "should_deduplicate": False,
     }
+
+
+def get_list_surrogate_generation_step() -> GenerationStep:
+    return GenerationStep(
+        model=Models.BOTORCH_MODULAR,
+        num_trials=-1,
+        max_parallelism=1,
+        model_kwargs={
+            "surrogate": Surrogate(
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                input_transform_classes=[Normalize],
+                input_transform_options={
+                    "Normalize": {
+                        "d": 3,
+                        "indices": None,
+                        "transform_on_train": True,
+                        "transform_on_eval": True,
+                        "transform_on_fantasize": True,
+                        "reverse": False,
+                        "min_range": 1e-08,
+                        "learn_bounds": False,
+                    }
+                },
+            ),
+            "botorch_acqf_class": qNoisyExpectedImprovement,
+        },
+    )
 
 
 class transform_1(Transform):

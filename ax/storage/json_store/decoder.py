@@ -9,7 +9,7 @@ from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _decode_callables_from_references
+from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
@@ -45,7 +46,7 @@ from ax.storage.json_store.registry import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.common.typeutils_torch import torch_type_from_str
 
 logger: Logger = get_logger(__name__)
@@ -200,6 +201,18 @@ def object_from_json(
                 num_trials=object_json["num_trials"],
                 infer_noise=object_json["infer_noise"],
             )
+        elif _class == SurrogateSpec:
+            if "input_transform" in object_json:
+                (
+                    input_transform_classes_json,
+                    input_transform_options_json,
+                ) = get_input_transform_json_components(
+                    input_transforms_json=[object_json.pop("input_transform")],
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                )
+                object_json["input_transform_classes"] = input_transform_classes_json
+                object_json["input_transform_options"] = input_transform_options_json
         elif isclass(_class) and issubclass(_class, SerializationMixin):
             return _class(**_class.deserialize_init_args(args=object_json))
 
@@ -697,6 +710,15 @@ def surrogate_from_list_surrogate_json(
         "`ListSurrogate` has been deprecated. Reconstructing a `Surrogate` "
         "with as similar properties as possible."
     )
+    if "submodel_input_transforms" in list_surrogate_json:
+        (
+            list_surrogate_json["submodel_input_transform_classes"],
+            list_surrogate_json["submodel_input_transform_options"],
+        ) = get_input_transform_json_components(
+            list_surrogate_json.pop("submodel_input_transforms"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
 
     return Surrogate(
         botorch_model_class=object_from_json(
@@ -739,3 +761,32 @@ def surrogate_from_list_surrogate_json(
         ),
         likelihood_options=list_surrogate_json.get("submodel_likelihood_options"),
     )
+
+
+def get_input_transform_json_components(
+    input_transforms_json: Optional[List[Dict[str, Any]]],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+    if input_transforms_json is None:
+        return None, None
+    input_transforms_json = [
+        input_transform_json
+        for input_transform_json in input_transforms_json
+        if input_transform_json is not None
+    ]
+    input_transform_classes_json = [
+        input_transform_json["index"] for input_transform_json in input_transforms_json
+    ]
+    input_transform_options_json = {
+        checked_cast(str, input_transform_json["__type"]): input_transform_json[
+            "state_dict"
+        ]
+        for input_transform_json in input_transforms_json
+    }
+    return input_transform_classes_json, input_transform_options_json
