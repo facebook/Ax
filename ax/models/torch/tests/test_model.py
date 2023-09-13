@@ -395,38 +395,42 @@ class BoTorchModelTest(TestCase):
                     expected_state_dict.keys(),
                 )
 
-        # Test with autoset surrogate.
+        # Test with autoset surrogate & custom surrogate spec.
         autoset_model = BoTorchModel(
             acquisition_class=self.acquisition_class,
             botorch_acqf_class=self.botorch_acqf_class,
             acquisition_options=self.acquisition_options,
         )
-        autoset_model.fit(
-            datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
-            candidate_metadata=self.candidate_metadata,
-        )
-        autoset_model.refit_on_update = True
-        autoset_model.warm_start_refit = False
-        autoset_model.update(
-            datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
-            candidate_metadata=self.candidate_metadata,
-        )
-        # Check for correct call args
-        call_args = mock_update.call_args_list[-1][1]
-        self.assertEqual(call_args.get("datasets"), self.block_design_training_data)
-        self.assertEqual(call_args.get("metric_names"), self.metric_names)
-        self.assertEqual(
-            call_args.get("search_space_digest"), self.mf_search_space_digest
-        )
-        self.assertEqual(call_args.get("candidate_metadata"), self.candidate_metadata)
+        custom_model = BoTorchModel(surrogate_specs={"empty_spec": SurrogateSpec()})
+        for model in (autoset_model, custom_model):
+            model.fit(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
+                candidate_metadata=self.candidate_metadata,
+            )
+            model.refit_on_update = True
+            model.warm_start_refit = False
+            model.update(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
+                candidate_metadata=self.candidate_metadata,
+            )
+            # Check for correct call args
+            call_args = mock_update.call_args_list[-1][1]
+            self.assertEqual(call_args.get("datasets"), self.block_design_training_data)
+            self.assertEqual(call_args.get("metric_names"), self.metric_names)
+            self.assertEqual(
+                call_args.get("search_space_digest"), self.mf_search_space_digest
+            )
+            self.assertEqual(
+                call_args.get("candidate_metadata"), self.candidate_metadata
+            )
 
-        # Check correct `refit` and `state_dict` values.
-        self.assertEqual(mock_update.call_args_list[-1][1].get("refit"), True)
-        self.assertIsNone(mock_update.call_args_list[-1][1].get("state_dict"))
+            # Check correct `refit` and `state_dict` values.
+            self.assertEqual(mock_update.call_args_list[-1][1].get("refit"), True)
+            self.assertIsNone(mock_update.call_args_list[-1][1].get("state_dict"))
 
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.predict")
     def test_predict(self, mock_predict: Mock) -> None:

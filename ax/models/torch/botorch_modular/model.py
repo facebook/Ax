@@ -401,7 +401,7 @@ class BoTorchModel(TorchModel, Base):
             # preconstructed Surrogate
             datasets_by_metric_name = dict(zip(metric_names, datasets))
             subset_metric_names = (
-                self.surrogate_specs[label].outcomes
+                self.surrogates[label].outcomes
                 if label not in (Keys.ONLY_SURROGATE, Keys.AUTOSET_SURROGATE)
                 else metric_names
             )
