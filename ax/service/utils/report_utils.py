@@ -40,6 +40,7 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UserInputError
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
+from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
@@ -364,9 +365,9 @@ def get_standard_plots(
 
     # Objective vs. parameter plot requires a `Model`, so add it only if model
     # is alrady available. In cases where initially custom trials are attached,
-    # model might not yet be set on the generation strategy.
-    if model:
-        # TODO: Check if model can predict in favor of try/catch.
+    # model might not yet be set on the generation strategy. Additionally, if
+    # the model is a RandomModelBridge, skip plots that require predictions.
+    if model is not None and not isinstance(model, RandomModelBridge):
         try:
             if true_objective_metric_name is not None:
                 output_plot_list.append(
