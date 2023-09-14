@@ -11,8 +11,6 @@ import pandas as pd
 import torch
 from ax.core.data import Data
 from ax.core.observation import ObservationFeatures
-from ax.core.outcome_constraint import ObjectiveThreshold
-from ax.core.types import ComparisonOp
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -39,16 +37,14 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
-    get_branin_experiment_with_multi_objective,
+    get_branin_experiment_with_status_quo_trials,
     get_branin_optimization_config,
     get_factorial_experiment,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.acquisition.monte_carlo import (
-    qExpectedImprovement,
-    qNoisyExpectedImprovement,
-)
+from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import FixedNoiseMultiTaskGP
@@ -375,48 +371,6 @@ class ModelRegistryTest(TestCase):
             self.assertEqual(model_args & bridge_args, set())
 
     @fast_botorch_optimize
-    def test_ST_MTGP_LEGACY(self) -> None:
-        """Tests single type MTGP instantiation."""
-        # Test Single-type MTGP
-        exp = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
-        for _ in range(5):
-            sobol_run = sobol.gen(n=1)
-            t = exp.new_batch_trial().add_generator_run(sobol_run)
-            t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
-            t.run().mark_completed()
-        status_quo_features = ObservationFeatures(
-            parameters=exp.trials[0].status_quo.parameters,  # pyre-ignore[16]
-            trial_index=0,  # pyre-ignore[6]
-        )
-        mtgp = Models.ST_MTGP_LEGACY(
-            experiment=exp,
-            data=exp.fetch_data(),
-            status_quo_features=status_quo_features,
-        )
-        self.assertIsInstance(mtgp, TorchModelBridge)
-
-        exp = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
-        sobol_run = sobol.gen(n=1)
-        t = exp.new_batch_trial().add_generator_run(sobol_run)
-        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
-        t.run().mark_completed()
-
-        with self.assertRaises(ValueError):
-            status_quo_features = ObservationFeatures(
-                parameters=exp.trials[0].status_quo.parameters,
-                trial_index=0,  # pyre-ignore[6]
-            )
-            Models.ST_MTGP_LEGACY(
-                experiment=exp,
-                data=exp.fetch_data(),
-                status_quo_features=status_quo_features,
-            )
-
-    @fast_botorch_optimize
     def test_ALEBO(self) -> None:
         """Tests Alebo fitting and generations"""
         experiment = get_branin_experiment(with_batch=True)
@@ -457,44 +411,38 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(len(gr.arms), 2)
 
     @fast_botorch_optimize
+    def test_ST_MTGP_LEGACY(self) -> None:
+        """Tests single type MTGP instantiation."""
+        # Test Single-type MTGP
+        exp, status_quo_features = get_branin_experiment_with_status_quo_trials()
+        mtgp = Models.ST_MTGP_LEGACY(
+            experiment=exp,
+            data=exp.fetch_data(),
+            status_quo_features=status_quo_features,
+        )
+        self.assertIsInstance(mtgp, TorchModelBridge)
+
+        exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
+            num_sobol_trials=1
+        )
+        with self.assertRaises(ValueError):
+            Models.ST_MTGP_LEGACY(
+                experiment=exp,
+                data=exp.fetch_data(),
+                status_quo_features=status_quo_features,
+            )
+
+    @fast_botorch_optimize
     def test_ST_MTGP_NEHVI(self) -> None:
         """Tests single type MTGP NEHVI instantiation."""
-        multi_obj_exp = get_branin_experiment_with_multi_objective(
-            with_batch=True,
-            with_status_quo=True,
-        )
-        # pyre-fixme[16]: Optional type has no attribute `objective`.
-        metrics = multi_obj_exp.optimization_config.objective.metrics
-        multi_objective_thresholds = [
-            ObjectiveThreshold(
-                metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-            ObjectiveThreshold(
-                metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
-            ),
-        ]
-        sobol = Models.SOBOL(search_space=multi_obj_exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
-        for _ in range(2):
-            sobol_run = sobol.gen(n=1)
-            t = multi_obj_exp.new_batch_trial().add_generator_run(sobol_run)
-            t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
-            t.run().mark_completed()
-        status_quo_features = ObservationFeatures(
-            # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
-            parameters=multi_obj_exp.trials[0].status_quo.parameters,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
-            trial_index=0,
-        )
-        # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
-        optimization_config = multi_obj_exp.optimization_config.clone_with_args(
-            objective_thresholds=multi_objective_thresholds
+        exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
+            num_sobol_trials=2, multi_objective=True
         )
         mtgp = Models.ST_MTGP_NEHVI(
-            experiment=multi_obj_exp,
-            data=multi_obj_exp.fetch_data(),
+            experiment=exp,
+            data=exp.fetch_data(),
             status_quo_features=status_quo_features,
-            optimization_config=optimization_config,
+            optimization_config=exp.optimization_config,
         )
         self.assertIsInstance(mtgp, TorchModelBridge)
         self.assertIsInstance(mtgp.model, MultiObjectiveBotorchModel)
@@ -506,57 +454,42 @@ class ModelRegistryTest(TestCase):
             fixed_features=ObservationFeatures(parameters={}, trial_index=1),
         )
         self.assertEqual(len(mtgp_run.arms), 1)
-
         # test a generated trial can be completed
-        t = multi_obj_exp.new_batch_trial().add_generator_run(mtgp_run)
+        t = exp.new_batch_trial().add_generator_run(mtgp_run)
         t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
         t.run().mark_completed()
 
     @fast_botorch_optimize
-    def test_ST_MTGP(self) -> None:
-        """Tests single type MTGP via Modular BoTorch instantiation."""
-        # Test Single-type MTGP using MBM setup
-        single_obj_exp = get_branin_experiment()
-
-        multi_obj_exp = get_branin_experiment_with_multi_objective(
-            with_batch=True,
-            with_status_quo=True,
-        )
-
-        # testing single- and multi-objective optimization
-        for exp in [single_obj_exp, multi_obj_exp]:
-            sobol = Models.SOBOL(search_space=exp.search_space)
-            self.assertIsInstance(sobol, RandomModelBridge)
-            for _ in range(2):
-                sobol_run = sobol.gen(5)
-                t = exp.new_batch_trial().add_generator_run(sobol_run)
-                t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
-                t.run().mark_completed()
-
-            status_quo_features = ObservationFeatures(
-                # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
-                parameters=exp.trials[0].status_quo.parameters,
-                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
-                trial_index=0,
-            )
-
+    def test_ST_MTGP(self, use_saas: bool = False) -> None:
+        """Tests single type MTGP via Modular BoTorch instantiation
+        with both single & multi objective optimization."""
+        for exp, status_quo_features in [
+            get_branin_experiment_with_status_quo_trials(num_sobol_trials=2),
+            get_branin_experiment_with_status_quo_trials(
+                num_sobol_trials=2, multi_objective=True
+            ),
+        ]:
             # testing custom and default kernel for a surrogate
-            surrogates = [
-                Surrogate(
-                    botorch_model_class=FixedNoiseMultiTaskGP,
-                    mll_class=ExactMarginalLogLikelihood,
-                    covar_module_class=ScaleMaternKernel,
-                    covar_module_options={
-                        "ard_num_dims": DEFAULT,
-                        "lengthscale_prior": GammaPrior(6.0, 3.0),
-                        "outputscale_prior": GammaPrior(2.0, 0.15),
-                        "batch_shape": DEFAULT,
-                    },
-                    allow_batched_models=False,
-                    model_options={},
-                ),
-                None,
-            ]
+            surrogates = (
+                [None]
+                if use_saas
+                else [
+                    Surrogate(
+                        botorch_model_class=FixedNoiseMultiTaskGP,
+                        mll_class=ExactMarginalLogLikelihood,
+                        covar_module_class=ScaleMaternKernel,
+                        covar_module_options={
+                            "ard_num_dims": DEFAULT,
+                            "lengthscale_prior": GammaPrior(6.0, 3.0),
+                            "outputscale_prior": GammaPrior(2.0, 0.15),
+                            "batch_shape": DEFAULT,
+                        },
+                        allow_batched_models=False,
+                        model_options={},
+                    ),
+                    None,
+                ]
+            )
 
             lengthscale_priors = [
                 GammaPrior(6.0, 3.0),
@@ -564,36 +497,39 @@ class ModelRegistryTest(TestCase):
             ]
 
             for surrogate, lengthscale_prior in zip(surrogates, lengthscale_priors):
-                mtgp = Models.ST_MTGP(
+                constructor = Models.SAAS_MTGP if use_saas else Models.ST_MTGP
+                mtgp = constructor(
                     experiment=exp,
                     data=exp.fetch_data(),
                     status_quo_features=status_quo_features,
-                    botorch_acqf_class=qNoisyExpectedImprovement,
                     surrogate=surrogate,
                 )
                 self.assertIsInstance(mtgp, TorchModelBridge)
                 self.assertIsInstance(mtgp.model, BoTorchModel)
                 self.assertEqual(mtgp.model.acquisition_class, Acquisition)
-                self.assertEqual(
-                    mtgp.model.botorch_acqf_class, qNoisyExpectedImprovement
-                )
 
                 self.assertIsInstance(mtgp.model.surrogate.model, ModelListGP)
                 models = mtgp.model.surrogate.model.models
 
                 for i in range(len(models)):
-                    self.assertIsInstance(models[i], FixedNoiseMultiTaskGP)
-                    self.assertIsInstance(models[i].covar_module, ScaleKernel)
-                    base_kernel = models[i].covar_module.base_kernel
-                    self.assertIsInstance(base_kernel, MaternKernel)
-                    self.assertEqual(
-                        base_kernel.lengthscale_prior.concentration,
-                        lengthscale_prior.concentration,
+                    self.assertIsInstance(
+                        models[i],
+                        SaasFullyBayesianMultiTaskGP
+                        if use_saas
+                        else FixedNoiseMultiTaskGP,
                     )
-                    self.assertEqual(
-                        base_kernel.lengthscale_prior.rate,
-                        lengthscale_prior.rate,
-                    )
+                    if use_saas is False:
+                        self.assertIsInstance(models[i].covar_module, ScaleKernel)
+                        base_kernel = models[i].covar_module.base_kernel
+                        self.assertIsInstance(base_kernel, MaternKernel)
+                        self.assertEqual(
+                            base_kernel.lengthscale_prior.concentration,
+                            lengthscale_prior.concentration,
+                        )
+                        self.assertEqual(
+                            base_kernel.lengthscale_prior.rate,
+                            lengthscale_prior.rate,
+                        )
 
                 gr = mtgp.gen(
                     n=1,
@@ -602,3 +538,6 @@ class ModelRegistryTest(TestCase):
                     ),
                 )
                 self.assertEqual(len(gr.arms), 1)
+
+    def test_SAAS_MTGP(self) -> None:
+        self.test_ST_MTGP(use_saas=True)

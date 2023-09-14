@@ -37,6 +37,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -219,6 +220,30 @@ def get_branin_experiment(
             trial.mark_completed()
 
     return exp
+
+
+def get_branin_experiment_with_status_quo_trials(
+    num_sobol_trials: int = 5,
+    multi_objective: bool = False,
+) -> Tuple[Experiment, ObservationFeatures]:
+    if multi_objective:
+        exp = get_branin_experiment_with_multi_objective(
+            with_batch=True,
+            with_status_quo=True,
+        )
+    else:
+        exp = get_branin_experiment()
+    sobol = get_sobol(search_space=exp.search_space)
+    for _ in range(num_sobol_trials):
+        sobol_run = sobol.gen(n=1)
+        t = exp.new_batch_trial().add_generator_run(sobol_run)
+        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
+        t.run().mark_completed()
+    status_quo_features = ObservationFeatures(
+        parameters=exp.trials[0].status_quo.parameters,  # pyre-fixme [16]
+        trial_index=0,  # pyre-ignore [6] See T163830566
+    )
+    return exp, status_quo_features
 
 
 def get_robust_branin_experiment(
