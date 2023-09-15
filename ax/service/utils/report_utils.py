@@ -407,11 +407,7 @@ def get_standard_plots(
         try:
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
                 logger.debug("Starting global sensitivity analysis.")
-                # NOTE: num_mc_samples was reduced from 10**4 to limit memory
-                # consumption in conjunction with SAASBO. This number could be
-                # increased after future efficiency improvements to
-                # memory-intensive models.
-                sens = ax_parameter_sens(model, order="total", num_mc_samples=10**3)
+                sens = ax_parameter_sens(model, order="total")
                 importance_measure = (
                     '<a href="https://en.wikipedia.org/wiki/Variance-based_'
                     'sensitivity_analysis">Variance-based sensitivity analysis</a>'
