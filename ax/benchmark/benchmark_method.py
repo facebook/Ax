@@ -23,6 +23,7 @@ class BenchmarkMethod(Base):
     name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
+    distribute_replications: bool = False
 
 
 def get_sequential_optimization_scheduler_options(

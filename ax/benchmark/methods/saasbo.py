@@ -16,6 +16,7 @@ from ax.service.scheduler import SchedulerOptions
 
 def get_saasbo_default(
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = True,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+FULLYBAYESIAN::default",
@@ -34,11 +35,13 @@ def get_saasbo_default(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
 
 
 def get_saasbo_moo_default(
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = True,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+FULLYBAYESIANMOO::default",
@@ -57,4 +60,5 @@ def get_saasbo_moo_default(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
