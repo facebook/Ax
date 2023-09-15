@@ -370,6 +370,7 @@ def get_standard_plots(
     if model is not None and not isinstance(model, RandomModelBridge):
         try:
             if true_objective_metric_name is not None:
+                logger.debug("Starting objective vs. true objective scatter plot.")
                 output_plot_list.append(
                     _objective_vs_true_objective_scatter(
                         model=model,
@@ -377,21 +378,26 @@ def get_standard_plots(
                         true_objective_metric_name=true_objective_metric_name,
                     )
                 )
+                logger.debug("Finished with objective vs. true objective scatter plot.")
         except Exception as e:
             logger.exception(f"Scatter plot failed with error: {e}")
 
         try:
+            logger.debug("Starting objective vs. param plots.")
             output_plot_list.extend(
                 _get_objective_v_param_plots(
                     experiment=experiment,
                     model=model,
                 )
             )
+            logger.debug("Finished objective vs. param plots.")
         except Exception as e:
             logger.exception(f"Slice plot failed with error: {e}")
 
         try:
+            logger.debug("Starting cross validation plot.")
             output_plot_list.extend(_get_cross_validation_plots(model=model))
+            logger.debug("Finished cross validation plot.")
         except Exception as e:
             logger.exception(f"Cross-validation plot failed with error: {e}")
 
@@ -400,14 +406,21 @@ def get_standard_plots(
         importance_measure = ""
         try:
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
-                sens = ax_parameter_sens(model, order="total")
+                logger.debug("Starting global sensitivity analysis.")
+                # NOTE: num_mc_samples was reduced from 10**4 to limit memory
+                # consumption in conjunction with SAASBO. This number could be
+                # increased after future efficiency improvements to
+                # memory-intensive models.
+                sens = ax_parameter_sens(model, order="total", num_mc_samples=10**3)
                 importance_measure = (
                     '<a href="https://en.wikipedia.org/wiki/Variance-based_'
                     'sensitivity_analysis">Variance-based sensitivity analysis</a>'
                 )
+                logger.debug("Finished global sensitivity analysis.")
         except Exception as e:
             logger.info(f"Failed to compute global feature sensitivities: {e}")
         try:
+            logger.debug("Starting feature importance plot.")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
                 model=model,
                 # pyre-ignore [6]:
@@ -419,6 +432,7 @@ def get_standard_plots(
                 caption=FEATURE_IMPORTANCE_CAPTION if importance_measure == "" else "",
                 importance_measure=importance_measure,
             )
+            logger.debug("Finished feature importance plot.")
             feature_importance_plot.layout.title = "[ADVANCED] " + str(
                 # pyre-fixme[16]: go.Figure has no attribute `layout`
                 feature_importance_plot.layout.title.text
@@ -430,6 +444,7 @@ def get_standard_plots(
 
     # Get plots for MapMetrics
     try:
+        logger.debug("Starting MapMetric plots.")
         map_metrics = [
             m for m in experiment.metrics.values() if isinstance(m, MapMetric)
         ]
@@ -440,6 +455,7 @@ def get_standard_plots(
                 reverse=True,
             )
             for by_walltime in [False, True]:
+                logger.debug(f"Starting MapMetric plot {by_walltime=}.")
                 output_plot_list.append(
                     _get_curve_plot_dropdown(
                         experiment=experiment,
@@ -450,9 +466,11 @@ def get_standard_plots(
                         limit_points_per_plot=limit_points_per_plot,
                     )
                 )
+                logger.debug(f"Finished MapMetric plot {by_walltime=}.")
+        logger.debug("Finished MapMetric plots.")
     except Exception as e:
         logger.exception(f"Curve plot failed with error: {e}")
-
+    logger.debug("Returning plots.")
     return [plot for plot in output_plot_list if plot is not None]
 
 
