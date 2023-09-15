@@ -64,6 +64,11 @@ class GenerationNode:
     model_specs: List[ModelSpec]
     should_deduplicate: bool
     _model_spec_to_gen_from: Optional[ModelSpec] = None
+    # [TODO] Handle experiment passing more eloquently by enforcing experiment
+    # attribute is set in generation strategies class
+    _generation_strategy: Optional[
+        modelbridge.generation_strategy.GenerationStrategy
+    ] = None
 
     def __init__(
         self,
@@ -133,6 +138,18 @@ class GenerationNode:
     def diagnostics(self) -> Optional[CVDiagnostics]:
         """diagnostics from self.model_spec_to_gen_from for convenience"""
         return self.model_spec_to_gen_from.diagnostics
+
+    @property
+    def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
+        if self._generation_strategy is None:
+            raise ValueError(
+                "Generation strategy has not been initialized on this node."
+            )
+        return not_none(self._generation_strategy)
+
+    @property
+    def experiment(self) -> Experiment:
+        return self.generation_strategy.experiment
 
     def fit(
         self,
@@ -263,6 +280,52 @@ class GenerationNode:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(model_specs={self.model_specs})"
 
+    # ------------------------- Model selection logic helpers. -------------------------
+
+    def get_data_for_update(
+        self, passed_in_data: Optional[Data], newly_completed_trials: Set[int]
+    ) -> Optional[Data]:
+        """
+        Get the data that will be used to update the model. This is used if
+        `use_update=True` for this GenerationNode. Only the new data since the
+        last model update / gen call should be used for the update.
+
+        Args:
+            passed_in_data: An optional data object for fitting the model
+                for this GenerationNode. When omitted, data will be retrieved
+                using `experiment.lookup_data`.
+            newly_completed_trials: Indices of trials that have been completed or
+                updated with data since the last call to `GenerationStrategy.gen`.
+                Only the data for these trials are used when updating the model.
+
+        Returns:
+            Data: Data for updating the fitted model for this GenerationNode.
+        """
+        if len(newly_completed_trials) == 0:
+            logger.debug(
+                "There were no newly completed trials since last model update."
+            )
+            return None
+
+        if passed_in_data is None:
+            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
+            if new_data.df.empty:
+                logger.info(
+                    "No new data is attached to experiment; no need for model update."
+                )
+                return None
+            return new_data
+
+        elif passed_in_data.df.empty:
+            logger.info("Manually supplied data is empty; no need for model update.")
+            return None
+
+        return Data(
+            df=passed_in_data.df.loc[
+                passed_in_data.df.trial_index.isin(newly_completed_trials)
+            ]
+        )
+
 
 @dataclass
 class GenerationStep(GenerationNode, SortableBase):
@@ -362,11 +425,6 @@ class GenerationStep(GenerationNode, SortableBase):
 
     # Optional model name. Defaults to `model_spec.model_key`.
     model_name: str = field(default_factory=str)
-    # [TODO] Handle experiment passing more eloquently by enforcing experiment
-    # attribute is set in generation strategies class
-    _generation_strategy: Optional[
-        modelbridge.generation_strategy.GenerationStrategy
-    ] = None
 
     def __post_init__(self) -> None:
         if (
@@ -405,7 +463,8 @@ class GenerationStep(GenerationNode, SortableBase):
                 # Factory functions may not always have a model key defined.
                 self.model_name = f"Unknown {model_spec.__class__.__name__}"
         super().__init__(
-            model_specs=[model_spec], should_deduplicate=self.should_deduplicate
+            model_specs=[model_spec],
+            should_deduplicate=self.should_deduplicate,
         )
 
     @property
@@ -415,18 +474,6 @@ class GenerationStep(GenerationNode, SortableBase):
     @property
     def _unique_id(self) -> str:
         return str(self.index)
-
-    @property
-    def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
-        if self._generation_strategy is None:
-            raise ValueError(
-                "Generation strategy has not been initialized on this step."
-            )
-        return not_none(self._generation_strategy)
-
-    @property
-    def experiment(self) -> Experiment:
-        return self.generation_strategy.experiment
 
     def gen(
         self,
@@ -686,47 +733,3 @@ class GenerationStep(GenerationNode, SortableBase):
                 "attached to experiment for completed trials."
             )
         return data
-
-    def get_data_for_update(
-        self, passed_in_data: Optional[Data], newly_completed_trials: Set[int]
-    ) -> Optional[Data]:
-        """
-        Get the data that will be used to update the model. This is used if
-        `use_update=True` for this generation step. Only the new data since the
-        last model update / gen call should be used for the update.
-
-        Args:
-            passed_in_data: An optional data object for fitting the model
-                for this generation step. When omitted, data will be retrieved
-                using `experiment.lookup_data`.
-            newly_completed_trials: Indices of trials that have been completed or
-                updated with data since the last call to `GenerationStrategy.gen`.
-                Only the data for these trials are used when updating the model.
-
-        Returns:
-            Data: Data for updating the fitted model for this generation step.
-        """
-        if len(newly_completed_trials) == 0:
-            logger.debug(
-                "There were no newly completed trials since last model update."
-            )
-            return None
-
-        if passed_in_data is None:
-            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
-            if new_data.df.empty:
-                logger.info(
-                    "No new data is attached to experiment; no need for model update."
-                )
-                return None
-            return new_data
-
-        elif passed_in_data.df.empty:
-            logger.info("Manually supplied data is empty; no need for model update.")
-            return None
-
-        return Data(
-            df=passed_in_data.df.loc[
-                passed_in_data.df.trial_index.isin(newly_completed_trials)
-            ]
-        )
