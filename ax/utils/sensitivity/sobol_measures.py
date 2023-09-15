@@ -397,6 +397,7 @@ class SobolSensitivityGPMean(object):
         link_function: Callable[
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
+        mini_batch_size: int = 128,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -411,6 +412,8 @@ class SobolSensitivityGPMean(object):
             input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
+            mini_batch_size: The size of the mini-batches used while evaluating the
+                model posterior. Increasing this will increase the memory usage.
         """
         self.model = model
         self.dim: int = _get_input_dimensionality(model)
@@ -423,8 +426,14 @@ class SobolSensitivityGPMean(object):
 
         def input_function(x: Tensor) -> Tensor:
             with torch.no_grad():
-                p = checked_cast(GPyTorchPosterior, self.model.posterior(x))
-            return link_function(p.mean, p.variance)
+                means, variances = [], []
+                # Since we're only looking at mean & variance, we can freely
+                # use mini-batches.
+                for x_split in x.split(split_size=mini_batch_size):
+                    p = checked_cast(GPyTorchPosterior, self.model.posterior(x_split))
+                    means.append(p.mean)
+                    variances.append(p.variance)
+            return link_function(torch.cat(means), torch.cat(variances))
 
         self.sensitivity = SobolSensitivity(
             dim=self.dim,
@@ -520,6 +529,8 @@ class SobolSensitivityGPSampling(object):
             num_bootstrap_samples=self.num_bootstrap_samples,
             bootstrap_array=True,
         )
+        # TODO: Ideally, we would reduce the memory consumption here as well
+        # but this is a tricky since it uses joint posterior sampling.
         posterior = self.model.posterior(self.sensitivity.A_B_ABi)
         if self.gp_sample_qmc:
             sampler = SobolQMCNormalSampler(

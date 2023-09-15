@@ -109,7 +109,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 5]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 5]))
 
-    def testSobolGpMean(self) -> None:
+    def test_SobolGPMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_mean = SobolSensitivityGPMean(
             self.model, num_mc_samples=10, bounds=bounds, second_order=True
@@ -256,7 +256,7 @@ class SensitivityAnanlysisTest(TestCase):
                         for j, col in enumerate(ind_dict[row]):
                             self.assertAlmostEqual(ind_dict[row][col], ind_tnsr[i, j])
 
-    def testSobolGpSampling(self) -> None:
+    def test_SobolGPSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_sampling = SobolSensitivityGPSampling(
             self.model,
