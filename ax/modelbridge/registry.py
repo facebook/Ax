@@ -81,6 +81,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 logger: Logger = get_logger(__name__)
 
@@ -278,6 +279,19 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
+    "SAAS_MTGP": ModelSetup(
+        bridge_class=TorchModelBridge,
+        model_class=ModularBoTorchModel,
+        transforms=ST_MTGP_trans,
+        default_model_kwargs={
+            "surrogate_specs": {
+                "SAAS_MTGP_Surrogate": SurrogateSpec(
+                    botorch_model_class=SaasFullyBayesianMultiTaskGP
+                )
+            },
+        },
+        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
+    ),
     "FullyBayesian_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=FullyBayesianBotorchModel,
@@ -468,6 +482,7 @@ class Models(ModelRegistryBase):
     SAASBO = "SAASBO"
     FULLYBAYESIAN = "FullyBayesian"
     FULLYBAYESIANMOO = "FullyBayesianMOO"
+    SAAS_MTGP = "SAAS_MTGP"
     FULLYBAYESIAN_MTGP = "FullyBayesian_MTGP"
     FULLYBAYESIANMOO_MTGP = "FullyBayesianMOO_MTGP"
     THOMPSON = "Thompson"
