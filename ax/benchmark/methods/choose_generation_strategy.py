@@ -17,6 +17,7 @@ from ax.service.scheduler import SchedulerOptions
 def get_choose_generation_strategy_method(
     problem: BenchmarkProblemBase,
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = False,
 ) -> BenchmarkMethod:
     generation_strategy = choose_generation_strategy(
         search_space=problem.search_space,
@@ -29,4 +30,5 @@ def get_choose_generation_strategy_method(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )

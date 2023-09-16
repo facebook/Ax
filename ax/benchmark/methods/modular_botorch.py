@@ -111,17 +111,20 @@ def get_sobol_botorch_modular_fixed_noise_gp_qnehvi(
 
 def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei(
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = True,
 ) -> BenchmarkMethod:  # noqa
     return get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
         qNoisyExpectedImprovement,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
 
 
 def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
     botorch_acqf_class: Type[AcquisitionFunction],
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = True,
 ) -> BenchmarkMethod:  # noqa
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_"
@@ -147,11 +150,13 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
 
 
 def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = True,
 ) -> BenchmarkMethod:  # noqa
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedHypervolumeImprovement",  # noqa
@@ -179,11 +184,13 @@ def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
 
 
 def get_sobol_botorch_modular_default(
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = False,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="SOBOL+BOTORCH_MODULAR::default",
@@ -202,6 +209,7 @@ def get_sobol_botorch_modular_default(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
 
 
@@ -209,6 +217,7 @@ def get_sobol_botorch_modular_acquisition(
     acquisition_cls: Type[AcquisitionFunction],
     acquisition_options: Optional[Dict[str, Any]] = None,
     scheduler_options: Optional[SchedulerOptions] = None,
+    distribute_replications: bool = False,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name=f"SOBOL+BOTORCH_MODULAR::{acquisition_cls.__name__}",
@@ -235,4 +244,5 @@ def get_sobol_botorch_modular_acquisition(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
+        distribute_replications=distribute_replications,
     )
