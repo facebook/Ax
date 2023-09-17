@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-import warnings
 from math import sqrt
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -22,7 +21,7 @@ from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import not_none
-from ax.utils.stats.statstools import relativize
+from ax.utils.stats.statstools import relativize, unrelativize
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -73,7 +72,7 @@ class Relativize(Transform):
         that requires non-relativized opt config.
 
         Args:
-            opt_config: Optimization configuaration relative to status quo.
+            opt_config: Optimization configuration relative to status quo.
 
         Returns:
             Optimization configuration relative to status quo with relative flag
@@ -134,44 +133,81 @@ class Relativize(Transform):
         self,
         observations: List[Observation],
     ) -> List[Observation]:
-        if self.modelbridge.status_quo_data_by_trial is None:
-            raise ValueError("status quo data must be specified to use Relativize.")
-
-        sq_data_by_trial: Dict[int, ObservationData] = not_none(
-            self.modelbridge.status_quo_data_by_trial
+        return self._rel_op_on_observations(
+            observations=observations, rel_op=relativize
         )
 
-        def _get_relative_data_from_obs(obs: Observation) -> ObservationData:
-            idx = int(not_none(obs.features.trial_index))
+    def untransform_observations(
+        self, observations: List[Observation]
+    ) -> List[Observation]:
+        """Unrelativize the data"""
+        return self._rel_op_on_observations(
+            observations=observations, rel_op=unrelativize
+        )
+
+    def _rel_op_on_observations(
+        self,
+        observations: List[Observation],
+        rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
+    ) -> List[Observation]:
+
+        sq_data_by_trial: Dict[int, ObservationData] = not_none(
+            self.modelbridge.status_quo_data_by_trial, self.MISSING_STATUS_QUO_ERROR
+        )
+
+        missing_index = any(obs.features.trial_index is None for obs in observations)
+        default_trial_idx: Optional[int] = None
+        if missing_index:
+            if len(sq_data_by_trial) == 1:
+                default_trial_idx = next(iter(sq_data_by_trial))
+            else:
+                raise ValueError(
+                    "Observations contain missing trial index that can't be inferred."
+                )
+
+        def _get_relative_data_from_obs(
+            obs: Observation,
+            rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
+        ) -> ObservationData:
+            idx = (
+                int(obs.features.trial_index)
+                if obs.features.trial_index is not None
+                else default_trial_idx
+            )
             if idx not in sq_data_by_trial:
                 raise ValueError(self.MISSING_STATUS_QUO_ERROR)
             return self._get_relative_data(
-                data=obs.data, status_quo_data=sq_data_by_trial[idx]
+                data=obs.data,
+                status_quo_data=sq_data_by_trial[idx],
+                rel_op=rel_op,
             )
 
         return [
             Observation(
                 features=obs.features,
-                data=_get_relative_data_from_obs(obs),
+                data=_get_relative_data_from_obs(obs, rel_op),
                 arm_name=obs.arm_name,
             )
             for obs in observations
         ]
 
-    def _untransform_observation_data(
-        self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
-        warnings.warn(
-            "`Relativize._untransform_observation_data()` not yet implemented. "
-            "Returning relative data."
-        )
-        return observation_data
-
     @staticmethod
     def _get_relative_data(
-        data: ObservationData, status_quo_data: ObservationData
+        data: ObservationData,
+        status_quo_data: ObservationData,
+        rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
+        r"""
+        Relativize or unrelativize `data` based on `status_quo_data` based on `rel_op`
+
+        Args:
+            data: ObservationData object to relativize
+            status_quo_data: The status quo data (un)relativization is based upon
+            rel_op: relativize or unrelativize operator.
+
+        Returns:
+            (un)relativized ObservationData
+        """
         L = len(data.metric_names)
         result = ObservationData(
             metric_names=data.metric_names,
@@ -199,7 +235,7 @@ class Relativize(Transform):
             if means_t == mean_c and sems_t == sem_c:
                 means_rel, sems_rel = 0, 0
             else:
-                means_rel, sems_rel = relativize(
+                means_rel, sems_rel = rel_op(
                     means_t=means_t,
                     sems_t=sems_t,
                     mean_c=mean_c,

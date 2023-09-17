@@ -4,7 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from unittest.mock import Mock
+from typing import List
+from unittest.mock import Mock, patch, PropertyMock
 
 import numpy as np
 from ax.core import BatchTrial
@@ -20,6 +21,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.relativize import Relativize
 from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
@@ -144,13 +146,65 @@ class RelativizeDataTest(TestCase):
         observations[0].features.trial_index = int64(999)
         self.assertRaises(ValueError, tf.transform_observations, observations)
 
+        # When observation has missing trial_index and
+        # modelbridge.status_quo_data_by_trial has more than one trial, raise exception
+        observations[0].features.trial_index = None
+        with patch.object(
+            type(modelbridge), "status_quo_data_by_trial", new_callable=PropertyMock
+        ) as mock_sq_dict:
+            # Making modelbridge.status_quo_data_by_trial contains 2 trials
+            mock_sq_dict.return_value = {0: Mock(), 1: Mock()}
+            with self.assertRaisesRegex(
+                ValueError,
+                "Observations contain missing trial index that can't be inferred.",
+            ):
+                tf.transform_observations(observations)
+
     def test_relativize_transform_observations(self) -> None:
+        def _check_transform_observations(
+            tf: Transform, observations: List[Observation]
+        ) -> None:
+            results = tf.transform_observations(observations)
+            self.assertEqual(results[0].data.metric_names, metric_names)
+            # status quo means must always be zero
+            self.assertTrue(
+                np.allclose(results[0].data.means, np.array([0.0, 0.0])),
+                results[0].data.means,
+            )
+            # status quo covariances must always be zero
+            self.assertTrue(
+                np.allclose(
+                    results[0].data.covariance, np.array([[0.0, 0.0], [0.0, 0.0]])
+                ),
+                results[0].data.covariance,
+            )
+            self.assertEqual(results[1].data.metric_names, metric_names)
+            self.assertTrue(
+                np.allclose(results[1].data.means, np.array([-51.25, 98.4])),
+                results[1].data.means,
+            )
+            self.assertTrue(
+                np.allclose(
+                    results[1].data.covariance, np.array([[812.5, 0.0], [0.0, 480.0]])
+                ),
+                results[1].data.covariance,
+            )
+
+            # Check untransform
+            untsfm_results = tf.untransform_observations(results)
+            for i, untsfm_obs in enumerate(untsfm_results):
+                obs = observations[i]
+                self.assertTrue(np.allclose(untsfm_obs.data.means, obs.data.means))
+                self.assertTrue(
+                    np.allclose(untsfm_obs.data.covariance, obs.data.covariance)
+                )
+
         metric_names = ["foobar", "foobaz"]
         arm_names = ["status_quo", "0_0"]
         obs_data = [
             ObservationData(
                 metric_names=metric_names,
-                means=np.array([2, 5]),
+                means=np.array([2.0, 5.0]),
                 covariance=np.array([[0.1, 0.0], [0.0, 0.2]]),
             ),
             ObservationData(
@@ -177,31 +231,15 @@ class RelativizeDataTest(TestCase):
             observations=observations,
             modelbridge=modelbridge,
         )
-        results = tf.transform_observations(observations)
-        self.assertEqual(results[0].data.metric_names, metric_names)
-        # status quo means must always be zero
-        self.assertTrue(
-            np.allclose(results[0].data.means, np.array([0.0, 0.0])),
-            results[0].data.means,
-        )
-        # status quo covariances must always be zero
-        self.assertTrue(
-            np.allclose(results[0].data.covariance, np.array([[0.0, 0.0], [0.0, 0.0]])),
-            results[0].data.covariance,
-        )
-        self.assertEqual(results[1].data.metric_names, metric_names)
-        self.assertTrue(
-            np.allclose(results[1].data.means, np.array([-51.25, 98.4])),
-            results[1].data.means,
-        )
-        self.assertTrue(
-            np.allclose(
-                results[1].data.covariance, np.array([[812.5, 0.0], [0.0, 480.0]])
-            ),
-            results[1].data.covariance,
-        )
-        obsd_t = tf._untransform_observation_data(obs_data)
-        self.assertEqual(obsd_t, obs_data)
+
+        # check transform and untransform on observations
+        _check_transform_observations(tf=tf, observations=observations)
+
+        # transform should still work when trial_index is None and
+        # there is only one sq in modelbridge
+        for obs in observations:
+            obs.features.trial_index = None
+        _check_transform_observations(tf=tf, observations=observations)
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument
     #  `hypothesis.strategies.floats($parameter$min_value = - 10.000000,
