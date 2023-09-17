@@ -814,7 +814,6 @@ class ModelBridge(ABC):
             pending_observations=pending_observations,
             fixed_features=fixed_features,
         )
-
         # Apply terminal transform and gen
         gen_results = self._gen(
             n=n,
@@ -827,6 +826,7 @@ class ModelBridge(ABC):
 
         observation_features = gen_results.observation_features
         best_obsf = gen_results.best_observation_features
+
         # Apply reverse transforms
         for t in reversed(list(self.transforms.values())):
             observation_features = t.untransform_observation_features(
