@@ -38,11 +38,13 @@ from ax.utils.testing.core_stubs import (
     get_hierarchical_search_space_experiment,
 )
 
+TEST_PARAMETERIZATON_LIST = ["5", "foo", "True", "5"]
+
 
 class TestModelbridgeUtils(TestCase):
     def setUp(self) -> None:
         self.experiment = get_experiment()
-        self.arm = Arm({"x": 1, "y": "foo", "z": True, "w": 4})
+        self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
         self.experiment_2 = get_experiment()
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
@@ -460,7 +462,7 @@ class TestModelbridgeUtils(TestCase):
                     param_names=["x", "y", "z", "w"],
                 )
             ],
-            [[["1", "foo", "True", "4"]], [["1", "foo", "True", "4"]]],
+            [[TEST_PARAMETERIZATON_LIST], [TEST_PARAMETERIZATON_LIST]],
         )
         self.experiment.attach_data(
             Data.from_evaluations(
@@ -491,7 +493,7 @@ class TestModelbridgeUtils(TestCase):
                     param_names=["x", "y", "z", "w"],
                 )
             ],
-            [[], [["1", "foo", "True", "4"]]],
+            [[], [TEST_PARAMETERIZATON_LIST]],
         )
 
     def test_extract_outcome_constraints(self) -> None:
