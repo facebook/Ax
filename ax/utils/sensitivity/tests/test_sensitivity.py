@@ -16,7 +16,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import GpDGSMGpMean, GpDGSMGpSampling
 from ax.utils.sensitivity.sobol_measures import (
-    _get_input_dimensionality,
     _get_model_per_metric,
     ax_parameter_sens,
     compute_sobol_indices_from_model_list,
@@ -228,9 +227,6 @@ class SensitivityAnanlysisTest(TestCase):
                 # since only ModelList is supported for BotorchModel:
                 gpytorch_model = ModelListGP(cast(GPyTorchModel, torch_model.model))
                 torch_model.model = gpytorch_model
-
-                input_dim = _get_input_dimensionality(gpytorch_model)
-                self.assertEqual(input_dim, 2)
 
             for order in ["first", "total"]:
                 with self.subTest(order=order):
