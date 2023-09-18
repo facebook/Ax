@@ -735,8 +735,10 @@ def get_pending_observation_features(
     return pending_features if any(x for x in pending_features.values()) else None
 
 
+# TODO: allow user to pass search space which overrides that on the experiment.
 def get_pending_observation_features_based_on_trial_status(
     experiment: Experiment,
+    include_out_of_design_points: bool = False,
 ) -> Optional[Dict[str, List[ObservationFeatures]]]:
     """A faster analogue of ``get_pending_observation_features`` that makes
     assumptions about trials in experiment in order to speed up extraction
@@ -772,15 +774,19 @@ def get_pending_observation_features_based_on_trial_status(
     for status in [TrialStatus.STAGED, TrialStatus.RUNNING, TrialStatus.ABANDONED]:
         for trial in experiment.trials_by_status[status]:
             for metric_name in experiment.metrics:
-                pending_features[metric_name].extend(
-                    ObservationFeatures.from_arm(
-                        arm=arm,
-                        trial_index=np.int64(trial.index),
-                        metadata=trial._get_candidate_metadata(arm_name=arm.name),
+                for arm in trial.arms:
+                    if (
+                        not include_out_of_design_points
+                        and not experiment.search_space.check_membership(arm.parameters)
+                    ):
+                        continue
+                    pending_features[metric_name].append(
+                        ObservationFeatures.from_arm(
+                            arm=arm,
+                            trial_index=np.int64(trial.index),
+                            metadata=trial._get_candidate_metadata(arm_name=arm.name),
+                        )
                     )
-                    for arm in trial.arms
-                )
-
     return dict(pending_features) if any(x for x in pending_features.values()) else None
 
 
