@@ -26,7 +26,6 @@ from torch import Tensor
 class SobolSensitivity(object):
     def __init__(
         self,
-        dim: int,
         bounds: torch.Tensor,
         input_function: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         num_mc_samples: int = 10**4,
@@ -39,7 +38,6 @@ class SobolSensitivity(object):
         first order indices, total indices and second order indices (if specified ).
 
         Args:
-            dim: The dimension of the function.
             bounds: Parameter bounds over which to evaluate model sensitivity.
             input_function: The objective function.
             num_mc_samples: The number of montecarlo grid samples
@@ -52,13 +50,11 @@ class SobolSensitivity(object):
                 are returned instead of their mean and Var.
         """
         self.input_function = input_function
-        self.dim = dim
+        self.dim: int = bounds.shape[-1]
         self.num_mc_samples = num_mc_samples
         self.second_order = second_order
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.bootstrap = num_bootstrap_samples > 1
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.num_bootstrap_samples = (
+        self.bootstrap: bool = num_bootstrap_samples > 1
+        self.num_bootstrap_samples: int = (
             num_bootstrap_samples - 1
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
@@ -70,8 +66,8 @@ class SobolSensitivity(object):
             # pyre-ignore
             self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
         else:
-            self.A = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
-            self.B = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
+            self.A = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
+            self.B = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
         # pyre-fixme[4]: Attribute must be annotated.
         self.A_B_ABi = self.generate_all_input_matrix().to(torch.double)
 
@@ -179,7 +175,7 @@ class SobolSensitivity(object):
                     for indices in self.bootstrap_indices
                 ]
 
-    def first_order_indices(self) -> torch.Tensor:
+    def first_order_indices(self) -> Tensor:
         r"""Computes the first order Sobol indices:
 
         Returns:
@@ -236,8 +232,7 @@ class SobolSensitivity(object):
                     .detach()
                 )
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def total_order_indices(self):
+    def total_order_indices(self) -> Tensor:
         r"""Computes the total Sobol indices:
 
         Returns:
@@ -296,12 +291,11 @@ class SobolSensitivity(object):
                     .detach()
                 )
 
-    # pyre-fixme[3]: Return type must be annotated.
     def second_order_indices(
         self,
         first_order_idxs: Optional[torch.Tensor] = None,
         first_order_idxs_btsp: Optional[torch.Tensor] = None,
-    ):
+    ) -> Tensor:
         r"""Computes the Second order Sobol indices:
         Args:
             first_order_idxs: Tensor of first order indices.
@@ -404,7 +398,7 @@ class SobolSensitivityGPMean(object):
 
         Args:
             model: Botorch model
-            bounds: Parameter bounds over which to evaluate model sensitivity.
+            bounds: `2 x d` parameter bounds over which to evaluate model sensitivity.
             method: if "predictive mean", the predictive mean is used for indices
                 computation. If "GP samples", posterior sampling is used instead.
             num_mc_samples: The number of montecarlo grid samples
@@ -416,7 +410,6 @@ class SobolSensitivityGPMean(object):
                 model posterior. Increasing this will increase the memory usage.
         """
         self.model = model
-        self.dim: int = _get_input_dimensionality(model)
         self.second_order = second_order
         self.input_qmc = input_qmc
         # pyre-fixme[4]: Attribute must be annotated.
@@ -436,10 +429,9 @@ class SobolSensitivityGPMean(object):
             return link_function(torch.cat(means), torch.cat(variances))
 
         self.sensitivity = SobolSensitivity(
-            dim=self.dim,
+            bounds=bounds,
             num_mc_samples=self.num_mc_samples,
             input_function=input_function,
-            bounds=bounds,
             second_order=self.second_order,
             input_qmc=self.input_qmc,
             num_bootstrap_samples=self.num_bootstrap_samples,
@@ -457,8 +449,7 @@ class SobolSensitivityGPMean(object):
         """
         return self.sensitivity.first_order_indices()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def total_order_indices(self):
+    def total_order_indices(self) -> Tensor:
         r"""Computes the total Sobol indices:
 
         Returns:
@@ -469,8 +460,7 @@ class SobolSensitivityGPMean(object):
         """
         return self.sensitivity.total_order_indices()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def second_order_indices(self):
+    def second_order_indices(self) -> Tensor:
         r"""Computes the Second order Sobol indices:
 
         Returns:
@@ -499,7 +489,7 @@ class SobolSensitivityGPSampling(object):
 
         Args:
             model: Botorch model.
-            bounds: Parameter bounds over which to evaluate model sensitivity.
+            bounds: `2 x d` parameter bounds over which to evaluate model sensitivity.
             num_gp_samples: If method is "GP samples", the number of GP samples
                 has to be set.
             num_mc_samples: The number of montecarlo grid samples
@@ -511,7 +501,6 @@ class SobolSensitivityGPSampling(object):
                 to be specified.
         """
         self.model = model
-        self.dim: int = _get_input_dimensionality(model)
         self.second_order = second_order
         self.input_qmc = input_qmc
         self.gp_sample_qmc = gp_sample_qmc
@@ -521,9 +510,8 @@ class SobolSensitivityGPSampling(object):
         self.num_mc_samples = num_mc_samples
         self.num_gp_samples = num_gp_samples
         self.sensitivity = SobolSensitivity(
-            dim=self.dim,
-            num_mc_samples=self.num_mc_samples,
             bounds=bounds,
+            num_mc_samples=self.num_mc_samples,
             second_order=self.second_order,
             input_qmc=self.input_qmc,
             num_bootstrap_samples=self.num_bootstrap_samples,
@@ -541,6 +529,11 @@ class SobolSensitivityGPSampling(object):
         else:
             with torch.no_grad():
                 self.samples = posterior.rsample(torch.Size([self.num_gp_samples]))
+
+    @property
+    def dim(self) -> int:
+        """Returns the input dimensionality of `self.model`."""
+        return self.sensitivity.dim
 
     def first_order_indices(self) -> Tensor:
         r"""Computes the first order Sobol indices:
@@ -855,17 +848,3 @@ def _array_with_string_indices_to_dict(
         A dictionary dict that satisfies dict[rows[i]][cols[j]] = A[i, j].
     """
     return {r: dict(zip(cols, a)) for r, a in zip(rows, A)}
-
-
-def _get_input_dimensionality(model: Model) -> int:
-    """Returns the input dimensionality of a Model based on the model's `train_inputs`.
-
-    Args:
-        model: A BoTorch.model.Model object whose input dimensionality to determine.
-
-    Returns:
-        An integer equal to the input dimensionality of the model.
-    """
-    while isinstance(model, ModelList):
-        model = model.models[0]
-    return model.train_inputs[0].shape[-1]
