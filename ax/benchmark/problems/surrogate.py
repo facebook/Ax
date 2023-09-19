@@ -95,6 +95,20 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
             self.set_runner()
         return not_none(self._runner)
 
+    def __repr__(self) -> str:
+        """
+        Return a string representation that includes only the attributes that
+        print nicely and contain information likely to be useful.
+        """
+        return (
+            f"{self.__class__.__name__}("
+            f"name={self.name}, "
+            f"optimization_config={self.optimization_config}, "
+            f"num_trials={self.num_trials}, "
+            f"infer_noise={self.infer_noise}, "
+            f"tracking_metrics={self.tracking_metrics})"
+        )
+
 
 class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     """
