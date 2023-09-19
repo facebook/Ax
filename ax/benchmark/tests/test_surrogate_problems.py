@@ -16,6 +16,17 @@ class TestSurrogateProblems(TestCase):
 
         # test instantiation from init
         sbp = get_soo_surrogate()
+        # test __repr__ method
+
+        expected_repr = (
+            "SOOSurrogateBenchmarkProblem(name=test, "
+            "optimization_config=OptimizationConfig(objective=Objective(metric_name="
+            '"branin", '
+            "minimize=False), "
+            "outcome_constraints=[]), num_trials=6, infer_noise=False, "
+            "tracking_metrics=[])"
+        )
+        self.assertEqual(repr(sbp), expected_repr)
 
         self.assertIsNone(sbp._runner)
         # sets runner

@@ -48,6 +48,17 @@ class TestBenchmarkProblem(TestCase):
 
         # Test optimum
         self.assertEqual(ackley_problem.optimal_value, test_problem._optimal_value)
+        # test repr method
+        expected_repr = (
+            "SingleObjectiveBenchmarkProblem(name=Ackley, "
+            "optimization_config=OptimizationConfig(objective=Objective(metric_name="
+            '"Ackley", '
+            "minimize=True), outcome_constraints=[]), "
+            "num_trials=1, "
+            "infer_noise=True, "
+            "tracking_metrics=[])"
+        )
+        self.assertEqual(repr(ackley_problem), expected_repr)
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
