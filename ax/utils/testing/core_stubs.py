@@ -105,6 +105,7 @@ from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
+from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import Interval
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -2104,6 +2105,44 @@ def get_parameter_distribution() -> ParameterDistribution:
 
 def get_pathlib_path() -> Path:
     return Path("some/meaningless/path")
+
+
+def get_dataset(
+    num_samples: int = 2,
+    d: int = 2,
+    m: int = 2,
+    has_observation_noise: bool = False,
+    feature_names: Optional[List[str]] = None,
+    outcome_names: Optional[List[str]] = None,
+    tkwargs: Optional[Dict[str, Any]] = None,
+    seed: Optional[int] = None,
+) -> SupervisedDataset:
+    """Constructs a SupervisedDataset based on the given arguments.
+
+    Args:
+        num_samples: The number of samples in the dataset.
+        d: The dimension of the features.
+        m: The number of outcomes.
+        has_observation_noise: If True, includes Yvar in the dataset.
+        feature_names: A list of feature names. Defaults to x0, x1...
+        outcome_names: A list of outcome names. Defaults to y0, y1...
+        tkwargs: Optional dictionary of tensor kwargs, such as dtype and device.
+        seed: An optional seed used to generate the data.
+    """
+    if seed is not None:
+        torch.manual_seed(seed)
+    feature_names = feature_names or [f"x{i}" for i in range(d)]
+    outcome_names = outcome_names or [f"y{i}" for i in range(m)]
+    tkwargs = tkwargs or {}
+    return SupervisedDataset(
+        X=torch.rand(num_samples, d, **tkwargs),
+        Y=torch.rand(num_samples, m, **tkwargs),
+        Yvar=torch.rand(num_samples, m, **tkwargs) * 0.01
+        if has_observation_noise
+        else None,
+        feature_names=feature_names,
+        outcome_names=outcome_names,
+    )
 
 
 ##############################

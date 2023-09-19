@@ -74,7 +74,15 @@ class FrontierEvaluatorTest(TestCase):
         self.model = MultiObjectiveBotorchModel(model_predictor=dummy_predict)
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             self.model.fit(
-                datasets=[SupervisedDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)],
+                datasets=[
+                    SupervisedDataset(
+                        X=self.X,
+                        Y=self.Y,
+                        Yvar=self.Yvar,
+                        feature_names=["x1", "x2"],
+                        outcome_names=["a", "b", "c"],
+                    )
+                ],
                 metric_names=["a", "b", "c"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x1", "x2"],

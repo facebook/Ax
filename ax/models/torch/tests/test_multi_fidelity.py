@@ -34,17 +34,26 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         self.Y = torch.tensor([[3.0], [4.0]])
         self.Yvar = torch.tensor([[0.0], [2.0]])
-        self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
+        self.feature_names = ["a", "b", "c"]
+        self.metric_names = ["metric"]
+        self.training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y,
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+        ]
         self.fidelity_features = [2]
         self.search_space_digest = SearchSpaceDigest(
-            feature_names=["a", "b", "c"],
+            feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
             fidelity_features=self.fidelity_features,
         )
         self.surrogate.construct(
             datasets=self.training_data,
-            metric_names=["metric"],
+            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}

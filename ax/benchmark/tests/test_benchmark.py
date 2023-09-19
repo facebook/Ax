@@ -6,7 +6,6 @@
 import tempfile
 
 import numpy as np
-import torch
 from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
@@ -40,11 +39,10 @@ from ax.utils.testing.benchmark_stubs import (
     get_sobol_benchmark_method,
     get_soo_surrogate,
 )
-from ax.utils.testing.core_stubs import get_experiment
+from ax.utils.testing.core_stubs import get_dataset, get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from botorch.test_functions.synthetic import Branin
-from botorch.utils.datasets import SupervisedDataset
 
 
 class TestBenchmark(TestCase):
@@ -122,9 +120,7 @@ class TestBenchmark(TestCase):
 
             with self.subTest(name, problem=problem):
                 surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
-                datasets = [
-                    SupervisedDataset(X=torch.zeros((2, 2)), Y=torch.zeros((2, 2)))
-                ]
+                datasets = [get_dataset()]
                 surrogate.fit(
                     datasets,
                     metric_names=[],

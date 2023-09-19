@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any, Dict
+
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch import BotorchModel
@@ -18,12 +20,10 @@ from botorch.utils.datasets import SupervisedDataset
 # TODO (jej): Streamline testing for a simple acquisition function.
 class PosteriorMeanTest(TestCase):
     def setUp(self) -> None:
-        self.tkwargs = {"device": torch.device("cpu"), "dtype": torch.double}
-        # pyre-fixme[6]: For 2nd param expected `Optional[dtype]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `Union[None, str, device]` but got
-        #  `Union[device, dtype]`.
-        # pyre-fixme[6]: For 2nd param expected `bool` but got `Union[device, dtype]`.
+        self.tkwargs: Dict[str, Any] = {
+            "device": torch.device("cpu"),
+            "dtype": torch.double,
+        }
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **self.tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
@@ -43,7 +43,13 @@ class PosteriorMeanTest(TestCase):
     def test_GetPosteriorMean(self) -> None:
 
         model = BotorchModel(acqf_constructor=get_PosteriorMean)
-        dataset = SupervisedDataset(X=self.X, Y=self.Y, Yvar=self.Yvar)
+        dataset = SupervisedDataset(
+            X=self.X,
+            Y=self.Y,
+            Yvar=self.Yvar,
+            feature_names=self.feature_names,
+            outcome_names=["y"],
+        )
         model.fit(
             datasets=[dataset],
             metric_names=["y"],

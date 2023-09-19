@@ -34,7 +34,12 @@ class InputTransformArgparseTest(TestCase):
     def setUp(self) -> None:
         X = torch.randn((10, 4))
         Y = torch.randn((10, 2))
-        self.dataset = SupervisedDataset(X=X, Y=Y)
+        self.dataset = SupervisedDataset(
+            X=X,
+            Y=Y,
+            feature_names=[f"x{i}" for i in range(4)],
+            outcome_names=[f"y{i}" for i in range(2)],
+        )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 1.0), (0, 2), (0, 4)],

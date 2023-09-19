@@ -30,16 +30,18 @@ class MaxValueEntropySearchTest(TestCase):
             "device": torch.device("cpu"),
             "dtype": torch.double,
         }
+        self.feature_names = ["x1", "x2", "x3"]
+        self.metric_names = ["y"]
         self.training_data = [
             SupervisedDataset(
                 X=torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs),
                 Y=torch.tensor([[3.0], [4.0]], **self.tkwargs),
                 Yvar=torch.tensor([[0.0], [2.0]], **self.tkwargs),
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
             )
         ]
         self.bounds = [(0.0, 1.0), (1.0, 4.0), (2.0, 5.0)]
-        self.feature_names = ["x1", "x2", "x3"]
-        self.metric_names = ["y"]
         self.acq_options = {"num_fantasies": 30, "candidate_size": 100}
         self.objective_weights = torch.tensor([1.0], **self.tkwargs)
         self.optimize_acqf = "ax.models.torch.botorch_mes.optimize_acqf"

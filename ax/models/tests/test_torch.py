@@ -14,7 +14,11 @@ from botorch.utils.datasets import SupervisedDataset
 class TorchModelTest(TestCase):
     def setUp(self) -> None:
         self.dataset = SupervisedDataset(
-            X=torch.zeros(1), Y=torch.zeros(1), Yvar=torch.ones(1)
+            X=torch.zeros(1, 1),
+            Y=torch.zeros(1, 1),
+            Yvar=torch.ones(1, 1),
+            feature_names=["x1"],
+            outcome_names=["y"],
         )
         self.search_space_digest = SearchSpaceDigest(
             feature_names=[],

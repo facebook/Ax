@@ -25,7 +25,15 @@ class SACBOTest(TestCase):
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]])
         train_Yvar = 0.1 * torch.ones(3, 1)
-        dataset = SupervisedDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
+        feature_names = ["0", "1", "2", "3"]
+        metric_names = ["y"]
+        dataset = SupervisedDataset(
+            X=train_X,
+            Y=train_Y,
+            Yvar=train_Yvar,
+            feature_names=feature_names,
+            outcome_names=metric_names,
+        )
 
         # test setting attributes
         decomposition = {"1": ["0", "1"], "2": ["2", "3"]}
@@ -35,9 +43,9 @@ class SACBOTest(TestCase):
         # test fit
         m1.fit(
             datasets=[dataset],
-            metric_names=["y"],
+            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
-                feature_names=["0", "1", "2", "3"],
+                feature_names=feature_names,
                 bounds=[(0.0, 1.0) for _ in range(4)],
             ),
         )
@@ -50,7 +58,7 @@ class SACBOTest(TestCase):
             Yvars=[train_Yvar],
             task_features=[],
             fidelity_features=[],
-            metric_names=["y"],
+            metric_names=metric_names,
         )
         self.assertIsInstance(gp, SACGP)
 
@@ -73,7 +81,7 @@ class SACBOTest(TestCase):
         m2 = SACBO(decomposition={"1": ["x1", "x3"], "2": ["x2", "x4"]})
         m2.fit(
             datasets=[dataset],
-            metric_names=["y"],
+            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2", "x3", "x4"],
                 bounds=[(0.0, 1.0) for _ in range(4)],
@@ -88,7 +96,7 @@ class SACBOTest(TestCase):
         with self.assertRaises(ValueError):
             m2.fit(
                 datasets=[dataset],
-                metric_names=["y"],
+                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[(0.0, 1.0) for _ in range(4)],
@@ -99,7 +107,7 @@ class SACBOTest(TestCase):
         with self.assertRaises(AssertionError):
             m2.fit(
                 datasets=[dataset],
-                metric_names=["y"],
+                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x0", "x1", "x2", "x3"],
                     bounds=[(0.0, 1.0) for _ in range(4)],

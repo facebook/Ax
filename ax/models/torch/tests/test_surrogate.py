@@ -70,11 +70,24 @@ class SurrogateTest(TestCase):
         self.device = torch.device("cpu")
         self.dtype = torch.float
         self.tkwargs = {"device": self.device, "dtype": self.dtype}
-        self.Xs, self.Ys, self.Yvars, self.bounds, _, _, _ = get_torch_test_data(
-            dtype=self.dtype
-        )
+        (
+            self.Xs,
+            self.Ys,
+            self.Yvars,
+            self.bounds,
+            _,
+            self.feature_names,
+            _,
+        ) = get_torch_test_data(dtype=self.dtype)
         self.metric_names = ["metric"]
-        self.training_data = [SupervisedDataset(X=self.Xs[0], Y=self.Ys[0])]
+        self.training_data = [
+            SupervisedDataset(
+                X=self.Xs[0],
+                Y=self.Ys[0],
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+        ]
         self.mll_class = ExactMarginalLogLikelihood
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2"],
@@ -148,8 +161,18 @@ class SurrogateTest(TestCase):
     @fast_botorch_optimize
     def test_copy_options(self) -> None:
         training_data = [
-            SupervisedDataset(X=self.Xs[0], Y=self.Ys[0]),
-            SupervisedDataset(X=2 * self.Xs[0], Y=2 * self.Ys[0]),
+            SupervisedDataset(
+                X=self.Xs[0],
+                Y=self.Ys[0],
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            ),
+            SupervisedDataset(
+                X=2 * self.Xs[0],
+                Y=2 * self.Ys[0],
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            ),
         ]
         d = self.Xs[0].shape[-1]
         surrogate = Surrogate(
@@ -799,21 +822,41 @@ class SurrogateWithModelListTest(TestCase):
         # Change the inputs/outputs a bit so the data isn't identical
         Xs1[0] *= 2
         Ys1[0] += 1
-        Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
+        (
+            Xs2,
+            Ys2,
+            Yvars2,
+            _,
+            _,
+            self.feature_names,
+            self.metric_names,
+        ) = get_torch_test_data(
             dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
                 datasets=[
-                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                    for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
+                    SupervisedDataset(
+                        X=X,
+                        Y=Y,
+                        Yvar=Yvar,
+                        feature_names=self.feature_names,
+                        outcome_names=[mn],
+                    )
+                    for X, Y, Yvar, mn in zip(Xs1, Ys1, Yvars1, self.metric_names)
                 ],
                 search_space_digest=self.search_space_digest,
             ),
             self.outcomes[1]: choose_model_class(
                 datasets=[
-                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                    for X, Y, Yvar in zip(Xs2, Ys2, Yvars2)
+                    SupervisedDataset(
+                        X=X,
+                        Y=Y,
+                        Yvar=Yvar,
+                        feature_names=self.feature_names,
+                        outcome_names=[mn],
+                    )
+                    for X, Y, Yvar, mn in zip(Xs2, Ys2, Yvars2, self.metric_names)
                 ],
                 search_space_digest=self.search_space_digest,
             ),
@@ -824,12 +867,25 @@ class SurrogateWithModelListTest(TestCase):
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
+        double_metric_names = checked_cast(list, self.metric_names * 2)
         self.fixed_noise_training_data = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-            for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(self.Xs, self.Ys, self.Yvars, double_metric_names)
         ]
         self.supervised_training_data = [
-            SupervisedDataset(X=X, Y=Y) for X, Y in zip(self.Xs, self.Ys)
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(self.Xs, self.Ys, self.Yvars, double_metric_names)
         ]
         self.submodel_options_per_outcome = {
             RANK: 1,
@@ -879,7 +935,11 @@ class SurrogateWithModelListTest(TestCase):
                     "fidelity_features": [],
                     "task_feature": self.task_features[0],
                     "training_data": SupervisedDataset(
-                        X=self.Xs[idx], Y=self.Ys[idx], Yvar=self.Yvars[idx]
+                        X=self.Xs[idx],
+                        Y=self.Ys[idx],
+                        Yvar=self.Yvars[idx],
+                        feature_names=["x1", "x2", "x3"],
+                        outcome_names=self.metric_names,
                     ),
                     "rank": 1,
                     "output_tasks": [2],

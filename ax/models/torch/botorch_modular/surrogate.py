@@ -52,7 +52,7 @@ from botorch.models.transforms.input import (
     InputTransform,
 )
 from botorch.models.transforms.outcome import OutcomeTransform
-from botorch.utils.datasets import FixedNoiseDataset, RankingDataset, SupervisedDataset
+from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -319,16 +319,24 @@ class Surrogate(Base):
 
         # Temporary workaround to allow models to consume data from
         # `FixedNoiseDataset`s even if they don't accept variance observations
-        if "train_Yvar" not in botorch_model_class_args and isinstance(
-            dataset, FixedNoiseDataset
+        if (
+            "train_Yvar" not in botorch_model_class_args
+            and dataset.Yvar is not None
+            and not isinstance(dataset, RankingDataset)
         ):
             warnings.warn(
                 f"Provided model class {botorch_model_class} does not accept "
-                "`train_Yvar` argument, but received `FixedNoiseDataset`. Ignoring "
-                "variance observations and converting to `SupervisedDataset`.",
+                "`train_Yvar` argument, but received dataset with `Yvar`. Ignoring "
+                "variance observations.",
                 AxWarning,
             )
-            dataset = SupervisedDataset(X=dataset.X, Y=dataset.Y)
+            dataset = SupervisedDataset(
+                X=dataset.X,
+                Y=dataset.Y,
+                Yvar=None,
+                feature_names=dataset.feature_names,
+                outcome_names=dataset.outcome_names,
+            )
 
         self._training_data = [dataset]
 

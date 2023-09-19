@@ -81,25 +81,45 @@ class BoTorchModelTest(TestCase):
         self.device = torch.device("cpu")
         tkwargs = {"dtype": self.dtype, "device": self.device}
         self.tkwargs = tkwargs
-        Xs1, Ys1, Yvars1, self.bounds, _, _, _ = get_torch_test_data(dtype=self.dtype)
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            self.bounds,
+            _,
+            self.feature_names,
+            self.metric_names,
+        ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
         self.Xs = Xs1
         self.Ys = Ys1
         self.Yvars = Yvars1
         self.X_test = Xs2[0]
         self.block_design_training_data = [
-            SupervisedDataset(X=X, Y=Y) for X, Y in zip(Xs1, Ys1)
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+            for X, Y in zip(Xs1, Ys1)
         ]
         self.non_block_design_training_data = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
             for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
         ]
         self.search_space_digest = SearchSpaceDigest(
-            feature_names=["x1", "x2", "x3"],
+            feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
         )
         self.mf_search_space_digest = SearchSpaceDigest(
-            feature_names=["x1", "x2", "x3"],
+            feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             task_features=[],
             fidelity_features=[2],
@@ -127,11 +147,19 @@ class BoTorchModelTest(TestCase):
         self.fixed_features = None
         self.pending_observations = None
         self.rounding_func = "func"
-        self.moo_training_data = [  # block design
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-            for X, Y, Yvar in zip(Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3)
-        ]
         self.moo_metric_names = ["y1", "y2", "y3"]
+        self.moo_training_data = [  # block design
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(
+                Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3, self.moo_metric_names
+            )
+        ]
 
         self.torch_opt_config = TorchOptConfig(
             objective_weights=self.objective_weights,
@@ -233,7 +261,15 @@ class BoTorchModelTest(TestCase):
             UnsupportedError, "Cannot convert mixed data with and without variance"
         ):
             self.model.fit(
-                datasets=[ds1, SupervisedDataset(X=ds2.X, Y=ds2.Y)],
+                datasets=[
+                    ds1,
+                    SupervisedDataset(
+                        X=ds2.X,
+                        Y=ds2.Y,
+                        feature_names=ds2.feature_names,
+                        outcome_names=ds2.outcome_names,
+                    ),
+                ],
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )
@@ -244,7 +280,15 @@ class BoTorchModelTest(TestCase):
         X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
         with warnings.catch_warnings(record=True) as ws:
             self.model.fit(
-                datasets=[ds, SupervisedDataset(X=X2, Y=ds.Y)],
+                datasets=[
+                    ds,
+                    SupervisedDataset(
+                        X=X2,
+                        Y=ds.Y,
+                        feature_names=ds.feature_names,
+                        outcome_names=ds.outcome_names,
+                    ),
+                ],
                 metric_names=self.metric_names * 2,
                 search_space_digest=self.mf_search_space_digest,
             )

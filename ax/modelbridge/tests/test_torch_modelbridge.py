@@ -82,11 +82,15 @@ class TorchModelBridgeTest(TestCase):
                 X=X,
                 Y=torch.tensor([[3.0], [1.0]], **tkwargs),
                 Yvar=torch.tensor([[4.0], [2.0]], **tkwargs),
+                feature_names=feature_names,
+                outcome_names=["y1"],
             ),
             "y2": SupervisedDataset(
                 X=X,
                 Y=torch.tensor([[2.0], [0.0]], **tkwargs),
                 Yvar=torch.tensor([[2.0], [1.0]], **tkwargs),
+                feature_names=feature_names,
+                outcome_names=["y2"],
             ),
         }
         observation_features = [
