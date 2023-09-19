@@ -56,7 +56,7 @@ class BotorchModelTest(TestCase):
     def test_fixed_rank_BotorchModel(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
-        Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, _, feature_names, metric_names = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
@@ -64,8 +64,20 @@ class BotorchModelTest(TestCase):
         )
         model = BotorchModel(multitask_gp_ranks={"y": 2, "w": 1})
         datasets = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
         with self.assertRaisesRegex(RuntimeError, "Please fit the model first"):
             model.model
@@ -74,7 +86,7 @@ class BotorchModelTest(TestCase):
             model.search_space_digest
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=[0],
         )
@@ -100,7 +112,7 @@ class BotorchModelTest(TestCase):
     def test_fixed_prior_BotorchModel(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
-        Xs1, Ys1, Yvars1, bounds, _, fns, _ = get_torch_test_data(
+        Xs1, Ys1, Yvars1, bounds, _, feature_names, metric_names = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
@@ -119,8 +131,20 @@ class BotorchModelTest(TestCase):
         }
         model = BotorchModel(**kwargs)  # pyre-ignore [6]
         datasets = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
@@ -128,7 +152,7 @@ class BotorchModelTest(TestCase):
                 datasets=datasets,
                 metric_names=["y", "w"],
                 search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
+                    feature_names=feature_names,
                     bounds=bounds,
                     task_features=[0],
                 ),
@@ -173,9 +197,15 @@ class BotorchModelTest(TestCase):
     def test_BotorchModel(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
@@ -191,15 +221,27 @@ class BotorchModelTest(TestCase):
                 # make training data different for each output
                 Xs2_diff = [Xs2[0] + 0.1]
                 datasets = [
-                    SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                    SupervisedDataset(X=Xs2_diff[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                    SupervisedDataset(
+                        X=Xs1[0],
+                        Y=Ys1[0],
+                        Yvar=Yvars1[0],
+                        feature_names=feature_names,
+                        outcome_names=metric_names,
+                    ),
+                    SupervisedDataset(
+                        X=Xs2_diff[0],
+                        Y=Ys2[0],
+                        Yvar=Yvars2[0],
+                        feature_names=feature_names,
+                        outcome_names=metric_names,
+                    ),
                 ]
                 with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                     model.fit(
                         datasets=datasets,
-                        metric_names=mns,
+                        metric_names=metric_names,
                         search_space_digest=SearchSpaceDigest(
-                            feature_names=fns,
+                            feature_names=feature_names,
                             bounds=bounds,
                             task_features=tfs,
                         ),
@@ -243,15 +285,27 @@ class BotorchModelTest(TestCase):
 
             # Test batched multi-output FixedNoiseGP
             datasets_block = [
-                SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(
+                    X=Xs1[0],
+                    Y=Ys1[0],
+                    Yvar=Yvars1[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
+                SupervisedDataset(
+                    X=Xs2[0],
+                    Y=Ys2[0],
+                    Yvar=Yvars2[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
             ]
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
                     datasets=datasets_block,
                     metric_names=["y1", "y2"],
                     search_space_digest=SearchSpaceDigest(
-                        feature_names=fns,
+                        feature_names=feature_names,
                         bounds=bounds,
                         task_features=tfs,
                     ),
@@ -453,8 +507,20 @@ class BotorchModelTest(TestCase):
 
             # Test cross-validation
             combined_datasets = [
-                SupervisedDataset(Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(
+                    Xs1[0],
+                    Y=Ys1[0],
+                    Yvar=Yvars1[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
+                SupervisedDataset(
+                    Xs2[0],
+                    Y=Ys2[0],
+                    Yvar=Yvars2[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
             ]
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
@@ -477,7 +543,16 @@ class BotorchModelTest(TestCase):
             # Test update
             model.refit_on_update = False
             model.update(
-                datasets=[SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                datasets=[
+                    SupervisedDataset(
+                        Xs2[0],
+                        Y=Ys2[0],
+                        Yvar=Yvars2[0],
+                        feature_names=feature_names,
+                        outcome_names=metric_names,
+                    )
+                ]
+                * 2,
                 metric_names=["y1", "y2"],
             )
 
@@ -494,7 +569,16 @@ class BotorchModelTest(TestCase):
             model.refit_on_update = True
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.update(
-                    datasets=[SupervisedDataset(Xs2[0], Y=Ys2[0], Yvar=Yvars2[0])] * 2,
+                    datasets=[
+                        SupervisedDataset(
+                            Xs2[0],
+                            Y=Ys2[0],
+                            Yvar=Yvars2[0],
+                            feature_names=feature_names,
+                            outcome_names=metric_names,
+                        )
+                    ]
+                    * 2,
                     metric_names=["y1", "y2"],
                 )
 
@@ -546,7 +630,7 @@ class BotorchModelTest(TestCase):
                 Yvars=Yvars1,
                 task_features=[],
                 fidelity_features=[],
-                metric_names=[mns[0]],
+                metric_names=[metric_names[0]],
                 state_dict=true_state_dict,
                 refit_model=False,
             )
@@ -563,7 +647,7 @@ class BotorchModelTest(TestCase):
                 Yvars=Yvars1,
                 task_features=[],
                 fidelity_features=[],
-                metric_names=[mns[0]],
+                metric_names=[metric_names[0]],
                 state_dict=true_state_dict,
                 refit_model=True,
             )
@@ -580,9 +664,9 @@ class BotorchModelTest(TestCase):
             model.fit(
                 # pyre-fixme[61]: `datasets` is undefined, or not always defined.
                 datasets=datasets,
-                metric_names=mns,
+                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
-                    feature_names=fns,
+                    feature_names=feature_names,
                     bounds=bounds,
                     task_features=tfs,
                 ),
@@ -609,9 +693,15 @@ class BotorchModelTest(TestCase):
             self.test_BotorchModel(dtype=torch.double, cuda=True)
 
     def test_BotorchModelOneOutcome(self) -> None:
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True)
         for use_input_warping, use_loocv_pseudo_likelihood in product(
             (True, False), (True, False)
         ):
@@ -621,10 +711,18 @@ class BotorchModelTest(TestCase):
             )
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
-                    datasets=[SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0])],
-                    metric_names=mns[:1],
+                    datasets=[
+                        SupervisedDataset(
+                            X=Xs1[0],
+                            Y=Ys1[0],
+                            Yvar=Yvars1[0],
+                            feature_names=feature_names,
+                            outcome_names=metric_names,
+                        )
+                    ],
+                    metric_names=metric_names[:1],
                     search_space_digest=SearchSpaceDigest(
-                        feature_names=fns,
+                        feature_names=feature_names,
                         bounds=bounds,
                         task_features=tfs,
                     ),
@@ -649,9 +747,15 @@ class BotorchModelTest(TestCase):
                 self.assertFalse(hasattr(model.model, "input_transform"))
 
     def test_BotorchModelConstraints(self) -> None:
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
-            dtype=torch.float, cuda=False, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = get_torch_test_data(dtype=torch.float, cuda=False, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
@@ -663,17 +767,29 @@ class BotorchModelTest(TestCase):
         n = 3
         model = BotorchModel()
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=[
-                    SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                    SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                    SupervisedDataset(
+                        X=Xs1[0],
+                        Y=Ys1[0],
+                        Yvar=Yvars1[0],
+                        feature_names=feature_names,
+                        outcome_names=metric_names,
+                    ),
+                    SupervisedDataset(
+                        X=Xs2[0],
+                        Y=Ys2[0],
+                        Yvar=Yvars2[0],
+                        feature_names=feature_names,
+                        outcome_names=metric_names,
+                    ),
                 ],
-                metric_names=mns,
+                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -687,11 +803,11 @@ class BotorchModelTest(TestCase):
             )
 
     def test_botorchmodel_raises_when_no_data(self) -> None:
-        _, _, _, bounds, tfs, fns, mns = get_torch_test_data(
+        _, _, _, bounds, tfs, feature_names, metric_names = get_torch_test_data(
             dtype=torch.float, cuda=False, constant_noise=True
         )
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
@@ -700,7 +816,9 @@ class BotorchModelTest(TestCase):
             DataRequiredError, "BotorchModel.fit requires non-empty data sets."
         ):
             model.fit(
-                datasets=[], metric_names=mns, search_space_digest=search_space_digest
+                datasets=[],
+                metric_names=metric_names,
+                search_space_digest=search_space_digest,
             )
 
     def test_get_feature_importances_from_botorch_model(self) -> None:

@@ -52,16 +52,33 @@ from botorch.utils.testing import MockModel, MockPosterior
 class BoTorchModelUtilsTest(TestCase):
     def setUp(self) -> None:
         self.dtype = torch.float
-        self.Xs, self.Ys, self.Yvars, _, _, _, _ = get_torch_test_data(dtype=self.dtype)
+        (
+            self.Xs,
+            self.Ys,
+            self.Yvars,
+            _,
+            _,
+            self.feature_names,
+            self.metric_names,
+        ) = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=self.dtype, offset=1.0  # Making this data different.
         )
         self.fixed_noise_datasets = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-            for X, Y, Yvar in zip(self.Xs, self.Ys, self.Yvars)
+            SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=self.feature_names,
+                outcome_names=[mn],
+            )
+            for X, Y, Yvar, mn in zip(self.Xs, self.Ys, self.Yvars, self.metric_names)
         ]
         self.supervised_datasets = [
-            SupervisedDataset(X=X, Y=Y) for X, Y, in zip(self.Xs, self.Ys)
+            SupervisedDataset(
+                X=X, Y=Y, feature_names=self.feature_names, outcome_names=[mn]
+            )
+            for X, Y, mn in zip(self.Xs, self.Ys, self.metric_names)
         ]
         self.none_Yvars = [torch.tensor([[np.nan], [np.nan]])]
         self.task_features = []
@@ -252,21 +269,47 @@ class BoTorchModelUtilsTest(TestCase):
         )
         self.assertFalse(  # Batched multi-output case.
             use_model_list(
-                datasets=[SupervisedDataset(X=self.Xs[0], Y=Y) for Y in self.Ys],
+                datasets=[
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=Y,
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    )
+                    for Y in self.Ys
+                ],
                 botorch_model_class=SingleTaskGP,
             )
         )
         # Multi-output with allow_batched_models
         self.assertFalse(
             use_model_list(
-                datasets=2 * [SupervisedDataset(X=self.Xs[0], Y=Y) for Y in self.Ys],
+                datasets=2
+                * [
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=Y,
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    )
+                    for Y in self.Ys
+                ],
                 botorch_model_class=SingleTaskGP,
                 allow_batched_models=True,
             )
         )
         self.assertTrue(
             use_model_list(
-                datasets=2 * [SupervisedDataset(X=self.Xs[0], Y=Y) for Y in self.Ys],
+                datasets=2
+                * [
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=Y,
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    )
+                    for Y in self.Ys
+                ],
                 botorch_model_class=SingleTaskGP,
                 allow_batched_models=False,
             )
@@ -274,8 +317,18 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(
             use_model_list(
                 datasets=[
-                    SupervisedDataset(X=self.Xs[0], Y=self.Ys[0]),
-                    SupervisedDataset(X=self.Xs2[0], Y=self.Ys2[0]),
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=self.Ys[0],
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    ),
+                    SupervisedDataset(
+                        X=self.Xs2[0],
+                        Y=self.Ys2[0],
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    ),
                 ],
                 botorch_model_class=SingleTaskGP,
             )
@@ -296,8 +349,18 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(
             use_model_list(
                 datasets=[
-                    SupervisedDataset(X=self.Xs[0], Y=self.Ys[0]),
-                    SupervisedDataset(X=self.Xs2[0], Y=self.Ys2[0]),
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=self.Ys[0],
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    ),
+                    SupervisedDataset(
+                        X=self.Xs2[0],
+                        Y=self.Ys2[0],
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    ),
                 ],
                 botorch_model_class=SaasFullyBayesianSingleTaskGP,
             )
@@ -305,7 +368,12 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(
             use_model_list(
                 datasets=[
-                    SupervisedDataset(X=self.Xs[0], Y=self.Ys[0].repeat(1, 2)),
+                    SupervisedDataset(
+                        X=self.Xs[0],
+                        Y=self.Ys[0].repeat(1, 2),
+                        feature_names=self.feature_names,
+                        outcome_names=["y1", "y2"],
+                    ),
                 ],
                 botorch_model_class=SaasFullyBayesianSingleTaskGP,
             )
@@ -361,8 +429,16 @@ class ConvertToBlockDesignTest(TestCase):
         # simple case: block design, supervised
         X = torch.rand(4, 2)
         Ys = [torch.rand(4, 1), torch.rand(4, 1)]
-        datasets = [SupervisedDataset(X=X, Y=Y) for Y in Ys]
         metric_names = ["y1", "y2"]
+        datasets = [
+            SupervisedDataset(
+                X=X,
+                Y=Ys[i],
+                feature_names=["x1", "x2"],
+                outcome_names=[metric_names[i]],
+            )
+            for i in range(2)
+        ]
         new_datasets, new_metric_names = convert_to_block_design(
             datasets=datasets,
             metric_names=metric_names,
@@ -376,7 +452,14 @@ class ConvertToBlockDesignTest(TestCase):
         # simple case: block design, fixed
         Yvars = [torch.rand(4, 1), torch.rand(4, 1)]
         datasets = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar) for Y, Yvar in zip(Ys, Yvars)
+            SupervisedDataset(
+                X=X,
+                Y=Ys[i],
+                Yvar=Yvars[i],
+                feature_names=["x1", "x2"],
+                outcome_names=[metric_names[i]],
+            )
+            for i in range(2)
         ]
         new_datasets, new_metric_names = convert_to_block_design(
             datasets=datasets,
@@ -393,7 +476,10 @@ class ConvertToBlockDesignTest(TestCase):
 
         # test error is raised if not block design and force=False
         X2 = torch.cat((X[:3], torch.rand(1, 2)))
-        datasets = [SupervisedDataset(X=X, Y=Y) for X, Y in zip((X, X2), Ys)]
+        datasets = [
+            SupervisedDataset(X=X, Y=Y, feature_names=["x1", "x2"], outcome_names=["y"])
+            for X, Y in zip((X, X2), Ys)
+        ]
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert data to non-block design data."
         ):
@@ -423,7 +509,9 @@ class ConvertToBlockDesignTest(TestCase):
 
         # test warning is issued if not block design and force=True (fixed)
         datasets = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
+            SupervisedDataset(
+                X=X, Y=Y, Yvar=Yvar, feature_names=["x1", "x2"], outcome_names=["y"]
+            )
             for X, Y, Yvar in zip((X, X2), Ys, Yvars)
         ]
         with warnings.catch_warnings(record=True) as ws:

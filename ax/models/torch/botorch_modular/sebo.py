@@ -16,6 +16,7 @@ from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argpars
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
+from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.monte_carlo import (
     qExpectedHypervolumeImprovement,
@@ -59,13 +60,13 @@ class SEBOAcquisition(Acquisition):
             raise ValueError("SEBO does not support support multiple surrogates.")
         surrogate = surrogates[Keys.ONLY_SURROGATE]
 
-        tkwargs = {"dtype": surrogate.dtype, "device": surrogate.device}
+        tkwargs: Dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
         options = options or {}
         self.penalty_name: str = options.pop("penalty", "L0_norm")
         self.target_point: Tensor = options.pop("target_point", None)
         if self.target_point is None:
             raise ValueError("please provide target point.")
-        self.target_point.to(**tkwargs)  # pyre-ignore
+        self.target_point.to(**tkwargs)
         self.sparsity_threshold: int = options.pop(
             "sparsity_threshold", surrogate.Xs[0].shape[-1]
         )
@@ -75,12 +76,14 @@ class SEBOAcquisition(Acquisition):
 
         surrogate_f = deepcopy(surrogate)
         # update the training data in new surrogate
-        surrogate_f._training_data.append(  # pyre-ignore
+        not_none(surrogate_f._training_data).append(
             SupervisedDataset(
                 surrogate_f.Xs[0],
                 self.deterministic_model(surrogate_f.Xs[0]),
                 # append Yvar as zero for penalty term
-                torch.zeros(surrogate_f.Xs[0].shape[0], 1, **tkwargs),  # pyre-ignore
+                Yvar=torch.zeros(surrogate_f.Xs[0].shape[0], 1, **tkwargs),
+                feature_names=surrogate_f.training_data[0].feature_names,
+                outcome_names=[self.penalty_name],
             )
         )
         # update the model in new surrogate

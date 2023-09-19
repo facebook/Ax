@@ -266,7 +266,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.allclose(Z, X[:, 0, :]))
 
     @fast_botorch_optimize
-    def testALEBO(self) -> None:
+    def test_ALEBO(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
@@ -288,7 +288,13 @@ class ALEBOTest(TestCase):
         )
         train_Y = torch.tensor([[1.0], [2.0], [3.0]], dtype=torch.double)
         train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
-        dataset = SupervisedDataset(X=train_X, Y=train_Y, Yvar=train_Yvar)
+        dataset = SupervisedDataset(
+            X=train_X,
+            Y=train_Y,
+            Yvar=train_Yvar,
+            feature_names=[f"x{i}" for i in range(5)],
+            outcome_names=["y"],
+        )
 
         # Test fit
         m.fit(
@@ -368,7 +374,13 @@ class ALEBOTest(TestCase):
             ],
             dtype=torch.double,
         )
-        dataset2 = SupervisedDataset(X=train_X2, Y=train_Y, Yvar=train_Yvar)
+        dataset2 = SupervisedDataset(
+            X=train_X2,
+            Y=train_Y,
+            Yvar=train_Yvar,
+            feature_names=[f"x{i}" for i in range(5)],
+            outcome_names=["y2"],
+        )
         m.update(datasets=[dataset, dataset2])
         self.assertTrue(torch.allclose(m.Xs[0], (B @ train_X.t()).t()))
         self.assertTrue(torch.allclose(m.Xs[1], (B @ train_X2.t()).t()))

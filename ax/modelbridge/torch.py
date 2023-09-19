@@ -329,9 +329,16 @@ class TorchModelBridge(ModelBridge):
                 Yvars[outcome], dtype=self.dtype, device=self.device
             ).unsqueeze(-1)
             if Yvar.isnan().all():
-                dataset = SupervisedDataset(X=X, Y=Y)
+                Yvar = None
             else:
-                dataset = SupervisedDataset(X=X, Y=Y, Yvar=Yvar.clamp_min(1e-6))
+                Yvar = Yvar.clamp_min(1e-6)
+            dataset = SupervisedDataset(
+                X=X,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=parameters,
+                outcome_names=[outcome],
+            )
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
 

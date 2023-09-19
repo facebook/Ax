@@ -26,6 +26,17 @@ class DummyKernel(Kernel):
 
 
 class CovarModuleArgparseTest(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        X = torch.randn((10, 10))
+        Y = torch.randn((10, 2))
+        self.dataset = SupervisedDataset(
+            X=X,
+            Y=Y,
+            feature_names=[f"x{i}" for i in range(10)],
+            outcome_names=["y1", "y2"],
+        )
+
     def test_notImplemented(self) -> None:
         with self.assertRaises(NotImplementedError) as e:
             covar_module_argparse[
@@ -51,15 +62,10 @@ class CovarModuleArgparseTest(TestCase):
             self.assertEqual(covar_module_argparse[Kernel], _argparse)
 
     def test_argparse_kernel(self) -> None:
-
-        X = torch.randn((10, 10))
-        Y = torch.randn((10, 2))
-        dataset = SupervisedDataset(X=X, Y=Y)
-
         covar_module_kwargs = covar_module_argparse(
             Kernel,
             botorch_model_class=FixedNoiseGP,
-            dataset=dataset,
+            dataset=self.dataset,
         )
 
         self.assertEqual(covar_module_kwargs, {})
@@ -67,7 +73,7 @@ class CovarModuleArgparseTest(TestCase):
         covar_module_kwargs = covar_module_argparse(
             Kernel,
             botorch_model_class=FixedNoiseGP,
-            dataset=dataset,
+            dataset=self.dataset,
             ard_num_dims=19,
             batch_shape=torch.Size([10]),
         )
@@ -77,11 +83,6 @@ class CovarModuleArgparseTest(TestCase):
         )
 
     def test_argparse_scalematern_kernel(self) -> None:
-
-        X = torch.randn((10, 10))
-        Y = torch.randn((10, 2))
-        dataset = SupervisedDataset(X=X, Y=Y)
-
         covar_module_kwargs_defaults = [
             {
                 "ard_num_dims": 10,
@@ -106,7 +107,7 @@ class CovarModuleArgparseTest(TestCase):
             covar_module_kwargs = covar_module_argparse(
                 ScaleMaternKernel,
                 botorch_model_class=botorch_model_class,
-                dataset=dataset,
+                dataset=self.dataset,
                 lengthscale_prior=GammaPrior(6.0, 3.0),
                 outputscale_prior=GammaPrior(2, 0.15),
             )
@@ -137,7 +138,9 @@ class CovarModuleArgparseTest(TestCase):
 
         X = torch.randn((10, 10))
         Y = torch.randn((10, 1))
-        dataset = SupervisedDataset(X=X, Y=Y)
+        dataset = SupervisedDataset(
+            X=X, Y=Y, feature_names=[f"x{i}" for i in range(10)], outcome_names=["y"]
+        )
         covar_module_kwargs = covar_module_argparse(
             ScaleMaternKernel,
             botorch_model_class=FixedNoiseGP,

@@ -34,15 +34,15 @@ class REMBOTest(TestCase):
         # Test fit
         # Create high-D data
         X_D = torch.t(torch.mm(A, torch.t(initial_X_d)))
-        datasets = [
-            SupervisedDataset(X=X_D, Y=torch.randn(3, 1), Yvar=0.1 * torch.ones(3, 1)),
-        ] * 2
-
         Xs = [X_D, X_D.clone()]
         Ys = [torch.randn(3, 1)] * 2
         Yvars = [0.1 * torch.ones(3, 1)] * 2
+        feature_names = [f"x{i}" for i in range(X_D.shape[-1])]
         datasets = [
-            SupervisedDataset(X=X, Y=Y, Yvar=Yvar) for X, Y, Yvar in zip(Xs, Ys, Yvars)
+            SupervisedDataset(
+                X=X, Y=Y, Yvar=Yvar, feature_names=feature_names, outcome_names=[mn]
+            )
+            for X, Y, Yvar, mn in zip(Xs, Ys, Yvars, my_metric_names)
         ]
 
         bounds = [(-1.0, 1.0)] * 4
@@ -96,10 +96,18 @@ class REMBOTest(TestCase):
         f, var = m.cross_validate(
             datasets=[
                 SupervisedDataset(
-                    X=X_D[:-1, :], Y=Ys[0][:-1, :], Yvar=Yvars[0][:-1, :]
+                    X=X_D[:-1, :],
+                    Y=Ys[0][:-1, :],
+                    Yvar=Yvars[0][:-1, :],
+                    feature_names=feature_names,
+                    outcome_names=my_metric_names[:1],
                 ),
                 SupervisedDataset(
-                    X=X_D[:-1, :], Y=Ys[1][:-1, :], Yvar=Yvars[1][:-1, :]
+                    X=X_D[:-1, :],
+                    Y=Ys[1][:-1, :],
+                    Yvar=Yvars[1][:-1, :],
+                    feature_names=feature_names,
+                    outcome_names=my_metric_names[1:],
                 ),
             ],
             X_test=X_D[-1:, :],
@@ -129,6 +137,8 @@ class REMBOTest(TestCase):
                 X=torch.tensor([[0.1, 0.2, 0.3, 0.4]]),
                 Y=torch.randn(1, 1),
                 Yvar=torch.ones(1, 1),
+                feature_names=[f"x{i}" for i in range(4)],
+                outcome_names=["y"],
             )
             m.update(datasets=[new_dataset, new_dataset])
 
@@ -136,6 +146,8 @@ class REMBOTest(TestCase):
             X=gen_results.points,
             Y=torch.randn(2, 1),
             Yvar=torch.ones(2, 1),
+            feature_names=[f"x{i}" for i in range(gen_results.points.shape[-1])],
+            outcome_names=["y"],
         )
         m.update(datasets=[new_dataset, new_dataset])
         for x in m.Xs:

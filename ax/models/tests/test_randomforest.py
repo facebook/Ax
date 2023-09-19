@@ -15,9 +15,13 @@ class RandomForestTest(TestCase):
     def testRFModel(self) -> None:
         datasets = [
             SupervisedDataset(
-                X=torch.rand(10, 2), Y=torch.rand(10, 1), Yvar=torch.rand(10, 1)
+                X=torch.rand(10, 2),
+                Y=torch.rand(10, 1),
+                Yvar=torch.rand(10, 1),
+                feature_names=["x1", "x2"],
+                outcome_names=[f"y{i}"],
             )
-            for _ in range(2)
+            for i in range(2)
         ]
 
         m = RandomForest(num_trees=5)

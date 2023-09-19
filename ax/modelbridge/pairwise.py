@@ -63,7 +63,12 @@ class PairwiseModelBridge(TorchModelBridge):
             # pyre-fixme[6]: For 2nd param expected `LongTensor` but got `Tensor`.
             dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
             dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
-            dataset = RankingDataset(X=dataset_X, Y=dataset_Y)
+            dataset = RankingDataset(
+                X=dataset_X,
+                Y=dataset_Y,
+                feature_names=parameters,
+                outcome_names=[outcome],
+            )
 
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])

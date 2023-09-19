@@ -202,7 +202,13 @@ def convert_to_block_design(
         )
     is_fixed = all(is_fixed)
     Xs = [dataset.X for dataset in datasets]
-    metric_names = ["_".join(metric_names)]  # TODO: Improve this.
+    joined_metric_names = ["_".join(metric_names)]  # TODO: Improve this.
+    for dset in datasets[1:]:
+        if dset.feature_names != datasets[0].feature_names:
+            raise ValueError(
+                "Feature names must be the same across all datasets, "
+                f"got {dset.feature_names} and {datasets[0].feature_names}"
+            )
 
     if len({X.shape for X in Xs}) != 1 or not all(
         torch.equal(X, Xs[0]) for X in Xs[1:]
@@ -226,19 +232,35 @@ def convert_to_block_design(
                 [ds.Yvar[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
-            datasets = [SupervisedDataset(X=X_shared, Y=Y, Yvar=Yvar)]
         else:
-            datasets = [SupervisedDataset(X=X_shared, Y=Y)]
-        return datasets, metric_names
+            Yvar = None
+        datasets = [
+            SupervisedDataset(
+                X=X_shared,
+                Y=Y,
+                Yvar=Yvar,
+                feature_names=datasets[0].feature_names,
+                outcome_names=metric_names,
+            )
+        ]
+        return datasets, joined_metric_names
 
     # data complies to block design, can concat with impunity
     Y = torch.cat([ds.Y for ds in datasets], dim=-1)
     if is_fixed:
         Yvar = torch.cat([not_none(ds.Yvar) for ds in datasets], dim=-1)
-        datasets = [SupervisedDataset(X=Xs[0], Y=Y, Yvar=Yvar)]
     else:
-        datasets = [SupervisedDataset(X=Xs[0], Y=Y)]
-    return datasets, metric_names
+        Yvar = None
+    datasets = [
+        SupervisedDataset(
+            X=Xs[0],
+            Y=Y,
+            Yvar=Yvar,
+            feature_names=datasets[0].feature_names,
+            outcome_names=metric_names,
+        )
+    ]
+    return datasets, joined_metric_names
 
 
 def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:

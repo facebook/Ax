@@ -50,7 +50,11 @@ class TestSebo(TestCase):
         self.target_point = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
-        self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
+        self.training_data = [
+            SupervisedDataset(
+                X=self.X, Y=self.Y, feature_names=["a", "b", "c"], outcome_names=["m1"]
+            )
+        ]
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],

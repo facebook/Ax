@@ -103,16 +103,25 @@ class AcquisitionTest(TestCase):
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
         self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
-        self.training_data = [SupervisedDataset(X=self.X, Y=self.Y)]
         self.fidelity_features = [2]
+        self.feature_names = ["a", "b", "c"]
+        self.metric_names = ["metric"]
+        self.training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y,
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+        ]
         self.search_space_digest = SearchSpaceDigest(
-            feature_names=["a", "b", "c"],
+            feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_fidelities={2: 1.0},
         )
         self.surrogate.construct(
             datasets=self.training_data,
-            metric_names=["metric"],
+            metric_names=self.metric_names,
             fidelity_features=self.fidelity_features,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.search_space_digest.feature_names[:1],
@@ -605,7 +614,14 @@ class AcquisitionTest(TestCase):
         mock_get_X: Mock,
         _,
     ) -> None:
-        moo_training_data = [SupervisedDataset(X=self.X, Y=self.Y.repeat(1, 3))]
+        moo_training_data = [
+            SupervisedDataset(
+                X=self.X,
+                Y=self.Y.repeat(1, 3),
+                feature_names=self.feature_names,
+                outcome_names=["m1", "m2", "m3"],
+            )
+        ]
         moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs

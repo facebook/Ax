@@ -121,15 +121,33 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 3
@@ -137,7 +155,7 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
@@ -236,15 +254,33 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 3
@@ -252,7 +288,7 @@ class BotorchMOOModelTest(TestCase):
         obj_t = torch.tensor([1.0, 1.0], **tkwargs)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
@@ -307,15 +343,33 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 3
@@ -328,7 +382,7 @@ class BotorchMOOModelTest(TestCase):
         acqfv_dummy = torch.tensor([[[1.0, 2.0, 3.0]]], **tkwargs)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
@@ -438,8 +492,20 @@ class BotorchMOOModelTest(TestCase):
             Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
             Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
             training_data_multiple = [
-                SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-                SupervisedDataset(X=Xs1[0], Y=Ys2[0], Yvar=Yvars2[0]),
+                SupervisedDataset(
+                    X=Xs1[0],
+                    Y=Ys1[0],
+                    Yvar=Yvars1[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
+                SupervisedDataset(
+                    X=Xs1[0],
+                    Y=Ys2[0],
+                    Yvar=Yvars2[0],
+                    feature_names=feature_names,
+                    outcome_names=metric_names,
+                ),
             ]
             model.fit(
                 datasets=training_data_multiple,
@@ -597,15 +663,33 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 2
@@ -614,14 +698,14 @@ class BotorchMOOModelTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=mns,
+                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -658,15 +742,33 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": torch.float,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 2
@@ -675,14 +777,14 @@ class BotorchMOOModelTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=get_qLogNEI)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=mns,
+                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -721,9 +823,15 @@ class BotorchMOOModelTest(TestCase):
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
-        Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = _get_torch_test_data(
-            dtype=dtype, cuda=cuda, constant_noise=True
-        )
+        (
+            Xs1,
+            Ys1,
+            Yvars1,
+            bounds,
+            tfs,
+            feature_names,
+            metric_names,
+        ) = _get_torch_test_data(dtype=dtype, cuda=cuda, constant_noise=True)
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
@@ -731,9 +839,27 @@ class BotorchMOOModelTest(TestCase):
             dtype=dtype, cuda=cuda, constant_noise=True
         )
         training_data = [
-            SupervisedDataset(X=Xs1[0], Y=Ys1[0], Yvar=Yvars1[0]),
-            SupervisedDataset(X=Xs2[0], Y=Ys2[0], Yvar=Yvars2[0]),
-            SupervisedDataset(X=Xs3[0], Y=Ys3[0], Yvar=Yvars3[0]),
+            SupervisedDataset(
+                X=Xs1[0],
+                Y=Ys1[0],
+                Yvar=Yvars1[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
+            SupervisedDataset(
+                X=Xs3[0],
+                Y=Ys3[0],
+                Yvar=Yvars3[0],
+                feature_names=feature_names,
+                outcome_names=metric_names,
+            ),
         ]
 
         n = 3
@@ -743,14 +869,14 @@ class BotorchMOOModelTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
         search_space_digest = SearchSpaceDigest(
-            feature_names=fns,
+            feature_names=feature_names,
             bounds=bounds,
             task_features=tfs,
         )
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=mns,
+                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()

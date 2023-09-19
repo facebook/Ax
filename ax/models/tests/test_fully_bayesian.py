@@ -8,7 +8,7 @@ import dataclasses
 import warnings
 from abc import ABC
 from contextlib import ExitStack
-from itertools import product
+from itertools import count, product
 from logging import Logger
 from math import sqrt
 from typing import Any, cast, Dict, Type
@@ -162,8 +162,14 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model:
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs, Ys, Yvars)
+                        SupervisedDataset(
+                            X=X,
+                            Y=Y,
+                            Yvar=Yvar,
+                            feature_names=fns,
+                            outcome_names=[f"y{i}"],
+                        )
+                        for X, Y, Yvar, i in zip(Xs, Ys, Yvars, count())
                     ],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
@@ -361,8 +367,14 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model, self.assertRaises(NotImplementedError):
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs_mt, Ys_mt, Yvars_mt)
+                        SupervisedDataset(
+                            X=X,
+                            Y=Y,
+                            Yvar=Yvar,
+                            feature_names=fns_mt,
+                            outcome_names=[mn],
+                        )
+                        for X, Y, Yvar, mn in zip(Xs_mt, Ys_mt, Yvars_mt, mns_mt)
                     ],
                     metric_names=mns_mt,
                     search_space_digest=SearchSpaceDigest(
@@ -377,8 +389,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model, self.assertRaises(NotImplementedError):
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ],
                     metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
@@ -406,8 +422,10 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model:
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars, mns * 2)
                     ],
                     metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
@@ -589,8 +607,10 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             # Test cross-validation
             mean, variance = model.cross_validate(
                 datasets=[
-                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                    for X, Y, Yvar in zip(Xs1 + Xs2, Ys, Yvars)
+                    SupervisedDataset(
+                        X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                    )
+                    for X, Y, Yvar, mn in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars, mns * 2)
                 ],
                 X_test=torch.tensor(
                     [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], dtype=dtype, device=device
@@ -607,8 +627,10 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model:
                 mean, variance = model.cross_validate(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys, Yvars)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars, mns * 2)
                     ],
                     X_test=torch.tensor(
                         [[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]],
@@ -623,8 +645,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             model.refit_on_update = False
             model.update(
                 datasets=[
-                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                    for X, Y, Yvar in zip(Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2)
+                    SupervisedDataset(
+                        X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                    )
+                    for X, Y, Yvar, mn in zip(
+                        Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2, mns * 2
+                    )
                 ]
             )
 
@@ -644,8 +670,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             ) as _mock_fit_model:
                 model.update(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2, mns * 2
+                        )
                     ]
                 )
 
@@ -654,16 +684,24 @@ class BaseFullyBayesianBotorchModelTest(ABC):
             with self.assertRaises(RuntimeError):
                 unfit_model.cross_validate(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ],
                     X_test=Xs1[0],
                 )
             with self.assertRaises(RuntimeError):
                 unfit_model.update(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ]
                 )
             with self.assertRaises(RuntimeError):
@@ -762,8 +800,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
         ) as _mock_fit_model:
             model.fit(
                 datasets=[
-                    SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                    for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                    SupervisedDataset(
+                        X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                    )
+                    for X, Y, Yvar, mn in zip(
+                        Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                    )
                 ],
                 metric_names=mns,
                 search_space_digest=search_space_digest,
@@ -822,8 +864,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 )
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ],
                     metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
@@ -864,8 +910,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 _mock_nuts = es.enter_context(mock.patch(NUTS_PATH))
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ],
                     metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
@@ -894,8 +944,12 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 # testing purposes
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(
+                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
+                        )
                     ],
                     metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
@@ -1000,8 +1054,10 @@ class SingleObjectiveFullyBayesianBotorchModelTest(
             ) as _mock_fit_model:
                 model.fit(
                     datasets=[
-                        SupervisedDataset(X=X, Y=Y, Yvar=Yvar)
-                        for X, Y, Yvar in zip(Xs1, Ys1, Yvars1)
+                        SupervisedDataset(
+                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
+                        )
+                        for X, Y, Yvar, mn in zip(Xs1, Ys1, Yvars1, mns)
                     ],
                     metric_names=[mns[0]],
                     search_space_digest=SearchSpaceDigest(
