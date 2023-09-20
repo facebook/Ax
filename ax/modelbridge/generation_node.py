@@ -733,3 +733,34 @@ class GenerationStep(GenerationNode, SortableBase):
                 "attached to experiment for completed trials."
             )
         return data
+
+    def get_generator_run_limit(
+        self,
+    ) -> int:
+        """How many generator runs can this generation strategy generate right now,
+        assuming each one of them becomes its own trial, and whether optimization
+        is completed.
+
+        Returns:
+              - the number of generator runs that can currently be produced, with -1
+                meaning unlimited generator runs,
+        """
+        to_gen = self.num_trials_to_gen_and_complete()[0]
+
+        until_max_parallelism = self.num_remaining_trials_until_max_parallelism(
+            raise_max_parallelism_reached_exception=False
+        )
+
+        # If there is no limitation on the number of trials in the step and
+        # there is a parallelism limit, return number of trials until that limit.
+        if until_max_parallelism is not None and to_gen == -1:
+            return until_max_parallelism
+
+        # If there is a limitation on the number of trials in the step and also on
+        # parallelism, return the number of trials until either one of the limits.
+        if until_max_parallelism is not None:  # NOTE: to_gen must be >= 0 here
+            return min(to_gen, until_max_parallelism)
+
+        # If there is no limit on parallelism, return how many trials are left to
+        # gen in this step (might be -1 indicating unlimited).
+        return to_gen

@@ -279,12 +279,11 @@ class GenerationStrategy(Base):
     def current_generator_run_limit(
         self,
     ) -> Tuple[int, bool]:
-        """How many generator runs can this generation strategy generate right now,
-        assuming each one of them becomes its own trial, and whether optimization
+        """First check if we can move the generation strategy to the next step, which
+        is safe, as the next call to ``gen`` will just pick up from there. Then
+        determine how many generator runs this generation strategy can generate right
+        now, assuming each one of them becomes its own trial, and whether optimization
         is completed.
-
-        NOTE: This method might move the generation strategy to the next step, which
-        is safe, as the next call to ``gen`` will just pick up from there.
 
         Returns: a two-item tuple of:
               - the number of generator runs that can currently be produced, with -1
@@ -297,32 +296,8 @@ class GenerationStrategy(Base):
         except GenerationStrategyCompleted:
             return 0, True
 
-        to_gen = self._curr.num_trials_to_gen_and_complete()[0]
-        if to_gen < -1:
-            # `_num_trials_to_gen_and_complete_in_curr_step()` should return value
-            # of -1 or greater always.
-            raise RuntimeError(
-                "Number of trials left to generate in current generation step is "
-                f"{to_gen}. This is an unexpected state of the generation strategy."
-            )
-
-        until_max_parallelism = self._curr.num_remaining_trials_until_max_parallelism(
-            raise_max_parallelism_reached_exception=False
-        )
-
-        # If there is no limitation on the number of trials in the step and
-        # there is a parallelism limit, return number of trials until that limit.
-        if until_max_parallelism is not None and to_gen == -1:
-            return until_max_parallelism, False
-
-        # If there is a limitation on the number of trials in the step and also on
-        # parallelism, return the number of trials until either one of the limits.
-        if until_max_parallelism is not None:  # NOTE: to_gen must be >= 0 here
-            return min(to_gen, until_max_parallelism), False
-
-        # If there is no limit on parallelism, return how many trials are left to
-        # gen in this step (might be -1 indicating unlimited).
-        return to_gen, False
+        # if the generation strategy is not complete, optimization is not complete
+        return self._curr.get_generator_run_limit(), False
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
