@@ -147,7 +147,7 @@ class MapData(Data):
 
     @property
     # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-    def map_key_infos(self) -> Iterable[MapKeyInfo]:
+    def map_key_infos(self) -> List[MapKeyInfo]:
         return self._map_key_infos
 
     @property

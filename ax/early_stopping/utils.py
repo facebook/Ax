@@ -4,12 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 from collections import defaultdict
 from logging import Logger
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
+from ax.core.base_trial import TrialStatus
+from ax.core.experiment import Experiment
+from ax.core.map_data import MapData
 from ax.utils.common.logger import get_logger
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -111,3 +116,59 @@ def align_partial_results(
     dfs_sem = {metric: pd.concat(dfs, axis=1) for metric, dfs in dfs_sem.items()}
 
     return dfs_mean, dfs_sem
+
+
+def estimate_early_stopping_savings(
+    experiment: Experiment,
+    map_key: Optional[str] = None,
+) -> float:
+    """Estimate resource savings due to early stopping by considering
+    COMPLETED and EARLY_STOPPED trials. First, use the maximum of final
+    progressions of the set completed trials as a benchmark for the
+    length of a single trial. The savings is then estimated as:
+
+    resource_savings =
+      1 - actual_resource_usage / (num_trials * length of single trial)
+
+    Args:
+        experiment: The experiment.
+        map_key: The map_key to use when computing resource savings.
+
+    Returns:
+        The estimated resource savings as a fraction of total resource usage (i.e.
+        0.11 estimated savings indicates we would expect the experiment to have used 11%
+        more resources without early stopping present).
+    """
+
+    map_data = assert_is_instance(experiment.lookup_data(), MapData)
+
+    # If no map_key is provided, use some arbitrary map_key in the experiment's MapData
+    if map_key is not None:
+        step_key = map_key
+    elif len(map_data.map_key_infos) > 0:
+        step_key = map_data.map_key_infos[0].key
+    else:
+        return 0
+
+    completed_trial_idcs = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+
+    total_resources = (
+        map_data.map_df[["trial_index", step_key]].groupby("trial_index").max().sum()
+    )
+
+    completed_df = map_data.map_df[
+        (map_data.map_df["trial_index"].isin(completed_trial_idcs))
+    ]
+    single_trial_resources = (
+        completed_df[["trial_index", step_key]].groupby("trial_index").max().max()
+    )
+
+    savings: float = (
+        1 - total_resources / (experiment.num_trials * single_trial_resources)
+    ).item()
+
+    if math.isnan(savings):
+        # NaN implies division by zero, which should be interpreted as no savings
+        return 0
+
+    return savings
