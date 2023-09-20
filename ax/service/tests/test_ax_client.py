@@ -2776,6 +2776,20 @@ class TestAxClient(TestCase):
         trial = ax_client.get_trial(idx)
         self.assertTrue(trial.status.is_early_stopped)
 
+    def test_estimate_early_stopping_savings(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            support_intermediate_data=True,
+        )
+        _, idx = ax_client.get_next_trial()
+        ax_client.stop_trial_early(idx)
+
+        self.assertEqual(ax_client.estimate_early_stopping_savings(), 0)
+
     def test_max_parallelism_exception_when_early_stopping(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
