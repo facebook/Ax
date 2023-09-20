@@ -29,7 +29,9 @@ class TestGenerationNode(TestCase):
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
-        self.sobol_generation_node = GenerationNode(model_specs=[self.sobol_model_spec])
+        self.sobol_generation_node = GenerationNode(
+            node_name="test", model_specs=[self.sobol_model_spec]
+        )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
 
     def test_init(self) -> None:
@@ -72,7 +74,8 @@ class TestGenerationNode(TestCase):
 
     def test_gen_validates_one_model_spec(self) -> None:
         generation_node = GenerationNode(
-            model_specs=[self.sobol_model_spec, self.sobol_model_spec]
+            node_name="test",
+            model_specs=[self.sobol_model_spec, self.sobol_model_spec],
         )
         # Base generation node can only handle one model spec at the moment
         # (this might change in the future), so it should raise a `NotImplemented
@@ -86,6 +89,7 @@ class TestGenerationNode(TestCase):
     @fast_botorch_optimize
     def test_properties(self) -> None:
         node = GenerationNode(
+            node_name="test",
             model_specs=[
                 ModelSpec(
                     model_enum=Models.GPEI,
@@ -114,9 +118,11 @@ class TestGenerationNode(TestCase):
         self.assertEqual(node.fixed_features, node.model_specs[0].fixed_features)
         self.assertEqual(node.cv_results, node.model_specs[0].cv_results)
         self.assertEqual(node.diagnostics, node.model_specs[0].diagnostics)
+        self.assertEqual(node.node_name, "test")
 
     def test_single_fixed_features(self) -> None:
         node = GenerationNode(
+            node_name="test",
             model_specs=[
                 ModelSpec(
                     model_enum=Models.GPEI,
@@ -132,6 +138,7 @@ class TestGenerationNode(TestCase):
 
     def test_multiple_same_fixed_features(self) -> None:
         node = GenerationNode(
+            node_name="test",
             model_specs=[
                 ModelSpec(
                     model_enum=Models.GPEI,
@@ -242,6 +249,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         self.fitted_model_specs = [ms_gpei, ms_gpkg]
 
         self.model_selection_node = GenerationNode(
+            node_name="test",
             model_specs=self.fitted_model_specs,
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",

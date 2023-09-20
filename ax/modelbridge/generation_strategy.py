@@ -98,6 +98,9 @@ class GenerationStrategy(Base):
                     "Maximum parallelism should be None (if no limit) or a positive"
                     f" number. Got: {step.max_parallelism} for step {step.model_name}."
                 )
+            # TODO[mgarrard]: Validate node name uniqueness when adding node support,
+            # uniqueness is gaurenteed for steps currently due to list structure.
+            step._node_name = f"GenerationStep_{str(idx)}"
             step.index = idx
             step._generation_strategy = self
             if not isinstance(step.model, ModelRegistryBase):
