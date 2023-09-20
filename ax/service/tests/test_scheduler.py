@@ -523,6 +523,7 @@ class TestAxScheduler(TestCase):
         )
         scheduler.run_n_trials(max_trials=10)
         self.assertEqual(len(scheduler.experiment.trials), 5)
+        self.assertEqual(scheduler.estimate_global_stopping_savings(), 0.5)
 
     def test_ignore_global_stopping(self) -> None:
         scheduler = Scheduler(
