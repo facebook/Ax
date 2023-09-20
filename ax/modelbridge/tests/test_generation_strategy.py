@@ -120,6 +120,20 @@ class TestGenerationStrategy(TestCase):
         self.discrete_model_bridge_patcher.stop()
         self.registry_setup_dict_patcher.stop()
 
+    def test_unique_step_names(self) -> None:
+        """This tests the name of the steps on generation strategy. The name is
+        inherited from the GenerationNode class, and for GenerationSteps the
+        name should follow the format "GenerationNode"+Stepidx.
+        """
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        self.assertEqual(gs._steps[0].node_name, "GenerationStep_0")
+        self.assertEqual(gs._steps[1].node_name, "GenerationStep_1")
+
     def test_name(self) -> None:
         self.sobol_GS.name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")

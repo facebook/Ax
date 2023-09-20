@@ -63,6 +63,7 @@ class GenerationNode:
 
     model_specs: List[ModelSpec]
     should_deduplicate: bool
+    _node_name: str
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -72,10 +73,12 @@ class GenerationNode:
 
     def __init__(
         self,
+        node_name: str,
         model_specs: List[ModelSpec],
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
     ) -> None:
+        self._node_name = node_name
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
         # and `_pick_fitted_model_to_gen_from` methods, we validate the
         # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
@@ -84,6 +87,10 @@ class GenerationNode:
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
+
+    @property
+    def node_name(self) -> str:
+        return self._node_name
 
     @property
     def model_spec_to_gen_from(self) -> ModelSpec:
@@ -463,6 +470,7 @@ class GenerationStep(GenerationNode, SortableBase):
                 # Factory functions may not always have a model key defined.
                 self.model_name = f"Unknown {model_spec.__class__.__name__}"
         super().__init__(
+            node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
         )
