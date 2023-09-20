@@ -90,6 +90,7 @@ from ax.metrics.dict_lookup import DictLookupMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
@@ -322,6 +323,24 @@ def get_branin_experiment_with_timestamp_map_metric(
     if with_status_quo:
         exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
 
+    return exp
+
+
+def run_branin_experiment_with_generation_strategy(
+    generation_strategy: GenerationStrategy,
+    num_trials: int = 6,
+    kwargs_for_get_branin_experiment: Optional[Dict[str, Any]] = None,
+) -> Experiment:
+    """Gets a Branin experiment using any given kwargs and runs
+    num_trials trials using the given generation strategy."""
+    kwargs_for_get_branin_experiment = kwargs_for_get_branin_experiment or {}
+    exp = get_branin_experiment(**kwargs_for_get_branin_experiment)
+    for _ in range(num_trials):
+        gr = generation_strategy.gen(n=1, experiment=exp)
+        trial = exp.new_trial(generator_run=gr)
+        trial.mark_running(no_runner_required=True)
+        exp.attach_data(get_branin_data(trials=[trial]))
+        trial.mark_completed()
     return exp
 
 

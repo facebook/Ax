@@ -34,12 +34,15 @@ from ax.utils.testing.core_stubs import (
     get_large_factorial_search_space,
     get_large_ordinal_search_space,
     get_search_space_with_choice_parameters,
+    run_branin_experiment_with_generation_strategy,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
+    @fast_botorch_optimize
     def test_choose_generation_strategy(self) -> None:
         expected_transforms = [Winsorize] + Cont_X_trans + Y_trans
         expected_transform_configs = {
@@ -67,6 +70,9 @@ class TestDispatchUtils(TestCase):
             )
             expected_model_kwargs["torch_device"] = device
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
+            run_branin_experiment_with_generation_strategy(
+                generation_strategy=sobol_gpei
+            )
         with self.subTest("max initialization trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -311,6 +317,7 @@ class TestDispatchUtils(TestCase):
             },
         )
 
+    @fast_botorch_optimize
     def test_disable_progbar(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
@@ -329,7 +336,11 @@ class TestDispatchUtils(TestCase):
                     not_none(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
                     disable_progbar,
                 )
+                run_branin_experiment_with_generation_strategy(
+                    generation_strategy=sobol_saasbo
+                )
 
+    @fast_botorch_optimize
     def test_disable_progbar_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
@@ -348,6 +359,9 @@ class TestDispatchUtils(TestCase):
                 self.assertNotIn(
                     "disable_progbar",
                     not_none(gp_saasbo._steps[1].model_kwargs),
+                )
+                run_branin_experiment_with_generation_strategy(
+                    generation_strategy=gp_saasbo
                 )
 
     def test_setting_random_seed(self) -> None:
@@ -620,7 +634,6 @@ class TestDispatchUtils(TestCase):
         )
 
     def test_calculate_num_initialization_trials(self) -> None:
-
         with self.subTest("one trial for batch trials"):
             self.assertEqual(
                 calculate_num_initialization_trials(
@@ -681,14 +694,20 @@ class TestDispatchUtils(TestCase):
                 5,
             )
 
+    @fast_botorch_optimize
     def test_use_update(self) -> None:
         search_space = get_branin_search_space()
         # Defaults to False.
         gs = choose_generation_strategy(search_space=search_space)
         self.assertFalse(gs._steps[1].use_update)
+        run_branin_experiment_with_generation_strategy(generation_strategy=gs)
         # Pass in True.
         gs = choose_generation_strategy(search_space=search_space, use_update=True)
         self.assertTrue(gs._steps[1].use_update)
+        with self.assertRaisesRegex(
+            NotImplementedError, "use of `update` functionality"
+        ):
+            run_branin_experiment_with_generation_strategy(generation_strategy=gs)
         # Metrics available while running.
         experiment = get_branin_experiment()
         gs = choose_generation_strategy(
@@ -702,6 +721,7 @@ class TestDispatchUtils(TestCase):
                 search_space=search_space, experiment=experiment, use_update=True
             )
 
+    @fast_botorch_optimize
     def test_jit_compile(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
@@ -720,7 +740,11 @@ class TestDispatchUtils(TestCase):
                     not_none(sobol_saasbo._steps[1].model_kwargs)["jit_compile"],
                     jit_compile,
                 )
+                run_branin_experiment_with_generation_strategy(
+                    generation_strategy=sobol_saasbo,
+                )
 
+    @fast_botorch_optimize
     def test_jit_compile_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
@@ -739,4 +763,7 @@ class TestDispatchUtils(TestCase):
                 self.assertNotIn(
                     "jit_compile",
                     not_none(gp_saasbo._steps[1].model_kwargs),
+                )
+                run_branin_experiment_with_generation_strategy(
+                    generation_strategy=gp_saasbo,
                 )
