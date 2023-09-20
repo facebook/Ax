@@ -33,6 +33,8 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -47,6 +49,7 @@ from ax.core.types import (
     TParamValue,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import (
     OptimizationComplete,
@@ -92,6 +95,7 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.sampling import manual_seed
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -1314,6 +1318,44 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         trial = self.get_trial(trial_index)
         trial.mark_early_stopped()
         logger.info(f"Early stopped trial {trial_index}.")
+
+    def estimate_early_stopping_savings(self, map_key: Optional[str] = None) -> float:
+        """Estimate early stopping savings using progressions of the MapMetric present
+        on the EarlyStoppingConfig as a proxy for resource usage.
+
+        Args:
+            map_key: The name of the map_key by which to estimate early stopping
+                savings, usually steps. If none is specified use some arbitrary map_key
+                in the experiment's MapData
+
+        Returns:
+            The estimated resource savings as a fraction of total resource usage (i.e.
+            0.11 estimated savings indicates we would expect the experiment to have used
+            11% more resources without early stopping present)
+        """
+        if self.experiment.default_data_constructor is not MapData:
+            return 0
+
+        strategy = self.early_stopping_strategy
+        map_key = (
+            map_key
+            if map_key is not None
+            else (
+                assert_is_instance(
+                    self.experiment.metrics[list(strategy.metric_names)[0]],
+                    MapMetric,
+                ).map_key_info.key
+                if strategy is not None
+                and strategy.metric_names is not None
+                and len(list(strategy.metric_names)) > 0
+                else None
+            )
+        )
+
+        return estimate_early_stopping_savings(
+            experiment=self.experiment,
+            map_key=map_key,
+        )
 
     # ------------------ JSON serialization & storage methods. -----------------
 

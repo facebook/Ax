@@ -926,6 +926,8 @@ class TestAxScheduler(TestCase):
         self.assertEqual(len(fetched_data.map_df), expected_num_rows)
         self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
 
+        self.assertAlmostEqual(scheduler.estimate_early_stopping_savings(), 2 / 3)
+
     def test_run_trials_in_batches(self) -> None:
         # TODO[drfreund]: Use `Runner` instead when `poll_available_capacity`
         # is moved to `Runner`

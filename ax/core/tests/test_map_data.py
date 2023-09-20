@@ -77,7 +77,6 @@ class MapDataTest(TestCase):
     def test_map_key_info(self) -> None:
         self.assertEqual(self.map_key_infos, self.mmd.map_key_infos)
 
-        # pyre-fixme[16]: `Iterable` has no attribute `__getitem__`.
         self.assertEqual(self.mmd.map_key_infos[0].key, "epoch")
         self.assertEqual(self.mmd.map_key_infos[0].default_value, 0)
         self.assertEqual(self.mmd.map_key_infos[0].value_type, int)
@@ -176,7 +175,6 @@ class MapDataTest(TestCase):
                 downcast_combined.map_df[downcast_combined.map_df["arm_name"] == "0_4"][
                     "epoch"
                 ]
-                # pyre-fixme[16]: `Iterable` has no attribute `__getitem__`.
                 == self.mmd.map_key_infos[0].default_value
             ).all()
         )
@@ -217,8 +215,6 @@ class MapDataTest(TestCase):
 
         self.assertEqual(
             fresh.df.columns.size,
-            # pyre-fixme[6]: For 1st param expected `Sized` but got
-            #  `Iterable[MapKeyInfo[typing.Any]]`.
             fresh.map_df.columns.size - len(self.mmd.map_key_infos),
         )
 
