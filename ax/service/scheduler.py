@@ -175,6 +175,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
     _num_preexisting_trials: int
+    # Number of trials remaining to be scheduled during run_trials_and_yield_results.
+    # Saved as a property so that it can be accessed after optimization is complex (ex.
+    # for global stopping saving calculation).
+    _num_remaining_requested_trials: int = 0
     # Total number of MetricFetchEs encountered during the course of optimization. Note
     # this is different from and may be greater than the number of trials that have
     # been marked either FAILED or ABANDONED due to metric fetching errors.
@@ -850,10 +854,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
-        n_remaining_to_run = max_trials
+        self._num_remaining_requested_trials = max_trials
         while (
             not self.should_consider_optimization_complete()[0]
-            and n_remaining_to_run > 0
+            and self._num_remaining_requested_trials > 0
         ):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
@@ -862,8 +866,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # Run new trial evaluations until `run` returns `False`, which
             # means that there was a reason not to run more evaluations yet.
             # Also check that `max_trials` is not reached to not exceed it.
-            n_remaining_to_generate = n_remaining_to_run - len(self.candidate_trials)
-            while n_remaining_to_run > 0 and self.run(
+            n_remaining_to_generate = self._num_remaining_requested_trials - len(
+                self.candidate_trials
+            )
+            while self._num_remaining_requested_trials > 0 and self.run(
                 max_new_trials=n_remaining_to_generate
             ):
                 # Not checking `should_abort_optimization` on every trial for perf.
@@ -873,8 +879,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     - n_existing
                     - len(self.candidate_trials)
                 )
-                n_remaining_to_run = max_trials - n_already_run_by_scheduler
-                n_remaining_to_generate = n_remaining_to_run - len(
+                self._num_remaining_requested_trials = (
+                    max_trials - n_already_run_by_scheduler
+                )
+                n_remaining_to_generate = self._num_remaining_requested_trials - len(
                     self.candidate_trials
                 )
 
@@ -1291,6 +1299,27 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             experiment=self.experiment,
             map_key=map_key,
         )
+
+    def estimate_global_stopping_savings(self) -> float:
+        """Estimate global stopping savings by considering the number of requested
+        trials versus the number of trials run before the decision to stop was made.
+
+        This is formulated as 1 - (actual_num_trials / total_requested_trials). i.e.
+        0.11 estimated savings indicates we would expect the experiment to have used
+            11% more resources without global stopping present
+
+        Returns:
+            The estimated resource savings as a fraction of total resource usage.
+        """
+        num_trials = len(self.experiment.trials)
+
+        if self._num_remaining_requested_trials == 0:
+            # Note that when no trials were requested, then savings
+            # are 1 - 0 / 0. We resolve the zero division issue by
+            # setting savings to 0 in that case.
+            return 0.0
+
+        return 1 - num_trials / (num_trials + self._num_remaining_requested_trials)
 
     def _abort_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:
         """Conclude optimization without waiting for anymore running trials and
