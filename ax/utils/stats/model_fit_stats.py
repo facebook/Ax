@@ -141,7 +141,14 @@ def _log_likelihood(
 
 def _mape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     """Mean absolute predictive error"""
-    return float(np.mean(np.abs((y_pred - y_obs) / y_obs)))
+    eps = np.finfo(y_obs.dtype).eps
+    return float(np.mean(np.abs(y_pred - y_obs) / np.abs(y_obs).clip(min=eps)))
+
+
+def _wmape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
+    """Weighted mean absolute predictive error"""
+    eps = np.finfo(y_obs.dtype).eps
+    return float(np.sum(np.abs(y_pred - y_obs)) / np.sum(np.abs(y_obs)).clip(min=eps))
 
 
 def _total_raw_effect(

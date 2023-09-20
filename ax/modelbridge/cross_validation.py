@@ -27,6 +27,7 @@ from ax.utils.stats.model_fit_stats import (
     _mean_prediction_ci,
     _rank_correlation,
     _total_raw_effect,
+    _wmape,
     compute_model_fit_metrics,
 )
 
@@ -36,6 +37,7 @@ CVDiagnostics = Dict[str, Dict[str, float]]
 
 MEAN_PREDICTION_CI = "Mean prediction CI"
 MAPE = "MAPE"
+wMAPE = "wMAPE"
 TOTAL_RAW_EFFECT = "Total raw effect"
 CORRELATION_COEFFICIENT = "Correlation coefficient"
 RANK_CORRELATION = "Rank correlation"
@@ -202,6 +204,7 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
       predictions, relative to the observed mean.
     - 'MAPE': mean absolute percentage error of the estimated mean relative
       to the observed mean.
+    - 'wMAPE': Weighted mean absolute percentage error.
     - 'Total raw effect': the multiple change from the smallest observed
       mean to the largest observed mean, i.e. `(max - min) / min`.
     - 'Correlation coefficient': the Pearson correlation of the estimated
@@ -242,6 +245,7 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
     diagnostic_fns = {
         MEAN_PREDICTION_CI: _mean_prediction_ci,
         MAPE: _mape,
+        wMAPE: _wmape,
         TOTAL_RAW_EFFECT: _total_raw_effect,
         CORRELATION_COEFFICIENT: _correlation_coefficient,
         RANK_CORRELATION: _rank_correlation,

@@ -241,6 +241,14 @@ class CrossValidationTest(TestCase):
             self.assertEqual(set(v.keys()), {"a", "b"})
         # Check for correct computation, relative to manually computed result
         self.assertAlmostEqual(diag["MAPE"]["a"], 0.4984126984126984)
+        self.assertAlmostEqual(diag["MAPE"]["b"], 0.8312499999999999)
+        self.assertAlmostEqual(
+            diag["wMAPE"]["a"],
+            sum([0.0, 1.0, 4.0, 5.0, 7.0]) / sum([2, 3, 6, 7, 9]),
+        )
+        self.assertAlmostEqual(
+            diag["wMAPE"]["b"], sum([3.0, 4.0, 7.0, 9.0]) / sum([4, 5, 8, 10])
+        )
         self.assertAlmostEqual(diag["Total raw effect"]["a"], 3.5)
         self.assertAlmostEqual(diag["Total raw effect"]["b"], 1.5)
         self.assertAlmostEqual(diag["Log likelihood"]["a"], -50.09469266602336)
