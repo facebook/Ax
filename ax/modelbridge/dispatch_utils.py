@@ -16,9 +16,10 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
+from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.logger import get_logger
@@ -108,12 +109,20 @@ def _make_botorch_step(
                 "Winsorize"
             ] = winsorization_transform_config
 
-    if verbose is not None:
-        model_kwargs.update({"verbose": verbose})
-    if disable_progbar is not None:
-        model_kwargs.update({"disable_progbar": disable_progbar})
-    if jit_compile is not None:
-        model_kwargs.update({"jit_compile": jit_compile})
+    if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchModel:
+        if verbose is not None:
+            model_kwargs.update({"verbose": verbose})
+        if disable_progbar is not None:
+            model_kwargs.update({"disable_progbar": disable_progbar})
+        if jit_compile is not None:
+            model_kwargs.update({"jit_compile": jit_compile})
+    else:
+        # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
+        logger.info(
+            "`verbose`, `disable_progbar`, and `jit_compile` are not yet supported "
+            "when using `choose_generation_strategy` with ModularBoTorchModel, "
+            "dropping these arguments."
+        )
     return GenerationStep(
         model=model,
         num_trials=num_trials,
@@ -228,9 +237,9 @@ def _suggest_gp_model(
         # total of num_unordered_choices OHE parameters.
         # So, we do not want to use them when there are too many unordered choices.
         if is_moo_problem:
-            method = Models.FULLYBAYESIANMOO if use_saasbo else Models.MOO
+            method = Models.SAASBO if use_saasbo else Models.MOO
         else:
-            method = Models.FULLYBAYESIAN if use_saasbo else Models.GPEI
+            method = Models.SAASBO if use_saasbo else Models.GPEI
         reason = (
             "there are more ordered parameters than there are categories for the "
             "unordered categorical parameters."
@@ -585,4 +594,4 @@ def _get_winsorization_transform_config(
 
 
 def is_saasbo(model: Models) -> bool:
-    return model.name in ["FULLYBAYESIANMOO", "FULLYBAYESIAN"]
+    return model.name in ["SAASBO", "FULLYBAYESIAN", "FULLYBAYESIANMOO"]
