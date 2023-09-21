@@ -127,7 +127,7 @@ class BotorchModel(TorchModel):
             data using the `update` method.
         warm_start_refitting: If True, start model refitting from previous
             model parameters in order to speed up the fitting process.
-        prior: A optinal dictionary that contains the specification of GP model prior.
+        prior: An optional dictionary that contains the specification of GP model prior.
             Currently, the keys include:
             - covar_module_prior: prior on covariance matrix e.g.
                 {"lengthscale_prior": GammaPrior(3.0, 6.0)}.
@@ -301,6 +301,7 @@ class BotorchModel(TorchModel):
         self.fidelity_features = normalize_indices(
             search_space_digest.fidelity_features, d=self.Xs[0].size(-1)
         )
+        extra_kwargs = {} if self.prior is None else {"prior": self.prior}
         self._model = self.model_constructor(  # pyre-ignore [28]
             Xs=self.Xs,
             Ys=self.Ys,
@@ -310,7 +311,7 @@ class BotorchModel(TorchModel):
             metric_names=self.metric_names,
             use_input_warping=self.use_input_warping,
             use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
-            prior=self.prior,
+            **extra_kwargs,
             **self._kwargs,
         )
 
