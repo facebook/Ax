@@ -172,6 +172,8 @@ def object_to_json(  # noqa C901
         return {"__type": _type.__name__, "name": obj.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
         return {"__type": _type.__name__, "value": obj.tolist()}
+    elif _type is set:
+        return {"__type": _type.__name__, "value": list(obj)}
     elif _type is torch.Tensor:
         return tensor_to_dict(obj=obj)
     elif _type.__module__ == "torch":

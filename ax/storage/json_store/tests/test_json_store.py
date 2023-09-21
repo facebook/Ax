@@ -467,6 +467,21 @@ class JSONStoreTest(TestCase):
             )
         )
 
+    def testEncodeDecodeSet(self) -> None:
+        a = {"a", 1, False}
+        self.assertEqual(
+            a,
+            object_from_json(
+                object_to_json(
+                    a,
+                    encoder_registry=CORE_ENCODER_REGISTRY,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                ),
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            ),
+        )
+
     def testRegistryAdditions(self) -> None:
         class MyRunner(Runner):
             def run():
