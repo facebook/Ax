@@ -17,7 +17,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 
 from ax.modelbridge.base import ModelBridge
@@ -451,16 +451,27 @@ class GenerationStrategy(Base):
             if new_data is not None:
                 self._update_current_model(new_data=new_data)
         else:
+            processed_data = self._curr.get_data_for_fit(
+                passed_in_data=data,
+            )
+            self._fit_current_model(data=processed_data)
             previous_step_req_observations = (
                 self._curr.index > 0
                 and self._steps[self._curr.index - 1].min_trials_observed > 0
             )
-            self._fit_current_model(
-                data=self._curr.get_data_for_fit(
-                    passed_in_data=data,
-                    previous_step_required_observations=previous_step_req_observations,
+            # If previous step required observed data, we should raise an error even if
+            # enough trials were completed. Such an empty data case does indicate an
+            # invalid state; this check is to improve the experience of detecting and
+            # debugging the invalid state that led to this.
+            if processed_data.df.empty and previous_step_req_observations:
+                raise NoDataError(
+                    f"Observed data is required for GenerationNode {self._curr.index},"
+                    f"(model {self._curr.model_to_gen_from_name}), but fetched data"
+                    "was empty. Something is wrong with experiment setup -- likely "
+                    "metrics do not implement fetching logic (check your metrics) or"
+                    "no data was attached to experiment for completed trials."
                 )
-            )
+
         self._save_seen_trial_indices()
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:

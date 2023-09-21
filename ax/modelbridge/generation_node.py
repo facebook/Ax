@@ -23,7 +23,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 
 from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
@@ -65,6 +65,8 @@ class GenerationNode:
     should_deduplicate: bool
     _node_name: str
     _model_spec_to_gen_from: Optional[ModelSpec] = None
+    use_update: bool = False
+
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
     _generation_strategy: Optional[
@@ -77,6 +79,7 @@ class GenerationNode:
         model_specs: List[ModelSpec],
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
+        use_update: bool = False,
     ) -> None:
         self._node_name = node_name
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
@@ -87,6 +90,7 @@ class GenerationNode:
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
+        self.use_update = use_update
 
     @property
     def node_name(self) -> str:
@@ -145,6 +149,13 @@ class GenerationNode:
     def diagnostics(self) -> Optional[CVDiagnostics]:
         """diagnostics from self.model_spec_to_gen_from for convenience"""
         return self.model_spec_to_gen_from.diagnostics
+
+    @property
+    def model_to_gen_from_name(self) -> Optional[str]:
+        """Returns the name of the model that will be used for gen, if there is one.
+        Otherwise, returns None.
+        """
+        return self.model_spec_to_gen_from.model_key
 
     @property
     def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
@@ -260,6 +271,8 @@ class GenerationNode:
 
         return not_none(generator_run)
 
+    # ------------------------- Model selection logic helpers. -------------------------
+
     def _pick_fitted_model_to_gen_from(self) -> ModelSpec:
         """Select one model to generate from among the fitted models on this
         generation node.
@@ -283,11 +296,6 @@ class GenerationNode:
             diagnostics=[not_none(m.diagnostics) for m in self.model_specs],
         )
         return self.model_specs[best_model_index]
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(model_specs={self.model_specs})"
-
-    # ------------------------- Model selection logic helpers. -------------------------
 
     def get_data_for_update(
         self, passed_in_data: Optional[Data], newly_completed_trials: Set[int]
@@ -332,6 +340,63 @@ class GenerationNode:
                 passed_in_data.df.trial_index.isin(newly_completed_trials)
             ]
         )
+
+    def get_data_for_fit(
+        self,
+        passed_in_data: Optional[Data],
+    ) -> Data:
+        """
+        Fetches data given this generation node configuration, and checks for invalid
+        data states before returning it.
+
+        Args:
+            passed_in_data: An optional provided Data object for fitting the model for
+                this generation node
+
+        Returns:
+            Data: Data for fitting a model to generate this generation node
+        """
+        if passed_in_data is None:
+            if self.use_update:
+                # If this node is using `update`, it's important to instantiate
+                # the model with data for completed trials only, so later we can
+                # update it with data for new trials as they become completed.
+                # `experiment.lookup_data` can lookup all available data, including
+                # for non-completed trials (depending on how the experiment's metrics
+                # implement `fetch_experiment_data`). We avoid fetching data for
+                # trials with statuses other than `COMPLETED`, by fetching specifically
+                # for `COMPLETED` trials.
+                avail_while_running_metrics = {
+                    m.name
+                    for m in self.experiment.metrics.values()
+                    if m.is_available_while_running()
+                }
+                if avail_while_running_metrics:
+                    raise NotImplementedError(
+                        f"Metrics {avail_while_running_metrics} are available while "
+                        "trial is running, but use of `update` functionality in "
+                        "generation node relies on new data being available upon "
+                        "trial completion."
+                    )
+                return self.experiment.lookup_data(
+                    trial_indices=self.experiment.trial_indices_by_status[
+                        TrialStatus.COMPLETED
+                    ]
+                )
+            else:
+                return self.experiment.lookup_data()
+        return passed_in_data
+
+    def __repr__(self) -> str:
+        "String representation of this GenerationNode"
+        # add model specs
+        repr = f"{self.__class__.__name__}(model_specs="
+        model_spec_str = str(self.model_specs).replace("\n", " ").replace("\t", "")
+        repr += model_spec_str
+
+        # add node name
+        repr += f", node_name={self.node_name}"
+        return f"{repr})"
 
 
 @dataclass
@@ -473,6 +538,7 @@ class GenerationStep(GenerationNode, SortableBase):
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
+            use_update=self.use_update,
         )
 
     @property
@@ -678,69 +744,7 @@ class GenerationStep(GenerationNode, SortableBase):
             return False
         return True
 
-    # ------------------------- Model selection logic helpers. -------------------------
-
-    def get_data_for_fit(
-        self, passed_in_data: Optional[Data], previous_step_required_observations: bool
-    ) -> Data:
-        """
-        Fetches data given this GenerationStep's configuration, and checks for invalid
-        data states before returning it.
-
-        Args:
-            passed_in_data: An optional provided Data object for fitting the model for
-                this GenerationStep
-            previous_step_required_observations: Whether the previous GenerationStep
-                required observation data. If this is `True`, raise an error if we are
-                in an invalid state due to unexpected empty data.
-
-        Returns:
-            Data: Data for fitting a model to generate this GenerationStep
-        """
-        if passed_in_data is None:
-            if self.use_update:
-                # If this step is using `update`, it's important to instantiate
-                # the model with data for completed trials only, so later we can
-                # update it with data for new trials as they become completed.
-                # `experiment.lookup_data` can lookup all available data, including
-                # for non-completed trials (depending on how the experiment's metrics
-                # implement `fetch_experiment_data`). We avoid fetching data for
-                # trials with statuses other than `COMPLETED`, by fetching specifically
-                # for `COMPLETED` trials.
-                avail_while_running_metrics = {
-                    m.name
-                    for m in self.experiment.metrics.values()
-                    if m.is_available_while_running()
-                }
-                if avail_while_running_metrics:
-                    raise NotImplementedError(
-                        f"Metrics {avail_while_running_metrics} are available while "
-                        "trial is running, but use of `update` functionality in "
-                        "generation step relies on new data being available upon "
-                        "trial completion."
-                    )
-                data = self.experiment.lookup_data(
-                    trial_indices=self.experiment.trial_indices_by_status[
-                        TrialStatus.COMPLETED
-                    ]
-                )
-            else:
-                data = self.experiment.lookup_data()
-        else:
-            data = passed_in_data
-        # If previous step required observed data, we should raise an error even if
-        # enough trials were completed. Such an empty data case does indicate an
-        # invalid state; this check is to improve the experience of detecting and
-        # debugging the invalid state that led to this.
-        if data.df.empty and previous_step_required_observations:
-            raise NoDataError(
-                f"Observed data is required for generation step #{self.index} "
-                f"(model {self.model_name}), but fetched data was empty. "
-                "Something is wrong with experiment setup -- likely metrics do not "
-                "implement fetching logic (check your metrics) or no data was "
-                "attached to experiment for completed trials."
-            )
-        return data
+    # ------------------------- Generation run logic helpers. -------------------------
 
     def get_generator_run_limit(
         self,

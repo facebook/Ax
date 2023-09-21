@@ -120,6 +120,27 @@ class TestGenerationNode(TestCase):
         self.assertEqual(node.diagnostics, node.model_specs[0].diagnostics)
         self.assertEqual(node.node_name, "test")
 
+    def test_node_string_representation(self) -> None:
+        node = GenerationNode(
+            node_name="test",
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={},
+                ),
+            ],
+        )
+        string_rep = str(node)
+        self.assertEqual(
+            string_rep,
+            (
+                "GenerationNode(model_specs=[ModelSpec(model_enum=GPEI,"
+                " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
+                " )], node_name=test)"
+            ),
+        )
+
     def test_single_fixed_features(self) -> None:
         node = GenerationNode(
             node_name="test",
@@ -274,6 +295,9 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         # spec as the one to generate from.
         # TODO[adamobeng]: Test correct behavior here when implemented.
         self.assertEqual(gr._model_key, "GPEI")
+
+        # test model_to_gen_from_name property
+        self.assertEqual(self.model_selection_node.model_to_gen_from_name, "GPEI")
 
     def test_fixed_features_is_from_model_to_gen_from(self) -> None:
         self.model_selection_node.model_specs[0].fixed_features = ObservationFeatures(
