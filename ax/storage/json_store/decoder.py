@@ -140,6 +140,8 @@ def object_from_json(
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
+        elif _type == "set":
+            return set(object_json["value"])
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
