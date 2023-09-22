@@ -26,7 +26,7 @@ class TorchModelTest(TestCase):
         )
         self.torch_opt_config = TorchOptConfig(objective_weights=torch.ones(1))
 
-    def testTorchModelFit(self) -> None:
+    def test_TorchModelFit(self) -> None:
         torch_model = TorchModel()
         torch_model.fit(
             datasets=[self.dataset],
@@ -37,12 +37,12 @@ class TorchModelTest(TestCase):
             ),
         )
 
-    def testTorchModelPredict(self) -> None:
+    def test_TorchModelPredict(self) -> None:
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
             torch_model.predict(torch.zeros(1))
 
-    def testTorchModelGen(self) -> None:
+    def test_TorchModelGen(self) -> None:
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
             torch_model.gen(
@@ -51,7 +51,7 @@ class TorchModelTest(TestCase):
                 torch_opt_config=self.torch_opt_config,
             )
 
-    def testNumpyTorchBestPoint(self) -> None:
+    def test_NumpyTorchBestPoint(self) -> None:
         torch_model = TorchModel()
         x = torch_model.best_point(
             search_space_digest=self.search_space_digest,
@@ -59,7 +59,7 @@ class TorchModelTest(TestCase):
         )
         self.assertIsNone(x)
 
-    def testTorchModelCrossValidate(self) -> None:
+    def test_TorchModelCrossValidate(self) -> None:
         torch_model = TorchModel()
         with self.assertRaises(NotImplementedError):
             torch_model.cross_validate(
@@ -69,7 +69,7 @@ class TorchModelTest(TestCase):
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
 
-    def testTorchModelUpdate(self) -> None:
+    def test_TorchModelUpdate(self) -> None:
         model = TorchModel()
         with self.assertRaises(NotImplementedError):
             model.update(

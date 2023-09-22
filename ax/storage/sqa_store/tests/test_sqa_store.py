@@ -120,18 +120,18 @@ class SQAStoreTest(TestCase):
             get_range_parameter2(),  # x
         ]
 
-    def testCreationOfTestDB(self) -> None:
+    def test_CreationOfTestDB(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
         engine = get_engine()
         self.assertIsNotNone(engine)
 
-    def testDBConnectionWithoutForceInit(self) -> None:
+    def test_DBConnectionWithoutForceInit(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:")
 
-    def testConnectionToDBWithURL(self) -> None:
+    def test_ConnectionToDBWithURL(self) -> None:
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
-    def testConnectionToDBWithCreator(self) -> None:
+    def test_ConnectionToDBWithCreator(self) -> None:
         def MockDBAPI() -> MagicMock:
             connection = Mock()
 
@@ -157,7 +157,7 @@ class SQAStoreTest(TestCase):
             self.assertTrue(engine.echo)
             self.assertEqual(engine.pool.size(), 2)
 
-    def testGeneratorRunTypeValidation(self) -> None:
+    def test_GeneratorRunTypeValidation(self) -> None:
         experiment = get_experiment_with_batch_trial()
         # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run_structs`.
         generator_run = experiment.trials[0].generator_run_structs[0].generator_run
@@ -174,7 +174,7 @@ class SQAStoreTest(TestCase):
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
-    def testExperimentSaveAndLoad(self) -> None:
+    def test_ExperimentSaveAndLoad(self) -> None:
         for exp in [
             self.experiment,
             get_experiment_with_map_data_type(),
@@ -187,7 +187,7 @@ class SQAStoreTest(TestCase):
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
 
-    def testLoadExperimentTrialsInBatches(self) -> None:
+    def test_LoadExperimentTrialsInBatches(self) -> None:
         for _ in range(4):
             self.experiment.new_trial()
         self.assertEqual(len(self.experiment.trials), 5)
@@ -201,7 +201,7 @@ class SQAStoreTest(TestCase):
     # is set to True, we do not attempt to load runners, and load
     # metrics minimally (converted to a base metric). This enables us to
     # load experiments with custom runners and metrics without a decoder.
-    def testLoadExperimentSkipMetricsAndRunners(self) -> None:
+    def test_LoadExperimentSkipMetricsAndRunners(self) -> None:
         # Create a test experiment with a custom metric and runner.
         experiment = get_experiment_with_custom_runner_and_metric()
 
@@ -343,7 +343,7 @@ class SQAStoreTest(TestCase):
         exp.trials.get(1).generator_run._optimization_config = None
         self.assertEqual(loaded_experiment, exp)
 
-    def testMTExperimentSaveAndLoad(self) -> None:
+    def test_MTExperimentSaveAndLoad(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
         loaded_experiment = load_experiment(experiment.name)
@@ -357,7 +357,7 @@ class SQAStoreTest(TestCase):
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
-    def testExperimentNewTrial(self) -> None:
+    def test_ExperimentNewTrial(self) -> None:
         # Create a new trial without data
         save_experiment(self.experiment)
         trial = self.experiment.new_batch_trial()
@@ -374,14 +374,14 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    def testExperimentNewTrialValidation(self) -> None:
+    def test_ExperimentNewTrialValidation(self) -> None:
         trial = self.experiment.new_batch_trial()
 
         with self.assertRaises(ValueError):
             # must save experiment first
             save_or_update_trial(experiment=self.experiment, trial=trial)
 
-    def testExperimentUpdateTrial(self) -> None:
+    def test_ExperimentUpdateTrial(self) -> None:
         save_experiment(self.experiment)
 
         trial = self.experiment.trials[0]
@@ -409,7 +409,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(self.experiment.name)
         self.assertEqual(self.experiment, loaded_experiment)
 
-    def testExperimentSaveAndUpdateTrials(self) -> None:
+    def test_ExperimentSaveAndUpdateTrials(self) -> None:
         save_experiment(self.experiment)
 
         existing_trial = self.experiment.trials[0]
@@ -469,7 +469,7 @@ class SQAStoreTest(TestCase):
             LifecycleStage.ITERATION,
         )
 
-    def testSaveValidation(self) -> None:
+    def test_SaveValidation(self) -> None:
         with self.assertRaises(ValueError):
             save_experiment(self.experiment.trials[0])
 
@@ -479,7 +479,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             save_experiment(experiment)
 
-    def testEncodeDecode(self) -> None:
+    def test_EncodeDecode(self) -> None:
         for class_, fake_func, unbound_encode_func, unbound_decode_func in TEST_CASES:
             # Can't load trials from SQL, because a trial needs an experiment
             # in order to be initialized
@@ -520,7 +520,7 @@ class SQAStoreTest(TestCase):
                 msg=f"Error encoding/decoding {class_}.",
             )
 
-    def testEncodeGeneratorRunReducedState(self) -> None:
+    def test_EncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
         gr = gs.gen(exp)
@@ -543,7 +543,7 @@ class SQAStoreTest(TestCase):
 
         self.assertEqual(gr, gr_decoded_reduced_state)
 
-    def testExperimentUpdates(self) -> None:
+    def test_ExperimentUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAExperiment).count(), 1)
@@ -561,7 +561,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentParameterUpdates(self) -> None:
+    def test_ExperimentParameterUpdates(self) -> None:
         experiment = get_experiment(with_status_quo=False)
         save_experiment(experiment)
         self.assertEqual(
@@ -607,7 +607,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentParameterConstraintUpdates(self) -> None:
+    def test_ExperimentParameterConstraintUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -652,7 +652,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentObjectiveUpdates(self) -> None:
+    def test_ExperimentObjectiveUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -683,7 +683,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentOutcomeConstraintUpdates(self) -> None:
+    def test_ExperimentOutcomeConstraintUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -741,7 +741,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentObjectiveThresholdUpdates(self) -> None:
+    def test_ExperimentObjectiveThresholdUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -798,11 +798,11 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testFailedLoad(self) -> None:
+    def test_FailedLoad(self) -> None:
         with self.assertRaises(ObjectNotFoundError):
             load_experiment("nonexistent_experiment")
 
-    def testExperimentTrackingMetricUpdates(self) -> None:
+    def test_ExperimentTrackingMetricUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(
@@ -837,7 +837,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentRunnerUpdates(self) -> None:
+    def test_ExperimentRunnerUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one runner on the batch
@@ -867,7 +867,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentTrialUpdates(self) -> None:
+    def test_ExperimentTrialUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQATrial).count(), 1)
@@ -895,7 +895,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentAbandonedArmUpdates(self) -> None:
+    def test_ExperimentAbandonedArmUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one arm is already abandoned
@@ -909,7 +909,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testExperimentGeneratorRunUpdates(self) -> None:
+    def test_ExperimentGeneratorRunUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         # one main generator run, one for the status quo
@@ -934,7 +934,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testParameterValidation(self) -> None:
+    def test_ParameterValidation(self) -> None:
         sqa_parameter = SQAParameter(
             domain_type=DomainType.RANGE,
             parameter_type=ParameterType.FLOAT,
@@ -965,7 +965,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter)
 
-    def testParameterDecodeFailure(self) -> None:
+    def test_ParameterDecodeFailure(self) -> None:
         parameter = get_fixed_parameter()
         sqa_parameter = self.encoder.parameter_to_sqa(parameter)
         # pyre-fixme[8]: Attribute has type `DomainType`; used as `int`.
@@ -973,7 +973,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_from_sqa(sqa_parameter)
 
-    def testParameterConstraintValidation(self) -> None:
+    def test_ParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=0,
             constraint_dict={},
@@ -1008,7 +1008,7 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
 
-    def testDecodeOrderParameterConstraintFailure(self) -> None:
+    def test_DecodeOrderParameterConstraintFailure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
             # pyre-fixme[6]: For 1st param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -1021,7 +1021,7 @@ class SQAStoreTest(TestCase):
                 sqa_parameter, self.dummy_parameters
             )
 
-    def testDecodeSumParameterConstraintFailure(self) -> None:
+    def test_DecodeSumParameterConstraintFailure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
             # pyre-fixme[6]: For 1st param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -1034,7 +1034,7 @@ class SQAStoreTest(TestCase):
                 sqa_parameter, self.dummy_parameters
             )
 
-    def testMetricValidation(self) -> None:
+    def test_MetricValidation(self) -> None:
         sqa_metric = SQAMetric(
             name="foobar",
             intent=MetricIntent.OBJECTIVE,
@@ -1065,13 +1065,13 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_metric)
 
-    def testMetricEncodeFailure(self) -> None:
+    def test_MetricEncodeFailure(self) -> None:
         metric = get_branin_metric()
         del metric.__dict__["param_names"]
         with self.assertRaises(AttributeError):
             self.encoder.metric_to_sqa(metric)
 
-    def testMetricDecodeFailure(self) -> None:
+    def test_MetricDecodeFailure(self) -> None:
         metric = get_branin_metric()
         sqa_metric = self.encoder.metric_to_sqa(metric)
         # pyre-fixme[8]: Attribute has type `int`; used as `str`.
@@ -1090,7 +1090,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-    def testRunnerDecodeFailure(self) -> None:
+    def test_RunnerDecodeFailure(self) -> None:
         runner = get_synthetic_runner()
         sqa_runner = self.encoder.runner_to_sqa(runner)
         # pyre-fixme[8]: Attribute has type `int`; used as `str`.
@@ -1098,7 +1098,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.runner_from_sqa(sqa_runner)
 
-    def testRunnerValidation(self) -> None:
+    def test_RunnerValidation(self) -> None:
         sqa_runner = SQARunner(runner_type=CORE_RUNNER_REGISTRY[SyntheticRunner])
         with self.assertRaises(ValueError):
             with session_scope() as session:
@@ -1122,14 +1122,14 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_runner)
 
-    def testTimestampUpdate(self) -> None:
+    def test_TimestampUpdate(self) -> None:
         self.experiment.trials[0]._time_staged = datetime.now()
         save_experiment(self.experiment)
 
         # second save should not fail
         save_experiment(self.experiment)
 
-    def testGetProperties(self) -> None:
+    def test_GetProperties(self) -> None:
         # Extract default value.
         properties = serialize_init_args(obj=Metric(name="foo"))
         self.assertEqual(
@@ -1145,7 +1145,7 @@ class SQAStoreTest(TestCase):
             {"name": "foo", "lower_is_better": True, "properties": {"foo": "bar"}},
         )
 
-    def testRegistryAdditions(self) -> None:
+    def test_RegistryAdditions(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -1181,7 +1181,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name, config=sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
-    def testRegistryBundle(self) -> None:
+    def test_RegistryBundle(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -1203,7 +1203,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name, config=bundle.sqa_config)
         self.assertEqual(loaded_experiment, experiment)
 
-    def testEncodeDecodeGenerationStrategy(self) -> None:
+    def test_EncodeDecodeGenerationStrategy(self) -> None:
         # Cannot load generation strategy before it has been saved
         with self.assertRaises(ObjectNotFoundError):
             load_generation_strategy_by_id(gs_id=0)
@@ -1253,7 +1253,7 @@ class SQAStoreTest(TestCase):
             not_none(new_generation_strategy._experiment)._name, experiment._name
         )
 
-    def testEncodeDecodeGenerationStrategyReducedState(self) -> None:
+    def test_EncodeDecodeGenerationStrategyReducedState(self) -> None:
         """Try restoring the generation strategy using the experiment its attached to,
         passing the experiment object.
         """
@@ -1302,7 +1302,7 @@ class SQAStoreTest(TestCase):
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
-    def testEncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
+    def test_EncodeDecodeGenerationStrategyReducedStateLoadExperiment(self) -> None:
         """Try restoring the generation strategy using the experiment its
         attached to, not passing the experiment object (it should then be loaded
         as part of generation strategy loading).
@@ -1362,7 +1362,7 @@ class SQAStoreTest(TestCase):
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
-    def testUpdateGenerationStrategy(self) -> None:
+    def test_UpdateGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy(with_callable_model_kwarg=False)
         save_generation_strategy(generation_strategy=generation_strategy)
 
@@ -1418,7 +1418,7 @@ class SQAStoreTest(TestCase):
             not_none(loaded_generation_strategy._experiment).description,
         )
 
-    def testGeneratorRunGenMetadata(self) -> None:
+    def test_GeneratorRunGenMetadata(self) -> None:
         gen_metadata = {"hello": "world"}
         gr = GeneratorRun(arms=[], gen_metadata=gen_metadata)
         generator_run_sqa = self.encoder.generator_run_to_sqa(gr)
@@ -1427,7 +1427,7 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(decoded_gr.gen_metadata, gen_metadata)
 
-    def testUpdateGenerationStrategyIncrementally(self) -> None:
+    def test_UpdateGenerationStrategyIncrementally(self) -> None:
         experiment = get_branin_experiment()
         generation_strategy = choose_generation_strategy(experiment.search_space)
         save_experiment(experiment=experiment)
@@ -1485,7 +1485,7 @@ class SQAStoreTest(TestCase):
         generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, loaded_generation_strategy)
 
-    def testUpdateRunner(self) -> None:
+    def test_UpdateRunner(self) -> None:
         experiment = get_branin_experiment()
         with self.assertRaisesRegex(ValueError, ".* must be saved before"):
             update_runner_on_experiment(
@@ -1519,7 +1519,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment_name=experiment.name)
         self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
 
-    def testExperimentValidation(self) -> None:
+    def test_ExperimentValidation(self) -> None:
         exp = get_experiment()
         exp.name = "test1"
         save_experiment(exp)
@@ -1545,7 +1545,7 @@ class SQAStoreTest(TestCase):
         with self.assertRaisesRegex(ValueError, ".* experiment already exists .*"):
             save_experiment(exp3)
 
-    def testExperimentSaveAndDelete(self) -> None:
+    def test_ExperimentSaveAndDelete(self) -> None:
         for exp in [
             self.experiment,
             get_experiment_with_map_data_type(),
@@ -1559,7 +1559,7 @@ class SQAStoreTest(TestCase):
             with self.assertRaises(ObjectNotFoundError):
                 load_experiment(exp_name)
 
-    def testGetImmutableSearchSpaceAndOptConfig(self) -> None:
+    def test_GetImmutableSearchSpaceAndOptConfig(self) -> None:
         save_experiment(self.experiment)
         immutable = _get_experiment_immutable_opt_config_and_search_space(
             experiment_name=self.experiment.name, exp_sqa_class=SQAExperiment
@@ -1593,7 +1593,7 @@ class SQAStoreTest(TestCase):
         ),
         side_effect=_get_experiment_sqa_immutable_opt_config_and_search_space,
     )
-    def testImmutableSearchSpaceAndOptConfigLoading(
+    def test_ImmutableSearchSpaceAndOptConfigLoading(
         self,
         _mock_get_exp_sqa_imm_oc_ss,
         _mock_get_gs_sqa_imm_oc_ss,
@@ -1624,7 +1624,7 @@ class SQAStoreTest(TestCase):
             )
         )
 
-    def testSetImmutableSearchSpaceAndOptConfig(self) -> None:
+    def test_SetImmutableSearchSpaceAndOptConfig(self) -> None:
         experiment = get_experiment_with_batch_trial()
         self.assertFalse(experiment.immutable_search_space_and_opt_config)
         save_experiment(experiment)
@@ -1637,7 +1637,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
 
-    def testRepeatedArmStorage(self) -> None:
+    def test_RepeatedArmStorage(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAArm).count(), 4)
@@ -1654,7 +1654,7 @@ class SQAStoreTest(TestCase):
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
 
-    def testGeneratorRunValidatedFields(self) -> None:
+    def test_GeneratorRunValidatedFields(self) -> None:
         # Set up an experiment with a generator run that will have modeling-related
         # fields that are not loaded on most generator runs during reduced-stat
         # experiment loading.

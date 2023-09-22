@@ -24,7 +24,7 @@ class SobolGeneratorTest(TestCase):
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
-    def testSobolGeneratorAllTunable(self) -> None:
+    def test_SobolGeneratorAllTunable(self) -> None:
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
         generated_points, weights = generator.gen(
@@ -37,7 +37,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.all(weights == 1.0))
         self.assertEqual(generator._get_state().get("init_position"), 3)
 
-    def testSobolGeneratorFixedSpace(self) -> None:
+    def test_SobolGeneratorFixedSpace(self) -> None:
         generator = SobolGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         generated_points, _ = generator.gen(
@@ -51,7 +51,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
-    def testSobolGeneratorNoScramble(self) -> None:
+    def test_SobolGeneratorNoScramble(self) -> None:
         generator = SobolGenerator(scramble=False)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
@@ -66,7 +66,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
 
-    def testSobolGeneratorOnline(self) -> None:
+    def test_SobolGeneratorOnline(self) -> None:
         # Verify that the generator will return the expected arms if called
         # one at a time.
         bulk_generator = SobolGenerator(seed=0)
@@ -93,7 +93,7 @@ class SobolGeneratorTest(TestCase):
             self.assertTrue(generated_points[..., -1] == 1)
             self.assertTrue(np.array_equal(expected_points, generated_points.flatten()))
 
-    def testSobolGeneratorWithOrderConstraints(self) -> None:
+    def test_SobolGeneratorWithOrderConstraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = SobolGenerator(seed=0)
@@ -117,7 +117,7 @@ class SobolGeneratorTest(TestCase):
             )
         )
 
-    def testSobolGeneratorWithLinearConstraints(self) -> None:
+    def test_SobolGeneratorWithLinearConstraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = SobolGenerator(seed=0)
@@ -185,7 +185,7 @@ class SobolGeneratorTest(TestCase):
         # Second call uses seed 3 since 3 candidates are already generated.
         self.assertEqual(wrapped_sampler.call_args[-1]["seed"], 3)
 
-    def testSobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
+    def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection
         # sampler gives a search space exhausted error.  Testing fallback to
         # polytope sampler when encountering this error.
@@ -207,7 +207,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
         self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
 
-    def testSobolGeneratorOnlineRestart(self) -> None:
+    def test_SobolGeneratorOnlineRestart(self) -> None:
         # Ensure a single batch generation can also equivalently done by
         # a partial generation, re-initialization of a new SobolGenerator,
         # and a final generation.
@@ -249,7 +249,7 @@ class SobolGeneratorTest(TestCase):
             np.allclose(generated_points_single_batch, generated_points_two_trials)
         )
 
-    def testSobolGeneratorBadBounds(self) -> None:
+    def test_SobolGeneratorBadBounds(self) -> None:
         generator = SobolGenerator()
         with self.assertRaisesRegex(ValueError, "This generator operates on"):
             generated_points, weights = generator.gen(
@@ -258,7 +258,7 @@ class SobolGeneratorTest(TestCase):
                 rounding_func=lambda x: x,
             )
 
-    def testSobolGeneratorMaxDraws(self) -> None:
+    def test_SobolGeneratorMaxDraws(self) -> None:
         generator = SobolGenerator(seed=0)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
@@ -275,7 +275,7 @@ class SobolGeneratorTest(TestCase):
                 rounding_func=lambda x: x,
             )
 
-    def testSobolGeneratorDedupe(self) -> None:
+    def test_SobolGeneratorDedupe(self) -> None:
         generator = SobolGenerator(seed=0, deduplicate=True)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)

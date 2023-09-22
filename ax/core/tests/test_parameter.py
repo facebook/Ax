@@ -41,7 +41,7 @@ class RangeParameterTest(TestCase):
             "RangeParameter(name='y', parameter_type=INT, range=[10, 15])"
         )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         param2 = RangeParameter(
             name="x",
             parameter_type=ParameterType.FLOAT,
@@ -55,7 +55,7 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1, param2)
         self.assertNotEqual(self.param1, self.param2)
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.FLOAT)
         self.assertEqual(self.param1.lower, 1)
@@ -69,7 +69,7 @@ class RangeParameterTest(TestCase):
         self.assertFalse(self.param2.is_fidelity)
         self.assertIsNone(self.param2.target_value)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate("foo"))
         self.assertTrue(self.param1.validate(1))
@@ -79,11 +79,11 @@ class RangeParameterTest(TestCase):
         self.assertTrue(self.param1.validate(1 - 0.5 * EPS))
         self.assertTrue(self.param1.validate(3 + 0.5 * EPS))
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.param1), self.param1_repr)
         self.assertEqual(str(self.param2), self.param2_repr)
 
-    def testBadCreations(self) -> None:
+    def test_BadCreations(self) -> None:
         with self.assertRaises(UserInputError):
             RangeParameter("x", ParameterType.STRING, 1, 3)
 
@@ -105,7 +105,7 @@ class RangeParameterTest(TestCase):
         ):
             RangeParameter("x", ParameterType.FLOAT, EPS, 2 * EPS)
 
-    def testBadSetter(self) -> None:
+    def test_BadSetter(self) -> None:
         with self.assertRaises(ValueError):
             # pyre-fixme[6]: For 1st param expected `Optional[float]` but got `str`.
             self.param1.update_range(upper="foo")
@@ -123,7 +123,7 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(UserInputError):
             self.param1.update_range(lower=1.0, upper=0.9)
 
-    def testGoodSetter(self) -> None:
+    def test_GoodSetter(self) -> None:
         self.param1.update_range(lower=1.0)
         self.param1.update_range(upper=1.0011)
         self.param1.set_log_scale(False)
@@ -139,12 +139,12 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1.lower, 2.0)
         self.assertEqual(self.param1.upper, 3.0)
 
-    def testCast(self) -> None:
+    def test_Cast(self) -> None:
         self.assertEqual(self.param2.cast(2.5), 2)
         self.assertEqual(self.param2.cast(3), 3)
         self.assertEqual(self.param2.cast(None), None)
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         param_clone = self.param1.clone()
         self.assertEqual(self.param1.lower, param_clone.lower)
 
@@ -159,7 +159,7 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(ValueError):
             _get_parameter_type(dict)
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         param2 = RangeParameter(
             name="z",
             parameter_type=ParameterType.FLOAT,
@@ -168,7 +168,7 @@ class RangeParameterTest(TestCase):
         )
         self.assertTrue(self.param1 < param2)
 
-    def testHierarchicalValidation(self) -> None:
+    def test_HierarchicalValidation(self) -> None:
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
@@ -212,7 +212,7 @@ class ChoiceParameterTest(TestCase):
             "values=[1, 2], is_ordered=True, sort_values=True)"
         )
 
-    def testBadCreations(self) -> None:
+    def test_BadCreations(self) -> None:
         with self.assertRaises(UserInputError):
             ChoiceParameter(
                 name="x",
@@ -221,7 +221,7 @@ class ChoiceParameterTest(TestCase):
                 is_fidelity=True,
             )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         param4 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
@@ -233,7 +233,7 @@ class ChoiceParameterTest(TestCase):
         )
         self.assertNotEqual(self.param1, param5)
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.STRING)
         self.assertEqual(len(self.param1.values), 3)
@@ -265,18 +265,18 @@ class ChoiceParameterTest(TestCase):
         )
         self.assertFalse(string_param.is_ordered)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.param1), self.param1_repr)
         self.assertEqual(str(self.param3), self.param3_repr)
         self.assertEqual(str(self.param4), self.param4_repr)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate(3))
         for value in ["foo", "bar", "baz"]:
             self.assertTrue(self.param1.validate(value))
 
-    def testSetter(self) -> None:
+    def test_Setter(self) -> None:
         self.param1.add_values(["bin"])
         self.assertTrue(self.param1.validate("bin"))
 
@@ -285,7 +285,7 @@ class ChoiceParameterTest(TestCase):
         self.assertTrue(self.param1.validate("bar"))
         self.assertFalse(self.param1.validate("foo"))
 
-    def testSingleValue(self) -> None:
+    def test_SingleValue(self) -> None:
         with self.assertRaises(UserInputError):
             ChoiceParameter(
                 name="x", parameter_type=ParameterType.STRING, values=["foo"]
@@ -293,7 +293,7 @@ class ChoiceParameterTest(TestCase):
         with self.assertRaises(UserInputError):
             self.param1.set_values(["foo"])
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         param_clone = self.param1.clone()
         self.assertEqual(len(self.param1.values), len(param_clone.values))
         self.assertEqual(self.param1._is_ordered, param_clone._is_ordered)
@@ -301,7 +301,7 @@ class ChoiceParameterTest(TestCase):
         param_clone._values.append("boo")
         self.assertNotEqual(len(self.param1.values), len(param_clone.values))
 
-    def testHierarchicalValidation(self) -> None:
+    def test_HierarchicalValidation(self) -> None:
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
@@ -315,7 +315,7 @@ class ChoiceParameterTest(TestCase):
                 dependents={"not_a_value": "other_param"},
             )
 
-    def testMaxValuesValidation(self) -> None:
+    def test_MaxValuesValidation(self) -> None:
         ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
@@ -332,7 +332,7 @@ class ChoiceParameterTest(TestCase):
                 values=list(range(1001)),  # pyre-ignore
             )
 
-    def testHierarchical(self) -> None:
+    def test_Hierarchical(self) -> None:
         # Test case where only some of the values entail dependents.
         hierarchical_param = ChoiceParameter(
             name="x",
@@ -378,7 +378,7 @@ class FixedParameterTest(TestCase):
         )
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
 
-    def testBadCreations(self) -> None:
+    def test_BadCreations(self) -> None:
         with self.assertRaises(UserInputError):
             FixedParameter(
                 name="x",
@@ -387,7 +387,7 @@ class FixedParameterTest(TestCase):
                 is_fidelity=True,
             )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         param2 = FixedParameter(name="x", parameter_type=ParameterType.BOOL, value=True)
         self.assertEqual(self.param1, param2)
 
@@ -396,45 +396,45 @@ class FixedParameterTest(TestCase):
         )
         self.assertNotEqual(self.param1, param3)
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.param1.name, "x")
         self.assertEqual(self.param1.parameter_type, ParameterType.BOOL)
         self.assertEqual(self.param1.value, True)
         self.assertFalse(self.param1.is_numeric)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.param1), self.param1_repr)
         self.param1._is_fidelity = True
         self.assertNotEqual(str(self.param1), self.param1_repr)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         self.assertFalse(self.param1.validate(None))
         self.assertFalse(self.param1.validate("foo"))
         self.assertFalse(self.param1.validate(False))
         self.assertTrue(self.param1.validate(True))
 
-    def testSetter(self) -> None:
+    def test_Setter(self) -> None:
         self.param1.set_value(False)
         self.assertEqual(self.param1.value, False)
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         param_clone = self.param1.clone()
         self.assertEqual(self.param1.value, param_clone.value)
 
         param_clone._value = False
         self.assertNotEqual(self.param1.value, param_clone.value)
 
-    def testCast(self) -> None:
+    def test_Cast(self) -> None:
         self.assertEqual(self.param1.cast(1), True)
         self.assertEqual(self.param1.cast(False), False)
         self.assertEqual(self.param1.cast(None), None)
 
-    def testHierarchicalValidation(self) -> None:
+    def test_HierarchicalValidation(self) -> None:
         self.assertFalse(self.param1.is_hierarchical)
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
 
-    def testHierarchical(self) -> None:
+    def test_Hierarchical(self) -> None:
         # Test case where only some of the values entail dependents.
         hierarchical_param = FixedParameter(
             name="x",
@@ -468,5 +468,5 @@ class ParameterEqualityTest(TestCase):
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
 
-    def testNotEqual(self) -> None:
+    def test_NotEqual(self) -> None:
         self.assertNotEqual(self.fixed_parameter, self.choice_parameter)

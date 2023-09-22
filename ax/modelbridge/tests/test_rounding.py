@@ -16,7 +16,7 @@ class RoundingTest(TestCase):
     def setUp(self) -> None:
         pass
 
-    def testOneHotRound(self) -> None:
+    def test_OneHotRound(self) -> None:
         self.assertTrue(
             np.allclose(
                 strict_onehot_round(np.array([0.1, 0.5, 0.3])), np.array([0, 1, 0])

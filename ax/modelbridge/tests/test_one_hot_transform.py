@@ -72,11 +72,11 @@ class OneHotTransformTest(TestCase):
             parameters={"x": 2.2, "a": 2, "b": "b", "c": False, "d": 10.0}
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
         self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b", "c"])
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [self.observation_features]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -100,7 +100,7 @@ class OneHotTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    def testRandomizedTransform(self) -> None:
+    def test_RandomizedTransform(self) -> None:
         observation_features = [self.observation_features]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t2.transform_observation_features(obs_ft2)
@@ -108,7 +108,7 @@ class OneHotTransformTest(TestCase):
         obs_ft2 = self.t2.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 

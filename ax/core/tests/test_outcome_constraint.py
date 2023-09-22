@@ -32,7 +32,7 @@ class OutcomeConstraintTest(TestCase):
             metric=simple_metric, op=ComparisonOp.GEQ, bound=self.bound
         )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         constraint1 = OutcomeConstraint(
             metric=Metric(name="foo"), op=ComparisonOp.GEQ, bound=self.bound
         )
@@ -46,13 +46,13 @@ class OutcomeConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint1, constraint3)
 
-    def testValidMutations(self) -> None:
+    def test_ValidMutations(self) -> None:
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.constraint.metric = self.maximize_metric
         self.constraint.op = ComparisonOp.LEQ
         self.assertEqual(self.constraint.metric.name, "baz")
 
-    def testOutcomeConstraintFail(self) -> None:
+    def test_OutcomeConstraintFail(self) -> None:
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
         with mock.patch(logger_name) as mock_warning:
             OutcomeConstraint(
@@ -69,7 +69,7 @@ class OutcomeConstraintTest(TestCase):
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         constraint1 = OutcomeConstraint(
             metric=Metric(name="foo"), op=ComparisonOp.LEQ, bound=self.bound
         )
@@ -89,7 +89,7 @@ class ObjectiveThresholdTest(TestCase):
             metric=self.maximize_metric, op=ComparisonOp.GEQ, bound=self.bound
         )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         threshold1 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
         threshold2 = ObjectiveThreshold(metric=self.minimize_metric, bound=self.bound)
         self.assertEqual(threshold1, threshold2)
@@ -104,13 +104,13 @@ class ObjectiveThresholdTest(TestCase):
         )
         self.assertNotEqual(threshold1, constraint3)
 
-    def testValidMutations(self) -> None:
+    def test_ValidMutations(self) -> None:
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.threshold.metric = self.ambiguous_metric
         self.threshold.op = ComparisonOp.LEQ
         self.assertEqual(self.threshold.metric.name, "buz")
 
-    def testObjectiveThresholdFail(self) -> None:
+    def test_ObjectiveThresholdFail(self) -> None:
         logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
         with mock.patch(logger_name) as mock_warning:
             ObjectiveThreshold(
@@ -127,7 +127,7 @@ class ObjectiveThresholdTest(TestCase):
                 CONSTRAINT_WARNING_MESSAGE.format(**UPPER_BOUND_MISMATCH)
             )
 
-    def testRelativize(self) -> None:
+    def test_Relativize(self) -> None:
         self.assertTrue(
             ObjectiveThreshold(
                 metric=self.maximize_metric, op=ComparisonOp.LEQ, bound=self.bound
@@ -167,7 +167,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
             bound=self.bound,
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertListEqual(self.constraint.metrics, self.metrics)
         self.assertListEqual(self.constraint.weights, self.weights)
         self.assertEqual(len(list(self.constraint.metric_weights)), len(self.metrics))
@@ -189,7 +189,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         )
         self.assertListEqual(con.weights, [0.5, 0.5])
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         constraint1 = ScalarizedOutcomeConstraint(
             metrics=self.metrics,
             weights=self.weights,
@@ -206,10 +206,10 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint2, self.constraint)
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         self.assertEqual(self.constraint, self.constraint.clone())
 
-    def testValidMutations(self) -> None:
+    def test_ValidMutations(self) -> None:
         # updating constraint metric is ok as long as lower_is_better is compatible.
         self.constraint.metrics = [
             Metric(name="m2"),
@@ -217,7 +217,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
         ]
         self.constraint.op = ComparisonOp.LEQ
 
-    def testRaiseError(self) -> None:
+    def test_RaiseError(self) -> None:
         # set a wrong weights
         with self.assertRaises(ValueError):
             ScalarizedOutcomeConstraint(

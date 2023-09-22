@@ -22,17 +22,17 @@ class RandomModelTest(TestCase):
         # With no seed.
         self.assertIsInstance(self.random_model.seed, int)
 
-    def testRandomModelGenSamples(self) -> None:
+    def test_RandomModelGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_samples(n=1, tunable_d=1)
 
-    def testRandomModelGenUnconstrained(self) -> None:
+    def test_RandomModelGenUnconstrained(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_unconstrained(
                 n=1, d=2, tunable_feature_indices=np.array([])
             )
 
-    def testConvertEqualityConstraints(self) -> None:
+    def test_ConvertEqualityConstraints(self) -> None:
         fixed_features = {3: 0.7, 1: 0.5}
         d = 4
         C, c = not_none(
@@ -46,7 +46,7 @@ class RandomModelTest(TestCase):
         self.assertEqual(C_comparison.any(), True)
         self.assertEqual(self.random_model._convert_equality_constraints(d, None), None)
 
-    def testConvertInequalityConstraints(self) -> None:
+    def test_ConvertInequalityConstraints(self) -> None:
         A = np.array([[1, 2], [3, 4]])
         b = np.array([[5], [6]])
         A_result, b_result = not_none(
@@ -60,7 +60,7 @@ class RandomModelTest(TestCase):
         self.assertEqual(b_comparison.any(), True)
         self.assertEqual(self.random_model._convert_inequality_constraints(None), None)
 
-    def testConvertBounds(self) -> None:
+    def test_ConvertBounds(self) -> None:
         bounds = [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]
         bounds_result = self.random_model._convert_bounds(bounds)
         bounds_expected = torch.tensor([[1, 3, 5], [2, 4, 6]], dtype=torch.double)
@@ -71,7 +71,7 @@ class RandomModelTest(TestCase):
         #  `None`.
         self.assertEqual(self.random_model._convert_bounds(None), None)
 
-    def testGetLastPoint(self) -> None:
+    def test_GetLastPoint(self) -> None:
         generated_points = np.array([[1, 2, 3], [4, 5, 6]])
         RandomModelWithPoints = RandomModel(generated_points=generated_points)
         result = RandomModelWithPoints._get_last_point()

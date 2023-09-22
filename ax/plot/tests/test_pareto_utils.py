@@ -171,7 +171,7 @@ class ParetoUtilsTest(TestCase):
         ]
         self.assertEqual(pfr.absolute_metrics, [])
 
-    def testPlotParetoFrontiers(self) -> None:
+    def test_PlotParetoFrontiers(self) -> None:
         experiment = get_branin_experiment_with_multi_objective(
             has_objective_thresholds=True,
         )

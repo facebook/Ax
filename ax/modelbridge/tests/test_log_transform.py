@@ -51,10 +51,10 @@ class LogTransformTest(TestCase):
             ]
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"x"})
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "c"})
         ]
@@ -68,7 +68,7 @@ class LogTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.

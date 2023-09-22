@@ -10,7 +10,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class AbstractCurveMetricTest(TestCase):
-    def testAbstractCurveMetric(self) -> None:
+    def test_AbstractCurveMetric(self) -> None:
         self.assertTrue(AbstractCurveMetric.is_available_while_running())
         with self.assertRaises(TypeError):
             # pyre-fixme[45]: Cannot instantiate abstract class `AbstractCurveMetric`.

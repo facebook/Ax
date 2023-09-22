@@ -221,7 +221,7 @@ class JSONStoreTest(TestCase):
     def setUp(self) -> None:
         self.experiment = get_experiment_with_batch_and_single_trial()
 
-    def testJSONEncodeFailure(self) -> None:
+    def test_JSONEncodeFailure(self) -> None:
         with self.assertRaises(JSONEncodeError):
             object_to_json(
                 obj=RuntimeError("foobar"),
@@ -229,7 +229,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    def testJSONDecodeFailure(self) -> None:
+    def test_JSONDecodeFailure(self) -> None:
         self.assertRaises(
             JSONDecodeError,
             object_from_json,
@@ -245,7 +245,7 @@ class JSONStoreTest(TestCase):
             CORE_CLASS_DECODER_REGISTRY,
         )
 
-    def testSaveAndLoad(self) -> None:
+    def test_SaveAndLoad(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as f:
             save_experiment(
                 self.experiment,
@@ -261,7 +261,7 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, self.experiment)
             os.remove(f.name)
 
-    def testSaveValidation(self) -> None:
+    def test_SaveValidation(self) -> None:
         with self.assertRaises(ValueError):
             save_experiment(
                 self.experiment.trials[0],
@@ -270,7 +270,7 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    def testValidateFilename(self) -> None:
+    def test_ValidateFilename(self) -> None:
         bad_filename = "test"
         self.assertRaises(
             ValueError,
@@ -384,7 +384,7 @@ class JSONStoreTest(TestCase):
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
 
-    def testDecodeGenerationStrategy(self) -> None:
+    def test_DecodeGenerationStrategy(self) -> None:
         generation_strategy = get_generation_strategy()
         experiment = get_branin_experiment()
         gs_json = object_to_json(
@@ -450,7 +450,7 @@ class JSONStoreTest(TestCase):
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
 
-    def testEncodeDecodeNumpy(self) -> None:
+    def test_EncodeDecodeNumpy(self) -> None:
         arr = np.array([[1, 2, 3], [4, 5, 6]])
         self.assertTrue(
             np.array_equal(
@@ -467,7 +467,7 @@ class JSONStoreTest(TestCase):
             )
         )
 
-    def testEncodeDecodeSet(self) -> None:
+    def test_EncodeDecodeSet(self) -> None:
         a = {"a", 1, False}
         self.assertEqual(
             a,
@@ -482,7 +482,7 @@ class JSONStoreTest(TestCase):
             ),
         )
 
-    def testRegistryAdditions(self) -> None:
+    def test_RegistryAdditions(self) -> None:
         class MyRunner(Runner):
             def run():
                 pass
@@ -522,7 +522,7 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
 
-    def testRegistryBundle(self) -> None:
+    def test_RegistryBundle(self) -> None:
         class MyMetric(Metric):
             pass
 
@@ -553,7 +553,7 @@ class JSONStoreTest(TestCase):
             self.assertEqual(loaded_experiment, experiment)
             os.remove(f.name)
 
-    def testEncodeUnknownClassToDict(self) -> None:
+    def test_EncodeUnknownClassToDict(self) -> None:
         # Cannot encode `UnknownClass` type because it is not registered in the
         # CLASS_ENCODER_REGISTRY.
         class UnknownClass:
@@ -582,14 +582,14 @@ class JSONStoreTest(TestCase):
                 class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
             )
 
-    def testDecodeUnknownClassFromJson(self) -> None:
+    def test_DecodeUnknownClassFromJson(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
             "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
 
-    def testBadStateDict(self) -> None:
+    def test_BadStateDict(self) -> None:
         interval = get_interval()
         expected_json = botorch_component_to_dict(interval)
         with self.assertRaisesRegex(ValueError, "Received unused args"):

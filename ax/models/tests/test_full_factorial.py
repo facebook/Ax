@@ -11,7 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class FullFactorialGeneratorTest(TestCase):
-    def testFullFactorial(self) -> None:
+    def test_FullFactorial(self) -> None:
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(
@@ -25,7 +25,7 @@ class FullFactorialGeneratorTest(TestCase):
         self.assertEqual(generated_points, expected_points)
         self.assertEqual(weights, [1 for _ in range(len(expected_points))])
 
-    def testFullFactorialValidation(self) -> None:
+    def test_FullFactorialValidation(self) -> None:
         # Raise error because cardinality exceeds max cardinality
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"], [True, False]]
@@ -51,7 +51,7 @@ class FullFactorialGeneratorTest(TestCase):
                 objective_weights=np.ones(1),
             )
 
-    def testFullFactorialFixedFeatures(self) -> None:
+    def test_FullFactorialFixedFeatures(self) -> None:
         generator = FullFactorialGenerator(max_cardinality=5, check_cardinality=True)
         parameter_values = [[1, 2], ["foo", "bar"]]
         generated_points, weights, _ = generator.gen(

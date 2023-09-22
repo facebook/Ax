@@ -26,7 +26,7 @@ class ParameterConstraintTest(TestCase):
         )
         self.constraint_repr = "ParameterConstraint(2.0*x + -3.0*y <= 6.0)"
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         constraint1 = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
         )
@@ -40,14 +40,14 @@ class ParameterConstraintTest(TestCase):
         )
         self.assertNotEqual(constraint1, constraint3)
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.constraint.constraint_dict["x"], 2.0)
         self.assertEqual(self.constraint.bound, 6.0)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         parameters = {"x": 4, "z": 3}
         with self.assertRaises(ValueError):
             # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]`
@@ -68,14 +68,14 @@ class ParameterConstraintTest(TestCase):
         parameters = {"x": 4, "y": (2 - 0.5e-6) / 3}
         self.assertFalse(self.constraint.check(parameters))
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         constraint_clone = self.constraint.clone()
         self.assertEqual(self.constraint.bound, constraint_clone.bound)
 
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
-    def testCloneWithTransformedParameters(self) -> None:
+    def test_CloneWithTransformedParameters(self) -> None:
         constraint_clone = self.constraint.clone_with_transformed_parameters(
             transformed_parameters={}
         )
@@ -84,7 +84,7 @@ class ParameterConstraintTest(TestCase):
         constraint_clone._bound = 7.0
         self.assertNotEqual(self.constraint.bound, constraint_clone.bound)
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         constraint1 = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=1.0
         )
@@ -103,19 +103,19 @@ class OrderConstraintTest(TestCase):
         )
         self.constraint_repr = "OrderConstraint(x <= y)"
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.constraint.lower_parameter.name, "x")
         self.assertEqual(self.constraint.upper_parameter.name, "y")
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         self.assertTrue(self.constraint.check({"x": 0, "y": 1}))
         self.assertTrue(self.constraint.check({"x": 1, "y": 1}))
         self.assertFalse(self.constraint.check({"x": 1, "y": 0}))
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         constraint_clone = self.constraint.clone()
         self.assertEqual(
             self.constraint.lower_parameter, constraint_clone.lower_parameter
@@ -126,7 +126,7 @@ class OrderConstraintTest(TestCase):
             self.constraint.lower_parameter, constraint_clone.lower_parameter
         )
 
-    def testCloneWithTransformedParameters(self) -> None:
+    def test_CloneWithTransformedParameters(self) -> None:
         constraint_clone = self.constraint.clone_with_transformed_parameters(
             transformed_parameters={p.name: p for p in self.constraint.parameters}
         )
@@ -139,7 +139,7 @@ class OrderConstraintTest(TestCase):
             self.constraint.lower_parameter, constraint_clone.lower_parameter
         )
 
-    def testInvalidSetup(self) -> None:
+    def test_InvalidSetup(self) -> None:
         z = FixedParameter("z", ParameterType.INT, 0)
         with self.assertRaises(ValueError):
             self.constraint = OrderConstraint(lower_parameter=self.x, upper_parameter=z)
@@ -163,7 +163,7 @@ class SumConstraintTest(TestCase):
         self.constraint_repr1 = "SumConstraint(x + y <= 5.0)"
         self.constraint_repr2 = "SumConstraint(x + y >= -5.0)"
 
-    def testBadConstruct(self) -> None:
+    def test_BadConstruct(self) -> None:
         with self.assertRaises(ValueError):
             SumConstraint(parameters=[self.x, self.x], is_upper_bound=False, bound=-5.0)
         z = ChoiceParameter("z", ParameterType.STRING, ["a", "b", "c"])
@@ -173,18 +173,18 @@ class SumConstraintTest(TestCase):
                 parameters=[self.x, z], is_upper_bound=False, bound=-5.0
             )
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(self.constraint1.op, ComparisonOp.LEQ)
         self.assertTrue(self.constraint1._is_upper_bound)
 
         self.assertEqual(self.constraint2.op, ComparisonOp.GEQ)
         self.assertFalse(self.constraint2._is_upper_bound)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.constraint1), self.constraint_repr1)
         self.assertEqual(str(self.constraint2), self.constraint_repr2)
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         self.assertTrue(self.constraint1.check({"x": 1, "y": 4}))
         self.assertTrue(self.constraint1.check({"x": 4, "y": 1}))
         self.assertFalse(self.constraint1.check({"x": 1, "y": 5}))
@@ -193,7 +193,7 @@ class SumConstraintTest(TestCase):
         self.assertTrue(self.constraint2.check({"x": -1, "y": -4}))
         self.assertFalse(self.constraint2.check({"x": -5, "y": -1}))
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         constraint_clone = self.constraint1.clone()
         self.assertEqual(self.constraint1.bound, constraint_clone.bound)
 
@@ -203,7 +203,7 @@ class SumConstraintTest(TestCase):
         constraint_clone_2 = self.constraint2.clone()
         self.assertEqual(self.constraint2.bound, constraint_clone_2.bound)
 
-    def testCloneWithTransformedParameters(self) -> None:
+    def test_CloneWithTransformedParameters(self) -> None:
         constraint_clone = self.constraint1.clone_with_transformed_parameters(
             transformed_parameters={p.name: p for p in self.constraint1.parameters}
         )

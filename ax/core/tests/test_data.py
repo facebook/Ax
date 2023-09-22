@@ -79,7 +79,7 @@ class DataTest(TestCase):
             ]
         )
 
-    def testData(self) -> None:
+    def test_Data(self) -> None:
         self.assertEqual(Data(), Data())
         data = Data(df=self.df)
         self.assertEqual(data, data)
@@ -93,19 +93,19 @@ class DataTest(TestCase):
             float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"]), 0.5
         )
 
-    def testBadData(self) -> None:
+    def test_BadData(self) -> None:
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
         with self.assertRaises(ValueError):
             Data(df=df)
 
-    def testEmptyData(self) -> None:
+    def test_EmptyData(self) -> None:
         df = Data().df
         self.assertTrue(df.empty)
         # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got `bool`.
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
-    def testSetSingleBatch(self) -> None:
+    def test_SetSingleBatch(self) -> None:
         data = Data(df=self.df)
         merged_data = set_single_trial(data)
         self.assertTrue((merged_data.df["trial_index"] == 0).all())
@@ -118,7 +118,7 @@ class DataTest(TestCase):
         merged_data = set_single_trial(data)
         self.assertTrue("trial_index" not in merged_data.df)
 
-    def testCustomData(self) -> None:
+    def test_CustomData(self) -> None:
         CustomData = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
             required_columns={"metadata"},
@@ -151,7 +151,7 @@ class DataTest(TestCase):
         with self.assertRaises(ValueError):
             Data(df=pd.DataFrame([data_entry2]))
 
-    def testFromEvaluationsIsoFormat(self) -> None:
+    def test_FromEvaluationsIsoFormat(self) -> None:
         now = pd.Timestamp.now()
         day = now.day
         for sem in (0.5, None):
@@ -169,7 +169,7 @@ class DataTest(TestCase):
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
 
-    def testFromEvaluationsMillisecondFormat(self) -> None:
+    def test_FromEvaluationsMillisecondFormat(self) -> None:
         now_ms = current_timestamp_in_millis()
         day = pd.Timestamp(now_ms, unit="ms").day
         for sem in (0.5, None):
@@ -187,7 +187,7 @@ class DataTest(TestCase):
             self.assertEqual(data.df["start_time"][0].day, day)
             self.assertEqual(data.df["end_time"][0].day, day)
 
-    def testFromFidelityEvaluations(self) -> None:
+    def test_FromFidelityEvaluations(self) -> None:
         for sem in (0.5, None):
             eval1 = (3.7, sem) if sem is not None else 3.7
             eval2 = (3.8, sem) if sem is not None else 3.8
@@ -208,7 +208,7 @@ class DataTest(TestCase):
             self.assertIn("start_time", data.df)
             self.assertIn("end_time", data.df)
 
-    def testCloneWithoutMetrics(self) -> None:
+    def test_CloneWithoutMetrics(self) -> None:
         data = Data(df=self.df)
         expected = Data(
             df=pd.DataFrame(
@@ -245,7 +245,7 @@ class DataTest(TestCase):
         )
         self.assertEqual(clone_without_metrics(data, {"a"}), expected)
 
-    def testFromMultipleDataMismatchedTypes(self) -> None:
+    def test_FromMultipleDataMismatchedTypes(self) -> None:
         # create two custom data types
         CustomDataA = custom_data_class(
             column_data_types={"metadata": str, "created_time": pd.Timestamp},
@@ -289,7 +289,7 @@ class DataTest(TestCase):
             )
             Data.from_multiple_data([data_elt_A, data_elt_B])
 
-    def testGetFilteredResults(self) -> None:
+    def test_GetFilteredResults(self) -> None:
         data = Data(df=self.df)
         # pyre-fixme[6]: For 1st param expected `Dict[str, typing.Any]` but got `str`.
         # pyre-fixme[6]: For 2nd param expected `Dict[str, typing.Any]` but got `str`.

@@ -80,10 +80,10 @@ class ChoiceEncodeTransformTest(TestCase):
             "d": 1,
         }
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d", "e"])
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = self.observation_features
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -105,7 +105,7 @@ class ChoiceEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    def testItPreservesChoiceParameterArgs(self) -> None:
+    def test_ItPreservesChoiceParameterArgs(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         for p in ("d", "e"):
@@ -130,7 +130,7 @@ class ChoiceEncodeTransformTest(TestCase):
                         original_param.values,
                     )
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -222,10 +222,10 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
             "d": "r",
         }
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 

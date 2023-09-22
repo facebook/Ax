@@ -31,10 +31,10 @@ class IntRangeToChoiceTransformTest(TestCase):
             observations=[],
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a"})
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [ObservationFeatures(parameters={"a": 2, "b": "b"})]
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -42,7 +42,7 @@ class IntRangeToChoiceTransformTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertTrue(isinstance(ss2.parameters["a"], ChoiceParameter))

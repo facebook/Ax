@@ -64,7 +64,7 @@ class PowerTransformYTest(TestCase):
             for obsd in [self.obsd1, self.obsd2, self.obsd3, self.obsd_nan]
         ]
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         shared_init_args = {
             "search_space": None,
             "observations": self.observations[:2],
@@ -99,7 +99,7 @@ class PowerTransformYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds[m], tuple)
             self.assertTrue(len(tf.inv_bounds[m]) == 2)
 
-    def testGetData(self) -> None:
+    def test_GetData(self) -> None:
         for m in ["m1", "m2"]:
             # pyre-fixme[6]: For 2nd param expected `Optional[List[str]]` but got `str`.
             Ys = get_data([self.obsd1, self.obsd2, self.obsd3], m)
@@ -110,7 +110,7 @@ class PowerTransformYTest(TestCase):
             else:
                 self.assertEqual(Ys[m], [0.9, 0.4, 0.8])
 
-    def testComputePowerTransform(self) -> None:
+    def test_ComputePowerTransform(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pts = _compute_power_transforms(Ys)
         self.assertEqual(pts["m2"].method, "yeo-johnson")
@@ -126,7 +126,7 @@ class PowerTransformYTest(TestCase):
         Y_np2 = pts["m2"].inverse_transform(Y_trans)
         self.assertAlmostEqual(np.max(np.abs(Y_np - Y_np2)), 0.0)
 
-    def testComputeInverseBounds(self) -> None:
+    def test_ComputeInverseBounds(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
@@ -151,7 +151,7 @@ class PowerTransformYTest(TestCase):
         right = pt.inverse_transform(np.array(bounds[0] + 0.01, ndmin=2))
         self.assertTrue(not isnan(right) and isnan(left))
 
-    def testMatchCIWidth(self) -> None:
+    def test_MatchCIWidth(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
         pt = _compute_power_transforms(Ys)
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
@@ -181,7 +181,7 @@ class PowerTransformYTest(TestCase):
         self.assertTrue(isnan(new_mean_1) and isnan(new_var_1))
         self.assertTrue(isfinite(new_mean_2) and isfinite(new_var_2))
 
-    def testTransformAndUntransformOneMetric(self) -> None:
+    def test_TransformAndUntransformOneMetric(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -211,7 +211,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
-    def testTransformAndUntransformAllMetrics(self) -> None:
+    def test_TransformAndUntransformAllMetrics(self) -> None:
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
@@ -241,7 +241,7 @@ class PowerTransformYTest(TestCase):
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
 
-    def testCompareToSklearn(self) -> None:
+    def test_CompareToSklearn(self) -> None:
         # Make sure the transformed values agree with Sklearn
         observation_data = [self.obsd1, self.obsd2, self.obsd3]
 
@@ -258,7 +258,7 @@ class PowerTransformYTest(TestCase):
         for y1_, y2_ in zip(y1, y2):
             self.assertAlmostEqual(y1_, y2_)
 
-    def testTransformOptimizationConfig(self) -> None:
+    def test_TransformOptimizationConfig(self) -> None:
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)

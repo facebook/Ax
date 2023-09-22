@@ -411,7 +411,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testSetStatusQuo(self, mock_fit, mock_observations_from_data):
+    def test_SetStatusQuo(self, mock_fit, mock_observations_from_data):
         # NOTE: If empty data object is not passed, observations are not
         # extracted, even with mock.
         modelbridge = ModelBridge(
@@ -534,7 +534,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testSetStatusQuoMultipleObs(self, mock_fit, mock_observations_from_data):
+    def test_SetStatusQuoMultipleObs(self, mock_fit, mock_observations_from_data):
         exp = get_experiment_with_repeated_arms(2)
 
         trial_index = 1
@@ -575,7 +575,7 @@ class BaseModelBridgeTest(TestCase):
         return_value=([get_observation1(), get_observation1()]),
     )
     @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    def testSetTrainingDataDupFeatures(
+    def test_SetTrainingDataDupFeatures(
         self, mock_fit: Mock, mock_observations_from_data: Mock
     ) -> None:
         # Throws an error if repeated features in observations.
@@ -590,7 +590,7 @@ class BaseModelBridgeTest(TestCase):
                 status_quo_name="1_1",
             )
 
-    def testUnwrapObservationData(self) -> None:
+    def test_UnwrapObservationData(self) -> None:
         observation_data = [get_observation1().data, get_observation2().data]
         f, cov = unwrap_observation_data(observation_data)
         self.assertEqual(f["a"], [2.0, 2.0])
@@ -606,7 +606,7 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaises(ValueError):
             unwrap_observation_data(observation_data + [od3])
 
-    def testGenArms(self) -> None:
+    def test_GenArms(self) -> None:
         p1 = {"x": 0, "y": 1}
         p2 = {"x": 4, "y": 8}
         observation_features = [
@@ -650,7 +650,7 @@ class BaseModelBridgeTest(TestCase):
     @mock.patch(
         "ax.modelbridge.base.ModelBridge.predict", autospec=True, return_value=None
     )
-    def testGenWithDefaults(self, _, mock_gen: Mock) -> None:
+    def test_GenWithDefaults(self, _, mock_gen: Mock) -> None:
         exp = get_experiment_for_value()
         exp.optimization_config = get_optimization_config_no_constraints()
         ss = get_search_space_for_range_value()
@@ -765,7 +765,7 @@ class BaseModelBridgeTest(TestCase):
 
 
 class testClampObservationFeatures(TestCase):
-    def testClampObservationFeaturesNearBounds(self) -> None:
+    def test_ClampObservationFeaturesNearBounds(self) -> None:
         cases = [
             (
                 ObservationFeatures(

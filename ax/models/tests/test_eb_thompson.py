@@ -22,7 +22,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         self.parameter_values = [[1, 2, 3, 4], [1, 2, 3, 4]]
         self.outcome_names = ["x", "y"]  # not used for regular EB
 
-    def testEmpiricalBayesThompsonSamplerFit(self) -> None:
+    def test_EmpiricalBayesThompsonSamplerFit(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -53,7 +53,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             )
         )
 
-    def testEmpiricalBayesThompsonSamplerGen(self) -> None:
+    def test_EmpiricalBayesThompsonSamplerGen(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -95,7 +95,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
             ):
                 self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
-    def testEmpiricalBayesThompsonSamplerWarning(self) -> None:
+    def test_EmpiricalBayesThompsonSamplerWarning(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -125,7 +125,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.1)
 
-    def testEmpiricalBayesThompsonSamplerValidation(self) -> None:
+    def test_EmpiricalBayesThompsonSamplerValidation(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.01)
         with self.assertRaises(ValueError):
             generator.fit(
@@ -142,7 +142,7 @@ class EmpiricalBayesThompsonSamplerTest(TestCase):
                 outcome_names=self.outcome_names,
             )
 
-    def testEmpiricalBayesThompsonSamplerPredict(self) -> None:
+    def test_EmpiricalBayesThompsonSamplerPredict(self) -> None:
         generator = EmpiricalBayesThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,

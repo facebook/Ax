@@ -20,7 +20,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class ContoursTest(TestCase):
     @fast_botorch_optimize
-    def testContours(self) -> None:
+    def test_Contours(self) -> None:
         exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()
         model = Models.BOTORCH(

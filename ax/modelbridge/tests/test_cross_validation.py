@@ -90,7 +90,7 @@ class CrossValidationTest(TestCase):
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},
         ]
 
-    def testCrossValidate(self) -> None:
+    def test_CrossValidate(self) -> None:
         # Prepare input and output data
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
@@ -170,7 +170,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
 
-    def testCrossValidateByTrial(self) -> None:
+    def test_CrossValidateByTrial(self) -> None:
         # With only 1 trial
         ma = mock.MagicMock()
         ma.get_training_data = mock.MagicMock(
@@ -230,7 +230,7 @@ class CrossValidationTest(TestCase):
         with self.assertRaises(NotImplementedError):
             cross_validate(model=sobol)
 
-    def testComputeDiagnostics(self) -> None:
+    def test_ComputeDiagnostics(self) -> None:
         # Construct CVResults
         result = []
         for i, obs in enumerate(self.training_data):
@@ -254,7 +254,7 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Log likelihood"]["a"], -50.09469266602336)
         self.assertAlmostEqual(diag["Log likelihood"]["b"], -25.82334285505847)
 
-    def testAssessModelFit(self) -> None:
+    def test_AssessModelFit(self) -> None:
         # Construct diagnostics
         result = []
         for i, obs in enumerate(self.training_data):
@@ -282,7 +282,7 @@ class CrossValidationTest(TestCase):
         self.assertTrue("a" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
         self.assertTrue("b" in assess_model_fit_result.good_fit_metrics_to_fisher_score)
 
-    def testHasGoodOptConfigModelFit(self) -> None:
+    def test_HasGoodOptConfigModelFit(self) -> None:
         # Construct diagnostics
         result = []
         for i, obs in enumerate(self.training_data):
@@ -326,7 +326,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertFalse(has_good_fit)
 
-    def testSingleDiagnosticBestModelSelector_min_mean(self) -> None:
+    def test_SingleDiagnosticBestModelSelector_min_mean(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=min,
@@ -334,7 +334,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 1)
 
-    def testSingleDiagnosticBestModelSelector_min_min(self) -> None:
+    def test_SingleDiagnosticBestModelSelector_min_min(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=min,
@@ -342,7 +342,7 @@ class CrossValidationTest(TestCase):
         )
         self.assertEqual(s.best_diagnostic(self.diagnostics), 0)
 
-    def testSingleDiagnosticBestModelSelector_max_mean(self) -> None:
+    def test_SingleDiagnosticBestModelSelector_max_mean(self) -> None:
         s = SingleDiagnosticBestModelSelector(
             diagnostic="Fisher exact test p",
             criterion=max,

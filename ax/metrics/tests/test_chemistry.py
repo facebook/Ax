@@ -21,7 +21,7 @@ class DummyEnum(Enum):
 
 
 class ChemistryMetricTest(TestCase):
-    def testChemistryMetric(self) -> None:
+    def test_ChemistryMetric(self) -> None:
         # basic test
         read_csv = pd.read_csv
         for problem_type in (

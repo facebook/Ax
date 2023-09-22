@@ -40,10 +40,10 @@ class TaskEncodeTransformTest(TestCase):
             observations=[],
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["c"])
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "b": 10.0, "c": "online"})
         ]
@@ -61,7 +61,7 @@ class TaskEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 

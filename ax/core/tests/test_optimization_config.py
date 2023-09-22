@@ -81,7 +81,7 @@ class OptimizationConfigTest(TestCase):
             options={"n_w": 2},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective, outcome_constraints=self.outcome_constraints
         )
@@ -117,7 +117,7 @@ class OptimizationConfigTest(TestCase):
         self.assertEqual(str(config3), expected_str)
         self.assertIs(config3.risk_measure, self.single_output_risk_measure)
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
@@ -139,7 +139,7 @@ class OptimizationConfigTest(TestCase):
         )
         self.assertNotEqual(config1, config3)
 
-    def testConstraintValidation(self) -> None:
+    def test_ConstraintValidation(self) -> None:
         # Can build OptimizationConfig with MultiObjective
         with self.assertRaises(ValueError):
             OptimizationConfig(objective=self.multi_objective)
@@ -217,7 +217,7 @@ class OptimizationConfigTest(TestCase):
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
@@ -225,7 +225,7 @@ class OptimizationConfigTest(TestCase):
         )
         self.assertEqual(config1, config1.clone())
 
-    def testCloneWithArgs(self) -> None:
+    def test_CloneWithArgs(self) -> None:
         config1 = OptimizationConfig(
             objective=self.objective,
             outcome_constraints=self.outcome_constraints,
@@ -323,7 +323,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             options={"n_w": 2},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -402,7 +402,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertIs(config7.risk_measure, self.single_output_risk_measure)
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -420,7 +420,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertNotEqual(config1, config3)
 
-    def testConstraintValidation(self) -> None:
+    def test_ConstraintValidation(self) -> None:
         # Cannot build with non-MultiObjective
         with self.assertRaises(TypeError):
             MultiObjectiveOptimizationConfig(objective=self.objective)
@@ -493,7 +493,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             config.outcome_constraints, [self.outcome_constraint, opposing_constraint]
         )
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
@@ -505,7 +505,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertEqual(config2, config2.clone())
 
-    def testCloneWithArgs(self) -> None:
+    def test_CloneWithArgs(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
             objective_thresholds=self.objective_thresholds,

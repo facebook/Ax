@@ -27,7 +27,7 @@ from ax.utils.testing.core_stubs import (
 
 
 class MapTorchModelBridgeTest(TestCase):
-    def testTorchModelBridge(self) -> None:
+    def test_TorchModelBridge(self) -> None:
         experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
         for i in range(3):
             trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])

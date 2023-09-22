@@ -42,7 +42,7 @@ class ObjectiveTest(TestCase):
             metrics=[self.metrics["m1"], self.metrics["m2"]]
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         with self.assertRaises(ValueError):
             ScalarizedObjective(
                 metrics=[self.metrics["m1"], self.metrics["m2"]], weights=[1.0]
@@ -65,7 +65,7 @@ class ObjectiveTest(TestCase):
             self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
         )
 
-    def testMultiObjective(self) -> None:
+    def test_MultiObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
             # pyre-fixme[7]: Expected `None` but got `Metric`.
             return self.multi_objective.metric
@@ -90,7 +90,7 @@ class ObjectiveTest(TestCase):
             [self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
         )
 
-    def testMultiObjectiveBackwardsCompatibility(self) -> None:
+    def test_MultiObjectiveBackwardsCompatibility(self) -> None:
         multi_objective = MultiObjective(
             metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
         )
@@ -105,7 +105,7 @@ class ObjectiveTest(TestCase):
         minimizes = [obj.minimize for obj in multi_objective_min.objectives]
         self.assertEqual(minimizes, [True, False, True])
 
-    def testScalarizedObjective(self) -> None:
+    def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
             # pyre-fixme[7]: Expected `None` but got `Metric`.
             return self.scalarized_objective.metric

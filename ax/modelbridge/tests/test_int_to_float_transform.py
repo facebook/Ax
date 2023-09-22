@@ -62,7 +62,7 @@ class IntToFloatTransformTest(TestCase):
             config={"min_choices": 3},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"a", "d"})
 
     def test_transform_observation_features(self) -> None:
@@ -150,7 +150,7 @@ class IntToFloatTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": 2.2, "a": 1, "b": "b", "d": 3})],
         )
 
-    def testTransformObservationFeaturesRandomized(self) -> None:
+    def test_TransformObservationFeaturesRandomized(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 2.2, "a": 2, "b": "b", "d": 4})
         ]
@@ -181,7 +181,7 @@ class IntToFloatTransformTest(TestCase):
         self.assertTrue(ss2.parameters["a"].parameter_type, ParameterType.FLOAT)
         self.assertTrue(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
-    def testRoundingWithConstrainedIntRanges(self) -> None:
+    def test_RoundingWithConstrainedIntRanges(self) -> None:
         parameters = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=3, parameter_type=ParameterType.INT),
@@ -237,7 +237,7 @@ class IntToFloatTransformTest(TestCase):
     @mock.patch(
         "ax.modelbridge.transforms.int_to_float.DEFAULT_MAX_ROUND_ATTEMPTS", 100
     )
-    def testRoundingWithImpossiblyConstrainedIntRanges(self) -> None:
+    def test_RoundingWithImpossiblyConstrainedIntRanges(self) -> None:
         parameters = [
             RangeParameter("x", lower=1, upper=5, parameter_type=ParameterType.INT),
             RangeParameter("y", lower=1, upper=5, parameter_type=ParameterType.INT),

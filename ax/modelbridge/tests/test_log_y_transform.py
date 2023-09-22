@@ -59,7 +59,7 @@ class LogYTransformTest(TestCase):
             )
         ]
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         shared_init_args = {
             "search_space": None,
             "observations": self.observations,
@@ -88,7 +88,7 @@ class LogYTransformTest(TestCase):
         # pyre-fixme[6]: For 2nd param expected `ndarray` but got `float`.
         self.assertEqual(tf._untransform(0.0, 0.1), match_ci_width(0.0, 0.1, np.exp))
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         # test default transform
         obsd1_t = ObservationData(
             metric_names=["m1", "m2", "m3"],
@@ -130,7 +130,7 @@ class LogYTransformTest(TestCase):
         self.assertTrue(np.allclose(obsd1_[0].covariance, cov_expected))
         # TODO: match_ci_width test
 
-    def testTransformOptimizationConfig(self) -> None:
+    def test_TransformOptimizationConfig(self) -> None:
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
@@ -207,7 +207,7 @@ class LogYTransformTest(TestCase):
             str(cm.exception),
         )
 
-    def testTransformOptimizationConfigMOO(self) -> None:
+    def test_TransformOptimizationConfigMOO(self) -> None:
         m1 = Metric(name="m1", lower_is_better=False)
         m2 = Metric(name="m2", lower_is_better=True)
         mo = MultiObjective(

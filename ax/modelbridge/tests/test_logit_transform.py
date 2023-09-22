@@ -63,10 +63,10 @@ class LogitTransformTest(TestCase):
             logit_scale=True,
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.transform_parameters, {"x"})
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"x": 0.95, "a": 2, "b": "c"})
         ]
@@ -85,7 +85,7 @@ class LogitTransformTest(TestCase):
             [ObservationFeatures(parameters={"x": x_true, "a": 2, "b": "c"})],
         )
 
-    def testInvalidSettings(self) -> None:
+    def test_InvalidSettings(self) -> None:
         with self.assertRaises(UserInputError) as cm:
             self._create_logit_parameter(lower=0.1, upper=0.9, log_scale=True)
         self.assertEqual("Can't use both log and logit.", str(cm.exception))
@@ -101,7 +101,7 @@ class LogitTransformTest(TestCase):
             self._create_logit_parameter(lower=0.5, upper=10.0)
         self.assertEqual(str_exc, str(cm.exception))
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.

@@ -19,7 +19,7 @@ class LoggerTest(TestCase):
     def setUp(self) -> None:
         self.warning_string = "Test warning"
 
-    def testLogger(self) -> None:
+    def test_Logger(self) -> None:
         logger = get_logger(BASE_LOGGER_NAME + ".testLogger")
         # Verify it doesn't crash
         logger.warning(self.warning_string)
@@ -33,7 +33,7 @@ class LoggerTest(TestCase):
         # onto the python logger directly.
         patcher.stop()
 
-    def testLoggerWithFile(self) -> None:
+    def test_LoggerWithFile(self) -> None:
         with NamedTemporaryFile() as tf:
             logger = get_logger(BASE_LOGGER_NAME + ".testLoggerWithFile")
             logger.addHandler(build_file_handler(tf.name))
@@ -43,7 +43,7 @@ class LoggerTest(TestCase):
             self.assertIn(self.warning_string, output)
             tf.close()
 
-    def testLoggerOutputNameWithFile(self) -> None:
+    def test_LoggerOutputNameWithFile(self) -> None:
         with NamedTemporaryFile() as tf:
             logger = get_logger(BASE_LOGGER_NAME + ".testLoggerOutputNameWithFile")
             logger.addHandler(build_file_handler(tf.name))

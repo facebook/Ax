@@ -30,7 +30,7 @@ class ComputePosteriorParetoFrontierTest(TestCase):
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
 
-    def testComputePosteriorParetoFrontierByTrial(self) -> None:
+    def test_ComputePosteriorParetoFrontierByTrial(self) -> None:
         # Experiments with batch trials must specify trial_index or data
         with self.assertRaises(UnsupportedError):
             compute_posterior_pareto_frontier(
@@ -49,7 +49,7 @@ class ComputePosteriorParetoFrontierTest(TestCase):
         )
         self.assertIsNone(pfr.arm_names)
 
-    def testComputePosteriorParetoFrontierByData(self) -> None:
+    def test_ComputePosteriorParetoFrontierByData(self) -> None:
         # Experiments with batch trials must specify trial_index or data
         compute_posterior_pareto_frontier(
             self.experiment,

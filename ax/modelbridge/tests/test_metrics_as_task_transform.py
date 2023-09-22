@@ -92,20 +92,20 @@ class MetricsAsTaskTransformTest(TestCase):
             config={"metric_task_map": self.metric_task_map},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         with self.assertRaises(ValueError):
             MetricsAsTask(
                 search_space=self.search_space, observations=self.observations
             )
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         new_obs = self.t.transform_observations(deepcopy(self.observations))
         self.assertEqual(new_obs, self.expected_new_observations)
 
         new_obs = self.t.untransform_observations(new_obs)
         self.assertEqual(new_obs, self.observations)
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         obsfs_t = self.t.transform_observation_features(
             deepcopy([obs.features for obs in self.observations])
         )
@@ -121,7 +121,7 @@ class MetricsAsTaskTransformTest(TestCase):
                 deepcopy([obs.features for obs in self.expected_new_observations])
             )
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         new_ss = self.t._transform_search_space(deepcopy(self.search_space))
         self.assertEqual(len(new_ss.parameters), 3)
         new_param = new_ss.parameters["METRIC_TASK"]

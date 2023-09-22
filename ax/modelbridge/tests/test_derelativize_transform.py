@@ -76,7 +76,7 @@ class DerelativizeTransformTest(TestCase):
         ),
     )
     # pyre-fixme[3]: Return type must be annotated.
-    def testDerelativizeTransform(
+    def test_DerelativizeTransform(
         self,
         # pyre-fixme[2]: Parameter must be annotated.
         mock_predict,
@@ -292,7 +292,7 @@ class DerelativizeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_optimization_config(deepcopy(oc), None, None)
 
-    def testErrors(self) -> None:
+    def test_Errors(self) -> None:
         t = Derelativize(
             search_space=None,
             observations=[],

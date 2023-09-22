@@ -11,7 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class InitTest(TestCase):
-    def testInitFiles(self) -> None:
+    def test_InitFiles(self) -> None:
         """__init__.py files are necessary when not using buck targets"""
         for root, _dirs, files in os.walk("./ax/ax", topdown=False):
             if len(glob(f"{root}/**/*.py", recursive=True)) > 0:

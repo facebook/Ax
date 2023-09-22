@@ -46,7 +46,7 @@ class GeneratorRunTest(TestCase):
             model_predictions=self.model_predictions,
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(
             # pyre-fixme[16]: Optional type has no attribute `outcome_constraints`.
             len(self.unweighted_run.optimization_config.outcome_constraints),
@@ -86,7 +86,7 @@ class GeneratorRunTest(TestCase):
                 },
             )
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         weighted_run2 = self.weighted_run.clone()
         self.assertEqual(
             self.weighted_run.optimization_config, weighted_run2.optimization_config
@@ -94,7 +94,7 @@ class GeneratorRunTest(TestCase):
         weighted_run2.arms[0].name = "bogus_name"
         self.assertNotEqual(self.weighted_run.arms, weighted_run2.arms)
 
-    def testMergeDuplicateArm(self) -> None:
+    def test_MergeDuplicateArm(self) -> None:
         arms = self.arms + [self.arms[0]]
         run = GeneratorRun(
             arms=arms,
@@ -104,13 +104,13 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(str(run), GENERATOR_RUN_STR_PLUS_1)
 
-    def testIndex(self) -> None:
+    def test_Index(self) -> None:
         self.assertIsNone(self.unweighted_run.index)
         self.unweighted_run.index = 1
         with self.assertRaises(ValueError):
             self.unweighted_run.index = 2
 
-    def testModelPredictions(self) -> None:
+    def test_ModelPredictions(self) -> None:
         self.assertEqual(self.unweighted_run.model_predictions, get_model_predictions())
         self.assertEqual(
             self.unweighted_run.model_predictions_by_arm,
@@ -127,7 +127,7 @@ class GeneratorRunTest(TestCase):
         self.assertIsNone(run_no_model_predictions.model_predictions)
         self.assertIsNone(run_no_model_predictions.model_predictions_by_arm)
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         self.assertEqual(self.unweighted_run, self.unweighted_run)
 
         arms = [
@@ -141,11 +141,11 @@ class GeneratorRunTest(TestCase):
         )
         self.assertNotEqual(self.unweighted_run, unweighted_run_2)
 
-    def testParamDf(self) -> None:
+    def test_ParamDf(self) -> None:
         param_df = self.unweighted_run.param_df
         self.assertEqual(len(param_df), len(self.arms))
 
-    def testBestArm(self) -> None:
+    def test_BestArm(self) -> None:
         generator_run = GeneratorRun(
             arms=self.arms,
             # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
@@ -160,7 +160,7 @@ class GeneratorRunTest(TestCase):
             (self.arms[0], ({"a": 1.0}, {"a": {"a": 2.0}})),
         )
 
-    def testGenMetadata(self) -> None:
+    def test_GenMetadata(self) -> None:
         gm = {"hello": "world"}
         generator_run = GeneratorRun(
             arms=self.arms,
@@ -173,7 +173,7 @@ class GeneratorRunTest(TestCase):
         )
         self.assertEqual(generator_run.gen_metadata, gm)
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         generator_run1 = GeneratorRun(
             arms=self.arms,
             # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
