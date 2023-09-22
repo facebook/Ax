@@ -27,7 +27,7 @@ class PairwiseModelBridgeTest(TestCase):
     )
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testPairwiseModelBridge(self, mock_init):
+    def test_PairwiseModelBridge(self, mock_init):
         # Test _convert_observations
         pmb = PairwiseModelBridge(
             # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.

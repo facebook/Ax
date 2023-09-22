@@ -74,7 +74,7 @@ class SearchSpaceToChoiceTest(TestCase):
             config={"use_ordered": True},
         )
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(len(ss2.parameters), 1)
@@ -116,7 +116,7 @@ class SearchSpaceToChoiceTest(TestCase):
                 observations=[],
             )
 
-    def testTransformSearchSpaceWithFixedParam(self) -> None:
+    def test_TransformSearchSpaceWithFixedParam(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t2.transform_search_space(ss2)
         self.assertEqual(len(ss2.parameters), 1)
@@ -127,7 +127,7 @@ class SearchSpaceToChoiceTest(TestCase):
         )
         self.assertEqual(ss2.parameters.get("arms"), expected_parameter)
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.transformed_features)

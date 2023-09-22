@@ -14,7 +14,7 @@ class MultiTypeExperimentTest(TestCase):
     def setUp(self) -> None:
         self.experiment = get_multi_type_experiment()
 
-    def testMTExperimentFlow(self) -> None:
+    def test_MTExperimentFlow(self) -> None:
         self.assertTrue(self.experiment.supports_trial_type("type1"))
         self.assertTrue(self.experiment.supports_trial_type("type2"))
         self.assertFalse(self.experiment.supports_trial_type(None))
@@ -62,10 +62,10 @@ class MultiTypeExperimentTest(TestCase):
             places=10,
         )
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.experiment), "MultiTypeExperiment(test_exp)")
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         exp2 = get_multi_type_experiment()
 
         # Should be equal to start
@@ -95,7 +95,7 @@ class MultiTypeExperimentTest(TestCase):
         exp2.remove_tracking_metric("m3")
         self.assertFalse(self.experiment == exp2)
 
-    def testBadBehavior(self) -> None:
+    def test_BadBehavior(self) -> None:
         # Add trial type that already exists
         with self.assertRaises(ValueError):
             self.experiment.add_trial_type("type1", SyntheticRunner())

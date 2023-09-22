@@ -21,7 +21,7 @@ from ax.utils.report.render import (
 
 
 class RenderTest(TestCase):
-    def testRenderReportElements(self) -> None:
+    def test_RenderReportElements(self) -> None:
         elements = [
             p_html("foobar"),
             h2_html("foobar"),

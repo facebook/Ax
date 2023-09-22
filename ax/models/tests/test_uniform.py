@@ -23,7 +23,7 @@ class UniformGeneratorTest(TestCase):
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds
 
-    def testUniformGeneratorAllTunable(self) -> None:
+    def test_UniformGeneratorAllTunable(self) -> None:
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=3, n_fixed=0)
         generated_points, weights = generator.gen(
@@ -41,7 +41,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.allclose(expected_points, generated_points))
         self.assertTrue(np.all(weights == 1.0))
 
-    def testUniformGeneratorFixedSpace(self) -> None:
+    def test_UniformGeneratorFixedSpace(self) -> None:
         generator = UniformGenerator(seed=0)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         n = 3
@@ -63,7 +63,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def testUniformGeneratorOnline(self) -> None:
+    def test_UniformGeneratorOnline(self) -> None:
         # Verify that the generator will return the expected arms if called
         # one at a time.
         generator = UniformGenerator(seed=0)
@@ -88,7 +88,7 @@ class UniformGeneratorTest(TestCase):
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
 
-    def testUniformGeneratorReseed(self) -> None:
+    def test_UniformGeneratorReseed(self) -> None:
         # Verify that the generator will return the expected arms if called
         # one at a time.
         generator = UniformGenerator(seed=0)
@@ -113,7 +113,7 @@ class UniformGeneratorTest(TestCase):
             self.assertEqual(weights, [1])
             self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
 
-    def testUniformGeneratorWithOrderConstraints(self) -> None:
+    def test_UniformGeneratorWithOrderConstraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
@@ -140,7 +140,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def testUniformGeneratorWithLinearConstraints(self) -> None:
+    def test_UniformGeneratorWithLinearConstraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
@@ -166,7 +166,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def testUniformGeneratorBadBounds(self) -> None:
+    def test_UniformGeneratorBadBounds(self) -> None:
         generator = UniformGenerator()
         with self.assertRaises(ValueError):
             generated_points, weights = generator.gen(

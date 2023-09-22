@@ -23,7 +23,7 @@ class DummyEnum(Enum):
 
 
 class SklearnMetricTest(TestCase):
-    def testSklearnMetric(self) -> None:
+    def test_SklearnMetric(self) -> None:
         # test not implemented dataset
         with self.assertRaises(NotImplementedError):
             SklearnMetric(

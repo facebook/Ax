@@ -29,7 +29,7 @@ class SQAStoreUtilsTest(TestCase):
     def setUp(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
 
-    def testCopyDBIDsBatchTrialExp(self) -> None:
+    def test_CopyDBIDsBatchTrialExp(self) -> None:
         exp1 = get_experiment_with_batch_trial()
         save_experiment(exp1)
         exp2 = load_experiment(exp1.name)
@@ -50,7 +50,7 @@ class SQAStoreUtilsTest(TestCase):
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
 
-    def testCopyDBIDsDataExp(self) -> None:
+    def test_CopyDBIDsDataExp(self) -> None:
         exp1 = get_experiment_with_data()
         save_experiment(exp1)
         exp2 = load_experiment(exp1.name)
@@ -65,7 +65,7 @@ class SQAStoreUtilsTest(TestCase):
         copy_db_ids(exp1, exp2)
         self.assertEqual(exp1, exp2)
 
-    def testCopyDBIDsRepeatedArms(self) -> None:
+    def test_CopyDBIDsRepeatedArms(self) -> None:
         exp = get_experiment_with_batch_trial()
         exp.trials[0]
         save_experiment(exp)

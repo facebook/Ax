@@ -153,7 +153,7 @@ class WinsorizeTransformTest(TestCase):
             },
         )
 
-    def testPrintDeprecationWarning(self) -> None:
+    def test_PrintDeprecationWarning(self) -> None:
         warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
@@ -168,7 +168,7 @@ class WinsorizeTransformTest(TestCase):
                 in [str(w.message) for w in ws]
             )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
         self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
         self.assertEqual(self.t1.cutoffs["m1"], (-float("inf"), 1.0))
@@ -199,7 +199,7 @@ class WinsorizeTransformTest(TestCase):
                 config={"derelativize_with_raw_status_quo": 1234},
             )
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         observation_data = self.t1._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -217,13 +217,13 @@ class WinsorizeTransformTest(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    def testInitPercentileBounds(self) -> None:
+    def test_InitPercentileBounds(self) -> None:
         self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
         self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
         self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
         self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
 
-    def testTransformObservationsPercentileBounds(self) -> None:
+    def test_TransformObservationsPercentileBounds(self) -> None:
         observation_data = self.t3._transform_observation_data([deepcopy(self.obsd1)])[
             0
         ]
@@ -241,7 +241,7 @@ class WinsorizeTransformTest(TestCase):
         ]
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
-    def testTransformObservationsDifferentLowerUpper(self) -> None:
+    def test_TransformObservationsDifferentLowerUpper(self) -> None:
         observation_data = self.t5._transform_observation_data([deepcopy(self.obsd2)])[
             0
         ]

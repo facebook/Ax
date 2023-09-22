@@ -61,7 +61,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
             config={"parameter_name": "z"},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         Ymean_expected = {
             ("m1", "a"): 1.0,
             ("m1", "b"): 3.0,
@@ -146,7 +146,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         for k, v in t2.Ystd.items():
             self.assertAlmostEqual(v, Ystd_expected[k])
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         std_m2_a = sqrt(2) * 3
         obsd1_ta = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -190,7 +190,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         )[0].data
         self.assertTrue(osd_allclose(obsd2, self.obsd1))
 
-    def testTransformOptimizationConfig(self) -> None:
+    def test_TransformOptimizationConfig(self) -> None:
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")
         m3 = Metric(name="m3")

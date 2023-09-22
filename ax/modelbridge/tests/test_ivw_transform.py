@@ -11,7 +11,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class IVWTransformTest(TestCase):
-    def testNoRepeats(self) -> None:
+    def test_NoRepeats(self) -> None:
         obsd = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([1.0, 2.0]),
@@ -20,7 +20,7 @@ class IVWTransformTest(TestCase):
         obsd2 = ivw_metric_merge(obsd)
         self.assertEqual(obsd2, obsd)
 
-    def testMerge(self) -> None:
+    def test_Merge(self) -> None:
         obsd = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),
@@ -37,7 +37,7 @@ class IVWTransformTest(TestCase):
         discrep = np.max(np.abs(obsd2.covariance - cov_true))
         self.assertTrue(discrep < 1e-8)
 
-    def testNoiselessMerge(self) -> None:
+    def test_NoiselessMerge(self) -> None:
         # One noiseless
         obsd = ObservationData(
             metric_names=["m1", "m2", "m2"],
@@ -64,7 +64,7 @@ class IVWTransformTest(TestCase):
         with self.assertRaises(ValueError):
             obsd2 = ivw_metric_merge(obsd, conflicting_noiseless="raise")
 
-    def testTransform(self) -> None:
+    def test_Transform(self) -> None:
         obsd1_0 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([1.0, 2.0, 1.0]),

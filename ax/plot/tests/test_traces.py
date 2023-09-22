@@ -28,7 +28,7 @@ class TracesTest(TestCase):
             data=exp.fetch_data(),
         )
 
-    def testTraces(self) -> None:
+    def test_Traces(self) -> None:
         # Assert that each type of plot can be constructed successfully
         plot = optimization_trace_single_method_plotly(
             np.array([[1, 2, 3], [4, 5, 6]]),
@@ -45,7 +45,7 @@ class TracesTest(TestCase):
         )
         self.assertIsInstance(plot, AxPlotConfig)
 
-    def testTracesAutoAxes(self) -> None:
+    def test_TracesAutoAxes(self) -> None:
         for optimization_direction in ["minimize", "maximize", "passthrough"]:
             plot = optimization_trace_single_method_plotly(
                 np.array([[1, 2, 3], [4, 5, 6]]),

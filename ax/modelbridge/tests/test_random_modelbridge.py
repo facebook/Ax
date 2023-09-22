@@ -42,7 +42,7 @@ class RandomModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testFit(self, mock_init):
+    def test_Fit(self, mock_init):
         # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         model = mock.create_autospec(RandomModel, instance=True)
@@ -53,7 +53,7 @@ class RandomModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testPredict(self, mock_init):
+    def test_Predict(self, mock_init):
         # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
@@ -64,7 +64,7 @@ class RandomModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testCrossValidate(self, mock_init):
+    def test_CrossValidate(self, mock_init):
         # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()
         modelbridge.transforms = OrderedDict()
@@ -83,7 +83,7 @@ class RandomModelBridgeTest(TestCase):
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
-    def testGen(self, mock_init, mock_gen):
+    def test_Gen(self, mock_init, mock_gen):
         # Test with constraints
         # pyre-fixme[20]: Argument `model` expected.
         modelbridge = RandomModelBridge()

@@ -117,7 +117,7 @@ class SearchSpaceTest(TestCase):
             "parameter_constraints=[OrderConstraint(a <= b)])"
         )
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         ss2 = SearchSpace(
             parameters=self.parameters,
             parameter_constraints=[
@@ -127,7 +127,7 @@ class SearchSpaceTest(TestCase):
         self.assertEqual(self.ss2, ss2)
         self.assertNotEqual(self.ss1, self.ss2)
 
-    def testProperties(self) -> None:
+    def test_Properties(self) -> None:
         self.assertEqual(len(self.ss1.parameters), TOTAL_PARAMS)
         self.assertTrue("a" in self.ss1.parameters)
         self.assertTrue(len(self.ss1.tunable_parameters), TUNABLE_PARAMS)
@@ -137,11 +137,11 @@ class SearchSpaceTest(TestCase):
         self.assertTrue(len(self.ss1.parameter_constraints) == 0)
         self.assertTrue(len(self.ss2.parameter_constraints) == 1)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(str(self.ss2), self.ss2_repr)
         self.assertEqual(str(self.ss1), self.ss1_repr)
 
-    def testSetter(self) -> None:
+    def test_Setter(self) -> None:
         new_c = SumConstraint(
             parameters=[self.a, self.b], is_upper_bound=True, bound=10
         )
@@ -161,7 +161,7 @@ class SearchSpaceTest(TestCase):
         # pyre-fixme[16]: `Parameter` has no attribute `lower`.
         self.assertEqual(self.ss2.parameters["b"].lower, 10)
 
-    def testBadConstruction(self) -> None:
+    def test_BadConstruction(self) -> None:
         # Duplicate parameter
         with self.assertRaises(ValueError):
             p1 = self.parameters + [self.parameters[0]]
@@ -223,7 +223,7 @@ class SearchSpaceTest(TestCase):
                 ],
             )
 
-    def testBadSetter(self) -> None:
+    def test_BadSetter(self) -> None:
         new_p = RangeParameter(
             name="b", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
@@ -243,7 +243,7 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss1.update_parameter(new_p)
 
-    def testCheckMembership(self) -> None:
+    def test_CheckMembership(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
@@ -291,7 +291,7 @@ class SearchSpaceTest(TestCase):
             #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_membership(p_dict, raise_error=True)
 
-    def testCheckTypes(self) -> None:
+    def test_CheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Valid
@@ -320,7 +320,7 @@ class SearchSpaceTest(TestCase):
             #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
             self.ss2.check_types(p_dict, raise_error=True)
 
-    def testCastArm(self) -> None:
+    def test_CastArm(self) -> None:
         p_dict = {"a": 1.0, "b": 5.0, "c": "foo", "d": True, "e": 0.2, "f": 5}
 
         # Check "b" parameter goes from float to int
@@ -337,7 +337,7 @@ class SearchSpaceTest(TestCase):
         new_arm = self.ss2.cast_arm(Arm(p_dict))
         self.assertTrue(isinstance(new_arm.parameters["q"], int))
 
-    def testCopy(self) -> None:
+    def test_Copy(self) -> None:
         a = RangeParameter("a", ParameterType.FLOAT, 1.0, 5.5)
         b = RangeParameter("b", ParameterType.FLOAT, 2.0, 5.5)
         c = ChoiceParameter("c", ParameterType.INT, [2, 3])
@@ -356,14 +356,14 @@ class SearchSpaceTest(TestCase):
         ss_copy.add_parameter(FixedParameter("d", ParameterType.STRING, "h"))
         self.assertNotEqual(len(ss_copy.parameters), len(ss.parameters))
 
-    def testOutOfDesignArm(self) -> None:
+    def test_OutOfDesignArm(self) -> None:
         arm1 = self.ss1.out_of_design_arm()
         arm2 = self.ss2.out_of_design_arm()
         arm1_nones = [p is None for p in arm1.parameters.values()]
         self.assertTrue(all(arm1_nones))
         self.assertTrue(arm1 == arm2)
 
-    def testConstructArm(self) -> None:
+    def test_ConstructArm(self) -> None:
         # Test constructing an arm of default values
         arm = self.ss1.construct_arm(name="test")
         self.assertEqual(arm.name, "test")
@@ -403,7 +403,7 @@ class SearchSpaceDigestTest(TestCase):
             "robust_digest": None,
         }
 
-    def testSearchSpaceDigest(self) -> None:
+    def test_SearchSpaceDigest(self) -> None:
         # test required fields
         with self.assertRaises(TypeError):
             # pyre-fixme[20]: Argument `feature_names` expected.

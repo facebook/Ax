@@ -57,10 +57,10 @@ class MapUnitXTransformTest(TestCase):
             observations=self.observations,
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.bounds, {"step_1": (0.0, 10.0), "step_2": (0.0, 20.0)})
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         obs_ft2 = deepcopy(self.observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
         expected = [
@@ -84,7 +84,7 @@ class MapUnitXTransformTest(TestCase):
                         obsf.parameters[step], expected_obsf.parameters[step]
                     )
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters, self.search_space.parameters)

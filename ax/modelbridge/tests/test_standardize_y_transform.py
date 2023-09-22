@@ -46,7 +46,7 @@ class StandardizeYTransformTest(TestCase):
             observations=[obs1, obs2],
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(self.t.Ymean, {"m1": 1.0, "m2": 1.5})
         self.assertEqual(self.t.Ystd, {"m1": 1.0, "m2": sqrt(1 / 3)})
         with self.assertRaises(DataRequiredError):
@@ -55,7 +55,7 @@ class StandardizeYTransformTest(TestCase):
                 observations=[],
             )
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         obsd1_t = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, sqrt(3 / 4), -sqrt(3 / 4)]),
@@ -73,7 +73,7 @@ class StandardizeYTransformTest(TestCase):
         obsd2 = self.t._untransform_observation_data(obsd2)
         self.assertTrue(osd_allclose(obsd2[0], self.obsd1))
 
-    def testTransformOptimizationConfig(self) -> None:
+    def test_TransformOptimizationConfig(self) -> None:
         m1 = Metric(name="m1")
         m2 = Metric(name="m2")
         m3 = Metric(name="m3")

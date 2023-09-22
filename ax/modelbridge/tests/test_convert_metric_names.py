@@ -25,7 +25,7 @@ class ConvertMetricNamesTest(TestCase):
         self.observation_features = [o.features for o in self.observations]
         self.tconfig = tconfig_from_mt_experiment(self.experiment)
 
-    def testConvertMetricNames(self) -> None:
+    def test_ConvertMetricNames(self) -> None:
         transform = ConvertMetricNames(
             None, observations=self.observations, config=self.tconfig
         )
@@ -59,7 +59,7 @@ class ConvertMetricNamesTest(TestCase):
                 untransformed_observations[i].data.metric_names[0], metric_name
             )
 
-    def testBadInputs(self) -> None:
+    def test_BadInputs(self) -> None:
         with self.assertRaises(ValueError):
             ConvertMetricNames(None, observations=self.observations, config=None)
 
@@ -99,7 +99,7 @@ class ConvertMetricNamesTest(TestCase):
                 config=tconfig_copy,
             )
 
-    def testMultipleMetrics(self) -> None:
+    def test_MultipleMetrics(self) -> None:
         # Create copy of online metric for offline
         online_metric = copy(self.experiment.metrics["m1"])
         online_metric._name = "m3"

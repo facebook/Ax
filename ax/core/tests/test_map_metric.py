@@ -16,11 +16,11 @@ class MapMetricTest(TestCase):
     def setUp(self) -> None:
         pass
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         metric = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         metric2 = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric2)
@@ -28,16 +28,16 @@ class MapMetricTest(TestCase):
         metric3 = MapMetric(name="m1", lower_is_better=True)
         self.assertNotEqual(metric1, metric3)
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         self.assertEqual(metric1, metric1.clone())
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         metric1 = MapMetric(name="m1", lower_is_better=False)
         metric2 = MapMetric(name="m2", lower_is_better=False)
         self.assertTrue(metric1 < metric2)
 
-    def testWrapUnwrap(self) -> None:
+    def test_WrapUnwrap(self) -> None:
         data = get_map_data()
 
         trial_multi = MapMetric._unwrap_trial_data_multi(

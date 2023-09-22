@@ -11,7 +11,7 @@ from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class ParallelCoordinatesTest(TestCase):
-    def testParallelCoordinates(self) -> None:
+    def test_ParallelCoordinates(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
 

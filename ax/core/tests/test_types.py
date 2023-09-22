@@ -27,7 +27,7 @@ class TypesTest(TestCase):
         }
         self.predict = (mu, cov)
 
-    def testMergeModelPredict(self) -> None:
+    def test_MergeModelPredict(self) -> None:
         mu_append = {"m1": [0.6], "m2": [0.7]}
         cov_append = {
             "m1": {"m1": [0.0], "m2": [0.0]},
@@ -36,7 +36,7 @@ class TypesTest(TestCase):
         merged_predicts = merge_model_predict(self.predict, (mu_append, cov_append))
         self.assertEqual(len(merged_predicts[0]["m1"]), 3)
 
-    def testMergeModelPredictFail(self) -> None:
+    def test_MergeModelPredictFail(self) -> None:
         mu_append = {"m1": [0.6]}
         cov_append = {
             "m1": {"m1": [0.0], "m2": [0.0]},
@@ -50,7 +50,7 @@ class TypesTest(TestCase):
         with self.assertRaises(ValueError):
             merge_model_predict(self.predict, (mu_append, cov_append))
 
-    def testValidate(self) -> None:
+    def test_Validate(self) -> None:
         trial_evaluation = {"foo": 0.0}
         trial_evaluation_with_noise = {"foo": (0.0, 0.0)}
         fidelity_trial_evaluation = [({"a": 0.0}, trial_evaluation)]

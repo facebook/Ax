@@ -44,7 +44,7 @@ class SensitivityAnanlysisTest(TestCase):
     def setUp(self) -> None:
         self.model = get_modelbridge().model.model
 
-    def testDgsmGpMean(self) -> None:
+    def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_mean = GpDGSMGpMean(self.model, bounds=bounds, num_mc_samples=10)
         gradients_measure = sensitivity_mean.gradient_measure()
@@ -72,7 +72,7 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 3]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 3]))
 
-    def testDgsmGpSampling(self) -> None:
+    def test_DgsmGpSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_sampling = GpDGSMGpSampling(
             self.model, bounds=bounds, num_mc_samples=10, num_gp_samples=10
@@ -301,7 +301,7 @@ class SensitivityAnanlysisTest(TestCase):
             total_order = sensitivity_sampling.total_order_indices()
             second_order = sensitivity_sampling.second_order_indices()
 
-    def testDerivativeGp(self) -> None:
+    def test_DerivativeGp(self) -> None:
         test_x = torch.rand(2, 2)
         posterior = posterior_derivative(self.model, test_x, kernel_type="matern_l1")
         self.assertIsInstance(posterior, MultivariateNormal)

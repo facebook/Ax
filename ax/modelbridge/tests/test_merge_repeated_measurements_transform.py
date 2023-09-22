@@ -23,7 +23,7 @@ def compare_obs(
 
 
 class MergeRepeatedMeasurementsTransformTest(TestCase):
-    def testTransform(self) -> None:
+    def test_Transform(self) -> None:
         obs_feats1 = ObservationFeatures(parameters={"a": 0.0})
         with self.assertRaisesRegex(
             RuntimeError, "MergeRepeatedMeasurements requires observations"

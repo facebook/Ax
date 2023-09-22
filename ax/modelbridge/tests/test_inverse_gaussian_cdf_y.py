@@ -36,7 +36,7 @@ class InverseGaussianCdfYTransformTest(TestCase):
             observations=[],
         )
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         transformed_obsd_mid = self.t._transform_observation_data(
             [deepcopy(self.obsd_mid)]
         )[0]

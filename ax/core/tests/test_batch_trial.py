@@ -43,7 +43,7 @@ class BatchTrialTest(TestCase):
         self.weights = weights[1:]
         self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         self.assertNotEqual(self.batch, new_batch_trial)
 
@@ -51,7 +51,7 @@ class BatchTrialTest(TestCase):
         abandoned_arm_2 = get_abandoned_arm()
         self.assertEqual(abandoned_arm, abandoned_arm_2)
 
-    def testBasicProperties(self) -> None:
+    def test_BasicProperties(self) -> None:
         self.assertEqual(self.experiment, self.batch.experiment)
         self.assertEqual(self.batch.index, 0)
         self.assertEqual(self.batch.status, TrialStatus.CANDIDATE)
@@ -64,14 +64,14 @@ class BatchTrialTest(TestCase):
         # Test empty arms
         self.assertEqual(len(self.experiment.new_batch_trial().abandoned_arms), 0)
 
-    def testUndefinedSetters(self) -> None:
+    def test_UndefinedSetters(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.batch.arm_weights = get_arm_weights1()
 
         with self.assertRaises(NotImplementedError):
             self.batch.status = TrialStatus.RUNNING
 
-    def testBasicSetter(self) -> None:
+    def test_BasicSetter(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.assertIsNotNone(self.batch.runner)
 
@@ -82,7 +82,7 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             self.batch.trial_type = ""
 
-    def testAddArm(self) -> None:
+    def test_AddArm(self) -> None:
         self.assertEqual(len(self.batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
         self.assertEqual(sum(self.batch.weights), sum(self.weights))
@@ -120,7 +120,7 @@ class BatchTrialTest(TestCase):
         # Check the GS index was not overwritten to None.
         self.assertEqual(self.batch._generation_step_index, 0)
 
-    def testInitWithGeneratorRun(self) -> None:
+    def test_InitWithGeneratorRun(self) -> None:
         generator_run = GeneratorRun(arms=self.arms, weights=self.weights)
         batch = self.experiment.new_batch_trial(generator_run=generator_run)
         batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
@@ -129,7 +129,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(len(batch.arms), len(self.arms))
         self.assertEqual(len(self.batch.generator_run_structs), 1)
 
-    def testStatusQuoOverlap(self) -> None:
+    def test_StatusQuoOverlap(self) -> None:
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
         # Set status quo to existing arm
         self.batch.set_status_quo_with_weight(self.arms[0], self.sq_weight)
@@ -151,7 +151,7 @@ class BatchTrialTest(TestCase):
             "status_quo_0",
         )
 
-    def testStatusQuo(self) -> None:
+    def test_StatusQuo(self) -> None:
         tot_weight = sum(self.batch.weights)
         new_sq = Arm(parameters={"w": 0.95, "x": 1, "y": "foo", "z": True})
 
@@ -189,7 +189,7 @@ class BatchTrialTest(TestCase):
                 Arm(new_sq.parameters, name="new_name"), 1
             )
 
-    def testStatusQuoOptimizeForPower(self) -> None:
+    def test_StatusQuoOptimizeForPower(self) -> None:
         self.experiment.status_quo = self.status_quo
         batch = self.experiment.new_batch_trial(optimize_for_power=True)
         self.assertEqual(batch._status_quo_weight_override, 1)
@@ -212,7 +212,7 @@ class BatchTrialTest(TestCase):
             )
         )
 
-    def testArmsByName(self) -> None:
+    def test_ArmsByName(self) -> None:
         # Initializes empty
         newbatch = self.experiment.new_batch_trial()
         self.assertEqual(newbatch.arms_by_name, {})
@@ -239,7 +239,7 @@ class BatchTrialTest(TestCase):
             {"0_0": self.batch.arms[0]},
         )
 
-    def testBatchLifecycle(self) -> None:
+    def test_BatchLifecycle(self) -> None:
         # Check that state of trial statuses mapping on experiment: there should only be
         # one index, 0, among the `CANDIDATE` trials.
         trial_idcs_by_status = iter(self.experiment.trial_indices_by_status.values())
@@ -346,7 +346,7 @@ class BatchTrialTest(TestCase):
                 if status != TrialStatus.CANDIDATE
             )
 
-    def testAbandonBatchTrial(self) -> None:
+    def test_AbandonBatchTrial(self) -> None:
         reason = "BatchTrial behaved poorly"
         self.batch.mark_abandoned(reason)
 
@@ -354,7 +354,7 @@ class BatchTrialTest(TestCase):
         self.assertIsNotNone(self.batch.time_completed)
         self.assertEqual(self.batch.abandoned_reason, reason)
 
-    def testFailedBatchTrial(self) -> None:
+    def test_FailedBatchTrial(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.batch.run()
         self.batch.mark_failed()
@@ -362,7 +362,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.FAILED)
         self.assertIsNotNone(self.batch.time_completed)
 
-    def testEarlyStoppedBatchTrial(self) -> None:
+    def test_EarlyStoppedBatchTrial(self) -> None:
         self.batch.runner = SyntheticRunner()
         self.batch.run()
         self.batch.mark_early_stopped()
@@ -370,7 +370,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status, TrialStatus.EARLY_STOPPED)
         self.assertIsNotNone(self.batch.time_completed)
 
-    def testAbandonArm(self) -> None:
+    def test_AbandonArm(self) -> None:
         arm = self.batch.arms[0]
         reason = "Bad arm"
         self.batch.mark_arm_abandoned(arm.name, reason)
@@ -388,14 +388,14 @@ class BatchTrialTest(TestCase):
                 Arm(parameters={"x": 3, "y": "fooz", "z": False})
             )
 
-    def testClone(self) -> None:
+    def test_Clone(self) -> None:
         new_batch_trial = self.batch.clone()
         self.assertEqual(len(new_batch_trial.generator_run_structs), 1)
         self.assertEqual(len(new_batch_trial.arms), 2)
         self.assertEqual(new_batch_trial.runner, self.batch.runner)
         self.assertEqual(new_batch_trial.trial_type, self.batch.trial_type)
 
-    def testRunner(self) -> None:
+    def test_Runner(self) -> None:
         # Verify BatchTrial without runner will fail
         with self.assertRaises(ValueError):
             self.batch.run()
@@ -423,7 +423,7 @@ class BatchTrialTest(TestCase):
             self.assertEqual(b2.deployed_name, "test_1")
             self.assertEqual(b2.status, TrialStatus.STAGED)
 
-    def testIsFactorial(self) -> None:
+    def test_IsFactorial(self) -> None:
         self.assertFalse(self.batch.is_factorial)
 
         # Insufficient factors
@@ -455,7 +455,7 @@ class BatchTrialTest(TestCase):
         )
         self.assertTrue(new_batch_trial.is_factorial)
 
-    def testNormalizedArmWeights(self) -> None:
+    def test_NormalizedArmWeights(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         parameterizations = [
             {"w": 0.75, "x": 1, "y": "foo", "z": True},
@@ -488,7 +488,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(batch_arm_parameters, arm_parameters)
         self.assertTrue(np.allclose(list(arm_weights.values()), [0.67, 0.33]))
 
-    def testAddGeneratorRunValidation(self) -> None:
+    def test_AddGeneratorRunValidation(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         new_arms = [
             Arm(name="0_1", parameters={"w": 0.75, "x": 1, "y": "foo", "z": True}),
@@ -498,7 +498,7 @@ class BatchTrialTest(TestCase):
         with self.assertRaises(ValueError):
             new_batch_trial.add_generator_run(gr)
 
-    def testSetStatusQuoAndOptimizePower(self) -> None:
+    def test_SetStatusQuoAndOptimizePower(self) -> None:
         batch_trial = self.experiment.new_batch_trial()
         status_quo = Arm(
             name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
@@ -551,7 +551,7 @@ class BatchTrialTest(TestCase):
         # its weight comes from _status_quo_weight_override
         self.assertEqual(batch_trial._status_quo_weight_override, np.sqrt(2))
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual(
             str(self.batch),
             "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
@@ -640,7 +640,7 @@ class BatchTrialTest(TestCase):
                 self.batch._get_candidate_metadata(arm.name),
             )
 
-    def testSortable(self) -> None:
+    def test_Sortable(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
         self.assertTrue(self.batch < new_batch_trial)
 

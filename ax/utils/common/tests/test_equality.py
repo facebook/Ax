@@ -19,7 +19,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class EqualityTest(TestCase):
-    def testEqualityTypechecker(self) -> None:
+    def test_EqualityTypechecker(self) -> None:
         @equality_typechecker
         # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[2]: Parameter must be annotated.
@@ -29,18 +29,18 @@ class EqualityTest(TestCase):
         self.assertFalse(eq(5, 5.0))
         self.assertTrue(eq(5, 5))
 
-    def testListsEquals(self) -> None:
+    def test_ListsEquals(self) -> None:
         self.assertFalse(same_elements([0], [0, 1]))
         self.assertFalse(same_elements([1, 0], [0, 2]))
         self.assertTrue(same_elements([1, 0], [0, 1]))
 
-    def testDatetimeEquals(self) -> None:
+    def test_DatetimeEquals(self) -> None:
         now = datetime.now()
         self.assertTrue(datetime_equals(None, None))
         self.assertFalse(datetime_equals(None, now))
         self.assertTrue(datetime_equals(now, now))
 
-    def testDataframeEquals(self) -> None:
+    def test_DataframeEquals(self) -> None:
         pd1 = pd.DataFrame.from_records([{"x": 100, "y": 200}])
         pd2 = pd.DataFrame.from_records([{"y": 200, "x": 100}])
         pd3 = pd.DataFrame.from_records([{"x": 100, "y": 300}])

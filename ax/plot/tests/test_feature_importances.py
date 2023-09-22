@@ -60,7 +60,7 @@ def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
 
 class FeatureImportancesTest(TestCase):
     @fast_botorch_optimize
-    def testFeatureImportances(self) -> None:
+    def test_FeatureImportances(self) -> None:
         model = get_modelbridge()
         # Assert that each type of plot can be constructed successfully
         plot = plot_feature_importance_by_feature_plotly(model=model)

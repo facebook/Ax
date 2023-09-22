@@ -77,7 +77,7 @@ class ExperimentTest(TestCase):
         batch_2.run()
         return exp
 
-    def testExperimentInit(self) -> None:
+    def test_ExperimentInit(self) -> None:
         self.assertEqual(self.experiment.name, "test")
         self.assertEqual(self.experiment.description, "test description")
         self.assertEqual(self.experiment.name, "test")
@@ -85,7 +85,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.experiment_type, None)
         self.assertEqual(self.experiment.num_abandoned_arms, 0)
 
-    def testExperimentName(self) -> None:
+    def test_ExperimentName(self) -> None:
         self.assertTrue(self.experiment.has_name)
         self.experiment.name = None
         self.assertFalse(self.experiment.has_name)
@@ -93,11 +93,11 @@ class ExperimentTest(TestCase):
             self.experiment.name
         self.experiment.name = "test"
 
-    def testExperimentType(self) -> None:
+    def test_ExperimentType(self) -> None:
         self.experiment.experiment_type = "test"
         self.assertEqual(self.experiment.experiment_type, "test")
 
-    def testEq(self) -> None:
+    def test_Eq(self) -> None:
         self.assertEqual(self.experiment, self.experiment)
 
         experiment2 = Experiment(
@@ -109,13 +109,13 @@ class ExperimentTest(TestCase):
         )
         self.assertNotEqual(self.experiment, experiment2)
 
-    def testDBId(self) -> None:
+    def test_DBId(self) -> None:
         self.assertIsNone(self.experiment.db_id)
         some_id = 123456789
         self.experiment.db_id = some_id
         self.assertEqual(self.experiment.db_id, some_id)
 
-    def testTrackingMetricsMerge(self) -> None:
+    def test_TrackingMetricsMerge(self) -> None:
         # Tracking and optimization metrics should get merged
         # m1 is on optimization_config while m3 is not
         exp = Experiment(
@@ -127,7 +127,7 @@ class ExperimentTest(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `metrics`.
         self.assertEqual(len(exp.optimization_config.metrics) + 1, len(exp.metrics))
 
-    def testBasicBatchCreation(self) -> None:
+    def test_BasicBatchCreation(self) -> None:
         batch = self.experiment.new_batch_trial()
         self.assertEqual(len(self.experiment.trials), 1)
         self.assertEqual(self.experiment.trials[0], batch)
@@ -141,16 +141,16 @@ class ExperimentTest(TestCase):
             new_exp = get_experiment()
             new_exp._attach_trial(batch)
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         self.assertEqual("Experiment(test)", str(self.experiment))
 
-    def testBasicProperties(self) -> None:
+    def test_BasicProperties(self) -> None:
         self.assertEqual(self.experiment.status_quo, get_status_quo())
         self.assertEqual(self.experiment.search_space, get_search_space())
         self.assertEqual(self.experiment.optimization_config, get_optimization_config())
         self.assertEqual(self.experiment.is_test, True)
 
-    def testOnlyRangeParameterConstraints(self) -> None:
+    def test_OnlyRangeParameterConstraints(self) -> None:
         self.assertEqual(0, 0)
         self.assertTrue(True)
 
@@ -213,7 +213,7 @@ class ExperimentTest(TestCase):
                 parameter_constraints=["x1 + x2 <= 1"],
             )
 
-    def testMetricSetters(self) -> None:
+    def test_MetricSetters(self) -> None:
         # Establish current metrics size
         self.assertEqual(
             len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
@@ -285,7 +285,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.remove_tracking_metric(metric_name="m5")
 
-    def testSearchSpaceSetter(self) -> None:
+    def test_SearchSpaceSetter(self) -> None:
         one_param_ss = SearchSpace(parameters=[get_search_space().parameters["w"]])
 
         # Verify all search space ok with no trials
@@ -312,7 +312,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.search_space = extra_param_ss
 
-    def testStatusQuoSetter(self) -> None:
+    def test_StatusQuoSetter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters
         self.experiment.status_quo = None
         self.assertIsNone(self.experiment.status_quo)
@@ -383,7 +383,7 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             exp.status_quo = Arm(arms[0].parameters, name="new_name")
 
-    def testRegisterArm(self) -> None:
+    def test_RegisterArm(self) -> None:
         # Create a new arm, register on experiment
         parameters = self.experiment.status_quo.parameters
         parameters["w"] = 3.5
@@ -392,7 +392,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(self.experiment.arms_by_name[arm.name], arm)
         self.assertEqual(self.experiment.arms_by_signature[arm.signature], arm)
 
-    def testFetchAndStoreData(self) -> None:
+    def test_FetchAndStoreData(self) -> None:
         n = 10
         exp = self._setupBraninExperiment(n)
         batch = exp.trials[0]
@@ -507,7 +507,7 @@ class ExperimentTest(TestCase):
             exp.fetch_data(metrics=[Metric(name="not_on_experiment")]), Data()
         )
 
-    def testOverwriteExistingData(self) -> None:
+    def test_OverwriteExistingData(self) -> None:
         n = 10
         exp = self._setupBraninExperiment(n)
 
@@ -548,7 +548,7 @@ class ExperimentTest(TestCase):
             data.df["metric_name"] = "a"
             exp.attach_data(data, overwrite_existing_data=True)
 
-    def testEmptyMetrics(self) -> None:
+    def test_EmptyMetrics(self) -> None:
         empty_experiment = Experiment(
             name="test_experiment", search_space=get_search_space()
         )
@@ -566,7 +566,7 @@ class ExperimentTest(TestCase):
         batch.mark_completed()
         self.assertFalse(empty_experiment.fetch_data().df.empty)
 
-    def testNumArmsNoDeduplication(self) -> None:
+    def test_NumArmsNoDeduplication(self) -> None:
         exp = Experiment(name="test_experiment", search_space=get_search_space())
         arm = get_arm()
         exp.new_batch_trial().add_arm(arm)
@@ -576,7 +576,7 @@ class ExperimentTest(TestCase):
         trial.mark_arm_abandoned(trial.arms[0].name)
         self.assertEqual(exp.num_abandoned_arms, 1)
 
-    def testExperimentWithoutName(self) -> None:
+    def test_ExperimentWithoutName(self) -> None:
         exp = Experiment(
             search_space=get_branin_search_space(),
             tracking_metrics=[BraninMetric(name="b", param_names=["x1", "x2"])],
@@ -588,7 +588,7 @@ class ExperimentTest(TestCase):
         batch.run()
         self.assertEqual(batch.run_metadata, {"name": "0"})
 
-    def testExperimentRunner(self) -> None:
+    def test_ExperimentRunner(self) -> None:
         original_runner = SyntheticRunner()
         self.experiment.runner = original_runner
         batch = self.experiment.new_batch_trial()
@@ -623,7 +623,7 @@ class ExperimentTest(TestCase):
         # Update candidate trial runners.
         self.assertEqual(self.experiment.trials[1].runner, new_runner)
 
-    def testFetchTrialsData(self) -> None:
+    def test_FetchTrialsData(self) -> None:
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]
         batch_1 = exp.trials[1]
@@ -691,7 +691,7 @@ class ExperimentTest(TestCase):
         )
         self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
 
-    def testAttachBatchTrialNoArmNames(self) -> None:
+    def test_AttachBatchTrialNoArmNames(self) -> None:
         num_trials = len(self.experiment.trials)
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
@@ -712,7 +712,7 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
 
-    def testAttachBatchTrialWithArmNames(self) -> None:
+    def test_AttachBatchTrialWithArmNames(self) -> None:
         num_trials = len(self.experiment.trials)
 
         attached_parameterizations, trial_index = self.experiment.attach_trial(
@@ -739,7 +739,7 @@ class ExperimentTest(TestCase):
             set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
         )
 
-    def testAttachSingleArmTrialNoArmName(self) -> None:
+    def test_AttachSingleArmTrialNoArmName(self) -> None:
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
@@ -752,7 +752,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
         self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
 
-    def testAttachSingleArmTrialWithArmName(self) -> None:
+    def test_AttachSingleArmTrialWithArmName(self) -> None:
         num_trials = len(self.experiment.trials)
 
         attached_parameterization, trial_index = self.experiment.attach_trial(
@@ -837,7 +837,7 @@ class ExperimentTest(TestCase):
             # No new data should be attached to the experiment
             self.assertEqual(len(exp._data_by_trial), 2)
 
-    def testWarmStartFromOldExperiment(self) -> None:
+    def test_WarmStartFromOldExperiment(self) -> None:
         # create old_experiment
         len_old_trials = 7
         i_failed_trial = 1
@@ -1000,7 +1000,7 @@ class ExperimentWithMapDataTest(TestCase):
         batch_2.run()
         return exp
 
-    def testFetchDataWithMapData(self) -> None:
+    def test_FetchDataWithMapData(self) -> None:
         evaluations = {
             "0_0": [
                 ({"epoch": 1}, {"no_fetch_impl_metric": (3.7, 0.5)}),
@@ -1039,7 +1039,7 @@ class ExperimentWithMapDataTest(TestCase):
         actual_data = self.experiment.lookup_data()
         self.assertEqual(expected_data, actual_data)
 
-    def testFetchDataWithMixedData(self) -> None:
+    def test_FetchDataWithMixedData(self) -> None:
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
@@ -1055,7 +1055,7 @@ class ExperimentWithMapDataTest(TestCase):
 
             self.assertEqual(len(full_data.true_df), len(map_data.true_df) + 20)
 
-    def testFetchTrialsData(self) -> None:
+    def test_FetchTrialsData(self) -> None:
         exp = self._setupBraninExperiment(n=5)
         batch_0 = exp.trials[0]
         batch_1 = exp.trials[1]
@@ -1107,7 +1107,7 @@ class ExperimentWithMapDataTest(TestCase):
         exp._optimization_config = None
         self.assertFalse(exp.is_moo_problem)
 
-    def testWarmStartMapData(self) -> None:
+    def test_WarmStartMapData(self) -> None:
         # create old_experiment
         len_old_trials = 7
         i_failed_trial = 1

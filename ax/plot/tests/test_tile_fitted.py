@@ -55,7 +55,7 @@ def get_modelbridge(
 
 
 class TileFittedTest(TestCase):
-    def testTileFitted(self) -> None:
+    def test_TileFitted(self) -> None:
         model = get_modelbridge(status_quo_name=None)
 
         # Should throw if `status_quo_arm` is None and rel=True
@@ -115,7 +115,7 @@ class TileFittedTest(TestCase):
 
 
 class TileObservationsTest(TestCase):
-    def testTileObservations(self) -> None:
+    def test_TileObservations(self) -> None:
         exp = get_experiment_with_data()
         exp.trials[0].run()
         exp.trials[0].mark_completed()

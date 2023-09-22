@@ -15,7 +15,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 
 class LCEMBOTest(TestCase):
     @fast_botorch_optimize
-    def testLCEMBO(self) -> None:
+    def test_LCEMBO(self) -> None:
         d = 1
         train_x = torch.rand(10, d)
         train_y = torch.cos(train_x)

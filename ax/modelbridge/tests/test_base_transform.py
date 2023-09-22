@@ -14,7 +14,7 @@ from ax.utils.common.testutils import TestCase
 
 
 class TransformsTest(TestCase):
-    def testIdentityTransform(self) -> None:
+    def test_IdentityTransform(self) -> None:
         # Test that the identity transform does not mutate anything
         t = Transform(MagicMock(), MagicMock())
         x = MagicMock()
@@ -29,7 +29,7 @@ class TransformsTest(TestCase):
         for y in ys:
             self.assertEqual(y, x)
 
-    def testTransformObservations(self) -> None:
+    def test_TransformObservations(self) -> None:
         # Test that this is an identity transform
         means = np.array([3.0, 4.0])
         metric_names = ["a", "b"]

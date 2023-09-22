@@ -32,7 +32,7 @@ from torch.nn.parameter import Parameter
 
 
 class ALEBOTest(TestCase):
-    def testALEBOKernel(self) -> None:
+    def test_ALEBOKernel(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
@@ -63,7 +63,7 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.equal(K, Ktrue))
 
     @fast_botorch_optimize
-    def testALEBOGP(self) -> None:
+    def test_ALEBOGP(self) -> None:
         # First non-batch
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
@@ -164,7 +164,7 @@ class ALEBOTest(TestCase):
                 map_sds[i]["covar_module.base_kernel.Uvec"].shape, torch.Size([3])
             )
 
-    def testAcq(self) -> None:
+    def test_Acq(self) -> None:
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )

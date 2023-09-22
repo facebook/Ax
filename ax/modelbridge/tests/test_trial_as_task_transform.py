@@ -75,7 +75,7 @@ class TrialAsTaskTransformTest(TestCase):
             config={"trial_level_map": self.bm2},
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(
             self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
         )
@@ -103,7 +103,7 @@ class TrialAsTaskTransformTest(TestCase):
                 config={"trial_level_map": bm},
             )
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         obs_ft1 = deepcopy(self.training_feats)
         obs_ft2 = deepcopy(self.training_feats)
         obs_ft_trans1 = [
@@ -130,7 +130,7 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft4 = self.t3.untransform_observation_features(obs_ft4)
         self.assertEqual(obs_ft4, self.training_feats)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "TRIAL_PARAM"})

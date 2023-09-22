@@ -26,7 +26,7 @@ class ThompsonSamplerTest(TestCase):
         self.multiple_metrics_Ys = [[1, 2, 3, 4], [0, 0, 0, 1]]
         self.multiple_metrics_Yvars = [[1, 1, 1, 1], [1, 1, 1, 1]]
 
-    def testThompsonSampler(self) -> None:
+    def test_ThompsonSampler(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -57,7 +57,7 @@ class ThompsonSamplerTest(TestCase):
             self.assertAlmostEqual(weight, expected_weight, 1)
         self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
 
-    def testThompsonSamplerValidation(self) -> None:
+    def test_ThompsonSamplerValidation(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)
 
         # all Xs are not the same
@@ -113,7 +113,7 @@ class ThompsonSamplerTest(TestCase):
             #  float, int, str]]]` but got `List[List[int]]`.
             generator.gen(5, self.parameter_values, objective_weights=None)
 
-    def testThompsonSamplerMinWeight(self) -> None:
+    def test_ThompsonSamplerMinWeight(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -143,7 +143,7 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
-    def testThompsonSamplerUniformWeights(self) -> None:
+    def test_ThompsonSamplerUniformWeights(self) -> None:
         generator = ThompsonSampler(min_weight=0.0, uniform_weights=True)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -171,7 +171,7 @@ class ThompsonSamplerTest(TestCase):
         for weight, expected_weight in zip(weights, [1.0, 1.0, 1.0]):
             self.assertAlmostEqual(weight, expected_weight, 1)
 
-    def testThompsonSamplerInfeasible(self) -> None:
+    def test_ThompsonSamplerInfeasible(self) -> None:
         generator = ThompsonSampler(min_weight=0.9)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -197,7 +197,7 @@ class ThompsonSamplerTest(TestCase):
                 objective_weights=np.ones(1),
             )
 
-    def testThompsonSamplerOutcomeConstraints(self) -> None:
+    def test_ThompsonSamplerOutcomeConstraints(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -233,7 +233,7 @@ class ThompsonSamplerTest(TestCase):
         ):
             self.assertAlmostEqual(weight, expected_weight, delta=0.15)
 
-    def testThompsonSamplerOutcomeConstraintsInfeasible(self) -> None:
+    def test_ThompsonSamplerOutcomeConstraintsInfeasible(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,
@@ -260,7 +260,7 @@ class ThompsonSamplerTest(TestCase):
                 outcome_constraints=(np.array([[0, 1]]), np.array([[-10]])),
             )
 
-    def testThompsonSamplerPredict(self) -> None:
+    def test_ThompsonSamplerPredict(self) -> None:
         generator = ThompsonSampler(min_weight=0.0)
         generator.fit(
             # pyre-fixme[6]: For 1st param expected `List[List[List[Union[None,

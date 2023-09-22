@@ -12,7 +12,7 @@ from botorch.utils.datasets import SupervisedDataset
 
 
 class RandomForestTest(TestCase):
-    def testRFModel(self) -> None:
+    def test_RFModel(self) -> None:
         datasets = [
             SupervisedDataset(
                 X=torch.rand(10, 2),

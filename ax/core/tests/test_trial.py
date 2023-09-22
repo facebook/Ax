@@ -226,7 +226,7 @@ class TrialTest(TestCase):
             results[metric_name].ok, self.experiment.trials[0].fetch_data()
         )
 
-    def testRepr(self) -> None:
+    def test_Repr(self) -> None:
         repr_ = (
             "Trial(experiment_name='test', index=0, "
             "status=TrialStatus.CANDIDATE, arm=Arm(name='0_0', "

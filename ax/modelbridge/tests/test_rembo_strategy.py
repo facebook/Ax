@@ -116,7 +116,7 @@ class REMBOStrategyTest(TestCase):
         self.assertEqual(gs2.D, 20)
         self.assertEqual(gs2.d, 6)
 
-    def testHeSBOStrategy(self) -> None:
+    def test_HeSBOStrategy(self) -> None:
         gs = HeSBOStrategy(D=10, d=4, init_per_proj=2)
         self.assertEqual(gs.name, "HeSBO")
         self.assertEqual(len(gs.projections), 1)

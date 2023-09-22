@@ -37,10 +37,10 @@ class RemoveFixedTransformTest(TestCase):
             observations=[],
         )
 
-    def testInit(self) -> None:
+    def test_Init(self) -> None:
         self.assertEqual(list(self.t.fixed_parameters.keys()), ["c"])
 
-    def testTransformObservationFeatures(self) -> None:
+    def test_TransformObservationFeatures(self) -> None:
         observation_features = [
             ObservationFeatures(parameters={"a": 2.2, "b": "b", "c": "a"})
         ]
@@ -62,7 +62,7 @@ class RemoveFixedTransformTest(TestCase):
         with self.assertRaises(ValueError):
             self.t.transform_observation_features(observation_features_invalid)
 
-    def testTransformSearchSpace(self) -> None:
+    def test_TransformSearchSpace(self) -> None:
         ss2 = self.search_space.clone()
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(ss2.parameters.get("c"), None)
