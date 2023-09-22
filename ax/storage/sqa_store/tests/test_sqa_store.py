@@ -27,6 +27,8 @@ from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metric
 from ax.storage.registry_bundle import RegistryBundle
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
+    create_all_tables,
+    create_test_engine,
     get_engine,
     get_session,
     init_engine_and_session_factory,
@@ -1687,3 +1689,17 @@ class SQAStoreTest(TestCase):
         newly_loaded_gr = newly_loaded_exp.trials.get(0).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             self.assertIsNotNone(getattr(newly_loaded_gr, f"_{instrumented_attr.key}"))
+
+    @patch("ax.storage.sqa_store.db.SESSION_FACTORY", None)
+    def test_MissingSessionFactory(self) -> None:
+        with self.assertRaises(ValueError):
+            get_session()
+        with self.assertRaises(ValueError):
+            get_engine()
+
+    def test_CreateAllTablesException(self) -> None:
+        engine = create_test_engine()
+        engine.dialect.name = "mysql"
+        engine.dialect.default_schema_name = "ax"
+        with self.assertRaises(ValueError):
+            create_all_tables(engine)
