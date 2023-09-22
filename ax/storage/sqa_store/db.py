@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
-from os import remove as remove_file
-from typing import Any, Callable, ContextManager, Generator, Optional, TypeVar
+from contextlib import contextmanager
+from typing import Any, Callable, Generator, Optional, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
@@ -202,11 +201,6 @@ def init_test_engine_and_session_factory(
     )
 
 
-def remove_test_db_file(tier_or_path: str) -> None:
-    """Remove the test DB file from system, useful for cleanup in tests."""
-    remove_file(tier_or_path)
-
-
 def create_all_tables(engine: Engine) -> None:
     """Create all tables that inherit from Base.
 
@@ -219,20 +213,16 @@ def create_all_tables(engine: Engine) -> None:
         define a mapped class that inherits from `Base` must be imported.
 
     """
-    if (
-        engine.dialect.name == "mysql"
-        and engine.dialect.default_schema_name == "adaptive_experiment"
-    ):
-        raise Exception("Cannot mutate tables in XDB. Use AOSC.")
+    if engine.dialect.name == "mysql" and engine.dialect.default_schema_name == "ax":
+        raise ValueError(
+            "The open-source Ax table creation is likely not applicable in this case,"
+            + "please contact the Adaptive Experimentation team if you need help."
+        )
     Base.metadata.create_all(engine)
 
 
 def get_session() -> Session:
     """Fetch a SQLAlchemy session with a connection to a DB.
-
-    Unless `init_engine_and_session_factory` is called first with custom
-    args, this will automatically initialize a connection to
-    `xdb.adaptive_experiment`.
 
     Returns:
         Session: an instance of a SQLAlchemy session.
@@ -274,11 +264,3 @@ def session_scope() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
-
-
-def optional_session_scope(
-    session: Optional[Session] = None,
-) -> ContextManager[Session]:
-    if session is not None:
-        return nullcontext(session)
-    return session_scope()
