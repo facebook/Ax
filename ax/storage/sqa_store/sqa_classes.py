@@ -380,6 +380,8 @@ class SQATrial(Base):
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
     abandoned_reason: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
+    failed_reason: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
     deployed_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))

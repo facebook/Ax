@@ -244,6 +244,7 @@ class BaseTrial(ABC, SortableBase):
         self._time_run_started: Optional[datetime] = None
 
         self._abandoned_reason: Optional[str] = None
+        self._failed_reason: Optional[str] = None
         self._run_metadata: Dict[str, Any] = {}
         self._stop_metadata: Dict[str, Any] = {}
 
@@ -620,6 +621,10 @@ class BaseTrial(ABC, SortableBase):
     def abandoned_reason(self) -> Optional[str]:
         return self._abandoned_reason
 
+    @property
+    def failed_reason(self) -> Optional[str]:
+        return self._failed_reason
+
     def mark_staged(self, unsafe: bool = False) -> BaseTrial:
         """Mark the trial as being staged for running.
 
@@ -706,7 +711,9 @@ class BaseTrial(ABC, SortableBase):
         self._time_completed = datetime.now()
         return self
 
-    def mark_failed(self, unsafe: bool = False) -> BaseTrial:
+    def mark_failed(
+        self, reason: Optional[str] = None, unsafe: bool = False
+    ) -> BaseTrial:
         """Mark trial as failed.
 
         Args:
@@ -717,6 +724,7 @@ class BaseTrial(ABC, SortableBase):
         if not unsafe and self._status != TrialStatus.RUNNING:
             raise ValueError("Can only mark failed a trial that is currently running.")
 
+        self._failed_reason = reason
         self._status = TrialStatus.FAILED
         self._time_completed = datetime.now()
         return self

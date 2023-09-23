@@ -60,6 +60,7 @@ def batch_trial_from_json(
     optimize_for_power: Optional[bool],
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    failed_reason: Optional[str] = None,
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
     properties: Optional[Dict[str, Any]] = None,
@@ -82,6 +83,7 @@ def batch_trial_from_json(
     batch._time_staged = time_staged
     batch._time_run_started = time_run_started
     batch._abandoned_reason = abandoned_reason
+    batch._failed_reason = failed_reason
     batch._run_metadata = run_metadata or {}
     batch._stop_metadata = stop_metadata or {}
     batch._generator_run_structs = generator_run_structs
@@ -114,6 +116,7 @@ def trial_from_json(
     num_arms_created: int,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
+    failed_reason: Optional[str] = None,
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
     properties: Optional[Dict[str, Any]] = None,
@@ -140,6 +143,7 @@ def trial_from_json(
     trial._time_staged = time_staged
     trial._time_run_started = time_run_started
     trial._abandoned_reason = abandoned_reason
+    trial._failed_reason = failed_reason
     trial._run_metadata = run_metadata or {}
     trial._stop_metadata = stop_metadata or {}
     trial._runner = runner
