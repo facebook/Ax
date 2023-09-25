@@ -477,11 +477,13 @@ class TestAxClient(TestCase):
     )
     @fast_botorch_optimize
     def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
-        """Test that Sobol+GPEI is used if no GenerationStrategy is provided."""
+        """
+        Test that Sobol+BoTorch is used if no GenerationStrategy is provided.
+        """
         ax_client = get_branin_optimization()
         self.assertEqual(
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.GPEI],
+            [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -508,10 +510,9 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "GPEI")
+        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
         ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
-        ax_client.get_feature_importances()
         trials_df = ax_client.get_trials_data_frame()
         self.assertIn("x", trials_df)
         self.assertIn("y", trials_df)
@@ -678,7 +679,7 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(
             [s.model for s in not_none(ax_client.generation_strategy)._steps],
-            [Models.SOBOL, Models.MOO],
+            [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
@@ -706,10 +707,9 @@ class TestAxClient(TestCase):
                 sample_size=i,
             )
         # pyre-fixme[16]: `Optional` has no attribute `_model_key`.
-        self.assertEqual(ax_client.generation_strategy.model._model_key, "MOO")
+        self.assertEqual(ax_client.generation_strategy.model._model_key, "BoTorch")
         ax_client.get_contour_plot(metric_name="branin")
         ax_client.get_contour_plot(metric_name="b")
-        ax_client.get_feature_importances()
         trials_df = ax_client.get_trials_data_frame()
         self.assertIn("x", trials_df)
         self.assertIn("y", trials_df)
@@ -2342,7 +2342,7 @@ class TestAxClient(TestCase):
         ax_client.generation_strategy._fit_or_update_current_model(
             data=ax_client.experiment.lookup_data()
         )
-        self.assertEqual(ax_client.generation_strategy._curr.model_name, "MOO")
+        self.assertEqual(ax_client.generation_strategy._curr.model_name, "BoTorch")
 
         # Check calling get_best_parameters fails (user must call
         # get_pareto_optimal_parameters).
@@ -2366,7 +2366,7 @@ class TestAxClient(TestCase):
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
         model = ax_client.generation_strategy.model.model
-        ys = torch.cat(model.Ys, dim=-1)
+        ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
         ):
@@ -2727,10 +2727,10 @@ class TestAxClient(TestCase):
         for _ in range(4):
             params, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(trial_index=trial_index, raw_data=trial_index)
-        # Make sure we actually tried a GPEI iteration and all the transforms it
+        # Make sure we actually tried a Botorch iteration and all the transforms it
         # applies.
         self.assertEqual(
-            ax_client.generation_strategy._generator_runs[-1]._model_key, "GPEI"
+            ax_client.generation_strategy._generator_runs[-1]._model_key, "BoTorch"
         )
         self.assertEqual(len(ax_client.experiment.trials), 6)
         ax_client.attach_trial(

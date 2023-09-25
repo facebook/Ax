@@ -55,7 +55,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
             expected_model_kwargs: Dict[str, Any] = {
                 "torch_device": None,
                 "transforms": expected_transforms,
@@ -80,7 +80,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -89,7 +89,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -98,7 +98,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 3)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(objectives=[])
@@ -109,7 +109,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
-            self.assertEqual(sobol_gpei._steps[1].model, Models.MOO)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
             model_kwargs = not_none(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
@@ -164,7 +164,7 @@ class TestDispatchUtils(TestCase):
                     num_unordered_choices=10,
                 )
             )
-            self.assertEqual(sobol_gpei._steps[1].model, Models.GPEI)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("GPEI despite many unordered 2-value parameters"):
             gs = choose_generation_strategy(
                 search_space=get_large_factorial_search_space(
@@ -172,7 +172,7 @@ class TestDispatchUtils(TestCase):
                 ),
             )
             self.assertEqual(gs._steps[0].model, Models.SOBOL)
-            self.assertEqual(gs._steps[1].model, Models.GPEI)
+            self.assertEqual(gs._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("GPEI-Batched"):
             sobol_gpei_batched = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -273,12 +273,12 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(gs_12_init_trials._steps[0].model, Models.SOBOL)
             self.assertEqual(gs_12_init_trials._steps[0].num_trials, 12)
-            self.assertEqual(gs_12_init_trials._steps[1].model, Models.GPEI)
+            self.assertEqual(gs_12_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
             # at least 5 initialization trials are performed
             gs_5_init_trials = choose_generation_strategy(search_space=ss, num_trials=0)
             self.assertEqual(gs_5_init_trials._steps[0].model, Models.SOBOL)
             self.assertEqual(gs_5_init_trials._steps[0].num_trials, 5)
-            self.assertEqual(gs_5_init_trials._steps[1].model, Models.GPEI)
+            self.assertEqual(gs_5_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
             # avoid spending >20% of budget on initialization trials if there are
             # more than 5 initialization trials
             gs_6_init_trials = choose_generation_strategy(
@@ -286,7 +286,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(gs_6_init_trials._steps[0].model, Models.SOBOL)
             self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
-            self.assertEqual(gs_6_init_trials._steps[1].model, Models.GPEI)
+            self.assertEqual(gs_6_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
 
     def test_make_botorch_step_extra(self) -> None:
         # Test parts of _make_botorch_step that are not directly exposed in
@@ -353,7 +353,7 @@ class TestDispatchUtils(TestCase):
                     "disable_progbar",
                     not_none(gp_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(gp_saasbo._steps[1].model, Models.GPEI)
+                self.assertEqual(gp_saasbo._steps[1].model, Models.BOTORCH_MODULAR)
                 self.assertNotIn(
                     "disable_progbar",
                     not_none(gp_saasbo._steps[1].model_kwargs),
@@ -764,7 +764,7 @@ class TestDispatchUtils(TestCase):
                     "jit_compile",
                     not_none(gp_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(gp_saasbo._steps[1].model, Models.GPEI)
+                self.assertEqual(gp_saasbo._steps[1].model, Models.BOTORCH_MODULAR)
                 self.assertNotIn(
                     "jit_compile",
                     not_none(gp_saasbo._steps[1].model_kwargs),

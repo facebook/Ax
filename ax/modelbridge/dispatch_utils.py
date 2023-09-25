@@ -69,7 +69,7 @@ def _make_botorch_step(
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
-    model: Models = Models.GPEI,
+    model: Models = Models.BOTORCH_MODULAR,
     model_kwargs: Optional[Dict[str, Any]] = None,
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
@@ -228,7 +228,6 @@ def _suggest_gp_model(
             logger.warning(SAASBO_INCOMPATIBLE_MESSAGE.format("`BO_MIXED`"))
         return Models.BO_MIXED
 
-    is_moo_problem = optimization_config and optimization_config.is_moo_problem
     if num_ordered_parameters >= num_unordered_choices or (
         num_unordered_choices < MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION
         and num_ordered_parameters > 0
@@ -236,10 +235,7 @@ def _suggest_gp_model(
         # These use one-hot encoding for unordered choice parameters, resulting in a
         # total of num_unordered_choices OHE parameters.
         # So, we do not want to use them when there are too many unordered choices.
-        if is_moo_problem:
-            method = Models.SAASBO if use_saasbo else Models.MOO
-        else:
-            method = Models.SAASBO if use_saasbo else Models.GPEI
+        method = Models.SAASBO if use_saasbo else Models.BOTORCH_MODULAR
         reason = (
             "there are more ordered parameters than there are categories for the "
             "unordered categorical parameters."
