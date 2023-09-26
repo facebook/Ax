@@ -15,6 +15,7 @@ from ax.core.optimization_config import (
     ObjectiveThreshold,
     OptimizationConfig,
 )
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
@@ -22,7 +23,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.base import Base
-from botorch.test_functions.base import BaseTestProblem
+from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.test_functions.synthetic import SyntheticTestFunction
 
@@ -129,6 +130,7 @@ class BenchmarkProblem(Base):
 
         # pyre-fixme [45]: Invalid class instantiation
         test_problem = test_problem_class(**test_problem_kwargs)
+        is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
         search_space = SearchSpace(
             parameters=[
@@ -144,15 +146,32 @@ class BenchmarkProblem(Base):
 
         dim = test_problem_kwargs.get("dim", None)
         name = _get_name(test_problem, infer_noise, dim)
-
+        objective = Objective(
+            metric=BotorchTestProblemMetric(
+                name=name,
+                noise_sd=None if infer_noise else (test_problem.noise_std or 0),
+                index=0,
+            ),
+            minimize=True,
+        )
+        if is_constrained:
+            outcome_constraints = [
+                OutcomeConstraint(
+                    metric=BotorchTestProblemMetric(
+                        name=f"constraint_slack_{i}",
+                        noise_sd=None if infer_noise else (test_problem.noise_std or 0),
+                        index=i,
+                    ),
+                    op=ComparisonOp.GEQ,
+                    bound=0.0,
+                )
+                for i in range(test_problem.num_constraints)
+            ]
+        else:
+            outcome_constraints = []
         optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=BotorchTestProblemMetric(
-                    name=name,
-                    noise_sd=None if infer_noise else (test_problem.noise_std or 0),
-                ),
-                minimize=True,
-            )
+            objective=objective,
+            outcome_constraints=outcome_constraints,
         )
 
         return cls(

@@ -12,7 +12,7 @@ from ax.core.runner import Runner
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import checked_cast
-from botorch.test_functions.base import BaseTestProblem
+from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
 from torch import Tensor
 
@@ -28,7 +28,7 @@ class BotorchTestProblemRunner(Runner):
     """
 
     test_problem: BaseTestProblem
-
+    _is_constrained: bool
     _test_problem_class: Type[BaseTestProblem]
     _test_problem_kwargs: Optional[Dict[str, Any]]
 
@@ -59,7 +59,10 @@ class BotorchTestProblemRunner(Runner):
         self._test_problem_kwargs = test_problem_kwargs
 
         # pyre-fixme [45]: Invalid class instantiation
-        self.test_problem = test_problem_class(**test_problem_kwargs)
+        self.test_problem = test_problem_class(**test_problem_kwargs).to(
+            dtype=torch.double
+        )
+        self._is_constrained = isinstance(self.test_problem, ConstrainedBaseTestProblem)
         self._modified_bounds = modified_bounds
 
     @equality_typechecker
@@ -78,10 +81,18 @@ class BotorchTestProblemRunner(Runner):
         """
         if self._modified_bounds is not None:
             # Normalize from modified bounds to unit cube.
-            unit_X = normalize(X, torch.tensor(self._modified_bounds).T)
+            unit_X = normalize(
+                X, torch.tensor(self._modified_bounds, dtype=torch.double).T
+            )
             # Unnormalize from unit cube to original problem bounds.
             X = unnormalize(unit_X, self.test_problem.bounds)
-        return self.test_problem(X)
+        objective = self.test_problem(X).view(-1)
+        if self._is_constrained:
+            return torch.cat(
+                [objective, self.test_problem.evaluate_slack(X).view(-1)],
+                dim=-1,
+            )
+        return objective
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         return {
@@ -93,7 +104,8 @@ class BotorchTestProblemRunner(Runner):
                             for _key, value in [*arm.parameters.items()][
                                 : self.test_problem.dim
                             ]
-                        ]
+                        ],
+                        dtype=torch.double,
                     )
                 ).tolist()
                 for arm in trial.arms
