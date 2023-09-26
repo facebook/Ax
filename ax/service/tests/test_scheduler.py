@@ -290,8 +290,8 @@ class TestAxScheduler(TestCase):
             f"{scheduler}",
             (
                 "Scheduler(experiment=Experiment(branin_test_experiment), "
-                "generation_strategy=GenerationStrategy(name='Sobol+GPEI', "
-                "steps=[Sobol for 5 trials, GPEI for subsequent trials]), "
+                "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
+                "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
                 "options=SchedulerOptions(max_pending_trials=10, "
                 "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
                 "total_trials=0, tolerated_trial_failure_rate=0.2, "
