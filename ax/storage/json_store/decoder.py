@@ -203,7 +203,7 @@ def object_from_json(
                 num_trials=object_json["num_trials"],
                 infer_noise=object_json["infer_noise"],
             )
-        elif _class == SurrogateSpec:
+        elif _class in (SurrogateSpec, Surrogate):
             if "input_transform" in object_json:
                 (
                     input_transform_classes_json,

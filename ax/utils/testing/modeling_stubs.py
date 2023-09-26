@@ -281,7 +281,7 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
     }
 
 
-def get_list_surrogate_generation_step() -> GenerationStep:
+def get_surrogate_generation_step() -> GenerationStep:
     return GenerationStep(
         model=Models.BOTORCH_MODULAR,
         num_trials=-1,
@@ -306,6 +306,34 @@ def get_list_surrogate_generation_step() -> GenerationStep:
             "botorch_acqf_class": qNoisyExpectedImprovement,
         },
     )
+
+
+def get_surrogate_as_dict() -> Dict[str, Any]:
+    """
+    For use ensuring backwards compatibility when loading Surrogate
+    with input_transform and outcome_transform kwargs.
+    """
+    return {
+        "__type": "Surrogate",
+        "botorch_model_class": None,
+        "model_options": {},
+        "mll_class": {
+            "__type": "Type[MarginalLogLikelihood]",
+            "index": "ExactMarginalLogLikelihood",
+            "class": (
+                "<class 'gpytorch.mlls.marginal_log_likelihood."
+                "MarginalLogLikelihood'>"
+            ),
+        },
+        "mll_options": {},
+        "outcome_transform": None,
+        "input_transform": None,
+        "covar_module_class": None,
+        "covar_module_options": {},
+        "likelihood_class": None,
+        "likelihood_options": {},
+        "allow_batched_models": False,
+    }
 
 
 class transform_1(Transform):
