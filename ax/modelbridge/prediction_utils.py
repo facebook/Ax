@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -14,7 +14,10 @@ from ax.modelbridge import ModelBridge
 
 
 def predict_at_point(
-    model: ModelBridge, obsf: ObservationFeatures, metric_names: Set[str]
+    model: ModelBridge,
+    obsf: ObservationFeatures,
+    metric_names: Set[str],
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Make a prediction at a point.
 
@@ -24,6 +27,11 @@ def predict_at_point(
         model: ModelBridge
         obsf: ObservationFeatures for which to predict
         metric_names: Limit predictions to these metrics.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
 
     Returns:
         A tuple containing
@@ -31,13 +39,32 @@ def predict_at_point(
         - Map from metric name to prediction.
         - Map from metric name to standard error.
     """
+    f_pred, cov_pred = model.predict([obsf])
+    mean_pred_dict = {metric_name: pred[0] for metric_name, pred in f_pred.items()}
+    cov_pred_dict = {}
+    for metric_name1, pred_dict in cov_pred.items():
+        cov_pred_dict[metric_name1] = {}
+        for metric_name2, pred in pred_dict.items():
+            cov_pred_dict[metric_name1][metric_name2] = pred[0]
+
     y_hat = {}
     se_hat = {}
-    f_pred, cov_pred = model.predict([obsf])
     for metric_name in f_pred:
         if metric_name in metric_names:
-            y_hat[metric_name] = f_pred[metric_name][0]
-            se_hat[metric_name] = np.sqrt(cov_pred[metric_name][metric_name][0])
+            y_hat[metric_name] = mean_pred_dict[metric_name]
+            se_hat[metric_name] = np.sqrt(cov_pred_dict[metric_name][metric_name])
+    if scalarized_metric_config is not None:
+        for agg_metric in scalarized_metric_config:
+            agg_metric_name = agg_metric["name"]
+            if agg_metric_name in metric_names:
+                agg_metric_weight_dict = agg_metric["weight"]
+                pred_mean, pred_var = _compute_scalarized_outcome(
+                    mean_dict=mean_pred_dict,
+                    cov_dict=cov_pred_dict,
+                    agg_metric_weight_dict=agg_metric_weight_dict,
+                )
+                y_hat[agg_metric_name] = pred_mean
+                se_hat[agg_metric_name] = np.sqrt(pred_var)
     return y_hat, se_hat
 
 
@@ -91,3 +118,34 @@ def predict_by_features(
         }
 
     return predictions_dict
+
+
+def _compute_scalarized_outcome(
+    mean_dict: Dict[str, float],
+    cov_dict: Dict[str, Dict[str, float]],
+    agg_metric_weight_dict: Dict[str, float],
+) -> Tuple[float, float]:
+    """Compute the mean and variance of a scalarized outcome.
+
+    Args:
+        mean_dict: Dictionary of means of individual metrics. e.g.
+            {"metric1": 0.1, "metric2": 0.2}
+        cov_dict: Dictionary of covariances of each metric pair. e.g.
+            {"metric1": {"metric1": 0.25, "metric2": 0.0}, "metric2": {"metric1": 0.0,
+            "metric2": 0.1}}
+        agg_metric_weight_dict. Dictionary of scalarization weights of the scalarized
+            outcome. e.g. {"name": "metric1:agg", "weight": {"metric1_c1": 0.5,
+             "metric1_c2": 0.5}}
+    """
+    pred_mean = 0
+    pred_var = 0
+    component_metrics = list(agg_metric_weight_dict.keys())
+    for i, metric_name in enumerate(component_metrics):
+        weight = agg_metric_weight_dict[metric_name]
+        pred_mean += weight * mean_dict[metric_name]
+        pred_var += (weight**2) * cov_dict[metric_name][metric_name]
+        # include cross-metric covariance
+        for metric_name2 in component_metrics[(i + 1) :]:
+            weight2 = agg_metric_weight_dict[metric_name2]
+            pred_var += 2 * weight * weight2 * cov_dict[metric_name][metric_name2]
+    return pred_mean, pred_var
