@@ -23,7 +23,7 @@ def get_saasbo_default(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
             GenerationStep(
-                model=Models.FULLYBAYESIAN,
+                model=Models.SAASBO,
                 num_trials=-1,
                 max_parallelism=1,
             ),
@@ -48,7 +48,7 @@ def get_saasbo_moo_default(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
             GenerationStep(
-                model=Models.FULLYBAYESIANMOO,
+                model=Models.SAASBO,
                 num_trials=-1,
                 max_parallelism=1,
             ),

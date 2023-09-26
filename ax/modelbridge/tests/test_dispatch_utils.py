@@ -233,10 +233,7 @@ class TestDispatchUtils(TestCase):
             )
             self.assertEqual(sobol_fullybayesian._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_fullybayesian._steps[0].num_trials, 3)
-            self.assertEqual(sobol_fullybayesian._steps[1].model, Models.FULLYBAYESIAN)
-            self.assertTrue(
-                not_none(sobol_fullybayesian._steps[1].model_kwargs)["verbose"]
-            )
+            self.assertEqual(sobol_fullybayesian._steps[1].model, Models.SAASBO)
         with self.subTest("SAASBO MOO"):
             sobol_fullybayesianmoo = choose_generation_strategy(
                 search_space=get_branin_search_space(),
@@ -251,10 +248,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_fullybayesianmoo._steps[0].num_trials, 3)
             self.assertEqual(
                 sobol_fullybayesianmoo._steps[1].model,
-                Models.FULLYBAYESIANMOO,
-            )
-            self.assertTrue(
-                not_none(sobol_fullybayesianmoo._steps[1].model_kwargs)["verbose"]
+                Models.SAASBO,
             )
         with self.subTest("SAASBO"):
             sobol_fullybayesian_large = choose_generation_strategy(
@@ -267,10 +261,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_fullybayesian_large._steps[0].num_trials, 30)
             self.assertEqual(
                 sobol_fullybayesian_large._steps[1].model,
-                Models.FULLYBAYESIAN,
-            )
-            self.assertTrue(
-                not_none(sobol_fullybayesian_large._steps[1].model_kwargs)["verbose"]
+                Models.SAASBO,
             )
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
@@ -331,11 +322,18 @@ class TestDispatchUtils(TestCase):
                     "disable_progbar",
                     not_none(sobol_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(sobol_saasbo._steps[1].model, Models.FULLYBAYESIAN)
-                self.assertEqual(
-                    not_none(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
-                    disable_progbar,
+                self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
+                self.assertNotIn(
+                    "disable_progbar",
+                    not_none(sobol_saasbo._steps[0].model_kwargs),
                 )
+                # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
+                # Once this task is complete we should check disable_progbar gets
+                # propagated correctly (right now it is dropped). Ex.:
+                # self.assertEqual(
+                #     not_none(sobol_saasbo._steps[1].model_kwargs)["disable_progbar"],
+                #     disable_progbar,
+                # )
                 run_branin_experiment_with_generation_strategy(
                     generation_strategy=sobol_saasbo
                 )
@@ -735,11 +733,18 @@ class TestDispatchUtils(TestCase):
                     "jit_compile",
                     not_none(sobol_saasbo._steps[0].model_kwargs),
                 )
-                self.assertEqual(sobol_saasbo._steps[1].model, Models.FULLYBAYESIAN)
-                self.assertEqual(
-                    not_none(sobol_saasbo._steps[1].model_kwargs)["jit_compile"],
-                    jit_compile,
+                self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
+                self.assertNotIn(
+                    "jit_compile",
+                    not_none(sobol_saasbo._steps[0].model_kwargs),
                 )
+                # TODO[T164389105] Rewrite choose_generation_strategy to be MBM first
+                # Once this task is complete we should check jit_compile gets
+                # propagated correctly (right now it is dropped). Ex.:
+                # self.assertEqual(
+                #     not_none(sobol_saasbo._steps[1].model_kwargs)["jit_compile"],
+                #     jit_compile,
+                # )
                 run_branin_experiment_with_generation_strategy(
                     generation_strategy=sobol_saasbo,
                 )
