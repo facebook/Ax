@@ -20,7 +20,10 @@ class BotorchTestProblemMetric(Metric):
     """
 
     def __init__(
-        self, name: str, noise_sd: Optional[float] = None, index: Optional[int] = None
+        self,
+        name: str,
+        noise_sd: Optional[float] = None,
+        index: int = 0,
     ) -> None:
         super().__init__(name=name)
         self.noise_sd = noise_sd
@@ -28,18 +31,10 @@ class BotorchTestProblemMetric(Metric):
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         try:
-            # run_metadata["Ys"] can be either a list of results or a single float
-            mean = (
-                [
-                    trial.run_metadata["Ys"][name][self.index]
-                    for name, arm in trial.arms_by_name.items()
-                ]
-                if self.index is not None
-                else [
-                    trial.run_metadata["Ys"][name]
-                    for name, arm in trial.arms_by_name.items()
-                ]
-            )
+            mean = [
+                trial.run_metadata["Ys"][name][self.index]
+                for name, arm in trial.arms_by_name.items()
+            ]
             df = pd.DataFrame(
                 {
                     "arm_name": [name for name, _ in trial.arms_by_name.items()],

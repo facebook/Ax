@@ -9,56 +9,70 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.utils.common.testutils import TestCase
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Ackley
+from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann
 
 
 class TestBenchmarkProblem(TestCase):
     def test_single_objective_from_botorch(self) -> None:
-        test_problem = Ackley()
-        ackley_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
-            test_problem_class=test_problem.__class__,
-            test_problem_kwargs={},
-            num_trials=1,
-        )
+        for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
+            test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+                test_problem_class=botorch_test_problem.__class__,
+                test_problem_kwargs={},
+                num_trials=1,
+            )
 
-        # Test search space
-        self.assertEqual(len(ackley_problem.search_space.parameters), test_problem.dim)
-        self.assertEqual(
-            len(ackley_problem.search_space.parameters),
-            len(ackley_problem.search_space.range_parameters),
-        )
-        self.assertTrue(
-            all(
-                # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-                ackley_problem.search_space.range_parameters[f"x{i}"].lower
-                == test_problem._bounds[i][0]
-                for i in range(test_problem.dim)
-            ),
-            "Parameters' lower bounds must all match Botorch problem's bounds.",
-        )
-        self.assertTrue(
-            all(
-                # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-                ackley_problem.search_space.range_parameters[f"x{i}"].upper
-                == test_problem._bounds[i][1]
-                for i in range(test_problem.dim)
-            ),
-            "Parameters' upper bounds must all match Botorch problem's bounds.",
-        )
+            # Test search space
+            self.assertEqual(
+                len(test_problem.search_space.parameters), botorch_test_problem.dim
+            )
+            self.assertEqual(
+                len(test_problem.search_space.parameters),
+                len(test_problem.search_space.range_parameters),
+            )
+            self.assertTrue(
+                all(
+                    # pyre-fixme[16]: `Parameter` has no attribute `lower`.
+                    test_problem.search_space.range_parameters[f"x{i}"].lower
+                    == botorch_test_problem._bounds[i][0]
+                    for i in range(botorch_test_problem.dim)
+                ),
+                "Parameters' lower bounds must all match Botorch problem's bounds.",
+            )
+            self.assertTrue(
+                all(
+                    # pyre-fixme[16]: `Parameter` has no attribute `upper`.
+                    test_problem.search_space.range_parameters[f"x{i}"].upper
+                    == botorch_test_problem._bounds[i][1]
+                    for i in range(botorch_test_problem.dim)
+                ),
+                "Parameters' upper bounds must all match Botorch problem's bounds.",
+            )
 
-        # Test optimum
-        self.assertEqual(ackley_problem.optimal_value, test_problem._optimal_value)
-        # test repr method
-        expected_repr = (
-            "SingleObjectiveBenchmarkProblem(name=Ackley, "
-            "optimization_config=OptimizationConfig(objective=Objective(metric_name="
-            '"Ackley", '
-            "minimize=True), outcome_constraints=[]), "
-            "num_trials=1, "
-            "infer_noise=True, "
-            "tracking_metrics=[])"
-        )
-        self.assertEqual(repr(ackley_problem), expected_repr)
+            # Test optimum
+            self.assertEqual(
+                test_problem.optimal_value, botorch_test_problem._optimal_value
+            )
+            # test repr method
+            if isinstance(botorch_test_problem, Ackley):
+                expected_repr = (
+                    "SingleObjectiveBenchmarkProblem(name=Ackley, "
+                    "optimization_config=OptimizationConfig(objective=Objective("
+                    'metric_name="Ackley", '
+                    "minimize=True), outcome_constraints=[]), "
+                    "num_trials=1, "
+                    "infer_noise=True, "
+                    "tracking_metrics=[])"
+                )
+            else:
+                expected_repr = (
+                    "SingleObjectiveBenchmarkProblem(name=ConstrainedHartmann, "
+                    "optimization_config=OptimizationConfig(objective=Objective("
+                    'metric_name="ConstrainedHartmann", minimize=True), '
+                    "outcome_constraints=[OutcomeConstraint(constraint_slack_0"
+                    " >= 0.0%)]), num_trials=1, infer_noise=True, "
+                    "tracking_metrics=[])"
+                )
+            self.assertEqual(repr(test_problem), expected_repr)
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
