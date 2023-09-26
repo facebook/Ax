@@ -22,7 +22,10 @@ from ax.core.parameter import (
 )
 from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.prediction_utils import predict_at_point
+from ax.modelbridge.prediction_utils import (
+    _compute_scalarized_outcome,
+    predict_at_point,
+)
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
@@ -152,6 +155,7 @@ def _get_in_sample_arms(
     metric_names: Set[str],
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
 ) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
@@ -237,13 +241,27 @@ def _get_in_sample_arms(
             if metric_name in metric_names:
                 obs_y[metric_name] = obs.data.means[j]
                 obs_se[metric_name] = np.sqrt(obs.data.covariance[j, j])
+        # Obtain aggregated outcomes if scalarized_metric_config is provided
+        if scalarized_metric_config is not None:
+            for agg_metric in scalarized_metric_config:
+                agg_metric_name = agg_metric["name"]
+                if agg_metric_name in metric_names:
+                    agg_mean, agg_var = _compute_scalarized_outcome(
+                        mean_dict=obs.data.means_dict,
+                        cov_dict=obs.data.covariance_matrix,
+                        agg_metric_weight_dict=agg_metric["weight"],
+                    )
+                    obs_y[agg_metric_name] = agg_mean
+                    obs_se[agg_metric_name] = np.sqrt(agg_var)
         if training_in_design[i]:
             # Update with the input fixed features
             features = obs.features
             if fixed_features is not None:
                 features.update_features(fixed_features)
             # Make a prediction.
-            pred_y, pred_se = predict_at_point(model, features, metric_names)
+            pred_y, pred_se = predict_at_point(
+                model, features, metric_names, scalarized_metric_config
+            )
         elif (trial_selector is not None) and (
             obs.features.trial_index != trial_selector
         ):
@@ -270,6 +288,7 @@ def _get_out_of_sample_arms(
     generator_runs_dict: Dict[str, GeneratorRun],
     metric_names: Set[str],
     fixed_features: Optional[ObservationFeatures] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
 ) -> Dict[str, Dict[str, PlotOutOfSampleArm]]:
     """Get out-of-sample predictions from a model given a dict of generator runs.
 
@@ -296,7 +315,9 @@ def _get_out_of_sample_arms(
 
             # Make a prediction
             try:
-                pred_y, pred_se = predict_at_point(model, obsf, metric_names)
+                pred_y, pred_se = predict_at_point(
+                    model, obsf, metric_names, scalarized_metric_config
+                )
             except Exception:
                 # Check if it is an out-of-design arm.
                 if not model.model_space.check_membership(obsf.parameters):
@@ -322,6 +343,7 @@ def get_plot_data(
     metric_names: Optional[Set[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
 ) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
     arms.
@@ -341,6 +363,11 @@ def get_plot_data(
             in the model will be returned.
         fixed_features: Fixed features to use when making model predictions.
         data_selector: Function for selecting observations for plotting.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
 
     Returns:
         A tuple containing
@@ -358,12 +385,14 @@ def get_plot_data(
         metric_names=metrics_plot,
         fixed_features=fixed_features,
         data_selector=data_selector,
+        scalarized_metric_config=scalarized_metric_config,
     )
     out_of_sample_plot = _get_out_of_sample_arms(
         model=model,
         generator_runs_dict=generator_runs_dict,
         metric_names=metrics_plot,
         fixed_features=fixed_features,
+        scalarized_metric_config=scalarized_metric_config,
     )
     status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(

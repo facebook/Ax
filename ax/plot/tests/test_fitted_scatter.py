@@ -4,7 +4,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
+
 import plotly.graph_objects as go
+from ax.core.data import Data
 from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.scatter import interact_fitted, interact_fitted_plotly
@@ -18,15 +21,27 @@ class FittedScatterTest(TestCase):
     def test_fitted_scatter(self) -> None:
         exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()
+        # dup branin
+        data = exp.fetch_data()
+        df = deepcopy(data.df)
+        df["metric_name"] = "branin_dup"
+
         model = Models.BOTORCH(
             # Model bridge kwargs
             experiment=exp,
-            data=exp.fetch_data(),
+            data=Data.from_multiple_data([data, Data(df)]),
         )
         # Assert that each type of plot can be constructed successfully
-        plot = interact_fitted_plotly(model=model, rel=False)
+        scalarized_metric_config = [
+            {"name": "branin:agg", "weight": {"branin": 0.5, "branin_dup": 0.5}}
+        ]
+        plot = interact_fitted_plotly(
+            model=model, rel=False, scalarized_metric_config=scalarized_metric_config
+        )
         self.assertIsInstance(plot, go.Figure)
-        plot = interact_fitted(model=model, rel=False)
+        plot = interact_fitted(
+            model=model, rel=False, scalarized_metric_config=scalarized_metric_config
+        )
         self.assertIsInstance(plot, AxPlotConfig)
 
         # Make sure all parameters and metrics are displayed in tooltips

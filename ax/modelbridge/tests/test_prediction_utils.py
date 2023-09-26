@@ -33,6 +33,34 @@ class TestPredictionUtils(TestCase):
         self.assertEqual(len(y_hat), 1)
         self.assertEqual(len(se_hat), 1)
 
+        y_hat, se_hat = predict_at_point(
+            model=not_none(ax_client.generation_strategy.model),
+            obsf=observation_features,
+            metric_names={"test_metric1", "test_metric2", "test_metric:agg"},
+            scalarized_metric_config=[
+                {
+                    "name": "test_metric:agg",
+                    "weight": {"test_metric1": 0.5, "test_metric2": 0.5},
+                },
+            ],
+        )
+        self.assertEqual(len(y_hat), 3)
+        self.assertEqual(len(se_hat), 3)
+
+        y_hat, se_hat = predict_at_point(
+            model=not_none(ax_client.generation_strategy.model),
+            obsf=observation_features,
+            metric_names={"test_metric1"},
+            scalarized_metric_config=[
+                {
+                    "name": "test_metric:agg",
+                    "weight": {"test_metric1": 0.5, "test_metric2": 0.5},
+                },
+            ],
+        )
+        self.assertEqual(len(y_hat), 1)
+        self.assertEqual(len(se_hat), 1)
+
     def test_predict_by_features(self) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)

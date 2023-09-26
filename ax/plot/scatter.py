@@ -1076,6 +1076,7 @@ def _single_metric_traces(
     arm_noun: str = "arm",
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
@@ -1094,6 +1095,11 @@ def _single_metric_traces(
         arm_noun: noun to use instead of "arm" (e.g. group)
         fixed_features: Fixed features to use when making model predictions.
         data_selector: Function for selecting observations for plotting.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
     """
     plot_data, _, _ = get_plot_data(
         model,
@@ -1101,6 +1107,7 @@ def _single_metric_traces(
         {metric},
         fixed_features=fixed_features,
         data_selector=data_selector,
+        scalarized_metric_config=scalarized_metric_config,
     )
 
     status_quo_arm = (
@@ -1154,6 +1161,7 @@ def plot_fitted(
     custom_arm_order_name: str = "Custom",
     show_CI: bool = True,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> AxPlotConfig:
     """Plot fitted metrics.
 
@@ -1170,6 +1178,11 @@ def plot_fitted(
             show in the ordering dropdown. Default is 'Custom'.
         show_CI: if True, render confidence intervals.
         data_selector: Function for selecting observations for plotting.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
     """
     traces = _single_metric_traces(
         model,
@@ -1178,6 +1191,7 @@ def plot_fitted(
         rel,
         show_CI=show_CI,
         data_selector=data_selector,
+        scalarized_metric_config=scalarized_metric_config,
     )
 
     # order arm name sorting arm numbers within batch
@@ -1283,6 +1297,7 @@ def tile_fitted(
     metrics: Optional[List[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
@@ -1298,6 +1313,11 @@ def tile_fitted(
         metrics: List of metric names to restrict to when plotting.
         fixed_features: Fixed features to use when making model predictions.
         data_selector: Function for selecting observations for plotting.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
     """
     metrics = metrics or list(model.metric_names)
     nrows = int(np.ceil(len(metrics) / 2))
@@ -1331,6 +1351,7 @@ def tile_fitted(
             arm_noun=arm_noun,
             fixed_features=fixed_features,
             data_selector=data_selector,
+            scalarized_metric_config=scalarized_metric_config,
         )
 
         # order arm name sorting arm numbers within batch
@@ -1448,6 +1469,7 @@ def interact_fitted_plotly(
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
     label_dict: Optional[Dict[str, str]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> go.Figure:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1467,6 +1489,11 @@ def interact_fitted_plotly(
         data_selector: Function for selecting observations for plotting.
         label_dict: A dictionary that maps the label to
             an alias to be used in the plot.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
     """
     traces_per_metric = (
         1 if generator_runs_dict is None else len(generator_runs_dict) + 1
@@ -1478,7 +1505,12 @@ def interact_fitted_plotly(
     traces = []
     dropdown = []
 
-    for i, metric in enumerate(metrics):
+    if scalarized_metric_config is not None:
+        all_metrics = metrics + [agg["name"] for agg in scalarized_metric_config]
+    else:
+        all_metrics = metrics
+
+    for i, metric in enumerate(all_metrics):
         data = _single_metric_traces(
             model,
             metric,
@@ -1490,6 +1522,7 @@ def interact_fitted_plotly(
             arm_noun=arm_noun,
             fixed_features=fixed_features,
             data_selector=data_selector,
+            scalarized_metric_config=scalarized_metric_config,
         )
 
         for d in data:
@@ -1498,7 +1531,7 @@ def interact_fitted_plotly(
 
         # only the first two traces are visible (corresponding to first outcome
         # in dropdown)
-        is_visible = [False] * (len(metrics) * traces_per_metric)
+        is_visible = [False] * (len(all_metrics) * traces_per_metric)
         for j in range((traces_per_metric * i), (traces_per_metric * (i + 1))):
             is_visible[j] = True
 
@@ -1506,7 +1539,10 @@ def interact_fitted_plotly(
         dropdown.append(
             {
                 "args": ["visible", is_visible],
-                "label": _replace_str(metric, label_dict),
+                "label": _replace_str(
+                    metric,
+                    label_dict,
+                ),
                 "method": "restyle",
             }
         )
@@ -1581,6 +1617,7 @@ def interact_fitted(
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
     label_dict: Optional[Dict[str, str]] = None,
+    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1600,6 +1637,11 @@ def interact_fitted(
         data_selector: Function for selecting observations for plotting.
         label_dict: A dictionary that maps the label to
             an alias to be used in the plot.
+        scalarized_metric_config: An optional list of dicts specifying how to aggregate
+            multiple metrics into a single scalarized metric. For each dict, the key is
+            the name of the new scalarized metric, and the value is a dictionary mapping
+            each metric to its weight. e.g.
+            {"name": "metric1:agg", "weight": {"metric1_c1": 0.5, "metric1_c2": 0.5}}.
     """
 
     return AxPlotConfig(
@@ -1614,6 +1656,7 @@ def interact_fitted(
             fixed_features=fixed_features,
             data_selector=data_selector,
             label_dict=label_dict,
+            scalarized_metric_config=scalarized_metric_config,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
