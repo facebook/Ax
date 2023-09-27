@@ -303,7 +303,7 @@ def fit_botorch_model(
             fit_fully_bayesian_model_nuts(
                 m,
                 disable_progbar=True,
-                jit_compile=mll_options.get("jit_compile", False),
+                **mll_options,
             )
         elif isinstance(m, (GPyTorchModel, PairwiseGP)):
             mll_options = mll_options or {}
