@@ -164,6 +164,7 @@ class BenchmarkProblem(Base):
                     ),
                     op=ComparisonOp.GEQ,
                     bound=0.0,
+                    relative=False,
                 )
                 for i in range(test_problem.num_constraints)
             ]

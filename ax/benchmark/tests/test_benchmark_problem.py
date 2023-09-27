@@ -7,6 +7,7 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
+from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann
@@ -52,8 +53,17 @@ class TestBenchmarkProblem(TestCase):
             self.assertEqual(
                 test_problem.optimal_value, botorch_test_problem._optimal_value
             )
+            # test optimization config
+            self.assertEqual(
+                test_problem.optimization_config.objective.metric.name,
+                test_problem.name,
+            )
+            self.assertTrue(test_problem.optimization_config.objective.minimize)
             # test repr method
             if isinstance(botorch_test_problem, Ackley):
+                self.assertEqual(
+                    test_problem.optimization_config.outcome_constraints, []
+                )
                 expected_repr = (
                     "SingleObjectiveBenchmarkProblem(name=Ackley, "
                     "optimization_config=OptimizationConfig(objective=Objective("
@@ -64,14 +74,22 @@ class TestBenchmarkProblem(TestCase):
                     "tracking_metrics=[])"
                 )
             else:
+                outcome_constraint = (
+                    test_problem.optimization_config.outcome_constraints[0]
+                )
+                self.assertEqual(outcome_constraint.metric.name, "constraint_slack_0")
+                self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
+                self.assertFalse(outcome_constraint.relative)
+                self.assertEqual(outcome_constraint.bound, 0.0)
                 expected_repr = (
                     "SingleObjectiveBenchmarkProblem(name=ConstrainedHartmann, "
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="ConstrainedHartmann", minimize=True), '
                     "outcome_constraints=[OutcomeConstraint(constraint_slack_0"
-                    " >= 0.0%)]), num_trials=1, infer_noise=True, "
+                    " >= 0.0)]), num_trials=1, infer_noise=True, "
                     "tracking_metrics=[])"
                 )
+
             self.assertEqual(repr(test_problem), expected_repr)
 
     def test_moo_from_botorch(self) -> None:
