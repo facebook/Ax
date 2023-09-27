@@ -25,7 +25,6 @@ from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
 from ax.models.torch.botorch_modular.input_constructors.input_transforms import (
     input_transform_argparse,
 )
-
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
@@ -601,7 +600,6 @@ class Surrogate(Base):
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[Dict[str, Tensor]] = None,
         refit: bool = True,
-        original_metric_names: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
@@ -633,13 +631,6 @@ class Surrogate(Base):
                 the order corresponding to the Xs.
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
-            # TODO: we should refactor the fit() API to get rid of the metric_names
-            # and the concatenation hack that comes with it in BoTorchModel.fit()
-            # by attaching the individual metric_name to each dataset directly.
-            original_metric_names: sometimes the original list of metric_names
-                got tranformed into a different format before being passed down
-                into fit(). This arg preserves the original metric_names before
-                the transformation.
         """
         if self._constructed_manually:
             logger.debug(
@@ -656,11 +647,7 @@ class Surrogate(Base):
                 search_space_digest=search_space_digest,
                 **_kwargs,
             )
-            self._outcomes = (
-                original_metric_names
-                if original_metric_names is not None
-                else metric_names
-            )
+            self._outcomes = metric_names
 
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
@@ -670,11 +657,9 @@ class Surrogate(Base):
             )
 
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        """Predicts outcomes given a model and input tensor.
-
+        """Predicts outcomes given an input tensor.
 
         Args:
-            model: A botorch Model.
             X: A ``n x d`` tensor of input parameters.
 
         Returns:
@@ -698,11 +683,6 @@ class Surrogate(Base):
             )
         best_point_and_observed_value = best_in_sample_point(
             Xs=self.Xs,
-            # pyre-ignore[6]: `best_in_sample_point` currently expects a `TorchModel`
-            # as `model` kwarg, but only uses them for `predict` function, the
-            # signature for which is the same on this `Surrogate`.
-            # TODO: When we move `botorch_modular` directory to OSS, we will extend
-            # the annotation for `model` kwarg to accept `Surrogate` too.
             model=self,
             bounds=search_space_digest.bounds,
             objective_weights=torch_opt_config.objective_weights,

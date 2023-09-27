@@ -189,14 +189,11 @@ class BoTorchModel(TorchModel, Base):
                 f"{Keys.AUTOSET_SURROGATE}, these are reserved."
             )
 
-        self._surrogates = {}
-        self.surrogate_specs = {}
-        if surrogate_specs is not None:
-            self.surrogate_specs: Dict[str, SurrogateSpec] = {
-                label: spec for label, spec in surrogate_specs.items()
-            }
-        elif surrogate is not None:
+        self.surrogate_specs = dict((surrogate_specs or {}).items())
+        if surrogate is not None:
             self._surrogates = {Keys.ONLY_SURROGATE: surrogate}
+        else:
+            self._surrogates = {}
 
         self.acquisition_class = acquisition_class or Acquisition
         self.acquisition_options = acquisition_options or {}

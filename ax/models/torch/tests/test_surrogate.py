@@ -94,8 +94,6 @@ class SurrogateTest(TestCase):
             bounds=self.bounds,
             target_fidelities={1: 1.0},
         )
-        self.metric_names = ["x_y"]
-        self.original_metric_names = ["x", "y"]
         self.fixed_features = {1: 2.0}
         self.refit = True
         self.objective_weights = torch.tensor(
@@ -475,19 +473,6 @@ class SurrogateTest(TestCase):
                 self.assertTrue(mock_fit.call_kwargs["jit_compile"])
             mock_MLL.reset_mock()
             mock_fit.reset_mock()
-            # Check that the optional original_metric_names arg propagates
-            # through surrogate._outcomes.
-            surrogate.fit(
-                datasets=self.training_data,
-                metric_names=self.metric_names,
-                search_space_digest=self.search_space_digest,
-                refit=self.refit,
-                original_metric_names=self.original_metric_names,
-            )
-            self.assertEqual(surrogate.outcomes, self.original_metric_names)
-            mock_state_dict.reset_mock()
-            mock_MLL.reset_mock()
-            mock_fit.reset_mock()
             # Should `load_state_dict` when `state_dict` is not `None`
             # and `refit` is `False`.
             state_dict = {"state_attribute": torch.zeros(1)}
@@ -795,7 +780,7 @@ class SurrogateTest(TestCase):
         surrogate = Surrogate(allow_batched_models=False)
         surrogate.fit(
             datasets=training_data,
-            metric_names=self.original_metric_names,
+            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         self.assertIsInstance(surrogate.model, ModelListGP)

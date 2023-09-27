@@ -9,19 +9,38 @@ from __future__ import annotations
 import itertools
 import warnings
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Protocol, Set, Tuple, Union
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TParamCounter
-from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.torch_base import TorchModel
+from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.types import TConfig
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
+from torch import Tensor
 
 
 Tensoray = Union[torch.Tensor, np.ndarray]
+
+
+class TorchModelLike(Protocol):
+    """A protocol that stands in for ``TorchModel`` like objects that
+    have a ``predict`` method.
+    """
+
+    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+        """Predicts outcomes given an input tensor.
+
+        Args:
+            X: A ``n x d`` tensor of input parameters.
+
+        Returns:
+            Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
+            Tensor: The predicted posterior covariance as a ``n x o x o``-dim tensor.
+        """
+        ...
 
 
 DEFAULT_MAX_RS_DRAWS = 10000
@@ -227,7 +246,7 @@ def validate_bounds(
 
 
 def best_observed_point(
-    model: TorchModel,
+    model: TorchModelLike,
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
@@ -267,7 +286,7 @@ def best_observed_point(
       probability of feasibility (defaults 10k).
 
     Args:
-        model: Numpy or Torch model.
+        model: A Torch model or Surrogate.
         bounds: A list of (lower, upper) tuples for each feature.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
@@ -303,7 +322,7 @@ def best_observed_point(
 
 def best_in_sample_point(
     Xs: Union[List[torch.Tensor], List[np.ndarray]],
-    model: TorchModel,
+    model: TorchModelLike,
     bounds: List[Tuple[float, float]],
     objective_weights: Optional[Tensoray],
     outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
@@ -344,7 +363,7 @@ def best_in_sample_point(
 
     Args:
         Xs: Training data for the points, among which to select the best.
-        model: Numpy or Torch model.
+        model: A Torch model or Surrogate.
         bounds: A list of (lower, upper) tuples for each feature.
         objective_weights: The objective is to maximize a weighted sum of
             the columns of f(x). These are the weights.
@@ -379,7 +398,7 @@ def best_in_sample_point(
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
         return None
-    objective_weights_np = as_array(objective_weights)
+    objective_weights_np = checked_cast(np.ndarray, as_array(objective_weights))
     X_obs = get_observed(
         Xs=Xs,
         objective_weights=objective_weights,
@@ -399,7 +418,7 @@ def best_in_sample_point(
     if isinstance(Xs[0], torch.Tensor):
         X_obs = X_obs.detach().clone()
     f, cov = as_array(model.predict(X_obs))
-    obj = objective_weights_np @ f.transpose()  # pyre-ignore
+    obj = objective_weights_np @ f.transpose()
     pfeas = np.ones_like(obj)
     if outcome_constraints is not None:
         A, b = as_array(outcome_constraints)  # (m x j) and (m x 1)
@@ -418,7 +437,8 @@ def best_in_sample_point(
         if B is None:
             B = obj.min()
         utility = (obj - B) * pfeas
-    # pyre-fixme[61]: `utility` may not be initialized here.
+    else:  # pragma: no cover
+        raise UnsupportedError(f"Unknown best point method {method}.")
     i = np.argmax(utility)
     if utility[i] == -np.Inf:
         return None
