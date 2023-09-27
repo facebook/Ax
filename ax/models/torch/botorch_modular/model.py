@@ -682,10 +682,10 @@ class BoTorchModel(TorchModel, Base):
             The feature importances as a numpy array of size len(metrics) x 1 x dim
             where each row sums to 1.
         """
-        if list(self.surrogates.keys()) != [Keys.ONLY_SURROGATE]:
+        if len(self.surrogates) != 1:
             raise NotImplementedError("Only support a single surrogate model for now")
-        surrogate = self.surrogates[Keys.ONLY_SURROGATE]
-        return get_feature_importances_from_botorch_model(model=surrogate.model)
+
+        return get_feature_importances_from_botorch_model(model=self.surrogate.model)
 
     @property
     def search_space_digest(self) -> SearchSpaceDigest:
