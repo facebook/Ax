@@ -217,6 +217,15 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_fn=get_jenatton_benchmark_problem,
         factory_kwargs={"num_trials": 50, "infer_noise": False},
     ),
+    "constrained_gramacy_fixed_noise": BenchmarkProblemRegistryEntry(
+        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_kwargs={
+            "test_problem_class": synthetic.ConstrainedGramacy,
+            "test_problem_kwargs": {},
+            "num_trials": 50,
+            "infer_noise": False,
+        },
+    ),
 }
 
 
