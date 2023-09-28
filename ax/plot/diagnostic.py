@@ -653,6 +653,8 @@ def interact_batch_comparison(
     batch_y: int,
     rel: bool = False,
     status_quo_name: Optional[str] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
 ) -> AxPlotConfig:
     """Compare repeated arms from two trials; select metric via dropdown.
 
@@ -662,6 +664,8 @@ def interact_batch_comparison(
         batch_y: Index of bach for y-axis.
         rel: Whether to relativize data against status_quo arm.
         status_quo_name: Name of the status_quo arm.
+        x_label: Label for the x-axis.
+        y_label: Label for the y-axis.
     """
     if isinstance(experiment, MultiTypeExperiment):
         observations = convert_mt_observations(observations, experiment)
@@ -670,11 +674,15 @@ def interact_batch_comparison(
     plot_data = _get_batch_comparison_plot_data(
         observations, batch_x, batch_y, rel=rel, status_quo_name=status_quo_name
     )
+    if x_label is None:
+        x_label = f"Batch {batch_x}"
+    if y_label is None:
+        y_label = f"Batch {batch_y}"
     fig = _obs_vs_pred_dropdown_plot(
         data=plot_data,
         rel=rel,
-        xlabel="Batch {}".format(batch_x),
-        ylabel="Batch {}".format(batch_y),
+        xlabel=x_label,
+        ylabel=y_label,
     )
     fig["layout"]["title"] = "Repeated arms across trials"
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
