@@ -24,6 +24,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.storage.botorch_modular_registry import (
     CLASS_TO_REVERSE_REGISTRY,
     REVERSE_INPUT_TRANSFORM_REGISTRY,
+    REVERSE_OUTCOME_TRANSFORM_REGISTRY,
 )
 from ax.storage.transform_registry import REVERSE_TRANSFORM_REGISTRY
 from ax.utils.common.kwargs import warn_on_kwargs
@@ -31,6 +32,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
+from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -169,6 +171,15 @@ def input_transform_type_from_json(object_json: Dict[str, Any]) -> Type[InputTra
     return REVERSE_INPUT_TRANSFORM_REGISTRY[input_transform_type]
 
 
+def outcome_transform_type_from_json(
+    object_json: Dict[str, Any]
+) -> Type[OutcomeTransform]:
+    outcome_transform_type = object_json.pop("index")
+    if outcome_transform_type not in REVERSE_OUTCOME_TRANSFORM_REGISTRY:
+        raise ValueError(f"Unknown transform {outcome_transform_type}.")
+    return REVERSE_OUTCOME_TRANSFORM_REGISTRY[outcome_transform_type]
+
+
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
@@ -243,6 +254,16 @@ def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Typ
             **{
                 k: botorch_component_from_json(
                     botorch_class=REVERSE_INPUT_TRANSFORM_REGISTRY[v.pop("__type")],
+                    json=v,
+                )
+                for k, v in state_dict.items()
+            }
+        )
+    if issubclass(botorch_class, ChainedOutcomeTransform):
+        return botorch_class(
+            **{
+                k: botorch_component_from_json(
+                    botorch_class=REVERSE_OUTCOME_TRANSFORM_REGISTRY[v.pop("__type")],
                     json=v,
                 )
                 for k, v in state_dict.items()

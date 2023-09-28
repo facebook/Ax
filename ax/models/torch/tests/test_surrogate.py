@@ -181,7 +181,8 @@ class SurrogateTest(TestCase):
             covar_module_class=ScaleKernel,
             covar_module_options={"base_kernel": MaternKernel(ard_num_dims=d)},
             input_transform_classes=[Normalize],
-            outcome_transform=Standardize(m=1),
+            outcome_transform_classes=[Standardize],
+            outcome_transform_options={"Standardize": {"m": 1}},
             allow_batched_models=False,
         )
         surrogate.fit(
@@ -241,10 +242,9 @@ class SurrogateTest(TestCase):
 
     def test_botorch_transforms(self) -> None:
         # Successfully passing down the transforms
-        outcome_transform = Standardize(m=self.Ys[0].shape[-1])
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
-            outcome_transform=outcome_transform,
+            outcome_transform_classes=[Standardize],
             input_transform_classes=[Normalize],
         )
         surrogate.fit(
@@ -255,12 +255,14 @@ class SurrogateTest(TestCase):
         )
         botorch_model = surrogate.model
         self.assertIsInstance(botorch_model.input_transform, Normalize)
-        self.assertIs(botorch_model.outcome_transform, outcome_transform)
+        self.assertIsInstance(botorch_model.outcome_transform, Standardize)
+        self.assertEqual(botorch_model.outcome_transform._m, self.Ys[0].shape[-1])
 
         # Error handling if the model does not support transforms.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
-            outcome_transform=outcome_transform,
+            outcome_transform_classes=[Standardize],
+            outcome_transform_options={"Standardize": {"m": self.Ys[0].shape[-1]}},
             input_transform_classes=[Normalize],
         )
         with self.assertRaisesRegex(UserInputError, "BoTorch model"):
@@ -1117,15 +1119,15 @@ class SurrogateWithModelListTest(TestCase):
             )
 
     def test_with_botorch_transforms(self) -> None:
-        outcome_transforms = Standardize(m=1)
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
             mll_class=ExactMarginalLogLikelihood,
-            outcome_transform=outcome_transforms,
             input_transform_classes=[Normalize],
             input_transform_options={
                 "Normalize": {"d": 3, "bounds": None, "indices": None}
             },
+            outcome_transform_classes=[Standardize],
+            outcome_transform_options={"Standardize": {"m": 1}},
         )
         with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
             surrogate.construct(
@@ -1140,11 +1142,12 @@ class SurrogateWithModelListTest(TestCase):
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
             mll_class=ExactMarginalLogLikelihood,
-            outcome_transform=outcome_transforms,
             input_transform_classes=[Normalize],
             input_transform_options={
                 "Normalize": {"d": 3, "bounds": None, "indices": None}
             },
+            outcome_transform_classes=[Standardize],
+            outcome_transform_options={"Standardize": {"m": 1}},
         )
         surrogate.construct(
             datasets=self.supervised_training_data,
@@ -1209,7 +1212,8 @@ class SurrogateWithModelListTest(TestCase):
                 likelihood_class=GaussianLikelihood,
                 likelihood_options=submodel_likelihood_options,
                 input_transform_classes=[Normalize],
-                outcome_transform=Standardize(m=1),
+                outcome_transform_classes=[Standardize],
+                outcome_transform_options={"Standardize": {"m": 1}},
             )
             surrogate.construct(
                 datasets=self.supervised_training_data,

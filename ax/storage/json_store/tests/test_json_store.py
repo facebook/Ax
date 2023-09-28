@@ -119,6 +119,7 @@ from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
     get_input_transform_type,
     get_observation_features,
+    get_outcome_transfrom_type,
     get_transform_type,
 )
 from ax.utils.testing.utils import generic_equals
@@ -210,6 +211,7 @@ TEST_CASES = [
     ("Type[MarginalLogLikelihood]", get_mll_type),
     ("Type[Transform]", get_transform_type),
     ("Type[InputTransform]", get_input_transform_type),
+    ("Type[OutcomeTransform]", get_outcome_transfrom_type),
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),

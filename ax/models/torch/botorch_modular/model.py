@@ -91,7 +91,9 @@ class SurrogateSpec:
 
     input_transform_classes: Optional[List[Type[InputTransform]]] = None
     input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None
-    outcome_transform: Optional[OutcomeTransform] = None
+
+    outcome_transform_classes: Optional[List[Type[OutcomeTransform]]] = None
+    outcome_transform_options: Optional[Dict[str, Dict[str, Any]]] = None
 
     allow_batched_models: bool = True
 
@@ -304,7 +306,8 @@ class BoTorchModel(TorchModel, Base):
                 likelihood_options=spec.likelihood_kwargs,
                 input_transform_classes=spec.input_transform_classes,
                 input_transform_options=spec.input_transform_options,
-                outcome_transform=spec.outcome_transform,
+                outcome_transform_classes=spec.outcome_transform_classes,
+                outcome_transform_options=spec.outcome_transform_options,
                 allow_batched_models=spec.allow_batched_models,
             )
             for label, spec in self.surrogate_specs.items()

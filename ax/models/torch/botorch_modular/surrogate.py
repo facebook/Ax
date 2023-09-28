@@ -25,6 +25,10 @@ from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
 from ax.models.torch.botorch_modular.input_constructors.input_transforms import (
     input_transform_argparse,
 )
+from ax.models.torch.botorch_modular.input_constructors.outcome_transform import (
+    outcome_transform_argparse,
+)
+
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
@@ -50,7 +54,8 @@ from botorch.models.transforms.input import (
     InputPerturbation,
     InputTransform,
 )
-from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
+
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -84,9 +89,18 @@ class Surrogate(Base):
             ``Model`` constructed during ``Surrogate.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
         mll_options: Dictionary of options / kwargs for the MLL.
-        outcome_transform: BoTorch outcome transforms. Passed down to the
-            BoTorch ``Model``. Multiple outcome transforms can be chained
+        outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
+            down to the BoTorch ``Model``. Multiple outcome transforms can be chained
             together using ``ChainedOutcomeTransform``.
+        outcome_transform_options: Outcome transform classes kwargs. The keys are
+            class string names and the values are dictionaries of outcome transform
+            kwargs. For example,
+            `
+            outcome_transform_classes = [Standardize]
+            outcome_transform_options = {
+                "Standardize": {"m": 1},
+            `
+            For more options see `botorch/models/transforms/outcome.py`.
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
@@ -116,7 +130,8 @@ class Surrogate(Base):
     model_options: Dict[str, Any]
     mll_class: Type[MarginalLogLikelihood]
     mll_options: Dict[str, Any]
-    outcome_transform: Optional[OutcomeTransform] = None
+    outcome_transform_classes: Optional[List[Type[OutcomeTransform]]] = None
+    outcome_transform_options: Optional[Dict[str, Dict[str, Any]]] = None
     input_transform_classes: Optional[List[Type[InputTransform]]] = None
     input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None
     covar_module_class: Optional[Type[Kernel]] = None
@@ -139,7 +154,8 @@ class Surrogate(Base):
         model_options: Optional[Dict[str, Any]] = None,
         mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[Dict[str, Any]] = None,
-        outcome_transform: Optional[OutcomeTransform] = None,
+        outcome_transform_classes: Optional[List[Type[OutcomeTransform]]] = None,
+        outcome_transform_options: Optional[Dict[str, Dict[str, Any]]] = None,
         input_transform_classes: Optional[List[Type[InputTransform]]] = None,
         input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None,
         covar_module_class: Optional[Type[Kernel]] = None,
@@ -152,7 +168,8 @@ class Surrogate(Base):
         self.model_options = model_options or {}
         self.mll_class = mll_class
         self.mll_options = mll_options or {}
-        self.outcome_transform = outcome_transform
+        self.outcome_transform_classes = outcome_transform_classes
+        self.outcome_transform_options = outcome_transform_options or {}
         self.input_transform_classes = input_transform_classes
         self.input_transform_options = input_transform_options or {}
         self.covar_module_class = covar_module_class
@@ -166,7 +183,7 @@ class Surrogate(Base):
             f"<{self.__class__.__name__}"
             f" botorch_model_class={self.botorch_model_class} "
             f"mll_class={self.mll_class} "
-            f"outcome_transform={self.outcome_transform} "
+            f"outcome_transform_classes={self.outcome_transform_classes} "
             f"input_transform_classes={self.input_transform_classes} "
         )
 
@@ -352,7 +369,12 @@ class Surrogate(Base):
                     None,
                 ],
                 ["likelihood", self.likelihood_class, self.likelihood_options, None],
-                ["outcome_transform", None, None, self.outcome_transform],
+                [
+                    "outcome_transform",
+                    self.outcome_transform_classes,
+                    self.outcome_transform_options,
+                    None,
+                ],
                 [
                     "input_transform",
                     self.input_transform_classes,
@@ -451,9 +473,9 @@ class Surrogate(Base):
                     ],
                     [
                         "outcome_transform",
+                        self.outcome_transform_classes,
+                        deepcopy(self.outcome_transform_options),
                         None,
-                        None,
-                        deepcopy(self.outcome_transform),
                     ],
                     [
                         "input_transform",
@@ -521,6 +543,15 @@ class Surrogate(Base):
                         search_space_digest=search_space_digest,
                     )
 
+                elif input_name == "outcome_transform":
+
+                    formatted_model_inputs[
+                        input_name
+                    ] = self._make_botorch_outcome_transform(
+                        input_classes=input_class,
+                        input_options=input_options,
+                        dataset=dataset,
+                    )
                 else:
                     formatted_model_inputs[input_name] = input_class(**input_options)
 
@@ -591,6 +622,46 @@ class Surrogate(Base):
         )
 
         return input_instance
+
+    def _make_botorch_outcome_transform(
+        self,
+        input_classes: List[Type[OutcomeTransform]],
+        input_options: Dict[str, Dict[str, Any]],
+        dataset: SupervisedDataset,
+    ) -> OutcomeTransform:
+        """
+        Makes a BoTorch outcome transform from the provided classes and options.
+        """
+        if not (
+            isinstance(input_classes, list)
+            and all(issubclass(c, OutcomeTransform) for c in input_classes)
+        ):
+            raise UserInputError("Expected a list of outcome transforms.")
+
+        outcome_transform_kwargs = [
+            outcome_transform_argparse(
+                input_class,
+                outcome_transform_options=input_options.get(input_class.__name__, {}),
+                dataset=dataset,
+            )
+            for input_class in input_classes
+        ]
+
+        outcome_transforms = [
+            input_class(**single_outcome_transform_kwargs)
+            for input_class, single_outcome_transform_kwargs in zip(
+                input_classes, outcome_transform_kwargs
+            )
+        ]
+
+        outcome_transform_instance = (
+            ChainedOutcomeTransform(
+                **{f"otf{i}": otf for i, otf in enumerate(outcome_transforms)}
+            )
+            if len(outcome_transforms) > 1
+            else outcome_transforms[0]
+        )
+        return outcome_transform_instance
 
     def fit(
         self,
@@ -823,7 +894,8 @@ class Surrogate(Base):
             "model_options": self.model_options,
             "mll_class": self.mll_class,
             "mll_options": self.mll_options,
-            "outcome_transform": self.outcome_transform,
+            "outcome_transform_classes": self.outcome_transform_classes,
+            "outcome_transform_options": self.outcome_transform_options,
             "input_transform_classes": self.input_transform_classes,
             "input_transform_options": self.input_transform_options,
             "covar_module_class": self.covar_module_class,

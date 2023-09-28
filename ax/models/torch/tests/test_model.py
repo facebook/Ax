@@ -848,7 +848,8 @@ class BoTorchModelTest(TestCase):
             likelihood_options=None,
             input_transform_classes=None,
             input_transform_options=None,
-            outcome_transform=None,
+            outcome_transform_classes=None,
+            outcome_transform_options=None,
             allow_batched_models=True,
         )
 
@@ -875,7 +876,8 @@ class BoTorchModelTest(TestCase):
             likelihood_options=None,
             input_transform_classes=None,
             input_transform_options=None,
-            outcome_transform=None,
+            outcome_transform_classes=None,
+            outcome_transform_options=None,
             allow_batched_models=False,
         )
 

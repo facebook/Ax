@@ -215,6 +215,21 @@ def object_from_json(
                 )
                 object_json["input_transform_classes"] = input_transform_classes_json
                 object_json["input_transform_options"] = input_transform_options_json
+            if "outcome_transform" in object_json:
+                (
+                    outcome_transform_classes_json,
+                    outcome_transform_options_json,
+                ) = get_outcome_transform_json_components(
+                    outcome_transforms_json=[object_json.pop("outcome_transform")],
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                )
+                object_json[
+                    "outcome_transform_classes"
+                ] = outcome_transform_classes_json
+                object_json[
+                    "outcome_transform_options"
+                ] = outcome_transform_options_json
         elif isclass(_class) and issubclass(_class, SerializationMixin):
             return _class(**_class.deserialize_init_args(args=object_json))
 
@@ -721,7 +736,15 @@ def surrogate_from_list_surrogate_json(
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         )
-
+    if "submodel_outcome_transforms" in list_surrogate_json:
+        (
+            list_surrogate_json["submodel_outcome_transform_classes"],
+            list_surrogate_json["submodel_outcome_transform_options"],
+        ) = get_outcome_transform_json_components(
+            list_surrogate_json.pop("submodel_outcome_transforms"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
     return Surrogate(
         botorch_model_class=object_from_json(
             object_json=list_surrogate_json.get("botorch_submodel_class"),
@@ -745,8 +768,13 @@ def surrogate_from_list_surrogate_json(
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
-        outcome_transform=object_from_json(
-            object_json=list_surrogate_json.get("submodel_outcome_transforms"),
+        outcome_transform_classes=object_from_json(
+            object_json=list_surrogate_json.get("submodel_outcome_transform_classes"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        outcome_transform_options=object_from_json(
+            object_json=list_surrogate_json.get("submodel_outcome_transform_options"),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -792,3 +820,34 @@ def get_input_transform_json_components(
         for input_transform_json in input_transforms_json
     }
     return input_transform_classes_json, input_transform_options_json
+
+
+def get_outcome_transform_json_components(
+    outcome_transforms_json: Optional[List[Dict[str, Any]]],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+    if outcome_transforms_json is None:
+        return None, None
+
+    outcome_transforms_json = [
+        outcome_transform_json
+        for outcome_transform_json in outcome_transforms_json
+        if outcome_transform_json is not None
+    ]
+    outcome_transform_classes_json = [
+        outcome_transform_json["index"]
+        for outcome_transform_json in outcome_transforms_json
+    ]
+    outcome_transform_options_json = {
+        checked_cast(str, outcome_transform_json["__type"]): outcome_transform_json[
+            "state_dict"
+        ]
+        for outcome_transform_json in outcome_transforms_json
+    }
+    return outcome_transform_classes_json, outcome_transform_options_json

@@ -296,6 +296,14 @@ ax.models.torch.botorch_modular.input_constructors.input_transforms module
     :undoc-members:
     :show-inheritance:
 
+ax.models.torch.botorch_modular.input_constructors.outcome_transform module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.models.torch.botorch_modular.input_constructors.outcome_transform
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 ax.models.torch.cbo_lcea module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
