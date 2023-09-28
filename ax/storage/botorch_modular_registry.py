@@ -62,6 +62,11 @@ from botorch.models.transforms.input import (
     Round,
     Warp,
 )
+from botorch.models.transforms.outcome import (
+    ChainedOutcomeTransform,
+    OutcomeTransform,
+    Standardize,
+)
 
 # Miscellaneous BoTorch imports
 from gpytorch.constraints import Interval
@@ -153,6 +158,13 @@ INPUT_TRANSFORM_REGISTRY: Dict[Type[InputTransform], str] = {
     InputPerturbation: "InputPerturbation",
 }
 
+"""
+Mapping of BoTorch `OutcomeTransform` classes to class name strings.
+"""
+OUTCOME_TRANSFORM_REGISTRY: Dict[Type[OutcomeTransform], str] = {
+    ChainedOutcomeTransform: "ChainedOutcomeTransform",
+    Standardize: "Standardize",
+}
 
 """
 Overarching mapping from encoded classes to registry map.
@@ -167,6 +179,7 @@ CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     Interval: GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
     InputTransform: INPUT_TRANSFORM_REGISTRY,
+    OutcomeTransform: OUTCOME_TRANSFORM_REGISTRY,
 }
 
 
@@ -207,6 +220,9 @@ REVERSE_INPUT_TRANSFORM_REGISTRY: Dict[str, Type[InputTransform]] = {
     v: k for k, v in INPUT_TRANSFORM_REGISTRY.items()
 }
 
+REVERSE_OUTCOME_TRANSFORM_REGISTRY: Dict[str, Type[OutcomeTransform]] = {
+    v: k for k, v in OUTCOME_TRANSFORM_REGISTRY.items()
+}
 
 """
 Overarching mapping from encoded classes to reverse registry map.
@@ -221,6 +237,7 @@ CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[str, Type[Any]]] = {
     Interval: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
     InputTransform: REVERSE_INPUT_TRANSFORM_REGISTRY,
+    OutcomeTransform: REVERSE_OUTCOME_TRANSFORM_REGISTRY,
 }
 
 

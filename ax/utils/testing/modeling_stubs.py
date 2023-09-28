@@ -30,6 +30,7 @@ from ax.utils.testing.core_stubs import (
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.transforms.input import InputTransform, Normalize
+from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 
 logger: Logger = get_logger(__name__)
 
@@ -199,6 +200,10 @@ def get_input_transform_type() -> Type[InputTransform]:
     return Normalize
 
 
+def get_outcome_transfrom_type() -> Type[OutcomeTransform]:
+    return Standardize
+
+
 def get_experiment_for_value() -> Experiment:
     return Experiment(get_search_space_for_value(), "test")
 
@@ -239,7 +244,23 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
                     ),
                 },
                 "mll_options": {},
-                "submodel_outcome_transforms": None,
+                "submodel_outcome_transforms": [
+                    {
+                        "__type": "Standardize",
+                        "index": {
+                            "__type": "Type[OutcomeTransform]",
+                            "index": "Standardize",
+                            "class": (
+                                "<class 'botorch.models.transforms.outcome."
+                                "OutcomeTransform'>"
+                            ),
+                        },
+                        "class": (
+                            "<class 'botorch.models.transforms.outcome.Standardize'>"
+                        ),
+                        "state_dict": {"m": 1, "outputs": None, "min_stdv": 1e-8},
+                    }
+                ],
                 "submodel_input_transforms": [
                     {
                         "__type": "Normalize",
@@ -301,6 +322,10 @@ def get_surrogate_generation_step() -> GenerationStep:
                         "min_range": 1e-08,
                         "learn_bounds": False,
                     }
+                },
+                outcome_transform_classes=[Standardize],
+                outcome_transform_options={
+                    "Standardize": {"m": 1, "outputs": None, "min_stdv": 1e-8}
                 },
             ),
             "botorch_acqf_class": qNoisyExpectedImprovement,
