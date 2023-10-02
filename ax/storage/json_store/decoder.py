@@ -209,7 +209,7 @@ def object_from_json(
                     input_transform_classes_json,
                     input_transform_options_json,
                 ) = get_input_transform_json_components(
-                    input_transforms_json=[object_json.pop("input_transform")],
+                    input_transforms_json=object_json.pop("input_transform"),
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 )
@@ -220,7 +220,7 @@ def object_from_json(
                     outcome_transform_classes_json,
                     outcome_transform_options_json,
                 ) = get_outcome_transform_json_components(
-                    outcome_transforms_json=[object_json.pop("outcome_transform")],
+                    outcome_transforms_json=object_json.pop("outcome_transform"),
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 )

@@ -1018,6 +1018,9 @@ class SurrogateWithModelListTest(TestCase):
             Surrogate(
                 botorch_model_class=default_class,
                 mll_class=ExactMarginalLogLikelihood,
+                # Check that empty lists also work fine.
+                outcome_transform_classes=[],
+                input_transform_classes=[],
             ),
             Surrogate(botorch_model_class=SaasFullyBayesianSingleTaskGP),
             Surrogate(botorch_model_class=SaasFullyBayesianMultiTaskGP),

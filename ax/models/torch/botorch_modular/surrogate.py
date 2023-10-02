@@ -584,7 +584,7 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
         input_options: Dict[str, Dict[str, Any]],
-    ) -> InputTransform:
+    ) -> Optional[InputTransform]:
         """
         Makes a BoTorch input transform from the provided input classes and options.
         """
@@ -593,6 +593,8 @@ class Surrogate(Base):
             and all(issubclass(c, InputTransform) for c in input_classes)
         ):
             raise UserInputError("Expected a list of input transforms.")
+        if len(input_classes) == 0:
+            return None
 
         input_transform_kwargs = [
             input_transform_argparse(
@@ -628,7 +630,7 @@ class Surrogate(Base):
         input_classes: List[Type[OutcomeTransform]],
         input_options: Dict[str, Dict[str, Any]],
         dataset: SupervisedDataset,
-    ) -> OutcomeTransform:
+    ) -> Optional[OutcomeTransform]:
         """
         Makes a BoTorch outcome transform from the provided classes and options.
         """
@@ -637,6 +639,8 @@ class Surrogate(Base):
             and all(issubclass(c, OutcomeTransform) for c in input_classes)
         ):
             raise UserInputError("Expected a list of outcome transforms.")
+        if len(input_classes) == 0:
+            return None
 
         outcome_transform_kwargs = [
             outcome_transform_argparse(
