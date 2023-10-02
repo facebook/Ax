@@ -65,6 +65,19 @@ def compute_score_trace(
     return score_trace.clip(min=0, max=100)
 
 
+def _create_benchmark_experiment(
+    problem: BenchmarkProblemBase, method_name: str
+) -> Experiment:
+    """Creates an empty experiment for the given problem and method."""
+    return Experiment(
+        name=f"{problem.name}|{method_name}_{int(time())}",
+        search_space=problem.search_space,
+        optimization_config=problem.optimization_config,
+        tracking_metrics=problem.tracking_metrics,
+        runner=problem.runner,
+    )
+
+
 def benchmark_replication(
     problem: BenchmarkProblemBase,
     method: BenchmarkMethod,
@@ -79,13 +92,7 @@ def benchmark_replication(
             from `botorch.utils.sampling`.
     """
 
-    experiment = Experiment(
-        name=f"{problem.name}|{method.name}_{int(time())}",
-        search_space=problem.search_space,
-        optimization_config=problem.optimization_config,
-        tracking_metrics=problem.tracking_metrics,
-        runner=problem.runner,
-    )
+    experiment = _create_benchmark_experiment(problem=problem, method_name=method.name)
 
     scheduler = Scheduler(
         experiment=experiment,
