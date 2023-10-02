@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
@@ -11,230 +11,58 @@ from ax.benchmark.benchmark_method import (
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.model import SurrogateSpec
+
 from ax.service.scheduler import SchedulerOptions
-from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.analytic import LogExpectedImprovement
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.model import Model
 
 
-def get_sobol_botorch_modular_fixed_noise_gp_qnei(
-    scheduler_options: Optional[SchedulerOptions] = None,
-) -> BenchmarkMethod:
-    model_gen_kwargs = {
-        "model_gen_options": {
-            Keys.OPTIMIZER_KWARGS: {
-                "num_restarts": 50,
-                "raw_samples": 1024,
-            },
-            Keys.ACQF_KWARGS: {
-                "prune_baseline": True,
-            },
-        }
-    }
-
-    generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::FixedNoiseGP_qNoisyExpectedImprovement",
-        steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-            GenerationStep(
-                model=Models.BOTORCH_MODULAR,
-                num_trials=-1,
-                max_parallelism=1,
-                model_kwargs={
-                    "surrogate": Surrogate(FixedNoiseGP),
-                    "botorch_acqf_class": qNoisyExpectedImprovement,
-                },
-                model_gen_kwargs=model_gen_kwargs,
-            ),
-        ],
-    )
-
-    return BenchmarkMethod(
-        name=generation_strategy.name,
-        generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-    )
-
-
-def get_sobol_botorch_modular_fixed_noise_gp_qnehvi(
-    scheduler_options: Optional[SchedulerOptions] = None,
-) -> BenchmarkMethod:
-    model_gen_kwargs = {
-        "model_gen_options": {
-            Keys.OPTIMIZER_KWARGS: {
-                "num_restarts": 50,
-                "raw_samples": 1024,
-            },
-            Keys.ACQF_KWARGS: {
-                "prune_baseline": True,
-                "qmc": True,
-                "mc_samples": 512,
-            },
-        }
-    }
-
-    generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::FixedNoiseGP_qNoisyExpectedHypervolumeImprovement",
-        steps=[
-            GenerationStep(
-                model=Models.SOBOL,
-                num_trials=5,
-                min_trials_observed=5,
-            ),
-            GenerationStep(
-                model=Models.BOTORCH_MODULAR,
-                num_trials=-1,
-                max_parallelism=1,
-                model_kwargs={
-                    "surrogate": Surrogate(FixedNoiseGP),
-                    "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
-                },
-                model_gen_kwargs=model_gen_kwargs,
-            ),
-        ],
-    )
-
-    return BenchmarkMethod(
-        name=generation_strategy.name,
-        generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-    )
-
-
-def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei(
-    scheduler_options: Optional[SchedulerOptions] = None,
-    distribute_replications: bool = True,
-) -> BenchmarkMethod:  # noqa
-    return get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
-        qNoisyExpectedImprovement,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-        distribute_replications=distribute_replications,
-    )
-
-
-def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp(
-    botorch_acqf_class: Type[AcquisitionFunction],
-    scheduler_options: Optional[SchedulerOptions] = None,
-    distribute_replications: bool = True,
-) -> BenchmarkMethod:  # noqa
-    generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_"
-        + botorch_acqf_class.__name__,  # noqa
-        steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-            GenerationStep(
-                model=Models.BOTORCH_MODULAR,
-                num_trials=-1,
-                max_parallelism=1,
-                model_kwargs={
-                    "surrogate": Surrogate(
-                        botorch_model_class=SaasFullyBayesianSingleTaskGP
-                    ),
-                    "botorch_acqf_class": botorch_acqf_class,
-                },
-            ),
-        ],
-    )
-
-    return BenchmarkMethod(
-        name=generation_strategy.name,
-        generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-        distribute_replications=distribute_replications,
-    )
-
-
-def get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(
-    scheduler_options: Optional[SchedulerOptions] = None,
-    distribute_replications: bool = True,
-) -> BenchmarkMethod:  # noqa
-    generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::SaasFullyBayesianSingleTaskGP_qNoisyExpectedHypervolumeImprovement",  # noqa
-        steps=[
-            GenerationStep(
-                model=Models.SOBOL,
-                num_trials=5,
-                min_trials_observed=5,
-            ),
-            GenerationStep(
-                model=Models.BOTORCH_MODULAR,
-                num_trials=-1,
-                max_parallelism=1,
-                model_kwargs={
-                    "surrogate": Surrogate(
-                        botorch_model_class=SaasFullyBayesianSingleTaskGP
-                    ),
-                    "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
-                },
-            ),
-        ],
-    )
-    return BenchmarkMethod(
-        name=generation_strategy.name,
-        generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-        distribute_replications=distribute_replications,
-    )
-
-
-def get_sobol_botorch_modular_default(
-    scheduler_options: Optional[SchedulerOptions] = None,
-    distribute_replications: bool = False,
-) -> BenchmarkMethod:
-    generation_strategy = GenerationStrategy(
-        name="SOBOL+BOTORCH_MODULAR::default",
-        steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-            GenerationStep(
-                model=Models.BOTORCH_MODULAR,
-                num_trials=-1,
-                max_parallelism=1,
-            ),
-        ],
-    )
-
-    return BenchmarkMethod(
-        name=generation_strategy.name,
-        generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
-        distribute_replications=distribute_replications,
-    )
+model_names_abbrevations: Dict[str, str] = {
+    SaasFullyBayesianSingleTaskGP.__name__: "SAAS",
+}
+acqf_name_abbreviations: Dict[str, str] = {
+    qLogNoisyExpectedImprovement.__name__: "qLogNEI",
+    qNoisyExpectedHypervolumeImprovement.__name__: "qNEHVI",
+    LogExpectedImprovement.__name__: "LogEI",
+}
 
 
 def get_sobol_botorch_modular_acquisition(
+    model_cls: Type[Model],
     acquisition_cls: Type[AcquisitionFunction],
-    acquisition_options: Optional[Dict[str, Any]] = None,
     scheduler_options: Optional[SchedulerOptions] = None,
     distribute_replications: bool = False,
+    name: Optional[str] = None,
 ) -> BenchmarkMethod:
+    model_kwargs: Dict[
+        str, Union[Type[AcquisitionFunction], Dict[str, SurrogateSpec]]
+    ] = {
+        "botorch_acqf_class": acquisition_cls,
+        "surrogate_specs": {"BoTorch": SurrogateSpec(botorch_model_class=model_cls)},
+    }
+
+    model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
+    acqf_name = acqf_name_abbreviations.get(
+        acquisition_cls.__name__, acquisition_cls.__name__
+    )
+    name = f"MBM::{model_name}_{acqf_name}"
+
     generation_strategy = GenerationStrategy(
-        name=f"SOBOL+BOTORCH_MODULAR::{acquisition_cls.__name__}",
+        name=name,
         steps=[
-            GenerationStep(
-                model=Models.SOBOL,
-                num_trials=5,
-                min_trials_observed=5,
-            ),
+            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
                 max_parallelism=1,
-                model_kwargs={
-                    "botorch_acqf_class": acquisition_cls,
-                    "acquisition_options": acquisition_options,
-                },
+                model_kwargs=model_kwargs,
             ),
         ],
     )

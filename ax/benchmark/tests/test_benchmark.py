@@ -17,15 +17,7 @@ from ax.benchmark.benchmark_method import (
 )
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
-from ax.benchmark.methods.gpei_and_moo import get_gpei_default
-from ax.benchmark.methods.modular_botorch import (
-    get_sobol_botorch_modular_acquisition,
-    get_sobol_botorch_modular_default,
-    get_sobol_botorch_modular_fixed_noise_gp_qnehvi,
-    get_sobol_botorch_modular_fixed_noise_gp_qnei,
-    get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi,
-    get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei,
-)
+from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
@@ -41,7 +33,12 @@ from ax.utils.testing.benchmark_stubs import (
 )
 from ax.utils.testing.core_stubs import get_dataset, get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qNoisyExpectedHypervolumeImprovement,
+)
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
 from botorch.test_functions.synthetic import Branin
 
 
@@ -144,29 +141,39 @@ class TestBenchmark(TestCase):
 
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
-        for method, problem in [
+        for method, problem, expected_name in [
             (
                 get_sobol_botorch_modular_acquisition(
-                    acquisition_cls=qMaxValueEntropy,
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
                     scheduler_options=get_sequential_optimization_scheduler_options(),
                 ),
                 get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                "MBM::SingleTaskGP_qLogNEI",
             ),
             (
-                get_sobol_botorch_modular_fixed_noise_gp_qnei(),
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=FixedNoiseGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                ),
                 get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                "MBM::FixedNoiseGP_qLogNEI",
             ),
             (
-                get_sobol_botorch_modular_fixed_noise_gp_qnehvi(),
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=FixedNoiseGP,
+                    acquisition_cls=qNoisyExpectedHypervolumeImprovement,
+                ),
                 get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                "MBM::FixedNoiseGP_qNEHVI",
             ),
             (
-                get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnei(),
-                get_single_objective_benchmark_problem(num_trials=6),
-            ),
-            (
-                get_sobol_botorch_modular_saas_fully_bayesian_single_task_gp_qnehvi(),
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SaasFullyBayesianSingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                ),
                 get_multi_objective_benchmark_problem(num_trials=6),
+                "MBM::SAAS_qLogNEI",
             ),
         ]:
             with self.subTest(method=method, problem=problem):
@@ -176,22 +183,8 @@ class TestBenchmark(TestCase):
                     len(not_none(res.experiment).trials),
                 )
                 self.assertTrue(np.all(res.score_trace <= 100))
-
-    @fast_botorch_optimize
-    def test_replication_mbm_default(self) -> None:
-        method = get_sobol_botorch_modular_default()
-        for problem in [
-            get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
-            get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
-            get_single_objective_benchmark_problem(num_trials=6),
-            get_multi_objective_benchmark_problem(num_trials=6),
-        ]:
-            with self.subTest(problem=problem):
-                res = benchmark_replication(problem=problem, method=method, seed=0)
-                self.assertEqual(
-                    problem.num_trials,
-                    len(not_none(res.experiment).trials),
-                )
+                self.assertEqual(method.name, method.generation_strategy.name)
+                self.assertEqual(method.name, expected_name)
 
     def test_replication_moo_sobol(self) -> None:
         problem = get_multi_objective_benchmark_problem()
@@ -235,7 +228,12 @@ class TestBenchmark(TestCase):
     def test_benchmark_multiple_problems_methods(self) -> None:
         aggs = benchmark_multiple_problems_methods(
             problems=[get_single_objective_benchmark_problem(num_trials=6)],
-            methods=[get_sobol_benchmark_method(), get_gpei_default()],
+            methods=[
+                get_sobol_benchmark_method(),
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+                ),
+            ],
             seeds=(0, 1),
         )
 
@@ -251,7 +249,9 @@ class TestBenchmark(TestCase):
             num_trials=1000,  # Unachievable num_trials
         )
 
-        generation_strategy = get_gpei_default().generation_strategy
+        generation_strategy = get_sobol_botorch_modular_acquisition(
+            model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+        ).generation_strategy
 
         method = BenchmarkMethod(
             name=generation_strategy.name,
