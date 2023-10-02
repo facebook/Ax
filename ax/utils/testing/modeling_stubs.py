@@ -361,6 +361,39 @@ def get_surrogate_as_dict() -> Dict[str, Any]:
     }
 
 
+def get_surrogate_spec_as_dict() -> Dict[str, Any]:
+    """
+    For use ensuring backwards compatibility when loading SurrogateSpec
+    with input_transform and outcome_transform kwargs.
+    """
+    return {
+        "__type": "SurrogateSpec",
+        "botorch_model_class": {
+            "__type": "Type[Model]",
+            "index": "SingleTaskGP",
+            "class": "<class 'botorch.models.model.Model'>",
+        },
+        "botorch_model_kwargs": {},
+        "mll_class": {
+            "__type": "Type[MarginalLogLikelihood]",
+            "index": "ExactMarginalLogLikelihood",
+            "class": (
+                "<class 'gpytorch.mlls.marginal_log_likelihood"
+                ".MarginalLogLikelihood'>"
+            ),
+        },
+        "mll_kwargs": {},
+        "covar_module_class": None,
+        "covar_module_kwargs": None,
+        "likelihood_class": None,
+        "likelihood_kwargs": None,
+        "input_transform": None,
+        "outcome_transform": None,
+        "allow_batched_models": False,
+        "outcomes": [],
+    }
+
+
 class transform_1(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         new_ss = search_space.clone()
