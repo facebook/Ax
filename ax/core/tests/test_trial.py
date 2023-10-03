@@ -13,6 +13,7 @@ from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
 from ax.exceptions.core import UserInputError
+from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -22,7 +23,6 @@ from ax.utils.testing.core_stubs import (
     get_objective,
     get_test_map_data_experiment,
 )
-
 
 TEST_DATA = Data(
     df=pd.DataFrame(
@@ -129,6 +129,16 @@ class TrialTest(TestCase):
         self.assertFalse(self.trial.status.is_failed)
         self.assertTrue(self.trial.did_not_complete)
 
+    def test_failed(self) -> None:
+        fail_reason = "testing"
+        self.trial.runner = SyntheticRunner()
+        self.trial.run()
+        self.trial.mark_failed(reason=fail_reason)
+
+        self.assertTrue(self.trial.status.is_failed)
+        self.assertTrue(self.trial.did_not_complete)
+        self.assertEqual(self.trial.failed_reason, fail_reason)
+
     def test_mark_as(self) -> None:
         for terminal_status in (
             TrialStatus.ABANDONED,
@@ -143,13 +153,17 @@ class TrialTest(TestCase):
                 if status == TrialStatus.RUNNING:
                     kwargs["no_runner_required"] = True
                 if status == TrialStatus.ABANDONED:
-                    kwargs["reason"] = "test_reason"
+                    kwargs["reason"] = "test_reason_abandon"
+                if status == TrialStatus.FAILED:
+                    kwargs["reason"] = "test_reason_failed"
                 self.trial.mark_as(status=status, **kwargs)
                 self.assertTrue(self.trial.status == status)
 
                 if status == TrialStatus.ABANDONED:
-                    self.assertEqual(self.trial.abandoned_reason, "test_reason")
-                else:
+                    self.assertEqual(self.trial.abandoned_reason, "test_reason_abandon")
+                    self.assertIsNone(self.trial.failed_reason)
+                elif status == TrialStatus.FAILED:
+                    self.assertEqual(self.trial.failed_reason, "test_reason_failed")
                     self.assertIsNone(self.trial.abandoned_reason)
 
                 if status != TrialStatus.RUNNING:
