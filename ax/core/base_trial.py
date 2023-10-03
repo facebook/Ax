@@ -765,7 +765,7 @@ class BaseTrial(ABC, SortableBase):
         elif status == TrialStatus.ABANDONED:
             self.mark_abandoned(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.FAILED:
-            self.mark_failed(unsafe=unsafe)
+            self.mark_failed(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.COMPLETED:
             self.mark_completed(unsafe=unsafe)
         elif status == TrialStatus.EARLY_STOPPED:
