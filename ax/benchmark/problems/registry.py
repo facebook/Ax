@@ -58,7 +58,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
                 test_problem_class=BraninCurrin,
                 test_problem_kwargs={},
-                num_trials=100,
+                num_trials=30,
                 infer_noise=True,
             ),
             total_dimensionality=n,
@@ -88,7 +88,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={
             "test_problem_class": synthetic.Hartmann,
             "test_problem_kwargs": {"dim": 6},
-            "num_trials": 50,
+            "num_trials": 35,
             "infer_noise": True,
         },
     ),
@@ -97,7 +97,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
                 test_problem_class=synthetic.Hartmann,
                 test_problem_kwargs={"dim": 6},
-                num_trials=100,
+                num_trials=25,
                 infer_noise=True,
             ),
             total_dimensionality=n,
@@ -106,7 +106,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
-        factory_kwargs={"name": "MNIST", "num_trials": 50, "infer_noise": True},
+        factory_kwargs={"name": "MNIST", "num_trials": 20, "infer_noise": True},
     ),
     "hpo_pytorch_cnn_FashionMNIST": BenchmarkProblemRegistryEntry(
         factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
@@ -167,7 +167,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={
             "test_problem_class": synthetic.Branin,
             "test_problem_kwargs": {},
-            "num_trials": 30,
+            "num_trials": 20,
             "infer_noise": False,
         },
     ),
@@ -215,7 +215,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "jenatton_fixed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=get_jenatton_benchmark_problem,
-        factory_kwargs={"num_trials": 50, "infer_noise": False},
+        factory_kwargs={"num_trials": 25, "infer_noise": False},
     ),
     "constrained_gramacy_fixed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
