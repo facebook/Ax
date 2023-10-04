@@ -31,6 +31,12 @@ Completion Criterion
     :undoc-members:
     :show-inheritance:
 
+Transition Criterion
+.. automodule:: ax.modelbridge.transition_criterion
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Registry
 ~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.registry

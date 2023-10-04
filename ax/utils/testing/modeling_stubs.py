@@ -14,12 +14,12 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.completion_criterion import MinimumPreferenceOccurances
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transition_criterion import MinimumPreferenceOccurances
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (

@@ -49,10 +49,10 @@ from ax.early_stopping.strategies import (
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONEncodeError
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transition_criterion import TransitionCriterion
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
@@ -475,6 +475,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
         ),
         "index": generation_step.index,
         "should_deduplicate": generation_step.should_deduplicate,
+        "transition_criteria": generation_step.transition_criteria,
     }
 
 
@@ -499,8 +500,8 @@ def generation_strategy_to_dict(
     }
 
 
-def completion_criterion_to_dict(criterion: CompletionCriterion) -> Dict[str, Any]:
-    """Convert Ax CompletionCriterion to a dictionary."""
+def transition_criterion_to_dict(criterion: TransitionCriterion) -> Dict[str, Any]:
+    """Convert Ax TransitionCriterion to a dictionary."""
     properties = criterion.serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties

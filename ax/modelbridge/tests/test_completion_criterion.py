@@ -19,6 +19,12 @@ from ax.utils.testing.core_stubs import get_experiment
 
 
 class TestCompletionCritereon(TestCase):
+    """
+    `CompletionCriterion` is deprecrated and replaced by `TransitionCriterion`.
+    However, some legacy code still depends on the skelton implementation of
+    `CompletionCriterion`, so we will keep this test case until full reaping.
+    """
+
     def test_single_criterion(self) -> None:
         criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
 
