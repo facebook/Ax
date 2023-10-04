@@ -75,13 +75,14 @@ from ax.metrics.jenatton import JenattonMetric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
-from ax.modelbridge.completion_criterion import (
-    MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
-)
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transition_criterion import (
+    MaxTrials,
+    MinimumPreferenceOccurances,
+    MinimumTrialsInStatus,
+)
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -104,7 +105,6 @@ from ax.storage.json_store.encoders import (
     botorch_model_to_dict,
     botorch_modular_to_dict,
     choice_parameter_to_dict,
-    completion_criterion_to_dict,
     data_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
@@ -141,6 +141,7 @@ from ax.storage.json_store.encoders import (
     surrogate_to_dict,
     threshold_early_stopping_strategy_to_dict,
     transform_type_to_dict,
+    transition_criterion_to_dict,
     trial_to_dict,
     winsorization_config_to_dict,
 )
@@ -189,8 +190,9 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
     Metric: metric_to_dict,
-    MinimumTrialsInStatus: completion_criterion_to_dict,
-    MinimumPreferenceOccurances: completion_criterion_to_dict,
+    MinimumTrialsInStatus: transition_criterion_to_dict,
+    MinimumPreferenceOccurances: transition_criterion_to_dict,
+    MaxTrials: transition_criterion_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveBenchmarkProblem: multi_objective_benchmark_problem_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -300,6 +302,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "MapData": MapData,
     "MapMetric": MapMetric,
     "MapKeyInfo": MapKeyInfo,
+    "MaxTrials": MaxTrials,
     "Metric": Metric,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,

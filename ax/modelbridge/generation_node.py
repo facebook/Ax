@@ -30,10 +30,14 @@ from ax.exceptions.generation_strategy import (
     MaxParallelismReachedException,
 )
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.completion_criterion import CompletionCriterion
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
+from ax.modelbridge.transition_criterion import (
+    MaxTrials,
+    MinimumTrialsInStatus,
+    TransitionCriterion,
+)
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -57,15 +61,42 @@ MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
 
 
 class GenerationNode:
-    """Base class for generation node, capable of fitting one or more
-    model specs under the hood and generating candidates from them.
+    """Base class for GenerationNode, capable of fitting one or more model specs under
+    the hood and generating candidates from them.
+
+    Args:
+        model_specs: A list of ModelSpecs to be selected from for generation in this
+            GenerationNode
+        should_deduplicate: Whether to deduplicate the parameters of proposed arms
+            against those of previous arms via rejection sampling. If this is True,
+            the GenerationStrategy will discard generator runs produced from the
+            GenerationNode that has `should_deduplicate=True` if they contain arms
+            already present on the experiment and replace them with new generator runs.
+            If no generator run with entirely unique arms could be produced in 5
+            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
+            assume that the optimization converged when the model can no longer suggest
+            unique arms.
+        node_name: A unique name for the GenerationNode. Used for storage purposes.
+        transition_criteria: List of TransitionCriterion, each of which describes a
+            condition that must be met before completing a GenerationNode. All `is_met`
+            must evaluateTrue for the GenerationStrategy to move on to the next
+            GenerationNode.
+
+    Note for developers: by "model" here we really mean an Ax ModelBridge object, which
+    contains an Ax Model under the hood. We call it "model" here to simplify and focus
+    on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
+    # Required options:
     model_specs: List[ModelSpec]
+    # TODO: Move `should_deduplicate` to `ModelSpec` if possible, and make optional
     should_deduplicate: bool
     _node_name: str
+
+    # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     use_update: bool = False
+    _transition_criteria: Optional[Sequence[TransitionCriterion]]
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -80,6 +111,7 @@ class GenerationNode:
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
         use_update: bool = False,
+        transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
     ) -> None:
         self._node_name = node_name
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
@@ -91,6 +123,7 @@ class GenerationNode:
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self.use_update = use_update
+        self._transition_criteria = transition_criteria
 
     @property
     def node_name(self) -> str:
@@ -164,6 +197,10 @@ class GenerationNode:
                 "Generation strategy has not been initialized on this node."
             )
         return not_none(self._generation_strategy)
+
+    @property
+    def transition_criteria(self) -> Sequence[TransitionCriterion]:
+        return not_none(self._transition_criteria)
 
     @property
     def experiment(self) -> Experiment:
@@ -450,7 +487,7 @@ class GenerationStep(GenerationNode, SortableBase):
         model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the
             step's model's `gen` under the hood; `model_gen_kwargs` will be passed to
             the model's `gen` like so: `model.gen(**model_gen_kwargs)`.
-        completion_criteria: List of CompletionCriterion. All `is_met` must evaluate
+        completion_criteria: List of TransitionCriterion. All `is_met` must evaluate
             True for the GenerationStrategy to move on to the next Step
         index: Index of this generation step, for use internally in `Generation
             Strategy`. Do not assign as it will be reassigned when instantiating
@@ -481,7 +518,7 @@ class GenerationStep(GenerationNode, SortableBase):
     model_gen_kwargs: Optional[Dict[str, Any]] = None
 
     # Optional specifications for use in generation strategy:
-    completion_criteria: Sequence[CompletionCriterion] = field(default_factory=list)
+    completion_criteria: Sequence[TransitionCriterion] = field(default_factory=list)
     min_trials_observed: int = 0
     max_parallelism: Optional[int] = None
     use_update: bool = False
@@ -534,11 +571,31 @@ class GenerationStep(GenerationNode, SortableBase):
             except TypeError:
                 # Factory functions may not always have a model key defined.
                 self.model_name = f"Unknown {model_spec.__class__.__name__}"
+
+        # Create transition criteria for this step. MaximumTrialsInStatus can be used
+        # to ensure that requirements related to num_trials and enforce_num_trials
+        # are met. MinimumTrialsInStatus can be used enforce the min_trials_observed
+        # requirement.
+        transition_criteria = []
+        transition_criteria.append(
+            MaxTrials(
+                enforce=self.enforce_num_trials,
+                threshold=self.num_trials,
+            )
+        )
+        transition_criteria.append(
+            MinimumTrialsInStatus(
+                status=TrialStatus.COMPLETED, threshold=self.min_trials_observed
+            )
+        )
+        transition_criteria += self.completion_criteria
+        # need to unwrap old completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
             use_update=self.use_update,
+            transition_criteria=transition_criteria,
         )
 
     @property

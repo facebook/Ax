@@ -32,6 +32,12 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import _decode_callables_from_references
+from ax.modelbridge.transition_criterion import (
+    MaxTrials,
+    MinimumPreferenceOccurances,
+    MinimumTrialsInStatus,
+    TransitionCriterion,
+)
 from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
@@ -40,6 +46,7 @@ from ax.storage.json_store.decoders import (
     tensor_from_json,
     trial_from_json,
 )
+
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
@@ -316,6 +323,56 @@ def generator_run_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     return generator_run
+
+
+def transition_criteria_from_json(
+    transition_criteria_json: List[Dict[str, Any]],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> Optional[List[TransitionCriterion]]:
+    """Load Ax TransitionCriteria from JSON.
+
+    This function is necessary due to the loading of TrialStatus in
+    some, but not all, TransitionCriterion.
+    """
+    if transition_criteria_json is None:
+        return None
+
+    criterion_list = []
+    for criterion_json in transition_criteria_json:
+        criterion_type = criterion_json.pop("__type")
+        if criterion_type == "MinimumTrialsInStatus":
+            criterion_list.append(
+                MinimumTrialsInStatus(
+                    status=object_from_json(criterion_json.pop("status")),
+                    threshold=criterion_json.pop("threshold"),
+                )
+            )
+        elif criterion_type == "MaxTrials":
+            criterion_list.append(
+                MaxTrials(
+                    only_in_status=object_from_json(
+                        criterion_json.pop("only_in_status")
+                    )
+                    if "only_in_status" in criterion_json.keys()
+                    else None,
+                    threshold=criterion_json.pop("threshold"),
+                    enforce=criterion_json.pop("enforce"),
+                )
+            )
+        else:
+            criterion_list.append(
+                MinimumPreferenceOccurances(
+                    metric_name=criterion_json.pop("metric_name"),
+                    threshold=criterion_json.pop("threshold"),
+                ),
+            )
+    return criterion_list
 
 
 def search_space_from_json(
@@ -635,7 +692,12 @@ def generation_step_from_json(
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
-    return GenerationStep(
+    completion_criteria = (
+        transition_criteria_from_json(generation_step_json.pop("completion_criteria"))
+        if "completion_criteria" in generation_step_json.keys()
+        else []
+    )
+    generation_step = GenerationStep(
         model=object_from_json(
             generation_step_json.pop("model"),
             decoder_registry=decoder_registry,
@@ -643,10 +705,8 @@ def generation_step_from_json(
         ),
         num_trials=generation_step_json.pop("num_trials"),
         min_trials_observed=generation_step_json.pop("min_trials_observed", 0),
-        completion_criteria=object_from_json(
-            generation_step_json.pop("completion_criteria")
-        )
-        if "completion_criteria" in generation_step_json.keys()
+        completion_criteria=completion_criteria
+        if completion_criteria is not None
         else [],
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
         use_update=generation_step_json.pop("use_update", False),
@@ -674,6 +734,12 @@ def generation_step_from_json(
         if "should_deduplicate" in generation_step_json
         else False,
     )
+    generation_step._transition_criteria = transition_criteria_from_json(
+        generation_step_json.pop("transition_criteria")
+        if "transition_criteria" in generation_step_json.keys()
+        else None
+    )
+    return generation_step
 
 
 def generation_strategy_from_json(
