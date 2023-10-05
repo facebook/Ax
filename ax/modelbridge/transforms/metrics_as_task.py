@@ -129,6 +129,7 @@ class MetricsAsTask(Transform):
             is_ordered=False,
             is_task=True,
             sort_values=True,
+            target_value="TARGET",
         )
         search_space.add_parameter(task_param)
         return search_space

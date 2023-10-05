@@ -32,6 +32,7 @@ class TaskEncodeTransformTest(TestCase):
                     parameter_type=ParameterType.STRING,
                     values=["online", "offline"],
                     is_task=True,
+                    target_value="online",
                 ),
             ]
         )
@@ -74,6 +75,7 @@ class TaskEncodeTransformTest(TestCase):
 
         # pyre-fixme[16]: `Parameter` has no attribute `values`.
         self.assertEqual(ss2.parameters["c"].values, [0, 1])
+        self.assertEqual(ss2.parameters["c"].target_value, 0)
 
         # Test error if there are fidelities
         ss3 = SearchSpace(
@@ -98,6 +100,7 @@ class TaskEncodeTransformTest(TestCase):
         rss = get_robust_search_space()
         # pyre-fixme[16]: `Parameter` has no attribute `_is_task`.
         rss.parameters["c"]._is_task = True
+        rss.parameters["c"]._target_value = "red"
         # Transform a non-distributional parameter.
         t = TaskEncode(
             search_space=rss,

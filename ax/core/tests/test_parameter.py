@@ -189,6 +189,7 @@ class ChoiceParameterTest(TestCase):
             values=["foo", "bar", "baz"],
             is_ordered=True,
             is_task=True,
+            target_value="baz",
         )
         self.param3 = ChoiceParameter(
             name="x",
@@ -220,6 +221,13 @@ class ChoiceParameterTest(TestCase):
                 values=["foo", "foo2"],
                 is_fidelity=True,
             )
+        with self.assertRaises(UserInputError):
+            ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "foo2"],
+                is_task=True,
+            )
 
     def test_Eq(self) -> None:
         param4 = ChoiceParameter(
@@ -242,6 +250,7 @@ class ChoiceParameterTest(TestCase):
         self.assertFalse(self.param1.is_task)
         self.assertTrue(self.param2.is_ordered)
         self.assertTrue(self.param2.is_task)
+        self.assertEqual(self.param2.target_value, "baz")
         # check is_ordered defaults
         bool_param = ChoiceParameter(
             name="x", parameter_type=ParameterType.BOOL, values=[True, False]
@@ -251,11 +260,9 @@ class ChoiceParameterTest(TestCase):
             name="x", parameter_type=ParameterType.INT, values=[2, 1, 3]
         )
         self.assertTrue(int_param.is_ordered)
-        # pyre-fixme[6]: For 1st param expected
-        #  `Iterable[Variable[SupportsRichComparisonT (bound to
-        #  Union[SupportsDunderGT[typing.Any], SupportsDunderLT[typing.Any]])]]` but
-        #  got `List[Union[None, bool, float, int, str]]`.
-        self.assertListEqual(int_param.values, sorted(int_param.values))
+        self.assertListEqual(
+            int_param.values, sorted(int_param.values)  # pyre-fixme[6]
+        )
         float_param = ChoiceParameter(
             name="x", parameter_type=ParameterType.FLOAT, values=[1.5, 2.5, 3.5]
         )

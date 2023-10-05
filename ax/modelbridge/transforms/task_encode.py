@@ -41,6 +41,7 @@ class TaskEncode(OrderedChoiceEncode):
         assert search_space is not None, "TaskEncode requires search space"
         # Identify parameters that should be transformed
         self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
+        self.target_values: Dict[str, int] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_task:
                 if p.is_fidelity:
@@ -52,6 +53,9 @@ class TaskEncode(OrderedChoiceEncode):
                     original_value: transformed_value
                     for transformed_value, original_value in enumerate(p.values)
                 }
+                self.target_values[p.name] = self.encoded_parameters[p.name][
+                    p.target_value
+                ]
         self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
@@ -76,6 +80,7 @@ class TaskEncode(OrderedChoiceEncode):
                     is_ordered=p.is_ordered,
                     is_task=True,
                     sort_values=True,
+                    target_value=self.target_values[p_name],
                 )
             else:
                 transformed_parameters[p.name] = p

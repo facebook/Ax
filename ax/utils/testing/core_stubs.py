@@ -1244,11 +1244,9 @@ def get_task_choice_parameter() -> ChoiceParameter:
     return ChoiceParameter(
         name="y",
         parameter_type=ParameterType.INT,
-        # Expected `List[typing.Optional[typing.Union[bool, float, str]]]` for 4th
-        # parameter `values` to call
-        # `ax.core.parameter.ChoiceParameter.__init__` but got `List[str]`.
         values=[1, 2, 3],
         is_task=True,
+        target_value=1,
     )
 
 

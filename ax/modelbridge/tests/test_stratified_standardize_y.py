@@ -105,12 +105,14 @@ class StratifiedStandardizeYTransformTest(TestCase):
                     parameter_type=ParameterType.STRING,
                     values=["a", "b"],
                     is_task=True,
+                    target_value="a",
                 ),
                 ChoiceParameter(
                     name="z2",
                     parameter_type=ParameterType.STRING,
                     values=["a", "b"],
                     is_task=True,
+                    target_value="b",
                 ),
             ]
         )
@@ -131,6 +133,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
                     parameter_type=ParameterType.STRING,
                     values=["a", "b"],
                     is_task=True,
+                    target_value="a",
                 ),
             ]
         )
