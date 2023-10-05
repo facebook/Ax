@@ -330,9 +330,9 @@ class BotorchModel(TorchModel):
         acf_options = options.get(Keys.ACQF_KWARGS, {})
         optimizer_options = options.get(Keys.OPTIMIZER_KWARGS, {})
 
-        if search_space_digest.target_fidelities:
+        if search_space_digest.fidelity_features:
             raise NotImplementedError(
-                "target_fidelities not implemented for base BotorchModel"
+                "Base BotorchModel does not support fidelity_features."
             )
         X_pending, X_observed = _get_X_pending_and_observed(
             Xs=self.Xs,
@@ -437,6 +437,11 @@ class BotorchModel(TorchModel):
             raise NotImplementedError(
                 "Best observed point is incompatible with MOO problems."
             )
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         return self.best_point_recommender(  # pyre-ignore [28]
             model=self,
             bounds=search_space_digest.bounds,
@@ -445,7 +450,7 @@ class BotorchModel(TorchModel):
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
             model_gen_options=torch_opt_config.model_gen_options,
-            target_fidelities=search_space_digest.target_fidelities,
+            target_fidelities=target_fidelities,
         )
 
     @copy_doc(TorchModel.cross_validate)

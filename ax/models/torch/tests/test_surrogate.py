@@ -92,7 +92,7 @@ class SurrogateTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["x1", "x2"],
             bounds=self.bounds,
-            target_fidelities={1: 1.0},
+            target_values={1: 1.0},
         )
         self.fixed_features = {1: 2.0}
         self.refit = True

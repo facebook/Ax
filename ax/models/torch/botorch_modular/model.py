@@ -443,11 +443,11 @@ class BoTorchModel(TorchModel, Base):
             acqf_options=self.acquisition_options,
             model_gen_options=torch_opt_config.model_gen_options,
         )
-        # update bounds / target fidelities
+        # update bounds / target values
         search_space_digest = dataclasses.replace(
             self.search_space_digest,
             bounds=search_space_digest.bounds,
-            target_fidelities=search_space_digest.target_fidelities or {},
+            target_values=search_space_digest.target_values or {},
         )
 
         acqf = self._instantiate_acquisition(

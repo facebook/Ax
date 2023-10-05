@@ -123,7 +123,7 @@ class BoTorchModelTest(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             task_features=[],
             fidelity_features=[2],
-            target_fidelities={1: 1.0},
+            target_values={1: 1.0},
         )
         self.metric_names = ["y"]
         self.metric_names_for_list_surrogate = ["y1", "y2"]

@@ -468,7 +468,8 @@ class BotorchModelTest(TestCase):
                     n=n,
                     search_space_digest=dataclasses.replace(
                         search_space_digest,
-                        target_fidelities={0: 3.0},
+                        fidelity_features=[0],
+                        target_values={0: 3.0},
                     ),
                     torch_opt_config=torch_opt_config,
                 )
@@ -500,7 +501,8 @@ class BotorchModelTest(TestCase):
                 xbest = model.best_point(
                     search_space_digest=dataclasses.replace(
                         search_space_digest,
-                        target_fidelities={0: 3.0},
+                        fidelity_features=[0],
+                        target_values={0: 3.0},
                     ),
                     torch_opt_config=torch_opt_config,
                 )

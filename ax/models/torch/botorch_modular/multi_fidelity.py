@@ -36,7 +36,11 @@ class MultiFidelityAcquisition(Acquisition):
             raise UnsupportedError(
                 f"{self.__class__.__name__} does not support risk measures."
             )
-        target_fidelities = search_space_digest.target_fidelities
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         if not target_fidelities:
             raise ValueError(
                 "Target fidelities are required for {self.__class__.__name__}."

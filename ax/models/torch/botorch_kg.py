@@ -164,6 +164,11 @@ class KnowledgeGradient(BotorchModel):
         )
         bounds_ = bounds_.transpose(0, 1)
 
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         # get acquisition function
         acq_function = _instantiate_KG(
             model=model,
@@ -176,7 +181,7 @@ class KnowledgeGradient(BotorchModel):
             seed_inner=seed_inner,
             seed_outer=acf_options.get("seed_outer", None),
             X_pending=X_pending,
-            target_fidelities=search_space_digest.target_fidelities,
+            target_fidelities=target_fidelities,
             fidelity_weights=options.get("fidelity_weights"),
             current_value=current_value,
             cost_intercept=self.cost_intercept,
@@ -238,6 +243,11 @@ class KnowledgeGradient(BotorchModel):
         acquisition function' (typically `PosteriorMean` or `qSimpleRegret`), not of
         the Knowledge Gradient acquisition function.
         """
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         best_point_acqf, non_fixed_idcs = get_out_of_sample_best_point_acqf(
             model=model,
             Xs=self.Xs,
@@ -247,7 +257,7 @@ class KnowledgeGradient(BotorchModel):
             seed_inner=seed_inner,
             fixed_features=torch_opt_config.fixed_features,
             fidelity_features=self.fidelity_features,
-            target_fidelities=search_space_digest.target_fidelities,
+            target_fidelities=target_fidelities,
             qmc=qmc,
         )
 

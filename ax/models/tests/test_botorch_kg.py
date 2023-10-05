@@ -203,7 +203,7 @@ class KnowledgeGradientTest(TestCase):
             feature_names=self.feature_names,
             bounds=self.bounds,
             fidelity_features=[2],
-            target_fidelities={2: 5.0},
+            target_values={2: 5.0},
         )
         model = KnowledgeGradient()
         model.fit(
@@ -234,7 +234,7 @@ class KnowledgeGradientTest(TestCase):
             model.best_point(
                 search_space_digest=dataclasses.replace(
                     search_space_digest,
-                    target_fidelities={},
+                    target_values={},
                 ),
                 torch_opt_config=torch_opt_config,
             )
