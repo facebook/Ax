@@ -127,6 +127,7 @@ class GenerationNode:
 
     @property
     def node_name(self) -> str:
+        """Returns the unique name of this GenerationNode"""
         return self._node_name
 
     @property
@@ -192,6 +193,10 @@ class GenerationNode:
 
     @property
     def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
+        """Returns a backpointer to the GenerationStrategy, useful for obtaining the
+        experiment associated with this GenerationStrategy"""
+        # TODO: @mgarrard remove this property once we make experiment a required
+        # arguement on GenerationStrategy
         if self._generation_strategy is None:
             raise ValueError(
                 "Generation strategy has not been initialized on this node."
@@ -200,10 +205,14 @@ class GenerationNode:
 
     @property
     def transition_criteria(self) -> Sequence[TransitionCriterion]:
+        """Returns the sequence of TransitionCriteria that will be used to determine
+        if this GenerationNode is complete and should transition to the next node.
+        """
         return not_none(self._transition_criteria)
 
     @property
     def experiment(self) -> Experiment:
+        """Returns the experiment associated with this GenerationStrategy"""
         return self.generation_strategy.experiment
 
     def fit(
@@ -600,10 +609,12 @@ class GenerationStep(GenerationNode, SortableBase):
 
     @property
     def model_spec(self) -> ModelSpec:
+        """Returns the first model_spec from the model_specs attribute."""
         return self.model_specs[0]
 
     @property
     def _unique_id(self) -> str:
+        """Returns the unique ID of this generation step, which is the index."""
         return str(self.index)
 
     def gen(
