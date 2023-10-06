@@ -273,7 +273,11 @@ class Acquisition(Base):
             if len(self.surrogates) > 1
             else {"model": model}
         )
-
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         input_constructor_kwargs = {
             "X_baseline": unique_Xs_observed,
             "X_pending": unique_Xs_pending,
@@ -281,7 +285,7 @@ class Acquisition(Base):
             "constraints": get_outcome_constraint_transforms(
                 outcome_constraints=outcome_constraints
             ),
-            "target_fidelities": search_space_digest.target_fidelities,
+            "target_fidelities": target_fidelities,
             "bounds": search_space_digest.bounds,
             **acqf_model_kwarg,
             **model_deps,

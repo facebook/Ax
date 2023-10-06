@@ -130,6 +130,11 @@ class MaxValueEntropySearch(BotorchModel):
         candidate_set = torch.rand(candidate_size, bounds_.size(1))
         candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
+        target_fidelities = {
+            k: v
+            for k, v in search_space_digest.target_values.items()
+            if k in search_space_digest.fidelity_features
+        }
         acq_function = _instantiate_MES(
             model=model,
             candidate_set=candidate_set,
@@ -139,7 +144,7 @@ class MaxValueEntropySearch(BotorchModel):
             num_y_samples=num_y_samples,
             X_pending=X_pending,
             maximize=True if objective_weights[0] == 1 else False,
-            target_fidelities=search_space_digest.target_fidelities,
+            target_fidelities=target_fidelities,
             fidelity_weights=options.get("fidelity_weights"),
             cost_intercept=self.cost_intercept,
         )

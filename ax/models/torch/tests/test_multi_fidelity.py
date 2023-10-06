@@ -48,7 +48,7 @@ class MultiFidelityAcquisitionTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            target_fidelities={2: 1.0},
+            target_values={2: 1.0},
             fidelity_features=self.fidelity_features,
         )
         self.surrogate.construct(
@@ -120,7 +120,9 @@ class MultiFidelityAcquisitionTest(TestCase):
             mf_acquisition.compute_model_dependencies(
                 surrogates={"regression": self.surrogate},
                 search_space_digest=dataclasses.replace(
-                    self.search_space_digest, target_fidelities={1: 5.0}
+                    self.search_space_digest,
+                    fidelity_features=[1],
+                    target_values={1: 5.0},
                 ),
                 torch_opt_config=self.torch_opt_config,
                 options=self.options,
@@ -129,7 +131,9 @@ class MultiFidelityAcquisitionTest(TestCase):
         mf_acquisition.compute_model_dependencies(
             surrogates={"regression": self.surrogate},
             search_space_digest=dataclasses.replace(
-                self.search_space_digest, target_fidelities={2: 5.0, 3: 5.0}
+                self.search_space_digest,
+                fidelity_features=[2, 3],
+                target_values={2: 5.0, 3: 5.0},
             ),
             torch_opt_config=self.torch_opt_config,
             options={Keys.COST_INTERCEPT: 1.0, Keys.NUM_TRACE_OBSERVATIONS: 0},
@@ -163,12 +167,12 @@ class MultiFidelityAcquisitionTest(TestCase):
         project(torch.tensor([1.0]))
         mock_project.assert_called_with(
             X=torch.tensor([1.0]),
-            target_fidelities=self.search_space_digest.target_fidelities,
+            target_fidelities=self.search_space_digest.target_values,
         )
         expand = dependencies.get(Keys.EXPAND)
         expand(torch.tensor([1.0]))
         mock_expand.assert_called_with(
             X=torch.tensor([1.0]),
-            fidelity_dims=sorted(self.search_space_digest.target_fidelities),
+            fidelity_dims=sorted(self.search_space_digest.target_values),
             num_trace_obs=self.options.get(Keys.NUM_TRACE_OBSERVATIONS),
         )

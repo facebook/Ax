@@ -254,7 +254,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
         self.assertIs(gen_opt_config.rounding_func, torch.round)
         self.assertFalse(gen_opt_config.is_moo)
-        self.assertEqual(gen_args["search_space_digest"].target_fidelities, {})
+        self.assertEqual(gen_args["search_space_digest"].target_values, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
         self.assertEqual(gen_run.weights, [1.0])

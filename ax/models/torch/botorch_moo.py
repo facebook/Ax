@@ -246,9 +246,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
         acf_options = options.get("acquisition_function_kwargs", {})
         optimizer_options = options.get("optimizer_kwargs", {})
 
-        if search_space_digest.target_fidelities:  # untested
+        if search_space_digest.fidelity_features:  # untested
             raise NotImplementedError(
-                "target_fidelities not implemented for base BotorchModel"
+                "fidelity_features not implemented for base BotorchModel"
             )
         if (
             torch_opt_config.objective_thresholds is not None

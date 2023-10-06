@@ -195,6 +195,7 @@ def extract_search_space_digest(
     * Otherwise, its index is added to categorical_features.
     * In all cases, the choices are added to discrete_choices.
     * The minimum and maximum value are added to the bounds.
+    * The target_value is added to target_values.
 
     For RangeParameters:
     * They're assumed not to be in the log_scale. The Log transform handles this.
@@ -204,7 +205,7 @@ def extract_search_space_digest(
 
     If a parameter is_fidelity:
     * Its target_value is assumed to be numerical.
-    * The target_value is added to target_fidelities.
+    * The target_value is added to target_values.
     * Its index is added to fidelity_features.
     """
     bounds: List[Tuple[Union[int, float], Union[int, float]]] = []
@@ -213,13 +214,14 @@ def extract_search_space_digest(
     discrete_choices: Dict[int, List[Union[int, float]]] = {}
     task_features: List[int] = []
     fidelity_features: List[int] = []
-    target_fidelities: Dict[int, Union[int, float]] = {}
+    target_values: Dict[int, Union[int, float]] = {}
 
     for i, p_name in enumerate(param_names):
         p = search_space.parameters[p_name]
         if isinstance(p, ChoiceParameter):
             if p.is_task:
                 task_features.append(i)
+                target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
             elif p.is_ordered:
                 ordinal_features.append(i)
             else:
@@ -239,10 +241,8 @@ def extract_search_space_digest(
         else:
             raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
-            if not isinstance(not_none(p.target_value), (int, float)):
-                raise NotImplementedError("Only numerical target values are supported.")
-            target_fidelities[i] = checked_cast_to_tuple((int, float), p.target_value)
             fidelity_features.append(i)
+            target_values[i] = checked_cast_to_tuple((int, float), p.target_value)
 
     return SearchSpaceDigest(
         feature_names=param_names,
@@ -252,7 +252,7 @@ def extract_search_space_digest(
         discrete_choices=discrete_choices,
         task_features=task_features,
         fidelity_features=fidelity_features,
-        target_fidelities=target_fidelities,
+        target_values=target_values,
         robust_digest=extract_robust_digest(
             search_space=search_space, param_names=param_names
         ),

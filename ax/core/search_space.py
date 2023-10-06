@@ -988,9 +988,8 @@ class SearchSpaceDigest:
             task parameters.
         fidelity_features: A list of parameter indices to be considered as
             fidelity parameters.
-        target_fidelities: A dictionary mapping parameter indices (of fidelity
-            parameters) to their respective target fidelity value. Only used
-            when generating candidates.
+        target_values: A dictionary mapping parameter indices of fidelity or
+            task parameters to their respective target value.
         robust_digest: An optional `RobustSearchSpaceDigest` that carries the
             additional attributes if using a `RobustSearchSpace`.
     """
@@ -1002,7 +1001,7 @@ class SearchSpaceDigest:
     discrete_choices: Dict[int, List[Union[int, float]]] = field(default_factory=dict)
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
-    target_fidelities: Dict[int, Union[int, float]] = field(default_factory=dict)
+    target_values: Dict[int, Union[int, float]] = field(default_factory=dict)
     robust_digest: Optional[RobustSearchSpaceDigest] = None
 
 

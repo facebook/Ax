@@ -117,7 +117,7 @@ class AcquisitionTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            target_fidelities={2: 1.0},
+            target_values={2: 1.0},
         )
         self.surrogate.construct(
             datasets=self.training_data,
@@ -126,7 +126,7 @@ class AcquisitionTest(TestCase):
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.search_space_digest.feature_names[:1],
                 bounds=self.search_space_digest.bounds,
-                target_fidelities=self.search_space_digest.target_fidelities,
+                target_values=self.search_space_digest.target_values,
             ),
         )
 

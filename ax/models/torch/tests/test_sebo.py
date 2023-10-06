@@ -58,7 +58,7 @@ class TestSebo(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            target_fidelities={2: 1.0},
+            target_values={2: 1.0},
         )
         self.surrogates.construct(
             datasets=self.training_data,

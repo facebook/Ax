@@ -129,7 +129,9 @@ class MaxValueEntropySearchTest(TestCase):
         with self.assertRaises(RuntimeError):
             model.best_point(
                 search_space_digest=dataclasses.replace(
-                    self.search_space_digest, target_fidelities={2: 1.0}
+                    self.search_space_digest,
+                    fidelity_features=[2],
+                    target_values={2: 1.0},
                 ),
                 torch_opt_config=torch_opt_config,
             )
@@ -175,7 +177,8 @@ class MaxValueEntropySearchTest(TestCase):
         xbest = model.best_point(
             search_space_digest=dataclasses.replace(
                 search_space_digest,
-                target_fidelities={2: 5.0},
+                fidelity_features=[2],
+                target_values={2: 5.0},
             ),
             torch_opt_config=torch_opt_config,
         )
@@ -196,7 +199,7 @@ class MaxValueEntropySearchTest(TestCase):
             model.best_point(
                 search_space_digest=dataclasses.replace(
                     search_space_digest,
-                    target_fidelities={2: 1.0},
+                    target_values={2: 1.0},
                 ),
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
@@ -210,7 +213,7 @@ class MaxValueEntropySearchTest(TestCase):
             n=n,
             search_space_digest=dataclasses.replace(
                 search_space_digest,
-                target_fidelities={2: 1.0},
+                target_values={2: 1.0},
             ),
             torch_opt_config=dataclasses.replace(
                 torch_opt_config,
