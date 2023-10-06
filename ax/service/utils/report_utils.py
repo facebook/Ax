@@ -37,7 +37,7 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
 from ax.modelbridge.random import RandomModelBridge
@@ -806,7 +806,7 @@ def exp_to_df(
                 df=results,
                 optimization_config=optimization_config,
             )
-        except (KeyError, ValueError) as e:
+        except (KeyError, ValueError, DataRequiredError) as e:
             logger.warning(f"Feasibility calculation failed with error: {e}")
 
     # If arms_df is empty, return empty results (legacy behavior)
