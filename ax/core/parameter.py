@@ -439,7 +439,8 @@ class ChoiceParameter(Parameter):
             is longer than 2, else True.
         is_task: Treat the parameter as a task parameter for modeling.
         is_fidelity: Whether this parameter is a fidelity parameter.
-        target_value: Target value of this parameter if it's fidelity.
+        target_value: Target value of this parameter if it's a fidelity or
+            task parameter.
         sort_values: Whether to sort ``values`` before encoding.
             Defaults to False if ``parameter_type`` is STRING, else
             True.
@@ -459,9 +460,10 @@ class ChoiceParameter(Parameter):
         sort_values: Optional[bool] = None,
         dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
-        if is_fidelity and (target_value is None):
+        if (is_fidelity or is_task) and (target_value is None):
+            ptype = "fidelity" if is_fidelity else "task"
             raise UserInputError(
-                "`target_value` should not be None for the fidelity parameter: "
+                f"`target_value` should not be None for the {ptype} parameter: "
                 "{}".format(name)
             )
 
@@ -612,10 +614,13 @@ class ChoiceParameter(Parameter):
             ret_val += f", is_task={self._is_task}"
 
         if self._is_fidelity:
+            ret_val += f", is_fidelity={self.is_fidelity}"
+
+        if self.target_value is not None:
             tval_rep = self.target_value
             if self.parameter_type == ParameterType.STRING:
                 tval_rep = f"'{tval_rep}'"
-            ret_val += f", is_fidelity={self.is_fidelity}, target_value={tval_rep}"
+            ret_val += f", target_value={tval_rep}"
 
         if self._dependents:
             ret_val += f", dependents={self._dependents}"

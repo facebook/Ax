@@ -72,7 +72,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.t4 = TrialAsTask(
             search_space=self.search_space,
             observations=self.training_obs,
-            config={"trial_level_map": self.bm2},
+            config={"trial_level_map": self.bm2, "target_trial": 2},
         )
 
     def test_Init(self) -> None:
@@ -80,11 +80,14 @@ class TrialAsTaskTransformTest(TestCase):
             self.t.trial_level_map, {"TRIAL_PARAM": {i: str(i) for i in range(3)}}
         )
         self.assertEqual(self.t.inverse_map, {str(i): i for i in range(3)})
+        self.assertEqual(self.t.target_values, {"TRIAL_PARAM": "0"})
         self.assertEqual(self.t2.trial_level_map, self.bm)
         self.assertIsNone(self.t2.inverse_map)
+        self.assertEqual(self.t2.target_values, {"bp1": "v1", "bp2": "u1"})
         # check that strings were converted to integers
         self.assertEqual(self.t4.trial_level_map, self.bm)
         self.assertIsNone(self.t4.inverse_map)
+        self.assertEqual(self.t4.target_values, {"bp1": "v3", "bp2": "u2"})
         # Test validation
         obsf = ObservationFeatures({"x": 2})
         obs = Observation(
@@ -142,6 +145,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_task)
         # pyre-fixme[16]: `Parameter` has no attribute `is_ordered`.
         self.assertFalse(p.is_ordered)
+        self.assertEqual(p.target_value, "0")
         ss2 = deepcopy(self.search_space)
         ss2 = self.t2.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "bp1", "bp2"})
@@ -151,16 +155,23 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(set(p.values), {"v1", "v2", "v3"})
         self.assertTrue(p.is_task)
         self.assertFalse(p.is_ordered)
+        self.assertEqual(p.target_value, "v1")
         p = ss2.parameters["bp2"]
         self.assertTrue(isinstance(p, ChoiceParameter))
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"u1", "u2"})
         self.assertTrue(p.is_task)
         self.assertFalse(p.is_ordered)
+        self.assertEqual(p.target_value, "u1")
         t = TrialAsTask(
             search_space=self.search_space,
             observations=self.training_obs,
-            config={"trial_level_map": {"trial_index": {0: 10, 1: 11, 2: 12}}},
+            config={
+                "trial_level_map": {
+                    "trial_index": {0: 10, 1: 11, 2: 12},
+                },
+                "target_trial": 1,
+            },
         )
         ss2 = deepcopy(self.search_space)
         ss2 = t.transform_search_space(ss2)
@@ -169,6 +180,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(set(p.values), {10, 11, 12})
         self.assertTrue(p.is_ordered)
         self.assertTrue(p.is_task)
+        self.assertEqual(p.target_value, 11)
 
     def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()

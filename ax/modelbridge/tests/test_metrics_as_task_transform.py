@@ -130,3 +130,4 @@ class MetricsAsTaskTransformTest(TestCase):
             new_param.values, ["TARGET", "metric1", "metric2"]  # pyre-ignore
         )
         self.assertTrue(new_param.is_task)  # pyre-ignore
+        self.assertEqual(new_param.target_value, "TARGET")

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Dict, List, Optional, TYPE_CHECKING, Union
 
 import numpy as np
@@ -13,6 +14,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
+from ax.utils.common.logger import get_logger
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
 
 
 TRIAL_PARAM = "TRIAL_PARAM"
+logger: Logger = get_logger(__name__)
 
 
 class TrialAsTask(Transform):
@@ -39,6 +42,9 @@ class TrialAsTask(Transform):
 
     For the reverse transform, if there are multiple mappings in the transform
     the trial will not be set.
+
+    The created parameter will be given a target value that will default to the
+    lowest trial index in the mapping, or can be provided in config["target_trial"].
 
     Will raise if trial not specified for every point in the training data.
 
@@ -97,6 +103,15 @@ class TrialAsTask(Transform):
             }
         else:
             self.inverse_map = None
+        # Compute target values
+        self.target_values: Dict[str, Union[int, str]] = {}
+        for p_name, trial_map in self.trial_level_map.items():
+            if config is not None and "target_trial" in config:
+                target_trial = int(config["target_trial"])  # pyre-ignore [6]
+            else:
+                target_trial = min(trial_map.keys())
+                logger.debug(f"Setting target value for {p_name} to {target_trial}")
+            self.target_values[p_name] = trial_map[target_trial]
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -124,17 +139,13 @@ class TrialAsTask(Transform):
             trial_param = ChoiceParameter(
                 name=p_name,
                 parameter_type=ParameterType.INT if is_int else ParameterType.STRING,
-                # Expected `List[Optional[typing.Union[bool, float, str]]]` for 4th
-                # parameter `values` to call
-                # `ax.core.parameter.ChoiceParameter.__init__` but got
-                # `List[str]`.
-                # pyre-fixme[6]:
-                values=level_values,
+                values=level_values,  # pyre-fixme [6]
                 # if all values are integers, retain the original order
                 # they are encoded in TaskEncode
                 is_ordered=is_int,
                 is_task=True,
                 sort_values=True,
+                target_value=self.target_values[p_name],
             )
             search_space.add_parameter(trial_param)
         return search_space

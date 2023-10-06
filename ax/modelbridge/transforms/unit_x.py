@@ -71,10 +71,10 @@ class UnitX(Transform):
                     lower=self.target_lb,
                     upper=self.target_lb + self.target_range,
                 )
-            if p.target_value is not None:
-                p._target_value = self._normalize_value(
-                    p.target_value, self.bounds[p_name]  # pyre-ignore[6]
-                )
+                if p.target_value is not None:
+                    p._target_value = self._normalize_value(
+                        p.target_value, self.bounds[p_name]  # pyre-ignore[6]
+                    )
         new_constraints: List[ParameterConstraint] = []
         for c in search_space.parameter_constraints:
             constraint_dict: Dict[str, float] = {}
