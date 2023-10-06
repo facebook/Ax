@@ -2339,7 +2339,7 @@ class TestAxClient(TestCase):
             num_trials=20, outcome_constraints=outcome_constraints
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
-        ax_client.generation_strategy._fit_or_update_current_model(
+        ax_client.generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )
         self.assertEqual(ax_client.generation_strategy._curr.model_name, "BoTorch")
@@ -2519,7 +2519,7 @@ class TestAxClient(TestCase):
             num_trials=20, include_objective_thresholds=False
         )
         ax_client.generation_strategy._maybe_move_to_next_step()
-        ax_client.generation_strategy._fit_or_update_current_model(
+        ax_client.generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )
 

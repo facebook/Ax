@@ -367,7 +367,6 @@ class TestGenerationStrategy(TestCase):
                     model=Models.SOBOL,
                     num_trials=5,
                     max_parallelism=10,
-                    use_update=False,
                     enforce_num_trials=False,
                 )
             ]
@@ -546,71 +545,6 @@ class TestGenerationStrategy(TestCase):
         ).mark_running(no_runner_required=True)
         with self.assertRaises(MaxParallelismReachedException):
             sobol_generation_strategy.gen(experiment=exp)
-
-    @patch(f"{RandomModelBridge.__module__}.RandomModelBridge.update")
-    @patch(f"{Experiment.__module__}.Experiment.lookup_data")
-    def test_use_update(
-        self, mock_lookup_data: MagicMock, mock_update: MagicMock
-    ) -> None:
-        exp = get_branin_experiment()
-        sobol_gs_with_update = GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1, use_update=True)]
-        )
-        sobol_gs_with_update._experiment = exp
-        self.assertEqual(
-            sobol_gs_with_update._find_trials_completed_since_last_gen(),
-            set(),
-        )
-        with self.assertRaises(NotImplementedError):
-            # `BraninMetric` is available while running by default, which should
-            # raise an error when use with `use_update=True` on a generation step, as we
-            # have not yet properly addressed that edge case (for lack of use case).
-            sobol_gs_with_update.gen(experiment=exp)
-
-        core_stubs_module = get_branin_experiment.__module__
-        with patch(
-            f"{core_stubs_module}.BraninMetric.is_available_while_running",
-            return_value=False,
-        ):
-            # Try without passing data (GS looks up data on experiment).
-            trial = exp.new_trial(
-                generator_run=sobol_gs_with_update.gen(experiment=exp)
-            )
-            mock_update.assert_not_called()
-            trial._status = TrialStatus.COMPLETED
-            for i in range(3):
-                gr = sobol_gs_with_update.gen(experiment=exp)
-                self.assertEqual(
-                    mock_lookup_data.call_args[1].get("trial_indices"), {i}
-                )
-                trial = exp.new_trial(generator_run=gr)
-                trial._status = TrialStatus.COMPLETED
-            # `_seen_trial_indices_by_status` is set during `gen`, to the experiment's
-            # `trial_indices_by_Status` at the time of candidate generation.
-            self.assertNotEqual(
-                sobol_gs_with_update._seen_trial_indices_by_status,
-                exp.trial_indices_by_status,
-            )
-            # Try with passing data.
-            sobol_gs_with_update.gen(
-                experiment=exp, data=get_branin_data(trial_indices=range(4))
-            )
-        # Now `_seen_trial_indices_by_status` should be set to experiment's,
-        self.assertEqual(
-            sobol_gs_with_update._seen_trial_indices_by_status,
-            exp.trial_indices_by_status,
-        )
-        # Only the data for the last completed trial should be considered new and passed
-        # to `update`.
-        self.assertEqual(
-            set(mock_update.call_args[1].get("new_data").df["trial_index"].values), {3}
-        )
-        # Try with passing same data as before; no update should be performed.
-        with patch.object(sobol_gs_with_update, "_update_current_model") as mock_update:
-            sobol_gs_with_update.gen(
-                experiment=exp, data=get_branin_data(trial_indices=range(4))
-            )
-            mock_update.assert_not_called()
 
     def test_deduplication(self) -> None:
         tiny_parameters = [

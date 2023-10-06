@@ -1262,8 +1262,8 @@ class TestAxScheduler(TestCase):
         ):
             with patch.object(
                 GenerationStrategy,
-                "_fit_or_update_current_model",
-                wraps=scheduler.generation_strategy._fit_or_update_current_model,
+                "_fit_current_model",
+                wraps=scheduler.generation_strategy._fit_current_model,
             ) as fit_model:
                 get_fitted_model_bridge(scheduler)
                 fit_model.assert_called_once()

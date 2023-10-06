@@ -553,7 +553,7 @@ def get_pareto_optimal_parameters(
         and checked_cast(TorchModelBridge, modelbridge).is_moo_problem
     )
     if is_moo_modelbridge:
-        generation_strategy._fit_or_update_current_model(data=None)
+        generation_strategy._fit_current_model(data=None)
     else:
         modelbridge = Models.MOO(
             experiment=experiment,
