@@ -63,7 +63,7 @@ from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -297,6 +297,7 @@ class TorchModelBridge(ModelBridge):
         observation_features: List[ObservationFeatures],
         outcomes: List[str],
         parameters: List[str],
+        search_space_digest: Optional[SearchSpaceDigest],
     ) -> Tuple[
         List[Optional[SupervisedDataset]], Optional[List[List[TCandidateMetadata]]]
     ]:
@@ -341,6 +342,34 @@ class TorchModelBridge(ModelBridge):
             )
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
+        # If the search space digest specifies a task feature,
+        # convert the datasets into MultiTaskDataset.
+        if search_space_digest is not None and (
+            task_features := search_space_digest.task_features
+        ):
+            if len(task_features) > 1:
+                raise UnsupportedError("Multiple task features are not supported.")
+            target_task_value = search_space_digest.target_values[task_features[0]]
+            # Both the MTGP and the MTDataset expect integer valued task features.
+            # Check that they're indeed integers.
+            task_choices = search_space_digest.discrete_choices[task_features[0]]
+            if any(int(t) != t for t in task_choices):
+                raise ValueError(
+                    "The values of the task feature must be integers. "
+                    "This is often accomplished using a TaskEncode transform. "
+                    "Check that the model is using the correct set of transforms. "
+                    f"Got {task_choices=}."
+                )
+            datasets = [
+                MultiTaskDataset.from_joint_dataset(
+                    dataset=dataset,
+                    task_feature_index=task_features[0],
+                    target_task_value=int(target_task_value),
+                )
+                if dataset is not None
+                else None
+                for dataset in datasets
+            ]
 
         if not any_candidate_metadata_is_not_none:
             return datasets, None
@@ -537,16 +566,17 @@ class TorchModelBridge(ModelBridge):
             for od in observation_data:
                 all_metric_names.update(od.metric_names)
             self.outcomes = sorted(all_metric_names)  # Deterministic order
+        # Get all relevant information on the parameters
+        search_space_digest = extract_search_space_digest(
+            search_space=search_space, param_names=self.parameters
+        )
         # Convert observations to datasets
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=parameters,
-        )
-        # Get all relevant information on the parameters
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
+            search_space_digest=search_space_digest,
         )
         return datasets, candidate_metadata, search_space_digest
 
@@ -878,14 +908,15 @@ class TorchModelBridge(ModelBridge):
         if parameters is None:
             parameters = self.parameters
         observation_features, observation_data = separate_observations(observations)
+        search_space_digest = extract_search_space_digest(
+            search_space=search_space, param_names=self.parameters
+        )
         datasets, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=parameters,
-        )
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
+            search_space_digest=search_space_digest,
         )
         # Update in-design status for these new points.
         if self.model is None:

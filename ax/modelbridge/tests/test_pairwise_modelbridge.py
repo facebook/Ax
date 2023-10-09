@@ -79,6 +79,7 @@ class PairwiseModelBridgeTest(TestCase):
             observation_features=observation_features,
             outcomes=outcomes,
             parameters=parameters,
+            search_space_digest=None,
         )
         self.assertTrue(len(datasets) == 1)
         self.assertTrue(isinstance(datasets[0], RankingDataset))
@@ -89,6 +90,7 @@ class PairwiseModelBridgeTest(TestCase):
             observation_features=observation_features_with_metadata,
             outcomes=outcomes,
             parameters=parameters,
+            search_space_digest=None,
         )
         self.assertTrue(len(datasets) == 1)
         self.assertTrue(isinstance(datasets[0], RankingDataset))
