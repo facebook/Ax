@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.modelbridge.torch import TorchModelBridge
 from botorch.models.utils.assorted import consolidate_duplicates
@@ -26,6 +27,7 @@ class PairwiseModelBridge(TorchModelBridge):
         observation_features: List[ObservationFeatures],
         outcomes: List[str],
         parameters: List[str],
+        search_space_digest: Optional[SearchSpaceDigest],
     ) -> Tuple[
         List[Optional[SupervisedDataset]], Optional[List[List[TCandidateMetadata]]]
     ]:

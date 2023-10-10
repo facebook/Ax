@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from contextlib import ExitStack
+from typing import Any, Dict, Optional
 from unittest import mock
 from unittest.mock import Mock
 
@@ -38,7 +39,24 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_value,
 )
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+
+
+def _get_mock_modelbridge(
+    dtype: Optional[torch.dtype] = None,
+    device: Optional[torch.device] = None,
+    fit_out_of_design: bool = False,
+) -> TorchModelBridge:
+    return TorchModelBridge(
+        experiment=Mock(),
+        search_space=Mock(),
+        data=Mock(),
+        model=Mock(),
+        transforms=[],
+        torch_dtype=dtype,
+        torch_device=device,
+        fit_out_of_design=fit_out_of_design,
+    )
 
 
 class TorchModelBridgeTest(TestCase):
@@ -47,28 +65,20 @@ class TorchModelBridgeTest(TestCase):
         autospec=True,
         return_value=None,
     )
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_TorchModelBridge(self, mock_init, dtype=None, device=None) -> None:
-        ma = TorchModelBridge(
-            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
-            experiment=None,
-            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
-            search_space=None,
-            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
-            data=None,
-            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
-            model=None,
-            transforms=[],
-            torch_dtype=dtype,
-            torch_device=device,
-        )
+    def test_TorchModelBridge(
+        self,
+        mock_init: Mock,
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[torch.device] = None,
+    ) -> None:
+        ma = _get_mock_modelbridge(dtype=dtype, device=device)
         ma._fit_tracking_metrics = True
         dtype = dtype or torch.double
         self.assertEqual(ma.dtype, dtype)
         self.assertEqual(ma.device, device)
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
         self.assertIsNone(ma._last_observations)
-        tkwargs = {"dtype": dtype, "device": device}
+        tkwargs: Dict[str, Any] = {"dtype": dtype, "device": device}
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
@@ -302,20 +312,7 @@ class TorchModelBridgeTest(TestCase):
         X = ma._transform_observation_features(obsf)
         self.assertTrue(torch.equal(X, torch.tensor([[1.0, 2.0]], **tkwargs)))
         # test fit out of design
-        ma = TorchModelBridge(
-            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
-            experiment=None,
-            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
-            search_space=None,
-            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
-            data=None,
-            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
-            model=None,
-            transforms=[],
-            torch_dtype=dtype,
-            torch_device=device,
-            fit_out_of_design=True,
-        )
+        _get_mock_modelbridge(fit_out_of_design=True)
         self.assertTrue(mock_init.call_args[-1]["fit_out_of_design"])
 
     def test_TorchModelBridge_float(self) -> None:
@@ -327,18 +324,12 @@ class TorchModelBridgeTest(TestCase):
 
     @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
     @mock.patch(f"{ModelBridge.__module__}.ModelBridge.__init__")
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_evaluate_acquisition_function(self, _, mock_torch_model):
+    def test_evaluate_acquisition_function(self, _, mock_torch_model: Mock) -> None:
         ma = TorchModelBridge(
-            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
-            experiment=None,
-            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
-            search_space=None,
-            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
-            data=None,
-            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
-            model=None,
+            experiment=Mock(),
+            search_space=Mock(),
+            data=Mock(),
+            model=Mock(),
             transforms=[],
             torch_dtype=torch.float64,
             torch_device=torch.device("cpu"),
@@ -472,7 +463,6 @@ class TorchModelBridgeTest(TestCase):
         ),
         autospec=True,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_best_point(
         self,
         _mock_gen,
@@ -481,7 +471,7 @@ class TorchModelBridgeTest(TestCase):
         _mock_gen_arms,
         _mock_unwrap,
         _mock_obs_from_data,
-    ):
+    ) -> None:
         exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
         oc = OptimizationConfig(
             objective=Objective(metric=Metric("a"), minimize=False),
@@ -512,14 +502,10 @@ class TorchModelBridgeTest(TestCase):
             autospec=True,
         ):
             run = modelbridge.gen(n=1, optimization_config=oc)
-            # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Arm,
-            #  Optional[Tuple[Dict[str, float], Optional[Dict[str, typing.Dict[str,
-            #  float]]]]]]]` into 2 values.
-            arm, predictions = run.best_arm_predictions
-            # pyre-fixme[23]: Unable to unpack `Optional[Tuple[Arm,
-            #  Optional[Tuple[Dict[str, float], Optional[Dict[str, typing.Dict[str,
-            #  float]]]]]]]` into 2 values.
-            model_arm, model_predictions = modelbridge.model_best_point()
+            arm, predictions = not_none(run.best_arm_predictions)
+            model_arm, model_predictions = not_none(modelbridge.model_best_point())
+            predictions = not_none(predictions)
+            model_predictions = not_none(model_predictions)
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
@@ -581,7 +567,6 @@ class TorchModelBridgeTest(TestCase):
         return_value=np.array([[[1.0]], [[2.0]]]),
         autospec=True,
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_importances(
         self,
         _mock_feature_importances,
@@ -590,7 +575,7 @@ class TorchModelBridgeTest(TestCase):
         _mock_gen_arms,
         _mock_unwrap,
         _mock_obs_from_data,
-    ):
+    ) -> None:
         exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
         search_space = get_search_space_for_range_value()
         modelbridge = TorchModelBridge(
@@ -621,16 +606,12 @@ class TorchModelBridgeTest(TestCase):
     )
     @mock.patch(f"{TorchModel.__module__}.TorchModel.update", autospec=True)
     @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
     def test_candidate_metadata_propagation(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_model_fit,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_model_update,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_model_gen,
-    ):
+        mock_model_fit: Mock,
+        mock_model_update: Mock,
+        mock_model_gen: Mock,
+    ) -> None:
         exp = get_branin_experiment(with_status_quo=True, with_batch=True)
         # Check that the metadata is correctly re-added to observation
         # features during `fit`.
@@ -744,9 +725,9 @@ class TorchModelBridgeTest(TestCase):
             )
             # Hack in outcome names to bypass validation (since we did not pass any
             # to the model so _fit did not populate this)
-            # pyre-fixme[8]: Attribute has type `List[str]`; used as `str`.
-            # pyre-fixme[8]: Attribute has type `Set[str]`; used as `str`.
-            modelbridge.outcomes = modelbridge._metric_names = next(iter(exp.metrics))
+            metric_name = next(iter(exp.metrics))
+            modelbridge.outcomes = [metric_name]
+            modelbridge._metric_names = {metric_name}
         gr = modelbridge.gen(n=1)
         self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
@@ -780,3 +761,63 @@ class TorchModelBridgeTest(TestCase):
             self.assertEqual(modelbridge.outcomes, expected_outcomes)
             self.assertEqual(call_kwargs["metric_names"], expected_outcomes)
             self.assertEqual(len(call_kwargs["datasets"]), len(expected_outcomes))
+
+    def test_convert_observations(self) -> None:
+        with mock.patch(
+            f"{ModelBridge.__module__}.ModelBridge.__init__",
+            autospec=True,
+        ):
+            mb = _get_mock_modelbridge()
+        raw_X = torch.rand(10, 3) * 5
+        raw_X[:, -1].round_()  # Make sure last column is integer.
+        raw_X[0, -1] = 0  # Make sure task value 0 exists.
+        raw_Y = torch.sin(raw_X).sum(-1)
+        feature_names = ["x0", "x1", "x2"]
+        metric_names = ["y"]
+        observation_features = [
+            ObservationFeatures(
+                parameters={feature_names[i]: x_[i].item() for i in range(3)}
+            )
+            for x_ in raw_X
+        ]
+        observation_data = [
+            ObservationData(
+                metric_names=metric_names,
+                means=np.asarray([y]),
+                covariance=np.array([[float("nan")]]),
+            )
+            for y in raw_Y
+        ]
+        for use_task, expected_class in (
+            (True, MultiTaskDataset),
+            (False, SupervisedDataset),
+        ):
+            converted_datasets, _ = mb._convert_observations(
+                observation_data=observation_data,
+                observation_features=observation_features,
+                outcomes=metric_names,
+                parameters=feature_names,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=feature_names,
+                    bounds=[(0.0, 5.0)] * 3,
+                    ordinal_features=[2],
+                    discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                    task_features=[2] if use_task else [],
+                    target_values={2: 0} if use_task else {},  # pyre-ignore
+                ),
+            )
+            self.assertEqual(len(converted_datasets), 1)
+            dataset = not_none(converted_datasets[0])
+            self.assertIs(dataset.__class__, expected_class)
+            if use_task:
+                sort_idx = torch.argsort(raw_X[:, -1])
+                expected_X = raw_X[sort_idx]
+                expected_Y = raw_Y[sort_idx].unsqueeze(-1)
+            else:
+                expected_X = raw_X
+                expected_Y = raw_Y.unsqueeze(-1)
+            self.assertTrue(torch.equal(dataset.X, expected_X))
+            self.assertTrue(torch.equal(dataset.Y, expected_Y))
+            self.assertIsNone(dataset.Yvar)
+            self.assertEqual(dataset.feature_names, feature_names)
+            self.assertEqual(dataset.outcome_names, metric_names)
