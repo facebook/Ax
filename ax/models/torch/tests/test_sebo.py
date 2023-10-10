@@ -226,6 +226,7 @@ class TestSebo(TestCase):
             options={"penalty": "L0_norm", "target_point": self.target_point},
         )
         # overwrite acqf to validate homotopy
+        # pyre-fixme[61]: `p` is undefined, or not always defined.
         model = GenericDeterministicModel(f=lambda x: 5 - (x - p) ** 2)
         acqf = PosteriorMean(model=model)
         acquisition.acqf = acqf

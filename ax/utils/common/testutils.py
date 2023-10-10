@@ -281,6 +281,10 @@ def setup_import_mocks(
     # Replace the original import with the custom one
     # pyre-fixme[61]
     original_import = builtins.__import__
+    # pyre-fixme[9]: __import__ has type `(name: str, globals: Optional[Mapping[str,
+    #  object]] = ..., locals: Optional[Mapping[str, object]] = ..., fromlist:
+    #  Sequence[str] = ..., level: int = ...) -> ModuleType`; used as `(name: str,
+    #  *(Any), **(Any)) -> Any`.
     builtins.__import__ = custom_import
 
 

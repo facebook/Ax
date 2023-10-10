@@ -163,7 +163,11 @@ class UnrelativizeTest(TestCase):
                     mean_c,
                     sem_c,
                     cov_means=cov_means,
+                    # pyre-fixme[6]: For 6th argument expected `bool` but got
+                    #  `Optional[bool]`.
                     bias_correction=bias_correction,
+                    # pyre-fixme[6]: For 7th argument expected `bool` but got
+                    #  `Optional[bool]`.
                     as_percent=as_percent,
                 )
                 unrel_mean_t, unrel_sems_t = unrelativize(
@@ -172,7 +176,11 @@ class UnrelativizeTest(TestCase):
                     mean_c,
                     sem_c,
                     cov_means=cov_means,
+                    # pyre-fixme[6]: For 6th argument expected `bool` but got
+                    #  `Optional[bool]`.
                     bias_correction=bias_correction,
+                    # pyre-fixme[6]: For 7th argument expected `bool` but got
+                    #  `Optional[bool]`.
                     as_percent=as_percent,
                 )
                 self.assertTrue(np.allclose(means_t, unrel_mean_t))
