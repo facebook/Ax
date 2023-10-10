@@ -7,6 +7,7 @@
 import json
 from collections import defaultdict, OrderedDict
 from enum import Enum
+from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import pandas as pd
@@ -59,8 +60,11 @@ from ax.storage.sqa_store.sqa_classes import (
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from sqlalchemy.orm.exc import DetachedInstanceError
+
+logger: Logger = get_logger(__name__)
 
 
 class Decoder:
@@ -301,17 +305,24 @@ class Decoder:
                 target_value=parameter_sqa.target_value,
             )
         elif parameter_sqa.domain_type == DomainType.CHOICE:
+            target_value = parameter_sqa.target_value
             if parameter_sqa.choice_values is None:
                 raise SQADecodeError(
                     "`values` must be set for ChoiceParameter; not found on"
                     f" parameter {parameter_sqa.name}."
                 )
+            if bool(parameter_sqa.is_task) and target_value is None:
+                target_value = not_none(parameter_sqa.choice_values)[0]
+                logger.debug(
+                    f"Target value is null for parameter {parameter_sqa.name}. "
+                    f"Defaulting to first choice {target_value}."
+                )
             parameter = ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                values=parameter_sqa.choice_values,
+                values=not_none(parameter_sqa.choice_values),
                 is_fidelity=parameter_sqa.is_fidelity or False,
-                target_value=parameter_sqa.target_value,
+                target_value=target_value,
                 is_ordered=parameter_sqa.is_ordered,
                 is_task=bool(parameter_sqa.is_task),
                 dependents=parameter_sqa.dependents,
