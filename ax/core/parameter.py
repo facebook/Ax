@@ -110,9 +110,8 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     @property
     def is_hierarchical(self) -> bool:
-        return (
-            isinstance(self, (ChoiceParameter, FixedParameter))
-            and self._dependents is not None
+        return isinstance(self, (ChoiceParameter, FixedParameter)) and bool(
+            self._dependents
         )
 
     @property

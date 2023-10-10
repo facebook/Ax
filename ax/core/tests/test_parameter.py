@@ -321,6 +321,12 @@ class ChoiceParameterTest(TestCase):
                 #  bool, float, int, str], List[str]]]` but got `Dict[str, str]`.
                 dependents={"not_a_value": "other_param"},
             )
+        # Check that empty dependents doesn't flag as hierarchical.
+        self.param4._dependents = {}
+        self.assertFalse(self.param4.is_hierarchical)
+        # Check that valid dependents are detected.
+        self.param4._dependents = {1: ["other_param"]}
+        self.assertTrue(self.param4.is_hierarchical)
 
     def test_MaxValuesValidation(self) -> None:
         ChoiceParameter(
