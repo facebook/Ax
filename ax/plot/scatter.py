@@ -1668,6 +1668,7 @@ def tile_observations(
     rel: bool = True,
     metrics: Optional[List[str]] = None,
     arm_names: Optional[List[str]] = None,
+    arm_noun: str = "arm",
 ) -> AxPlotConfig:
     """
     Tiled plot with all observed outcomes.
@@ -1699,4 +1700,5 @@ def tile_observations(
         model=m_ts,
         rel=rel and (experiment.status_quo is not None),
         metrics=metrics,
+        arm_noun=arm_noun,
     )
