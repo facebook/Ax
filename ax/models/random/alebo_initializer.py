@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Callable, Dict, List, Optional, Tuple
+from warnings import warn
 
 import numpy as np
 from ax.models.random.uniform import UniformGenerator
@@ -43,6 +44,7 @@ class ALEBOInitializer(UniformGenerator):
         init_bound: int = 16,
         seed: Optional[int] = None,
     ) -> None:
+        warn("ALEBOInitializer is deprecated.", DeprecationWarning)
         # pyre-fixme[4]: Attribute must be annotated.
         self.Q = np.linalg.pinv(B) @ B  # Projects down to B and then back up
         self.nsamp = nsamp
