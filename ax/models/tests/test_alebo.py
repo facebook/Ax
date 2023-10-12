@@ -36,7 +36,8 @@ class ALEBOTest(TestCase):
         B = torch.tensor(
             [[1.0, 2.0, 3.0, 4.0, 5.0], [2.0, 3.0, 4.0, 5.0, 6.0]], dtype=torch.double
         )
-        k = ALEBOKernel(B=B, batch_shape=torch.Size([]))
+        with self.assertWarnsRegex(DeprecationWarning, "ALEBOKernel is deprecated"):
+            k = ALEBOKernel(B=B, batch_shape=torch.Size([]))
 
         self.assertEqual(k.d, 2)
         self.assertTrue(torch.equal(B, k.B))
@@ -72,14 +73,18 @@ class ALEBOTest(TestCase):
         train_Y = torch.tensor([[1.0], [2.0], [3.0]], dtype=torch.double)
         train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
 
-        mll = get_map_model(
-            B=B,
-            train_X=train_X,
-            train_Y=train_Y,
-            train_Yvar=train_Yvar,
-            restarts=1,
-            init_state_dict=None,
-        )
+        with self.assertWarnsRegex(
+            DeprecationWarning,
+            "`get_map_model` from ax.models.torch.alebo.py is deprecated",
+        ):
+            mll = get_map_model(
+                B=B,
+                train_X=train_X,
+                train_Y=train_Y,
+                train_Yvar=train_Yvar,
+                restarts=1,
+                init_state_dict=None,
+            )
         m = mll.model
         m.eval()
         self.assertIsInstance(m, ALEBOGP)
@@ -116,15 +121,19 @@ class ALEBOTest(TestCase):
 
         # The whole process in get_fitted_model
         init_state_dict = m.state_dict()
-        m_b2 = get_fitted_model(
-            B=B,
-            train_X=train_X,
-            train_Y=train_Y,
-            train_Yvar=train_Yvar,
-            restarts=1,
-            nsamp=5,
-            init_state_dict=init_state_dict,
-        )
+        with self.assertWarnsRegex(
+            DeprecationWarning,
+            "`get_fitted_model` from ax.models.torch.alebo.py is deprecated",
+        ):
+            m_b2 = get_fitted_model(
+                B=B,
+                train_X=train_X,
+                train_Y=train_Y,
+                train_Yvar=train_Yvar,
+                restarts=1,
+                nsamp=5,
+                init_state_dict=init_state_dict,
+            )
         self.assertEqual(m_b2._aug_batch_shape, torch.Size([5]))
 
         # Test extract_map_statedict
@@ -171,7 +180,8 @@ class ALEBOTest(TestCase):
         train_X = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=torch.double)
         train_Y = torch.tensor([[1.0], [2.0], [3.0]], dtype=torch.double)
         train_Yvar = 0.1 * torch.ones(3, 1, dtype=torch.double)
-        m = ALEBOGP(B=B, train_X=train_X, train_Y=train_Y, train_Yvar=train_Yvar)
+        with self.assertWarnsRegex(DeprecationWarning, "ALEBOGP is deprecated"):
+            m = ALEBOGP(B=B, train_X=train_X, train_Y=train_Y, train_Yvar=train_Yvar)
         m.eval()
 
         objective_weights = torch.tensor([1.0], dtype=torch.double)

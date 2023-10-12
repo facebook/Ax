@@ -11,6 +11,7 @@ import re
 from collections import OrderedDict
 from logging import Logger
 from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
+from warnings import warn
 
 import gpytorch
 import numpy as np
@@ -70,6 +71,10 @@ class ALEBOKernel(Kernel):
     def __init__(self, B: Tensor, batch_shape: torch.Size) -> None:
         super().__init__(
             has_lengthscale=False, ard_num_dims=None, eps=0.0, batch_shape=batch_shape
+        )
+        warn(
+            "ALEBOKernel is deprecated and should be removed in Ax 0.5.0.",
+            DeprecationWarning,
         )
         # pyre-fixme[4]: Attribute must be annotated.
         self.d, D = B.shape
@@ -140,6 +145,12 @@ class ALEBOGP(FixedNoiseGP):
     def __init__(
         self, B: Tensor, train_X: Tensor, train_Y: Tensor, train_Yvar: Tensor
     ) -> None:
+        warn(
+            "ALEBOGP is deprecated and should be removed in Ax 0.5.0. SAASBO "
+            "(Models.SAASBO from ax.modelbridge.registry) likely provides better "
+            "performance.",
+            DeprecationWarning,
+        )
         super().__init__(train_X=train_X, train_Y=train_Y, train_Yvar=train_Yvar)
         self.covar_module = ScaleKernel(
             base_kernel=ALEBOKernel(B=B, batch_shape=self._aug_batch_shape),
@@ -229,6 +240,11 @@ def get_fitted_model(
 
     Returns: Batch-mode (nsamp batches) fitted ALEBO GP.
     """
+    warn(
+        "`get_fitted_model` from ax.models.torch.alebo.py is deprecated and "
+        "should be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     # Get MAP estimate.
     mll = get_map_model(
         B=B,
@@ -275,6 +291,11 @@ def get_map_model(
 
     Returns: non-batch ALEBO GP with MAP kernel hyperparameters.
     """
+    warn(
+        "`get_map_model` from ax.models.torch.alebo.py is deprecated and should "
+        "be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     f_best = 1e8
     sd_best = {}
     # Fit with random restarts
@@ -317,6 +338,10 @@ def laplace_sample_U(
     Returns: Batch tensors of the kernel hyperparameters Uvec, mean constant,
         and output scale.
     """
+    warn(
+        "laplace_sample_U is deprecated and should be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     # Estimate diagonal of the Hessian
     mll.train()
     x0, property_dict, bounds = module_to_array(module=mll)
@@ -382,6 +407,11 @@ def get_batch_model(
 
     Returns: Batch-mode ALEBO GP.
     """
+    warn(
+        "`get_batch_model` from ax.models.torch.alebo.py is deprecated and "
+        "should be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     b = Uvec_batch.size(0)
     m_b = ALEBOGP(
         B=B,
@@ -418,6 +448,11 @@ def extract_map_statedict(
         m_b: Batch-mode GP.
         num_outputs: Number of outputs being modeled.
     """
+    warn(
+        "`extract_map_statedict` from ax.models.torch.alebo.py is deprecated and "
+        "should be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     is_modellist = num_outputs > 1
     map_sds: List[MutableMapping[str, Tensor]] = [
         OrderedDict() for i in range(num_outputs)
@@ -465,6 +500,11 @@ def ei_or_nei(
 
     Returns: An AcquisitionFunction, either analytic EI or MC NEI.
     """
+    warn(
+        "`ei_or_nei` from ax.models.torch.alebo.py is deprecated and should be "
+        "removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     if (
         len(objective_weights) == 1
         and outcome_constraints is None
@@ -509,6 +549,10 @@ def alebo_acqf_optimizer(
     random restart of the acquisition function optimization with points that
     lie within that polytope.
     """
+    warn(
+        "`alebo_acqf_optimizer` is deprecated and should be removed in Ax 0.5.0.",
+        DeprecationWarning,
+    )
     candidate_list, acq_value_list = [], []
     candidates = torch.tensor([], device=B.device, dtype=B.dtype)
     try:
@@ -583,6 +627,10 @@ class ALEBO(BotorchModel):
     def __init__(
         self, B: Tensor, laplace_nsamp: int = 25, fit_restarts: int = 10
     ) -> None:
+        warn(
+            "ALEBO is deprecated and should be removed in Ax 0.5.0.",
+            DeprecationWarning,
+        )
         self.B = B
         # pyre-fixme[4]: Attribute must be annotated.
         self.Binv = torch.pinverse(B)
