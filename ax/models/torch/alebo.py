@@ -10,7 +10,19 @@ import dataclasses
 import re
 from collections import OrderedDict
 from logging import Logger
-from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
+from math import inf
+from numbers import Number
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    MutableMapping,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 from warnings import warn
 
 import gpytorch
@@ -34,14 +46,20 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.optim.fit import fit_gpytorch_mll_scipy
 from botorch.optim.initializers import initialize_q_batch_nonneg
-from botorch.optim.numpy_converter import _scipy_objective_and_grad, module_to_array
 from botorch.optim.optimize import optimize_acqf
+from botorch.optim.utils import (
+    _get_extra_mll_args,
+    _handle_numerical_errors,
+    get_parameters_and_bounds,
+    TorchAttr,
+)
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import postprocess_rbf
 from gpytorch.kernels.scale_kernel import ScaleKernel
+from gpytorch.mlls import MarginalLogLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from scipy.optimize import approx_fprime
 from torch import Tensor
@@ -49,6 +67,178 @@ from torch.nn.parameter import Parameter
 
 
 logger: Logger = get_logger(__name__)
+
+
+def module_to_array(
+    module: torch.nn.Module,
+) -> Tuple[np.ndarray, Dict[str, TorchAttr], Optional[np.ndarray]]:
+    r"""Extract named parameters from a module into a numpy array.
+
+    Only extracts parameters with requires_grad, since it is meant for optimizing.
+
+    NOTE: `module_to_array` was originally a BoTorch function and was later
+    deprecated. It has been copied here because ALEBO depends on it, and because
+    ALEBO itself is deprecated, it is not worth moving ALEBO to the new syntax.
+
+    Args:
+        module: A module with parameters. May specify parameter constraints in
+            a `named_parameters_and_constraints` method.
+
+    Returns:
+        3-element tuple containing
+        - The parameter values as a numpy array.
+        - An ordered dictionary with the name and tensor attributes of each
+        parameter.
+        - A `2 x n_params` numpy array with lower and upper bounds if at least
+        one constraint is finite, and None otherwise.
+
+    Example:
+        >>> mll = ExactMarginalLogLikelihood(model.likelihood, model)
+        >>> parameter_array, property_dict, bounds_out = module_to_array(mll)
+    """
+    param_dict, bounds_dict = get_parameters_and_bounds(
+        module=module,
+        name_filter=None,
+        requires_grad=True,
+    )
+
+    # Record tensor metadata and read parameter values to the tape
+    param_tape: List[Number] = []
+    property_dict = OrderedDict()
+    with torch.no_grad():
+        for name, param in param_dict.items():
+            property_dict[name] = TorchAttr(param.shape, param.dtype, param.device)
+            param_tape.extend(param.view(-1).cpu().double().tolist())
+
+    # Extract lower and upper bounds
+    start = 0
+    bounds_np = None
+    params_np = np.asarray(param_tape)
+    for name, param in param_dict.items():
+        numel = param.numel()
+        if name in bounds_dict:
+            for row, bound in enumerate(bounds_dict[name]):
+                if bound is None:
+                    continue
+
+                if isinstance(bound, Tensor):
+                    if torch.eq(bound, (2 * row - 1) * inf).all():
+                        continue
+                    bound = bound.detach().cpu()
+
+                elif bound == (2 * row - 1) * inf:
+                    continue
+
+                if bounds_np is None:
+                    bounds_np = np.full((2, len(params_np)), ((-inf,), (inf,)))
+
+                bounds_np[row, start : start + numel] = bound
+        start += numel
+
+    return params_np, property_dict, bounds_np
+
+
+TModule = TypeVar("TModule", bound=torch.nn.Module)
+
+
+def set_params_with_array(
+    module: TModule, x: np.ndarray, property_dict: Dict[str, TorchAttr]
+) -> TModule:
+    r"""Set module parameters with values from numpy array.
+
+    NOTE: `set_params_with_array` was originally a BoTorch function and was
+    later deprecated. It has been copied here because ALEBO depends on it, and
+    because ALEBO itself is deprecated, it is not worth moving ALEBO to the new
+    syntax.
+
+    Args:
+        module: Module with parameters to be set
+        x: Numpy array with parameter values
+        property_dict: Dictionary of parameter names and torch attributes as
+            returned by module_to_array.
+
+    Returns:
+        Module: module with parameters updated in-place.
+
+    Example:
+        >>> mll = ExactMarginalLogLikelihood(model.likelihood, model)
+        >>> parameter_array, property_dict, bounds_out = module_to_array(mll)
+        >>> parameter_array += 0.1  # perturb parameters (for example only)
+        >>> mll = set_params_with_array(mll, parameter_array,  property_dict)
+    """
+    param_dict = OrderedDict(module.named_parameters())
+    start_idx = 0
+    for p_name, attrs in property_dict.items():
+        # Construct the new tensor
+        if len(attrs.shape) == 0:  # deal with scalar tensors
+            end_idx = start_idx + 1
+            new_data = torch.tensor(
+                x[start_idx], dtype=attrs.dtype, device=attrs.device
+            )
+        else:
+            end_idx = start_idx + np.prod(attrs.shape)
+            new_data = torch.tensor(
+                x[start_idx:end_idx], dtype=attrs.dtype, device=attrs.device
+            ).view(*attrs.shape)
+        start_idx = end_idx
+        # Update corresponding parameter in-place. Disable autograd to update.
+        param_dict[p_name].requires_grad_(False)
+        param_dict[p_name].copy_(new_data)
+        param_dict[p_name].requires_grad_(True)
+    return module
+
+
+def _scipy_objective_and_grad(
+    x: np.ndarray, mll: MarginalLogLikelihood, property_dict: Dict[str, TorchAttr]
+) -> Tuple[Union[float, np.ndarray], np.ndarray]:
+    r"""Get objective and gradient in format that scipy expects.
+
+
+    NOTE: `_scipy_objective_and_grad` was originally a BoTorch function and was later
+    deprecated. It has been copied here because ALEBO depends on it, and because
+    ALEBO itself is deprecated, it is not worth moving ALEBO to the new syntax.
+
+    Args:
+        x: The (flattened) input parameters.
+        mll: The MarginalLogLikelihood module to evaluate.
+        property_dict: The property dictionary required to "unflatten" the input
+            parameter vector, as generated by `module_to_array`.
+
+    Returns:
+        2-element tuple containing
+
+        - The objective value.
+        - The gradient of the objective.
+    """
+    mll = set_params_with_array(mll, x, property_dict)
+    train_inputs, train_targets = mll.model.train_inputs, mll.model.train_targets
+    mll.zero_grad()
+    try:  # catch linear algebra errors in gpytorch
+        output = mll.model(*train_inputs)
+        args = [output, train_targets] + _get_extra_mll_args(mll)
+        # pyre-fixme[16]: Undefined attribute. Item
+        # `torch.distributions.distribution.Distribution` of
+        # `typing.Union[linear_operator.operators._linear_operator.LinearOperator,
+        # torch._tensor.Tensor, torch.distributions.distribution.Distribution]`
+        # has no attribute `sum`.
+        loss = -mll(*args).sum()
+    except RuntimeError as e:
+        return _handle_numerical_errors(error=e, x=x)
+    loss.backward()
+
+    i = 0
+    param_dict = OrderedDict(mll.named_parameters())
+    grad = np.zeros(sum([tattr.shape.numel() for tattr in property_dict.values()]))
+    for p_name in property_dict:
+        t = param_dict[p_name]
+        size = t.numel()
+        t_grad = t.grad
+        if t.requires_grad and t_grad is not None:
+            grad[i : i + size] = t_grad.detach().view(-1).cpu().double().clone().numpy()
+        i += size
+
+    mll.zero_grad()
+    return loss.item(), grad
 
 
 class ALEBOKernel(Kernel):
