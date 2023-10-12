@@ -112,6 +112,8 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
                 MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
             )
 
+    # pyre-fixme[14]: `f` overrides method defined in `NoisyFunctionMapMetric`
+    #  inconsistently.
     def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
 

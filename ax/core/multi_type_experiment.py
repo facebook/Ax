@@ -125,6 +125,8 @@ class MultiTypeExperiment(Experiment):
         self._trial_type_to_runner[trial_type] = runner
         return self
 
+    # pyre-fixme[14]: `add_tracking_metric` overrides method defined in `Experiment`
+    #  inconsistently.
     def add_tracking_metric(
         self, metric: Metric, trial_type: str, canonical_name: Optional[str] = None
     ) -> "MultiTypeExperiment":
@@ -144,6 +146,8 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
 
+    # pyre-fixme[14]: `update_tracking_metric` overrides method defined in
+    #  `Experiment` inconsistently.
     def update_tracking_metric(
         self, metric: Metric, trial_type: str, canonical_name: Optional[str] = None
     ) -> "MultiTypeExperiment":

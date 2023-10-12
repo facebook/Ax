@@ -411,6 +411,8 @@ class BoTorchModel(TorchModel, Base):
             ]
 
             surrogate.update(
+                # pyre-fixme[6]: For 1st argument expected `List[SupervisedDataset]`
+                #  but got `List[Optional[SupervisedDataset]]`.
                 datasets=subset_datasets,
                 metric_names=subset_metric_names,
                 search_space_digest=search_space_digest,

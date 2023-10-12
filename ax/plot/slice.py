@@ -463,8 +463,10 @@ def interact_slice_plotly(
 
     # Populate mbuttons, which allows the user to select which metric to plot
     mbuttons = []
+    # pyre-fixme[61]: `metrics` is undefined, or not always defined.
     for i, metric in enumerate(metrics):
         trace_cnt = 3 + len(arm_data[metric]["out_of_sample"].keys())
+        # pyre-fixme[61]: `metrics` is undefined, or not always defined.
         visible = [False] * (len(metrics) * trace_cnt)
         for j in range(i * trace_cnt, (i + 1) * trace_cnt):
             visible[j] = True

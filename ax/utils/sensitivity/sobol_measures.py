@@ -662,6 +662,7 @@ class SobolSensitivityGPSampling(object):
                 second_order_idxs_list.append(second_order_idxs.unsqueeze(0))
             second_order_idxs_list = torch.cat(second_order_idxs_list, dim=0)
             second_order_idxs_mean_var = []
+            # pyre-fixme[61]: `second_order_idxs` is undefined, or not always defined.
             for i in range(len(second_order_idxs)):
                 second_order_idxs_mean_var.append(
                     torch.tensor(
