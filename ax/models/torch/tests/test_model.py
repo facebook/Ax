@@ -819,7 +819,7 @@ class BoTorchModelTest(TestCase):
         # `mock_acquisition.return_value.evaluate`.
         mock_acquisition.return_value.evaluate.assert_called()
 
-    @mock.patch(f"{MODEL_PATH}.Surrogate.__init__", return_value=None)
+    @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)
     def test_surrogate_model_options_propagation(
         self, _: Mock, mock_init: Mock
@@ -853,7 +853,7 @@ class BoTorchModelTest(TestCase):
             allow_batched_models=True,
         )
 
-    @mock.patch(f"{MODEL_PATH}.Surrogate.__init__", return_value=None)
+    @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
     @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)
     def test_surrogate_options_propagation(self, _: Mock, mock_init: Mock) -> None:
         model = BoTorchModel(

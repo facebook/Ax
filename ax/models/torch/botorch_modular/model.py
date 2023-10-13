@@ -24,7 +24,6 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
-    convert_to_block_design,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -33,7 +32,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.models import ModelList
 from botorch.models.deterministic import FixedSingleSampleModel
 from botorch.models.model import Model
 from botorch.models.transforms.input import InputTransform
@@ -247,7 +245,7 @@ class BoTorchModel(TorchModel, Base):
         # state dict by surrogate label
         state_dicts: Optional[Mapping[str, Dict[str, Tensor]]] = None,
         refit: bool = True,
-        **kwargs: Any,
+        **additional_model_inputs: Any,
     ) -> None:
         """Fit model to m outcomes.
 
@@ -264,6 +262,8 @@ class BoTorchModel(TorchModel, Base):
                 surrogate_specs. If using a single, pre-instantiated model use
                 `Keys.ONLY_SURROGATE.
             refit: Whether to re-optimize model parameters.
+            additional_model_inputs: Additional kwargs to pass to the
+                model input constructor in ``Surrogate.fit``.
         """
 
         if len(datasets) != len(metric_names):
@@ -279,7 +279,9 @@ class BoTorchModel(TorchModel, Base):
         # Step 0. If the user passed in a preconstructed surrogate we won't have a
         # SurrogateSpec and must assume we're fitting all metrics
         if Keys.ONLY_SURROGATE in self._surrogates.keys():
-            self._surrogates[Keys.ONLY_SURROGATE].fit(
+            surrogate = self._surrogates[Keys.ONLY_SURROGATE]
+            surrogate.model_options.update(additional_model_inputs)
+            surrogate.fit(
                 datasets=datasets,
                 metric_names=metric_names,
                 search_space_digest=search_space_digest,
@@ -288,7 +290,6 @@ class BoTorchModel(TorchModel, Base):
                 if state_dicts
                 else None,
                 refit=refit,
-                **kwargs,
             )
             return
 
@@ -340,21 +341,8 @@ class BoTorchModel(TorchModel, Base):
                 datasets_by_metric_name[metric_name]
                 for metric_name in subset_metric_names
             ]
-            if (
-                len(subset_datasets) > 1
-                # if Surrogate's model is none a ModelList will be autoset
-                and surrogate._model is not None
-                and not isinstance(surrogate.model, ModelList)
-            ):
-                # Note: If the datasets do not confirm to a block design then this
-                # will filter the data and drop observations to make sure that it does.
-                # This can happen e.g. if only some metrics are observed at some points
-                subset_datasets, metric_names = convert_to_block_design(
-                    datasets=subset_datasets,
-                    metric_names=metric_names,
-                    force=True,
-                )
 
+            surrogate.model_options.update(additional_model_inputs)
             surrogate.fit(
                 datasets=subset_datasets,
                 metric_names=subset_metric_names,
@@ -362,7 +350,6 @@ class BoTorchModel(TorchModel, Base):
                 candidate_metadata=candidate_metadata,
                 state_dict=(state_dicts or {}).get(label),
                 refit=refit,
-                **kwargs,
             )
 
     @copy_doc(TorchModel.update)
@@ -372,7 +359,7 @@ class BoTorchModel(TorchModel, Base):
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        **kwargs: Any,
+        **additional_model_inputs: Any,
     ) -> None:
         if len(self.surrogates) == 0:
             raise UnsupportedError("Cannot update model that has not been fitted.")
@@ -409,7 +396,7 @@ class BoTorchModel(TorchModel, Base):
                 datasets_by_metric_name[metric_name]
                 for metric_name in subset_metric_names
             ]
-
+            surrogate.model_options.update(additional_model_inputs)
             surrogate.update(
                 datasets=subset_datasets,
                 metric_names=subset_metric_names,
@@ -417,7 +404,6 @@ class BoTorchModel(TorchModel, Base):
                 candidate_metadata=candidate_metadata,
                 state_dict=state_dict,
                 refit=self.refit_on_update,
-                **kwargs,
             )
 
     @single_surrogate_only
@@ -536,7 +522,7 @@ class BoTorchModel(TorchModel, Base):
         metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
-        **kwargs: Any,
+        **additional_model_inputs: Any,
     ) -> Tuple[Tensor, Tensor]:
         # Will fail if metric_names exist across multiple models
         surrogate_labels = (
@@ -589,7 +575,7 @@ class BoTorchModel(TorchModel, Base):
                 search_space_digest=search_space_digest,
                 state_dicts=state_dicts,
                 refit=self.refit_on_cv,
-                **kwargs,
+                **additional_model_inputs,
             )
             X_test_prediction = self.predict_from_surrogate(
                 surrogate_label=surrogate_label, X=X_test

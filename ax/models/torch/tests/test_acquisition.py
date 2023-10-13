@@ -117,12 +117,12 @@ class AcquisitionTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+            fidelity_features=self.fidelity_features,
             target_values={2: 1.0},
         )
         self.surrogate.construct(
             datasets=self.training_data,
             metric_names=self.metric_names,
-            fidelity_features=self.fidelity_features,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.search_space_digest.feature_names[:1],
                 bounds=self.search_space_digest.bounds,

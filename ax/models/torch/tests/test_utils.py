@@ -38,7 +38,7 @@ from botorch.models.gp_regression_fidelity import (
 )
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import ModelList
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputPerturbation,
@@ -140,26 +140,17 @@ class BoTorchModelUtilsTest(TestCase):
                     feature_names=[], bounds=[], task_features=[1, 2]
                 ),
             )
-        # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
-        self.assertEqual(
-            MultiTaskGP,
-            choose_model_class(
-                datasets=self.supervised_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], task_features=[1]
+        # With task features use MultiTaskGP.
+        for datasets in (self.supervised_datasets, self.fixed_noise_datasets):
+            self.assertEqual(
+                MultiTaskGP,
+                choose_model_class(
+                    datasets=datasets,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=[], bounds=[], task_features=[1]
+                    ),
                 ),
-            ),
-        )
-        # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
-        self.assertEqual(
-            FixedNoiseMultiTaskGP,
-            choose_model_class(
-                datasets=self.fixed_noise_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[], bounds=[], task_features=[1]
-                ),
-            ),
-        )
+            )
 
     def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.

@@ -31,7 +31,7 @@ from botorch.models.gp_regression_fidelity import (
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model import Model, ModelList
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import ChainedInputTransform
 from botorch.utils.datasets import SupervisedDataset
@@ -108,11 +108,9 @@ def choose_model_class(
             "errors. Variances should all be specified, or none should be."
         )
 
-    # Multi-task cases (when `task_features` specified).
-    if search_space_digest.task_features and all_inferred:
-        model_class = MultiTaskGP  # Unknown observation noise.
-    elif search_space_digest.task_features:
-        model_class = FixedNoiseMultiTaskGP  # Known observation noise.
+    # Multi-task case (when `task_features` is specified).
+    if search_space_digest.task_features:
+        model_class = MultiTaskGP
 
     # Single-task multi-fidelity cases.
     elif search_space_digest.fidelity_features and all_inferred:
