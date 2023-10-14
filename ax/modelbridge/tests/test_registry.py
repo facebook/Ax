@@ -47,7 +47,7 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import FixedNoiseGP
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.utils.types import DEFAULT
 from gpytorch.kernels.matern_kernel import MaternKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
@@ -475,7 +475,7 @@ class ModelRegistryTest(TestCase):
                 if use_saas
                 else [
                     Surrogate(
-                        botorch_model_class=FixedNoiseMultiTaskGP,
+                        botorch_model_class=MultiTaskGP,
                         mll_class=ExactMarginalLogLikelihood,
                         covar_module_class=ScaleMaternKernel,
                         covar_module_options={
@@ -514,9 +514,7 @@ class ModelRegistryTest(TestCase):
                 for i in range(len(models)):
                     self.assertIsInstance(
                         models[i],
-                        SaasFullyBayesianMultiTaskGP
-                        if use_saas
-                        else FixedNoiseMultiTaskGP,
+                        SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,
                     )
                     if use_saas is False:
                         self.assertIsInstance(models[i].covar_module, ScaleKernel)

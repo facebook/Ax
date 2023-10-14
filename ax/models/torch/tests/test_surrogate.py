@@ -34,7 +34,7 @@ from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
@@ -198,7 +198,6 @@ class SurrogateTest(TestCase):
         )
         # Change the lengthscales of one model and make sure the other isn't changed
         models[0].covar_module.base_kernel.lengthscale += 1
-
         self.assertTrue(
             torch.allclose(
                 model1_old_lengtscale,
@@ -364,15 +363,11 @@ class SurrogateTest(TestCase):
                     search_space_digest=self.search_space_digest,
                 )
                 mock_construct_inputs.assert_called_with(
-                    training_data=self.training_data[0], some_option="some_value"
-                )
-
-            # botorch_model_class must be set to construct single model Surrogate
-            with self.assertRaisesRegex(ValueError, "botorch_model_class must be set"):
-                surrogate = Surrogate()
-                surrogate._construct_model(
-                    dataset=self.training_data[0],
-                    search_space_digest=self.search_space_digest,
+                    training_data=self.training_data[0],
+                    some_option="some_value",
+                    fidelity_features=[],
+                    task_feature=None,
+                    categorical_features=[],
                 )
 
     def test_construct_custom_model(self) -> None:
@@ -404,16 +399,16 @@ class SurrogateTest(TestCase):
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
-        self.assertEqual(type(surrogate._model.likelihood), GaussianLikelihood)
+        model = not_none(surrogate._model)
+        self.assertEqual(type(model.likelihood), GaussianLikelihood)
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `likelihood`.
-            surrogate._model.likelihood.noise_covar.raw_noise_constraint,
-            noise_constraint,
+            # Checking equality of __dict__'s since Interval does not define __eq__.
+            model.likelihood.noise_covar.raw_noise_constraint.__dict__,
+            noise_constraint.__dict__,
         )
         self.assertEqual(surrogate.mll_class, LeaveOneOutPseudoLikelihood)
-        self.assertEqual(type(surrogate._model.covar_module), RBFKernel)
-        # pyre-fixme[16]: Optional type has no attribute `covar_module`.
-        self.assertEqual(surrogate._model.covar_module.ard_num_dims, 1)
+        self.assertEqual(type(model.covar_module), RBFKernel)
+        self.assertEqual(model.covar_module.ard_num_dims, 1)
 
     @patch(
         f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.load_state_dict",
@@ -498,7 +493,6 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
                 search_space_digest=self.search_space_digest,
             )
             surrogate.predict(X=self.Xs[0])
@@ -510,7 +504,6 @@ class SurrogateTest(TestCase):
             surrogate.construct(
                 datasets=self.training_data,
                 metric_names=self.metric_names,
-                fidelity_features=self.search_space_digest.fidelity_features,
                 search_space_digest=self.search_space_digest,
             )
             # `best_in_sample_point` requires `objective_weights`
@@ -679,7 +672,9 @@ class SurrogateTest(TestCase):
     def test_serialize_attributes_as_kwargs(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
-            expected = surrogate.__dict__
+            expected = {
+                k: v for k, v in surrogate.__dict__.items() if not k.startswith("_")
+            }
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)
 
         with self.assertRaisesRegex(
@@ -799,10 +794,10 @@ class SurrogateWithModelListTest(TestCase):
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = ExactMarginalLogLikelihood
         self.dtype = torch.float
-        self.search_space_digest = SearchSpaceDigest(
-            feature_names=[], bounds=[], task_features=[0]
-        )
         self.task_features = [0]
+        self.search_space_digest = SearchSpaceDigest(
+            feature_names=[], bounds=[], task_features=self.task_features
+        )
         Xs1, Ys1, Yvars1, bounds, _, _, _ = get_torch_test_data(
             dtype=self.dtype, task_features=self.search_space_digest.task_features
         )
@@ -848,9 +843,9 @@ class SurrogateWithModelListTest(TestCase):
                 search_space_digest=self.search_space_digest,
             ),
         }
-        self.botorch_model_class = FixedNoiseMultiTaskGP
+        self.botorch_model_class = MultiTaskGP
         for submodel_cls in self.botorch_submodel_class_per_outcome.values():
-            self.assertEqual(submodel_cls, FixedNoiseMultiTaskGP)
+            self.assertEqual(submodel_cls, MultiTaskGP)
         self.Xs = Xs1 + Xs2
         self.Ys = Ys1 + Ys2
         self.Yvars = Yvars1 + Yvars2
@@ -878,7 +873,7 @@ class SurrogateWithModelListTest(TestCase):
             RANK: 1,
         }
         self.surrogate = Surrogate(
-            botorch_model_class=FixedNoiseMultiTaskGP,
+            botorch_model_class=MultiTaskGP,
             mll_class=self.mll_class,
             model_options=self.submodel_options_per_outcome,
         )
@@ -897,19 +892,21 @@ class SurrogateWithModelListTest(TestCase):
             self.surrogate.model
 
     @patch.object(
-        FixedNoiseMultiTaskGP,
+        MultiTaskGP,
         "construct_inputs",
-        wraps=FixedNoiseMultiTaskGP.construct_inputs,
+        wraps=MultiTaskGP.construct_inputs,
     )
     def test_construct_per_outcome_options(
         self, mock_MTGP_construct_inputs: Mock
     ) -> None:
+        self.surrogate.model_options.update({"output_tasks": [2]})
         self.surrogate.construct(
             datasets=self.fixed_noise_training_data,
             metric_names=self.outcomes,
-            output_tasks=[2],
-            search_space_digest=self.search_space_digest,
-            task_features=self.task_features,
+            search_space_digest=dataclasses.replace(
+                self.search_space_digest,
+                task_features=self.task_features,
+            ),
         )
         # Should construct inputs for MTGP twice.
         self.assertEqual(len(mock_MTGP_construct_inputs.call_args_list), 2)
@@ -919,6 +916,7 @@ class SurrogateWithModelListTest(TestCase):
                 # `call_args` is a tuple of (args, kwargs), and we check kwargs.
                 mock_MTGP_construct_inputs.call_args_list[idx][1],
                 {
+                    "categorical_features": [],
                     "fidelity_features": [],
                     "task_feature": self.task_features[0],
                     "training_data": SupervisedDataset(
@@ -947,10 +945,10 @@ class SurrogateWithModelListTest(TestCase):
         # Test that splitting the training data works correctly when Yvar is None.
         surrogate.construct(
             datasets=self.supervised_training_data,
-            task_features=self.task_features,
             metric_names=self.outcomes,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
+                task_features=self.task_features,
                 bounds=self.bounds,
             ),
         )
@@ -960,9 +958,9 @@ class SurrogateWithModelListTest(TestCase):
         self.assertEqual(len(not_none(surrogate._training_data)), 2)
 
     @patch.object(
-        FixedNoiseMultiTaskGP,
+        MultiTaskGP,
         "construct_inputs",
-        wraps=FixedNoiseMultiTaskGP.construct_inputs,
+        wraps=MultiTaskGP.construct_inputs,
     )
     def test_construct_per_outcome_error_raises(
         self, mock_MTGP_construct_inputs: Mock
@@ -981,10 +979,10 @@ class SurrogateWithModelListTest(TestCase):
             surrogate.construct(
                 datasets=self.fixed_noise_training_data,
                 metric_names=self.outcomes,
-                task_features=self.task_features,
-                fidelity_features=[1],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
+                    task_features=self.task_features,
+                    fidelity_features=[1],
                     bounds=self.bounds,
                 ),
             )
@@ -995,9 +993,9 @@ class SurrogateWithModelListTest(TestCase):
             surrogate.construct(
                 datasets=self.fixed_noise_training_data,
                 metric_names=self.outcomes,
-                task_features=[0, 1],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
+                    task_features=[0, 1],
                     bounds=self.bounds,
                 ),
             )
