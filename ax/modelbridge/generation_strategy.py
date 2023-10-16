@@ -9,10 +9,9 @@ from __future__ import annotations
 from copy import deepcopy
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -258,9 +257,7 @@ class GenerationStrategy(Base):
                 will be used to produce the generator run returned from this method.
             data: Optional data to be passed to the underlying model's `gen`, which
                 is called within this method and actually produces the resulting
-                generator run. By default, data is all data on the `experiment` if
-                `use_update` is False and only the new data since the last call to
-                this method if `use_update` is True.
+                generator run. By default, data is all data on the `experiment`.
             n: Integer representing how many arms should be in the generator run
                 produced by this method. NOTE: Some underlying models may ignore
                 the `n` and produce a model-determined number of arms. In that
@@ -304,8 +301,12 @@ class GenerationStrategy(Base):
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
-        # TODO[drfreund]: unset `_generation_strategy`` from steps
-        return GenerationStrategy(name=self.name, steps=deepcopy(self._steps))
+        steps = deepcopy(self._steps)
+        for s in steps:
+            # Unset the generation strategy back-pointer, so the steps are not
+            # associated with any generation strategy.
+            s._generation_strategy = None
+        return GenerationStrategy(name=self.name, steps=steps)
 
     def _unset_non_persistent_state_fields(self) -> None:
         """Utility for testing convenience: unset fields of generation strategy
@@ -367,9 +368,7 @@ class GenerationStrategy(Base):
                 will be used to produce the generator run returned from this method.
             data: Optional data to be passed to the underlying model's `gen`, which
                 is called within this method and actually produces the resulting
-                generator run. By default, data is all data on the `experiment` if
-                `use_update` is False and only the new data since the last call to
-                this method if `use_update` is True.
+                generator run. By default, data is all data on the `experiment`.
             n: Integer representing how many arms should be in the generator run
                 produced by this method. NOTE: Some underlying models may ignore
                 the ``n`` and produce a model-determined number of arms. In that
@@ -384,7 +383,7 @@ class GenerationStrategy(Base):
         """
         self.experiment = experiment
         self._maybe_move_to_next_step()
-        self._fit_or_update_current_model(data=data)
+        self._fit_current_model(data=data)
 
         # Make sure to not make too many generator runs and
         # exceed maximum allowed paralellism for the step.
@@ -435,7 +434,7 @@ class GenerationStrategy(Base):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _fit_or_update_current_model(self, data: Optional[Data]) -> None:
+    def _fit_current_model(self, data: Optional[Data]) -> None:
         """Fits or update the model on the current generation step (does not move
         between generation steps).
 
@@ -443,36 +442,19 @@ class GenerationStrategy(Base):
             data: Optional ``Data`` to fit or update with; if not specified, generation
                 strategy will obtain the data via ``experiment.lookup_data``.
         """
-        if self._model is not None and self._curr.use_update:
-            newly_completed_trials = self._find_trials_completed_since_last_gen()
-            new_data = self._curr.get_data_for_update(
-                passed_in_data=data, newly_completed_trials=newly_completed_trials
-            )
-            if new_data is not None:
-                self._update_current_model(new_data=new_data)
-        else:
-            processed_data = self._curr.get_data_for_fit(
-                passed_in_data=data,
-            )
-            self._fit_current_model(data=processed_data)
-            previous_step_req_observations = (
-                self._curr.index > 0
-                and self._steps[self._curr.index - 1].min_trials_observed > 0
-            )
-            # If previous step required observed data, we should raise an error even if
-            # enough trials were completed. Such an empty data case does indicate an
-            # invalid state; this check is to improve the experience of detecting and
-            # debugging the invalid state that led to this.
-            if processed_data.df.empty and previous_step_req_observations:
-                raise NoDataError(
-                    f"Observed data is required for GenerationNode {self._curr.index},"
-                    f"(model {self._curr.model_to_gen_from_name}), but fetched data"
-                    "was empty. Something is wrong with experiment setup -- likely "
-                    "metrics do not implement fetching logic (check your metrics) or"
-                    "no data was attached to experiment for completed trials."
-                )
+        data = self.experiment.lookup_data() if data is None else data
+        # If last generator run's index matches the current step, extract
+        # model state from last generator run and pass it to the model
+        # being instantiated in this function.
+        model_state_on_lgr = self._get_model_state_from_last_generator_run()
 
-        self._save_seen_trial_indices()
+        if not data.df.empty:
+            trial_indices_in_data = sorted(data.df["trial_index"].unique())
+            logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
+
+        self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
+        self._model = self._curr.model_spec.fitted_model
+        self._check_previous_required_observation(data=data)
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
         """Moves this generation strategy to next step if the current step is completed,
@@ -505,21 +487,17 @@ class GenerationStrategy(Base):
             # new step's model will be initialized for the first time, so we don't
             # try to `update` it but rather initialize with all the data even if
             # `use_update` is true for the new generation step; this is done in
-            # `self._fit_or_update_current_model).
+            # `self._fit_current_model).
             self._model = None
 
         return move_to_next_step
 
-    def _fit_current_model(self, data: Data) -> None:
-        """Instantiate the current model with all available data."""
-        # If last generator run's index matches the current step, extract
-        # model state from last generator run and pass it to the model
-        # being instantiated in this function.
+    def _get_model_state_from_last_generator_run(self) -> Dict[str, Any]:
         lgr = self.last_generator_run
         # NOTE: This will not be easily compatible with `GenerationNode`;
         # will likely need to find last generator run per model. Not a problem
         # for now though as GS only allows `GenerationStep`-s for now.
-        # Potential solution: store generator runs on `GenerationStep`-s and
+        # Potential solution: store generator runs on `GenerationNode`-s and
         # split them per-model there.
         model_state_on_lgr = {}
         model_on_curr = self._curr.model
@@ -542,71 +520,23 @@ class GenerationStrategy(Base):
                     generator_run=lgr,
                     model_class=model_cls,
                 )
-            else:
-                logger.warning(
-                    "While model state after last call to `gen` was recorded on the "
-                    "las generator run produced by this generation strategy, it could"
-                    " not be applied because model for this generation step is defined"
-                    f" via factory function: {self._curr.model}. Generation strategies"
-                    " with factory functions do not support reloading from a stored "
-                    "state."
-                )
 
-        if not data.df.empty:
-            trial_indices_in_data = sorted(data.df["trial_index"].unique())
-            logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
+        return model_state_on_lgr
 
-        self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
-        self._model = self._curr.model_spec.fitted_model
-
-    def _update_current_model(self, new_data: Data) -> None:
-        """Update the current model with new data (data for trials that have been
-        completed since the last call to `GenerationStrategy.gen`).
-        """
-        if self._model is None:  # Should not be reachable.
-            raise ValueError("Cannot update if no model instantiated.")
-        trial_indices_in_new_data = sorted(new_data.df["trial_index"].unique())
-        logger.info(f"Updating model with data for trials: {trial_indices_in_new_data}")
-        # TODO[drfreund]: Switch to `self._curr.update` once `GenerationNode` supports
-        not_none(self._model).update(experiment=self.experiment, new_data=new_data)
-
-    # ------------------------- State-tracking helpers. -------------------------
-
-    def _save_seen_trial_indices(self) -> None:
-        """Saves Experiment's `trial_indices_by_status` at the time of the model's
-        last `gen` (so these `trial_indices_by_status` reflect which trials model
-        has seen the data for). Useful when `use_update=True` for a given
-        generation step.
-        """
-        self._seen_trial_indices_by_status = deepcopy(
-            self.experiment.trial_indices_by_status
+    def _check_previous_required_observation(self, data: Data) -> None:
+        previous_step_req_observations = (
+            self._curr.index > 0
+            and self._steps[self._curr.index - 1].min_trials_observed > 0
         )
-
-    def _find_trials_completed_since_last_gen(self) -> Set[int]:
-        """Retrieves indices of trials that have been completed or updated with data
-        since the last call to `GenerationStrategy.gen`.
-        """
-        completed_now = self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-        if self._seen_trial_indices_by_status is None:
-            return completed_now
-
-        completed_before = not_none(self._seen_trial_indices_by_status)[
-            TrialStatus.COMPLETED
-        ]
-        return completed_now.difference(completed_before)
-
-    def _register_trial_data_update(self, trial: BaseTrial) -> None:
-        """Registers that a given trial has new data even though it's a trial that has
-        been completed before. Useful only for generation steps that have `use_update=
-        True`, as the information registered by this function is used for identifying
-        new data since last call to `GenerationStrategy.gen`.
-        """
-        # TODO[T65857344]: store information about trial update to pass with `new_data`
-        # to `model_update`. This information does not need to be stored, since when
-        # restoring generation strategy from serialized form, all data will is
-        # refetched and the underlying model is re-fit.
-        if any(s.use_update for s in self._steps):
-            raise NotImplementedError(
-                "Updating completed trials with new data is not yet supported for "
-                "generation strategies that leverage `model.update` functionality."
+        # If previous step required observed data, we should raise an error even if
+        # enough trials were completed. Such an empty data case does indicate an
+        # invalid state; this check is to improve the experience of detecting and
+        # debugging the invalid state that led to this.
+        if data.df.empty and previous_step_req_observations:
+            raise NoDataError(
+                f"Observed data is required for generation node {self._curr.node_name},"
+                f"(model {self._curr.model_to_gen_from_name}), but fetched data was "
+                "empty. Something is wrong with experiment setup -- likely metrics "
+                "do not implement fetching logic (check your metrics) or no data "
+                "was attached to experiment for completed trials."
             )

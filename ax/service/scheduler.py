@@ -1850,6 +1850,6 @@ def get_fitted_model_bridge(scheduler: Scheduler) -> ModelBridge:
     model_bridge = gs.model  # Optional[ModelBridge]
     if model_bridge is None:  # Need to re-fit the model.
         data = scheduler.experiment.fetch_data()
-        gs._fit_or_update_current_model(data=data)
+        gs._fit_current_model(data=data)
         model_bridge = cast(ModelBridge, gs.model)
     return model_bridge

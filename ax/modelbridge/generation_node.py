@@ -95,7 +95,6 @@ class GenerationNode:
 
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
-    use_update: bool = False
     _transition_criteria: Optional[Sequence[TransitionCriterion]]
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
@@ -110,7 +109,6 @@ class GenerationNode:
         model_specs: List[ModelSpec],
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
-        use_update: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
     ) -> None:
         self._node_name = node_name
@@ -122,7 +120,6 @@ class GenerationNode:
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
-        self.use_update = use_update
         self._transition_criteria = transition_criteria
 
     @property
@@ -240,10 +237,6 @@ class GenerationNode:
                 **kwargs,
             )
 
-    def update(self, experiment: Experiment, new_data: Data) -> None:
-        """Updates the specified models on the given experiment + new data."""
-        raise NotImplementedError("`update` is not supported yet.")
-
     def gen(
         self,
         n: Optional[int] = None,
@@ -343,96 +336,6 @@ class GenerationNode:
         )
         return self.model_specs[best_model_index]
 
-    def get_data_for_update(
-        self, passed_in_data: Optional[Data], newly_completed_trials: Set[int]
-    ) -> Optional[Data]:
-        """
-        Get the data that will be used to update the model. This is used if
-        `use_update=True` for this GenerationNode. Only the new data since the
-        last model update / gen call should be used for the update.
-
-        Args:
-            passed_in_data: An optional data object for fitting the model
-                for this GenerationNode. When omitted, data will be retrieved
-                using `experiment.lookup_data`.
-            newly_completed_trials: Indices of trials that have been completed or
-                updated with data since the last call to `GenerationStrategy.gen`.
-                Only the data for these trials are used when updating the model.
-
-        Returns:
-            Data: Data for updating the fitted model for this GenerationNode.
-        """
-        if len(newly_completed_trials) == 0:
-            logger.debug(
-                "There were no newly completed trials since last model update."
-            )
-            return None
-
-        if passed_in_data is None:
-            new_data = self.experiment.lookup_data(trial_indices=newly_completed_trials)
-            if new_data.df.empty:
-                logger.info(
-                    "No new data is attached to experiment; no need for model update."
-                )
-                return None
-            return new_data
-
-        elif passed_in_data.df.empty:
-            logger.info("Manually supplied data is empty; no need for model update.")
-            return None
-
-        return Data(
-            df=passed_in_data.df.loc[
-                passed_in_data.df.trial_index.isin(newly_completed_trials)
-            ]
-        )
-
-    def get_data_for_fit(
-        self,
-        passed_in_data: Optional[Data],
-    ) -> Data:
-        """
-        Fetches data given this generation node configuration, and checks for invalid
-        data states before returning it.
-
-        Args:
-            passed_in_data: An optional provided Data object for fitting the model for
-                this generation node
-
-        Returns:
-            Data: Data for fitting a model to generate this generation node
-        """
-        if passed_in_data is None:
-            if self.use_update:
-                # If this node is using `update`, it's important to instantiate
-                # the model with data for completed trials only, so later we can
-                # update it with data for new trials as they become completed.
-                # `experiment.lookup_data` can lookup all available data, including
-                # for non-completed trials (depending on how the experiment's metrics
-                # implement `fetch_experiment_data`). We avoid fetching data for
-                # trials with statuses other than `COMPLETED`, by fetching specifically
-                # for `COMPLETED` trials.
-                avail_while_running_metrics = {
-                    m.name
-                    for m in self.experiment.metrics.values()
-                    if m.is_available_while_running()
-                }
-                if avail_while_running_metrics:
-                    raise NotImplementedError(
-                        f"Metrics {avail_while_running_metrics} are available while "
-                        "trial is running, but use of `update` functionality in "
-                        "generation node relies on new data being available upon "
-                        "trial completion."
-                    )
-                return self.experiment.lookup_data(
-                    trial_indices=self.experiment.trial_indices_by_status[
-                        TrialStatus.COMPLETED
-                    ]
-                )
-            else:
-                return self.experiment.lookup_data()
-        return passed_in_data
-
     def __repr__(self) -> str:
         "String representation of this GenerationNode"
         # add model specs
@@ -475,11 +378,7 @@ class GenerationStep(GenerationNode, SortableBase):
             to `generation_strategy.gen` will fail with a `MaxParallelismReached
             Exception`, indicating that more trials need to be completed before
             generating and running next trials.
-        use_update: Whether to use `model_bridge.update` instead or reinstantiating
-            model + bridge on every call to `gen` within a single generation step.
-            NOTE: use of `update` on stateful models that do not implement `_get_state`
-            may result in inability to correctly resume a generation strategy from
-            a serialized state.
+        use_update: DEPRECATED.
         enforce_num_trials: Whether to enforce that only `num_trials` are generated
             from the given step. If False and `num_trials` have been generated, but
             `min_trials_observed` have not been completed, `generation_strategy.gen`
@@ -545,6 +444,8 @@ class GenerationStep(GenerationNode, SortableBase):
     model_name: str = field(default_factory=str)
 
     def __post_init__(self) -> None:
+        if self.use_update:
+            raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
         if (
             self.enforce_num_trials
             and (self.num_trials >= 0)
@@ -603,7 +504,6 @@ class GenerationStep(GenerationNode, SortableBase):
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
-            use_update=self.use_update,
             transition_criteria=transition_criteria,
         )
 

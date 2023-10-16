@@ -818,14 +818,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             sample_size=sample_size,
             combine_with_last_data=True,
         )
-        # Registering trial data update is needed for generation strategies that
-        # leverage the `update` functionality of model and bridge setup and therefore
-        # need to be aware of new data added to experiment. Usually this happends
-        # seamlessly, by looking at newly completed trials, but in this case trial
-        # status does not change, so we manually register the new data.
-        # Currently this call will only result in a `NotImplementedError` if generation
-        # strategy uses `update` (`GenerationStep.use_update` is False by default).
-        self.generation_strategy._register_trial_data_update(trial=trial)
         logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
 
     def log_trial_failure(
@@ -1273,7 +1265,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                     "At least one trial must be completed with data to instantiate "
                     "a model."
                 )
-            self.generation_strategy._fit_or_update_current_model(data=None)
+            self.generation_strategy._fit_current_model(data=None)
             logger.info("Successfully instantiated a model for the first time.")
 
         # Model update is normally tied to the GenerationStrategy.gen() call,
@@ -1281,7 +1273,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # can be performed without the need to call get_next_trial(), we update the
         # model with all attached data. Note that this method keeps track of previously
         # seen trials and will update the model if there is newly attached data.
-        self.generation_strategy._fit_or_update_current_model(data=None)
+        self.generation_strategy._fit_current_model(data=None)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization

@@ -709,7 +709,6 @@ def generation_step_from_json(
         if completion_criteria is not None
         else [],
         max_parallelism=(generation_step_json.pop("max_parallelism", None)),
-        use_update=generation_step_json.pop("use_update", False),
         enforce_num_trials=generation_step_json.pop("enforce_num_trials", True),
         model_kwargs=_decode_callables_from_references(
             object_from_json(

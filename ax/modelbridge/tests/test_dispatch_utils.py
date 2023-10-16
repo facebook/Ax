@@ -11,7 +11,6 @@ from typing import Any, Dict
 import torch
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import (
     _make_botorch_step,
     calculate_num_initialization_trials,
@@ -26,7 +25,6 @@ from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment,
     get_branin_search_space,
     get_discrete_search_space,
     get_experiment,
@@ -690,33 +688,6 @@ class TestDispatchUtils(TestCase):
                     use_batch_trials=False,
                 ),
                 5,
-            )
-
-    @fast_botorch_optimize
-    def test_use_update(self) -> None:
-        search_space = get_branin_search_space()
-        # Defaults to False.
-        gs = choose_generation_strategy(search_space=search_space)
-        self.assertFalse(gs._steps[1].use_update)
-        run_branin_experiment_with_generation_strategy(generation_strategy=gs)
-        # Pass in True.
-        gs = choose_generation_strategy(search_space=search_space, use_update=True)
-        self.assertTrue(gs._steps[1].use_update)
-        with self.assertRaisesRegex(
-            NotImplementedError, "use of `update` functionality"
-        ):
-            run_branin_experiment_with_generation_strategy(generation_strategy=gs)
-        # Metrics available while running.
-        experiment = get_branin_experiment()
-        gs = choose_generation_strategy(
-            search_space=search_space, experiment=experiment, use_saasbo=True
-        )
-        # Default to False.
-        self.assertFalse(gs._steps[1].use_update)
-        # Error with True.
-        with self.assertRaisesRegex(UnsupportedError, "use_update"):
-            choose_generation_strategy(
-                search_space=search_space, experiment=experiment, use_update=True
             )
 
     @fast_botorch_optimize
