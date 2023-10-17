@@ -48,7 +48,6 @@ from botorch.optim.fit import fit_gpytorch_mll_scipy
 from botorch.optim.initializers import initialize_q_batch_nonneg
 from botorch.optim.optimize import optimize_acqf
 from botorch.optim.utils import (
-    _get_extra_mll_args,
     _handle_numerical_errors,
     get_parameters_and_bounds,
     TorchAttr,
@@ -59,8 +58,8 @@ from gpytorch.distributions.multivariate_normal import MultivariateNormal
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.rbf_kernel import postprocess_rbf
 from gpytorch.kernels.scale_kernel import ScaleKernel
-from gpytorch.mlls import MarginalLogLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
+
 from scipy.optimize import approx_fprime
 from torch import Tensor
 from torch.nn.parameter import Parameter
@@ -189,7 +188,7 @@ def set_params_with_array(
 
 
 def _scipy_objective_and_grad(
-    x: np.ndarray, mll: MarginalLogLikelihood, property_dict: Dict[str, TorchAttr]
+    x: np.ndarray, mll: ExactMarginalLogLikelihood, property_dict: Dict[str, TorchAttr]
 ) -> Tuple[Union[float, np.ndarray], np.ndarray]:
     r"""Get objective and gradient in format that scipy expects.
 
@@ -215,7 +214,7 @@ def _scipy_objective_and_grad(
     mll.zero_grad()
     try:  # catch linear algebra errors in gpytorch
         output = mll.model(*train_inputs)
-        args = [output, train_targets] + _get_extra_mll_args(mll)
+        args = [output, train_targets] + list(mll.model.train_inputs)
         # pyre-fixme[16]: Undefined attribute. Item
         # `torch.distributions.distribution.Distribution` of
         # `typing.Union[linear_operator.operators._linear_operator.LinearOperator,
