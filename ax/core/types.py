@@ -60,7 +60,10 @@ TEvaluationOutcome = Union[
     TFidelityTrialEvaluation,
     TMapTrialEvaluation,
 ]
-TEvaluationFunction = Callable[[TParameterization, Optional[float]], TEvaluationOutcome]
+TEvaluationFunction = Union[
+    Callable[[TParameterization], TEvaluationOutcome],
+    Callable[[TParameterization, Optional[float]], TEvaluationOutcome],
+]
 
 TBucket = List[Dict[str, List[str]]]
 
