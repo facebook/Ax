@@ -62,7 +62,7 @@ class OptimizationLoop:
         self.total_trials = total_trials
         self.arms_per_trial = arms_per_trial
         self.random_seed = random_seed
-        self.evaluation_function = evaluation_function
+        self.evaluation_function: TEvaluationFunction = evaluation_function
         assert len(experiment.trials) == 0, (
             "Optimization Loop should not be initialized with an experiment "
             "that has trials already."
@@ -142,9 +142,10 @@ class OptimizationLoop:
         signature = inspect.signature(self.evaluation_function)
         num_evaluation_function_params = len(signature.parameters.items())
         if num_evaluation_function_params == 1:
-            # pyre-fixme[20]: Anonymous call expects argument `$1`.
+            # pyre-ignore [20]: Can't run instance checks on subscripted generics.
             evaluation = self.evaluation_function(parameterization)
         elif num_evaluation_function_params == 2:
+            # pyre-ignore [19]: Can't run instance checks on subscripted generics.
             evaluation = self.evaluation_function(parameterization, weight)
         else:
             raise UserInputError(

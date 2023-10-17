@@ -248,7 +248,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
@@ -278,7 +277,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
@@ -304,7 +302,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -330,7 +327,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
@@ -348,7 +344,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "choice", "values": [1, 2]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -404,7 +399,6 @@ class TestManagedLoop(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             # Booth function.
-            # pyre-fixme[6]: For 2nd param expected `(Dict[str, Union[None, bool, flo...
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
@@ -471,7 +465,6 @@ class TestManagedLoop(TestCase):
                 ],
                 experiment_name="test",
                 objective_name="foo",
-                # pyre-fixme[6]: For 4th param expected `(Dict[str, Union[None, bool,...
                 evaluation_function=lambda p: 0.0,
                 minimize=True,
                 total_trials=5,
@@ -488,8 +481,7 @@ class TestManagedLoop(TestCase):
                 ],
                 experiment_name="test",
                 objective_name="foo",
-                # pyre-fixme[6]: For 4th param expected `(Dict[str, Union[None, bool,...
-                evaluation_function=lambda: 1.0,
+                evaluation_function=lambda: 1.0,  # pyre-ignore
                 minimize=True,
                 total_trials=5,
             )
