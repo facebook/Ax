@@ -929,29 +929,6 @@ class ALEBO(BotorchModel):
 
         return dataclasses.replace(gen_results, points=Xopt)
 
-    @copy_doc(TorchModel.update)
-    def update(
-        self,
-        datasets: List[SupervisedDataset],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        **kwargs: Any,
-    ) -> None:
-        if self.model is None:
-            raise RuntimeError("Cannot update model that has not been fit")
-        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
-        self.Xs = [(self.B @ X.t()).t() for X in Xs]  # Project down.
-        self.Ys = Ys
-        self.Yvars = Yvars
-        if self.refit_on_update:
-            state_dicts = None
-        else:
-            state_dicts = extract_map_statedict(
-                m_b=self.model, num_outputs=len(Xs)  # pyre-ignore
-            )
-        self.model = self.get_and_fit_model(
-            Xs=self.Xs, Ys=self.Ys, Yvars=self.Yvars, state_dicts=state_dicts
-        )
-
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,

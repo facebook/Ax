@@ -6,7 +6,6 @@
 
 from typing import Dict, List, Optional
 
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -21,7 +20,6 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.models.random.base import RandomModel
 from ax.models.types import TConfig
-from ax.utils.common.docutils import copy_doc
 
 
 FIT_MODEL_ERROR = "Model must be fit before {action}."
@@ -53,10 +51,6 @@ class RandomModelBridge(ModelBridge):
         self.model = model
         # Extract and fix parameters from initial search space.
         self.parameters = list(search_space.parameters.keys())
-
-    @copy_doc(ModelBridge.update)
-    def update(self, new_data: Data, experiment: Experiment) -> None:
-        pass
 
     def _gen(
         self,

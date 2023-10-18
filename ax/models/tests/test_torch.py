@@ -68,12 +68,3 @@ class TorchModelTest(TestCase):
                 X_test=torch.ones(1),
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
-
-    def test_TorchModelUpdate(self) -> None:
-        model = TorchModel()
-        with self.assertRaises(NotImplementedError):
-            model.update(
-                datasets=[self.dataset],
-                metric_names=["y"],
-                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
-            )

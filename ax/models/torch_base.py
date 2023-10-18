@@ -249,7 +249,7 @@ class TorchModel(BaseModel):
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
         """
-        raise NotImplementedError
+        raise DeprecationWarning("Model.update has been deprecated. Use `fit` instead.")
 
     def evaluate_acquisition_function(
         self,

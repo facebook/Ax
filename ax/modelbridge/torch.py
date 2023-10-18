@@ -920,36 +920,6 @@ class TorchModelBridge(ModelBridge):
 
         return thresholds
 
-    def _update(
-        self,
-        search_space: SearchSpace,
-        observations: List[Observation],
-        parameters: Optional[List[str]] = None,
-    ) -> None:
-        """Apply terminal transform for update data, and pass along to model."""
-        if parameters is None:
-            parameters = self.parameters
-        observation_features, observation_data = separate_observations(observations)
-        search_space_digest = extract_search_space_digest(
-            search_space=search_space, param_names=self.parameters
-        )
-        datasets, candidate_metadata = self._convert_observations(
-            observation_data=observation_data,
-            observation_features=observation_features,
-            outcomes=self.outcomes,
-            parameters=parameters,
-            search_space_digest=search_space_digest,
-        )
-        # Update in-design status for these new points.
-        if self.model is None:
-            raise ValueError(FIT_MODEL_ERROR.format(action="_update"))
-        self.model.update(
-            datasets=datasets,
-            metric_names=self.outcomes,
-            search_space_digest=search_space_digest,
-            candidate_metadata=candidate_metadata,
-        )
-
     def _validate_observation_data(
         self, observation_data: List[ObservationData]
     ) -> None:

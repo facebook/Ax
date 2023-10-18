@@ -375,28 +375,6 @@ class ALEBOTest(TestCase):
             )
         )
 
-        # Test update
-        train_X2 = torch.tensor(
-            [
-                [3.0, 3.0, 3.0, 3.0, 3.0],
-                [1.0, 1.0, 1.0, 1.0, 1.0],
-                [2.0, 2.0, 2.0, 2.0, 2.0],
-            ],
-            dtype=torch.double,
-        )
-        dataset2 = SupervisedDataset(
-            X=train_X2,
-            Y=train_Y,
-            Yvar=train_Yvar,
-            feature_names=[f"x{i}" for i in range(5)],
-            outcome_names=["y2"],
-        )
-        m.update(datasets=[dataset, dataset2])
-        self.assertTrue(torch.allclose(m.Xs[0], (B @ train_X.t()).t()))
-        self.assertTrue(torch.allclose(m.Xs[1], (B @ train_X2.t()).t()))
-        m.refit_on_update = False
-        m.update(datasets=[dataset, dataset2])
-
         # Test get_and_fit with single metric
         gp = m.get_and_fit_model(
             Xs=[(B @ train_X.t()).t()], Ys=[train_Y], Yvars=[train_Yvar]
@@ -406,14 +384,14 @@ class ALEBOTest(TestCase):
         # Test cross_validate
         f, cov = m.cross_validate(
             datasets=[dataset],
-            X_test=train_X2,
+            X_test=train_X,
         )
         self.assertEqual(f.shape, torch.Size([3, 1]))
         self.assertEqual(cov.shape, torch.Size([3, 1, 1]))
         m.refit_on_cv = True
         f, cov = m.cross_validate(
             datasets=[dataset],
-            X_test=train_X2,
+            X_test=train_X,
         )
         self.assertEqual(f.shape, torch.Size([3, 1]))
         self.assertEqual(cov.shape, torch.Size([3, 1, 1]))
