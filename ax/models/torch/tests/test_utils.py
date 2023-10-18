@@ -31,11 +31,8 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import (
-    FixedNoiseMultiFidelityGP,
-    SingleTaskMultiFidelityGP,
-)
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import ModelList
 from botorch.models.multitask import MultiTaskGP
@@ -106,30 +103,19 @@ class BoTorchModelUtilsTest(TestCase):
                     fidelity_features=[1],
                 ),
             )
-        # With fidelity features and unknown variances, use SingleTaskMultiFidelityGP.
-        self.assertEqual(
-            SingleTaskMultiFidelityGP,
-            choose_model_class(
-                datasets=self.supervised_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                    fidelity_features=[2],
+        # With fidelity features, use SingleTaskMultiFidelityGP.
+        for ds in [self.supervised_datasets, self.fixed_noise_datasets]:
+            self.assertEqual(
+                SingleTaskMultiFidelityGP,
+                choose_model_class(
+                    datasets=ds,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=[],
+                        bounds=[],
+                        fidelity_features=[2],
+                    ),
                 ),
-            ),
-        )
-        # With fidelity features and known variances, use FixedNoiseMultiFidelityGP.
-        self.assertEqual(
-            FixedNoiseMultiFidelityGP,
-            choose_model_class(
-                datasets=self.fixed_noise_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                    fidelity_features=[2],
-                ),
-            ),
-        )
+            )
 
     def test_choose_model_class_task_features(self) -> None:
         # Only a single task feature can be used.
@@ -179,28 +165,18 @@ class BoTorchModelUtilsTest(TestCase):
                     bounds=[],
                 ),
             )
-        # Without fidelity/task features but with Yvar specifications, use FixedNoiseGP.
-        self.assertEqual(
-            FixedNoiseGP,
-            choose_model_class(
-                datasets=self.fixed_noise_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
+        # Without fidelity/task features, use SingleTaskGP.
+        for ds in [self.fixed_noise_datasets, self.supervised_datasets]:
+            self.assertEqual(
+                SingleTaskGP,
+                choose_model_class(
+                    datasets=ds,
+                    search_space_digest=SearchSpaceDigest(
+                        feature_names=[],
+                        bounds=[],
+                    ),
                 ),
-            ),
-        )
-        # W/out fidelity/task features and w/out Yvar specifications, use SingleTaskGP.
-        self.assertEqual(
-            SingleTaskGP,
-            choose_model_class(
-                datasets=self.supervised_datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=[],
-                    bounds=[],
-                ),
-            ),
-        )
+            )
 
     def test_choose_botorch_acqf_class(self) -> None:
         self.assertEqual(qLogNoisyExpectedImprovement, choose_botorch_acqf_class())

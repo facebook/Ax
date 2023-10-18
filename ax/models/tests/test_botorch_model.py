@@ -30,11 +30,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
-from botorch.models import FixedNoiseGP, ModelListGP, SingleTaskGP
+from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.transforms.input import Warp
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from gpytorch.likelihoods import _GaussianLikelihoodBase
+from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
@@ -283,7 +284,7 @@ class BotorchModelTest(TestCase):
                     else:
                         self.assertFalse(hasattr(m, "input_transform"))
 
-            # Test batched multi-output FixedNoiseGP
+            # Test batched multi-output SingleTaskGP
             datasets_block = [
                 SupervisedDataset(
                     X=Xs1[0],
@@ -324,7 +325,8 @@ class BotorchModelTest(TestCase):
                 models = [model.model]
             Ys = [Ys1[0], Ys2[0]]
             for i, m in enumerate(models):
-                self.assertIsInstance(m, FixedNoiseGP)
+                self.assertIsInstance(m, SingleTaskGP)
+                self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
                 expected_train_inputs = Xs1[0]
 
                 if not use_input_warping:

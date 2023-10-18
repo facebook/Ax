@@ -42,12 +42,13 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import GenericMCObjective
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import FixedNoiseMultiFidelityGP
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.model import ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
+from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
@@ -790,8 +791,8 @@ class BoTorchModelTest(TestCase):
         )
         for submodel in model_list.models:
             # There are fidelity features and nonempty Yvars, so
-            # fixed noise MFGP should be chosen.
-            self.assertIsInstance(submodel, FixedNoiseMultiFidelityGP)
+            # MFGP should be chosen.
+            self.assertIsInstance(submodel, SingleTaskMultiFidelityGP)
 
     @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
@@ -819,7 +820,7 @@ class BoTorchModelTest(TestCase):
             candidate_metadata=self.candidate_metadata,
         )
         self.assertIsInstance(
-            model.surrogates[Keys.AUTOSET_SURROGATE].model, FixedNoiseGP
+            model.surrogates[Keys.AUTOSET_SURROGATE].model, SingleTaskGP
         )
         subset_outcome_constraints = (
             # model is subset since last output is not used
@@ -848,7 +849,8 @@ class BoTorchModelTest(TestCase):
         self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
         mock_input_constructor.assert_called_once()
         m = ckwargs["model"]
-        self.assertIsInstance(m, FixedNoiseGP)
+        self.assertIsInstance(m, SingleTaskGP)
+        self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(m.num_outputs, 2)
         training_data = ckwargs["training_data"]
         self.assertIsNotNone(training_data.Yvar)
@@ -954,7 +956,8 @@ class BoTorchModelTest(TestCase):
             self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
             self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
             m = ckwargs["model"]
-            self.assertIsInstance(m, FixedNoiseGP)
+            self.assertIsInstance(m, SingleTaskGP)
+            self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
             self.assertEqual(m.num_outputs, 2)
             self.assertIn("objective_thresholds", gen_results.gen_metadata)
             obj_t = gen_results.gen_metadata["objective_thresholds"]

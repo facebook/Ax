@@ -95,9 +95,12 @@ ACQUISITION_REGISTRY: Dict[Type[Acquisition], str] = {
 Mapping of BoTorch `Model` classes to class name strings.
 """
 MODEL_REGISTRY: Dict[Type[Model], str] = {
-    FixedNoiseGP: "FixedNoiseGP",
-    FixedNoiseMultiFidelityGP: "FixedNoiseMultiFidelityGP",
-    FixedNoiseMultiTaskGP: "FixedNoiseMultiTaskGP",
+    # NOTE: Fixed noise models are deprecated. They point to their
+    # supported parent classes, so that we can reap them with minimal
+    # concern for backwards compatibility when the time comes.
+    FixedNoiseGP: "SingleTaskGP",
+    FixedNoiseMultiFidelityGP: "SingleTaskMultiFidelityGP",
+    FixedNoiseMultiTaskGP: "MultiTaskGP",
     MixedSingleTaskGP: "MixedSingleTaskGP",
     ModelListGP: "ModelListGP",
     MultiTaskGP: "MultiTaskGP",

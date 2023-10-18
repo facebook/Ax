@@ -41,7 +41,7 @@ from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.objective import PosteriorTransform
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.optim.fit import fit_gpytorch_mll_scipy
@@ -310,7 +310,7 @@ class ALEBOKernel(Kernel):
         return postprocess_rbf(diff)
 
 
-class ALEBOGP(FixedNoiseGP):
+class ALEBOGP(SingleTaskGP):
     """The GP for ALEBO.
 
     Uses the Mahalanobis kernel defined in ALEBOKernel, along with a

@@ -22,12 +22,12 @@ from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_mll
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf
 from botorch.utils import (
@@ -761,19 +761,11 @@ def _get_model(
             input_transform=warp_tf,
             **kwargs,
         )
-    elif task_feature is None and all_nan_Yvar:
+    elif task_feature is None:
         gp = SingleTaskGP(
             train_X=X,
             train_Y=Y,
-            covar_module=covar_module,
-            input_transform=warp_tf,
-            **kwargs,
-        )
-    elif task_feature is None:
-        gp = FixedNoiseGP(
-            train_X=X,
-            train_Y=Y,
-            train_Yvar=Yvar,
+            train_Yvar=None if all_nan_Yvar else Yvar,
             covar_module=covar_module,
             input_transform=warp_tf,
             **kwargs,
@@ -799,27 +791,16 @@ def _get_model(
                     f"your prior type was {prior_type}."
                 )
 
-        if all_nan_Yvar:
-            gp = MultiTaskGP(
-                train_X=X,
-                train_Y=Y,
-                task_feature=task_feature,
-                covar_module=covar_module,
-                rank=kwargs.get("rank"),
-                task_covar_prior=task_covar_prior,
-                input_transform=warp_tf,
-            )
-        else:
-            gp = FixedNoiseMultiTaskGP(
-                train_X=X,
-                train_Y=Y,
-                train_Yvar=Yvar,
-                task_feature=task_feature,
-                covar_module=covar_module,
-                rank=kwargs.get("rank"),
-                task_covar_prior=task_covar_prior,
-                input_transform=warp_tf,
-            )
+        gp = MultiTaskGP(
+            train_X=X,
+            train_Y=Y,
+            train_Yvar=None if all_nan_Yvar else Yvar,
+            task_feature=task_feature,
+            covar_module=covar_module,
+            rank=kwargs.get("rank"),
+            task_covar_prior=task_covar_prior,
+            input_transform=warp_tf,
+        )
     return gp
 
 

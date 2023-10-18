@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import inspect
-import warnings
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -15,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
@@ -321,24 +320,6 @@ class Surrogate(Base):
             "categorical_features": categorical_features,
         }
         botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
-
-        # Temporary workaround to allow models to consume data from
-        # `FixedNoiseDataset`s even if they don't accept variance observations.
-        if "train_Yvar" not in botorch_model_class_args and dataset.Yvar is not None:
-            warnings.warn(
-                f"Provided model class {botorch_model_class} does not accept "
-                "`train_Yvar` argument, but received dataset with `Yvar`. Ignoring "
-                "variance observations.",
-                AxWarning,
-            )
-            dataset = SupervisedDataset(
-                X=dataset.X,
-                Y=dataset.Y,
-                Yvar=None,
-                feature_names=dataset.feature_names,
-                outcome_names=dataset.outcome_names,
-            )
-
         formatted_model_inputs = botorch_model_class.construct_inputs(
             training_data=dataset, **input_constructor_kwargs
         )
