@@ -215,28 +215,14 @@ class MapTorchModelBridge(TorchModelBridge):
     def _array_to_observation_features(
         self, X: np.ndarray, candidate_metadata: Optional[List[TCandidateMetadata]]
     ) -> List[ObservationFeatures]:
-        """The difference b/t this method and TorchModelBridge._update(...) is
+        """The difference b/t this method and
+        TorchModelBridge._array_to_observation_features(...) is
         that this one makes use of `self.parameters_with_map_keys`.
         """
         return parse_observation_features(
             X=X,
             param_names=self.parameters_with_map_keys,
             candidate_metadata=candidate_metadata,
-        )
-
-    def _update(
-        self,
-        search_space: SearchSpace,
-        observations: List[Observation],
-        parameters: Optional[List[str]] = None,
-    ) -> None:
-        """The difference b/t this method and TorchModelBridge._update(...) is
-        that this one makes use of `self.parameters_with_map_keys`.
-        """
-        return super()._update(
-            search_space=search_space,
-            observations=observations,
-            parameters=self.parameters_with_map_keys,
         )
 
     def _prepare_observations(

@@ -231,19 +231,6 @@ class REMBO(BotorchModel):
             X_test=self.to_01(X_test_d),
         )
 
-    @copy_doc(TorchModel.update)
-    def update(
-        self,
-        datasets: List[SupervisedDataset],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        **kwargs: Any,
-    ) -> None:
-        low_d_datasets = self._convert_and_normalize_datasets(datasets=datasets)
-        super().update(
-            datasets=low_d_datasets,
-            candidate_metadata=candidate_metadata,
-        )
-
     def _convert_and_normalize_datasets(
         self, datasets: List[SupervisedDataset]
     ) -> List[SupervisedDataset]:

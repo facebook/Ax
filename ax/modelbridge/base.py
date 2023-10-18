@@ -658,37 +658,7 @@ class ModelBridge(ABC):
                 `update`.
             experiment: Experiment, in which this data was obtained.
         """
-        t_update_start = time.monotonic()
-        observations = self._prepare_observations(experiment=experiment, data=new_data)
-        obs_raw = self._extend_training_data(observations=observations)
-        observations, search_space = self._transform_data(
-            observations=obs_raw,
-            search_space=self._model_space,
-            transforms=self._raw_transforms,
-            transform_configs=self._transform_configs,
-        )
-        self._update(
-            search_space=search_space,
-            observations=observations,
-        )
-        self.fit_time += time.monotonic() - t_update_start
-        self.fit_time_since_gen += time.monotonic() - t_update_start
-
-    def _update(
-        self,
-        search_space: SearchSpace,
-        observations: List[Observation],
-    ) -> None:
-        """Apply terminal transform and update model.
-
-        Note: This function requires ALL observation_features and
-        observation_data observed thus far, not just the new data to update with.
-
-        Args:
-            observation_features: All observation features observed so far.
-            observation_data: All observation data observed so far.
-        """
-        raise NotImplementedError
+        raise DeprecationWarning("ModelBridge.update is deprecated. Use `fit` instead.")
 
     def _get_transformed_gen_args(
         self,

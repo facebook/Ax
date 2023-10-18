@@ -190,13 +190,6 @@ class ModelSpec(Base):
         """
         return self._diagnostics
 
-    def update(self, experiment: Experiment, new_data: Data) -> None:
-        """Updates the current fitted model on the given experiment + new data
-
-        Model must have been fit prior to calling update()
-        """
-        raise NotImplementedError("update() is not supported yet")
-
     def gen(self, **model_gen_kwargs: Any) -> GeneratorRun:
         """Generates candidates from the fitted model, using the model gen
         kwargs set on the model spec, alongside any passed as kwargs

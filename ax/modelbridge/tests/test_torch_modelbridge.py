@@ -152,21 +152,6 @@ class TorchModelBridgeTest(TestCase):
             "used to fit the model. Skipping model fitting."
         )
 
-        # Test `_update`
-        with mock.patch(
-            f"{TorchModelBridge.__module__}.extract_search_space_digest",
-            return_value=ssd,
-        ):
-            ma._update(
-                search_space=search_space,
-                observations=observations,
-            )
-        model_update_args = model.update.mock_calls[0][2]
-        self.assertEqual(model_update_args["datasets"], list(datasets.values()))
-        self.assertEqual(model_update_args["metric_names"], ["y1", "y2"])
-        self.assertEqual(model_update_args["search_space_digest"], ssd)
-        self.assertIsNone(model_update_args["candidate_metadata"])
-
         # Test `_predict`
         model.predict.return_value = (
             torch.tensor([[3.0, 2.0]], **tkwargs),
@@ -653,30 +638,6 @@ class TorchModelBridgeTest(TestCase):
             },
         )
 
-        # Check that the metadata is correctly re-added to observation
-        # features during `update`.
-        batch = exp.new_batch_trial(generator_run=gr)
-        modelbridge.update(
-            experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
-        )
-        datasets = mock_model_update.call_args[1].get("datasets")
-        X_expected = torch.cat((X_expected, torch.tensor([[1, 2]])), dim=-2)
-        for dataset in datasets:
-            self.assertTrue(torch.equal(dataset.X, X_expected))
-
-        self.assertEqual(
-            mock_model_update.call_args[1].get("candidate_metadata"),
-            [
-                [
-                    {"preexisting_batch_cand_metadata": "some_value"},
-                    # new data contained data just for arm '1_0', not for '1_1',
-                    # so we don't expect to see '{"some_key": "some_value_1"}'
-                    # in candidate metadata.
-                    {"some_key": "some_value_0"},
-                ]
-            ],
-        )
-
         # Check that `None` candidate metadata is handled correctly.
         mock_model_gen.return_value = TorchGenResults(
             points=torch.tensor([[2, 4], [3, 5]]),
@@ -685,28 +646,6 @@ class TorchModelBridgeTest(TestCase):
         )
         gr = modelbridge.gen(n=1)
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
-
-        # Check that the metadata is correctly re-added to observation
-        # features during `update`.
-        batch = exp.new_batch_trial(generator_run=gr)
-        modelbridge.update(
-            experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
-        )
-        datasets = mock_model_update.call_args[1].get("datasets")
-        X_expected = torch.cat((X_expected, torch.tensor([[2, 4]])), dim=-2)
-        for dataset in datasets:
-            self.assertTrue(torch.equal(dataset.X, X_expected))
-
-        self.assertEqual(
-            mock_model_update.call_args[1].get("candidate_metadata"),
-            [
-                [
-                    {"preexisting_batch_cand_metadata": "some_value"},
-                    {"some_key": "some_value_0"},
-                    {},
-                ]
-            ],
-        )
 
         # Check that no candidate metadata is handled correctly.
         exp = get_branin_experiment(with_status_quo=True)
@@ -731,10 +670,6 @@ class TorchModelBridgeTest(TestCase):
         gr = modelbridge.gen(n=1)
         self.assertIsNone(mock_model_fit.call_args[1].get("candidate_metadata"))
         self.assertIsNone(gr.candidate_metadata_by_arm_signature)
-        batch = exp.new_batch_trial(generator_run=gr)
-        modelbridge.update(
-            experiment=exp, new_data=get_branin_data(trial_indices=[batch.index])
-        )
 
     @mock.patch(f"{TorchModel.__module__}.TorchModel.fit", autospec=True)
     def test_fit_tracking_metrics(self, mock_model_fit: Mock) -> None:

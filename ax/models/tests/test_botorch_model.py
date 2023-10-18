@@ -542,49 +542,11 @@ class BotorchModelTest(TestCase):
             self.assertTrue(mean.shape == torch.Size([2, 2]))
             self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
 
-            # Test update
-            model.refit_on_update = False
-            model.update(
-                datasets=[
-                    SupervisedDataset(
-                        Xs2[0],
-                        Y=Ys2[0],
-                        Yvar=Yvars2[0],
-                        feature_names=feature_names,
-                        outcome_names=metric_names,
-                    )
-                ]
-                * 2,
-                metric_names=["y1", "y2"],
-            )
-
             # Test feature_importances
             importances = model.feature_importances()
             self.assertEqual(importances.shape, torch.Size([2, 1, 3]))
 
-            # When calling update directly, the data is completely overwritten.
-            self.assertTrue(torch.equal(model.Xs[0], Xs2[0]))
-            self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
-            self.assertTrue(torch.equal(model.Ys[0], Ys2[0]))
-            self.assertTrue(torch.equal(model.Yvars[0], Yvars2[0]))
-
-            model.refit_on_update = True
-            with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-                model.update(
-                    datasets=[
-                        SupervisedDataset(
-                            Xs2[0],
-                            Y=Ys2[0],
-                            Yvar=Yvars2[0],
-                            feature_names=feature_names,
-                            outcome_names=metric_names,
-                        )
-                    ]
-                    * 2,
-                    metric_names=["y1", "y2"],
-                )
-
-            # test unfit model CV, update, and feature_importances
+            # test unfit model CV and feature_importances
             unfit_model = BotorchModel()
             with self.assertRaisesRegex(
                 RuntimeError, r"Cannot cross-validate model that has not been fitted"
@@ -593,12 +555,6 @@ class BotorchModelTest(TestCase):
                     datasets=combined_datasets,
                     metric_names=["y1", "y2"],
                     X_test=Xs1[0],
-                )
-            with self.assertRaisesRegex(
-                RuntimeError, r"Cannot update model that has not been fitted"
-            ):
-                unfit_model.update(
-                    datasets=combined_datasets, metric_names=["y1", "y2"]
                 )
             with self.assertRaisesRegex(
                 RuntimeError,
