@@ -484,9 +484,7 @@ class GenerationStrategy(Base):
                 )
             self._curr = self._steps[self._curr.index + 1]
             # Moving to the next step also entails unsetting this GS's model (since
-            # new step's model will be initialized for the first time, so we don't
-            # try to `update` it but rather initialize with all the data even if
-            # `use_update` is true for the new generation step; this is done in
+            # new step's model will be initialized for the first time; this is done in
             # `self._fit_current_model).
             self._model = None
 

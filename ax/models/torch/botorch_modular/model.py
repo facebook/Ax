@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch import (
     get_feature_importances_from_botorch_model,
     get_rounding_func,
@@ -350,60 +350,6 @@ class BoTorchModel(TorchModel, Base):
                 candidate_metadata=candidate_metadata,
                 state_dict=(state_dicts or {}).get(label),
                 refit=refit,
-            )
-
-    @copy_doc(TorchModel.update)
-    def update(
-        self,
-        datasets: List[Optional[SupervisedDataset]],
-        metric_names: List[str],
-        search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        **additional_model_inputs: Any,
-    ) -> None:
-        if len(self.surrogates) == 0:
-            raise UnsupportedError("Cannot update model that has not been fitted.")
-
-        # store search space info  for later use (e.g. during generation)
-        self._search_space_digest = search_space_digest
-
-        for label, surrogate in self.surrogates.items():
-            # Sometimes the model fit should be restarted from scratch on update, for
-            # models that are prone to overfitting. In those cases,
-            # `self.warm_start_refit` should be false and `Surrogate.update` will not
-            # receive a state dict and will not pass it to the underlying
-            # `Surrogate.fit`.
-
-            state_dict = (
-                None
-                if self.refit_on_update and not self.warm_start_refit
-                else surrogate.model.state_dict()
-            )
-            if any(dataset is None for dataset in datasets):
-                raise UnsupportedError(
-                    f"{self.__class__.__name__}.update requires data for all outcomes."
-                )
-
-            # Only update each Surrogate on its own metrics unless it was the
-            # preconstructed Surrogate
-            datasets_by_metric_name = dict(zip(metric_names, datasets))
-            subset_metric_names = (
-                self.surrogates[label].outcomes
-                if label not in (Keys.ONLY_SURROGATE, Keys.AUTOSET_SURROGATE)
-                else metric_names
-            )
-            subset_datasets = [
-                datasets_by_metric_name[metric_name]
-                for metric_name in subset_metric_names
-            ]
-            surrogate.model_options.update(additional_model_inputs)
-            surrogate.update(
-                datasets=subset_datasets,
-                metric_names=subset_metric_names,
-                search_space_digest=search_space_digest,
-                candidate_metadata=candidate_metadata,
-                state_dict=state_dict,
-                refit=self.refit_on_update,
             )
 
     @single_surrogate_only

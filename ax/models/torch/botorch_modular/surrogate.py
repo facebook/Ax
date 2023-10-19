@@ -663,55 +663,6 @@ class Surrogate(Base):
         )
         return candidates[0], acqf_values[0]
 
-    def update(
-        self,
-        datasets: List[SupervisedDataset],
-        metric_names: List[str],
-        search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        state_dict: Optional[Dict[str, Tensor]] = None,
-        refit: bool = True,
-    ) -> None:
-        """Updates the surrogate model with new data. In the base ``Surrogate``,
-        just calls ``fit`` after checking that this surrogate was not created
-        via ``Surrogate.from_botorch`` (in which case the ``Model`` comes premade,
-        constructed manually and then supplied to ``Surrogate``).
-
-        NOTE: Expects `training_data` to be all available data,
-        not just the new data since the last time the model was updated.
-
-        Args:
-            training_data: Surrogate training_data containing all the data the model
-                should use for inference.
-            search_space_digest: A SearchSpaceDigest object containing
-                metadata on the features in the training data.
-            metric_names: Names of each outcome Y in Ys.
-            candidate_metadata: Model-produced metadata for candidates, in
-                the order corresponding to the Xs.
-            state_dict: Optional state dict to load.
-            refit: Whether to re-optimize model parameters or just set the training
-                data used for interence to new training data.
-            additional_model_inputs: Additional kwargs to pass to the
-                model input constructor.
-        """
-        # NOTE: In the future, could have `incremental` kwarg, in which case
-        # `training_data` could contain just the new data.
-        if self._constructed_manually:
-            raise NotImplementedError(
-                "`update` not yet implemented for models that are "
-                "constructed manually, but it is possible to create a new "
-                "surrogate in the same way as the current manually constructed one, "
-                "via `Surrogate.from_botorch`."
-            )
-        self.fit(
-            datasets=datasets,
-            metric_names=metric_names,
-            search_space_digest=search_space_digest,
-            candidate_metadata=candidate_metadata,
-            state_dict=state_dict,
-            refit=refit,
-        )
-
     def pareto_frontier(self) -> Tuple[Tensor, Tensor]:
         """For multi-objective optimization, retrieve Pareto frontier instead
         of best point.

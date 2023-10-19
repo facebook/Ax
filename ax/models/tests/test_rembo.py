@@ -130,25 +130,3 @@ class REMBOTest(TestCase):
 
         self.assertEqual(gen_results.points.shape[1], 4)
         self.assertEqual(len(m.X_d), 5)
-
-        # Test update
-        with self.assertRaises(ValueError):
-            new_dataset = SupervisedDataset(
-                X=torch.tensor([[0.1, 0.2, 0.3, 0.4]]),
-                Y=torch.randn(1, 1),
-                Yvar=torch.ones(1, 1),
-                feature_names=[f"x{i}" for i in range(4)],
-                outcome_names=["y"],
-            )
-            m.update(datasets=[new_dataset, new_dataset])
-
-        new_dataset = SupervisedDataset(
-            X=gen_results.points,
-            Y=torch.randn(2, 1),
-            Yvar=torch.ones(2, 1),
-            feature_names=[f"x{i}" for i in range(gen_results.points.shape[-1])],
-            outcome_names=["y"],
-        )
-        m.update(datasets=[new_dataset, new_dataset])
-        for x in m.Xs:
-            self.assertTrue(torch.allclose(x, Xgen_d))

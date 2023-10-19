@@ -10,16 +10,11 @@ from unittest import mock
 from unittest.mock import Mock
 
 import numpy as np
-import pandas as pd
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
-from ax.core.observation import (
-    ObservationData,
-    ObservationFeatures,
-    observations_from_data,
-)
+from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -32,7 +27,6 @@ from ax.modelbridge.base import (
     unwrap_observation_data,
 )
 from ax.modelbridge.registry import Models, Y_trans
-from ax.modelbridge.transforms.log import Log
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -101,6 +95,10 @@ class BaseModelBridgeTest(TestCase):
         self.assertTrue(fit_args["search_space"] == get_search_space_for_value(8.0))
         self.assertTrue(fit_args["observations"] == [])
         self.assertTrue(mock_observations_from_data.called)
+
+        # Test deprecation error on update.
+        with self.assertRaisesRegex(DeprecationWarning, "ModelBridge.update"):
+            modelbridge.update(Mock(), Mock())
 
         # Test prediction on out of design features.
         modelbridge._predict = mock.MagicMock(
@@ -696,72 +694,6 @@ class BaseModelBridgeTest(TestCase):
         gr = modelbridge.gen(1)
         self.assertIsNone(gr.optimization_config)
         self.assertIsNone(gr.search_space)
-
-    @mock.patch(
-        "ax.modelbridge.base.ModelBridge._gen",
-        autospec=True,
-        side_effect=[
-            GenResults([get_observation1trans().features], [2]),
-            GenResults([get_observation2trans().features], [2]),
-            GenResults([get_observation2().features], weights=[2]),
-        ],
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._update", autospec=True)
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_update(self, _mock_update, _mock_gen):
-        exp = get_experiment_for_value()
-        exp.optimization_config = get_optimization_config_no_constraints()
-        ss = get_search_space_for_range_values(min=0, max=1000)
-        exp.search_space = ss
-        modelbridge = ModelBridge(
-            search_space=ss, model=Model(), transforms=[Log], experiment=exp
-        )
-        exp.new_trial(generator_run=modelbridge.gen(1))
-        modelbridge._set_training_data(
-            observations_from_data(
-                data=Data(
-                    pd.DataFrame(
-                        [
-                            {
-                                "arm_name": "0_0",
-                                "metric_name": "m1",
-                                "mean": 3.0,
-                                "sem": 1.0,
-                            }
-                        ]
-                    )
-                ),
-                experiment=exp,
-            ),
-            ss,
-        )
-        exp.new_trial(generator_run=modelbridge.gen(1))
-        modelbridge.update(
-            new_data=Data(
-                pd.DataFrame(
-                    [{"arm_name": "1_0", "metric_name": "m1", "mean": 5.0, "sem": 0.0}]
-                )
-            ),
-            experiment=exp,
-        )
-        exp.new_trial(generator_run=modelbridge.gen(1))
-        # Trying to update with unrecognised metric should error.
-        with self.assertRaisesRegex(ValueError, "Unrecognised metric"):
-            modelbridge.update(
-                new_data=Data(
-                    pd.DataFrame(
-                        [
-                            {
-                                "arm_name": "1_0",
-                                "metric_name": "m2",
-                                "mean": 5.0,
-                                "sem": 0.0,
-                            }
-                        ]
-                    )
-                ),
-                experiment=exp,
-            )
 
 
 class testClampObservationFeatures(TestCase):

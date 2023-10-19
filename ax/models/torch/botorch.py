@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -481,37 +480,6 @@ class BotorchModel(TorchModel):
             **self._kwargs,
         )
         return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
-
-    @copy_doc(TorchModel.update)
-    def update(  # pyre-ignore [14]: `search_space_digest` arg not needed here
-        self,
-        datasets: List[SupervisedDataset],
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        **kwargs: Any,
-    ) -> None:
-        if self._model is None:
-            raise RuntimeError("Cannot update model that has not been fitted.")
-        Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
-        self.Xs = Xs
-        self.Ys = Ys
-        self.Yvars = Yvars
-        if self.refit_on_update and not self.warm_start_refitting:
-            state_dict = None
-        else:
-            state_dict = deepcopy(self.model.state_dict())
-        self._model = self.model_constructor(  # pyre-ignore: [28]
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            task_features=self.task_features,
-            state_dict=state_dict,
-            fidelity_features=self.fidelity_features,
-            metric_names=self.metric_names,
-            refit_model=self.refit_on_update,
-            use_input_warping=self.use_input_warping,
-            use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
-            **self._kwargs,
-        )
 
     def feature_importances(self) -> np.ndarray:
         return get_feature_importances_from_botorch_model(model=self._model)

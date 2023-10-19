@@ -641,45 +641,11 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                 self.assertTrue(mean.shape == torch.Size([2, 2]))
                 self.assertTrue(variance.shape == torch.Size([2, 2, 2]))
 
-            # Test update
-            model.refit_on_update = False
-            model.update(
-                datasets=[
-                    SupervisedDataset(
-                        X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
-                    )
-                    for X, Y, Yvar, mn in zip(
-                        Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2, mns * 2
-                    )
-                ]
-            )
-
             # Test feature_importances
             importances = model.feature_importances()
             self.assertEqual(importances.shape, torch.Size([2, 1, 3]))
 
-            # When calling update directly, the data is completely overwritten.
-            self.assertTrue(torch.equal(model.Xs[0], Xs2[0]))
-            self.assertTrue(torch.equal(model.Xs[1], Xs2[0]))
-            self.assertTrue(torch.equal(model.Ys[0], Ys2[0]))
-            self.assertTrue(torch.equal(model.Yvars[0], Yvars2[0]))
-
-            model.refit_on_update = True
-            with mock.patch(
-                RUN_INFERENCE_PATH, side_effect=dummy_samples_list
-            ) as _mock_fit_model:
-                model.update(
-                    datasets=[
-                        SupervisedDataset(
-                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
-                        )
-                        for X, Y, Yvar, mn in zip(
-                            Xs2 + Xs2, Ys2 + Ys2, Yvars2 + Yvars2, mns * 2
-                        )
-                    ]
-                )
-
-            # test unfit model CV, update, and feature_importances
+            # test unfit model CV and feature_importances
             unfit_model = self.model_cls()
             with self.assertRaises(RuntimeError):
                 unfit_model.cross_validate(
@@ -692,17 +658,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         )
                     ],
                     X_test=Xs1[0],
-                )
-            with self.assertRaises(RuntimeError):
-                unfit_model.update(
-                    datasets=[
-                        SupervisedDataset(
-                            X=X, Y=Y, Yvar=Yvar, feature_names=fns, outcome_names=[mn]
-                        )
-                        for X, Y, Yvar, mn in zip(
-                            Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
-                        )
-                    ]
                 )
             with self.assertRaises(RuntimeError):
                 unfit_model.feature_importances()

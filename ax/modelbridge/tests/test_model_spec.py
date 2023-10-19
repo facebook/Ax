@@ -38,8 +38,6 @@ class ModelSpecTest(BaseModelSpecTest):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
         ms.gen(n=1)
-        with self.assertRaises(NotImplementedError):
-            ms.update(experiment=self.experiment, new_data=self.data)
 
     @fast_botorch_optimize
     # We can use `extract_search_space_digest` as a surrogate for executing
@@ -155,8 +153,6 @@ class FactoryFunctionModelSpecTest(BaseModelSpecTest):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
         ms.gen(n=1)
-        with self.assertRaises(NotImplementedError):
-            ms.update(experiment=self.experiment, new_data=self.data)
 
     def test_model_key(self) -> None:
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)

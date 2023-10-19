@@ -398,7 +398,6 @@ def choose_generation_strategy(
             strategy with a given experiment before it's first used to ``gen`` with
             that experiment). Can also provide `optimization_config` if it is not
             provided as an arg to this function.
-        use_update: DEPRECATED.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
