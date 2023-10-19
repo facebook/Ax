@@ -12,10 +12,8 @@ import torch
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models import MultiTaskGP
-from botorch.models.gp_regression import FixedNoiseGP
-
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
-from botorch.models.multitask import FixedNoiseMultiTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 from botorch.utils.types import _DefaultType, DEFAULT
@@ -101,16 +99,14 @@ def _covar_module_argparse_scale_matern(
         A dictionary with covar module kwargs.
     """
 
-    if issubclass(botorch_model_class, FixedNoiseMultiTaskGP) or issubclass(
-        botorch_model_class, MultiTaskGP
-    ):
+    if issubclass(botorch_model_class, MultiTaskGP):
         if ard_num_dims is DEFAULT:
             ard_num_dims = dataset.X.shape[-1] - 1
 
         if batch_shape is DEFAULT:
             batch_shape = torch.Size([])
 
-    if issubclass(botorch_model_class, FixedNoiseGP):
+    if issubclass(botorch_model_class, SingleTaskGP):
         if ard_num_dims is DEFAULT:
             ard_num_dims = dataset.X.shape[-1]
 

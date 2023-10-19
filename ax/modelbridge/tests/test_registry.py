@@ -45,7 +45,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.utils.types import DEFAULT
@@ -75,9 +75,9 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(gpei.model.acquisition_class, Acquisition)
         self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
         self.assertIsInstance(gpei.model.surrogates[Keys.AUTOSET_SURROGATE], Surrogate)
-        # FixedNoiseGP should be picked since experiment data has fixed noise.
+        # SingleTaskGP should be picked.
         self.assertIsInstance(
-            gpei.model.surrogates[Keys.AUTOSET_SURROGATE].model, FixedNoiseGP
+            gpei.model.surrogates[Keys.AUTOSET_SURROGATE].model, SingleTaskGP
         )
 
         gr = gpei.gen(n=1)

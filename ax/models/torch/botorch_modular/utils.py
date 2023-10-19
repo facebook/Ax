@@ -23,11 +23,8 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import (
-    FixedNoiseMultiFidelityGP,
-    SingleTaskMultiFidelityGP,
-)
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model import Model, ModelList
@@ -113,28 +110,19 @@ def choose_model_class(
         model_class = MultiTaskGP
 
     # Single-task multi-fidelity cases.
-    elif search_space_digest.fidelity_features and all_inferred:
-        model_class = SingleTaskMultiFidelityGP  # Unknown observation noise.
     elif search_space_digest.fidelity_features:
-        model_class = FixedNoiseMultiFidelityGP  # Known observation noise.
+        model_class = SingleTaskMultiFidelityGP
 
     # Mixed optimization case. Note that presence of categorical
     # features in search space digest indicates that downstream in the
     # stack we chose not to perform continuous relaxation on those
     # features.
     elif search_space_digest.categorical_features:
-        if not all_inferred:
-            logger.warning(
-                "Using `MixedSingleTaskGP` despire the known `Yvar` values. This "
-                "is a temporary measure while fixed-noise mixed BO is in the works."
-            )
         model_class = MixedSingleTaskGP
 
     # Single-task single-fidelity cases.
-    elif all_inferred:  # Unknown observation noise.
-        model_class = SingleTaskGP
     else:
-        model_class = FixedNoiseGP  # Known observation noise.
+        model_class = SingleTaskGP
 
     logger.debug(f"Chose BoTorch model class: {model_class}.")
     return model_class
