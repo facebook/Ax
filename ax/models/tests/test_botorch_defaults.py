@@ -32,12 +32,16 @@ from botorch.acquisition.monte_carlo import (
 )
 from botorch.acquisition.objective import ConstrainedMCObjective
 from botorch.acquisition.penalized import PenalizedMCObjective
-from botorch.models import FixedNoiseGP, SingleTaskGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import Warp
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from gpytorch.kernels import MaternKernel, ScaleKernel
+from gpytorch.likelihoods.gaussian_likelihood import (
+    FixedNoiseGaussianLikelihood,
+    GaussianLikelihood,
+)
 from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
@@ -53,19 +57,23 @@ class BotorchDefaultsTest(TestCase):
         unknown_var = torch.tensor([float("nan"), float("nan")]).unsqueeze(-1)
         model = _get_model(x, y, unknown_var, None)
         self.assertIsInstance(model, SingleTaskGP)
+        self.assertIsInstance(model.likelihood, GaussianLikelihood)
 
         model = _get_model(X=x, Y=y, Yvar=var)
-        self.assertIsInstance(model, FixedNoiseGP)
+        self.assertIsInstance(model, SingleTaskGP)
+        self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration, 3.0
         )
         self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 6.0)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
         self.assertIs(type(model), MultiTaskGP)  # Don't accept subclasses.
+        self.assertIsInstance(model.likelihood, GaussianLikelihood)
         model = _get_model(X=x, Y=y, Yvar=var, task_feature=1)
-        self.assertIsInstance(model, FixedNoiseMultiTaskGP)
+        self.assertIsInstance(model, MultiTaskGP)
+        self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1)
-        self.assertIsInstance(model, FixedNoiseMultiTaskGP)
+        self.assertIsInstance(model, MultiTaskGP)
         model = _get_model(X=x, Y=y, Yvar=partial_var.clone(), task_feature=1, rank=1)
         self.assertEqual(model._rank, 1)
         with self.assertRaises(ValueError):
@@ -155,7 +163,7 @@ class BotorchDefaultsTest(TestCase):
             }
         }
         model = _get_model(X=x, Y=y, Yvar=var, **deepcopy(kwargs6))  # pyre-ignore
-        self.assertIsInstance(model, FixedNoiseGP)
+        self.assertIsInstance(model, SingleTaskGP)
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
@@ -168,6 +176,7 @@ class BotorchDefaultsTest(TestCase):
             **deepcopy(kwargs6),  # pyre-ignore
         )
         self.assertIs(type(model), MultiTaskGP)
+        self.assertIsInstance(model.likelihood, GaussianLikelihood)
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
@@ -179,7 +188,8 @@ class BotorchDefaultsTest(TestCase):
         model = _get_model(
             X=x, Y=y, Yvar=var, task_feature=1, **deepcopy(kwargs6)  # pyre-ignore
         )
-        self.assertIsInstance(model, FixedNoiseMultiTaskGP)
+        self.assertIsInstance(model, MultiTaskGP)
+        self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration, 12.0
         )
@@ -201,7 +211,8 @@ class BotorchDefaultsTest(TestCase):
         model = _get_model(
             X=x, Y=y, Yvar=var, covar_module=covar_module, **kwargs7  # pyre-ignore
         )
-        self.assertIsInstance(model, FixedNoiseGP)
+        self.assertIsInstance(model, SingleTaskGP)
+        self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(covar_module, model.covar_module)
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
@@ -289,7 +300,9 @@ class BotorchDefaultsTest(TestCase):
             refit_model=False,
             **kwarg,  # pyre-ignore
         )
-        self.assertIs(type(model), FixedNoiseGP)
+        self.assertIsInstance(model, SingleTaskGP)
+        self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
+
         self.assertEqual(
             model.covar_module.base_kernel.lengthscale_prior.concentration,
             12.0,
@@ -310,7 +323,8 @@ class BotorchDefaultsTest(TestCase):
             **kwarg,  # pyre-ignore
         )
         for m in model.models:
-            self.assertIs(type(m), FixedNoiseMultiTaskGP)
+            self.assertIs(type(m), MultiTaskGP)
+            self.assertIsInstance(m.likelihood, FixedNoiseGaussianLikelihood)
             self.assertEqual(
                 m.covar_module.base_kernel.lengthscale_prior.concentration,
                 12.0,

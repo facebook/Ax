@@ -24,12 +24,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.monte_carlo import qSimpleRegret
-from botorch.models import (
-    FixedNoiseGP,
-    ModelListGP,
-    SaasFullyBayesianSingleTaskGP,
-    SingleTaskGP,
-)
+from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
@@ -942,10 +937,10 @@ class SurrogateWithModelListTest(TestCase):
             Surrogate(botorch_model_class=SaasFullyBayesianSingleTaskGP),
             Surrogate(botorch_model_class=SaasFullyBayesianMultiTaskGP),
             Surrogate(  # Batch model
-                botorch_model_class=FixedNoiseGP, mll_class=ExactMarginalLogLikelihood
+                botorch_model_class=SingleTaskGP, mll_class=ExactMarginalLogLikelihood
             ),
             Surrogate(  # ModelListGP
-                botorch_model_class=FixedNoiseGP,
+                botorch_model_class=SingleTaskGP,
                 mll_class=ExactMarginalLogLikelihood,
                 allow_batched_models=False,
             ),
@@ -987,7 +982,7 @@ class SurrogateWithModelListTest(TestCase):
             elif i == 3:
                 self.assertEqual(mock_MLL.call_count, 1)
                 self.assertEqual(mock_fit_gpytorch.call_count, 1)
-                self.assertTrue(isinstance(surrogate.model, FixedNoiseGP))
+                self.assertTrue(isinstance(surrogate.model, SingleTaskGP))
                 mock_state_dict.reset_mock()
                 mock_MLL.reset_mock()
                 mock_fit_gpytorch.reset_mock()

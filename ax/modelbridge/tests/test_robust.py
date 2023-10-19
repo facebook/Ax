@@ -26,7 +26,7 @@ from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
-from botorch.models.gp_regression import FixedNoiseGP
+from botorch.models.gp_regression import SingleTaskGP
 
 
 class TestRobust(TestCase):
@@ -46,7 +46,7 @@ class TestRobust(TestCase):
             modelbridge = Models.BOTORCH_MODULAR(
                 experiment=exp,
                 data=exp.fetch_data(),
-                surrogate=Surrogate(botorch_model_class=FixedNoiseGP),
+                surrogate=Surrogate(botorch_model_class=SingleTaskGP),
                 botorch_acqf_class=acqf_class or qNoisyExpectedImprovement,
             )
             trial = (

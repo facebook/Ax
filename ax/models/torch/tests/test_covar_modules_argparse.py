@@ -14,8 +14,8 @@ from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
 )
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.utils.common.testutils import TestCase
-from botorch.models.gp_regression import FixedNoiseGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.priors import GammaPrior
@@ -64,7 +64,7 @@ class CovarModuleArgparseTest(TestCase):
     def test_argparse_kernel(self) -> None:
         covar_module_kwargs = covar_module_argparse(
             Kernel,
-            botorch_model_class=FixedNoiseGP,
+            botorch_model_class=SingleTaskGP,
             dataset=self.dataset,
         )
 
@@ -72,7 +72,7 @@ class CovarModuleArgparseTest(TestCase):
 
         covar_module_kwargs = covar_module_argparse(
             Kernel,
-            botorch_model_class=FixedNoiseGP,
+            botorch_model_class=SingleTaskGP,
             dataset=self.dataset,
             ard_num_dims=19,
             batch_shape=torch.Size([10]),
@@ -102,7 +102,7 @@ class CovarModuleArgparseTest(TestCase):
             },
         ]
 
-        for i, botorch_model_class in enumerate([FixedNoiseGP, FixedNoiseMultiTaskGP]):
+        for i, botorch_model_class in enumerate([SingleTaskGP, MultiTaskGP]):
 
             covar_module_kwargs = covar_module_argparse(
                 ScaleMaternKernel,
@@ -143,7 +143,7 @@ class CovarModuleArgparseTest(TestCase):
         )
         covar_module_kwargs = covar_module_argparse(
             ScaleMaternKernel,
-            botorch_model_class=FixedNoiseGP,
+            botorch_model_class=SingleTaskGP,
             dataset=dataset,
             lengthscale_prior=GammaPrior(6.0, 3.0),
             outputscale_prior=GammaPrior(2, 0.15),
