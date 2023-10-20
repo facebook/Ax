@@ -254,10 +254,15 @@ class BaseTrial(ABC, SortableBase):
         self._num_arms_created = 0
 
         # If generator run(s) in this trial were generated from a generation
-        # strategy, this property will be set to the generation step that produced
-        # the generator run(s).
+        # strategy, this property will be set to the generation node that produced
+        # the generator run(s). Useful for tracking the generation strategy.
+        # pyre-fixme[4]: Attribute must be annotated.
+        self._generation_node_name = None
+
+        # [Deprecated in favor of _generation_node_name argument]
         # pyre-fixme[4]: Attribute must be annotated.
         self._generation_step_index = None
+
         # pyre-fixme[4]: Attribute must be annotated.
         self._properties = {}
 
@@ -553,6 +558,22 @@ class BaseTrial(ABC, SortableBase):
                 "single trial."
             )
         self._generation_step_index = generation_step_index
+
+    def _set_generation_node_name(self, generation_node_name: Optional[str]) -> None:
+        """Sets the `generation_node_name` property of the trial, to reflect which
+        generation node of a given generation strategy (if any) produced the generator
+        run(s) attached to this trial.
+        """
+        if (
+            self._generation_node_name is not None
+            and generation_node_name is not None
+            and self._generation_node_name != generation_node_name
+        ):
+            raise UnsupportedError(
+                "Cannot add generator runs from different GenerationNodes to a "
+                "single trial."
+            )
+        self._generation_node_name = generation_node_name
 
     @abstractproperty
     def arms(self) -> List[Arm]:
