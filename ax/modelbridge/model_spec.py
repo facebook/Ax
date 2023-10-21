@@ -239,6 +239,10 @@ class ModelSpec(Base):
         model for the same experiment, which is a very reasonable expectation
         since this all happens on the same `ModelSpec` instance.
         """
+        if self.model_key == "TRBO":
+            # Temporary hack to unblock TRBO.
+            # TODO[T167756515] Remove when TRBO revamp diff lands.
+            return True
         return self._last_fit_arg_ids == self._get_fit_arg_ids(
             experiment=experiment, combined_model_kwargs=combined_model_kwargs
         )
