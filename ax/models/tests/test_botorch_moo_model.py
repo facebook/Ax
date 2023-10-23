@@ -10,6 +10,7 @@ from typing import Any, Dict
 from unittest import mock
 
 import ax.models.torch.botorch_moo_defaults as botorch_moo_defaults
+import botorch.utils.multi_objective.hypervolume as hypervolume
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -49,7 +50,7 @@ EHVI_ACQF_PATH = (
     "botorch.acquisition.factory.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
 NEHVI_PARTITIONING_PATH = (
-    "botorch.acquisition.multi_objective.monte_carlo.FastNondominatedPartitioning"
+    "botorch.utils.multi_objective.hypervolume.FastNondominatedPartitioning"
 )
 EHVI_PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
 
@@ -423,7 +424,7 @@ class BotorchMOOModelTest(TestCase):
             _mock_partitioning = es.enter_context(
                 mock.patch(
                     partitioning_path,
-                    wraps=moo_monte_carlo.FastNondominatedPartitioning,
+                    wraps=hypervolume.FastNondominatedPartitioning,
                 )
             )
             torch_opt_config = TorchOptConfig(
