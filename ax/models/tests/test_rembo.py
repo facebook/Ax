@@ -4,8 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest import mock
-
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.rembo import REMBO
@@ -115,18 +113,11 @@ class REMBOTest(TestCase):
         self.assertEqual(f.shape, torch.Size([1, 2]))
 
         # Test gen
-        Xgen_d = torch.tensor([[0.4, 0.8], [-0.2, 1.0]])
-        acqfv_dummy = torch.tensor([[0.0, 0.0], [0.0, 0.0]])
-        with mock.patch(
-            "ax.models.torch.botorch_defaults.optimize_acqf",
-            autospec=True,
-            return_value=(Xgen_d, acqfv_dummy),
-        ):
-            gen_results = m.gen(
-                n=2,
-                search_space_digest=search_space_digest,
-                torch_opt_config=torch_opt_config,
-            )
+        gen_results = m.gen(
+            n=2,
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
+        )
 
         self.assertEqual(gen_results.points.shape[1], 4)
         self.assertEqual(len(m.X_d), 5)

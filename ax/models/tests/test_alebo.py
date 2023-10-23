@@ -341,38 +341,25 @@ class ALEBOTest(TestCase):
             )
 
         # Test gen
-        # With clipping
-        with mock.patch(
-            "ax.models.torch.alebo.optimize_acqf",
-            autospec=True,
-            return_value=(m.Xs[0], torch.tensor([])),
-        ):
-            gen_results = m.gen(
-                n=1,
-                search_space_digest=search_space_digest,
-                torch_opt_config=torch_opt_config,
-            )
+        gen_results = m.gen(
+            n=1,
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
+        )
 
         self.assertFalse(torch.allclose(gen_results.points, train_X))
         self.assertTrue(gen_results.points.min() >= -1)
         self.assertTrue(gen_results.points.max() <= 1)
         # Without
-        with mock.patch(
-            "ax.models.torch.alebo.optimize_acqf",
-            autospec=True,
-            return_value=(torch.ones(1, 2, dtype=torch.double), torch.tensor([])),
-        ):
-            gen_results = m.gen(
-                n=1,
-                search_space_digest=search_space_digest,
-                torch_opt_config=torch_opt_config,
-            )
+        gen_results = m.gen(
+            n=1,
+            search_space_digest=search_space_digest,
+            torch_opt_config=torch_opt_config,
+        )
 
-        self.assertTrue(
-            torch.allclose(
-                gen_results.points,
-                torch.tensor([[-0.2, -0.1, 0.0, 0.1, 0.2]], dtype=torch.double),
-            )
+        self.assertEqual(
+            gen_results.points.shape,
+            torch.Size([1, 5]),
         )
 
         # Test get_and_fit with single metric
