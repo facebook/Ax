@@ -123,7 +123,11 @@ class TestCompletionCritereon(TestCase):
                 )
             )
 
-        experiment._trial_indices_by_status = {TrialStatus.COMPLETED: {*range(6)}}
+        for _i in range(6):
+            experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        for trial in experiment.trials.values():
+            trial._status = TrialStatus.COMPLETED
+
         # Enough trials are completed but we have not seen three "yes" and three
         # "no"
         self.assertFalse(

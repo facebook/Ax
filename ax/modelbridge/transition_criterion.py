@@ -5,7 +5,7 @@
 
 from abc import abstractmethod
 from logging import Logger
-from typing import Optional
+from typing import Optional, Set
 
 from ax.core.base_trial import TrialStatus
 
@@ -43,7 +43,9 @@ class TransitionCriterion(Base, SerializationMixin):
         return self._transition_to
 
     @abstractmethod
-    def is_met(self, experiment: Experiment) -> bool:
+    def is_met(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
+    ) -> bool:
         pass
 
 
@@ -53,6 +55,8 @@ class MinimumTrialsInStatus(TransitionCriterion):
     GenerationStrategy experiment has reached a certain threshold.
     """
 
+    # TODO: @mgarrard rename to MinTrials and expand functionality to mirror
+    #  `MaxTrials` after legacy usecases are updated.
     def __init__(
         self, status: TrialStatus, threshold: int, transition_to: Optional[str] = None
     ) -> None:
@@ -60,8 +64,38 @@ class MinimumTrialsInStatus(TransitionCriterion):
         self.threshold = threshold
         super().__init__(transition_to=transition_to)
 
-    def is_met(self, experiment: Experiment) -> bool:
-        return len(experiment.trial_indices_by_status[self.status]) >= self.threshold
+    def is_met(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
+    ) -> bool:
+        """Checks if the MinimumTrialsInStatus criterion is met.
+        Args:
+            experiment: The experiment associated with this GenerationStrategy.
+            trials_from_node: A set containing the indices of trials that were
+                generated from this GenerationNode.
+        """
+        # Trials from node should not be none for any new GenerationStrategies
+        if trials_from_node is None:
+            logger.warning(
+                "trials_from_node is None, will check threshold on experiment level.",
+            )
+            return (
+                len(experiment.trial_indices_by_status[self.status]) >= self.threshold
+            )
+        return (
+            len(
+                trials_from_node.intersection(
+                    experiment.trial_indices_by_status[self.status]
+                )
+            )
+            >= self.threshold
+        )
+
+    def __repr__(self) -> str:
+        """Returns a string representation of MinimumTrialsInStatus."""
+        return (
+            f"{self.__class__.__name__}(status={self.status}, "
+            f"threshold={self.threshold}, transition_to='{self.transition_to}')"
+        )
 
 
 class MaxTrials(TransitionCriterion):
@@ -85,19 +119,50 @@ class MaxTrials(TransitionCriterion):
     ) -> None:
         self.threshold = threshold
         self.enforce = enforce
-        # Optional argument for specifying only checking trials with this status
         self.only_in_status = only_in_status
         super().__init__(transition_to=transition_to)
 
-    def is_met(self, experiment: Experiment) -> bool:
+    def is_met(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
+    ) -> bool:
+        """Checks if the MaxTrials criterion is met.
+        Args:
+            experiment: The experiment associated with this GenerationStrategy.
+            trials_from_node: A set containing the indices of trials that were
+                generated from this GenerationNode.
+        """
         if self.enforce:
+            # Trials from node should not be none for any new GenerationStrategies
+            if trials_from_node is None:
+                logger.warning(
+                    "trials_from_node is None, will check threshold on"
+                    + " experiment level.",
+                )
+                if self.only_in_status is not None:
+                    return (
+                        len(experiment.trial_indices_by_status[self.only_in_status])
+                        >= self.threshold
+                    )
+                return len(experiment.trials) >= self.threshold
             if self.only_in_status is not None:
                 return (
-                    len(experiment.trial_indices_by_status[self.only_in_status])
+                    len(
+                        trials_from_node.intersection(
+                            experiment.trial_indices_by_status[self.only_in_status]
+                        )
+                    )
                     >= self.threshold
                 )
-            return experiment.num_trials >= self.threshold
+            return len(trials_from_node) >= self.threshold
         return True
+
+    def __repr__(self) -> str:
+        """Returns a string representation of MaxTrials."""
+        return (
+            f"{self.__class__.__name__}(threshold={self.threshold}, "
+            f"enforce={self.enforce}, only_in_status={self.only_in_status}, "
+            f"transition_to='{self.transition_to}')"
+        )
 
 
 class MinimumPreferenceOccurances(TransitionCriterion):
@@ -114,7 +179,9 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         self.threshold = threshold
         super().__init__(transition_to=transition_to)
 
-    def is_met(self, experiment: Experiment) -> bool:
+    def is_met(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
+    ) -> bool:
         # TODO: @mgarrard replace fetch_data with lookup_data
         data = experiment.fetch_data(metrics=[experiment.metrics[self.metric_name]])
 
@@ -122,3 +189,10 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         count_yes = (data.df["mean"] != 0).sum()
 
         return count_no >= self.threshold and count_yes >= self.threshold
+
+    def __repr__(self) -> str:
+        """Returns a string representation of MinimumPreferenceOccurances."""
+        return (
+            f"{self.__class__.__name__}(metric_name='{self.metric_name}', "
+            f"threshold={self.threshold}, transition_to={self.transition_to})"
+        )
