@@ -205,7 +205,7 @@ class GenerationNode:
         """Returns the sequence of TransitionCriteria that will be used to determine
         if this GenerationNode is complete and should transition to the next node.
         """
-        return not_none(self._transition_criteria)
+        return [] if self._transition_criteria is None else self._transition_criteria
 
     @property
     def experiment(self) -> Experiment:
@@ -489,7 +489,8 @@ class GenerationStep(GenerationNode, SortableBase):
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
         # to ensure that requirements related to num_trials and enforce_num_trials
         # are met. MinimumTrialsInStatus can be used enforce the min_trials_observed
-        # requirement.
+        # requirement. We set transition_to on GenerationStrategy instead of here as
+        # GenerationStrategy can see the full list of steps.
         transition_criteria = []
         transition_criteria.append(
             MaxTrials(
@@ -499,7 +500,8 @@ class GenerationStep(GenerationNode, SortableBase):
         )
         transition_criteria.append(
             MinimumTrialsInStatus(
-                status=TrialStatus.COMPLETED, threshold=self.min_trials_observed
+                status=TrialStatus.COMPLETED,
+                threshold=self.min_trials_observed,
             )
         )
         transition_criteria += self.completion_criteria
