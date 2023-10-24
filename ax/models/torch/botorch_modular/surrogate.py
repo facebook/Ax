@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.models.model_utils import best_in_sample_point
 from ax.models.torch.botorch_modular.input_constructors.covar_modules import (
     covar_module_argparse,
@@ -159,10 +159,6 @@ class Surrogate(Base):
         self._training_data: Optional[List[SupervisedDataset]] = None
         self._outcomes: Optional[List[str]] = None
         self._model: Optional[Model] = None
-        # Special setting for surrogates instantiated via `Surrogate.from_botorch`,
-        # to avoid re-constructing the underlying BoTorch model on `Surrogate.fit`
-        # when set to `False`.
-        self._constructed_manually: bool = False
 
     def __repr__(self) -> str:
         return (
@@ -212,22 +208,6 @@ class Surrogate(Base):
     def device(self) -> torch.device:
         return self.training_data[0].X.device
 
-    @classmethod
-    def from_botorch(
-        cls,
-        model: Model,
-        mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
-    ) -> Surrogate:
-        """Instantiate a `Surrogate` from a pre-instantiated Botorch `Model`."""
-        surrogate = cls(botorch_model_class=model.__class__, mll_class=mll_class)
-        surrogate._model = model
-        # Temporarily disallowing `update` for surrogates instantiated from
-        # pre-made BoTorch `Model` instances to avoid reconstructing models
-        # that were likely pre-constructed for a reason (e.g. if this setup
-        # doesn't fully allow to constuct them).
-        surrogate._constructed_manually = True
-        return surrogate
-
     def clone_reset(self) -> Surrogate:
         return self.__class__(**self._serialize_attributes_as_kwargs())
 
@@ -247,9 +227,6 @@ class Surrogate(Base):
             search_space_digest: Information about the search space used for
                 inferring suitable botorch model class.
         """
-        if self._constructed_manually:
-            logger.warning("Reconstructing a manually constructed `Model`.")
-
         # To determine whether to use ModelList under the hood, we need to check for
         # the batched multi-output case, so we first see which model would be chosen
         # given the Yvars and the properties of data.
@@ -535,19 +512,12 @@ class Surrogate(Base):
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
         """
-        if self._constructed_manually:
-            logger.debug(
-                "For manually constructed surrogates (via `Surrogate.from_botorch`), "
-                "`fit` skips setting the training data on model and only reoptimizes "
-                "its parameters if `refit=True`."
-            )
-        else:
-            self.construct(
-                datasets=datasets,
-                metric_names=metric_names,
-                search_space_digest=search_space_digest,
-            )
-            self._outcomes = metric_names
+        self.construct(
+            datasets=datasets,
+            metric_names=metric_names,
+            search_space_digest=search_space_digest,
+        )
+        self._outcomes = metric_names
 
         if state_dict:
             self.model.load_state_dict(not_none(state_dict))
@@ -662,13 +632,6 @@ class Surrogate(Base):
         """Serialize attributes of this surrogate, to be passed back to it
         as kwargs on reinstantiation.
         """
-        if self._constructed_manually:
-            raise UnsupportedError(
-                "Surrogates constructed manually (ie Surrogate.from_botorch) may not "
-                "be serialized. If serialization is necessary please initialize from "
-                "the constructor."
-            )
-
         return {
             "botorch_model_class": self.botorch_model_class,
             "model_options": self.model_options,

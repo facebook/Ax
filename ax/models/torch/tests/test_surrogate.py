@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorch_model
@@ -304,15 +304,6 @@ class SurrogateTest(TestCase):
             )
             self.assertEqual(self.device, surrogate.device)
 
-    def test_from_botorch(self) -> None:
-        for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
-            surrogate_kwargs = botorch_model_class.construct_inputs(
-                self.training_data[0]
-            )
-            surrogate = Surrogate.from_botorch(botorch_model_class(**surrogate_kwargs))
-            self.assertIsInstance(surrogate.model, botorch_model_class)
-            self.assertTrue(surrogate._constructed_manually)
-
     @patch(f"{CURRENT_PATH}.SaasFullyBayesianSingleTaskGP.__init__", return_value=None)
     @patch(f"{CURRENT_PATH}.SingleTaskGP.__init__", return_value=None)
     def test_construct(self, mock_GP: Mock, mock_SAAS: Mock) -> None:
@@ -338,7 +329,6 @@ class SurrogateTest(TestCase):
             call_kwargs = mock_GPs[i].call_args[1]
             self.assertTrue(torch.equal(call_kwargs["train_X"], self.Xs[0]))
             self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
-            self.assertFalse(surrogate._constructed_manually)
 
             # Check that `model_options` passed to the `Surrogate` constructor are
             # properly propagated.
@@ -590,13 +580,6 @@ class SurrogateTest(TestCase):
                 k: v for k, v in surrogate.__dict__.items() if not k.startswith("_")
             }
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)
-
-        with self.assertRaisesRegex(
-            UnsupportedError, "Surrogates constructed manually"
-        ):
-            surrogate, _ = self._get_surrogate(botorch_model_class=SingleTaskGP)
-            surrogate._constructed_manually = True
-            surrogate._serialize_attributes_as_kwargs()
 
     def test_w_robust_digest(self) -> None:
         surrogate = Surrogate(
