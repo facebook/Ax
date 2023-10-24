@@ -102,16 +102,28 @@ class TestTransitionCriterion(TestCase):
         gs.experiment = experiment
 
         step_0_expected_transition_criteria = [
-            MaxTrials(threshold=3, enforce=False),
-            MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=0),
+            MaxTrials(threshold=3, enforce=False, transition_to="GenerationStep_1"),
+            MinimumTrialsInStatus(
+                status=TrialStatus.COMPLETED,
+                threshold=0,
+                transition_to="GenerationStep_1",
+            ),
         ]
         step_1_expected_transition_criteria = [
-            MaxTrials(threshold=4, enforce=True),
-            MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=2),
+            MaxTrials(threshold=4, enforce=True, transition_to="GenerationStep_2"),
+            MinimumTrialsInStatus(
+                status=TrialStatus.COMPLETED,
+                threshold=2,
+                transition_to="GenerationStep_2",
+            ),
         ]
         step_2_expected_transition_criteria = [
-            MaxTrials(threshold=-1, enforce=True),
-            MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=0),
+            MaxTrials(threshold=-1, enforce=True, transition_to="GenerationStep_3"),
+            MinimumTrialsInStatus(
+                status=TrialStatus.COMPLETED,
+                threshold=0,
+                transition_to="GenerationStep_3",
+            ),
         ]
         self.assertEqual(
             gs._steps[0].transition_criteria, step_0_expected_transition_criteria

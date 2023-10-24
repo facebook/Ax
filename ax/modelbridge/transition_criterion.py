@@ -4,24 +4,43 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import abstractmethod
+from logging import Logger
 from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
+from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
+
+logger: Logger = get_logger(__name__)
 
 
 class TransitionCriterion(Base, SerializationMixin):
     """
     Simple class to descibe a condition which must be met for a GenerationStrategy
     to move to its next GenerationNode.
+
+    Args:
+        transition_to: The name of the GenerationNode the GenerationStrategy should
+            transition to when this criterion is met.
     """
 
-    # TODO: @mgarrard add `transition_to` attribute to define the next node
-    def __init__(self) -> None:
-        pass
+    _transition_to: Optional[str] = None
+
+    def __init__(self, transition_to: Optional[str] = None) -> None:
+        self._transition_to = transition_to
+
+    @property
+    def transition_to(self) -> Optional[str]:
+        """The name of the next GenerationNode after this TransitionCriterion is
+        completed. Warns if unset.
+        """
+        if self._transition_to is None:
+            logger.warning("No transition_to specified on this TransitionCriterion")
+
+        return self._transition_to
 
     @abstractmethod
     def is_met(self, experiment: Experiment) -> bool:
@@ -34,9 +53,12 @@ class MinimumTrialsInStatus(TransitionCriterion):
     GenerationStrategy experiment has reached a certain threshold.
     """
 
-    def __init__(self, status: TrialStatus, threshold: int) -> None:
+    def __init__(
+        self, status: TrialStatus, threshold: int, transition_to: Optional[str] = None
+    ) -> None:
         self.status = status
         self.threshold = threshold
+        super().__init__(transition_to=transition_to)
 
     def is_met(self, experiment: Experiment) -> bool:
         return len(experiment.trial_indices_by_status[self.status]) >= self.threshold
@@ -59,11 +81,13 @@ class MaxTrials(TransitionCriterion):
         threshold: int,
         enforce: bool,
         only_in_status: Optional[TrialStatus] = None,
+        transition_to: Optional[str] = None,
     ) -> None:
         self.threshold = threshold
         self.enforce = enforce
         # Optional argument for specifying only checking trials with this status
         self.only_in_status = only_in_status
+        super().__init__(transition_to=transition_to)
 
     def is_met(self, experiment: Experiment) -> bool:
         if self.enforce:
@@ -83,9 +107,12 @@ class MinimumPreferenceOccurances(TransitionCriterion):
     responses have been received.
     """
 
-    def __init__(self, metric_name: str, threshold: int) -> None:
+    def __init__(
+        self, metric_name: str, threshold: int, transition_to: Optional[str] = None
+    ) -> None:
         self.metric_name = metric_name
         self.threshold = threshold
+        super().__init__(transition_to=transition_to)
 
     def is_met(self, experiment: Experiment) -> bool:
         # TODO: @mgarrard replace fetch_data with lookup_data
