@@ -717,6 +717,7 @@ class Decoder:
                 decoder_registry=self.config.json_decoder_registry,
                 class_decoder_registry=self.config.json_class_decoder_registry,
             ),
+            generation_node_name=generator_run_sqa.generation_node_name,
         )
         generator_run._time_created = generator_run_sqa.time_created
         generator_run._generator_run_type = self.get_enum_name(

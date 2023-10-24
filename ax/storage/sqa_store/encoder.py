@@ -821,6 +821,7 @@ class Encoder:
                 encoder_registry=self.config.json_encoder_registry,
                 class_encoder_registry=self.config.json_class_encoder_registry,
             ),
+            generation_node_name=generator_run._generation_node_name,
         )
         return gr_sqa
 
