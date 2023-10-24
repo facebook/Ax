@@ -287,6 +287,8 @@ class SQAGeneratorRun(Base):
     candidate_metadata_by_arm_signature: Optional[Dict[str, Any]] = Column(
         JSONEncodedTextDict
     )
+    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
+    generation_node_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors

@@ -307,8 +307,12 @@ class GenerationNode:
                         "generation step in an attempt to deduplicate. Candidates "
                         f"produced in the last generator run: {generator_run.arms}."
                     )
-
-        return not_none(generator_run)
+        assert generator_run is not None, (
+            "The GeneratorRun is None which is an unexpected state of this"
+            " GenerationStrategy. This occured on GenerationNode: {self.node_name}."
+        )
+        generator_run._generation_node_name = self.node_name
+        return generator_run
 
     # ------------------------- Model selection logic helpers. -------------------------
 

@@ -6,6 +6,7 @@
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_arms,
@@ -107,7 +108,7 @@ class GeneratorRunTest(TestCase):
     def test_Index(self) -> None:
         self.assertIsNone(self.unweighted_run.index)
         self.unweighted_run.index = 1
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UnsupportedError):
             self.unweighted_run.index = 2
 
     def test_ModelPredictions(self) -> None:
