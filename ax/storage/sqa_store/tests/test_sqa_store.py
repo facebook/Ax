@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from datetime import datetime
+from logging import Logger
 from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
@@ -71,6 +73,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.tests.utils import TEST_CASES
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
@@ -106,6 +109,8 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+
+logger: Logger = get_logger(__name__)
 
 GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
 
@@ -1557,7 +1562,16 @@ class SQAStoreTest(TestCase):
             exp_name = exp.name
             self.assertIsNone(exp.db_id)
             save_experiment(exp)
-            delete_experiment(exp_name)
+            log_msg = (
+                f"You are deleting {exp_name} and all its associated"
+                + " data from the database."
+            )
+            with self.assertLogs(delete_experiment.__module__, logging.INFO) as logger:
+                delete_experiment(exp_name)
+                self.assertTrue(
+                    any(log_msg in output for output in logger.output),
+                    logger.output,
+                )
             with self.assertRaises(ObjectNotFoundError):
                 load_experiment(exp_name)
 
