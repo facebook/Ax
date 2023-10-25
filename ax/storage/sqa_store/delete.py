@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import Optional
 
 from ax.core.experiment import Experiment
@@ -11,6 +12,9 @@ from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.sqa_classes import SQAExperiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
+from ax.utils.common.logger import get_logger
+
+logger: Logger = get_logger(__name__)
 
 
 def delete_experiment(exp_name: str) -> None:
@@ -23,6 +27,10 @@ def delete_experiment(exp_name: str) -> None:
         exp = session.query(SQAExperiment).filter_by(name=exp_name).one_or_none()
         session.delete(exp)
         session.flush()
+
+    logger.info(
+        f"You are deleting {exp_name} and all its associated data from the database."
+    )
 
 
 def delete_generation_strategy(
