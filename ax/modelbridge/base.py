@@ -173,10 +173,13 @@ class ModelBridge(ABC):
         self._experiment_has_immutable_search_space_and_opt_config: bool = (
             experiment is not None and experiment.immutable_search_space_and_opt_config
         )
+        self._experiment_properties: Dict[str, Any] = {}
+
         if experiment is not None:
             if self._optimization_config is None:
                 self._optimization_config = experiment.optimization_config
             self._arms_by_signature = experiment.arms_by_signature
+            self._experiment_properties = experiment._properties
 
         if self._fit_tracking_metrics is False:
             if self._optimization_config is None:

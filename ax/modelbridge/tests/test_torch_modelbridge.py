@@ -39,7 +39,11 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_value,
 )
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
-from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.datasets import (
+    ContextualDataset,
+    MultiTaskDataset,
+    SupervisedDataset,
+)
 
 
 def _get_mock_modelbridge(
@@ -73,6 +77,7 @@ class TorchModelBridgeTest(TestCase):
     ) -> None:
         ma = _get_mock_modelbridge(dtype=dtype, device=device)
         ma._fit_tracking_metrics = True
+        ma._experiment_properties = {}
         dtype = dtype or torch.double
         self.assertEqual(ma.dtype, dtype)
         self.assertEqual(ma.device, device)
@@ -320,6 +325,7 @@ class TorchModelBridgeTest(TestCase):
             torch_device=torch.device("cpu"),
         )
         ma._fit_tracking_metrics = True
+        ma._experiment_properties = {}
         # These attributes would've been set by `ModelBridge` __init__, but it's mocked.
         ma.model = mock_torch_model()
         t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
@@ -703,6 +709,7 @@ class TorchModelBridgeTest(TestCase):
             autospec=True,
         ):
             mb = _get_mock_modelbridge()
+            mb._experiment_properties = {"parameter_decomposition": None}
         raw_X = torch.rand(10, 3) * 5
         raw_X[:, -1].round_()  # Make sure last column is integer.
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
@@ -756,3 +763,89 @@ class TorchModelBridgeTest(TestCase):
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
             self.assertEqual(dataset.outcome_names, metric_names)
+
+    def test_convert_contextual_observations(self) -> None:
+        raw_X = torch.rand(10, 3) * 5
+        raw_X[:, -1].round_()  # Make sure last column is integer.
+        raw_X[0, -1] = 0  # Make sure task value 0 exists.
+        raw_Y = torch.sin(raw_X).sum(-1)
+        feature_names = ["x0", "x1", "x2"]
+        metric_names = ["y", "y:c0", "y:c1", "y:c2"]
+        parameter_decomposition = {f"c{i}": [f"x{i}"] for i in range(3)}
+        metric_decomposition = {f"c{i}": [f"y:c{i}"] for i in range(3)}
+
+        with mock.patch(
+            f"{ModelBridge.__module__}.ModelBridge.__init__",
+            autospec=True,
+        ):
+            mb = _get_mock_modelbridge()
+            mb._experiment_properties = {
+                "parameter_decomposition": parameter_decomposition,
+                "metric_decomposition": metric_decomposition,
+            }
+
+        observation_features = [
+            ObservationFeatures(
+                parameters={feature_names[i]: x_[i].item() for i in range(3)}
+            )
+            for x_ in raw_X
+        ]
+        num_m = len(metric_names)
+        observation_data = [
+            ObservationData(
+                metric_names=metric_names,
+                means=np.asarray([y for _ in range(num_m)]),
+                covariance=np.array(
+                    [float("nan") for _ in range(num_m * num_m)]
+                ).reshape([num_m, num_m]),
+            )
+            for y in raw_Y
+        ]
+        converted_datasets, _ = mb._convert_observations(
+            observation_data=observation_data,
+            observation_features=observation_features,
+            outcomes=metric_names,
+            parameters=feature_names,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=[(0.0, 5.0)] * 3,
+                ordinal_features=[2],
+                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                task_features=[],
+                target_values={},
+            ),
+        )
+        self.assertEqual(len(converted_datasets), 2)
+        for dataset in converted_datasets:
+            self.assertIsInstance(dataset, ContextualDataset)
+            self.assertEqual(not_none(dataset).feature_names, feature_names)
+            self.assertDictEqual(
+                # pyre-ignore
+                not_none(dataset).parameter_decomposition,
+                parameter_decomposition,
+            )
+            if len(not_none(dataset).outcome_names) == 1:
+                self.assertListEqual(not_none(dataset).outcome_names, ["y"])
+                self.assertTrue(torch.equal(not_none(dataset).X, raw_X))
+                self.assertTrue(torch.equal(not_none(dataset).Y, raw_Y.unsqueeze(-1)))
+            else:
+                self.assertListEqual(
+                    not_none(dataset).outcome_names, ["y:c0", "y:c1", "y:c2"]
+                )
+                self.assertListEqual(
+                    # pyre-ignore
+                    not_none(dataset).context_buckets,
+                    ["c0", "c1", "c2"],
+                )
+                self.assertDictEqual(
+                    # pyre-ignore
+                    not_none(dataset).metric_decomposition,
+                    metric_decomposition,
+                )
+                self.assertTrue(torch.equal(not_none(dataset).X, raw_X))
+                self.assertTrue(
+                    torch.equal(
+                        not_none(dataset).Y,
+                        torch.cat([raw_Y.unsqueeze(-1) for _ in range(3)], dim=-1),
+                    )
+                )

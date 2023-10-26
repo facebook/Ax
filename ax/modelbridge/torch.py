@@ -50,6 +50,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array_list,
+    process_contextual_datesets,
     SearchSpaceDigest,
     transform_callback,
     validate_and_apply_final_transform,
@@ -318,10 +319,18 @@ class TorchModelBridge(ModelBridge):
                 `MultiTaskDataset` where applicable.
 
         Returns:
-            - A list of `Dataset` objects corresponding to each outcome. Each element
-                in the list corresponds to one outcome. If the outcome does not have
-                any observations, then the corresponding element in the list will be
-                `None`.
+            - A list of `Dataset` objects.
+                For non-contextual experiment, each element in the list corresponds to
+                one outcome and the list is sorted based on the outcomes.
+                For contextual experiment, each element in the list can correspond to
+                either one outcome (overall) or multiple outcomes
+                (context-level outcome).
+                The list is sorted based on the outcomes only if there is no
+                contextl-level outcome; when there is a mixed of context-level and
+                overall outcomes, the ordering will be handled by the downstream
+                GP model.
+                If the outcome does not have any observations, then the corresponding
+                element in the list will be `None`.
             - An optional list of lists of candidate metadata. Each inner list
                 corresponds to one outcome. Each element in the inner list corresponds
                 to one observation.
@@ -392,6 +401,27 @@ class TorchModelBridge(ModelBridge):
                 else None
                 for dataset in datasets
             ]
+        # check whether is a `parameter_decomposition` experiment property to
+        # decide whether it is a contextual experiment
+        if self._experiment_properties.get("parameter_decomposition", None) is not None:
+            full_datasets = datasets
+            # handle the case that the dataset can be None
+            datasets = [dataset for dataset in full_datasets if dataset is None]
+            # convert to a list of ContextualDateset for contextual experiments
+            datasets.extend(
+                process_contextual_datesets(
+                    datasets=[
+                        dataset for dataset in full_datasets if dataset is not None
+                    ],
+                    outcomes=outcomes,
+                    parameter_decomposition=self._experiment_properties[
+                        "parameter_decomposition"
+                    ],
+                    metric_decomposition=self._experiment_properties.get(
+                        "metric_decomposition", None
+                    ),
+                )
+            )
 
         if not any_candidate_metadata_is_not_none:
             return datasets, None
