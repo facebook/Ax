@@ -31,7 +31,7 @@ from botorch.acquisition.monte_carlo import (
     qSimpleRegret,
 )
 from botorch.acquisition.objective import ConstrainedMCObjective
-from botorch.acquisition.penalized import PenalizedMCObjective
+from botorch.acquisition.penalized import L1PenaltyObjective, PenalizedMCObjective
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import MultiTaskGP
@@ -350,6 +350,7 @@ class BotorchDefaultsTest(TestCase):
             get_outcome_constraint_transforms(outcome_constraints)
         )
         samples = torch.zeros(n, m)  # to test constraints
+
         for acqf_name, acqf_class in zip(
             ["qEI", "qLogEI", "qPI", "qNEI", "qLogNEI"],
             [
@@ -386,6 +387,37 @@ class BotorchDefaultsTest(TestCase):
                     X_observed=None,  # errors because of no observations
                 )
 
+        # test support for PenalizedMCObjective
+        penalty_objective = L1PenaltyObjective(init_point=torch.zeros(1, d))
+        for acqf_name, acqf_class in zip(
+            ["qEI", "qLogEI", "qNEI", "qLogNEI"],
+            [
+                qExpectedImprovement,
+                qLogExpectedImprovement,
+                qNoisyExpectedImprovement,
+                qLogNoisyExpectedImprovement,
+            ],
+        ):
+            acqf = _get_acquisition_func(
+                model=model,
+                acquisition_function_name=acqf_name,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                mc_objective=PenalizedMCObjective,
+                constrained_mc_objective=None,
+                mc_objective_kwargs={
+                    "penalty_objective": penalty_objective,
+                    "regularization_parameter": 0.1,
+                },
+            )
+            self.assertIsInstance(acqf, acqf_class)
+            acqf_constraints = acqf._constraints
+            self.assertIsNotNone(acqf_constraints)
+            self.assertIsInstance(acqf.objective, PenalizedMCObjective)
+            self.assertIsInstance(acqf.objective.penalty_objective, L1PenaltyObjective)
+            self.assertEqual(acqf.objective.regularization_parameter, 0.1)
+
         acqf_name = "qSR"
         acqf_class = qSimpleRegret
         acqf = _get_acquisition_func(
@@ -416,19 +448,6 @@ class BotorchDefaultsTest(TestCase):
                 outcome_constraints=outcome_constraints,
                 X_observed=X_observed,
                 constrained_mc_objective=None,
-            )
-
-        with self.assertRaisesRegex(
-            RuntimeError,
-            "Outcome constraints are not supported for PenalizedMCObjective",
-        ):
-            _get_acquisition_func(
-                model=model,
-                acquisition_function_name=acqf_name,
-                objective_weights=objective_weights,
-                mc_objective=PenalizedMCObjective,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_observed,
             )
 
         # these are not yet supported, will require passing additional arguments to
