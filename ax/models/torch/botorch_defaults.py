@@ -18,7 +18,6 @@ from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
-from botorch.acquisition.penalized import PenalizedMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
 from botorch.fit import fit_gpytorch_mll
@@ -414,9 +413,10 @@ def _get_acquisition_func(
     def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
         return obj_tf(samples)
 
+    mc_objective_kwargs = {} if mc_objective_kwargs is None else mc_objective_kwargs
+    objective = mc_objective(objective=objective, **mc_objective_kwargs)
+
     if outcome_constraints is None:
-        mc_objective_kwargs = {} if mc_objective_kwargs is None else mc_objective_kwargs
-        objective = mc_objective(objective=objective, **mc_objective_kwargs)
         con_tfs = None
     else:
         con_tfs = get_outcome_constraint_transforms(outcome_constraints)
@@ -429,10 +429,7 @@ def _get_acquisition_func(
                     "constrained_mc_objective cannot be set to None "
                     "when applying outcome constraints."
                 )
-            if issubclass(mc_objective, PenalizedMCObjective):
-                raise RuntimeError(
-                    "Outcome constraints are not supported for PenalizedMCObjective."
-                )
+
             inf_cost = get_infeasible_cost(
                 X=X_observed, model=model, objective=objective
             )
