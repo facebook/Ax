@@ -88,6 +88,7 @@ from botorch.acquisition.risk_measures import (
     VaR,
     WorstCase,
 )
+from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
@@ -1459,3 +1460,66 @@ def transform_search_space(
             pass
 
     return search_space
+
+
+def process_contextual_datesets(
+    datasets: List[SupervisedDataset],
+    outcomes: List[str],
+    parameter_decomposition: Dict[str, List[str]],
+    metric_decomposition: Optional[Dict[str, List[str]]] = None,
+) -> List[ContextualDataset]:
+    """Contruct a list of `ContextualDataset`.
+
+    Args:
+        datasets: A list of `Dataset` objects.
+        outcomes: The names of the outcomes to extract observations for.
+        parameter_decomposition: Keys are context names. Values are the lists
+            of parameter names belonging to the context, e.g.
+            {'context1': ['p1_c1', 'p2_c1'],'context2': ['p1_c2', 'p2_c2']}.
+        metric_decomposition: Context breakdown metrics. Keys are context names.
+            Values are the lists of metric names belonging to the context:
+            {
+                'context1': ['m1_c1', 'm2_c1', 'm3_c1'],
+                'context2': ['m1_c2', 'm2_c2', 'm3_c2'],
+            }
+
+    Returns: A list of `ContextualDataset` objects.
+        - If datasets contain overall outcome only, each element in the list can
+        correspond and the list is sorted based on the outcomes.
+        - If datasets contains a mixed of context-level and overall outcomes, each
+        element may contain multiple outcomes; and the ordering of predicted output
+        will be handled by the downstream
+    """
+    context_buckets = list(parameter_decomposition.keys())
+    remaining_metrics = deepcopy(outcomes)
+    contextual_datasets = []
+    if metric_decomposition is not None:
+        M = len(metric_decomposition[context_buckets[0]])
+        for j in range(M):
+            metric_list = [metric_decomposition[c][j] for c in context_buckets]
+            contextual_datasets.append(
+                ContextualDataset(
+                    datasets=[
+                        datasets[outcomes.index(metric_i)] for metric_i in metric_list
+                    ],
+                    parameter_decomposition=parameter_decomposition,
+                    context_buckets=context_buckets,
+                    metric_decomposition=metric_decomposition,
+                )
+            )
+            remaining_metrics = list(set(remaining_metrics) - set(metric_list))
+    else:
+        logger.info(
+            "No metric decomposition found in experiment properties. Using "
+            "LCEA model to fit each outcome independently."
+        )
+    if len(remaining_metrics) > 0:
+        for metric_i in remaining_metrics:
+            contextual_datasets.append(
+                ContextualDataset(
+                    datasets=[datasets[outcomes.index(metric_i)]],
+                    parameter_decomposition=parameter_decomposition,
+                    context_buckets=context_buckets,
+                )
+            )
+    return contextual_datasets

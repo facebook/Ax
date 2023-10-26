@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import List, Union
 
 import numpy as np
+import torch
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -22,6 +23,7 @@ from ax.modelbridge.modelbridge_utils import (
     extract_risk_measure,
     extract_robust_digest,
     feasible_hypervolume,
+    process_contextual_datesets,
     RISK_MEASURE_NAME_TO_CLASS,
     transform_search_space,
 )
@@ -30,6 +32,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_robust_search_space, get_search_space
 from botorch.acquisition.risk_measures import VaR
+from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 
 
 class TestModelBridgeUtils(TestCase):
@@ -267,3 +270,75 @@ class TestModelBridgeUtils(TestCase):
         )
 
         self.assertEqual(transformed_search_space, expected)
+
+    def test_process_contextual_datesets(self) -> None:
+        num_samples = 5
+        num_contexts = 3
+        feature_names = [f"x_c{i}" for i in range(num_contexts)]
+        parameter_decomposition = {
+            f"context_{i}": [f"x_c{i}"] for i in range(num_contexts)
+        }
+        context_buckets = list(parameter_decomposition.keys())
+        context_outcome_list = [f"y:context_{i}" for i in range(num_contexts)]
+        metric_decomposition = {f"{c}": [f"y:{c}"] for c in context_buckets}
+
+        X = torch.rand(num_samples, num_contexts)
+
+        dataset_list = [
+            SupervisedDataset(
+                X=X,
+                Y=torch.rand(num_samples, 1),
+                Yvar=torch.rand(num_samples, 1),
+                feature_names=feature_names,
+                outcome_names=["m1_overall"],
+            ),
+            SupervisedDataset(
+                X=X,
+                Y=torch.rand(num_samples, 1),
+                Yvar=torch.rand(num_samples, 1),
+                feature_names=feature_names,
+                outcome_names=["m2_overall"],
+            ),
+        ]
+        # process dataset list with overall outcome only
+        contextual_datasets = process_contextual_datesets(
+            datasets=dataset_list,
+            outcomes=["m1_overall", "m2_overall"],
+            parameter_decomposition=parameter_decomposition,
+        )
+        self.assertEqual(len(contextual_datasets), 2)
+        for d in contextual_datasets:
+            self.assertIsInstance(d, ContextualDataset)
+            self.assertEqual(len(d.outcome_names), 1)
+
+        for m in context_outcome_list:
+            dataset_list.append(
+                SupervisedDataset(
+                    X=X,
+                    Y=torch.rand(num_samples, 1),
+                    Yvar=torch.rand(num_samples, 1),
+                    feature_names=feature_names,
+                    outcome_names=[m],
+                )
+            )
+        # # process dataset list with context-level outcomes
+        contextual_datasets = process_contextual_datesets(
+            datasets=dataset_list[2:],
+            outcomes=context_outcome_list,
+            parameter_decomposition=parameter_decomposition,
+            metric_decomposition=metric_decomposition,
+        )
+        self.assertEqual(len(contextual_datasets), 1)
+        self.assertIsInstance(contextual_datasets[0], ContextualDataset)
+        self.assertListEqual(contextual_datasets[0].outcome_names, context_outcome_list)
+
+        # process dataset list with overall outcome and context-level outcomes
+        contextual_datasets = process_contextual_datesets(
+            datasets=dataset_list,
+            outcomes=["m1_overall", "m2_overall"] + context_outcome_list,
+            parameter_decomposition=parameter_decomposition,
+            metric_decomposition=metric_decomposition,
+        )
+        self.assertEqual(len(contextual_datasets), 3)
+        for d in contextual_datasets:
+            self.assertIsInstance(d, ContextualDataset)
