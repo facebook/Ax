@@ -361,16 +361,18 @@ def get_surrogate_as_dict() -> Dict[str, Any]:
     }
 
 
-def get_surrogate_spec_as_dict() -> Dict[str, Any]:
+def get_surrogate_spec_as_dict(model_class: Optional[str] = None) -> Dict[str, Any]:
     """
     For use ensuring backwards compatibility when loading SurrogateSpec
     with input_transform and outcome_transform kwargs.
     """
+    if model_class is None:
+        model_class = "SingleTaskGP"
     return {
         "__type": "SurrogateSpec",
         "botorch_model_class": {
             "__type": "Type[Model]",
-            "index": "SingleTaskGP",
+            "index": model_class,
             "class": "<class 'botorch.models.model.Model'>",
         },
         "botorch_model_kwargs": {},

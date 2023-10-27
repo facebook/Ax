@@ -195,7 +195,10 @@ REVERSE_ACQUISITION_REGISTRY: Dict[str, Type[Acquisition]] = {
 
 
 REVERSE_MODEL_REGISTRY: Dict[str, Type[Model]] = {
-    v: k for k, v in MODEL_REGISTRY.items()
+    "FixedNoiseGP": SingleTaskGP,
+    "FixedNoiseMultiFidelityGP": SingleTaskMultiFidelityGP,
+    "FixedNoiseMultiTaskGP": MultiTaskGP,
+    **{v: k for k, v in MODEL_REGISTRY.items()},
 }
 
 
