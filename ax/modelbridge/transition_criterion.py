@@ -48,6 +48,24 @@ class TransitionCriterion(Base, SerializationMixin):
     ) -> bool:
         pass
 
+    def experiment_trials_by_status(
+        self, experiment: Experiment, statuses: List[TrialStatus]
+    ) -> Set[int]:
+        """Get the trial indices from the experiment with the desired statuses.
+
+        Args:
+            experiment: The experiment associated with this GenerationStrategy.
+            statuses: The statuses to filter on.
+        Returns:
+            The trial indices in the experiment with the desired statuses.
+        """
+        exp_trials_with_statuses = set()
+        for status in statuses:
+            exp_trials_with_statuses = exp_trials_with_statuses.union(
+                experiment.trial_indices_by_status[status]
+            )
+        return exp_trials_with_statuses
+
 
 class MinimumTrialsInStatus(TransitionCriterion):
     """
@@ -76,16 +94,15 @@ class MinimumTrialsInStatus(TransitionCriterion):
             trials_from_node: A set containing the indices of trials that were
                 generated from this GenerationNode.
         """
-        exp_trials_with_statuses = set()
-        for status in self.statuses:
-            exp_trials_with_statuses = exp_trials_with_statuses.union(
-                experiment.trial_indices_by_status[status]
-            )
+        exp_trials_with_statuses = self.experiment_trials_by_status(
+            experiment, self.statuses
+        )
 
         # Trials from node should not be none for any new GenerationStrategies
         if trials_from_node is None:
             logger.warning(
-                "trials_from_node is None, will check threshold on experiment level.",
+                "`trials_from_node` is None, will check threshold on"
+                + " experiment level for MinimumTrialsInStatus.",
             )
             return len(exp_trials_with_statuses) >= self.threshold
         return (
@@ -117,12 +134,14 @@ class MaxTrials(TransitionCriterion):
         self,
         threshold: int,
         enforce: bool,
-        only_in_status: Optional[TrialStatus] = None,
+        only_in_statuses: Optional[List[TrialStatus]] = None,
         transition_to: Optional[str] = None,
+        not_in_statuses: Optional[List[TrialStatus]] = None,
     ) -> None:
         self.threshold = threshold
         self.enforce = enforce
-        self.only_in_status = only_in_status
+        self.only_in_statuses = only_in_statuses
+        self.not_in_statuses = not_in_statuses
         super().__init__(transition_to=transition_to)
 
     def is_met(
@@ -134,37 +153,38 @@ class MaxTrials(TransitionCriterion):
             trials_from_node: A set containing the indices of trials that were
                 generated from this GenerationNode.
         """
+        # TODO: @mgarrard fix enforce logic
         if self.enforce:
+            trials_to_check = experiment.trials.keys()
+            # limit the trials to only those in the specified statuses
+            if self.only_in_statuses is not None:
+                trials_to_check = self.experiment_trials_by_status(
+                    experiment, self.only_in_statuses
+                )
+            # exclude the trials to those not in the specified statuses
+            if self.not_in_statuses is not None:
+                trials_to_check -= self.experiment_trials_by_status(
+                    experiment, self.not_in_statuses
+                )
+
             # Trials from node should not be none for any new GenerationStrategies
             if trials_from_node is None:
                 logger.warning(
-                    "trials_from_node is None, will check threshold on"
-                    + " experiment level.",
+                    "`trials_from_node` is None, will check threshold on"
+                    + " experiment level for MaxTrials.",
                 )
-                if self.only_in_status is not None:
-                    return (
-                        len(experiment.trial_indices_by_status[self.only_in_status])
-                        >= self.threshold
-                    )
-                return len(experiment.trials) >= self.threshold
-            if self.only_in_status is not None:
-                return (
-                    len(
-                        trials_from_node.intersection(
-                            experiment.trial_indices_by_status[self.only_in_status]
-                        )
-                    )
-                    >= self.threshold
-                )
-            return len(trials_from_node) >= self.threshold
+                return len(trials_to_check) >= self.threshold
+
+            return len(trials_from_node.intersection(trials_to_check)) >= self.threshold
         return True
 
     def __repr__(self) -> str:
         """Returns a string representation of MaxTrials."""
         return (
             f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"enforce={self.enforce}, only_in_status={self.only_in_status}, "
-            f"transition_to='{self.transition_to}')"
+            f"enforce={self.enforce}, only_in_statuses={self.only_in_statuses}, "
+            f"transition_to='{self.transition_to}', "
+            f"not_in_statuses={self.not_in_statuses})"
         )
 
 
