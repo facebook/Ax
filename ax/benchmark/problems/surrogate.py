@@ -27,6 +27,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.result import Err, Ok
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.common.typeutils import not_none
 from botorch.utils.datasets import SupervisedDataset
 
@@ -311,5 +312,10 @@ class SurrogateRunner(Runner):
         return {}
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         return {}

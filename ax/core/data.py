@@ -20,6 +20,8 @@ from ax.utils.common.serialization import (
     extract_init_args,
     SerializationMixin,
     serialize_init_args,
+    TClassDecoderRegistry,
+    TDecoderRegistry,
 )
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -184,7 +186,12 @@ class BaseData(Base, SerializationMixin):
         return serialize_init_args(obj=data)
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the object.
         Used for storage.
         """
