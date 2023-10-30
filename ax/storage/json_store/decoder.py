@@ -238,7 +238,13 @@ def object_from_json(
                     "outcome_transform_options"
                 ] = outcome_transform_options_json
         elif isclass(_class) and issubclass(_class, SerializationMixin):
-            return _class(**_class.deserialize_init_args(args=object_json))
+            return _class(
+                **_class.deserialize_init_args(
+                    args=object_json,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                )
+            )
 
         return ax_class_from_json_dict(
             _class=_class,

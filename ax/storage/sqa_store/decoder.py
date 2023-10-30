@@ -801,7 +801,9 @@ class Decoder:
 
         try:
             args = runner_class.deserialize_init_args(
-                args=dict(runner_sqa.properties or {})
+                args=dict(runner_sqa.properties or {}),
+                decoder_registry=self.config.json_decoder_registry,
+                class_decoder_registry=self.config.json_class_decoder_registry,
             )
             args.update(runner_kwargs or {})
             # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.

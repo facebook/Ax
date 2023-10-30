@@ -18,7 +18,11 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import dataframe_equals
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import serialize_init_args
+from ax.utils.common.serialization import (
+    serialize_init_args,
+    TClassDecoderRegistry,
+    TDecoderRegistry,
+)
 from ax.utils.common.typeutils import checked_cast
 
 logger: Logger = get_logger(__name__)
@@ -304,7 +308,12 @@ class MapData(Data):
         return properties
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """

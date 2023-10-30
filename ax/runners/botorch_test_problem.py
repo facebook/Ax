@@ -11,6 +11,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
@@ -133,7 +134,12 @@ class BotorchTestProblemRunner(Runner):
         }
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         runner. Used for storage.
         """

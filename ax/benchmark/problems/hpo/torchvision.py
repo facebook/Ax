@@ -4,13 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ax.benchmark.problems.hpo.pytorch_cnn import (
     PyTorchCNNBenchmarkProblem,
     PyTorchCNNRunner,
 )
 from ax.exceptions.core import UserInputError
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.common.typeutils import checked_cast
 from torch.utils.data import TensorDataset
 
@@ -103,7 +104,12 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
         return {"name": pytorch_cnn_runner.name}
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         name = args["name"]
 
         dataset_fn = _REGISTRY[name]

@@ -8,9 +8,15 @@ from __future__ import annotations
 
 import inspect
 import pydoc
-from abc import ABC
 from types import FunctionType
 from typing import Any, Callable, Dict, List, Optional, Type
+
+
+# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+# avoid runtime subscripting errors.
+TDecoderRegistry = Dict[str, Type]
+# pyre-fixme[33]: `TClassDecoderRegistry` cannot alias to a type containing `Any`.
+TClassDecoderRegistry = Dict[str, Callable[[Dict[str, Any]], Any]]
 
 
 # https://stackoverflow.com/a/39235373
@@ -121,7 +127,7 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
     return init_args
 
 
-class SerializationMixin(ABC):
+class SerializationMixin:
     @classmethod
     def serialize_init_args(cls, obj: SerializationMixin) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the object.
@@ -130,7 +136,12 @@ class SerializationMixin(ABC):
         return serialize_init_args(obj=obj)
 
     @classmethod
-    def deserialize_init_args(cls, args: Dict[str, Any]) -> Dict[str, Any]:
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         object. Used for storage.
         """
