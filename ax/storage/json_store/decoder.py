@@ -355,7 +355,7 @@ def transition_criteria_from_json(
         if criterion_type == "MinimumTrialsInStatus":
             criterion_list.append(
                 MinimumTrialsInStatus(
-                    status=object_from_json(criterion_json.pop("status")),
+                    statuses=object_from_json(criterion_json.pop("statuses")),
                     threshold=criterion_json.pop("threshold"),
                 )
             )

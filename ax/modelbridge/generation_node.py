@@ -521,7 +521,7 @@ class GenerationStep(GenerationNode, SortableBase):
         )
         transition_criteria.append(
             MinimumTrialsInStatus(
-                status=TrialStatus.COMPLETED,
+                statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=self.min_trials_observed,
             )
         )

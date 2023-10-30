@@ -76,7 +76,7 @@ class TestCompletionCritereon(TestCase):
     def test_many_criteria(self) -> None:
         criteria = [
             MinimumPreferenceOccurances(metric_name="m1", threshold=3),
-            MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=5),
+            MinimumTrialsInStatus(statuses=[TrialStatus.COMPLETED], threshold=5),
         ]
 
         experiment = get_experiment()
