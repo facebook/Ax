@@ -362,13 +362,18 @@ def transition_criteria_from_json(
         elif criterion_type == "MaxTrials":
             criterion_list.append(
                 MaxTrials(
-                    only_in_status=object_from_json(
-                        criterion_json.pop("only_in_status")
+                    only_in_statuses=object_from_json(
+                        criterion_json.pop("only_in_statuses")
                     )
-                    if "only_in_status" in criterion_json.keys()
+                    if "only_in_statuses" in criterion_json.keys()
                     else None,
                     threshold=criterion_json.pop("threshold"),
                     enforce=criterion_json.pop("enforce"),
+                    not_in_statuses=object_from_json(
+                        criterion_json.pop("not_in_statuses")
+                    )
+                    if "not_in_statuses" in criterion_json.keys()
+                    else None,
                 )
             )
         else:
