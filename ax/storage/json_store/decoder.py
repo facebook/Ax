@@ -357,6 +357,9 @@ def transition_criteria_from_json(
                 MinimumTrialsInStatus(
                     statuses=object_from_json(criterion_json.pop("statuses")),
                     threshold=criterion_json.pop("threshold"),
+                    transition_to=criterion_json.pop("transition_to")
+                    if "transition_to" in criterion_json.keys()
+                    else None,
                 )
             )
         elif criterion_type == "MaxTrials":
@@ -374,6 +377,9 @@ def transition_criteria_from_json(
                     )
                     if "not_in_statuses" in criterion_json.keys()
                     else None,
+                    transition_to=criterion_json.pop("transition_to")
+                    if "transition_to" in criterion_json.keys()
+                    else None,
                 )
             )
         else:
@@ -381,6 +387,9 @@ def transition_criteria_from_json(
                 MinimumPreferenceOccurances(
                     metric_name=criterion_json.pop("metric_name"),
                     threshold=criterion_json.pop("threshold"),
+                    transition_to=criterion_json.pop("transition_to")
+                    if "transition_to" in criterion_json.keys()
+                    else None,
                 ),
             )
     return criterion_list
