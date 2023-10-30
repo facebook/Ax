@@ -110,7 +110,7 @@ class TestTransitionCriterion(TestCase):
         step_0_expected_transition_criteria = [
             MaxTrials(threshold=3, enforce=True, transition_to="GenerationStep_1"),
             MinimumTrialsInStatus(
-                status=TrialStatus.COMPLETED,
+                statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=0,
                 transition_to="GenerationStep_1",
             ),
@@ -118,7 +118,7 @@ class TestTransitionCriterion(TestCase):
         step_1_expected_transition_criteria = [
             MaxTrials(threshold=4, enforce=False, transition_to="GenerationStep_2"),
             MinimumTrialsInStatus(
-                status=TrialStatus.COMPLETED,
+                statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
                 transition_to="GenerationStep_2",
             ),
@@ -126,7 +126,7 @@ class TestTransitionCriterion(TestCase):
         step_2_expected_transition_criteria = [
             MaxTrials(threshold=-1, enforce=True, transition_to="GenerationStep_3"),
             MinimumTrialsInStatus(
-                status=TrialStatus.COMPLETED,
+                statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=0,
                 transition_to="GenerationStep_3",
             ),
@@ -191,6 +191,18 @@ class TestTransitionCriterion(TestCase):
             .transition_criteria[1]
             .is_met(experiment, gs._steps[0].trials_from_node)
         )
+
+        # Check mixed status MinimumTrialsInStatus
+        min_criterion = MinimumTrialsInStatus(
+            threshold=3, statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]
+        )
+        self.assertFalse(
+            min_criterion.is_met(experiment, gs._steps[0].trials_from_node)
+        )
+        for idx, trial in experiment.trials.items():
+            if idx == 2:
+                trial._status = TrialStatus.EARLY_STOPPED
+        self.assertTrue(min_criterion.is_met(experiment, gs._steps[0].trials_from_node))
 
     def test_max_trials_is_met(self) -> None:
         """Test that the is_met method in MaxTrials works"""
@@ -320,7 +332,9 @@ class TestTransitionCriterion(TestCase):
         )
 
         # Check MinimumTrialsInStatus
-        min_criterion = MinimumTrialsInStatus(threshold=3, status=TrialStatus.COMPLETED)
+        min_criterion = MinimumTrialsInStatus(
+            threshold=3, statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]
+        )
         with self.assertLogs(TransitionCriterion.__module__, logging.WARNING) as logger:
             self.assertFalse(min_criterion.is_met(experiment, trials_from_node=None))
             self.assertTrue(
@@ -348,14 +362,15 @@ class TestTransitionCriterion(TestCase):
         )
 
         minimum_trials_in_status_criterion = MinimumTrialsInStatus(
-            status=TrialStatus.COMPLETED,
+            statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             threshold=0,
             transition_to="GenerationStep_2",
         )
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
-            "MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=0,"
-            + " transition_to='GenerationStep_2')",
+            "MinimumTrialsInStatus(statuses=[<TrialStatus.COMPLETED: 3>, "
+            + "<TrialStatus.EARLY_STOPPED: 7>], threshold=0, transition_to="
+            + "'GenerationStep_2')",
         )
 
         minimum_preference_occurances_criterion = MinimumPreferenceOccurances(

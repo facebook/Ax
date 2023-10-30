@@ -5,7 +5,7 @@
 
 from abc import abstractmethod
 from logging import Logger
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 from ax.core.base_trial import TrialStatus
 
@@ -58,9 +58,12 @@ class MinimumTrialsInStatus(TransitionCriterion):
     # TODO: @mgarrard rename to MinTrials and expand functionality to mirror
     #  `MaxTrials` after legacy usecases are updated.
     def __init__(
-        self, status: TrialStatus, threshold: int, transition_to: Optional[str] = None
+        self,
+        statuses: List[TrialStatus],
+        threshold: int,
+        transition_to: Optional[str] = None,
     ) -> None:
-        self.status = status
+        self.statuses = statuses
         self.threshold = threshold
         super().__init__(transition_to=transition_to)
 
@@ -73,27 +76,27 @@ class MinimumTrialsInStatus(TransitionCriterion):
             trials_from_node: A set containing the indices of trials that were
                 generated from this GenerationNode.
         """
+        exp_trials_with_statuses = set()
+        for status in self.statuses:
+            exp_trials_with_statuses = exp_trials_with_statuses.union(
+                experiment.trial_indices_by_status[status]
+            )
+
         # Trials from node should not be none for any new GenerationStrategies
         if trials_from_node is None:
             logger.warning(
                 "trials_from_node is None, will check threshold on experiment level.",
             )
-            return (
-                len(experiment.trial_indices_by_status[self.status]) >= self.threshold
-            )
+            return len(exp_trials_with_statuses) >= self.threshold
         return (
-            len(
-                trials_from_node.intersection(
-                    experiment.trial_indices_by_status[self.status]
-                )
-            )
+            len(trials_from_node.intersection(exp_trials_with_statuses))
             >= self.threshold
         )
 
     def __repr__(self) -> str:
         """Returns a string representation of MinimumTrialsInStatus."""
         return (
-            f"{self.__class__.__name__}(status={self.status}, "
+            f"{self.__class__.__name__}(statuses={self.statuses}, "
             f"threshold={self.threshold}, transition_to='{self.transition_to}')"
         )
 
