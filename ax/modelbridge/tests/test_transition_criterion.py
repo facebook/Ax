@@ -262,6 +262,43 @@ class TestTransitionCriterion(TestCase):
             )
         )
 
+        # Check not in statuses and only in statuses
+        max_criterion_not_in_statuses = MaxTrials(
+            threshold=2, enforce=True, not_in_statuses=[TrialStatus.COMPLETED]
+        )
+        max_criterion_only_statuses = MaxTrials(
+            threshold=2,
+            enforce=True,
+            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
+        )
+        # experiment currently has 4 trials, but none of them are completed
+        self.assertTrue(
+            max_criterion_not_in_statuses.is_met(
+                experiment, trials_from_node=gs._steps[0].trials_from_node
+            )
+        )
+        self.assertFalse(
+            max_criterion_only_statuses.is_met(
+                experiment, trials_from_node=gs._steps[0].trials_from_node
+            )
+        )
+
+        # set 3 of the 4 trials to status == completed
+        for _idx, trial in experiment.trials.items():
+            trial._status = TrialStatus.COMPLETED
+            if _idx == 2:
+                break
+        self.assertTrue(
+            max_criterion_only_statuses.is_met(
+                experiment, trials_from_node=gs._steps[0].trials_from_node
+            )
+        )
+        self.assertFalse(
+            max_criterion_not_in_statuses.is_met(
+                experiment, trials_from_node=gs._steps[0].trials_from_node
+            )
+        )
+
         # if num_trials == -1, should always pass
         self.assertTrue(
             gs._steps[2]
@@ -270,17 +307,6 @@ class TestTransitionCriterion(TestCase):
                 experiment=experiment, trials_from_node=gs._steps[2].trials_from_node
             )
         )
-
-    def test_max_trials_status_arg(self) -> None:
-        """Tests the `only_in_status` argument checks the threshold based on the
-        number of trials in specified status instead of all trials (which is the
-        default behavior).
-        """
-        experiment = get_experiment()
-        criterion = MaxTrials(
-            threshold=5, only_in_status=TrialStatus.RUNNING, enforce=True
-        )
-        self.assertFalse(criterion.is_met(experiment, trials_from_node={2, 3}))
 
     def test_trials_from_node_none(self) -> None:
         """Tests MinimumTrialsInStatus and MaxTrials default to experiment
@@ -301,18 +327,24 @@ class TestTransitionCriterion(TestCase):
             ],
         )
         max_criterion_with_status = MaxTrials(
-            threshold=2, enforce=True, only_in_status=TrialStatus.COMPLETED
+            threshold=2, enforce=True, only_in_statuses=[TrialStatus.COMPLETED]
         )
         max_criterion = MaxTrials(threshold=2, enforce=True)
-        warning_msg = (
-            "trials_from_node is None, will check threshold on experiment level"
+        warning_msg_max = (
+            "`trials_from_node` is None, will check threshold"
+            + " on experiment level for MaxTrials."
+        )
+
+        warning_msg_min = (
+            "`trials_from_node` is None, will check threshold on"
+            + " experiment level for MinimumTrialsInStatus."
         )
 
         # no trials so criterion should be false, then add trials to pass criterion
         with self.assertLogs(TransitionCriterion.__module__, logging.WARNING) as logger:
             self.assertFalse(max_criterion.is_met(experiment, trials_from_node=None))
             self.assertTrue(
-                any(warning_msg in output for output in logger.output),
+                any(warning_msg_max in output for output in logger.output),
                 logger.output,
             )
         for _i in range(3):
@@ -338,7 +370,7 @@ class TestTransitionCriterion(TestCase):
         with self.assertLogs(TransitionCriterion.__module__, logging.WARNING) as logger:
             self.assertFalse(min_criterion.is_met(experiment, trials_from_node=None))
             self.assertTrue(
-                any(warning_msg in output for output in logger.output),
+                any(warning_msg_min in output for output in logger.output),
                 logger.output,
             )
         for _idx, trial in experiment.trials.items():
@@ -349,16 +381,19 @@ class TestTransitionCriterion(TestCase):
         """Tests that the repr string is correctly formatted for all
         TransitionCriterion child classes.
         """
+        self.maxDiff = None
         max_trials_criterion = MaxTrials(
             threshold=5,
             enforce=True,
             transition_to="GenerationStep_1",
-            only_in_status=TrialStatus.COMPLETED,
+            only_in_statuses=[TrialStatus.COMPLETED],
+            not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(max_trials_criterion),
-            "MaxTrials(threshold=5, enforce=True, only_in_status="
-            + "TrialStatus.COMPLETED, transition_to='GenerationStep_1')",
+            "MaxTrials(threshold=5, enforce=True, only_in_statuses="
+            + "[<TrialStatus.COMPLETED: 3>], transition_to='GenerationStep_1',"
+            + " not_in_statuses=[<TrialStatus.FAILED: 2>])",
         )
 
         minimum_trials_in_status_criterion = MinimumTrialsInStatus(
