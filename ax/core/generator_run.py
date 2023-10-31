@@ -148,7 +148,7 @@ class GeneratorRun(SortableBase):
             candidate_metadata_by_arm_signature: Optional dictionary of arm signatures
                 to model-produced candidate metadata that corresponds to that arm in
                 this generator run.
-            generaiton_node_name: Optional name of the generation node that produced
+            generation_node_name: Optional name of the generation node that produced
                 this generator run. Applicable only if the generator run was created
                 via a generation strategy (in which case this name should reflect the
                 name of the generation node in a generation strategy) or a standalone
@@ -210,11 +210,6 @@ class GeneratorRun(SortableBase):
                 )
         self._candidate_metadata_by_arm_signature = candidate_metadata_by_arm_signature
 
-        if generation_step_index is not None:
-            logger.warn(
-                "The generation_step_index argument is deprecated.Please use the more"
-                "generalized generation_node_name argument instead.",
-            )
         # Validate that generation step index is either not set (not from generation
         # strategy or ste), is non-negative (from generation step) or is -1 (from a
         # standalone generation step that was not a part of a generation strategy).
