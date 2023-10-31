@@ -227,7 +227,7 @@ class TorchModel(BaseModel):
 
     def update(
         self,
-        datasets: List[Optional[SupervisedDataset]],
+        datasets: List[SupervisedDataset],
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,

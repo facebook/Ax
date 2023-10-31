@@ -23,7 +23,7 @@ from ax.modelbridge.modelbridge_utils import (
     extract_risk_measure,
     extract_robust_digest,
     feasible_hypervolume,
-    process_contextual_datesets,
+    process_contextual_datasets,
     RISK_MEASURE_NAME_TO_CLASS,
     transform_search_space,
 )
@@ -271,7 +271,7 @@ class TestModelBridgeUtils(TestCase):
 
         self.assertEqual(transformed_search_space, expected)
 
-    def test_process_contextual_datesets(self) -> None:
+    def test_process_contextual_datasets(self) -> None:
         num_samples = 5
         num_contexts = 3
         feature_names = [f"x_c{i}" for i in range(num_contexts)]
@@ -301,7 +301,7 @@ class TestModelBridgeUtils(TestCase):
             ),
         ]
         # process dataset list with overall outcome only
-        contextual_datasets = process_contextual_datesets(
+        contextual_datasets = process_contextual_datasets(
             datasets=dataset_list,
             outcomes=["m1_overall", "m2_overall"],
             parameter_decomposition=parameter_decomposition,
@@ -322,7 +322,7 @@ class TestModelBridgeUtils(TestCase):
                 )
             )
         # # process dataset list with context-level outcomes
-        contextual_datasets = process_contextual_datesets(
+        contextual_datasets = process_contextual_datasets(
             datasets=dataset_list[2:],
             outcomes=context_outcome_list,
             parameter_decomposition=parameter_decomposition,
@@ -333,7 +333,7 @@ class TestModelBridgeUtils(TestCase):
         self.assertListEqual(contextual_datasets[0].outcome_names, context_outcome_list)
 
         # process dataset list with overall outcome and context-level outcomes
-        contextual_datasets = process_contextual_datesets(
+        contextual_datasets = process_contextual_datasets(
             datasets=dataset_list,
             outcomes=["m1_overall", "m2_overall"] + context_outcome_list,
             parameter_decomposition=parameter_decomposition,

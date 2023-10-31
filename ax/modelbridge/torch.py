@@ -50,7 +50,7 @@ from ax.modelbridge.modelbridge_utils import (
     observation_features_to_array,
     parse_observation_features,
     pending_observations_as_array_list,
-    process_contextual_datesets,
+    process_contextual_datasets,
     SearchSpaceDigest,
     transform_callback,
     validate_and_apply_final_transform,
@@ -299,9 +299,7 @@ class TorchModelBridge(ModelBridge):
         outcomes: List[str],
         parameters: List[str],
         search_space_digest: Optional[SearchSpaceDigest],
-    ) -> Tuple[
-        List[Optional[SupervisedDataset]], Optional[List[List[TCandidateMetadata]]]
-    ]:
+    ) -> Tuple[List[SupervisedDataset], Optional[List[List[TCandidateMetadata]]]]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
 
@@ -345,14 +343,11 @@ class TorchModelBridge(ModelBridge):
             observation_data, observation_features, parameters
         )
 
-        datasets: List[Optional[SupervisedDataset]] = []
+        datasets: List[SupervisedDataset] = []
         candidate_metadata = []
         for outcome in outcomes:
             if outcome not in Xs:
-                # This may happen when we update the data of only some metrics
-                datasets.append(None)
-                candidate_metadata.append(None)
-                continue
+                raise ValueError(f"Outcome `{outcome}` was not observed.")
             X = torch.stack(Xs[outcome], dim=0)
             Y = torch.tensor(
                 Ys[outcome], dtype=self.dtype, device=self.device
@@ -397,30 +392,22 @@ class TorchModelBridge(ModelBridge):
                     task_feature_index=task_features[0],
                     target_task_value=int(target_task_value),
                 )
-                if dataset is not None
-                else None
                 for dataset in datasets
             ]
-        # check whether is a `parameter_decomposition` experiment property to
-        # decide whether it is a contextual experiment
+        # Check if there is a `parameter_decomposition` experiment property to
+        # decide whether it is a contextual experiment.
         if self._experiment_properties.get("parameter_decomposition", None) is not None:
-            full_datasets = datasets
-            # handle the case that the dataset can be None
-            datasets = [dataset for dataset in full_datasets if dataset is None]
-            # convert to a list of ContextualDateset for contextual experiments
-            datasets.extend(
-                process_contextual_datesets(
-                    datasets=[
-                        dataset for dataset in full_datasets if dataset is not None
-                    ],
-                    outcomes=outcomes,
-                    parameter_decomposition=self._experiment_properties[
-                        "parameter_decomposition"
-                    ],
-                    metric_decomposition=self._experiment_properties.get(
-                        "metric_decomposition", None
-                    ),
-                )
+            # Convert to a list of ContextualDateset for contextual experiments.
+            # pyre-ignore [9]: ContextualDataset is a subclass of SupervisedDataset.
+            datasets = process_contextual_datasets(
+                datasets=datasets,
+                outcomes=outcomes,
+                parameter_decomposition=self._experiment_properties[
+                    "parameter_decomposition"
+                ],
+                metric_decomposition=self._experiment_properties.get(
+                    "metric_decomposition", None
+                ),
             )
 
         if not any_candidate_metadata_is_not_none:
@@ -447,12 +434,6 @@ class TorchModelBridge(ModelBridge):
             parameters=parameters,
             update_outcomes_and_parameters=False,
         )
-        for outcome, dataset in zip(self.outcomes, datasets):
-            if dataset is None:
-                raise UnsupportedError(
-                    f"{self.__class__._cross_validate} requires observations "
-                    f"for all outcomes, but no observations for {outcome}"
-                )
         if parameters is None:
             parameters = self.parameters
         X_test = torch.tensor(
@@ -582,7 +563,7 @@ class TorchModelBridge(ModelBridge):
         parameters: Optional[List[str]],
         update_outcomes_and_parameters: bool,
     ) -> Tuple[
-        List[Optional[SupervisedDataset]],
+        List[SupervisedDataset],
         Optional[List[List[TCandidateMetadata]]],
         SearchSpaceDigest,
     ]:

@@ -1462,7 +1462,7 @@ def transform_search_space(
     return search_space
 
 
-def process_contextual_datesets(
+def process_contextual_datasets(
     datasets: List[SupervisedDataset],
     outcomes: List[str],
     parameter_decomposition: Dict[str, List[str]],
