@@ -734,19 +734,20 @@ class TorchModelBridgeTest(TestCase):
             (True, MultiTaskDataset),
             (False, SupervisedDataset),
         ):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=[(0.0, 5.0)] * 3,
+                ordinal_features=[2],
+                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                task_features=[2] if use_task else [],
+                target_values={2: 0} if use_task else {},  # pyre-ignore
+            )
             converted_datasets, _ = mb._convert_observations(
                 observation_data=observation_data,
                 observation_features=observation_features,
                 outcomes=metric_names,
                 parameters=feature_names,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=feature_names,
-                    bounds=[(0.0, 5.0)] * 3,
-                    ordinal_features=[2],
-                    discrete_choices={2: list(range(0, 11))},  # pyre-ignore
-                    task_features=[2] if use_task else [],
-                    target_values={2: 0} if use_task else {},  # pyre-ignore
-                ),
+                search_space_digest=search_space_digest,
             )
             self.assertEqual(len(converted_datasets), 1)
             dataset = not_none(converted_datasets[0])
@@ -763,6 +764,15 @@ class TorchModelBridgeTest(TestCase):
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
             self.assertEqual(dataset.outcome_names, metric_names)
+
+            with self.assertRaisesRegex(ValueError, "was not observed."):
+                mb._convert_observations(
+                    observation_data=observation_data,
+                    observation_features=observation_features,
+                    outcomes=metric_names + ["extra"],
+                    parameters=feature_names,
+                    search_space_digest=search_space_digest,
+                )
 
     def test_convert_contextual_observations(self) -> None:
         raw_X = torch.rand(10, 3) * 5
