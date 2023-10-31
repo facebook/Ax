@@ -111,6 +111,20 @@ class Runner(Base, SerializationMixin, ABC):
             "method."
         )
 
+    def poll_exception(self, trial: core.base_trial.BaseTrial) -> str:
+        """Returns the exception from a trial.
+
+        Args:
+            trial: Trial to get exception for.
+
+        Returns:
+            Exception string.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_exception` "
+            "method."
+        )
+
     def stop(
         self, trial: core.base_trial.BaseTrial, reason: Optional[str] = None
     ) -> Dict[str, Any]:

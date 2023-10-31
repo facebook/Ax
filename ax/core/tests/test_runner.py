@@ -47,6 +47,10 @@ class RunnerTest(TestCase):
         with self.assertRaises(NotImplementedError):
             self.dummy_runner.poll_trial_status(trials=self.trials)
 
+    def test_base_runner_poll_exception(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            self.dummy_runner.poll_exception(trial=self.trials[0])
+
     def test_poll_available_capacity(self) -> None:
         self.assertEqual(self.dummy_runner.poll_available_capacity(), -1)
 

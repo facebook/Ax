@@ -1217,7 +1217,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # Update trial statuses and record which trials were updated.
             trials = self.experiment.get_trials_by_indices(trial_idcs)
             for trial in trials:
-                trial.mark_as(status=status, unsafe=True)
+                if status.is_failed or status.is_abandoned:
+                    try:
+                        reason = self.runner.poll_exception(trial)
+                        trial.mark_as(status=status, unsafe=True, reason=reason)
+                    except NotImplementedError:
+                        # Some runners do not implement poll_failure_reason, so
+                        # we fall back to marking the without a reason.
+                        trial.mark_as(status=status, unsafe=True)
+                else:
+                    trial.mark_as(status=status, unsafe=True)
 
             # 6. Fetch data for newly completed trials
             if status.is_completed:
