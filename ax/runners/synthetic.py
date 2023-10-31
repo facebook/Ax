@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Iterable, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
@@ -36,3 +36,6 @@ class SyntheticRunner(Runner):
         self, trials: Iterable[BaseTrial]
     ) -> Dict[TrialStatus, Set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
+
+    def run_metadata_report_keys(self) -> List[str]:
+        return ["name"]
