@@ -7,6 +7,7 @@ from typing import Dict, Optional, Type, Union
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
+    DEFAULT_REPLICATIONS_PER_MACHINE,
     get_sequential_optimization_scheduler_options,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -38,7 +39,7 @@ def get_sobol_botorch_modular_acquisition(
     model_cls: Type[Model],
     acquisition_cls: Type[AcquisitionFunction],
     scheduler_options: Optional[SchedulerOptions] = None,
-    distribute_replications: bool = False,
+    replications_per_machine: int = DEFAULT_REPLICATIONS_PER_MACHINE,
     name: Optional[str] = None,
 ) -> BenchmarkMethod:
     model_kwargs: Dict[
@@ -72,5 +73,5 @@ def get_sobol_botorch_modular_acquisition(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options
         or get_sequential_optimization_scheduler_options(),
-        distribute_replications=distribute_replications,
+        replications_per_machine=replications_per_machine,
     )
