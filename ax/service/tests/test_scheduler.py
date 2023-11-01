@@ -67,6 +67,8 @@ from pyre_extensions import none_throws
 
 from sqlalchemy.orm.exc import StaleDataError
 
+DUMMY_EXCEPTION = "test_exception"
+
 
 class SyntheticRunnerWithStatusPolling(SyntheticRunner):
     """Test runner that implements `poll_trial_status`, required for compatibility
@@ -126,6 +128,29 @@ class RunnerWithFrequentFailedTrials(SyntheticRunner):
         )
         # Poll different status next time.
         self.poll_failed_next_time = not self.poll_failed_next_time
+        return {status: {running[randint(0, len(running) - 1)]}}
+
+
+class RunnerWithFailedAndAbandonedTrials(SyntheticRunner):
+
+    poll_failed_next_time = True
+    status_idx = 0
+
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
+
+        trial_statuses_dummy = {
+            0: TrialStatus.ABANDONED,
+            1: TrialStatus.FAILED,
+            2: TrialStatus.COMPLETED,
+        }
+        running = [t.index for t in trials]
+        status = trial_statuses_dummy[self.status_idx]
+
+        # Poll different status next time.
+        self.status_idx = (self.status_idx + 1) % 3
+
         return {status: {running[randint(0, len(running) - 1)]}}
 
 
@@ -1132,6 +1157,47 @@ class TestAxScheduler(TestCase):
         scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
         self.assertEqual(len(scheduler.experiment.trials[0].arms), 2)
+
+    def test_poll_and_process_results_with_reasons(self) -> None:
+        options = SchedulerOptions(
+            total_trials=4,
+            tolerated_trial_failure_rate=0.9,
+            init_seconds_between_polls=0,
+        )
+
+        self.branin_experiment.runner = RunnerWithFailedAndAbandonedTrials()
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=options,
+        )
+
+        with patch.object(
+            scheduler.experiment.runner,
+            "poll_exception",
+            return_value=DUMMY_EXCEPTION,
+        ):
+            scheduler.run_all_trials()
+
+        abandoned_idx = list(
+            scheduler.experiment.trial_indices_by_status[TrialStatus.ABANDONED]
+        )[0]
+        failed_idx = list(
+            scheduler.experiment.trial_indices_by_status[TrialStatus.FAILED]
+        )[0]
+        completed_idx = list(
+            scheduler.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
+        )[0]
+
+        self.assertEqual(
+            scheduler.experiment.trials[failed_idx]._failed_reason,
+            DUMMY_EXCEPTION,
+        )
+        self.assertEqual(
+            scheduler.experiment.trials[abandoned_idx]._abandoned_reason,
+            DUMMY_EXCEPTION,
+        )
+        self.assertIsNone(scheduler.experiment.trials[completed_idx]._failed_reason)
 
     def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
         self,
