@@ -39,7 +39,6 @@ from ax.core.runner import Runner
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.exceptions.storage import SQAEncodeError
-from ax.fb.runners.chain_runner import ChainRunner
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.sqa_store.sqa_classes import (
@@ -880,16 +879,6 @@ class Encoder:
                 f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         properties = runner_class.serialize_init_args(obj=runner)
-        if isinstance(runner, ChainRunner):
-            stage_sequence = []
-            for stage in properties["stage_sequence"]:
-                stage_dict = object_to_json(
-                    stage,
-                    encoder_registry=self.config.json_encoder_registry,
-                    class_encoder_registry=self.config.json_class_encoder_registry,
-                )
-                stage_sequence.append(stage_dict)
-            properties["stage_sequence"] = stage_sequence
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]
         # pyre-fixme[29]: `SQARunner` is not a function.
