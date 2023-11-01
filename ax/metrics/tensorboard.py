@@ -44,23 +44,27 @@ try:
 
             Args:
                 ids: A list of string paths to tensorboard log directories.
-                names: (CURRENTLY UNUSED) The names of the tags for which to fetch the
-                    curves. If omitted, all tags are returned.
+                names: The names of the tags for which to fetch the curves.
+                    If omitted, all tags are returned.
 
             Returns:
                 A nested dictionary mapping ids (first level) and metric names (second
                 level) to pandas Series of data.
             """
-            return {idx: get_tb_from_posix(path=str(idx)) for idx in ids}
+            return {idx: get_tb_from_posix(path=str(idx), tags=names) for idx in ids}
 
-    def get_tb_from_posix(path: str) -> Dict[str, pd.Series]:
+    def get_tb_from_posix(
+        path: str,
+        tags: Optional[Set[str]] = None,
+    ) -> Dict[str, pd.Series]:
         r"""Get Tensorboard data from a posix path.
 
         Args:
             path: The posix path for the directory that contains the tensorboard logs.
-
+            tags: The names of the tags for which to fetch the curves. If omitted,
+                all tags are returned.
         Returns:
-            A dictionary mapping metric names to pandas Series of data.
+            A dictionary mapping tag names to pandas Series of data.
         """
         logger.debug(f"Reading TB logs from {path}.")
         mul = event_multiplexer.EventMultiplexer(max_reload_threads=20)
@@ -72,6 +76,7 @@ try:
             {"tag": tag, "event": mul.Tensors(run, tag)}
             for run, run_dict in scalar_dict.items()
             for tag in run_dict
+            if tags is None or tag in tags
         ]
         tb_run_data = {}
         for item in raw_result:
@@ -84,14 +89,19 @@ try:
             ]
             key = item["tag"]
             series = pd.Series(index=steps, data=vals).dropna()
-            if any(series.index.duplicated()):  # pyre-ignore[16]
+            if key in tb_run_data:
+                tb_run_data[key] = pd.concat(objs=[tb_run_data[key], series])
+            else:
+                tb_run_data[key] = series
+        for key, series in tb_run_data.items():
+            if any(series.index.duplicated()):
                 # take average of repeated observations of the same "step"
-                series = series.groupby(series.index).mean()  # pyre-ignore[16]
+                series = series.groupby(series.index).mean()
                 logger.debug(
                     f"Found duplicate steps for tag {key}. "
                     "Removing duplicates by averaging."
                 )
-            tb_run_data[key] = series
+                tb_run_data[key] = series
         return tb_run_data
 
     # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use

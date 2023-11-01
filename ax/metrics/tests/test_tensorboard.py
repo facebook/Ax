@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Iterable, Union
+from typing import Dict, Iterable, List, Optional, Union
 from unittest import mock
 
 import numpy as np
@@ -22,9 +22,9 @@ from ax.utils.testing.core_stubs import get_branin_search_space
 
 class TensorboardCurveMetricTest(TestCase):
     def test_tensorboard_curve_metric(self) -> None:
-        # pyre-fixme[3]: Return type must be annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def mock_get_tb_from_posix(path):
+        def mock_get_tb_from_posix(
+            path: str, tags: Optional[List[str]] = None
+        ) -> Dict[str, pd.Series]:
             data = np.array([10, 3, 5, 2, 7, 1])
             return {"test_curve": pd.Series((int(path) + 1) * data)}
 
