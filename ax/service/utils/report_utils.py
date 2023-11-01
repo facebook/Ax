@@ -83,7 +83,6 @@ CROSS_VALIDATION_CAPTION = (
 FEASIBLE_COL_NAME = "is_feasible"
 
 
-# pyre-ignore[11]: Annotation `go.Figure` is not defined as a type.
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
     cv = cross_validate(model=model)
     return [
@@ -1092,7 +1091,11 @@ def get_figure_and_callback(
                 "Skipping plot update."
             )
             return
-        fig.update(data=new_fig._data, layout=new_fig._layout, overwrite=True)
+        fig.update(
+            data=new_fig._data,  # pyre-ignore[16]
+            layout=new_fig._layout,  # pyre-ignore[16]
+            overwrite=True,
+        )
 
     return fig, _update_fig_in_place
 
@@ -1100,7 +1103,7 @@ def get_figure_and_callback(
 def _warn_and_create_warning_plot(warning_msg: str) -> go.Figure:
     logger.warning(warning_msg)
     return (
-        go.Figure()
+        go.Figure()  # pyre-ignore[16]
         .add_annotation(text=warning_msg, showarrow=False, font={"size": 20})
         .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
         .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)

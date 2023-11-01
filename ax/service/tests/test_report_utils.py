@@ -459,7 +459,7 @@ class ReportUtilsTest(TestCase):
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
         self.assertIn(
             "Objective branin_map vs. True Objective Metric branin",
-            [p.layout.title.text for p in plots],
+            [p.layout.title.text for p in plots],  # pyre-ignore[16]
         )
 
         with self.assertRaisesRegex(
