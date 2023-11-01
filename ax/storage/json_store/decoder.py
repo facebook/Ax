@@ -36,6 +36,7 @@ from ax.modelbridge.transition_criterion import (
     MaxTrials,
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
+    MinTrials,
     TransitionCriterion,
 )
 from ax.models.torch.botorch_modular.model import SurrogateSpec
@@ -352,9 +353,9 @@ def transition_criteria_from_json(
     criterion_list = []
     for criterion_json in transition_criteria_json:
         criterion_type = criterion_json.pop("__type")
-        if criterion_type == "MinimumTrialsInStatus":
+        if criterion_type == "MinTrials":
             criterion_list.append(
-                MinimumTrialsInStatus(
+                MinTrials(
                     statuses=object_from_json(criterion_json.pop("statuses")),
                     threshold=criterion_json.pop("threshold"),
                     transition_to=criterion_json.pop("transition_to")
@@ -377,6 +378,16 @@ def transition_criteria_from_json(
                     )
                     if "not_in_statuses" in criterion_json.keys()
                     else None,
+                    transition_to=criterion_json.pop("transition_to")
+                    if "transition_to" in criterion_json.keys()
+                    else None,
+                )
+            )
+        elif criterion_type == "MinimumTrialsInStatus":
+            criterion_list.append(
+                MinimumTrialsInStatus(
+                    status=object_from_json(criterion_json.pop("status")),
+                    threshold=criterion_json.pop("threshold"),
                     transition_to=criterion_json.pop("transition_to")
                     if "transition_to" in criterion_json.keys()
                     else None,

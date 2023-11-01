@@ -82,6 +82,7 @@ from ax.modelbridge.transition_criterion import (
     MaxTrials,
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
+    MinTrials,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
@@ -189,10 +190,11 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MapData: map_data_to_dict,
     MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
+    MaxTrials: transition_criterion_to_dict,
     Metric: metric_to_dict,
+    MinTrials: transition_criterion_to_dict,
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
-    MaxTrials: transition_criterion_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveBenchmarkProblem: multi_objective_benchmark_problem_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -304,6 +306,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "MapKeyInfo": MapKeyInfo,
     "MaxTrials": MaxTrials,
     "Metric": Metric,
+    "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
     "Models": Models,

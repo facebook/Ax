@@ -35,7 +35,7 @@ from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
     MaxTrials,
-    MinimumTrialsInStatus,
+    MinTrials,
     TransitionCriterion,
 )
 from ax.utils.common.base import Base, SortableBase
@@ -509,7 +509,7 @@ class GenerationStep(GenerationNode, SortableBase):
 
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
         # to ensure that requirements related to num_trials and enforce_num_trials
-        # are met. MinimumTrialsInStatus can be used enforce the min_trials_observed
+        # are met. MinTrials can be used enforce the min_trials_observed
         # requirement. We set transition_to on GenerationStrategy instead of here as
         # GenerationStrategy can see the full list of steps.
         transition_criteria = []
@@ -520,7 +520,7 @@ class GenerationStep(GenerationNode, SortableBase):
             )
         )
         transition_criteria.append(
-            MinimumTrialsInStatus(
+            MinTrials(
                 statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=self.min_trials_observed,
             )

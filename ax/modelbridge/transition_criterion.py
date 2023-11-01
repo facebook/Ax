@@ -67,14 +67,13 @@ class TransitionCriterion(Base, SerializationMixin):
         return exp_trials_with_statuses
 
 
-class MinimumTrialsInStatus(TransitionCriterion):
+class MinTrials(TransitionCriterion):
     """
     Simple class to decide if the number of trials of a given status in the
     GenerationStrategy experiment has reached a certain threshold.
     """
 
-    # TODO: @mgarrard rename to MinTrials and expand functionality to mirror
-    #  `MaxTrials` after legacy usecases are updated.
+    # TODO: to expand functionality to mirror `MaxTrials`
     def __init__(
         self,
         statuses: List[TrialStatus],
@@ -88,7 +87,7 @@ class MinimumTrialsInStatus(TransitionCriterion):
     def is_met(
         self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
     ) -> bool:
-        """Checks if the MinimumTrialsInStatus criterion is met.
+        """Checks if the MinTrials criterion is met.
         Args:
             experiment: The experiment associated with this GenerationStrategy.
             trials_from_node: A set containing the indices of trials that were
@@ -102,7 +101,7 @@ class MinimumTrialsInStatus(TransitionCriterion):
         if trials_from_node is None:
             logger.warning(
                 "`trials_from_node` is None, will check threshold on"
-                + " experiment level for MinimumTrialsInStatus.",
+                + " experiment level for MinTrials.",
             )
             return len(exp_trials_with_statuses) >= self.threshold
         return (
@@ -111,7 +110,7 @@ class MinimumTrialsInStatus(TransitionCriterion):
         )
 
     def __repr__(self) -> str:
-        """Returns a string representation of MinimumTrialsInStatus."""
+        """Returns a string representation of MinTrials."""
         return (
             f"{self.__class__.__name__}(statuses={self.statuses}, "
             f"threshold={self.threshold}, transition_to='{self.transition_to}')"
@@ -219,3 +218,22 @@ class MinimumPreferenceOccurances(TransitionCriterion):
             f"{self.__class__.__name__}(metric_name='{self.metric_name}', "
             f"threshold={self.threshold}, transition_to={self.transition_to})"
         )
+
+
+# TODO: Deprecate once legacy usecase is updated
+class MinimumTrialsInStatus(TransitionCriterion):
+    """
+    Deprecated and replaced with more flexible MinTrials criterion.
+    """
+
+    def __init__(
+        self, status: TrialStatus, threshold: int, transition_to: Optional[str] = None
+    ) -> None:
+        self.status = status
+        self.threshold = threshold
+        super().__init__(transition_to=transition_to)
+
+    def is_met(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
+    ) -> bool:
+        return len(experiment.trial_indices_by_status[self.status]) >= self.threshold

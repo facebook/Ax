@@ -15,7 +15,7 @@ from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import (
     MaxTrials,
     MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
+    MinTrials,
     TransitionCriterion,
 )
 from ax.utils.common.logger import get_logger
@@ -79,7 +79,7 @@ class TestTransitionCriterion(TestCase):
         is set as expected.
 
         The default completion criterion is to create two TransitionCriterion, one
-        of type `MaximumTrialsInStatus` and one of type `MinimumTrialsInStatus`.
+        of type `MaximumTrialsInStatus` and one of type `MinTrials`.
         These are constructed via the inputs of `num_trials`, `enforce_num_trials`,
         and `minimum_trials_observed` on the GenerationStep.
         """
@@ -109,7 +109,7 @@ class TestTransitionCriterion(TestCase):
 
         step_0_expected_transition_criteria = [
             MaxTrials(threshold=3, enforce=True, transition_to="GenerationStep_1"),
-            MinimumTrialsInStatus(
+            MinTrials(
                 statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=0,
                 transition_to="GenerationStep_1",
@@ -117,7 +117,7 @@ class TestTransitionCriterion(TestCase):
         ]
         step_1_expected_transition_criteria = [
             MaxTrials(threshold=4, enforce=False, transition_to="GenerationStep_2"),
-            MinimumTrialsInStatus(
+            MinTrials(
                 statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
                 transition_to="GenerationStep_2",
@@ -125,7 +125,7 @@ class TestTransitionCriterion(TestCase):
         ]
         step_2_expected_transition_criteria = [
             MaxTrials(threshold=-1, enforce=True, transition_to="GenerationStep_3"),
-            MinimumTrialsInStatus(
+            MinTrials(
                 statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=0,
                 transition_to="GenerationStep_3",
@@ -141,8 +141,8 @@ class TestTransitionCriterion(TestCase):
             gs._steps[2].transition_criteria, step_2_expected_transition_criteria
         )
 
-    def test_minimum_trials_in_status_is_met(self) -> None:
-        """Test that the is_met method in MinimumTrialsInStatus works"""
+    def test_min_trials_is_met(self) -> None:
+        """Test that the is_met method in  MinTrials works"""
         experiment = get_branin_experiment()
         gs = GenerationStrategy(
             name="SOBOL::default",
@@ -173,7 +173,7 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(len(node_0_trials), 4)
         self.assertEqual(len(node_1_trials), 0)
 
-        # MinimumTrialsInStatus is met should not pass yet, becasue no trials
+        # MinTrials is met should not pass yet, becasue no trials
         # are marked completed
         self.assertFalse(
             gs._steps[0]
@@ -192,8 +192,8 @@ class TestTransitionCriterion(TestCase):
             .is_met(experiment, gs._steps[0].trials_from_node)
         )
 
-        # Check mixed status MinimumTrialsInStatus
-        min_criterion = MinimumTrialsInStatus(
+        # Check mixed status MinTrials
+        min_criterion = MinTrials(
             threshold=3, statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]
         )
         self.assertFalse(
@@ -309,7 +309,7 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_trials_from_node_none(self) -> None:
-        """Tests MinimumTrialsInStatus and MaxTrials default to experiment
+        """Tests MinTrials and MaxTrials default to experiment
         level trials when trials_from_node is None.
         """
         # TODO: @mgarrard replace with assertion checks that `trials_from_node`
@@ -337,7 +337,7 @@ class TestTransitionCriterion(TestCase):
 
         warning_msg_min = (
             "`trials_from_node` is None, will check threshold on"
-            + " experiment level for MinimumTrialsInStatus."
+            + " experiment level for MinTrials."
         )
 
         # no trials so criterion should be false, then add trials to pass criterion
@@ -364,7 +364,7 @@ class TestTransitionCriterion(TestCase):
         )
 
         # Check MinimumTrialsInStatus
-        min_criterion = MinimumTrialsInStatus(
+        min_criterion = MinTrials(
             threshold=3, statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]
         )
         with self.assertLogs(TransitionCriterion.__module__, logging.WARNING) as logger:
@@ -396,14 +396,14 @@ class TestTransitionCriterion(TestCase):
             + " not_in_statuses=[<TrialStatus.FAILED: 2>])",
         )
 
-        minimum_trials_in_status_criterion = MinimumTrialsInStatus(
+        minimum_trials_in_status_criterion = MinTrials(
             statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
             threshold=0,
             transition_to="GenerationStep_2",
         )
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
-            "MinimumTrialsInStatus(statuses=[<TrialStatus.COMPLETED: 3>, "
+            "MinTrials(statuses=[<TrialStatus.COMPLETED: 3>, "
             + "<TrialStatus.EARLY_STOPPED: 7>], threshold=0, transition_to="
             + "'GenerationStep_2')",
         )
