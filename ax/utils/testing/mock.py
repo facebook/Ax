@@ -15,7 +15,7 @@ from botorch.optim.initializers import (
     gen_batch_initial_conditions,
     gen_one_shot_kg_initial_conditions,
 )
-from scipy.optimize.optimize import OptimizeResult
+from scipy.optimize import OptimizeResult
 from torch import Tensor
 
 
@@ -31,7 +31,9 @@ def fast_botorch_optimize_context_manager(
             USE RESPONSIBLY.
     """
 
-    def one_iteration_minimize(*args: Any, **kwargs: Any) -> OptimizeResult:
+    def one_iteration_minimize(
+        *args: Any, **kwargs: Any
+    ) -> OptimizeResult:  # pyre-ignore[11]
         if kwargs["options"] is None:
             kwargs["options"] = {}
 

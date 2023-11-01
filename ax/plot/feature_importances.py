@@ -37,7 +37,7 @@ def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:
     )
 
     for idx, item in enumerate(data):
-        fig.append_trace(item, idx + 1, 1)
+        fig.append_trace(item, idx + 1, 1)  # pyre-ignore[16]
     fig.layout.showlegend = False
     fig.layout.margin = go.layout.Margin(
         l=8 * min(max(len(idx) for idx in df.index), 75)  # noqa E741

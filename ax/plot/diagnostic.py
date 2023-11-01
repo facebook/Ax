@@ -599,7 +599,7 @@ def tile_cross_validation(
             y_raw.append(arm.y[metric])
             se_raw.append(arm.se[metric])
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
-        fig.append_trace(
+        fig.append_trace(  # pyre-ignore[16]
             _diagonal_trace(min_, max_), int(np.floor(i / 2)) + 1, i % 2 + 1
         )
         fig.append_trace(

@@ -860,7 +860,7 @@ def lattice_multiple_metrics(
                     visible=True,
                     show_arm_details_on_hover=show_arm_details_on_hover,
                 )
-                fig.append_trace(obs_insample_trace, j, i)
+                fig.append_trace(obs_insample_trace, j, i)  # pyre-ignore[16]
                 fig.append_trace(predicted_insample_trace, j, i)
 
                 # iterate over models here
@@ -1390,7 +1390,9 @@ def tile_fitted(
             "zerolinecolor": "red",
         }
         for d in data:
-            fig.append_trace(d, int(np.floor(i / ncols)) + 1, i % ncols + 1)
+            fig.append_trace(  # pyre-ignore[16]
+                d, int(np.floor(i / ncols)) + 1, i % ncols + 1
+            )
 
     order_options = [
         {"args": [name_order_args], "label": "Name", "method": "relayout"},

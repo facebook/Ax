@@ -59,7 +59,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
         shared_yaxes=True,
     )
     for idx, item in enumerate(data):
-        fig.append_trace(item, 1, idx + 1)
+        fig.append_trace(item, 1, idx + 1)  # pyre-ignore[16]
     fig.layout.showlegend = False
     # fig.layout.margin = go.layout.Margin(l=2, r=2)
     fig.layout.title = "Marginal Effects by Factor"
