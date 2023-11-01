@@ -81,12 +81,13 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         for trial in exp.trials.values():
             trial.mark_running(no_runner_required=True).mark_completed()
         metrics_dict = not_none(exp.optimization_config).metrics
+        objective_bound = 5.0
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=metrics_dict[f"branin_{letter}"],
-                bound=0.0,
+                bound=objective_bound,
                 relative=False,
-                op=ComparisonOp.GEQ,
+                op=ComparisonOp.LEQ,
             )
             for letter in "ab"
         ]
@@ -180,12 +181,10 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
 
         wrapped_frontier_evaluator.assert_called_once()
         self.assertEqual(f.shape, (1, n_outcomes))
-        self.assertTrue(torch.equal(obj_w[:2], torch.ones(2, dtype=torch.double)))
+        self.assertTrue(torch.equal(obj_w[:2], -torch.ones(2, dtype=torch.double)))
         self.assertTrue(obj_t is not None)
         self.assertTrue(
-            torch.equal(
-                not_none(obj_t)[:2], torch.tensor([0.0, 0.0], dtype=torch.double)
-            )
+            torch.equal(not_none(obj_t)[:2], torch.full((2,), 5.0, dtype=torch.double))
         )
         observed_frontier2 = pareto_frontier(
             modelbridge=modelbridge,
@@ -219,7 +218,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 true_Y,
             )
         )
-        self.assertTrue(torch.equal(f[:, :2], true_Y[1:, :]))
+        self.assertTrue(torch.equal(objective_bound - f[:, :2], true_Y[1:, :]))
         self.assertIsNone(obj_t)
 
     def test_pareto_frontier(self) -> None:
@@ -249,9 +248,9 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=metrics_dict[f"branin_{letter}"],
-                bound=0.0,
+                bound=5.0,
                 relative=False,
-                op=ComparisonOp.GEQ,
+                op=ComparisonOp.LEQ,
             )
             for letter in "ab"
         ]
@@ -348,27 +347,29 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                 trial.mark_running(no_runner_required=True).mark_completed()
             # pyre-fixme[16]: Optional type has no attribute `metrics`.
             metrics_dict = exp.optimization_config.metrics
+            # Objective thresholds and synthetic observations chosen to have closed-form
+            # hypervolumes to test.
             objective_thresholds = [
                 ObjectiveThreshold(
                     metric=metrics_dict["branin_a"],
-                    bound=0.0,
+                    bound=10.0,
                     relative=False,
-                    op=ComparisonOp.GEQ,
+                    op=ComparisonOp.LEQ,
                 ),
                 ObjectiveThreshold(
                     metric=metrics_dict["branin_b"],
-                    bound=1.0,
+                    bound=9.0,
                     relative=False,
-                    op=ComparisonOp.GEQ,
+                    op=ComparisonOp.LEQ,
                 ),
             ]
             if num_objectives == 3:
                 objective_thresholds.append(
                     ObjectiveThreshold(
                         metric=metrics_dict["branin_c"],
-                        bound=2.0,
+                        bound=8.0,
                         relative=False,
-                        op=ComparisonOp.GEQ,
+                        op=ComparisonOp.LEQ,
                     )
                 )
             # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.
@@ -534,7 +535,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
                     optimization_config=oc,
                     fixed_features=fixed_features,
                 )
-                expected_obj_weights = torch.tensor([-1.0, 1.0], dtype=torch.double)
+                expected_obj_weights = torch.tensor([-1.0, -1.0], dtype=torch.double)
                 ckwargs = mock_model_infer_obj_t.call_args[1]
                 self.assertTrue(
                     torch.equal(ckwargs["objective_weights"], expected_obj_weights)
@@ -565,7 +566,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
             self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
             self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
-            self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+            self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
             self.assertFalse(obj_thresholds[0].relative)
             self.assertFalse(obj_thresholds[1].relative)
             df = exp_to_df(exp)
@@ -576,7 +577,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             nadir = pareto_Y.min(dim=0).values
             self.assertTrue(
                 np.all(
-                    np.array([-obj_thresholds[0].bound, obj_thresholds[1].bound])
+                    -np.array([obj_thresholds[0].bound, obj_thresholds[1].bound])
                     < nadir.numpy()
                 )
             )
@@ -635,8 +636,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             mock_untransform_objective_thresholds.assert_called_once()
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
-        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
         df = exp_to_df(exp)
@@ -689,8 +690,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         self.assertEqual(wrapped_cast.call_count, 0)
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
-        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
 
@@ -724,8 +725,8 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         )
         self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
         self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].op, ComparisonOp.GEQ)
-        self.assertEqual(obj_thresholds[1].op, ComparisonOp.GEQ)
+        self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
+        self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
         self.assertFalse(obj_thresholds[1].relative)
 

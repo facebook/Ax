@@ -59,10 +59,10 @@ def get_multi_obj_exp_and_opt_config():
     metrics = multi_obj_exp.optimization_config.objective.metrics
     multi_objective_thresholds = [
         ObjectiveThreshold(
-            metric=metrics[0], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            metric=metrics[0], bound=5.0, relative=False, op=ComparisonOp.LEQ
         ),
         ObjectiveThreshold(
-            metric=metrics[1], bound=0.0, relative=False, op=ComparisonOp.GEQ
+            metric=metrics[1], bound=10.0, relative=False, op=ComparisonOp.LEQ
         ),
     ]
     # pyre-fixme[16]: Optional type has no attribute `clone_with_args`.

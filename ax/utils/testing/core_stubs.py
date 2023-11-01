@@ -1337,7 +1337,9 @@ def get_metric() -> Metric:
 
 def get_branin_metric(name: str = "branin") -> BraninMetric:
     param_names = ["x1", "x2"]
-    return BraninMetric(name=name, param_names=param_names, noise_sd=0.01)
+    return BraninMetric(
+        name=name, param_names=param_names, noise_sd=0.01, lower_is_better=True
+    )
 
 
 def get_augmented_branin_metric(name: str = "aug_branin") -> AugmentedBraninMetric:
@@ -1456,11 +1458,13 @@ def get_branin_objective(minimize: bool = False) -> Objective:
 def get_branin_multi_objective(num_objectives: int = 2) -> Objective:
     _validate_num_objectives(num_objectives=num_objectives)
     objectives = [
-        Objective(metric=get_branin_metric(name="branin_a")),
-        Objective(metric=get_branin_metric(name="branin_b")),
+        Objective(metric=get_branin_metric(name="branin_a"), minimize=True),
+        Objective(metric=get_branin_metric(name="branin_b"), minimize=True),
     ]
     if num_objectives == 3:
-        objectives.append(Objective(metric=get_branin_metric(name="branin_c")))
+        objectives.append(
+            Objective(metric=get_branin_metric(name="branin_c"), minimize=True)
+        )
     return MultiObjective(objectives=objectives)
 
 
@@ -1526,18 +1530,19 @@ def get_branin_multi_objective_optimization_config(
     num_objectives: int = 2,
 ) -> MultiObjectiveOptimizationConfig:
     _validate_num_objectives(num_objectives=num_objectives)
+    # minimum Branin value is 0.397887
     if has_objective_thresholds:
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_a"),
                 bound=10,
-                op=ComparisonOp.GEQ,
+                op=ComparisonOp.LEQ,
                 relative=False,
             ),
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_b"),
                 bound=20,
-                op=ComparisonOp.GEQ,
+                op=ComparisonOp.LEQ,
                 relative=False,
             ),
         ]
@@ -1546,7 +1551,7 @@ def get_branin_multi_objective_optimization_config(
                 ObjectiveThreshold(
                     metric=get_branin_metric(name="branin_c"),
                     bound=5.0,
-                    op=ComparisonOp.GEQ,
+                    op=ComparisonOp.LEQ,
                     relative=False,
                 )
             )
