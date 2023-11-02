@@ -1006,9 +1006,10 @@ def pareto_frontier(
             will use ``observation_data`` directly to compute Pareto front, ignoring
             ``observation_features``.
 
-    Returns: Points on the Pareto frontier as `Observation`-s.
+    Returns: Points on the Pareto frontier as `Observation`-s in order of descending
+        individual hypervolume if possible.
     """
-    return get_pareto_frontier_and_configs(
+    frontier_observations, f, obj_w, obj_t = get_pareto_frontier_and_configs(
         modelbridge=modelbridge,
         observation_features=observation_features,
         observation_data=observation_data,
@@ -1017,7 +1018,36 @@ def pareto_frontier(
         arm_names=arm_names,
         use_model_predictions=use_model_predictions,
         transform_outcomes_and_configs=False,
-    )[0]
+    )
+
+    # If no objective thresholds are present we cannot compute hypervolume -- return
+    # frontier observations in arbitrary order
+    if obj_t is None:
+        return frontier_observations
+
+    # Apply appropriate weights and thresholds
+    obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
+        objective_weights=obj_w, objective_thresholds=obj_t
+    )
+    f_t = obj(f)
+
+    # Compute individual hypervolumes by taking the difference between the observation
+    # and the reference point and multiplying
+    individual_hypervolumes = (
+        (f_t.unsqueeze(dim=0) - obj_t).clamp_min(0).prod(dim=-1).squeeze().tolist()
+    )
+
+    if type(individual_hypervolumes) != list:
+        individual_hypervolumes = [individual_hypervolumes]
+
+    return [
+        obs
+        for obs, _ in sorted(
+            zip(frontier_observations, individual_hypervolumes),
+            key=lambda tup: tup[1],
+            reverse=True,
+        )
+    ]
 
 
 def predicted_pareto_frontier(

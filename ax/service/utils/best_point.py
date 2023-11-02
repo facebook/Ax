@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from collections import OrderedDict
 from functools import reduce
 
 from logging import Logger
@@ -581,21 +582,24 @@ def get_pareto_optimal_parameters(
             "configuration on the experiment."
         )
 
-    # Extract the Pareto frontier and format it as follows:
-    # { trial_index --> (parameterization, (means, covariances) }
     pareto_util = predicted_pareto if use_model_predictions else observed_pareto
     pareto_optimal_observations = pareto_util(
         modelbridge=modelbridge,
         optimization_config=moo_optimization_config,
         objective_thresholds=objective_thresholds_override,
     )
-    return {
-        int(not_none(obs.features.trial_index)): (
+
+    # Insert observations into OrderedDict in order of descending individual
+    # hypervolume, formated as
+    # { trial_index --> (parameterization, (means, covariances) }
+    res: Dict[int, Tuple[TParameterization, TModelPredictArm]] = OrderedDict()
+    for obs in pareto_optimal_observations:
+        res[int(not_none(obs.features.trial_index))] = (
             obs.features.parameters,
             (obs.data.means_dict, obs.data.covariance_matrix),
         )
-        for obs in pareto_optimal_observations
-    }
+
+    return res
 
 
 def _get_best_row_for_scalarized_objective(
