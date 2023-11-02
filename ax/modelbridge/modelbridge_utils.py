@@ -1037,7 +1037,7 @@ def pareto_frontier(
         (f_t.unsqueeze(dim=0) - obj_t).clamp_min(0).prod(dim=-1).squeeze().tolist()
     )
 
-    if type(individual_hypervolumes) != list:
+    if not isinstance(individual_hypervolumes, list):
         individual_hypervolumes = [individual_hypervolumes]
 
     return [
