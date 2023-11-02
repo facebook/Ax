@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from copy import deepcopy
 
 import numpy as np
 import torch
@@ -18,13 +17,12 @@ from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
     convert_to_block_design,
-    disable_one_to_many_transforms,
     use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -34,16 +32,8 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
-from botorch.models.model import ModelList
 from botorch.models.multitask import MultiTaskGP
-from botorch.models.transforms.input import (
-    ChainedInputTransform,
-    InputPerturbation,
-    InputTransform,
-    Normalize,
-)
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.testing import MockModel, MockPosterior
 
 
 class BoTorchModelUtilsTest(TestCase):
@@ -506,45 +496,6 @@ class ConvertToBlockDesignTest(TestCase):
             )
         )
         self.assertEqual(new_metric_names, ["y1_y2"])
-
-    def test_disable_one_to_many_transforms(self) -> None:
-        mm = MockModel(posterior=MockPosterior())
-        # No input transforms.
-        with disable_one_to_many_transforms(model=mm):
-            pass
-        # Error with Chained intf.
-        normalize = Normalize(d=2)
-        perturbation = InputPerturbation(perturbation_set=torch.rand(2, 2))
-        chained_tf = ChainedInputTransform(
-            normalize=normalize, perturbation=perturbation
-        )
-        mm.input_transform = deepcopy(chained_tf)
-        with self.assertRaisesRegex(UnsupportedError, "ChainedInputTransforms"):
-            with disable_one_to_many_transforms(model=mm):
-                pass
-        # The transform is not modified.
-        self.assertTrue(
-            checked_cast(InputTransform, mm.input_transform).equals(chained_tf)
-        )
-        # With one-to-many transform.
-        mm.input_transform = deepcopy(perturbation)
-        with disable_one_to_many_transforms(model=mm):
-            self.assertFalse(
-                checked_cast(InputTransform, mm.input_transform).transform_on_eval
-            )
-        self.assertTrue(
-            checked_cast(InputTransform, mm.input_transform).transform_on_eval
-        )
-        self.assertTrue(
-            checked_cast(InputTransform, mm.input_transform).equals(perturbation)
-        )
-        # With ModelList.
-        mm_list = ModelList(mm, deepcopy(mm))
-        with disable_one_to_many_transforms(model=mm_list):
-            for mm in mm_list.models:
-                self.assertFalse(mm.input_transform.transform_on_eval)
-        for mm in mm_list.models:
-            self.assertTrue(mm.input_transform.transform_on_eval)
 
     def test_to_inequality_constraints(self) -> None:
         A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])

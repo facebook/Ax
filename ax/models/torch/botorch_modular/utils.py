@@ -5,9 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import warnings
-from contextlib import contextmanager
 from logging import Logger
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -30,7 +29,6 @@ from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchMod
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import ChainedInputTransform
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -299,37 +297,6 @@ def fit_botorch_model(
             raise NotImplementedError(
                 f"Model of type {m.__class__.__name__} is currently not supported."
             )
-
-
-@contextmanager
-def disable_one_to_many_transforms(model: Model) -> Generator[None, None, None]:
-    r"""A context manager for temporarily disabling one-to-many transforms.
-
-    This can be used to avoid perturbing the user supplied inputs when
-    getting the predictions from the model.
-
-    NOTE: This currently does not support chained input transforms.
-
-    Args:
-        model: The BoTorch `Model` to disable the transforms for.
-    """
-    models = model.models if isinstance(model, ModelList) else [model]
-    input_transforms = [getattr(m, "input_transform", None) for m in models]
-    try:
-        for intf in input_transforms:
-            if intf is None:
-                continue
-            if isinstance(intf, ChainedInputTransform):
-                raise UnsupportedError(
-                    "ChainedInputTransforms are currently not supported."
-                )
-            if intf.is_one_to_many:
-                intf.transform_on_eval = False
-        yield
-    finally:
-        for intf in input_transforms:
-            if intf is not None and intf.is_one_to_many:
-                intf.transform_on_eval = True
 
 
 def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
