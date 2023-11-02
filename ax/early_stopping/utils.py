@@ -4,7 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import math
 from collections import defaultdict
 from logging import Logger
 from typing import Dict, List, Optional, Tuple
@@ -123,7 +122,7 @@ def estimate_early_stopping_savings(
     map_key: Optional[str] = None,
 ) -> float:
     """Estimate resource savings due to early stopping by considering
-    COMPLETED and EARLY_STOPPED trials. First, use the maximum of final
+    COMPLETED and EARLY_STOPPED trials. First, use the mean of final
     progressions of the set completed trials as a benchmark for the
     length of a single trial. The savings is then estimated as:
 
@@ -150,25 +149,34 @@ def estimate_early_stopping_savings(
     else:
         return 0
 
+    # Get final number of steps of each trial
+    trial_resources = (
+        map_data.map_df[["trial_index", step_key]]
+        .groupby("trial_index")
+        .max()
+        .reset_index()
+    )
+
+    early_stopped_trial_idcs = experiment.trial_indices_by_status[
+        TrialStatus.EARLY_STOPPED
+    ]
     completed_trial_idcs = experiment.trial_indices_by_status[TrialStatus.COMPLETED]
 
-    total_resources = (
-        map_data.map_df[["trial_index", step_key]].groupby("trial_index").max().sum()
-    )
+    # Assume that any early stopped trial would have had the mean number of steps of
+    # the completed trials
+    mean_completed_trial_resources = trial_resources[
+        trial_resources["trial_index"].isin(completed_trial_idcs)
+    ][step_key].mean()
 
-    completed_df = map_data.map_df[
-        (map_data.map_df["trial_index"].isin(completed_trial_idcs))
-    ]
-    single_trial_resources = (
-        completed_df[["trial_index", step_key]].groupby("trial_index").max().max()
-    )
+    # Calculate the steps saved per early stopped trial. If savings are estimated to be
+    # negative assume no savings
+    stopped_trial_resources = trial_resources[
+        trial_resources["trial_index"].isin(early_stopped_trial_idcs)
+    ][step_key]
+    saved_trial_resources = (
+        mean_completed_trial_resources - stopped_trial_resources
+    ).clip(0)
 
-    savings: float = (
-        1 - total_resources / (experiment.num_trials * single_trial_resources)
-    ).item()
-
-    if math.isnan(savings):
-        # NaN implies division by zero, which should be interpreted as no savings
-        return 0
-
-    return savings
+    # Return the ratio of the total saved resources over the total resources used plus
+    # the total saved resources
+    return saved_trial_resources.sum() / trial_resources[step_key].sum()
