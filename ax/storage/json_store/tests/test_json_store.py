@@ -10,6 +10,7 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
@@ -327,6 +328,8 @@ class JSONStoreTest(TestCase):
                 converted_object = converted_object.state_dict()
             if isinstance(original_object, GenerationStrategy):
                 original_object._unset_non_persistent_state_fields()
+            if isinstance(original_object, BenchmarkMethod):
+                original_object.generation_strategy._unset_non_persistent_state_fields()
             try:
                 self.assertEqual(
                     original_object,
@@ -399,6 +402,7 @@ class JSONStoreTest(TestCase):
             decoder_registry=CORE_DECODER_REGISTRY,
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
