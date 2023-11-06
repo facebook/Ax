@@ -2179,6 +2179,11 @@ class CustomTestRunner(Runner):
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         return {"foo": "bar"}
 
+    def poll_exception(self, trial: BaseTrial) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_exception` method."
+        )
+
 
 class CustomTestMetric(Metric):
     def __init__(self, name: str, test_attribute: str) -> None:

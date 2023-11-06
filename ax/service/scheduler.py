@@ -1222,7 +1222,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                         reason = self.runner.poll_exception(trial)
                         trial.mark_as(status=status, unsafe=True, reason=reason)
                     except NotImplementedError:
-                        # Some runners do not implement poll_failure_reason, so
+                        # Some runners do not implement poll_exception, so
                         # we fall back to marking the without a reason.
                         trial.mark_as(status=status, unsafe=True)
                 else:

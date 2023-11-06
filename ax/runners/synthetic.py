@@ -39,3 +39,8 @@ class SyntheticRunner(Runner):
 
     def run_metadata_report_keys(self) -> List[str]:
         return ["name"]
+
+    def poll_exception(self, trial: BaseTrial) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_exception` method."
+        )
