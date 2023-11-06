@@ -17,6 +17,11 @@ class DummyRunner(Runner):
     def run(self, trial: BaseTrial):
         return {"metadatum": f"value_for_trial_{trial.index}"}
 
+    def poll_exception(self, trial: BaseTrial) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_exception` method."
+        )
+
 
 class RunnerTest(TestCase):
     def setUp(self) -> None:

@@ -496,6 +496,12 @@ class JSONStoreTest(TestCase):
             def staging_required():
                 return False
 
+            def poll_exception(self, trial):
+                raise NotImplementedError(
+                    f"""{self.__class__.__name__} does not implement a `poll_exception`
+                    method."""
+                )
+
         class MyMetric(Metric):
             pass
 
@@ -538,6 +544,12 @@ class JSONStoreTest(TestCase):
 
             def staging_required():
                 return False
+
+            def poll_exception(self, trial):
+                raise NotImplementedError(
+                    f"""{self.__class__.__name__} does not implement a `poll_exception`
+                    method."""
+                )
 
         bundle = RegistryBundle(
             metric_clss={MyMetric: 1998}, runner_clss={MyRunner: None}

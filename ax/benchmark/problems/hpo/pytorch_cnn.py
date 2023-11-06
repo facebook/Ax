@@ -233,3 +233,8 @@ class PyTorchCNNRunner(Runner):
         self, trials: Iterable[BaseTrial]
     ) -> Dict[TrialStatus, Set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
+
+    def poll_exception(self, trial: BaseTrial) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a `poll_exception` method."
+        )
