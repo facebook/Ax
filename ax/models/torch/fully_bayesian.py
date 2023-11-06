@@ -72,7 +72,7 @@ from botorch.models.gpytorch import GPyTorchModel
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.posteriors.gpytorch import GPyTorchPosterior
-
+from botorch.utils.safe_math import logmeanexp
 from gpytorch.kernels.kernel import dist
 from torch import Tensor
 
@@ -444,13 +444,16 @@ def get_fully_bayesian_acqf(
         **kwargs,
     )
     base_forward = acqf.forward
+    # enabling manual override, default to True for LogEI
+    log = kwargs.pop("log", acqf._log)
+    sample_reduction = torch.mean if not log else logmeanexp
 
     # pyre-fixme[53]: Captured variable `base_forward` is not annotated.
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def forward(self, X):
         # unsqueeze dim for GP hyperparameter samples
-        return base_forward(X.unsqueeze(-3)).mean(dim=-1)
+        return sample_reduction(base_forward(X.unsqueeze(-3)), dim=-1)
 
     acqf.forward = types.MethodType(forward, acqf)  # pyre-ignore[8]
     return acqf
