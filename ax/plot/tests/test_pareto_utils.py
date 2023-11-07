@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import copy
+from unittest import mock
 from unittest.mock import patch
 
 import numpy as np
@@ -27,6 +28,7 @@ from ax.plot.pareto_utils import (
     _extract_observed_pareto_2d,
     get_observed_pareto_frontiers,
     infer_reference_point_from_experiment,
+    logger,
     to_nonrobust_search_space,
 )
 
@@ -236,22 +238,65 @@ class ParetoUtilsTest(TestCase):
 
 class TestInfereReferencePointFromExperiment(TestCase):
     def test_infer_reference_point_from_experiment(self) -> None:
-        for constrained in (True, False):
-            observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
-            if constrained:
-                observations = [
-                    o + [c] for o, c in zip(observations, [1.0, 0.5, 1.0, 1.0])
-                ]
-            # Getting an experiment with 2 objectives by the above observations.
-            experiment = get_experiment_with_observations(
-                observations=observations,
-                minimize=True,
-                scalarized=False,
-                constrained=constrained,
-            )
+        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+        # Getting an experiment with 2 objectives by the above observations.
+        experiment = get_experiment_with_observations(
+            observations=observations,
+            minimize=True,
+            scalarized=False,
+            constrained=False,
+        )
+        inferred_reference_point = infer_reference_point_from_experiment(experiment)
+        # The nadir point for this experiment is [-0.5, 0.5]. The function actually
+        # deducts 0.1*Y_range from each of the objectives. Since the range for each
+        # of the objectives is +/-1.5, the inferred reference point would
+        # be [-0.35, 0.35].
+        self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
+        self.assertEqual(inferred_reference_point[0].bound, -0.35)
+        self.assertEqual(inferred_reference_point[0].metric.name, "m1")
+        self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
+        self.assertEqual(inferred_reference_point[1].bound, 0.35)
+        self.assertEqual(inferred_reference_point[1].metric.name, "m2")
 
-            inferred_reference_point = infer_reference_point_from_experiment(experiment)
+        with mock.patch(
+            "ax.plot.pareto_utils.get_pareto_frontier_and_configs",
+            return_value=([], [], [], []),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "No frontier observations found"):
+                infer_reference_point_from_experiment(experiment)
 
+    def test_constrained_infer_reference_point_from_experiment(self) -> None:
+        experiments = []
+        observations = [[-1.0, 1.0], [-0.5, 2.0], [-2.0, 0.5], [-0.1, 0.1]]
+        # adding constraint observations
+        observations = [o + [c] for o, c in zip(observations, [1.0, 0.5, 1.0, 1.0])]
+        # Getting an experiment with 2 objectives by the above observations.
+        experiment = get_experiment_with_observations(
+            observations=observations,
+            minimize=True,
+            scalarized=False,
+            constrained=True,
+        )
+        experiments.append(experiment)
+
+        # Special case: An experiment with no feasible observations.
+        # TODO: Use experiment clone function once D50804778 is landed.
+        experiment = copy.deepcopy(experiment)
+        # Ensure that no observation is feasible.
+        experiment.optimization_config.outcome_constraints[0].bound = 1000.0
+        experiments.append(experiment)
+
+        for experiment in experiments:
+            # special case logs a warning message.
+            if experiment.optimization_config.outcome_constraints[0].bound == 1000.0:
+                with self.assertLogs(logger, "WARNING"):
+                    inferred_reference_point = infer_reference_point_from_experiment(
+                        experiment
+                    )
+            else:
+                inferred_reference_point = infer_reference_point_from_experiment(
+                    experiment
+                )
             # The nadir point for this experiment is [-0.5, 0.5]. The function actually
             # deducts 0.1*Y_range from each of the objectives. Since the range for each
             # of the objectives is +/-1.5, the inferred reference point would

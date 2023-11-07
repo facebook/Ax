@@ -8,7 +8,7 @@ import copy
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import cast, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -18,7 +18,10 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
@@ -519,8 +522,8 @@ def _extract_pareto_frontier_results(
 
     return ParetoFrontierResults(
         param_dicts=param_dicts,
-        means={metric: means for metric, means in means_out.items()},
-        sems={metric: sems for metric, sems in sems_out.items()},
+        means=means_out,
+        sems=sems_out,
         primary_metric=primary_metric,
         secondary_metric=secondary_metric,
         absolute_metrics=absolute_metrics,
@@ -578,7 +581,7 @@ def infer_reference_point_from_experiment(
         experiment: The experiment for which we want to infer the reference point.
 
     Returns:
-        List of obejective thresholds representing the reference point.
+        A list of objective thresholds representing the reference point.
     """
     if not experiment.is_moo_problem:
         raise ValueError(
@@ -632,6 +635,33 @@ def infer_reference_point_from_experiment(
         transform_outcomes_and_configs=False,
     )
 
+    if len(frontier_observations) == 0:
+        opt_config = cast(OptimizationConfig, mb_reference._optimization_config)
+        outcome_constraints = opt_config._outcome_constraints
+        if len(outcome_constraints) == 0:
+            raise RuntimeError(
+                "No frontier observations found in the experiment and no constraints "
+                "are present. Please check the data of the experiment."
+            )
+
+        logger.warning(
+            "No frontier observations found in the experiment. The likely cause is "
+            "the absence of feasible arms in the experiment if a constraint is present."
+            " Trying to find a reference point with the unconstrained objective values."
+        )
+
+        opt_config._outcome_constraints = []  # removing the constraints
+        # getting the unconstrained pareto frontier
+        frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
+            modelbridge=mb_reference,
+            observation_features=obs_feats,
+            observation_data=obs_data,
+            objective_thresholds=dummy_rp,
+            use_model_predictions=False,
+            transform_outcomes_and_configs=False,
+        )
+        opt_config._outcome_constraints = outcome_constraints  # restoring constraints
+
     # Need to reshuffle columns of `f` and `obj_w` to be consistent
     # with objective_orders.
     order = [
@@ -661,6 +691,7 @@ def infer_reference_point_from_experiment(
     ]
 
     # Constructing the objective thresholds.
+    # NOTE: This assumes that objective_thresholds is already initialized.
     nadir_objective_thresholds = copy.deepcopy(
         experiment.optimization_config.objective_thresholds
     )
