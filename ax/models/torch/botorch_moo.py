@@ -13,7 +13,6 @@ from ax.exceptions.core import AxError
 from ax.models.torch.botorch import (
     BotorchModel,
     get_rounding_func,
-    TAcqfConstructor,
     TBestPointRecommender,
     TModelConstructor,
     TModelPredictor,
@@ -23,9 +22,10 @@ from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     recommend_best_observed_point,
     scipy_optimizer,
+    TAcqfConstructor,
 )
 from ax.models.torch.botorch_moo_defaults import (
-    get_NEHVI,
+    get_qLogNEHVI,
     infer_objective_thresholds,
     pareto_frontier_evaluator,
     scipy_optimizer_list,
@@ -138,7 +138,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
     the (linear) outcome constraints, `X_observed` are previously observed points,
     and `X_pending` are points whose evaluation is pending. `acq_function` is a
     BoTorch acquisition function crafted from these inputs. For additional
-    details on the arguments, see `get_NEHVI`.
+    details on the arguments, see `get_qLogNEHVI`.
 
     ::
 
@@ -193,7 +193,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         #  AcquisitionFunction]`; used as `Callable[[Model, Tensor,
         #  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],
         #  **(Any)], AcquisitionFunction]`.
-        acqf_constructor: TAcqfConstructor = get_NEHVI,
+        acqf_constructor: TAcqfConstructor = get_qLogNEHVI,
         # pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,
         #  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],
         #  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,

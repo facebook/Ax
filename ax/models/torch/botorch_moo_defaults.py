@@ -17,11 +17,15 @@ References
     Multiple Noisy Objectives with Expected Hypervolume Improvement. Advances
     in Neural Information Processing Systems 34, 2021.
 
+.. [Ament2023logei]
+    S. Ament, S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy.
+    Unexpected Improvements to Expected Improvement for Bayesian Optimization. Advances
+    in Neural Information Processing Systems 36, 2023.
 """
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, cast, Dict, List, Optional, Tuple, Union
 
 import torch
 from ax.exceptions.core import AxError
@@ -32,9 +36,17 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchModel
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.multi_objective.logei import (
+    qLogExpectedHypervolumeImprovement,
+    qLogNoisyExpectedHypervolumeImprovement,
+)
+from botorch.acquisition.multi_objective.monte_carlo import (
+    qExpectedHypervolumeImprovement,
+    qNoisyExpectedHypervolumeImprovement,
+)
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.multi_objective.utils import get_default_partitioning_alpha
 from botorch.models.model import Model
@@ -112,7 +124,8 @@ def get_NEHVI(
     alpha: Optional[float] = None,
     marginalize_dim: Optional[int] = None,
     cache_root: bool = True,
-) -> AcquisitionFunction:
+    seed: Optional[int] = None,
+) -> qNoisyExpectedHypervolumeImprovement:
     r"""Instantiates a qNoisyExpectedHyperVolumeImprovement acquisition function.
 
     Args:
@@ -132,10 +145,124 @@ def get_NEHVI(
             there are any).
         prune_baseline: If True, prune the baseline points for NEI (default: True).
         mc_samples: The number of MC samples to use (default: 512).
+        alpha: The hyperparameter controlling the approximate non-dominated
+            partitioning. The default value of 0.0 means an exact partitioning
+            is used. As the number of objectives `m` increases, consider increasing
+            this parameter in order to limit computational complexity (default: None).
+        marginalize_dim: The dimension along which to marginalize over, used for fully
+            Bayesian models (default: None).
+        cache_root: If True, cache the root of the covariance matrix (default: True).
+        seed: The random seed for generating random starting points for optimization (
+            default: None).
 
     Returns:
         qNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
     """
+    return checked_cast(
+        qNoisyExpectedHypervolumeImprovement,
+        _get_NEHVI(
+            acqf_name="qNEHVI",
+            model=model,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            prune_baseline=prune_baseline,
+            mc_samples=mc_samples,
+            alpha=alpha,
+            marginalize_dim=marginalize_dim,
+            cache_root=cache_root,
+            seed=seed,
+        ),
+    )
+
+
+def get_qLogNEHVI(
+    model: Model,
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    *,
+    prune_baseline: bool = True,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
+    marginalize_dim: Optional[int] = None,
+    cache_root: bool = True,
+    seed: Optional[int] = None,
+) -> qLogNoisyExpectedHypervolumeImprovement:
+    r"""Instantiates a qLogNoisyExpectedHyperVolumeImprovement acquisition function.
+
+    Args:
+        model: The underlying model which the acqusition function uses
+            to estimate acquisition values of candidates.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. (Not used by single task models)
+        X_observed: A tensor containing points observed for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        X_pending: A tensor containing points whose evaluation is pending (i.e.
+            that have been submitted for evaluation) present for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        prune_baseline: If True, prune the baseline points for NEI (default: True).
+        mc_samples: The number of MC samples to use (default: 512).
+        alpha: The hyperparameter controlling the approximate non-dominated
+            partitioning. The default value of 0.0 means an exact partitioning
+            is used. As the number of objectives `m` increases, consider increasing
+            this parameter in order to limit computational complexity (default: None).
+        marginalize_dim: The dimension along which to marginalize over, used for fully
+            Bayesian models (default: None).
+        cache_root: If True, cache the root of the covariance matrix (default: True).
+        seed: The random seed for generating random starting points for optimization (
+            default: None).
+
+    Returns:
+        qLogNoisyExpectedHyperVolumeImprovement: The instantiated acquisition function.
+    """
+    return checked_cast(
+        qLogNoisyExpectedHypervolumeImprovement,
+        _get_NEHVI(
+            acqf_name="qLogNEHVI",
+            model=model,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            prune_baseline=prune_baseline,
+            mc_samples=mc_samples,
+            alpha=alpha,
+            marginalize_dim=marginalize_dim,
+            cache_root=cache_root,
+            seed=seed,
+        ),
+    )
+
+
+def _get_NEHVI(
+    acqf_name: str,
+    model: Model,
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    *,
+    prune_baseline: bool = True,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
+    marginalize_dim: Optional[int] = None,
+    cache_root: bool = True,
+    seed: Optional[int] = None,
+) -> Union[
+    qNoisyExpectedHypervolumeImprovement, qLogNoisyExpectedHypervolumeImprovement
+]:
     if X_observed is None:
         raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
@@ -153,22 +280,30 @@ def get_NEHVI(
     num_objectives = objective_thresholds.shape[0]
     if alpha is None:
         alpha = get_default_partitioning_alpha(num_objectives=num_objectives)
-    return get_acquisition_function(
-        acquisition_function_name="qNEHVI",
-        model=model,
-        objective=objective,
-        X_observed=X_observed,
-        X_pending=X_pending,
-        constraints=cons_tfs,
-        prune_baseline=prune_baseline,
-        mc_samples=mc_samples,
-        alpha=alpha,
-        # pyre-fixme[6]: Expected `Optional[int]` for 11th param but got
-        #  `Union[float, int]`.
-        seed=torch.randint(1, 10000, (1,)).item(),
-        ref_point=objective_thresholds.tolist(),
-        marginalize_dim=marginalize_dim,
-        cache_root=cache_root,
+    # NOTE: Not using checked_cast here because for Python 3.9, isinstance fails with
+    # `TypeError: Subscripted generics cannot be used with class and instance checks`.
+    return cast(
+        Union[
+            qNoisyExpectedHypervolumeImprovement,
+            qLogNoisyExpectedHypervolumeImprovement,
+        ],
+        get_acquisition_function(
+            acquisition_function_name=acqf_name,
+            model=model,
+            objective=objective,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            constraints=cons_tfs,
+            prune_baseline=prune_baseline,
+            mc_samples=mc_samples,
+            alpha=alpha,
+            seed=seed
+            if seed is not None
+            else cast(int, torch.randint(1, 10000, (1,)).item()),
+            ref_point=objective_thresholds.tolist(),
+            marginalize_dim=marginalize_dim,
+            cache_root=cache_root,
+        ),
     )
 
 
@@ -182,7 +317,8 @@ def get_EHVI(
     *,
     mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
     alpha: Optional[float] = None,
-) -> AcquisitionFunction:
+    seed: Optional[int] = None,
+) -> qExpectedHypervolumeImprovement:
     r"""Instantiates a qExpectedHyperVolumeImprovement acquisition function.
 
     Args:
@@ -204,10 +340,104 @@ def get_EHVI(
             outcomes and outcomes that appear in the outcome constraints (if
             there are any).
         mc_samples: The number of MC samples to use (default: 512).
+        alpha: The hyperparameter controlling the approximate non-dominated
+            partitioning. The default value of 0.0 means an exact partitioning
+            is used. As the number of objectives `m` increases, consider increasing
+            this parameter in order to limit computational complexity.
+        seed: The random seed for generating random starting points for optimization.
 
     Returns:
         qExpectedHypervolumeImprovement: The instantiated acquisition function.
     """
+    return checked_cast(
+        qExpectedHypervolumeImprovement,
+        _get_EHVI(
+            acqf_name="qEHVI",
+            model=model,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            mc_samples=mc_samples,
+            alpha=alpha,
+            seed=seed,
+        ),
+    )
+
+
+def get_qLogEHVI(
+    model: Model,
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    *,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
+    seed: Optional[int] = None,
+) -> qLogExpectedHypervolumeImprovement:
+    r"""Instantiates a qLogExpectedHyperVolumeImprovement acquisition function.
+
+    Args:
+        model: The underlying model which the acqusition function uses
+            to estimate acquisition values of candidates.
+        objective_weights: The objective is to maximize a weighted sum of
+            the columns of f(x). These are the weights.
+        objective_thresholds:  A tensor containing thresholds forming a reference point
+            from which to calculate pareto frontier hypervolume. Points that do not
+            dominate the objective_thresholds contribute nothing to hypervolume.
+        outcome_constraints: A tuple of (A, b). For k outcome constraints
+            and m outputs at f(x), A is (k x m) and b is (k x 1) such that
+            A f(x) <= b. (Not used by single task models)
+        X_observed: A tensor containing points observed for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        X_pending: A tensor containing points whose evaluation is pending (i.e.
+            that have been submitted for evaluation) present for all objective
+            outcomes and outcomes that appear in the outcome constraints (if
+            there are any).
+        mc_samples: The number of MC samples to use (default: 512).
+        alpha: The hyperparameter controlling the approximate non-dominated
+            partitioning. The default value of 0.0 means an exact partitioning
+            is used. As the number of objectives `m` increases, consider increasing
+            this parameter in order to limit computational complexity.
+        seed: The random seed for generating random starting points for optimization.
+
+    Returns:
+        qLogExpectedHypervolumeImprovement: The instantiated acquisition function.
+    """
+    return checked_cast(
+        qLogExpectedHypervolumeImprovement,
+        _get_EHVI(
+            acqf_name="qLogEHVI",
+            model=model,
+            objective_weights=objective_weights,
+            objective_thresholds=objective_thresholds,
+            outcome_constraints=outcome_constraints,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            mc_samples=mc_samples,
+            alpha=alpha,
+            seed=seed,
+        ),
+    )
+
+
+def _get_EHVI(
+    acqf_name: str,
+    model: Model,
+    objective_weights: Tensor,
+    objective_thresholds: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    X_observed: Optional[Tensor] = None,
+    X_pending: Optional[Tensor] = None,
+    *,
+    mc_samples: int = DEFAULT_EHVI_MC_SAMPLES,
+    alpha: Optional[float] = None,
+    seed: Optional[int] = None,
+) -> Union[qExpectedHypervolumeImprovement, qLogExpectedHypervolumeImprovement]:
     if X_observed is None:
         raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
     # construct Objective module
@@ -225,22 +455,27 @@ def get_EHVI(
     else:
         cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
     num_objectives = objective_thresholds.shape[0]
-    return get_acquisition_function(
-        acquisition_function_name="qEHVI",
-        model=model,
-        objective=objective,
-        X_observed=X_observed,
-        X_pending=X_pending,
-        constraints=cons_tfs,
-        mc_samples=mc_samples,
-        alpha=get_default_partitioning_alpha(num_objectives=num_objectives)
-        if alpha is None
-        else alpha,
-        # pyre-fixme[6]: Expected `Optional[int]` for 10th param but got
-        #  `Union[float, int]`.
-        seed=torch.randint(1, 10000, (1,)).item(),
-        ref_point=objective_thresholds.tolist(),
-        Y=Y,
+    # NOTE: Not using checked_cast here because for Python 3.9, isinstance fails with
+    # `TypeError: Subscripted generics cannot be used with class and instance checks`.
+    return cast(
+        Union[qExpectedHypervolumeImprovement, qLogExpectedHypervolumeImprovement],
+        get_acquisition_function(
+            acquisition_function_name=acqf_name,
+            model=model,
+            objective=objective,
+            X_observed=X_observed,
+            X_pending=X_pending,
+            constraints=cons_tfs,
+            mc_samples=mc_samples,
+            alpha=get_default_partitioning_alpha(num_objectives=num_objectives)
+            if alpha is None
+            else alpha,
+            seed=seed
+            if seed is not None
+            else cast(int, torch.randint(1, 10000, (1,)).item()),
+            ref_point=objective_thresholds.tolist(),
+            Y=Y,
+        ),
     )
 
 

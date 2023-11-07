@@ -25,8 +25,8 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qNoisyExpectedHypervolumeImprovement,
+from botorch.acquisition.multi_objective.logei import (
+    qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
@@ -171,11 +171,11 @@ class BoTorchModelUtilsTest(TestCase):
     def test_choose_botorch_acqf_class(self) -> None:
         self.assertEqual(qLogNoisyExpectedImprovement, choose_botorch_acqf_class())
         self.assertEqual(
-            qNoisyExpectedHypervolumeImprovement,
+            qLogNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
         )
         self.assertEqual(
-            qNoisyExpectedHypervolumeImprovement,
+            qLogNoisyExpectedHypervolumeImprovement,
             choose_botorch_acqf_class(objective_weights=torch.tensor([0.5, 0.5])),
         )
         self.assertEqual(

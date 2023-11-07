@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from contextlib import ExitStack
-from typing import Any, Dict, Tuple
+from typing import Any, cast, Dict, Tuple
 from unittest import mock
 
 import numpy as np
@@ -13,9 +13,9 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
-    get_EHVI,
-    get_NEHVI,
     get_outcome_constraint_transforms,
+    get_qLogEHVI,
+    get_qLogNEHVI,
     get_weighted_mc_objective_and_objective_thresholds,
     infer_objective_thresholds,
     pareto_frontier_evaluator,
@@ -29,15 +29,12 @@ from botorch.utils.testing import MockModel, MockPosterior
 from torch._tensor import Tensor
 
 
-GET_ACQF_PATH = "ax.models.torch.botorch_moo_defaults.get_acquisition_function"
-GET_CONSTRAINT_PATH = (
-    "ax.models.torch.botorch_moo_defaults.get_outcome_constraint_transforms"
+MOO_DEFAULTS_PATH: str = "ax.models.torch.botorch_moo_defaults"
+GET_ACQF_PATH: str = MOO_DEFAULTS_PATH + ".get_acquisition_function"
+GET_CONSTRAINT_PATH: str = MOO_DEFAULTS_PATH + ".get_outcome_constraint_transforms"
+GET_OBJ_PATH: str = (
+    MOO_DEFAULTS_PATH + ".get_weighted_mc_objective_and_objective_thresholds"
 )
-GET_OBJ_PATH = (
-    "ax.models.torch.botorch_moo_defaults."
-    "get_weighted_mc_objective_and_objective_thresholds"
-)
-
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 
 
@@ -185,14 +182,14 @@ class FrontierEvaluatorTest(TestCase):
 
 
 class BotorchMOODefaultsTest(TestCase):
-    def test_get_EHVI_input_validation_errors(self) -> None:
+    def test_get_qLogEHVI_input_validation_errors(self) -> None:
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
         mm = MockModel(MockPosterior())
         with self.assertRaisesRegex(
             ValueError, "There are no feasible observed points."
         ):
-            get_EHVI(
+            get_qLogEHVI(
                 model=mm,
                 objective_weights=weights,
                 objective_thresholds=objective_thresholds,
@@ -212,14 +209,14 @@ class BotorchMOODefaultsTest(TestCase):
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
         self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
-    def test_get_NEHVI_input_validation_errors(self) -> None:
+    def test_get_qLogNEHVI_input_validation_errors(self) -> None:
         model = MultiObjectiveBotorchModel()
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
         with self.assertRaisesRegex(
             ValueError, "There are no feasible observed points."
         ):
-            get_NEHVI(
+            get_qLogNEHVI(
                 # pyre-fixme[6]: For 1st param expected `Model` but got
                 #  `Optional[Model]`.
                 model=model._model,
@@ -231,7 +228,7 @@ class BotorchMOODefaultsTest(TestCase):
         "ax.models.torch.botorch_moo_defaults._check_posterior_type",
         wraps=lambda y: y,
     )
-    def test_get_ehvi(self, _) -> None:
+    def test_get_qLogEHVI(self, _) -> None:
         weights = torch.tensor([0.0, 1.0, 1.0])
         X_observed = torch.rand(4, 3)
         X_pending = torch.rand(1, 3)
@@ -249,10 +246,13 @@ class BotorchMOODefaultsTest(TestCase):
             seed = torch.randint(1, 10000, (1,)).item()
         with ExitStack() as es:
             mock_get_acqf = es.enter_context(mock.patch(GET_ACQF_PATH))
+            es.enter_context(
+                mock.patch(MOO_DEFAULTS_PATH + ".checked_cast", wraps=cast)
+            )
             es.enter_context(mock.patch(GET_CONSTRAINT_PATH, return_value=cons_tfs))
             es.enter_context(mock.patch(GET_OBJ_PATH, return_value=obj_and_obj_t))
             es.enter_context(manual_seed(0))
-            get_EHVI(
+            get_qLogEHVI(
                 model=mm,
                 objective_weights=weights,
                 outcome_constraints=constraints,
@@ -261,7 +261,7 @@ class BotorchMOODefaultsTest(TestCase):
                 X_pending=X_pending,
             )
             mock_get_acqf.assert_called_once_with(
-                acquisition_function_name="qEHVI",
+                acquisition_function_name="qLogEHVI",
                 model=mm,
                 objective=weighted_obj,
                 X_observed=X_observed,
