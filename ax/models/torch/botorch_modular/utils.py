@@ -17,8 +17,8 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qNoisyExpectedHypervolumeImprovement,
+from botorch.acquisition.multi_objective.logei import (
+    qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
@@ -142,7 +142,7 @@ def choose_botorch_acqf_class(
         objective_weights is not None
         and objective_weights.nonzero().numel() > 1
     ):
-        acqf_class = qNoisyExpectedHypervolumeImprovement
+        acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement
 

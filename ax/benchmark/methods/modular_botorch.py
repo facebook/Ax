@@ -17,6 +17,9 @@ from ax.service.scheduler import SchedulerOptions
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.logei import (
+    qLogNoisyExpectedHypervolumeImprovement,
+)
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
@@ -30,6 +33,7 @@ model_names_abbrevations: Dict[str, str] = {
 acqf_name_abbreviations: Dict[str, str] = {
     qLogNoisyExpectedImprovement.__name__: "qLogNEI",
     qNoisyExpectedHypervolumeImprovement.__name__: "qNEHVI",
+    qLogNoisyExpectedHypervolumeImprovement.__name__: "qLogNEHVI",
     LogExpectedImprovement.__name__: "LogEI",
 }
 

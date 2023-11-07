@@ -20,7 +20,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
-    choose_model_class,
     construct_acquisition_and_optimizer_options,
 )
 from ax.models.torch.utils import _filter_X_observed
@@ -36,8 +35,8 @@ from botorch.acquisition.input_constructors import (
     get_acqf_input_constructor,
 )
 from botorch.acquisition.monte_carlo import qExpectedImprovement
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qNoisyExpectedHypervolumeImprovement,
+from botorch.acquisition.multi_objective.logei import (
+    qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.objective import WeightedMCMultiOutputObjective
 from botorch.acquisition.objective import GenericMCObjective
@@ -55,9 +54,7 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 CURRENT_PATH: str = __name__
 MODEL_PATH: str = BoTorchModel.__module__
 SURROGATE_PATH: str = Surrogate.__module__
-UTILS_PATH: str = choose_model_class.__module__
 ACQUISITION_PATH: str = Acquisition.__module__
-NEHVI_PATH: str = qNoisyExpectedHypervolumeImprovement.__module__
 
 ACQ_OPTIONS: Dict[str, SobolQMCNormalSampler] = {
     Keys.SAMPLER: SobolQMCNormalSampler(sample_shape=torch.Size([1024]))
@@ -800,15 +797,15 @@ class BoTorchModelTest(TestCase):
         return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
     )
     def test_MOO(self, _) -> None:
-        # Add mock for qNEHVI input constructor to catch arguments passed to it.
-        qNEHVI_input_constructor = get_acqf_input_constructor(
-            qNoisyExpectedHypervolumeImprovement
+        # Add mock for qLogNEHVI input constructor to catch arguments passed to it.
+        qLogNEHVI_input_constructor = get_acqf_input_constructor(
+            qLogNoisyExpectedHypervolumeImprovement
         )
         mock_input_constructor = mock.MagicMock(
-            qNEHVI_input_constructor, side_effect=qNEHVI_input_constructor
+            qLogNEHVI_input_constructor, side_effect=qLogNEHVI_input_constructor
         )
         _register_acqf_input_constructor(
-            acqf_cls=qNoisyExpectedHypervolumeImprovement,
+            acqf_cls=qLogNoisyExpectedHypervolumeImprovement,
             input_constructor=mock_input_constructor,
         )
 
@@ -846,7 +843,7 @@ class BoTorchModelTest(TestCase):
             self.assertTrue(torch.equal(oc[0], subset_outcome_constraints[0]))
             self.assertTrue(torch.equal(oc[1], subset_outcome_constraints[1]))
         ckwargs = mock_input_constructor.call_args[1]
-        self.assertIs(model.botorch_acqf_class, qNoisyExpectedHypervolumeImprovement)
+        self.assertIs(model.botorch_acqf_class, qLogNoisyExpectedHypervolumeImprovement)
         mock_input_constructor.assert_called_once()
         m = ckwargs["model"]
         self.assertIsInstance(m, SingleTaskGP)
@@ -967,8 +964,8 @@ class BoTorchModelTest(TestCase):
         # test outcome constraints
 
         # Avoid polluting the registry for other tests; re-register correct input
-        # contructor for qNEHVI.
+        # contructor for qLogNEHVI.
         _register_acqf_input_constructor(
-            acqf_cls=qNoisyExpectedHypervolumeImprovement,
-            input_constructor=qNEHVI_input_constructor,
+            acqf_cls=qLogNoisyExpectedHypervolumeImprovement,
+            input_constructor=qLogNEHVI_input_constructor,
         )

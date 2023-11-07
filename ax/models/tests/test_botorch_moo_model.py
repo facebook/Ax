@@ -20,13 +20,18 @@ from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_EHVI,
     get_NEHVI,
+    get_qLogEHVI,
+    get_qLogNEHVI,
     infer_objective_thresholds,
 )
 from ax.models.torch.utils import HYPERSPHERE
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
-from botorch.acquisition.multi_objective import monte_carlo as moo_monte_carlo
+from botorch.acquisition.multi_objective import (
+    logei as moo_logei,
+    monte_carlo as moo_monte_carlo,
+)
 from botorch.models import ModelListGP
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf_list
@@ -49,10 +54,16 @@ NEHVI_ACQF_PATH = (
 EHVI_ACQF_PATH = (
     "botorch.acquisition.factory.moo_monte_carlo.qExpectedHypervolumeImprovement"
 )
-NEHVI_PARTITIONING_PATH = (
+LOG_NEHVI_ACQF_PATH = (
+    "botorch.acquisition.factory.moo_logei.qLogNoisyExpectedHypervolumeImprovement"
+)
+LOG_EHVI_ACQF_PATH = (
+    "botorch.acquisition.factory.moo_logei.qLogExpectedHypervolumeImprovement"
+)
+NOISY_PARTITIONING_PATH = (
     "botorch.utils.multi_objective.hypervolume.FastNondominatedPartitioning"
 )
-EHVI_PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
+PARTITIONING_PATH = "botorch.acquisition.factory.FastNondominatedPartitioning"
 
 
 def dummy_func(X: torch.Tensor) -> torch.Tensor:
@@ -90,26 +101,32 @@ class BotorchMOOModelTest(TestCase):
                 self.test_BotorchMOOModel_with_random_scalarization(
                     dtype=dtype, cuda=True
                 )
-                # test qEHVI
-                self.test_BotorchMOOModel_with_qehvi(
-                    dtype=dtype, cuda=True, use_qnehvi=False
-                )
-                self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
-                    dtype=dtype, cuda=True, use_qnehvi=False
-                )
-                # test qNEHVI
-                self.test_BotorchMOOModel_with_qehvi(
-                    dtype=dtype, cuda=True, use_qnehvi=True
-                )
-                self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
-                    dtype=dtype, cuda=True, use_qnehvi=True
-                )
+                for use_noisy in (True, False):
+                    # test qLog(N)EHVI
+                    self.test_BotorchMOOModel_with_qehvi(
+                        dtype=dtype, cuda=True, use_noisy=use_noisy, use_log=True
+                    )
+                    self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+                        dtype=dtype, cuda=True, use_noisy=use_noisy, use_log=True
+                    )
 
     def test_BotorchMOOModel_with_qnehvi(self) -> None:
+        # testing non-log version
         for dtype in (torch.float, torch.double):
-            self.test_BotorchMOOModel_with_qehvi(dtype=dtype, use_qnehvi=True)
+            self.test_BotorchMOOModel_with_qehvi(
+                dtype=dtype, use_noisy=True, use_log=False
+            )
             self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
-                dtype=dtype, use_qnehvi=True
+                dtype=dtype, use_noisy=True, use_log=False
+            )
+
+    def test_BotorchMOOModel_with_qlognehvi(self) -> None:
+        for dtype in (torch.float, torch.double):
+            self.test_BotorchMOOModel_with_qehvi(
+                dtype=dtype, use_noisy=True, use_log=True
+            )
+            self.test_BotorchMOOModel_with_qehvi_and_outcome_constraints(
+                dtype=dtype, use_noisy=True, use_log=True
             )
 
     @fast_botorch_optimize
@@ -332,14 +349,32 @@ class BotorchMOOModelTest(TestCase):
         self,
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
-        use_qnehvi: bool = False,
+        use_noisy: bool = False,
+        use_log: bool = True,
     ) -> None:
-        if use_qnehvi:
-            acqf_constructor = get_NEHVI
-            partitioning_path = NEHVI_PARTITIONING_PATH
+        if use_log:
+            if use_noisy:
+                acqf_constructor = get_qLogNEHVI
+                acquisition_path = LOG_NEHVI_ACQF_PATH
+                acqf_class = moo_logei.qLogNoisyExpectedHypervolumeImprovement
+                partitioning_path = NOISY_PARTITIONING_PATH
+            else:
+                acqf_constructor = get_qLogEHVI
+                acquisition_path = LOG_EHVI_ACQF_PATH
+                acqf_class = moo_logei.qLogExpectedHypervolumeImprovement
+                partitioning_path = PARTITIONING_PATH
         else:
-            acqf_constructor = get_EHVI
-            partitioning_path = EHVI_PARTITIONING_PATH
+            if use_noisy:
+                acqf_constructor = get_NEHVI
+                acquisition_path = NEHVI_ACQF_PATH
+                acqf_class = moo_monte_carlo.qNoisyExpectedHypervolumeImprovement
+                partitioning_path = NOISY_PARTITIONING_PATH
+            else:
+                acqf_constructor = get_EHVI
+                acquisition_path = EHVI_ACQF_PATH
+                acqf_class = moo_monte_carlo.qExpectedHypervolumeImprovement
+                partitioning_path = PARTITIONING_PATH
+
         tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
@@ -397,24 +432,10 @@ class BotorchMOOModelTest(TestCase):
         with ExitStack() as es:
             _mock_acqf = es.enter_context(
                 mock.patch(
-                    NEHVI_ACQF_PATH,
-                    wraps=moo_monte_carlo.qNoisyExpectedHypervolumeImprovement,
+                    acquisition_path,
+                    wraps=acqf_class,
                 )
             )
-            if use_qnehvi:
-                _mock_acqf = es.enter_context(
-                    mock.patch(
-                        NEHVI_ACQF_PATH,
-                        wraps=moo_monte_carlo.qNoisyExpectedHypervolumeImprovement,
-                    )
-                )
-            else:
-                _mock_acqf = es.enter_context(
-                    mock.patch(
-                        EHVI_ACQF_PATH,
-                        wraps=moo_monte_carlo.qExpectedHypervolumeImprovement,
-                    )
-                )
             mock_optimize = es.enter_context(
                 mock.patch(
                     "ax.models.torch.botorch_defaults.optimize_acqf",
@@ -480,9 +501,9 @@ class BotorchMOOModelTest(TestCase):
             # we have called gen twice: The first time, a batch partitioning is used
             # so there is one call to _mock_partitioning. The second time gen() is
             # called with three objectives so 128 calls are made to _mock_partitioning
-            # because a BoxDecompositionList is used. qEHVI will only make 2 calls.
+            # because a BoxDecompositionList is used. qLogEHVI will only make 2 calls.
             self.assertEqual(
-                len(_mock_partitioning.mock_calls), 129 if use_qnehvi else 2
+                len(_mock_partitioning.mock_calls), 129 if use_noisy else 2
             )
 
             # test inferred objective thresholds in gen()
@@ -585,7 +606,7 @@ class BotorchMOOModelTest(TestCase):
                         "cache_root": False,
                         "prune_baseline": False,
                     }
-                    if use_qnehvi
+                    if use_noisy
                     else {},
                 },
             )
@@ -817,9 +838,22 @@ class BotorchMOOModelTest(TestCase):
         self,
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
-        use_qnehvi: bool = False,
+        use_noisy: bool = False,
+        use_log: bool = True,
     ) -> None:
-        acqf_constructor = get_NEHVI if use_qnehvi else get_EHVI
+        if use_log:
+            acqf_constructor = (
+                botorch_moo_defaults.get_qLogNEHVI
+                if use_noisy
+                else botorch_moo_defaults.get_qLogEHVI
+            )
+        else:
+            acqf_constructor = (
+                botorch_moo_defaults.get_NEHVI
+                if use_noisy
+                else botorch_moo_defaults.get_EHVI
+            )
+
         tkwargs: Dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
@@ -902,7 +936,7 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch.object(
             model,
             "acqf_constructor",
-            wraps=botorch_moo_defaults.get_NEHVI,
+            wraps=acqf_constructor,  # botorch_moo_defaults.get_qLogNEHVI,
         ) as mock_get_nehvi:
             model.gen(
                 n,
@@ -932,7 +966,7 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch.object(
             model,
             "acqf_constructor",
-            wraps=botorch_moo_defaults.get_NEHVI,
+            wraps=acqf_constructor,  # botorch_moo_defaults.get_qLogNEHVI,
         ) as mock_get_nehvi:
             model.gen(
                 n,

@@ -37,6 +37,10 @@ from botorch.acquisition.monte_carlo import (
     qExpectedImprovement,
     qNoisyExpectedImprovement,
 )
+from botorch.acquisition.multi_objective.logei import (
+    qLogExpectedHypervolumeImprovement,
+    qLogNoisyExpectedHypervolumeImprovement,
+)
 from botorch.acquisition.multi_objective.monte_carlo import (
     qExpectedHypervolumeImprovement,
     qNoisyExpectedHypervolumeImprovement,
@@ -116,9 +120,7 @@ Mapping of Botorch `AcquisitionFunction` classes to class name strings.
 """
 ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
     ExpectedImprovement: "ExpectedImprovement",
-    LogExpectedImprovement: "LogExpectedImprovement",
     NoisyExpectedImprovement: "NoisyExpectedImprovement",
-    LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
     qExpectedHypervolumeImprovement: "qExpectedHypervolumeImprovement",
     qNoisyExpectedHypervolumeImprovement: "qNoisyExpectedHypervolumeImprovement",
     qExpectedImprovement: "qExpectedImprovement",
@@ -127,8 +129,13 @@ ACQUISITION_FUNCTION_REGISTRY: Dict[Type[AcquisitionFunction], str] = {
     qMultiFidelityKnowledgeGradient: "qMultiFidelityKnowledgeGradient",
     qMultiFidelityMaxValueEntropy: "qMultiFidelityMaxValueEntropy",
     qNoisyExpectedImprovement: "qNoisyExpectedImprovement",
+    # LogEI family below:
+    LogExpectedImprovement: "LogExpectedImprovement",
+    LogNoisyExpectedImprovement: "LogNoisyExpectedImprovement",
     qLogExpectedImprovement: "qLogExpectedImprovement",
     qLogNoisyExpectedImprovement: "qLogNoisyExpectedImprovement",
+    qLogExpectedHypervolumeImprovement: "qLogExpectedHypervolumeImprovement",
+    qLogNoisyExpectedHypervolumeImprovement: "qLogNoisyExpectedHypervolumeImprovement",
 }
 
 

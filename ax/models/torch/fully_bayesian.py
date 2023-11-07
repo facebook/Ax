@@ -53,7 +53,10 @@ from ax.models.torch.botorch_defaults import (
     scipy_optimizer,
 )
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
-from ax.models.torch.botorch_moo_defaults import get_NEHVI, pareto_frontier_evaluator
+from ax.models.torch.botorch_moo_defaults import (
+    get_qLogNEHVI,
+    pareto_frontier_evaluator,
+)
 from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.fully_bayesian_model_utils import (
     _get_single_task_gpytorch_model,
@@ -473,7 +476,7 @@ def get_fully_bayesian_acqf_nehvi(
         outcome_constraints=outcome_constraints,
         X_observed=X_observed,
         X_pending=X_pending,
-        acqf_constructor=get_NEHVI,
+        acqf_constructor=get_qLogNEHVI,
         **kwargs,
     )
 
