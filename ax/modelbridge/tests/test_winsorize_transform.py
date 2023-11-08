@@ -41,7 +41,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_optimization_config
 from typing_extensions import SupportsIndex
 
-
+INF = float("inf")
 OBSERVATION_DATA = [
     Observation(
         features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}),
@@ -169,12 +169,12 @@ class WinsorizeTransformTest(TestCase):
             )
 
     def test_Init(self) -> None:
-        self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))
-        self.assertEqual(self.t.cutoffs["m2"], (-float("inf"), 2.0))
-        self.assertEqual(self.t1.cutoffs["m1"], (-float("inf"), 1.0))
-        self.assertEqual(self.t1.cutoffs["m2"], (-float("inf"), 1.0))
-        self.assertEqual(self.t2.cutoffs["m1"], (0.0, float("inf")))
-        self.assertEqual(self.t2.cutoffs["m2"], (0.0, float("inf")))
+        self.assertEqual(self.t.cutoffs["m1"], (-INF, 2.0))
+        self.assertEqual(self.t.cutoffs["m2"], (-INF, 2.0))
+        self.assertEqual(self.t1.cutoffs["m1"], (-INF, 1.0))
+        self.assertEqual(self.t1.cutoffs["m2"], (-INF, 1.0))
+        self.assertEqual(self.t2.cutoffs["m1"], (0.0, INF))
+        self.assertEqual(self.t2.cutoffs["m2"], (0.0, INF))
         with self.assertRaisesRegex(
             DataRequiredError,
             "`Winsorize` transform requires non-empty data.",
@@ -218,10 +218,10 @@ class WinsorizeTransformTest(TestCase):
         self.assertListEqual(list(observation_data.means), [1.0, 2.0, 2.0, 1.0])
 
     def test_InitPercentileBounds(self) -> None:
-        self.assertEqual(self.t3.cutoffs["m1"], (-float("inf"), 1.0))
-        self.assertEqual(self.t3.cutoffs["m2"], (-float("inf"), 1.9))
-        self.assertEqual(self.t4.cutoffs["m1"], (1.0, float("inf")))
-        self.assertEqual(self.t4.cutoffs["m2"], (0.3, float("inf")))
+        self.assertEqual(self.t3.cutoffs["m1"], (-INF, 1.0))
+        self.assertEqual(self.t3.cutoffs["m2"], (-INF, 1.9))
+        self.assertEqual(self.t4.cutoffs["m1"], (1.0, INF))
+        self.assertEqual(self.t4.cutoffs["m2"], (0.3, INF))
 
     def test_TransformObservationsPercentileBounds(self) -> None:
         observation_data = self.t3._transform_observation_data([deepcopy(self.obsd1)])[
@@ -245,9 +245,9 @@ class WinsorizeTransformTest(TestCase):
         observation_data = self.t5._transform_observation_data([deepcopy(self.obsd2)])[
             0
         ]
-        self.assertEqual(self.t5.cutoffs["m1"], (-float("inf"), 1.0))
-        self.assertEqual(self.t5.cutoffs["m2"], (1.0, float("inf")))
-        self.assertEqual(self.t5.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(self.t5.cutoffs["m1"], (-INF, 1.0))
+        self.assertEqual(self.t5.cutoffs["m2"], (1.0, INF))
+        self.assertEqual(self.t5.cutoffs["m3"], (-INF, INF))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
         # Nothing should happen to m3
         observation_data = self.t5._transform_observation_data([deepcopy(self.obsd3)])[
@@ -258,8 +258,8 @@ class WinsorizeTransformTest(TestCase):
         observation_data = self.t6._transform_observation_data([deepcopy(self.obsd2)])[
             0
         ]
-        self.assertEqual(self.t6.cutoffs["m1"], (-float("inf"), 1.0))
-        self.assertEqual(self.t6.cutoffs["m2"], (0.0, float("inf")))
+        self.assertEqual(self.t6.cutoffs["m1"], (-INF, 1.0))
+        self.assertEqual(self.t6.cutoffs["m2"], (0.0, INF))
         self.assertListEqual(list(observation_data.means), [1.0, 1.0, 2.0, 1.0])
 
     def test_optimization_config_default(self) -> None:
@@ -269,7 +269,7 @@ class WinsorizeTransformTest(TestCase):
             optimization_config=optimization_config,
             winsorization_config={"m1": WinsorizationConfig(0.2, 0.0)},
         )
-        self.assertDictEqual(percentiles, {"m1": (1, float("inf"))})
+        self.assertDictEqual(percentiles, {"m1": (1, INF)})
 
     def test_tukey_cutoffs(self) -> None:
         Y = np.array([-100, 0, 1, 2, 50])
@@ -291,7 +291,7 @@ class WinsorizeTransformTest(TestCase):
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_leq],
         )
-        self.assertEqual(cutoffs, (-float("inf"), 23.5))
+        self.assertEqual(cutoffs, (-INF, 23.5))
         # From above with a tight bound
         outcome_constraint_leq.bound = 2
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
@@ -299,14 +299,14 @@ class WinsorizeTransformTest(TestCase):
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_leq],
         )
-        self.assertEqual(cutoffs, (-float("inf"), 13.5))
+        self.assertEqual(cutoffs, (-INF, 13.5))
         # From below with a loose bound
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
             # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_geq],
         )
-        self.assertEqual(cutoffs, (-31.5, float("inf")))
+        self.assertEqual(cutoffs, (-31.5, INF))
         # From below with a tight bound
         outcome_constraint_geq.bound = 5
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
@@ -314,7 +314,7 @@ class WinsorizeTransformTest(TestCase):
             metric_values=metric_values,
             outcome_constraints=[outcome_constraint_geq],
         )
-        self.assertEqual(cutoffs, (-6.5, float("inf")))
+        self.assertEqual(cutoffs, (-6.5, INF))
         # Both with the tight bounds
         outcome_constraint_geq.bound = 5
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
@@ -331,13 +331,13 @@ class WinsorizeTransformTest(TestCase):
             metric_values=metric_values,
             minimize=True,
         )
-        self.assertEqual(cutoffs, (-float("inf"), 13.5))
+        self.assertEqual(cutoffs, (-INF, 13.5))
         cutoffs = _get_auto_winsorization_cutoffs_single_objective(
             # pyre-fixme[6]: For 1st param expected `List[float]` but got `List[int]`.
             metric_values=metric_values,
             minimize=False,
         )
-        self.assertEqual(cutoffs, (-6.5, float("inf")))
+        self.assertEqual(cutoffs, (-6.5, INF))
 
     def test_winsorization_without_optimization_config(self) -> None:
         means = np.array([-100, 0, 1, 2, 3, 4, 5, 6, 7, 50])
@@ -354,19 +354,19 @@ class WinsorizeTransformTest(TestCase):
             }
         }
         transform = get_transform(observation_data=[deepcopy(obsd)], config=config)
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, INF))
         # None and 0.0 should be treated the same way
         config["winsorization_config"]["m1"] = WinsorizationConfig(0.0, 0.0)
         transform = get_transform(observation_data=[deepcopy(obsd)], config=config)
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, INF))
         # From above
         config["winsorization_config"]["m1"] = WinsorizationConfig(0.0, 0.2)
         transform = get_transform(observation_data=[deepcopy(obsd)], config=config)
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 7))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, 7))
         # From below
         config["winsorization_config"]["m1"] = WinsorizationConfig(0.2, 0.0)
         transform = get_transform(observation_data=[deepcopy(obsd)], config=config)
-        self.assertEqual(transform.cutoffs["m1"], (0, float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (0, INF))
         # Do both automatically
         config["winsorization_config"]["m1"] = WinsorizationConfig(
             AUTO_WINS_QUANTILE, AUTO_WINS_QUANTILE
@@ -385,15 +385,15 @@ class WinsorizeTransformTest(TestCase):
         transform = get_transform(
             observation_data=[deepcopy(obsd), deepcopy(obsd2)], config=config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 13.5))
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, 13.5))
+        self.assertEqual(transform.cutoffs["m2"], (-INF, INF))
         # Winsorize both
         config["winsorization_config"]["m2"] = WinsorizationConfig(0.2, 0.0)
         transform = get_transform(
             observation_data=[deepcopy(obsd), deepcopy(obsd2)], config=config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 13.5))
-        self.assertEqual(transform.cutoffs["m2"], (0.0, float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, 13.5))
+        self.assertEqual(transform.cutoffs["m2"], (0.0, INF))
 
     def test_winsorization_with_optimization_config(self) -> None:
         obsd_1 = ObservationData(
@@ -415,36 +415,39 @@ class WinsorizeTransformTest(TestCase):
         m1 = Metric(name="m1", lower_is_better=False)
         m2 = Metric(name="m2", lower_is_better=True)
         m3 = Metric(name="m3")
-        # Scalarized objective shouldn't be winsorized but should print a warning
-        optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(
-                metrics=[m1, m2], weights=[1, -1], minimize=False
+        # Scalarized objective
+        for minimize in [True, False]:
+            optimization_config = OptimizationConfig(
+                objective=ScalarizedObjective(
+                    metrics=[Metric(name="m1"), Metric(name="m2")],
+                    weights=[1, -1],
+                    minimize=minimize,
+                )
             )
-        )
-        warnings.simplefilter("always", append=True)
-        with warnings.catch_warnings(record=True) as ws:
             transform = get_transform(
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
-            for i in range(2):
-                print([w.message for w in ws])
-                self.assertTrue(
-                    "Automatic winsorization isn't supported for ScalarizedObjective. "
-                    "Specify the winsorization settings manually if you want to "
-                    f"winsorize metric m{i + 1}." in [str(w.message) for w in ws]
+            if minimize:
+                self.assertEqual(
+                    transform.cutoffs,
+                    {"m1": (-INF, 13.5), "m2": (-6.0, INF), "m3": (-INF, INF)},
                 )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), float("inf")))
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+            else:
+                self.assertEqual(
+                    transform.cutoffs,
+                    {"m1": (-6.5, INF), "m2": (-INF, 10.0), "m3": (-INF, INF)},
+                )
         # Simple single-objective problem
-        optimization_config.objective = Objective(metric=m2, minimize=True)
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=m2, minimize=True)
+        )
         transform = get_transform(
             observation_data=deepcopy(all_obsd), optimization_config=optimization_config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), float("inf")))
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))  # 4 + 1.5 * 4
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, INF))
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add a relative constraint, which should raise an error
         outcome_constraint = OutcomeConstraint(
             metric=m1, op=ComparisonOp.LEQ, bound=3, relative=True
@@ -468,17 +471,17 @@ class WinsorizeTransformTest(TestCase):
         transform = get_transform(
             observation_data=deepcopy(all_obsd), optimization_config=optimization_config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-float("inf"), 13.5))  # 6 + 1.5 * 5
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))  # 4 + 1.5 * 4
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-INF, 13.5))  # 6 + 1.5 * 5
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Change to a GEQ constraint
         optimization_config.outcome_constraints[0].op = ComparisonOp.GEQ
         transform = get_transform(
             observation_data=deepcopy(all_obsd), optimization_config=optimization_config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-6.5, float("inf")))  # 1 - 1.5 * 5
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))  # 4 + 1.5 * 4
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))  # 1 - 1.5 * 5
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add a scalarized outcome constraint which should print a warning
         optimization_config.outcome_constraints = [
             ScalarizedOutcomeConstraint(
@@ -516,9 +519,9 @@ class WinsorizeTransformTest(TestCase):
                     "specifying the objective thresholds when using multi-objective "
                     "optimization." in [str(w.message) for w in ws]
                 )
-        self.assertEqual(transform.cutoffs["m1"], (-6.5, float("inf")))
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add relative objective thresholds (should raise an error)
         objective_thresholds = [
             ObjectiveThreshold(m1, 3, relative=True),
@@ -545,9 +548,9 @@ class WinsorizeTransformTest(TestCase):
         transform = get_transform(
             observation_data=deepcopy(all_obsd), optimization_config=optimization_config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-6.5, float("inf")))  # 1 - 1.5 * 5
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))  # 4 + 1.5 * 4
-        self.assertEqual(transform.cutoffs["m3"], (-float("inf"), float("inf")))
+        self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))  # 1 - 1.5 * 5
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add an absolute outcome constraint
         optimization_config.outcome_constraints = [
             OutcomeConstraint(metric=m3, op=ComparisonOp.GEQ, bound=3, relative=False)
@@ -555,9 +558,9 @@ class WinsorizeTransformTest(TestCase):
         transform = get_transform(
             observation_data=deepcopy(all_obsd), optimization_config=optimization_config
         )
-        self.assertEqual(transform.cutoffs["m1"], (-6.5, float("inf")))  # 1 - 1.5 * 5
-        self.assertEqual(transform.cutoffs["m2"], (-float("inf"), 10.0))  # 4 + 1.5 * 4
-        self.assertEqual(transform.cutoffs["m3"], (-3.5, float("inf")))  # 1 - 1.5 * 3
+        self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))  # 1 - 1.5 * 5
+        self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
+        self.assertEqual(transform.cutoffs["m3"], (-3.5, INF))  # 1 - 1.5 * 3
 
     @mock.patch(
         "ax.modelbridge.base.observations_from_data",
@@ -638,9 +641,7 @@ class WinsorizeTransformTest(TestCase):
             modelbridge=modelbridge,
             config={"derelativize_with_raw_status_quo": True},
         )
-        self.assertDictEqual(
-            t.cutoffs, {"a": (-float("inf"), 3.5), "b": (-float("inf"), 12.0)}
-        )
+        self.assertDictEqual(t.cutoffs, {"a": (-INF, 3.5), "b": (-INF, 12.0)})
 
 
 # pyre-fixme[2]: Parameter must be annotated.
