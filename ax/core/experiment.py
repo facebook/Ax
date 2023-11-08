@@ -1498,6 +1498,99 @@ class Experiment(Base):
 
         return {arm.name: arm.parameters for arm in trial.arms}, trial.index
 
+    def clone_with(
+        self,
+        search_space: Optional[SearchSpace] = None,
+        name: Optional[str] = None,
+        optimization_config: Optional[OptimizationConfig] = None,
+        tracking_metrics: Optional[List[Metric]] = None,
+        runner: Optional[Runner] = None,
+        status_quo: Optional[Arm] = None,
+        description: Optional[str] = None,
+        is_test: bool = False,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Experiment:
+        r"""
+        Return a copy of this experiment with some attributes replaced.
+
+        Args:
+            search_space: New search space. If None, it uses the cloned search space
+                of the original experiment.
+            name: New experiment name. If None, it adds cloned_experiment_  prefix
+                to the original experiment name.
+            optimization_config: New optimization config. If None, it clones the same
+                optimization_config from the orignal experiment.
+            tracking_metrics: New list of metrics to track. If None, it clones the
+                tracking metrics already attached to the main experiment.
+            runner: New runner. If None, it clones the existing runner.
+            status_quo: New status quo arm. If None, it clones the existing status quo.
+            description: New description. If None, it uses the same description.
+            is_test: Whether the cloned experiment should be considered a test. If None,
+                it uses the same value.
+            properties: New properties dictionary. If None, it uses a copy of the
+                same properties.
+        """
+        search_space = (
+            self.search_space.clone() if (search_space is None) else search_space
+        )
+        name = (
+            "cloned_experiment_" + self.name
+            if (name is None and self.name is not None)
+            else name
+        )
+        optimization_config = (
+            self.optimization_config.clone()
+            if (optimization_config is None and self.optimization_config is not None)
+            else optimization_config
+        )
+        tracking_metrics = (
+            [m.clone() for m in self.tracking_metrics]
+            if (tracking_metrics is None and self.tracking_metrics is not None)
+            else tracking_metrics
+        )
+
+        runner = (
+            self.runner.clone()
+            if (runner is None and self.runner is not None)
+            else runner
+        )
+        status_quo = (
+            self.status_quo.clone()
+            if (status_quo is None and self.status_quo is not None)
+            else status_quo
+        )
+        description = self.description if description is None else description
+        is_test = self.is_test if is_test is None else is_test
+        properties = self._properties.copy() if properties is None else properties
+
+        cloned_experiment = Experiment(
+            search_space=search_space,
+            name=name,
+            optimization_config=optimization_config,
+            tracking_metrics=tracking_metrics,
+            runner=runner,
+            status_quo=status_quo,
+            description=description,
+            is_test=is_test,
+            experiment_type=self.experiment_type,
+            properties=properties,
+            default_data_type=self._default_data_type,
+        )
+
+        datas = []
+        for trial_index, trial in self.trials.items():
+            if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
+                trial.clone_to(cloned_experiment)
+                trial_data, storage_time = self.lookup_data_for_trial(trial_index)
+                if (trial_data is not None) and (storage_time is not None):
+                    datas.append(trial_data)
+            else:
+                raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
+
+        cloned_experiment.attach_data(Data.from_multiple_data(datas))
+
+        return cloned_experiment
+
 
 def add_arm_and_prevent_naming_collision(
     new_trial: Trial, old_trial: Trial, old_experiment_name: Optional[str] = None

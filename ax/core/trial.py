@@ -324,3 +324,26 @@ class Trial(BaseTrial):
         return str(
             round_floats_for_logging(item=evaluations[next(iter(evaluations.keys()))])
         )
+
+    def clone_to(
+        self,
+        experiment: Optional[core.experiment.Experiment] = None,
+    ) -> Trial:
+        """Clone the trial and attach it to the specified experiment.
+        If no experiment is provided, the original experiment will be used.
+
+        Args:
+            experiment: The experiment to which the cloned trial will belong.
+                If unspecified, uses the current experiment.
+
+        Returns:
+            A new instance of the trial.
+        """
+        experiment = self._experiment if experiment is None else experiment
+        new_trial = experiment.new_trial()
+        if self.generator_run is not None:
+            new_trial.add_generator_run(self.generator_run.clone())
+        new_trial.trial_type = self._trial_type
+        new_trial.runner = self._runner.clone() if self._runner else None
+
+        return new_trial
