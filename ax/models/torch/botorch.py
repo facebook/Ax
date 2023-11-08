@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import warnings
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -255,6 +256,16 @@ class BotorchModel(TorchModel):
         prior: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
+        warnings.warn(
+            "The legacy `BotorchModel` and its subclasses, including the current"
+            f"class `{self.__class__.__name__}`, slated for deprecation. "
+            "These models will not be supported going forward and may be "
+            "fully removed in a future release. Please consider using the "
+            "Modular BoTorch Model (MBM) setup (ax/models/torch/botorch_modular) "
+            "instead. If you run into a use case that is not supported by MBM, "
+            "please raise this with an issue at https://github.com/facebook/Ax",
+            DeprecationWarning,
+        )
         self.model_constructor = model_constructor
         self.model_predictor = model_predictor
         self.acqf_constructor = acqf_constructor
