@@ -10,6 +10,8 @@ from typing import List, Optional, Set
 from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
+from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.modelbridge.generation_strategy import DataRequiredError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
@@ -18,40 +20,95 @@ logger: Logger = get_logger(__name__)
 
 
 class TransitionCriterion(Base, SerializationMixin):
+    # TODO: @mgarrard rename to ActionCriterion
     """
-    Simple class to descibe a condition which must be met for a GenerationStrategy
-    to move to its next GenerationNode.
+    Simple class to descibe a condition which must be met for this GenerationNode to
+    take an action such as generation, transition, etc.
 
     Args:
         transition_to: The name of the GenerationNode the GenerationStrategy should
-            transition to when this criterion is met.
+            transition to when this criterion is met, if it exists.
+        block_gen_if_met: A flag to prevent continued generation from the
+            associated GenerationNode if this criterion is met but other criterion
+            remain unmet. Ex: MinimumTrialsInStatus has not been met yet, but
+            MaxTrials has been reached. If this flag is set to true on MaxTrials then
+            we will raise an error, otherwise we will continue to generate trials
+            until MinimumTrialsInStatus is met (thus overriding MaxTrials).
+        block_transition_if_unmet: A flag to prevent the node from completing and
+            being able to transition to another node. Ex: MaxGenerationParallelism
+            defaults to setting this to Flase since we can complete and move on from
+            this node without ever reaching its threshold.
     """
 
     _transition_to: Optional[str] = None
 
-    def __init__(self, transition_to: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        transition_to: Optional[str] = None,
+        block_transition_if_unmet: Optional[bool] = True,
+        block_gen_if_met: Optional[bool] = False,
+    ) -> None:
         self._transition_to = transition_to
+        self.block_transition_if_unmet = block_transition_if_unmet
+        self.block_gen_if_met = block_gen_if_met
 
     @property
     def transition_to(self) -> Optional[str]:
         """The name of the next GenerationNode after this TransitionCriterion is
-        completed. Warns if unset.
+        completed, if it exists.
         """
-        if self._transition_to is None:
-            logger.warning("No transition_to specified on this TransitionCriterion")
-
         return self._transition_to
 
     @abstractmethod
     def is_met(
         self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
     ) -> bool:
+        """If the criterion of this TransitionCriterion is met, returns True."""
         pass
+
+    @abstractmethod
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        """Error to be raised if the `block_gen_if_met` flag is set to True."""
+        pass
+
+    @property
+    def criterion_class(self) -> str:
+        """Name of the class of this TransitionCriterion."""
+        return type(self).__name__
+
+
+class TrialBasedCriterion(TransitionCriterion):
+    """Common class for action criterion that are based on trial information."""
+
+    def __init__(
+        self,
+        threshold: int,
+        block_transition_if_unmet: Optional[bool] = True,
+        block_gen_if_met: Optional[bool] = False,
+        only_in_statuses: Optional[List[TrialStatus]] = None,
+        not_in_statuses: Optional[List[TrialStatus]] = None,
+        transition_to: Optional[str] = None,
+    ) -> None:
+        self.threshold = threshold
+        self.only_in_statuses = only_in_statuses
+        self.not_in_statuses = not_in_statuses
+        super().__init__(
+            transition_to=transition_to,
+            block_transition_if_unmet=block_transition_if_unmet,
+            block_gen_if_met=block_gen_if_met,
+        )
 
     def experiment_trials_by_status(
         self, experiment: Experiment, statuses: List[TrialStatus]
     ) -> Set[int]:
-        """Get the trial indices from the experiment with the desired statuses.
+        """Get the trial indices from the entire experiment with the desired
+        statuses.
 
         Args:
             experiment: The experiment associated with this GenerationStrategy.
@@ -66,58 +123,124 @@ class TransitionCriterion(Base, SerializationMixin):
             )
         return exp_trials_with_statuses
 
+    def all_trials_to_check(self, experiment: Experiment) -> Set[int]:
+        """All the trials to check from the entire experiment that meet
+        all the provided status filters.
 
-class MinTrials(TransitionCriterion):
-    """
-    Simple class to decide if the number of trials of a given status in the
-    GenerationStrategy experiment has reached a certain threshold.
-    """
-
-    # TODO: to expand functionality to mirror `MaxTrials`
-    def __init__(
-        self,
-        statuses: List[TrialStatus],
-        threshold: int,
-        transition_to: Optional[str] = None,
-    ) -> None:
-        self.statuses = statuses
-        self.threshold = threshold
-        super().__init__(transition_to=transition_to)
-
-    def is_met(
-        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
-    ) -> bool:
-        """Checks if the MinTrials criterion is met.
         Args:
             experiment: The experiment associated with this GenerationStrategy.
-            trials_from_node: A set containing the indices of trials that were
-                generated from this GenerationNode.
         """
-        exp_trials_with_statuses = self.experiment_trials_by_status(
-            experiment, self.statuses
-        )
+        trials_to_check = set(experiment.trials.keys())
+        if self.only_in_statuses is not None:
+            trials_to_check = self.experiment_trials_by_status(
+                experiment=experiment, statuses=self.only_in_statuses
+            )
+        # exclude the trials to those not in the specified statuses
+        if self.not_in_statuses is not None:
+            trials_to_check -= self.experiment_trials_by_status(
+                experiment=experiment, statuses=self.not_in_statuses
+            )
+        return trials_to_check
 
-        # Trials from node should not be none for any new GenerationStrategies
+    def num_contributing_to_threshold(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]]
+    ) -> int:
+        """Returns the number of trials contributing to the threshold.
+
+        Args:
+            experiment: The experiment associated with this GenerationStrategy.
+        """
+        all_trials_to_check = self.all_trials_to_check(experiment=experiment)
         if trials_from_node is None:
             logger.warning(
                 "`trials_from_node` is None, will check threshold on"
-                + " experiment level for MinTrials.",
+                + " experiment level.",
             )
-            return len(exp_trials_with_statuses) >= self.threshold
+            return len(all_trials_to_check)
+        return len(trials_from_node.intersection(all_trials_to_check))
+
+    def num_till_threshold(
+        self, experiment: Experiment, trials_from_node: Optional[Set[int]]
+    ) -> int:
+        """Returns the number of trials until the threshold is met.
+
+        Args:
+            experiment: The experiment associated with this GenerationStrategy.
+        """
+        return self.threshold - self.num_contributing_to_threshold(
+            experiment=experiment, trials_from_node=trials_from_node
+        )
+
+    def is_met(
+        self,
+        experiment: Experiment,
+        trials_from_node: Optional[Set[int]] = None,
+        block_continued_generation: Optional[bool] = False,
+    ) -> bool:
+        """Returns if this criterion has been met given its constraints."""
         return (
-            len(trials_from_node.intersection(exp_trials_with_statuses))
+            self.num_contributing_to_threshold(
+                experiment=experiment, trials_from_node=trials_from_node
+            )
             >= self.threshold
         )
 
+
+class MaxGenerationParallelism(TrialBasedCriterion):
+    def __init__(
+        self,
+        threshold: int,
+        only_in_statuses: Optional[List[TrialStatus]] = None,
+        not_in_statuses: Optional[List[TrialStatus]] = None,
+        transition_to: Optional[str] = None,
+        block_transition_if_unmet: Optional[bool] = False,
+        block_gen_if_met: Optional[bool] = True,
+    ) -> None:
+        super().__init__(
+            threshold=threshold,
+            only_in_statuses=only_in_statuses,
+            not_in_statuses=not_in_statuses,
+            transition_to=transition_to,
+            block_gen_if_met=block_gen_if_met,
+            block_transition_if_unmet=block_transition_if_unmet,
+        )
+
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        """If the block_continued_generation flag is set, raises the
+        MaxParallelismReachedException error.
+        """
+        assert (
+            node_name is not None and model_name is not None and experiment is not None
+        )
+
+        if self.block_gen_if_met:
+            raise MaxParallelismReachedException(
+                node_name=node_name,
+                model_name=model_name,
+                num_running=self.num_contributing_to_threshold(
+                    experiment=experiment, trials_from_node=trials_from_node
+                ),
+            )
+
     def __repr__(self) -> str:
-        """Returns a string representation of MinTrials."""
+        """Returns a string representation of MaxGenerationParallelism"""
         return (
-            f"{self.__class__.__name__}(statuses={self.statuses}, "
-            f"threshold={self.threshold}, transition_to='{self.transition_to}')"
+            f"{self.__class__.__name__}(threshold={self.threshold}, "
+            f"only_in_statuses={self.only_in_statuses}, "
+            f"not_in_statuses={self.not_in_statuses}, "
+            f"transition_to='{self.transition_to}', "
+            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
+            f"block_gen_if_met={self.block_gen_if_met})"
         )
 
 
-class MaxTrials(TransitionCriterion):
+class MaxTrials(TrialBasedCriterion):
     """
     Simple class to enforce a maximum threshold for the number of trials generated
     by a specific GenerationNode.
@@ -132,58 +255,99 @@ class MaxTrials(TransitionCriterion):
     def __init__(
         self,
         threshold: int,
-        enforce: bool,
         only_in_statuses: Optional[List[TrialStatus]] = None,
-        transition_to: Optional[str] = None,
         not_in_statuses: Optional[List[TrialStatus]] = None,
+        transition_to: Optional[str] = None,
+        block_transition_if_unmet: Optional[bool] = True,
+        block_gen_if_met: Optional[bool] = False,
     ) -> None:
-        self.threshold = threshold
-        self.enforce = enforce
-        self.only_in_statuses = only_in_statuses
-        self.not_in_statuses = not_in_statuses
-        super().__init__(transition_to=transition_to)
+        super().__init__(
+            threshold=threshold,
+            only_in_statuses=only_in_statuses,
+            not_in_statuses=not_in_statuses,
+            transition_to=transition_to,
+            block_gen_if_met=block_gen_if_met,
+            block_transition_if_unmet=block_transition_if_unmet,
+        )
 
-    def is_met(
-        self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
-    ) -> bool:
-        """Checks if the MaxTrials criterion is met.
-        Args:
-            experiment: The experiment associated with this GenerationStrategy.
-            trials_from_node: A set containing the indices of trials that were
-                generated from this GenerationNode.
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        """If the block_continued_generation flag is set, raises an error because the
+        remaining TransitionCriterion cannot be completed in the current state.
         """
-        # TODO: @mgarrard fix enforce logic
-        if self.enforce:
-            trials_to_check = experiment.trials.keys()
-            # limit the trials to only those in the specified statuses
-            if self.only_in_statuses is not None:
-                trials_to_check = self.experiment_trials_by_status(
-                    experiment, self.only_in_statuses
-                )
-            # exclude the trials to those not in the specified statuses
-            if self.not_in_statuses is not None:
-                trials_to_check -= self.experiment_trials_by_status(
-                    experiment, self.not_in_statuses
-                )
-
-            # Trials from node should not be none for any new GenerationStrategies
-            if trials_from_node is None:
-                logger.warning(
-                    "`trials_from_node` is None, will check threshold on"
-                    + " experiment level for MaxTrials.",
-                )
-                return len(trials_to_check) >= self.threshold
-
-            return len(trials_from_node.intersection(trials_to_check)) >= self.threshold
-        return True
+        if self.block_gen_if_met:
+            raise DataRequiredError(
+                "All trials for current model have been generated, but not enough "
+                "data has been observed to fit next model. Try again when more data"
+                " are available."
+            )
 
     def __repr__(self) -> str:
         """Returns a string representation of MaxTrials."""
         return (
             f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"enforce={self.enforce}, only_in_statuses={self.only_in_statuses}, "
+            f"only_in_statuses={self.only_in_statuses}, "
+            f"not_in_statuses={self.not_in_statuses}, "
             f"transition_to='{self.transition_to}', "
-            f"not_in_statuses={self.not_in_statuses})"
+            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
+            f"block_gen_if_met={self.block_gen_if_met})"
+        )
+
+
+class MinTrials(TrialBasedCriterion):
+    """
+    Simple class to decide if the number of trials of a given status in the
+    GenerationStrategy experiment has reached a certain threshold.
+    """
+
+    def __init__(
+        self,
+        threshold: int,
+        only_in_statuses: Optional[List[TrialStatus]] = None,
+        not_in_statuses: Optional[List[TrialStatus]] = None,
+        transition_to: Optional[str] = None,
+        block_transition_if_unmet: Optional[bool] = True,
+        block_gen_if_met: Optional[bool] = False,
+    ) -> None:
+        super().__init__(
+            threshold=threshold,
+            only_in_statuses=only_in_statuses,
+            not_in_statuses=not_in_statuses,
+            transition_to=transition_to,
+            block_gen_if_met=block_gen_if_met,
+            block_transition_if_unmet=block_transition_if_unmet,
+        )
+
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        """If the enforce flag is set, raises an error because the remaining
+        TransitionCriterion cannot be completed in the current state.
+        """
+        if self.block_gen_if_met:
+            raise DataRequiredError(
+                f"This criterion, {self.criterion_class} has been met but cannot "
+                "continue generation from its associated GenerationNode."
+            )
+
+    def __repr__(self) -> str:
+        """Returns a string representation of MinTrials."""
+        return (
+            f"{self.__class__.__name__}(threshold={self.threshold}, "
+            f"only_in_statuses={self.only_in_statuses}, "
+            f"not_in_statuses={self.not_in_statuses}, "
+            f"transition_to='{self.transition_to}', "
+            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
+            f"block_gen_if_met={self.block_gen_if_met})"
         )
 
 
@@ -195,11 +359,18 @@ class MinimumPreferenceOccurances(TransitionCriterion):
     """
 
     def __init__(
-        self, metric_name: str, threshold: int, transition_to: Optional[str] = None
+        self,
+        metric_name: str,
+        threshold: int,
+        transition_to: Optional[str] = None,
+        block_gen_if_met: Optional[bool] = False,
     ) -> None:
         self.metric_name = metric_name
         self.threshold = threshold
-        super().__init__(transition_to=transition_to)
+        super().__init__(
+            transition_to=transition_to,
+            block_gen_if_met=block_gen_if_met,
+        )
 
     def is_met(
         self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
@@ -212,11 +383,21 @@ class MinimumPreferenceOccurances(TransitionCriterion):
 
         return count_no >= self.threshold and count_yes >= self.threshold
 
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        pass
+
     def __repr__(self) -> str:
         """Returns a string representation of MinimumPreferenceOccurances."""
         return (
             f"{self.__class__.__name__}(metric_name='{self.metric_name}', "
-            f"threshold={self.threshold}, transition_to={self.transition_to})"
+            f"threshold={self.threshold}, transition_to={self.transition_to}, "
+            f"block_gen_if_met={self.block_gen_if_met})"
         )
 
 
@@ -237,3 +418,20 @@ class MinimumTrialsInStatus(TransitionCriterion):
         self, experiment: Experiment, trials_from_node: Optional[Set[int]] = None
     ) -> bool:
         return len(experiment.trial_indices_by_status[self.status]) >= self.threshold
+
+    def block_continued_generation_error(
+        self,
+        node_name: Optional[str],
+        model_name: Optional[str],
+        experiment: Optional[Experiment],
+        trials_from_node: Optional[Set[int]] = None,
+    ) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        """Returns a string representation of MinimumTrialsInStatus."""
+        return (
+            f"{self.__class__.__name__}(threshold={self.threshold}, "
+            f"status={self.status}, "
+            f"transition_to='{self.transition_to}')"
+        )

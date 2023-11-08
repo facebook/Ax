@@ -105,9 +105,13 @@ class GenerationStrategy(Base):
             # Set transition_to field for all but the last step, which remains null.
             if idx != len(self._steps):
                 for transition_criteria in step.transition_criteria:
-                    transition_criteria._transition_to = (
-                        f"GenerationStep_{str(idx + 1)}"
-                    )
+                    if (
+                        transition_criteria.criterion_class == "MinTrials"
+                        or transition_criteria.criterion_class == "MaxTrials"
+                    ):
+                        transition_criteria._transition_to = (
+                            f"GenerationStep_{str(idx + 1)}"
+                        )
             step._generation_strategy = self
             if not isinstance(step.model, ModelRegistryBase):
                 self._uses_registered_models = False
