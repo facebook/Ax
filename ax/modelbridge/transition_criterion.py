@@ -14,7 +14,7 @@ from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.generation_strategy import DataRequiredError
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import SerializationMixin
+from ax.utils.common.serialization import SerializationMixin, serialize_init_args
 
 logger: Logger = get_logger(__name__)
 
@@ -80,7 +80,10 @@ class TransitionCriterion(Base, SerializationMixin):
     @property
     def criterion_class(self) -> str:
         """Name of the class of this TransitionCriterion."""
-        return type(self).__name__
+        return self.__class__.__name__
+
+    def __repr__(self) -> str:
+        return f"{self.criterion_class}({serialize_init_args(obj=self)})"
 
 
 class TrialBasedCriterion(TransitionCriterion):
@@ -228,17 +231,6 @@ class MaxGenerationParallelism(TrialBasedCriterion):
                 ),
             )
 
-    def __repr__(self) -> str:
-        """Returns a string representation of MaxGenerationParallelism"""
-        return (
-            f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"only_in_statuses={self.only_in_statuses}, "
-            f"not_in_statuses={self.not_in_statuses}, "
-            f"transition_to='{self.transition_to}', "
-            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
-            f"block_gen_if_met={self.block_gen_if_met})"
-        )
-
 
 class MaxTrials(TrialBasedCriterion):
     """
@@ -287,17 +279,6 @@ class MaxTrials(TrialBasedCriterion):
                 " are available."
             )
 
-    def __repr__(self) -> str:
-        """Returns a string representation of MaxTrials."""
-        return (
-            f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"only_in_statuses={self.only_in_statuses}, "
-            f"not_in_statuses={self.not_in_statuses}, "
-            f"transition_to='{self.transition_to}', "
-            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
-            f"block_gen_if_met={self.block_gen_if_met})"
-        )
-
 
 class MinTrials(TrialBasedCriterion):
     """
@@ -338,17 +319,6 @@ class MinTrials(TrialBasedCriterion):
                 f"This criterion, {self.criterion_class} has been met but cannot "
                 "continue generation from its associated GenerationNode."
             )
-
-    def __repr__(self) -> str:
-        """Returns a string representation of MinTrials."""
-        return (
-            f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"only_in_statuses={self.only_in_statuses}, "
-            f"not_in_statuses={self.not_in_statuses}, "
-            f"transition_to='{self.transition_to}', "
-            f"block_transition_if_unmet={self.block_transition_if_unmet}, "
-            f"block_gen_if_met={self.block_gen_if_met})"
-        )
 
 
 class MinimumPreferenceOccurances(TransitionCriterion):
@@ -392,14 +362,6 @@ class MinimumPreferenceOccurances(TransitionCriterion):
     ) -> None:
         pass
 
-    def __repr__(self) -> str:
-        """Returns a string representation of MinimumPreferenceOccurances."""
-        return (
-            f"{self.__class__.__name__}(metric_name='{self.metric_name}', "
-            f"threshold={self.threshold}, transition_to={self.transition_to}, "
-            f"block_gen_if_met={self.block_gen_if_met})"
-        )
-
 
 # TODO: Deprecate once legacy usecase is updated
 class MinimumTrialsInStatus(TransitionCriterion):
@@ -427,11 +389,3 @@ class MinimumTrialsInStatus(TransitionCriterion):
         trials_from_node: Optional[Set[int]] = None,
     ) -> None:
         pass
-
-    def __repr__(self) -> str:
-        """Returns a string representation of MinimumTrialsInStatus."""
-        return (
-            f"{self.__class__.__name__}(threshold={self.threshold}, "
-            f"status={self.status}, "
-            f"transition_to='{self.transition_to}')"
-        )

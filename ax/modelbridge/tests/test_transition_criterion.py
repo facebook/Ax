@@ -373,6 +373,7 @@ class TestTransitionCriterion(TestCase):
         """Tests that the repr string is correctly formatted for all
         TransitionCriterion child classes.
         """
+        self.maxDiff = None
         max_trials_criterion = MaxTrials(
             threshold=5,
             block_gen_if_met=True,
@@ -383,12 +384,12 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             str(max_trials_criterion),
-            "MaxTrials(threshold=5, "
-            + "only_in_statuses=[<TrialStatus.COMPLETED: 3>], "
-            + "not_in_statuses=[<TrialStatus.FAILED: 2>], "
-            + "transition_to='GenerationStep_1', "
-            + "block_transition_if_unmet=False, "
-            + "block_gen_if_met=True)",
+            "MaxTrials({'threshold': 5, "
+            + "'only_in_statuses': [<TrialStatus.COMPLETED: 3>], "
+            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "'transition_to': 'GenerationStep_1', "
+            + "'block_transition_if_unmet': False, "
+            + "'block_gen_if_met': True})",
         )
         minimum_trials_in_status_criterion = MinTrials(
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
@@ -400,29 +401,30 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
-            "MinTrials(threshold=0, only_in_statuses="
+            "MinTrials({'threshold': 0, 'only_in_statuses': "
             + "[<TrialStatus.COMPLETED: 3>, <TrialStatus.EARLY_STOPPED: 7>], "
-            + "not_in_statuses=[<TrialStatus.FAILED: 2>], "
-            + "transition_to='GenerationStep_2', "
-            + "block_transition_if_unmet=False, "
-            + "block_gen_if_met=True)",
+            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'block_transition_if_unmet': False, "
+            + "'block_gen_if_met': True})",
         )
         minimum_preference_occurances_criterion = MinimumPreferenceOccurances(
             metric_name="m1", threshold=3
         )
         self.assertEqual(
             str(minimum_preference_occurances_criterion),
-            "MinimumPreferenceOccurances(metric_name='m1', threshold=3,"
-            + " transition_to=None, block_gen_if_met=False)",
+            "MinimumPreferenceOccurances({'metric_name': 'm1', 'threshold': 3, "
+            + "'transition_to': None, 'block_gen_if_met': False})",
         )
         deprecated_min_trials_criterion = MinimumTrialsInStatus(
             status=TrialStatus.COMPLETED, threshold=3
         )
         self.assertEqual(
             str(deprecated_min_trials_criterion),
-            "MinimumTrialsInStatus(threshold=3, "
-            + "status=TrialStatus.COMPLETED, "
-            + "transition_to='None')",
+            "MinimumTrialsInStatus({"
+            + "'status': <TrialStatus.COMPLETED: 3>, "
+            + "'threshold': 3, "
+            + "'transition_to': None})",
         )
         max_parallelism = MaxGenerationParallelism(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
@@ -434,10 +436,10 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             str(max_parallelism),
-            "MaxGenerationParallelism(threshold=3, only_in_statuses="
+            "MaxGenerationParallelism({'threshold': 3, 'only_in_statuses': "
             + "[<TrialStatus.EARLY_STOPPED: 7>], "
-            + "not_in_statuses=[<TrialStatus.FAILED: 2>], "
-            + "transition_to='GenerationStep_2', "
-            + "block_transition_if_unmet=False, "
-            + "block_gen_if_met=True)",
+            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "'transition_to': 'GenerationStep_2', "
+            + "'block_transition_if_unmet': False, "
+            + "'block_gen_if_met': True})",
         )
