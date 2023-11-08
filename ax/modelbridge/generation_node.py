@@ -615,14 +615,18 @@ class GenerationStep(GenerationNode, SortableBase):
                     block_transition_if_unmet=True,
                 )
             )
-            transition_criteria.append(
-                MinTrials(
-                    only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
-                    threshold=self.min_trials_observed,
-                    block_gen_if_met=False,
-                    block_transition_if_unmet=True,
+            if self.min_trials_observed > 0:
+                transition_criteria.append(
+                    MinTrials(
+                        only_in_statuses=[
+                            TrialStatus.COMPLETED,
+                            TrialStatus.EARLY_STOPPED,
+                        ],
+                        threshold=self.min_trials_observed,
+                        block_gen_if_met=False,
+                        block_transition_if_unmet=True,
+                    )
                 )
-            )
         else:
             gen_unlimited_trials = True
         if self.max_parallelism is not None:
