@@ -737,6 +737,11 @@ def generation_step_from_json(
         if "transition_criteria" in generation_step_json.keys()
         else None
     )
+    generation_step._gen_unlimited_trials = (
+        generation_step_json.pop("gen_unlimited_trials")
+        if "gen_unlimited_trials" in generation_step_json.keys()
+        else True
+    )
     return generation_step
 
 
