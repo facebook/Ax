@@ -229,14 +229,16 @@ def _get_cutoffs(
             metric_values=metric_values,
         )
 
-    # Don't winsorize a ScalarizedObjective
+    # Make sure we winsorize from the correct direction if a `ScalarizedObjective`.
     if isinstance(optimization_config.objective, ScalarizedObjective):
-        warnings.warn(
-            "Automatic winsorization isn't supported for ScalarizedObjective. "
-            "Specify the winsorization settings manually if you want to "
-            f"winsorize metric {metric_name}."
+        objective = checked_cast(ScalarizedObjective, optimization_config.objective)
+        weight = [w for m, w in objective.metric_weights if m.name == metric_name][0]
+        # Winsorize from above if the weight is positive and minimize is `True` or the
+        # weight is negative and minimize is `False`.
+        return _get_auto_winsorization_cutoffs_single_objective(
+            metric_values=metric_values,
+            minimize=objective.minimize if weight >= 0 else not objective.minimize,
         )
-        return DEFAULT_CUTOFFS
 
     # Single-objective
     if not optimization_config.is_moo_problem:
