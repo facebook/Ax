@@ -417,7 +417,9 @@ class WinsorizeTransformTest(TestCase):
         m3 = Metric(name="m3")
         # Scalarized objective shouldn't be winsorized but should print a warning
         optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(metrics=[m1, m2])
+            objective=ScalarizedObjective(
+                metrics=[m1, m2], weights=[1, -1], minimize=False
+            )
         )
         warnings.simplefilter("always", append=True)
         with warnings.catch_warnings(record=True) as ws:

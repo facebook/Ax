@@ -39,13 +39,23 @@ class ObjectiveTest(TestCase):
             ]
         )
         self.scalarized_objective = ScalarizedObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"]]
+            metrics=[self.metrics["m1"], self.metrics["m2"]], minimize=True
         )
 
     def test_Init(self) -> None:
         with self.assertRaises(ValueError):
             ScalarizedObjective(
                 metrics=[self.metrics["m1"], self.metrics["m2"]], weights=[1.0]
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Metric with name m2 specifies `lower_is_better` = "
+            "True, which doesn't match the specified optimization direction.",
+        ):
+            # Should fail since m2 specifies lower_is_better=True
+            ScalarizedObjective(
+                metrics=[self.metrics["m1"], self.metrics["m2"]],
+                minimize=False,
             )
         warnings.resetwarnings()
         warnings.simplefilter("always", append=True)
@@ -120,7 +130,7 @@ class ObjectiveTest(TestCase):
             str(self.scalarized_objective),
             (
                 "ScalarizedObjective(metric_names=['m1', 'm2'], weights=[1.0, 1.0], "
-                "minimize=False)"
+                "minimize=True)"
             ),
         )
         self.assertEqual(

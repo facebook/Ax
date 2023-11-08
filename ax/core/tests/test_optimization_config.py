@@ -283,7 +283,9 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             objectives=[self.objectives["o2"]]
         )
         self.scalarized_objective = ScalarizedObjective(
-            metrics=list(self.metrics.values()), weights=[1.0, 1.0, 1.0]
+            metrics=list(self.metrics.values()),
+            weights=[-1.0, 1.0, 1.0],
+            minimize=False,
         )
         self.outcome_constraint = OutcomeConstraint(
             metric=self.metrics["m3"], op=ComparisonOp.GEQ, bound=-0.25
