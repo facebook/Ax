@@ -209,6 +209,18 @@ class ScalarizedObjective(Objective):
             if len(weights) != len(metrics):
                 raise ValueError("Length of weights must equal length of metrics")
 
+        # Check if the optimization direction is consistent with
+        # `lower_is_better` (if specified).
+        for m, w in zip(metrics, weights):
+            is_minimized = minimize if w > 0 else not minimize
+            if m.lower_is_better is not None and is_minimized != m.lower_is_better:
+                raise ValueError(
+                    f"Metric with name {m.name} specifies `lower_is_better` = "
+                    f"{m.lower_is_better}, which doesn't match the specified "
+                    "optimization direction. You most likely want to flip the sign of "
+                    "the corresponding metric weight."
+                )
+
         self._metrics = metrics
         self.weights = weights
         self.minimize = minimize

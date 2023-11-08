@@ -198,7 +198,7 @@ class TestBestPointUtils(TestCase):
     def test_best_raw_objective_point_scalarized(self) -> None:
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(
-            ScalarizedObjective(metrics=[get_branin_metric()], minimize=False)
+            ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point(exp)
@@ -213,9 +213,9 @@ class TestBestPointUtils(TestCase):
         exp = get_branin_experiment()
         exp.optimization_config = OptimizationConfig(
             ScalarizedObjective(
-                metrics=[get_branin_metric(), get_branin_metric()],
+                metrics=[get_branin_metric(), get_branin_metric(lower_is_better=False)],
                 weights=[0.1, -0.9],
-                minimize=False,
+                minimize=True,
             )
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
