@@ -124,7 +124,7 @@ def _get_objective_trace_plot(
             ylabel=metric_name,
             model_transitions=model_transitions,
             # Try and use the metric's lower_is_better property, but fall back on
-            # objective's minimize property if relevent
+            # objective's minimize property if relevant
             optimization_direction=(
                 (
                     "minimize"

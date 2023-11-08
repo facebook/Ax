@@ -200,7 +200,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # applications where the user wants to run the optimization loop to exhaust
     # the declared number of trials.
     __ignore_global_stopping_strategy: bool = False
-    # In MOO cases, the following will be populated by an infered reference point
+    # In MOO cases, the following will be populated by an inferred reference point
     # for pareto front after a certain number of completed trials.
     __inferred_reference_point: Optional[List[ObjectiveThreshold]] = None
 

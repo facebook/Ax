@@ -170,7 +170,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             defaults to `True`.
 
         suppress_storage_errors: Whether to suppress SQL storage-related errors if
-            encounted. Only use if SQL storage is not important for the given use
+            encountered. Only use if SQL storage is not important for the given use
             case, since this will only log, but not raise, an exception if its
             encountered while saving to DB or loading from it.
 

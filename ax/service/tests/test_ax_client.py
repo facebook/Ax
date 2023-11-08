@@ -1641,7 +1641,7 @@ class TestAxClient(TestCase):
             self.assertEqual(features.start_time.day, 1)
             self.assertEqual(features.end_time.day, 5)
 
-    def test_trial_completion_with_metadata_milisecond_times(self) -> None:
+    def test_trial_completion_with_metadata_millisecond_times(self) -> None:
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(
@@ -2210,7 +2210,7 @@ class TestAxClient(TestCase):
             # pyre-ignore [6]
             parameterizations=parameterizations
         )
-        # Expect predicitons for only 3 input parameterizations,
+        # Expect predictions for only 3 input parameterizations,
         # and no trial predictions
         self.assertEqual(len(parameterization_predictions_dict), 3)
 

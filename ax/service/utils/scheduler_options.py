@@ -96,7 +96,7 @@ class SchedulerOptions:
         global_stopping_strategy: A ``BaseGlobalStoppingStrategy`` that determines
             whether the full optimization should be stopped or not.
         suppress_storage_errors_after_retries: Whether to fully suppress SQL
-            storage-related errors if encounted, after retrying the call
+            storage-related errors if encountered, after retrying the call
             multiple times. Only use if SQL storage is not important for the given
             use case, since this will only log, but not raise, an exception if
             it's encountered while saving to DB or loading from it.
