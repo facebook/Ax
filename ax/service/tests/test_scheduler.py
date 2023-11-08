@@ -389,7 +389,7 @@ class TestAxScheduler(TestCase):
         scheduler.run_all_trials()
         # Check that we got pending feat. at least 8 times (1 for each new trial and
         # maybe more for cases where we tried to generate trials but ran into limit on
-        # paralel., as polling trial statuses is randomized in Scheduler),
+        # parallel., as polling trial statuses is randomized in Scheduler),
         # so some trials might not yet have come back.
         self.assertGreaterEqual(len(mock_get_pending.call_args_list), 8)
         self.assertTrue(  # Make sure all trials got to complete.

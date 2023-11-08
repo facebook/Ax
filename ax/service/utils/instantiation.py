@@ -185,7 +185,7 @@ class InstantiationBase:
             )
             logger.info(
                 f"Inferred value type of {parameter_type} for parameter {param_name}. "
-                "If that is not the expected value type, you can explicity specify "
+                "If that is not the expected value type, you can explicitly specify "
                 "'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."
             )
             return parameter_type
@@ -587,7 +587,7 @@ class InstantiationBase:
         otherwise.
 
         NOTE: If passing in multiple objectives, `objective_thresholds` must be a
-        non-empty list definining constraints for each objective.
+        non-empty list defining constraints for each objective.
         """
         if len(objectives) == 1:
             if objective_thresholds:
