@@ -196,12 +196,6 @@ class TrialTest(TestCase):
             def stop(self, trial, reason):
                 return {"reason": reason} if reason else {}
 
-            def poll_exception(self, trial: BaseTrial) -> str:
-                raise NotImplementedError(
-                    f"""{self.__class__.__name__} does not implement a `poll_exception`
-                    method."""
-                )
-
         # test valid stopping
         for reason, new_status in itertools.product(
             (None, "because"),

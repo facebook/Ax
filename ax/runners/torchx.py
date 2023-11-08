@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -177,13 +176,6 @@ try:
                 indices.add(trial.index)
 
             return trial_statuses
-
-        @copy_doc(Runner.poll_exception)
-        def poll_exception(self, trial: BaseTrial) -> str:
-            raise NotImplementedError(
-                f"""{self.__class__.__name__} does not implement a `poll_exception`
-                method."""
-            )
 
         def stop(
             self, trial: BaseTrial, reason: Optional[str] = None
