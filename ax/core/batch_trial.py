@@ -40,7 +40,6 @@ from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
-
 logger: Logger = get_logger(__name__)
 
 
@@ -542,16 +541,51 @@ class BatchTrial(BaseTrial):
         return self
 
     def clone(self) -> BatchTrial:
-        """Clone the trial.
+        """Clone the trial and attach it to the current experiment."""
+        logger.warning(
+            "clone() method is getting deprecated. Please use clone_to() instead."
+        )
+        return self.clone_to(include_sq=False)
+
+    def clone_to(
+        self,
+        experiment: Optional[core.experiment.Experiment] = None,
+        include_sq: bool = True,
+    ) -> BatchTrial:
+        """Clone the trial and attach it to a specified experiment.
+        If None provided, attach it to the current experiment.
+
+        Args:
+            experiment: The experiment to which the cloned trial will belong.
+                If unspecified, uses the current experiment.
+            include_sq: Whether to include status quo in the cloned trial.
 
         Returns:
             A new instance of the trial.
         """
-        new_trial = self._experiment.new_batch_trial()
+        use_old_experiment = experiment is None
+        experiment = self._experiment if experiment is None else experiment
+        new_trial = experiment.new_batch_trial()
         for struct in self._generator_run_structs:
-            new_trial.add_generator_run(struct.generator_run, struct.weight)
+            if use_old_experiment:
+                # don't clone gen run in case we are attaching cloned trial to
+                # the same experiment
+                new_trial.add_generator_run(struct.generator_run, struct.weight)
+            else:
+                new_trial.add_generator_run(struct.generator_run.clone(), struct.weight)
         new_trial.trial_type = self._trial_type
-        new_trial.runner = self._runner
+        new_trial.runner = self._runner.clone() if self._runner else None
+
+        if (self._status_quo is not None) and include_sq:
+            sq_weight = (
+                self._status_quo_weight_override
+                if self._status_quo_weight_override is not None
+                else 1.0
+            )
+            new_trial.set_status_quo_with_weight(
+                self._status_quo.clone(),
+                weight=sq_weight,
+            )
         return new_trial
 
     def attach_batch_trial_data(

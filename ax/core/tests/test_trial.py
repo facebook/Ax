@@ -320,3 +320,21 @@ class TrialTest(TestCase):
             "Raw data does not conform to the expected structure.",
         ):
             map_trial.update_trial_data(raw_data=[["aa", {"m1": 1.0}]])
+
+    def test_clone_to(self) -> None:
+        # cloned trial attached to the same experiment
+        new_trial = self.trial.clone_to()
+        self.assertIs(new_trial.experiment, self.trial.experiment)
+        self.assertEqual(new_trial.arm, self.trial.arm)
+
+        # cloned trial attached to a new experiment
+        new_experiment = get_experiment()
+        new_trial = self.trial.clone_to(new_experiment)
+        self.assertEqual(new_trial.arm, self.trial.arm)
+        self.assertIsNot(new_trial.experiment, self.trial.experiment)
+        self.assertIs(new_trial.experiment, new_experiment)
+
+        # make sure updating cloned trial doesn't affect original one
+        new_trial._status = TrialStatus.COMPLETED
+        self.assertTrue(new_trial.status.is_completed)
+        self.assertFalse(self.trial.status.is_completed)
