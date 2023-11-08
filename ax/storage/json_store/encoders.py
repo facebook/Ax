@@ -477,6 +477,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
         "index": generation_step.index,
         "should_deduplicate": generation_step.should_deduplicate,
         "transition_criteria": generation_step.transition_criteria,
+        "gen_unlimited_trials": generation_step.gen_unlimited_trials,
     }
 
 

@@ -81,6 +81,8 @@ class GenerationNode:
             condition that must be met before completing a GenerationNode. All `is_met`
             must evaluateTrue for the GenerationStrategy to move on to the next
             GenerationNode.
+        gen_unlimited_trials: If True the number of trials that can be generated from
+            this GenerationNode is unlimited.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -92,6 +94,7 @@ class GenerationNode:
     # TODO: Move `should_deduplicate` to `ModelSpec` if possible, and make optional
     should_deduplicate: bool
     _node_name: str
+    _gen_unlimited_trials: bool = True
 
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
@@ -110,6 +113,7 @@ class GenerationNode:
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        gen_unlimited_trials: bool = True,
     ) -> None:
         self._node_name = node_name
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
@@ -121,6 +125,7 @@ class GenerationNode:
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
+        self._gen_unlimited_trials = gen_unlimited_trials
 
     @property
     def node_name(self) -> str:
@@ -211,6 +216,11 @@ class GenerationNode:
     def experiment(self) -> Experiment:
         """Returns the experiment associated with this GenerationStrategy"""
         return self.generation_strategy.experiment
+
+    @property
+    def gen_unlimited_trials(self) -> bool:
+        """If True, this GenerationNode can generate unlimited trials."""
+        return self._gen_unlimited_trials
 
     def fit(
         self,
