@@ -17,7 +17,12 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.parameter import FixedParameter, ParameterType
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
@@ -26,6 +31,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_arm,
     get_branin_arms,
@@ -983,6 +989,70 @@ class ExperimentTest(TestCase):
                     f"INFO:{experiments_module}:{EXPERIMENT_IS_TEST_WARNING}",
                     logger.output,
                 )
+
+    def test_clone_with(self) -> None:
+        experiment = get_branin_experiment(
+            with_batch=True,
+            with_completed_trial=True,
+            with_status_quo=True,
+            with_choice_parameter=True,
+        )
+
+        larger_search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=-10.0,
+                    upper=10.0,
+                ),
+                ChoiceParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[float(x) for x in range(0, 16)],
+                ),
+            ],
+        )
+
+        new_status_quo = Arm({"x1": 1.0, "x2": 1.0})
+
+        cloned_experiment = experiment.clone_with(
+            search_space=larger_search_space,
+            status_quo=new_status_quo,
+        )
+        self.assertEqual(len(cloned_experiment.trials), 2)
+        x1 = checked_cast(
+            RangeParameter, cloned_experiment.search_space.parameters["x1"]
+        )
+        self.assertEqual(x1.lower, -10.0)
+        self.assertEqual(x1.upper, 10.0)
+        x2 = checked_cast(
+            ChoiceParameter, cloned_experiment.search_space.parameters["x2"]
+        )
+        self.assertEqual(len(x2.values), 16)
+        self.assertEqual(
+            checked_cast(Arm, cloned_experiment.status_quo).parameters,
+            {"x1": 1.0, "x2": 1.0},
+        )
+        # make sure the sq of the original experiment is unchanged
+        self.assertEqual(
+            checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
+        )
+        self.assertEqual(len(cloned_experiment.trials[0].arms), 16)
+
+        self.assertEqual(
+            cloned_experiment.lookup_data_for_trial(1)[0].df["trial_index"].iloc[0], 1
+        )
+
+        # make sure updating cloned experiment doesn't change the original experiment
+        cloned_experiment.status_quo = Arm({"x1": -1.0, "x2": 1.0})
+        self.assertEqual(
+            checked_cast(Arm, cloned_experiment.status_quo).parameters,
+            {"x1": -1.0, "x2": 1.0},
+        )
+        self.assertEqual(
+            checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
+        )
 
 
 class ExperimentWithMapDataTest(TestCase):
