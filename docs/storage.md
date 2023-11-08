@@ -50,11 +50,6 @@ class MyRunner(Runner):
     def run():
         pass
 
-    def poll_exception(self, trial: BaseTrial) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a `poll_exception` method."
-        )
-
 class MyMetric(Metric):
     pass
 
@@ -154,11 +149,6 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 class MyRunner(Runner):
     def run():
         pass
-
-    def poll_exception(self, trial: BaseTrial) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a `poll_exception` method."
-        )
 
 class MyMetric(Metric):
     pass

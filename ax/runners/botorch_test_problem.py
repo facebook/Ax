@@ -10,7 +10,6 @@ import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.common.base import Base
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.common.typeutils import checked_cast
@@ -118,12 +117,6 @@ class BotorchTestProblemRunner(Runner):
         self, trials: Iterable[BaseTrial]
     ) -> Dict[TrialStatus, Set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
-
-    @copy_doc(Runner.poll_exception)
-    def poll_exception(self, trial: BaseTrial) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a `poll_exception` method."
-        )
 
     @classmethod
     # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``

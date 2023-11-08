@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Iterable, Optional, Set
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
-from ax.utils.common.docutils import copy_doc
 from ax.utils.testing.backend_simulator import BackendSimulator
 
 
@@ -51,12 +50,6 @@ class SimulatedBackendRunner(Runner):
             status = self.simulator.lookup_trial_index_status(t_index)
             trial_status[status].add(t_index)
         return dict(trial_status)
-
-    @copy_doc(Runner.poll_exception)
-    def poll_exception(self, trial: BaseTrial) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a `poll_exception` method."
-        )
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         """Start a trial on the BackendSimulator.

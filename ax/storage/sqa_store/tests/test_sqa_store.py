@@ -11,7 +11,6 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import LifecycleStage
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -1161,12 +1160,6 @@ class SQAStoreTest(TestCase):
             def staging_required():
                 return False
 
-            def poll_exception(self, trial: BaseTrial) -> str:
-                raise NotImplementedError(
-                    f"""{self.__class__.__name__} does not implement a `poll_exception`
-                    method."""
-                )
-
         class MyMetric(Metric):
             pass
 
@@ -1202,12 +1195,6 @@ class SQAStoreTest(TestCase):
 
             def staging_required():
                 return False
-
-            def poll_exception(self, trial: BaseTrial) -> str:
-                raise NotImplementedError(
-                    f"""{self.__class__.__name__} does not implement a `poll_exception`
-                    method."""
-                )
 
         class MyMetric(Metric):
             pass
