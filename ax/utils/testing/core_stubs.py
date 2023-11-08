@@ -1335,10 +1335,15 @@ def get_metric() -> Metric:
     return Metric(name="m1", properties={"prop": "val"})
 
 
-def get_branin_metric(name: str = "branin") -> BraninMetric:
+def get_branin_metric(
+    name: str = "branin", lower_is_better: bool = True
+) -> BraninMetric:
     param_names = ["x1", "x2"]
     return BraninMetric(
-        name=name, param_names=param_names, noise_sd=0.01, lower_is_better=True
+        name=name,
+        param_names=param_names,
+        noise_sd=0.01,
+        lower_is_better=lower_is_better,
     )
 
 
