@@ -79,6 +79,7 @@ from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
+    MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
@@ -190,6 +191,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MapData: map_data_to_dict,
     MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
+    MaxGenerationParallelism: transition_criterion_to_dict,
     MaxTrials: transition_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,

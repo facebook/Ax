@@ -34,6 +34,7 @@ from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CV
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
+    MaxGenerationParallelism,
     MaxTrials,
     MinTrials,
     TransitionCriterion,
@@ -371,6 +372,86 @@ class GenerationNode:
                     trials_from_node.add(trial.index)
         return trials_from_node
 
+    def should_transition_to_next_node(
+        self, raise_data_required_error: bool = True
+    ) -> Tuple[bool, Optional[str]]:
+        """Checks whether we should transition to the next node based on this node's
+        TransitionCriterion
+
+        Args:
+            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
+                case detailed above. Not raising the error is useful if just looking to
+                check how many generator runs (to be made into trials) can be produced,
+                but not actually producing them yet.
+        Returns:
+            bool: Whether we should transition to the next node.
+        """
+        # TODO: @mgarrard remove check when legacy usecase is updated
+        criterion_names = [str(criterion) for criterion in self.transition_criteria]
+        if "AEPsych" in str(self) or any(
+            "MinimumPreferenceOccurances" in name for name in criterion_names
+        ):
+            return (
+                all(
+                    criterion.is_met(experiment=self.experiment)
+                    for criterion in self.transition_criteria
+                ),
+                None,
+            )
+
+        if self.gen_unlimited_trials and len(self.transition_criteria) == 0:
+            return False, None
+
+        transition_blocking_criterion = [
+            criterion
+            for criterion in self.transition_criteria
+            if criterion.block_transition_if_unmet
+        ]
+        all_transition_blocking_criteria_are_met = all(
+            transition_criterion.is_met(
+                self.experiment,
+                trials_from_node=self.trials_from_node,
+            )
+            for transition_criterion in transition_blocking_criterion
+        )
+        # Raise any necessary generation errors: for any met criterion,
+        # call its `block_continued_generation_error` method if not all
+        # transition-blocking criteria are met. The method might not raise an
+        # error, depending on its implementation on given criterion, so the error
+        # from the first met one that does block continued generation, will be raised.
+        if not all_transition_blocking_criteria_are_met:
+            for criterion in self.transition_criteria:
+                if (
+                    criterion.is_met(
+                        self.experiment, trials_from_node=self.trials_from_node
+                    )
+                    and raise_data_required_error
+                ):
+                    criterion.block_continued_generation_error(
+                        node_name=self.node_name,
+                        model_name=self.model_to_gen_from_name,
+                        experiment=self.experiment,
+                        trials_from_node=self.trials_from_node,
+                    )
+
+        # Determine transition state
+        if (
+            len(transition_blocking_criterion) > 0
+            and all_transition_blocking_criteria_are_met
+        ):
+            transition_nodes = [
+                criterion.transition_to
+                for criterion in transition_blocking_criterion
+                if criterion._transition_to is not None
+            ]
+            if len(set(transition_nodes)) > 1:
+                # TODO: support intelligent selection between multiple transition nodes
+                raise NotImplementedError(
+                    "Cannot currently select between multiple transition nodes."
+                )
+            return True, transition_nodes[0]
+        return False, None
+
     def __repr__(self) -> str:
         "String representation of this GenerationNode"
         # add model specs
@@ -518,29 +599,49 @@ class GenerationStep(GenerationNode, SortableBase):
                 self.model_name = f"Unknown {model_spec.__class__.__name__}"
 
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
-        # to ensure that requirements related to num_trials and enforce_num_trials
-        # are met. MinTrials can be used enforce the min_trials_observed
-        # requirement. We set transition_to on GenerationStrategy instead of here as
-        # GenerationStrategy can see the full list of steps.
+        # to ensure that requirements related to num_trials and unlimited trials
+        # are met. MinimumTrialsInStatus can be used enforce the min_trials_observed
+        # requirement, and override MaxTrials if enforce flag is set to true. We set
+        # `transition_to` is set in `GenerationStrategy` constructor,
+        # because only then is the order of the generation steps actually known.
         transition_criteria = []
-        transition_criteria.append(
-            MaxTrials(
-                enforce=self.enforce_num_trials,
-                threshold=self.num_trials,
+        if self.num_trials != -1:
+            gen_unlimited_trials = False
+            transition_criteria.append(
+                MaxTrials(
+                    threshold=self.num_trials,
+                    not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                    block_gen_if_met=self.enforce_num_trials,
+                    block_transition_if_unmet=True,
+                )
             )
-        )
-        transition_criteria.append(
-            MinTrials(
-                statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
-                threshold=self.min_trials_observed,
+            transition_criteria.append(
+                MinTrials(
+                    only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
+                    threshold=self.min_trials_observed,
+                    block_gen_if_met=False,
+                    block_transition_if_unmet=True,
+                )
             )
-        )
+        else:
+            gen_unlimited_trials = True
+        if self.max_parallelism is not None:
+            transition_criteria.append(
+                MaxGenerationParallelism(
+                    threshold=self.max_parallelism,
+                    only_in_statuses=[TrialStatus.RUNNING],
+                    block_gen_if_met=True,
+                    block_transition_if_unmet=False,
+                    transition_to=None,
+                )
+            )
         transition_criteria += self.completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
             transition_criteria=transition_criteria,
+            gen_unlimited_trials=gen_unlimited_trials,
         )
 
     @property
