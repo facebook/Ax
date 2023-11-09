@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
@@ -542,8 +544,10 @@ class BatchTrial(BaseTrial):
 
     def clone(self) -> BatchTrial:
         """Clone the trial and attach it to the current experiment."""
-        logger.warning(
-            "clone() method is getting deprecated. Please use clone_to() instead."
+        warnings.warn(
+            "clone() method is getting deprecated. Please use clone_to() instead.",
+            DeprecationWarning,
+            stacklevel=3,
         )
         return self.clone_to(include_sq=False)
 
