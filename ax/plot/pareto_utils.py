@@ -413,8 +413,16 @@ def compute_posterior_pareto_frontier(
         except Exception as e:
             logger.info(f"Could not fetch data from experiment or trial: {e}")
 
+    # The weights here are just dummy weights that we pass in to construct the
+    # modelbridge. We set the weight to -1 if `lower_is_better` is `True` and
+    # 1 otherwise. This code would benefit from a serious revamp.
     oc = _build_new_optimization_config(
-        weights=np.array([0.5, 0.5]),
+        weights=np.array(
+            [
+                -1 if primary_objective.lower_is_better else 1,
+                -1 if secondary_objective.lower_is_better else 1,
+            ]
+        ),
         primary_objective=primary_objective,
         secondary_objective=secondary_objective,
         outcome_constraints=outcome_constraints,
