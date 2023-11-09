@@ -369,7 +369,7 @@ def transition_criteria_from_json(
                     transition_to=criterion_json.pop("transition_to")
                     if "transition_to" in criterion_json.keys()
                     else None,
-                ),
+                )
             )
     return criterion_list
 
