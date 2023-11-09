@@ -116,11 +116,6 @@ class TestTransitionCriterion(TestCase):
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
-            MinTrials(
-                only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
-                threshold=0,
-                transition_to="GenerationStep_1",
-            ),
         ]
         step_1_expected_transition_criteria = [
             MaxTrials(
