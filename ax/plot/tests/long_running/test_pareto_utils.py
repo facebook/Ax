@@ -29,7 +29,8 @@ class ComputePosteriorParetoFrontierTest(TestCase):
         experiment.new_batch_trial(generator_run=a).run()
         self.experiment = experiment
         self.metrics = list(experiment.metrics.values())
-        self.metrics[1].lower_is_better = None
+        self.metrics[0].lower_is_better = True
+        self.metrics[1].lower_is_better = False
 
     def test_ComputePosteriorParetoFrontierByTrial(self) -> None:
         # Experiments with batch trials must specify trial_index or data
