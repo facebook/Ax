@@ -8,7 +8,7 @@
 set -e
 
 usage() {
-  echo "Usage: $0 [-b] [-o] [-r] [-t] [-k kernel_name]"
+  echo "Usage: $0 [-b] [-o] [-r] [-t]"
   echo ""
   echo "Build Ax documentation. Must be executed from root of Ax repository."
   echo ""
@@ -16,7 +16,6 @@ usage() {
   echo "  -o   Only Docusaurus (skip Sphinx, tutorials). Useful when just make change to Docusaurus settings."
   echo "  -t   Execute tutorials (instead of just converting)."
   echo "  -r   Convert backtick-quoted class or function names in .md files into links to API documentation."
-  echo "  -k   Kernel name to use for executing tutorials. Use Jupyter default if not set."
   echo ""
   exit 1
 }
@@ -24,7 +23,6 @@ usage() {
 BUILD_STATIC=false
 ONLY_DOCUSAURUS=false
 BUILD_TUTORIALS=false
-KERNEL_NAME=false
 INSERT_API_REFS=false
 
 while getopts 'hbotrk:' flag; do
@@ -43,9 +41,6 @@ while getopts 'hbotrk:' flag; do
       ;;
     r)
       INSERT_API_REFS=true
-      ;;
-    k)
-      KERNEL_NAME=${OPTARG}
       ;;
     *)
       usage
@@ -106,11 +101,7 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   # mkdir -p "website/_tutorials"
   # mkdir -p "website/static/files"
   if [[ $BUILD_TUTORIALS == true ]]; then
-    if [[ $KERNEL_NAME == false ]]; then
-      python3 scripts/make_tutorials.py -w "${cwd}" -e
-    else
-      python3 scripts/make_tutorials.py -w "${cwd}" -e -k "${KERNEL_NAME}"
-    fi
+    python3 scripts/make_tutorials.py -w "${cwd}" -e
   else
     python3 scripts/make_tutorials.py -w "${cwd}"
   fi

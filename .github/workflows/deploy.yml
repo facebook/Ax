@@ -39,7 +39,7 @@ jobs:
       env:
         DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
       run: |
-        bash scripts/publish_site.sh -d -k python3 -v ${{ github.event.release.tag_name }}
+        bash scripts/publish_site.sh -d -v ${{ github.event.release.tag_name }}
 
   deploy:
 

@@ -9,12 +9,11 @@ set -e
 set -x
 
 usage() {
-  echo "Usage: $0 [-d] [-k KERNEL_NAME] [-v VERSION]"
+  echo "Usage: $0 [-d] [-v VERSION]"
   echo ""
   echo "Build and push updated Ax site. Will either update latest or bump stable version."
   echo ""
   echo "  -d                Use Docusaurus bot GitHub credentials. If not specified, will use default GitHub credentials."
-  echo "  -k=KERNEL_NAME    Kernel name to use for executing tutorials. Use Jupyter default if not set."
   echo "  -v=VERSION        Build site for new library version. If not specified, will update latest."
   echo ""
   exit 1
@@ -22,7 +21,6 @@ usage() {
 
 VERSION=false
 DOCUSAURUS_BOT=false
-KERNEL_NAME=false
 
 while getopts 'dhk:v:' option; do
   case "${option}" in
@@ -31,9 +29,6 @@ while getopts 'dhk:v:' option; do
       ;;
     h)
       usage
-      ;;
-    k)
-      KERNEL_NAME=${OPTARG}
       ;;
     v)
       VERSION=${OPTARG}
@@ -130,7 +125,7 @@ if [[ $VERSION == false ]]; then
 
   # Build site
   cd .. || exit
-  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  ./scripts/make_docs.sh -b -t
   rm -rf ../website/build/Ax/docs/next  # don't need this
 
   # Move built site to gh-pages (but keep old versions.js)
@@ -183,7 +178,7 @@ else
   # Build new version of site (this will be stable, default version)
   # Execute tutorials
   cd .. || exit
-  ./scripts/make_docs.sh -b -t -k "${KERNEL_NAME}"
+  ./scripts/make_docs.sh -b -t
 
   # Move built site to new folder (new-site) & carry over old versions
   # from existing gh-pages
