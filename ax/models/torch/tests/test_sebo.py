@@ -21,6 +21,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition import PosteriorMean
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -42,6 +43,7 @@ SURROGATE_PATH: str = Surrogate.__module__
 
 
 class TestSebo(TestCase):
+    @fast_botorch_optimize
     def setUp(self) -> None:
         tkwargs: Dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
@@ -60,7 +62,7 @@ class TestSebo(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_values={2: 1.0},
         )
-        self.surrogates.construct(
+        self.surrogates.fit(
             datasets=self.training_data,
             metric_names=["m1"],
             search_space_digest=self.search_space_digest,
