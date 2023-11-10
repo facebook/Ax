@@ -28,6 +28,7 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import (
@@ -83,6 +84,7 @@ class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradie
 
 
 class AcquisitionTest(TestCase):
+    @fast_botorch_optimize
     def setUp(self) -> None:
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
         self.mock_input_constructor = mock.MagicMock(
@@ -120,7 +122,7 @@ class AcquisitionTest(TestCase):
             fidelity_features=self.fidelity_features,
             target_values={2: 1.0},
         )
-        self.surrogate.construct(
+        self.surrogate.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
@@ -604,6 +606,7 @@ class AcquisitionTest(TestCase):
         acquisition.evaluate(X=self.X)
         mock_evaluate.assert_called_with(X=self.X)
 
+    @fast_botorch_optimize
     @mock.patch(  # pyre-ignore
         "ax.models.torch.botorch_moo_defaults._check_posterior_type",
         wraps=lambda y: y,
@@ -626,7 +629,7 @@ class AcquisitionTest(TestCase):
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
-        self.surrogate.construct(
+        self.surrogate.fit(
             datasets=moo_training_data,
             metric_names=["m1", "m2", "m3"],
             search_space_digest=self.search_space_digest,

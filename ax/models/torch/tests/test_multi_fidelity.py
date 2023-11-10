@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -15,6 +15,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
@@ -28,6 +29,7 @@ MFKG_PATH = (
 
 
 class MultiFidelityAcquisitionTest(TestCase):
+    @fast_botorch_optimize
     def setUp(self) -> None:
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
@@ -51,7 +53,7 @@ class MultiFidelityAcquisitionTest(TestCase):
             target_values={2: 1.0},
             fidelity_features=self.fidelity_features,
         )
-        self.surrogate.construct(
+        self.surrogate.fit(
             datasets=self.training_data,
             metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
@@ -86,20 +88,14 @@ class MultiFidelityAcquisitionTest(TestCase):
     @patch(f"{MULTI_FIDELITY_PATH}.InverseCostWeightedUtility", return_value=None)
     @patch(f"{MULTI_FIDELITY_PATH}.project_to_target_fidelity", return_value=None)
     @patch(f"{MULTI_FIDELITY_PATH}.expand_trace_observations", return_value=None)
-    # pyre-fixme[3]: Return type must be annotated.
     def test_compute_model_dependencies(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_expand,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_project,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_inverse_utility,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_affine_model,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_Acquisition_compute,
-    ):
+        mock_expand: Mock,
+        mock_project: Mock,
+        mock_inverse_utility: Mock,
+        mock_affine_model: Mock,
+        mock_Acquisition_compute: Mock,
+    ) -> None:
         # TODO: Patch only `MFKG_PATH.__init__` once `construct_inputs`
         # implemented for qMFKG.
         with patch(

@@ -8,14 +8,14 @@ import dataclasses
 import warnings
 from contextlib import ExitStack
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, OrderedDict
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
+from ax.exceptions.core import AxError, AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -80,38 +80,35 @@ class BoTorchModelTest(TestCase):
         tkwargs = {"dtype": self.dtype, "device": self.device}
         self.tkwargs = tkwargs
         (
-            Xs1,
-            Ys1,
-            Yvars1,
+            self.Xs,
+            self.Ys,
+            self.Yvars,
             self.bounds,
             _,
-            self.feature_names,
-            self.metric_names,
+            self.feature_names,  # This is ["x1", "x2", "x3"].
+            self.metric_names,  # This is just ["y"].
         ) = get_torch_test_data(dtype=self.dtype)
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(dtype=self.dtype, offset=1.0)
-        self.Xs = Xs1
-        self.Ys = Ys1
-        self.Yvars = Yvars1
         self.X_test = Xs2[0]
         self.block_design_training_data = [
             SupervisedDataset(
-                X=X,
-                Y=Y,
+                X=self.Xs[0],
+                Y=self.Ys[0],
+                Yvar=self.Yvars[0],
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
-            for X, Y in zip(Xs1, Ys1)
         ]
-        self.non_block_design_training_data = [
+        self.non_block_design_training_data = self.block_design_training_data + [
             SupervisedDataset(
-                X=X,
-                Y=Y,
-                Yvar=Yvar,
+                X=Xs2[0],
+                Y=Ys2[0],
+                Yvar=Yvars2[0],
                 feature_names=self.feature_names,
-                outcome_names=self.metric_names,
+                outcome_names=["y2"],
             )
-            for X, Y, Yvar in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2)
         ]
+        self.metric_names_for_list_surrogate = ["y", "y2"]
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
@@ -123,8 +120,6 @@ class BoTorchModelTest(TestCase):
             fidelity_features=[2],
             target_values={1: 1.0},
         )
-        self.metric_names = ["y"]
-        self.metric_names_for_list_surrogate = ["y1", "y2"]
         self.candidate_metadata = []
         self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
         self.model_gen_options = {Keys.OPTIMIZER_KWARGS: self.optimizer_options}
@@ -155,7 +150,10 @@ class BoTorchModelTest(TestCase):
                 outcome_names=[mn],
             )
             for X, Y, Yvar, mn in zip(
-                Xs1 * 3, Ys1 + Ys2 + Ys1, Yvars1 * 3, self.moo_metric_names
+                checked_cast(list, self.Xs) * 3,
+                self.Ys + Ys2 + self.Ys,
+                checked_cast(list, self.Yvars) * 3,
+                self.moo_metric_names,
             )
         ]
 
@@ -268,7 +266,7 @@ class BoTorchModelTest(TestCase):
                         outcome_names=ds2.outcome_names,
                     ),
                 ],
-                metric_names=self.metric_names * 2,
+                metric_names=self.metric_names_for_list_surrogate,
                 search_space_digest=self.mf_search_space_digest,
             )
 
@@ -283,11 +281,12 @@ class BoTorchModelTest(TestCase):
                     SupervisedDataset(
                         X=X2,
                         Y=ds.Y,
+                        Yvar=ds.Yvar,
                         feature_names=ds.feature_names,
-                        outcome_names=ds.outcome_names,
+                        outcome_names=self.metric_names_for_list_surrogate[1:],
                     ),
                 ],
-                metric_names=self.metric_names * 2,
+                metric_names=self.metric_names_for_list_surrogate,
                 search_space_digest=self.mf_search_space_digest,
             )
         # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
@@ -346,11 +345,12 @@ class BoTorchModelTest(TestCase):
         )
         # ensure that error is raised when len(metric_names) != len(datasets)
         with self.assertRaisesRegex(
-            ValueError, "Length of datasets and metric_names must match"
+            AxError,
+            "Each metric name must correspond to an outcome in the datasets.",
         ):
             self.model.fit(
                 datasets=self.block_design_training_data,
-                metric_names=self.metric_names * 2,
+                metric_names=self.metric_names + ["zzz", "zzzzzz"],
                 search_space_digest=self.mf_search_space_digest,
             )
         # since Surrogate.fit is mocked, it didn't actually assign the outcomes
@@ -380,7 +380,8 @@ class BoTorchModelTest(TestCase):
 
         old_surrogate = self.model.surrogates[Keys.ONLY_SURROGATE]
         old_surrogate._model = mock.MagicMock()
-        old_surrogate._model.state_dict.return_value = {"key": "val"}
+        # pyre-ignore [29]: T168826187
+        old_surrogate._model.state_dict.return_value = OrderedDict({"key": "val"})
 
         for refit_on_cv, warm_start_refit in [
             (True, True),
@@ -438,6 +439,7 @@ class BoTorchModelTest(TestCase):
                     expected_state_dict.keys(),
                 )
 
+    @fast_botorch_optimize
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         wraps=construct_acquisition_and_optimizer_options,
@@ -473,9 +475,9 @@ class BoTorchModelTest(TestCase):
             acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
-        model.surrogates[Keys.ONLY_SURROGATE].construct(
+        model.surrogates[Keys.ONLY_SURROGATE].fit(
             datasets=self.block_design_training_data,
-            metric_names=["metric"],
+            metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
         )
         model._botorch_acqf_class = None
@@ -568,6 +570,7 @@ class BoTorchModelTest(TestCase):
             input_constructor=qEI_input_constructor,
         )
 
+    @fast_botorch_optimize
     def test_feature_importances(self) -> None:
         for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
             surrogate = Surrogate(botorch_model_class=botorch_model_class)
@@ -576,9 +579,9 @@ class BoTorchModelTest(TestCase):
                 acquisition_class=Acquisition,
                 acquisition_options=self.acquisition_options,
             )
-            model.surrogates[Keys.ONLY_SURROGATE].construct(
+            model.surrogates[Keys.ONLY_SURROGATE].fit(
                 datasets=self.block_design_training_data,
-                metric_names=["metric"],
+                metric_names=self.metric_names,
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
             if botorch_model_class == SaasFullyBayesianSingleTaskGP:
@@ -638,7 +641,8 @@ class BoTorchModelTest(TestCase):
         # Test unsupported surrogate
         model._surrogates = {"vanilla": None, "saas": None}
         with self.assertRaisesRegex(
-            NotImplementedError, "Only support a single surrogate model for now"
+            NotImplementedError,
+            "feature_importances not implemented for multi-surrogate case",
         ):
             model.feature_importances()
 
@@ -672,6 +676,7 @@ class BoTorchModelTest(TestCase):
                 ),
             )
 
+    @fast_botorch_optimize
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),
@@ -685,9 +690,9 @@ class BoTorchModelTest(TestCase):
             acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
-        model.surrogates[Keys.ONLY_SURROGATE].construct(
+        model.surrogates[Keys.ONLY_SURROGATE].fit(
             datasets=self.block_design_training_data,
-            metric_names=["metric"],
+            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],

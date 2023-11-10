@@ -30,7 +30,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -828,34 +828,31 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(len(converted_datasets), 2)
         for dataset in converted_datasets:
             self.assertIsInstance(dataset, ContextualDataset)
-            self.assertEqual(not_none(dataset).feature_names, feature_names)
+            self.assertEqual(dataset.feature_names, feature_names)
             self.assertDictEqual(
-                # pyre-ignore
-                not_none(dataset).parameter_decomposition,
+                checked_cast(ContextualDataset, dataset).parameter_decomposition,
                 parameter_decomposition,
             )
-            if len(not_none(dataset).outcome_names) == 1:
-                self.assertListEqual(not_none(dataset).outcome_names, ["y"])
-                self.assertTrue(torch.equal(not_none(dataset).X, raw_X))
-                self.assertTrue(torch.equal(not_none(dataset).Y, raw_Y.unsqueeze(-1)))
+            if len(dataset.outcome_names) == 1:
+                self.assertListEqual(dataset.outcome_names, ["y"])
+                self.assertTrue(torch.equal(dataset.X, raw_X))
+                self.assertTrue(torch.equal(dataset.Y, raw_Y.unsqueeze(-1)))
             else:
+                self.assertListEqual(dataset.outcome_names, ["y:c0", "y:c1", "y:c2"])
                 self.assertListEqual(
-                    not_none(dataset).outcome_names, ["y:c0", "y:c1", "y:c2"]
-                )
-                self.assertListEqual(
-                    # pyre-ignore
-                    not_none(dataset).context_buckets,
+                    checked_cast(ContextualDataset, dataset).context_buckets,
                     ["c0", "c1", "c2"],
                 )
                 self.assertDictEqual(
-                    # pyre-ignore
-                    not_none(dataset).metric_decomposition,
+                    not_none(
+                        checked_cast(ContextualDataset, dataset).metric_decomposition
+                    ),
                     metric_decomposition,
                 )
-                self.assertTrue(torch.equal(not_none(dataset).X, raw_X))
+                self.assertTrue(torch.equal(dataset.X, raw_X))
                 self.assertTrue(
                     torch.equal(
-                        not_none(dataset).Y,
+                        dataset.Y,
                         torch.cat([raw_Y.unsqueeze(-1) for _ in range(3)], dim=-1),
                     )
                 )

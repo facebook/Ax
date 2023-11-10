@@ -443,7 +443,7 @@ class TorchModelBridge(ModelBridge):
         )
         # Use the model to do the cross validation
         f_test, cov_test = not_none(self.model).cross_validate(
-            datasets=[not_none(dataset) for dataset in datasets],
+            datasets=datasets,
             metric_names=self.outcomes,
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
@@ -636,8 +636,7 @@ class TorchModelBridge(ModelBridge):
         # Fit
         self.model = model
         self.model.fit(
-            # datasets are guaranteed to have all outcomes here by construction
-            datasets=[not_none(dataset) for dataset in datasets],
+            datasets=datasets,
             metric_names=self.outcomes,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,

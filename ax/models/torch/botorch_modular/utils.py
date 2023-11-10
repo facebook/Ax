@@ -6,11 +6,11 @@
 
 import warnings
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
+from ax.exceptions.core import AxError, AxWarning, UnsupportedError
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -172,9 +172,8 @@ def construct_acquisition_and_optimizer_options(
 
 def convert_to_block_design(
     datasets: List[SupervisedDataset],
-    metric_names: List[str],
     force: bool = False,
-) -> Tuple[List[SupervisedDataset], List[str]]:
+) -> List[SupervisedDataset]:
     # Convert data to "block design". TODO: Figure out a better
     # solution for this using the data containers (pass outcome
     # names as properties of the data containers)
@@ -186,13 +185,15 @@ def convert_to_block_design(
         )
     is_fixed = all(is_fixed)
     Xs = [dataset.X for dataset in datasets]
-    joined_metric_names = ["_".join(metric_names)]  # TODO: Improve this.
     for dset in datasets[1:]:
         if dset.feature_names != datasets[0].feature_names:
             raise ValueError(
                 "Feature names must be the same across all datasets, "
                 f"got {dset.feature_names} and {datasets[0].feature_names}"
             )
+
+    # Join the outcome names of datasets.
+    outcome_names = sum([ds.outcome_names for ds in datasets], [])
 
     if len({X.shape for X in Xs}) != 1 or not all(
         torch.equal(X, Xs[0]) for X in Xs[1:]
@@ -224,10 +225,10 @@ def convert_to_block_design(
                 Y=Y,
                 Yvar=Yvar,
                 feature_names=datasets[0].feature_names,
-                outcome_names=metric_names,
+                outcome_names=outcome_names,
             )
         ]
-        return datasets, joined_metric_names
+        return datasets
 
     # data complies to block design, can concat with impunity
     Y = torch.cat([ds.Y for ds in datasets], dim=-1)
@@ -241,10 +242,10 @@ def convert_to_block_design(
             Y=Y,
             Yvar=Yvar,
             feature_names=datasets[0].feature_names,
-            outcome_names=metric_names,
+            outcome_names=outcome_names,
         )
     ]
-    return datasets, joined_metric_names
+    return datasets
 
 
 def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
@@ -340,3 +341,121 @@ def get_post_processing_func(
 
     else:
         return rounding_func
+
+
+def check_metric_dataset_match(
+    metric_names: List[str],
+    datasets: List[SupervisedDataset],
+    exact_match: bool,
+) -> None:
+    """Check that the metric names match the outcome names of datasets.
+
+    Based on `exact_match` we either require that metric names are
+    a subset of all outcomes or require the them to be the same.
+
+    Also checks that there are no duplicates in metric or outcome names.
+
+    Args:
+        metric_names: A list of metric names.
+        datasets: A list of `SupervisedDataset` objects.
+        exact_match: If True, metric names must be the same as the union of
+            outcomes names of the datasets. Otherwise, we check that the
+            metric names are a subset of all outcomes.
+
+    Raises:
+        ValueError: If there is no match.
+    """
+    all_outcomes = sum((ds.outcome_names for ds in datasets), [])
+    set_all_outcomes = set(all_outcomes)
+    set_all_metrics = set(metric_names)
+    if len(set_all_outcomes) != len(all_outcomes):
+        raise AxError("Found duplicate outcomes in the datasets.")
+    if len(set_all_metrics) != len(metric_names):
+        raise AxError("Found duplicate metric names.")
+
+    if not exact_match:
+        if not set_all_metrics.issubset(set_all_outcomes):
+            raise AxError(
+                "Metric names must be a subset of the outcome names of the datasets."
+                f"Got {metric_names=} but the datasets model {set_all_outcomes}."
+            )
+    elif set_all_metrics != set_all_outcomes:
+        raise AxError(
+            "Each metric name must correspond to an outcome in the datasets. "
+            f"Got {metric_names=} but the datasets model {set_all_outcomes}."
+        )
+
+
+def get_subset_datasets(
+    datasets: List[SupervisedDataset],
+    subset_metric_names: List[str],
+) -> List[SupervisedDataset]:
+    """Get the list of datasets corresponding to the given subset of
+    metric names. This is used to separate out datasets that are
+    used by one surrogate.
+
+    Args:
+        datasets: A list of `SupervisedDataset` objects.
+        subset_metric_names: A list of metric names to get datasets for.
+
+    Returns:
+        A list of `SupervisedDataset` objects corresponding to the given
+        subset of metric names.
+    """
+    check_metric_dataset_match(
+        metric_names=subset_metric_names, datasets=datasets, exact_match=False
+    )
+    single_outcome_datasets = {
+        ds.outcome_names[0]: ds for ds in datasets if len(ds.outcome_names) == 1
+    }
+    multi_outcome_datasets = {
+        tuple(ds.outcome_names): ds for ds in datasets if len(ds.outcome_names) > 1
+    }
+    subset_datasets = []
+    metrics_processed = []
+    for metric_name in subset_metric_names:
+        if metric_name in metrics_processed:
+            # This can happen if the metric appears in a multi-outcome
+            # dataset that is already processed.
+            continue
+        if metric_name in single_outcome_datasets:
+            # The default case of metric with a corresponding dataset.
+            ds = single_outcome_datasets[metric_name]
+        else:
+            # The case of metric being part of a multi-outcome dataset.
+            for outcome_names in multi_outcome_datasets.keys():
+                if metric_name in outcome_names:
+                    ds = multi_outcome_datasets[outcome_names]
+                    if not set(ds.outcome_names).issubset(subset_metric_names):
+                        raise UnsupportedError(
+                            "Breaking up a multi-outcome dataset between "
+                            "surrogates is not supported."
+                        )
+                    break
+        # Pyre-ignore [61]: `ds` may not be defined but it is guaranteed to be defined.
+        subset_datasets.append(ds)
+        metrics_processed.extend(ds.outcome_names)
+    return subset_datasets
+
+
+def subset_state_dict(
+    state_dict: OrderedDict[str, Tensor],
+    submodel_index: int,
+) -> OrderedDict[str, Tensor]:
+    """Get the state dict for a submodel from the state dict of a model list.
+
+    Args:
+        state_dict: A state dict.
+        submodel_index: The index of the submodel to extract.
+
+    Returns:
+        The state dict for the submodel.
+    """
+    expected_substring = f"models.{submodel_index}."
+    len_substring = len(expected_substring)
+    new_items = [
+        (k[len_substring:], v)
+        for k, v in state_dict.items()
+        if k.startswith(expected_substring)
+    ]
+    return OrderedDict(new_items)  # pyre-ignore [29]: T168826187
