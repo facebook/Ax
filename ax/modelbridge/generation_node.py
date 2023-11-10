@@ -639,7 +639,9 @@ class GenerationStep(GenerationNode, SortableBase):
                     transition_to=None,
                 )
             )
-        transition_criteria += self.completion_criteria
+        if len(self.completion_criteria) > 0:
+            transition_criteria += self.completion_criteria
+            gen_unlimited_trials = False
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
