@@ -7,17 +7,13 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ax.core.data import Data
-
 from ax.core.experiment import Experiment
-
 from ax.core.generator_run import GeneratorRun
-from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
 from ax.core.types import TModelPredictArm, TParameterization
-
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
@@ -65,8 +61,9 @@ class GenerationStrategyInterface(ABC, Base):
                 to be attached to created GeneratorRuns.
 
         Returns:
-            A list of lists of lists generator runs. Each outer list represents a trial
-            being suggested and  each inner list represents a generator run for that trial.
+            A list of lists of lists generator runs. Each outer list represents 
+            a trial being suggested and  each inner list represents a generator 
+            run for that trial.
         """
         pass
 
@@ -166,8 +163,8 @@ class GenerationStrategyInterface(ABC, Base):
         trial_indices: Optional[Iterable[int]] = None,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         """Given an experiment, returns the best predicted parameterization and
-        corresponding prediction based on the most recent Trial with predictions. If no
-        trials have predictions returns None.
+        corresponding prediction based on the most recent Trial with predictions. 
+        If no trials have predictions returns None.
 
         Only some models return predictions. For instance GPEI does while Sobol does not.
 
