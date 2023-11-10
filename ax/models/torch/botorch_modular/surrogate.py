@@ -9,7 +9,7 @@ from __future__ import annotations
 import inspect
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -26,9 +26,11 @@ from ax.models.torch.botorch_modular.input_constructors.outcome_transform import
     outcome_transform_argparse,
 )
 from ax.models.torch.botorch_modular.utils import (
+    check_metric_dataset_match,
     choose_model_class,
     convert_to_block_design,
     fit_botorch_model,
+    subset_state_dict,
     use_model_list,
 )
 from ax.models.torch.utils import (
@@ -41,7 +43,7 @@ from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_optional, not_none
+from ax.utils.common.typeutils import checked_cast, checked_cast_optional
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.pairwise_gp import PairwiseGP
@@ -154,6 +156,18 @@ class Surrogate(Base):
         self.likelihood_class = likelihood_class
         self.likelihood_options: Dict[str, Any] = likelihood_options or {}
         self.allow_batched_models = allow_batched_models
+        # Store the last dataset used to fit the model for a given metric(s).
+        # If the new dataset is identical, we will skip model fitting for that metric.
+        # The keys are `tuple(dataset.outcome_names)`.
+        self._last_datasets: Dict[Tuple[str], SupervisedDataset] = {}
+        # Store a reference from a tuple of metric names to the BoTorch Model
+        # corresponding to those metrics. In most cases this will be a one-tuple,
+        # though we need n-tuples for LCE-M models. This will be used to skip model
+        # construction & fitting if the datasets are identical.
+        self._submodels: Dict[Tuple[str], Model] = {}
+        # Store a reference to search space digest used while fitting the cached models.
+        # We will re-fit the models if the search space digest changes.
+        self._last_search_space_digest: Optional[SearchSpaceDigest] = None
 
         # These are later updated during model fitting.
         self._training_data: Optional[List[SupervisedDataset]] = None
@@ -211,65 +225,18 @@ class Surrogate(Base):
     def clone_reset(self) -> Surrogate:
         return self.__class__(**self._serialize_attributes_as_kwargs())
 
-    def construct(
-        self,
-        datasets: List[SupervisedDataset],
-        metric_names: List[str],
-        search_space_digest: SearchSpaceDigest,
-    ) -> None:
-        """Constructs the underlying BoTorch ``Model`` using the training data.
-
-        Args:
-            datasets: A list of ``SupervisedDataset`` containers, each
-                corresponding to the data of one metric (outcome).
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
-            search_space_digest: Information about the search space used for
-                inferring suitable botorch model class.
-        """
-        # To determine whether to use ModelList under the hood, we need to check for
-        # the batched multi-output case, so we first see which model would be chosen
-        # given the Yvars and the properties of data.
-        botorch_model_class = self.botorch_model_class or choose_model_class(
-            datasets=datasets,
-            search_space_digest=not_none(search_space_digest),
-        )
-
-        should_use_model_list = use_model_list(
-            datasets=datasets,
-            botorch_model_class=botorch_model_class,
-            allow_batched_models=self.allow_batched_models,
-        )
-
-        if not should_use_model_list and len(datasets) > 1:
-            datasets, metric_names = convert_to_block_design(
-                datasets=datasets,
-                metric_names=metric_names,
-                force=True,
-            )
-        self._training_data = datasets
-
-        models = []
-        for dataset in datasets:
-            model = self._construct_model(
-                dataset=dataset,
-                search_space_digest=search_space_digest,
-                botorch_model_class=botorch_model_class,
-            )
-            models.append(model)
-
-        if should_use_model_list:
-            self._model = ModelListGP(*models)
-        else:
-            self._model = models[0]
-
     def _construct_model(
         self,
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
         botorch_model_class: Type[Model],
+        state_dict: Optional[OrderedDict[str, Tensor]],
+        refit: bool,
     ) -> Model:
         """Constructs the underlying BoTorch ``Model`` using the training data.
+
+        If the dataset and model class are identical to those used while training
+        the cached sub-model, we skip model fitting and return the cached model.
 
         Args:
             dataset: Training data for the model (for one outcome for
@@ -279,7 +246,15 @@ class Surrogate(Base):
             search_space_digest: Search space digest used to set up model arguments.
             botorch_model_class: ``Model`` class to be used as the underlying
                 BoTorch model.
+            state_dict: Optional state dict to load. This should be subsetted for
+                the current submodel being constructed.
+            refit: Whether to re-optimize model parameters.
         """
+        outcome_names = tuple(dataset.outcome_names)
+        if self._should_reuse_last_model(
+            dataset=dataset, botorch_model_class=botorch_model_class
+        ):
+            return self._submodels[outcome_names]
         (
             fidelity_features,
             task_feature,
@@ -321,11 +296,44 @@ class Surrogate(Base):
                 ),
             ],
             dataset=dataset,
+            # This is used when constructing the input transforms.
             search_space_digest=search_space_digest,
+            # This is used to check if the arguments are supported.
             botorch_model_class_args=botorch_model_class_args,
         )
         # pyre-ignore [45]
-        return botorch_model_class(**formatted_model_inputs)
+        model = botorch_model_class(**formatted_model_inputs)
+        if state_dict is not None:
+            model.load_state_dict(state_dict)
+        if state_dict is None or refit:
+            fit_botorch_model(
+                model=model, mll_class=self.mll_class, mll_options=self.mll_options
+            )
+        self._submodels[outcome_names] = model
+        self._last_datasets[outcome_names] = dataset
+        return model
+
+    def _should_reuse_last_model(
+        self, dataset: SupervisedDataset, botorch_model_class: Type[Model]
+    ) -> bool:
+        """Checks whether the given dataset and model class match the last
+        dataset and model class used to train the cached sub-model.
+        """
+        outcome_names = tuple(dataset.outcome_names)
+        if (
+            outcome_names in self._submodels
+            and dataset == self._last_datasets[outcome_names]
+        ):
+            last_model = self._submodels[outcome_names]
+            if type(last_model) is not botorch_model_class:
+                logger.info(
+                    f"The model class for outcome(s) {dataset.outcome_names} "
+                    f"changed from {type(last_model)} to {botorch_model_class}. "
+                    "Will refit the model."
+                )
+            else:
+                return True
+        return False
 
     def _set_formatted_inputs(
         self,
@@ -479,7 +487,7 @@ class Surrogate(Base):
         metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
-        state_dict: Optional[Dict[str, Tensor]] = None,
+        state_dict: Optional[OrderedDict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
@@ -512,19 +520,73 @@ class Surrogate(Base):
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
         """
-        self.construct(
-            datasets=datasets,
-            metric_names=metric_names,
-            search_space_digest=search_space_digest,
+        check_metric_dataset_match(
+            metric_names=metric_names, datasets=datasets, exact_match=True
         )
+        self._discard_cached_model_and_data_if_search_space_digest_changed(
+            search_space_digest=search_space_digest
+        )
+        # To determine whether to use ModelList under the hood, we need to check for
+        # the batched multi-output case, so we first see which model would be chosen
+        # given the Yvars and the properties of data.
+        botorch_model_class = self.botorch_model_class or choose_model_class(
+            datasets=datasets, search_space_digest=search_space_digest
+        )
+
+        should_use_model_list = use_model_list(
+            datasets=datasets,
+            botorch_model_class=botorch_model_class,
+            allow_batched_models=self.allow_batched_models,
+        )
+
+        if not should_use_model_list and len(datasets) > 1:
+            datasets = convert_to_block_design(datasets=datasets, force=True)
+        self._training_data = datasets
+
+        models = []
+        for i, dataset in enumerate(datasets):
+            submodel_state_dict = None
+            if state_dict is not None:
+                if should_use_model_list:
+                    submodel_state_dict = subset_state_dict(
+                        state_dict=state_dict, submodel_index=i
+                    )
+                else:
+                    submodel_state_dict = state_dict
+            model = self._construct_model(
+                dataset=dataset,
+                search_space_digest=search_space_digest,
+                botorch_model_class=botorch_model_class,
+                state_dict=submodel_state_dict,
+                refit=refit,
+            )
+            models.append(model)
+
+        if should_use_model_list:
+            self._model = ModelListGP(*models)
+        else:
+            self._model = models[0]
+        # Update the outcomes to match the metrics, to which we just fit the model.
         self._outcomes = metric_names
 
-        if state_dict:
-            self.model.load_state_dict(not_none(state_dict))
-        if state_dict is None or refit:
-            fit_botorch_model(
-                model=self.model, mll_class=self.mll_class, mll_options=self.mll_options
+    def _discard_cached_model_and_data_if_search_space_digest_changed(
+        self, search_space_digest: SearchSpaceDigest
+    ) -> None:
+        """Checks whether the search space digest has changed since the last call
+        to `fit`. If it has, discards cached model and datasets. Also updates
+        `self._last_search_space_digest` for future checks.
+        """
+        if (
+            self._last_search_space_digest is not None
+            and search_space_digest != self._last_search_space_digest
+        ):
+            logger.info(
+                "Discarding all previously trained models due to a change "
+                "in the search space digest."
             )
+            self._submodels = {}
+            self._last_datasets = {}
+        self._last_search_space_digest = search_space_digest
 
     def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.

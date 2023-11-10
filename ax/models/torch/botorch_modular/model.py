@@ -8,7 +8,18 @@ import dataclasses
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    OrderedDict,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 import numpy as np
 import torch
@@ -22,8 +33,10 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
+    check_metric_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
+    get_subset_datasets,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -123,16 +136,13 @@ class BoTorchModel(TorchModel, Base):
             based on the data provided.
         surrogate: In liu of SurrogateSpecs, an instance of `Surrogate` may be
             provided to be used as the sole Surrogate for all outcomes
-        refit_on_update: Whether to reoptimize model parameters during call
-            to `BoTorchModel.update`. If false, training data for the model
-            (used for inference) is still swapped for new training data, but
-            model parameters are not reoptimized.
+        refit_on_update: Unused.
         refit_on_cv: Whether to reoptimize model parameters during call to
             `BoTorchmodel.cross_validate`.
         warm_start_refit: Whether to load parameters from either the provided
             state dict or the state dict of the current BoTorch `Model` during
             refitting. If False, model parameters will be reoptimized from
-            scratch on refit. NOTE: This setting is ignored during `update` or
+            scratch on refit. NOTE: This setting is ignored during
             `cross_validate` if the corresponding `refit_on_...` is False.
     """
 
@@ -153,6 +163,7 @@ class BoTorchModel(TorchModel, Base):
         acquisition_class: Optional[Type[Acquisition]] = None,
         acquisition_options: Optional[Dict[str, Any]] = None,
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
+        # TODO: [T168715924] Revisit these "refit" arguments.
         refit_on_update: bool = True,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
@@ -243,7 +254,7 @@ class BoTorchModel(TorchModel, Base):
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         # state dict by surrogate label
-        state_dicts: Optional[Mapping[str, Dict[str, Tensor]]] = None,
+        state_dicts: Optional[Mapping[str, OrderedDict[str, Tensor]]] = None,
         refit: bool = True,
         **additional_model_inputs: Any,
     ) -> None:
@@ -251,9 +262,9 @@ class BoTorchModel(TorchModel, Base):
 
         Args:
             datasets: A list of ``SupervisedDataset`` containers, each
-                corresponding to the data of one metric (outcome).
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
+                corresponding to the data of one or more metrics (outcomes).
+            metric_names: A list of metric names. Each metric must correspond
+                to exactly one outcome in the datasets.
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
@@ -265,13 +276,10 @@ class BoTorchModel(TorchModel, Base):
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
         """
-
-        if len(datasets) != len(metric_names):
-            raise ValueError(
-                "Length of datasets and metric_names must match, but your inputs "
-                f"are of lengths {len(datasets)} and {len(metric_names)}, "
-                "respectively."
-            )
+        # Check that the datasets correspond to the metric names.
+        check_metric_dataset_match(
+            metric_names=metric_names, datasets=datasets, exact_match=True
+        )
 
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
@@ -330,18 +338,14 @@ class BoTorchModel(TorchModel, Base):
             self._surrogates[Keys.AUTOSET_SURROGATE] = Surrogate()
 
         # Step 2. Fit each Surrogate iteratively using its assigned outcomes
-        datasets_by_metric_name = dict(zip(metric_names, datasets))
         for label, surrogate in self.surrogates.items():
             if label == Keys.AUTOSET_SURROGATE or len(self.surrogates) == 1:
                 subset_metric_names = unassigned_metric_names
             else:
                 subset_metric_names = self.surrogate_specs[label].outcomes
-
-            subset_datasets = [
-                datasets_by_metric_name[metric_name]
-                for metric_name in subset_metric_names
-            ]
-
+            subset_datasets = get_subset_datasets(
+                datasets=datasets, subset_metric_names=subset_metric_names
+            )
             surrogate.model_options.update(additional_model_inputs)
             surrogate.fit(
                 datasets=subset_datasets,
@@ -474,8 +478,8 @@ class BoTorchModel(TorchModel, Base):
         surrogate_labels = (
             [
                 label
-                for label, spec in self.surrogate_specs.items()
-                if any(metric in spec.outcomes for metric in metric_names)
+                for label, surrogate in self.surrogates.items()
+                if any(metric in surrogate.outcomes for metric in metric_names)
             ]
             if len(self.surrogates) > 1
             else [*self.surrogates.keys()]
@@ -495,7 +499,8 @@ class BoTorchModel(TorchModel, Base):
             None
             if self.refit_on_cv and not self.warm_start_refit
             else {
-                label: deepcopy(surrogate.model.state_dict())
+                # pyre-ignore [6]: T168826187
+                label: deepcopy(checked_cast(OrderedDict, surrogate.model.state_dict()))
                 for label, surrogate in current_surrogates.items()
             }
         )
@@ -603,6 +608,7 @@ class BoTorchModel(TorchModel, Base):
             options=acq_options,
         )
 
+    @single_surrogate_only
     def feature_importances(self) -> np.ndarray:
         """Compute feature importances from the model.
 
@@ -614,9 +620,6 @@ class BoTorchModel(TorchModel, Base):
             The feature importances as a numpy array of size len(metrics) x 1 x dim
             where each row sums to 1.
         """
-        if len(self.surrogates) != 1:
-            raise NotImplementedError("Only support a single surrogate model for now")
-
         return get_feature_importances_from_botorch_model(model=self.surrogate.model)
 
     @property
@@ -633,7 +636,7 @@ class BoTorchModel(TorchModel, Base):
 
     @property
     def outcomes_by_surrogate_label(self) -> Dict[str, List[str]]:
-        """Retuns a dictionary mapping from surrogate label to a list of outcomes."""
+        """Returns a dictionary mapping from surrogate label to a list of outcomes."""
         outcomes_by_surrogate_label = {}
         for k, v in self.surrogates.items():
             outcomes_by_surrogate_label[k] = v.outcomes

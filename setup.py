@@ -65,7 +65,6 @@ UNITTEST_REQUIRES = (
 )
 
 TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
-    "psycopg2",  # Used in example DBSettings in a tutorial (as part of postgres).
     "ray",  # Required for building RayTune tutorial notebook.
     "tabulate",  # Required for building RayTune tutorial notebook.
     "pyarrow",  # Required for building RayTune tutorial notebook.
