@@ -123,7 +123,6 @@ def run_script(
 def gen_tutorials(
     repo_dir: str,
     exec_tutorials: bool,
-    kernel_name: Optional[str] = None,
     name: Optional[str] = None,
     smoke_test: bool = False,
 ) -> None:
@@ -263,25 +262,15 @@ if __name__ == "__main__":
         help="Execute tutorials (instead of just converting).",
     )
     parser.add_argument(
-        "-k",
-        "--kernel_name",
-        required=False,
-        default=None,
-        type=str,
-        help="Name of IPython / Jupyter kernel to use for executing notebooks.",
-    )
-    parser.add_argument(
         "-n",
         "--name",
         help="Run a specific tutorial by name. The name should not include the "
-        ".ipynb extension. If the tutorial is on the ignore list, you still need "
-        "to specify --include-ignored.",
+        ".ipynb extension.",
     )
     args = parser.parse_args()
     gen_tutorials(
         args.repo_dir,
         args.exec_tutorials,
-        args.kernel_name,
         smoke_test=args.smoke,
         name=args.name,
     )
