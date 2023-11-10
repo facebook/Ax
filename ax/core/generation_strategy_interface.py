@@ -36,9 +36,9 @@ class GenerationStrategyInterface(ABC, Base):
         n: int = 1,
         extra_gen_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[List[GeneratorRun]]:
-        """Produce Generator runs for multiple trials at once with the possibility of
-        ensembling, or using multiple models per trial, getting multiple GenerateRuns
-        per trial.
+        """Produce GeneratorRuns for multiple trials at once with the possibility of
+        ensembling, or using multiple models per trial, getting multiple
+        GeneratorRuns per trial.
 
         Args:
             experiment: Experiment, for which the generation strategy is producing
@@ -61,8 +61,8 @@ class GenerationStrategyInterface(ABC, Base):
                 to be attached to created GeneratorRuns.
 
         Returns:
-            A list of lists of lists generator runs. Each outer list represents 
-            a trial being suggested and  each inner list represents a generator 
+            A list of lists of lists generator runs. Each outer list represents
+            a trial being suggested and  each inner list represents a generator
             run for that trial.
         """
         pass
@@ -163,10 +163,11 @@ class GenerationStrategyInterface(ABC, Base):
         trial_indices: Optional[Iterable[int]] = None,
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         """Given an experiment, returns the best predicted parameterization and
-        corresponding prediction based on the most recent Trial with predictions. 
+        corresponding prediction based on the most recent Trial with predictions.
         If no trials have predictions returns None.
 
-        Only some models return predictions. For instance GPEI does while Sobol does not.
+        Only some models return predictions. For instance GPEI does
+        while Sobol does not.
 
         TModelPredictArm is of the form:
             ({metric_name: mean}, {metric_name_1: {metric_name_2: cov_1_2}})
