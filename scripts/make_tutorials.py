@@ -177,7 +177,8 @@ def gen_tutorials(
                 # Execute notebook.
                 # TODO: [T163244135] Speed up tutorials and reduce timeout limits.
                 timeout_minutes = 15 if smoke_test else 150
-                run_script(tutorial=tutorial_path, timeout_minutes=timeout_minutes)
+                mem, out = run_script(tutorial=tutorial_path, timeout_minutes=timeout_minutes)
+                print(f"stdout:\n {out.stdout} \n stderr:\n {out.stderr} \n")
                 total_time = time.time() - start_time
                 print(
                     "Done executing tutorial {}. Took {:.2f} seconds.".format(
