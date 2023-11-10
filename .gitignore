@@ -129,6 +129,7 @@ sphinx/build/
 
 # Tutorials
 tutorials/experiment.json
+tutorials/ax_client_snapshot.json
 tutorials/*.db
 
 # Docusaurus site
