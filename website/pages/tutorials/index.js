@@ -13,7 +13,6 @@ const CWD = process.cwd();
 
 const CompLibrary = require(`${CWD}/node_modules/docusaurus/lib/core/CompLibrary.js`);
 const Container = CompLibrary.Container;
-const MarkdownBlock = CompLibrary.MarkdownBlock;
 
 const TutorialSidebar = require(`${CWD}/core/TutorialSidebar.js`);
 
@@ -94,7 +93,7 @@ class TutorialHome extends React.Component {
             </p>
             <ul>
               <li>
-                <a href="tune_cnn.html">
+                <a href="tune_cnn_service.html">
                   Hyperparameter Optimization for PyTorch
                 </a>
                 &nbsp; provides an example of hyperparameter optimization with
