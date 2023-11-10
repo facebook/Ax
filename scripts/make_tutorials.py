@@ -176,7 +176,6 @@ def gen_tutorials(
             start_time = time.monotonic()
 
             # Try / catch failures for now. We will re-raise at the end.
-            # TODO: [T163244135] Speed up tutorials and reduce timeout limits.
             timeout_minutes = 15 if smoke_test else 150
             try:
                 # Execute notebook.
