@@ -82,7 +82,7 @@ To save an experiment to SQL, first initialize a session by passing a URL pointi
 from ax.storage.sqa_store.db import init_engine_and_session_factory
 
 # url is of the form "dialect+driver://username:password@host:port/database"
-init_engine_and_session_factory(url="postgresql+psycopg2://sarah:c82i94d@localhost:5432/foobar")
+init_engine_and_session_factory(url="postgresql+psycopg2://[USERNAME]:[PASSWORD]@localhost:[PORT]/[DATABASE]")
 ```
 
 Then create all tables:
