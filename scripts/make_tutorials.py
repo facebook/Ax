@@ -15,6 +15,7 @@ from typing import Dict, Optional
 
 import nbformat
 from bs4 import BeautifulSoup
+from memory_profiler import memory_usage
 from nbconvert import HTMLExporter, ScriptExporter
 
 TUTORIALS_TO_SKIP = [
@@ -186,7 +187,7 @@ def gen_tutorials(
                 )
                 total_time = time.monotonic() - start_time
                 print(
-                    f"Finished executing tutorial {tid}. Took {total_time:.2f} seconds. "
+                    f"Finished executing tutorial {tid} in {total_time:.2f} seconds. "
                     f"Starting memory usage was {mem_usage[0]} MB & "
                     f"the peak memory usage was {max(mem_usage)} MB."
                 )
@@ -198,11 +199,11 @@ def gen_tutorials(
                 )
             try:
                 run_out.check_returncode()
-            except CalledProcessError:
+            except subprocess.CalledProcessError:
                 has_errors = True
                 print(
                     f"Encountered error running tutorial {tid}: \n"
-                    f"stderr: \n {run_out.stderr} \n"
+                    f"stdout: \n {run_out.stdout} \n"
                     f"stderr: \n {run_out.stderr} \n"
                 )
         # convert notebook to HTML
