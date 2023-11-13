@@ -19,11 +19,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.cross_validation import AssessModelFitResult
-from ax.modelbridge.registry import Models
-from ax.modelbridge.torch import TorchModelBridge
-from ax.plot.pareto_utils import get_tensor_converter_model
-from ax.service.utils.best_point import (
+from ax.modelbridge.best_point import (
     _derel_opt_config_wrapper,
     _is_row_feasible,
     extract_Y_from_data,
@@ -31,6 +27,10 @@ from ax.service.utils.best_point import (
     get_best_raw_objective_point,
     logger as best_point_logger,
 )
+from ax.modelbridge.cross_validation import AssessModelFitResult
+from ax.modelbridge.registry import Models
+from ax.modelbridge.torch import TorchModelBridge
+from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
@@ -87,7 +87,7 @@ class TestBestPointUtils(TestCase):
         ) as lg:
             # Test bad model fit causes function to resort back to raw data
             with patch(
-                "ax.service.utils.best_point.assess_model_fit",
+                "ax.modelbridge.best_point.assess_model_fit",
                 return_value=AssessModelFitResult(
                     good_fit_metrics_to_fisher_score={},
                     bad_fit_metrics_to_fisher_score={
@@ -104,7 +104,7 @@ class TestBestPointUtils(TestCase):
 
             # Test model best point is used when fit is good
             with patch(
-                "ax.service.utils.best_point.assess_model_fit",
+                "ax.modelbridge.best_point.assess_model_fit",
                 return_value=AssessModelFitResult(
                     good_fit_metrics_to_fisher_score={
                         "branin": 0,
@@ -462,7 +462,7 @@ class TestBestPointUtils(TestCase):
 
         exp.optimization_config.outcome_constraints[0].relative = True
         relative_constraint_warning = (
-            "WARNING:ax.service.utils.best_point:Ignoring relative constraint "
+            "WARNING:ax.modelbridge.best_point:Ignoring relative constraint "
             "OutcomeConstraint(m3 >= 0.0%). Derelativize OptimizationConfig "
             "before passing to `_is_row_feasible`."
         )

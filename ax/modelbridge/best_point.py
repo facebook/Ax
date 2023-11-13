@@ -4,11 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from functools import reduce
 
 from logging import Logger
-from typing import Dict, Iterable, List, Optional, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TYPE_CHECKING
 
 import pandas as pd
 import torch
@@ -33,7 +35,6 @@ from ax.modelbridge.cross_validation import (
     compute_diagnostics,
     cross_validate,
 )
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     observed_pareto_frontier as observed_pareto,
     predicted_pareto_frontier as predicted_pareto,
@@ -52,6 +53,9 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from numpy import NaN
 from torch import Tensor
+
+if TYPE_CHECKING:
+    from ax.modelbridge.generation_strategy import GenerationStrategy
 
 logger: Logger = get_logger(__name__)
 
@@ -205,10 +209,11 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             "optimization config was provided on the experiment or as an argument."
         )
     if optimization_config.is_moo_problem:
-        logger.warning(
+        raise NotImplementedError(
             "get_best_parameters_from_model_predictions is deprecated for "
             "multi-objective optimization configs. This method will return an "
-            "arbitrary point on the pareto frontier."
+            "arbitrary point on the pareto frontier.  Please use "
+            "`get_pareto_optimal_parameters()`"
         )
     for idx, trial in sorted(
         experiment.trials.items(), key=lambda x: x[0], reverse=True

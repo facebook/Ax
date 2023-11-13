@@ -19,9 +19,9 @@ from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
+from ax.modelbridge.best_point import fill_missing_thresholds_from_nadir
 from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import get_tensor_converter_model
-from ax.service.utils.best_point import fill_missing_thresholds_from_nadir
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
