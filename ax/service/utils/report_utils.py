@@ -39,6 +39,7 @@ from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge import ModelBridge
+from ax.modelbridge.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.modelbridge.cross_validation import cross_validate
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
@@ -59,7 +60,6 @@ from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
     optimization_trace_single_method_plotly,
 )
-from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none

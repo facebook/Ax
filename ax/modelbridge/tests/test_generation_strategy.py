@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from random import randint
 from typing import cast, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -17,7 +18,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyRepeatedPoints,
@@ -41,11 +42,15 @@ from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+    get_branin_multi_objective_optimization_config,
+    get_branin_optimization_config,
     get_choice_parameter,
     get_data,
     get_experiment_with_multi_objective,
     get_hierarchical_search_space_experiment,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestGenerationStrategy(TestCase):
@@ -137,6 +142,16 @@ class TestGenerationStrategy(TestCase):
     def test_name(self) -> None:
         self.sobol_GS.name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")
+
+    def test_experiment(self) -> None:
+        experiment = get_branin_experiment()
+        self.sobol_GS.experiment = experiment
+        self.assertEqual(self.sobol_GS.experiment, experiment)
+
+    def test_experiment_is_set_from_generation(self) -> None:
+        experiment = get_branin_experiment()
+        self.sobol_GS.gen(experiment)
+        self.assertEqual(self.sobol_GS.experiment, experiment)
 
     def test_validation(self) -> None:
         # num_trials can be positive or -1.
@@ -797,6 +812,94 @@ class TestGenerationStrategy(TestCase):
                             for p in original_pending[m]:
                                 self.assertIn(p, pending[m])
 
+    def test_gen_multiple_with_ensembling(self) -> None:
+        exp = get_experiment_with_multi_objective()
+        sobol_GPEI_gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ]
+        )
+        with mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+            original_method=ModelSpec.gen,
+        ) as model_spec_gen_mock, mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.fit",
+            original_method=ModelSpec.fit,
+        ) as model_spec_fit_mock:
+            # Generate first four Sobol GRs (one more to gen after that if
+            # first four become trials.
+            grs = sobol_GPEI_gs.gen_multiple_with_ensembling(
+                experiment=exp, num_generator_runs=3
+            )
+        self.assertEqual(len(grs), 3)
+        for gr in grs:
+            self.assertEqual(len(gr), 1)
+            self.assertIsInstance(gr[0], GeneratorRun)
+
+        # We should only fit once; refitting for each `gen` would be
+        # wasteful as there is no new data.
+        model_spec_fit_mock.assert_called_once()
+        self.assertEqual(model_spec_gen_mock.call_count, 3)
+        pending_in_each_gen = enumerate(
+            args_and_kwargs.kwargs.get("pending_observations")
+            for args_and_kwargs in model_spec_gen_mock.call_args_list
+        )
+        for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+            exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
+            if idx > 0:
+                prev_grs = grs[idx - 1]
+                for arm in prev_grs[0].arms:
+                    for m in pending:
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+        model_spec_gen_mock.reset_mock()
+
+        # Check case with pending features initially specified; we should get two
+        # GRs now (remaining in Sobol step) even though we requested 3.
+        original_pending = not_none(get_pending(experiment=exp))
+        first_3_trials_obs_feats = [
+            ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
+            for idx, trial in exp.trials.items()
+            for a in trial.arms
+        ]
+        for m in original_pending:
+            self.assertTrue(
+                same_elements(original_pending[m], first_3_trials_obs_feats)
+            )
+
+        grs = sobol_GPEI_gs.gen_multiple_with_ensembling(
+            experiment=exp,
+            num_generator_runs=3,
+        )
+        self.assertEqual(len(grs), 2)
+        for gr in grs:
+            self.assertEqual(len(gr), 1)
+            self.assertIsInstance(gr[0], GeneratorRun)
+
+        pending_in_each_gen = enumerate(
+            args_and_kwargs[1].get("pending_observations")
+            for args_and_kwargs in model_spec_gen_mock.call_args_list
+        )
+        for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+            exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
+            if idx > 0:
+                prev_grs = grs[idx - 1]
+                for arm in prev_grs[0].arms:
+                    for m in pending:
+                        # In this case, we should see both the originally-pending
+                        # and the new arms as pending observation features.
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+                        for p in original_pending[m]:
+                            self.assertIn(p, pending[m])
+
     # ------------- Testing helpers (put tests above this line) -------------
 
     def _run_GS_for_N_rounds(
@@ -824,3 +927,208 @@ class TestGenerationStrategy(TestCase):
                 trial.mark_completed()
 
         return could_gen
+
+    def test_num_baseline_trials(self) -> None:
+        exp = get_branin_experiment()
+        num_baseline_trials = randint(1, 10)
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=num_baseline_trials,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ]
+        )
+        for i in range(num_baseline_trials + 1):
+            gs.gen(experiment=exp)
+            if i <= num_baseline_trials:
+                self.assertEqual(gs.num_baseline_trials, num_baseline_trials)
+
+        self.assertEqual(gs.num_baseline_trials, num_baseline_trials)
+
+    def test_last_generator_run(self) -> None:
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=3,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ]
+        )
+        for _ in range(5):
+            gr = gs.gen(experiment=exp)
+            self.assertEqual(gs.last_generator_run, gr)
+
+
+class GetBestPointsTestCase(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    min_trials_observed=3,
+                    max_parallelism=2,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=2,
+                    model_kwargs={"silently_filter_kwargs": True},
+                ),
+            ]
+        )
+        self.branin_experiment = get_branin_experiment()
+
+    def test_get_best_trial_before_generation(self) -> None:
+        self.assertIsNone(self.gs.get_best_trial(experiment=self.branin_experiment))
+
+    def test_get_best_trial_from_sobol(self) -> None:
+        for _ in range(3):
+            self.branin_experiment.new_trial(
+                generator_run=self.gs.gen(experiment=self.branin_experiment)
+            ).run().complete()
+            self.branin_experiment.fetch_data()
+
+        self.assertIsNone(self.gs.get_best_trial(experiment=self.branin_experiment))
+
+    @fast_botorch_optimize
+    def test_get_best_trial_from_gpei(self) -> None:
+        for _ in range(6):
+            self.branin_experiment.new_trial(
+                generator_run=self.gs.gen(experiment=self.branin_experiment)
+            ).run().complete()
+            self.branin_experiment.fetch_data()
+
+        trial, params, _arm = not_none(
+            self.gs.get_best_trial(experiment=self.branin_experiment)
+        )
+        self.assertIn("x1", params)
+        self.assertIn("x2", params)
+
+    @fast_botorch_optimize
+    def test_get_best_trial_for_moo(self) -> None:
+        for _ in range(6):
+            self.branin_experiment.new_trial(
+                generator_run=self.gs.gen(experiment=self.branin_experiment)
+            ).run().complete()
+            self.branin_experiment.fetch_data()
+
+        with self.assertRaisesRegex(
+            NotImplementedError, r".*Please use `get_pareto_optimal_parameters\(\)`"
+        ):
+            self.gs.get_best_trial(
+                experiment=self.branin_experiment,
+                optimization_config=get_branin_multi_objective_optimization_config(),
+            )
+
+    @fast_botorch_optimize
+    def test_get_best_trial_for_moo_with_thresholds(self) -> None:
+        for _ in range(6):
+            self.branin_experiment.new_trial(
+                generator_run=self.gs.gen(experiment=self.branin_experiment)
+            ).run().complete()
+            self.branin_experiment.fetch_data()
+
+        with self.assertRaisesRegex(
+            NotImplementedError, r".*Please use `get_pareto_optimal_parameters\(\)`"
+        ):
+            self.gs.get_best_trial(
+                experiment=self.branin_experiment,
+                optimization_config=get_branin_multi_objective_optimization_config(
+                    has_objective_thresholds=True
+                ),
+            )
+
+    @fast_botorch_optimize
+    def test_get_pareto_optimal_parameters_for_moo(self) -> None:
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    min_trials_observed=3,
+                    max_parallelism=2,
+                ),
+                GenerationStep(
+                    model=Models.MOO,
+                    num_trials=2,
+                ),
+            ]
+        )
+        experiment = get_branin_experiment_with_multi_objective()
+        for _ in range(6):
+            experiment.new_trial(
+                generator_run=gs.gen(experiment=experiment)
+            ).run().complete()
+            experiment.fetch_data()
+
+        self.assertIsNotNone(
+            gs.get_pareto_optimal_parameters(
+                experiment=experiment,
+                optimization_config=experiment.optimization_config,
+            )
+        )
+
+    @fast_botorch_optimize
+    def test_get_pareto_optimal_parameters_for_not_moo(self) -> None:
+        for _ in range(6):
+            self.branin_experiment.new_trial(
+                generator_run=self.gs.gen(experiment=self.branin_experiment)
+            ).run().complete()
+            self.branin_experiment.fetch_data()
+
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Please use `get_best_parameters` for single-objective problems.",
+        ):
+            self.gs.get_pareto_optimal_parameters(
+                experiment=self.branin_experiment,
+                optimization_config=get_branin_optimization_config(),
+            )
+
+    @fast_botorch_optimize
+    def test_get_hypervolume(self) -> None:
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    min_trials_observed=3,
+                    max_parallelism=2,
+                ),
+                GenerationStep(
+                    model=Models.MOO,
+                    num_trials=-1,
+                ),
+            ]
+        )
+        experiment = get_branin_experiment_with_multi_objective()
+        for _ in range(10):
+            experiment.new_trial(
+                generator_run=gs.gen(experiment=experiment)
+            ).run().complete()
+            experiment.fetch_data()
+
+        self.assertGreater(
+            gs.get_hypervolume(
+                experiment=experiment,
+                optimization_config=get_branin_multi_objective_optimization_config(
+                    has_objective_thresholds=True,
+                ),
+            ),
+            0,
+        )

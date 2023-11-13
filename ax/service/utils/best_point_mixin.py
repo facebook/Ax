@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 from functools import partial
 from logging import Logger
@@ -19,6 +21,11 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.modelbridge import best_point as best_point_utils
+from ax.modelbridge.best_point import (
+    extract_Y_from_data,
+    fill_missing_thresholds_from_nadir,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -36,11 +43,6 @@ from ax.models.torch.botorch_moo_defaults import (
     get_weighted_mc_objective_and_objective_thresholds,
 )
 from ax.plot.pareto_utils import get_tensor_converter_model
-from ax.service.utils import best_point as best_point_utils
-from ax.service.utils.best_point import (
-    extract_Y_from_data,
-    fill_missing_thresholds_from_nadir,
-)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
