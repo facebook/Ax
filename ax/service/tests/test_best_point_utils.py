@@ -61,8 +61,8 @@ class TestBestPointUtils(TestCase):
             trial.mark_completed()
             exp.attach_data(exp.fetch_data())
 
-        gpei = Models.BOTORCH(experiment=exp, data=exp.lookup_data())
-        generator_run = gpei.gen(n=1)
+        model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.lookup_data())
+        generator_run = model.gen(n=1)
         trial = exp.new_trial(generator_run=generator_run)
         trial.run()
         trial.mark_completed()

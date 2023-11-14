@@ -26,7 +26,7 @@ class FittedScatterTest(TestCase):
         df = deepcopy(data.df)
         df["metric_name"] = "branin_dup"
 
-        model = Models.BOTORCH(
+        model = Models.BOTORCH_MODULAR(
             # Model bridge kwargs
             experiment=exp,
             data=Data.from_multiple_data([data, Data(df)]),

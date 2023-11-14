@@ -330,7 +330,7 @@ class ReportUtilsTest(TestCase):
         )
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
-        model = Models.BOTORCH(experiment=exp, data=exp.fetch_data())
+        model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
         for gsa, true_objective_metric_name in itertools.product(
             [False, True], ["branin", None]
         ):
@@ -451,7 +451,7 @@ class ReportUtilsTest(TestCase):
         exp.trials[1].run()
         plots = get_standard_plots(
             experiment=exp,
-            model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
+            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             true_objective_metric_name="branin",
         )
 
@@ -467,7 +467,7 @@ class ReportUtilsTest(TestCase):
         ):
             plots = get_standard_plots(
                 experiment=exp,
-                model=Models.BOTORCH(experiment=exp, data=exp.fetch_data()),
+                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
                 true_objective_metric_name="not_present",
             )
 
