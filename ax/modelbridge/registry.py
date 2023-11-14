@@ -16,9 +16,9 @@ from generator run, use `get_model_from_generator_run` utility from this module.
 
 from __future__ import annotations
 
+import warnings
 from enum import Enum
 from inspect import isfunction, signature
-
 from logging import Logger
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
@@ -164,12 +164,6 @@ model setup, which defines which model, model bridge, transforms, and
 standard arguments a given model requires.
 """
 MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
-    "BO": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=BotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "BoTorch": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
@@ -486,12 +480,11 @@ class Models(ModelRegistryBase):
     FULLYBAYESIAN_MTGP = "FullyBayesian_MTGP"
     FULLYBAYESIANMOO_MTGP = "FullyBayesianMOO_MTGP"
     THOMPSON = "Thompson"
-    BOTORCH = "BO"
+    LEGACY_BOTORCH = "GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
     MOO = "MOO"
-    MOO_MODULAR = "MOO_Modular"
     ST_MTGP_LEGACY = "ST_MTGP_LEGACY"
     ST_MTGP = "ST_MTGP"
     ALEBO = "ALEBO"
@@ -499,6 +492,18 @@ class Models(ModelRegistryBase):
     ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     ALEBO_INITIALIZER = "ALEBO_Initializer"
     CONTEXT_SACBO = "Contextual_SACBO"
+
+    @classmethod
+    @property
+    def BOTORCH(cls) -> Models:
+        warnings.warn(
+            "`BOTORCH` Model class has been deprecated and renamed to "
+            "`LEGACY_BOTORCH`, and it will be removed in a future release. "
+            "Please use `BOTORCH_MODULAR` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.LEGACY_BOTORCH
 
 
 def get_model_from_generator_run(

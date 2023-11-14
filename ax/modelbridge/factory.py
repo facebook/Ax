@@ -253,7 +253,7 @@ def get_botorch(
         raise ValueError("`BotorchModel` requires non-empty data.")
     return checked_cast(
         TorchModelBridge,
-        Models.BOTORCH(
+        Models.LEGACY_BOTORCH(
             experiment=experiment,
             data=data,
             search_space=search_space or experiment.search_space,
@@ -284,7 +284,7 @@ def get_GPEI(
         raise ValueError("GP+EI BotorchModel requires non-empty data.")
     return checked_cast(
         TorchModelBridge,
-        Models.BOTORCH(
+        Models.LEGACY_BOTORCH(
             experiment=experiment,
             data=data,
             search_space=search_space or experiment.search_space,

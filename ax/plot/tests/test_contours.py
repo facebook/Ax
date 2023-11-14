@@ -23,7 +23,7 @@ class ContoursTest(TestCase):
     def test_Contours(self) -> None:
         exp = get_branin_experiment(with_str_choice_param=True, with_batch=True)
         exp.trials[0].run()
-        model = Models.BOTORCH(
+        model = Models.BOTORCH_MODULAR(
             # Model bridge kwargs
             experiment=exp,
             data=exp.fetch_data(),

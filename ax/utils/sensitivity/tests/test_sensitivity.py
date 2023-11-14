@@ -33,7 +33,7 @@ from torch import Tensor
 def get_modelbridge(modular: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return (Models.BOTORCH_MODULAR if modular else Models.BOTORCH)(
+    return (Models.BOTORCH_MODULAR if modular else Models.LEGACY_BOTORCH)(
         # Model bridge kwargs
         experiment=exp,
         data=exp.fetch_data(),

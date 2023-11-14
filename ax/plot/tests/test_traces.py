@@ -22,7 +22,7 @@ class TracesTest(TestCase):
     def setUp(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
-        self.model = Models.BOTORCH(
+        self.model = Models.BOTORCH_MODULAR(
             # Model bridge kwargs
             experiment=exp,
             data=exp.fetch_data(),

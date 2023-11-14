@@ -29,7 +29,7 @@ DUMMY_CAPTION = "test_caption"
 def get_modelbridge() -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return Models.BOTORCH(
+    return Models.LEGACY_BOTORCH(
         # Model bridge kwargs
         experiment=exp,
         data=exp.fetch_data(),
