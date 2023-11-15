@@ -754,7 +754,15 @@ def exp_to_df(
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
         ``map_keys``, if present). If no trials are available, returns an empty
         dataframe. If no metric ouputs are available, returns a dataframe of inputs and
-        metadata.
+        metadata. Columns include:
+            * trial_index
+            * arm_name
+            * trial_status
+            * generation_method
+            * any elements of exp.runner.run_metadata_report_keys that are present in
+              the trial.run_metadata of each trial
+            * one column per metric (named after the metric.name)
+            * one column per parameter (named after the parameter.name)
     """
 
     if len(kwargs) > 0:
