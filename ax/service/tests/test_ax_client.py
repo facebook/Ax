@@ -614,7 +614,6 @@ class TestAxClient(TestCase):
         )
         second_client = AxClient(db_settings=db_settings)
         second_client.load_experiment_from_database("unique_test_experiment")
-        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(second_client.generation_strategy, generation_strategy)
 
     @patch(
