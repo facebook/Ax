@@ -330,8 +330,6 @@ class GenerationStrategy(Base):
         self._model = None
         for s in self._steps:
             s._model_spec_to_gen_from = None
-            # TODO: @mgarrard remove once re-enabled criterion storage
-            s._transition_criteria = []
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""

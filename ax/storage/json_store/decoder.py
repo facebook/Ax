@@ -728,14 +728,7 @@ def generation_step_from_json(
         if gen_kwargs
         else None,
         index=generation_step_json.pop("index", -1),
-        should_deduplicate=generation_step_json.pop("should_deduplicate")
-        if "should_deduplicate" in generation_step_json
-        else False,
-    )
-    generation_step._transition_criteria = transition_criteria_from_json(
-        generation_step_json.pop("transition_criteria")
-        if "transition_criteria" in generation_step_json.keys()
-        else None
+        should_deduplicate=generation_step_json.pop("should_deduplicate", False),
     )
     return generation_step
 

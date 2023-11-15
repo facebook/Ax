@@ -777,7 +777,6 @@ class TestAxScheduler(TestCase):
         # Check that experiment and GS were saved.
         exp, gs = scheduler._load_experiment_and_generation_strategy(experiment.name)
         self.assertEqual(exp, experiment)
-        self.two_sobol_steps_GS._unset_non_persistent_state_fields()
         self.assertEqual(gs, self.two_sobol_steps_GS)
         scheduler.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
