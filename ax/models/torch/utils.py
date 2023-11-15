@@ -51,7 +51,7 @@ from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
-from botorch.posteriors.fully_bayesian import FullyBayesianPosterior
+from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.posteriors.posterior_list import PosteriorList
 from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
@@ -627,7 +627,7 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     with torch.no_grad():
         # TODO: Allow Posterior to (optionally) return the full covariance matrix
         posterior = model.posterior(X)
-        if isinstance(posterior, FullyBayesianPosterior):
+        if isinstance(posterior, GaussianMixturePosterior):
             mean = posterior.mixture_mean.cpu().detach()
             var = posterior.mixture_variance.cpu().detach().clamp_min(0)
         elif isinstance(posterior, (GPyTorchPosterior, PosteriorList)):
