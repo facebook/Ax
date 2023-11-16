@@ -41,7 +41,7 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models import ModelList
 from botorch.models.model import Model
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import is_fully_bayesian
+from botorch.utils.transforms import is_ensemble
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
@@ -572,7 +572,7 @@ def get_feature_importances_from_botorch_model(
             )
         if ls.ndim == 2:
             ls = ls.unsqueeze(0)
-        if is_fully_bayesian(m):  # Take the median over the MCMC samples
+        if is_ensemble(m):  # Take the median over the model batch dimension
             ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
         lengthscales.append(ls)
     lengthscales = torch.cat(lengthscales, dim=0)
