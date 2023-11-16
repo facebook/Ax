@@ -23,7 +23,7 @@ from botorch.models.transforms.input import (
     Normalize,
     Warp,
 )
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 
 
 class DummyInputTransform(InputTransform):  # pyre-ignore [13]
@@ -92,7 +92,6 @@ class InputTransformArgparseTest(TestCase):
         self.assertEqual(input_transform_kwargs, {"d": 10})
 
     def test_argparse_normalize(self) -> None:
-
         input_transform_kwargs = input_transform_argparse(
             Normalize,
             dataset=self.dataset,
@@ -137,8 +136,30 @@ class InputTransformArgparseTest(TestCase):
             )
         )
 
-    def test_argparse_warp(self) -> None:
+        # Test with MultiTaskDataset.
+        dataset1 = SupervisedDataset(
+            X=torch.rand(5, 4),
+            Y=torch.randn(5, 1),
+            feature_names=[f"x{i}" for i in range(4)],
+            outcome_names=["y0"],
+        )
 
+        dataset2 = SupervisedDataset(
+            X=torch.rand(5, 2),
+            Y=torch.randn(5, 1),
+            feature_names=[f"x{i}" for i in range(2)],
+            outcome_names=["y1"],
+        )
+        mtds = MultiTaskDataset(datasets=[dataset1, dataset2], target_outcome_name="y0")
+        input_transform_kwargs = input_transform_argparse(
+            Normalize,
+            dataset=mtds,
+            search_space_digest=self.search_space_digest,
+        )
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
+
+    def test_argparse_warp(self) -> None:
         self.search_space_digest.task_features = [0, 3]
         input_transform_kwargs = input_transform_argparse(
             Warp,
@@ -148,7 +169,7 @@ class InputTransformArgparseTest(TestCase):
 
         self.assertEqual(
             input_transform_kwargs,
-            {"indices": [1, 2], "batch_shape": torch.Size([2])},
+            {"indices": [1, 2]},
         )
 
         input_transform_kwargs = input_transform_argparse(
@@ -158,9 +179,7 @@ class InputTransformArgparseTest(TestCase):
             input_transform_options={"indices": [0, 1]},
         )
 
-        self.assertEqual(
-            input_transform_kwargs, {"indices": [0, 1], "batch_shape": torch.Size([2])}
-        )
+        self.assertEqual(input_transform_kwargs, {"indices": [0, 1]})
 
     def test_argparse_input_perturbation(self) -> None:
 
