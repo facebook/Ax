@@ -10,7 +10,6 @@ from typing import Any, Dict, Optional, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.models.torch.botorch_defaults import _get_batch_shape
 from ax.models.torch.utils import normalize_indices
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.models.transforms.input import (
@@ -20,7 +19,7 @@ from botorch.models.transforms.input import (
     Warp,
 )
 from botorch.utils.containers import SliceContainer
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
 
 
@@ -75,22 +74,15 @@ def _input_transform_argparse_warp(
     Returns:
         A dictionary with input transform kwargs.
     """
-
     input_transform_options = input_transform_options or {}
-    d = dataset.X.shape[-1]
-
+    d = len(dataset.feature_names)
     indices = list(range(d))
-
     task_features = normalize_indices(search_space_digest.task_features, d=d)
 
     for task_feature in sorted(task_features, reverse=True):
         del indices[task_feature]
 
-    batch_shape = _get_batch_shape(dataset.X, dataset.Y)
-
     input_transform_options.setdefault("indices", indices)
-    input_transform_options.setdefault("batch_shape", batch_shape)
-
     return input_transform_options
 
 
@@ -118,18 +110,15 @@ def _input_transform_argparse_normalize(
     Returns:
         A dictionary with input transform kwargs.
     """
-
     input_transform_options = input_transform_options or {}
-
-    d = dataset.X.shape[-1]
-
+    d = input_transform_options.get("d", len(dataset.feature_names))
     bounds = torch.as_tensor(
         search_space_digest.bounds,
         dtype=torch_dtype,
         device=torch_device,
     ).T
 
-    if isinstance(dataset.X, SliceContainer):
+    if isinstance(dataset, RankingDataset) and isinstance(dataset.X, SliceContainer):
         d = dataset.X.values.shape[-1]
 
     indices = list(range(d))
