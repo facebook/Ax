@@ -3,17 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
-from ax.core.types import TModelPredictArm, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
