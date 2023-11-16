@@ -32,6 +32,7 @@ from botorch.acquisition.monte_carlo import (
 )
 from botorch.acquisition.objective import ConstrainedMCObjective
 from botorch.acquisition.penalized import L1PenaltyObjective, PenalizedMCObjective
+from botorch.exceptions.errors import UnsupportedError
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.multitask import MultiTaskGP
@@ -214,6 +215,15 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(model, SingleTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(covar_module, model.covar_module)
+
+        # test input warping dimension checks.
+        with self.assertRaisesRegex(UnsupportedError, "batched multi output models"):
+            _get_model(
+                X=torch.ones(4, 3, 2),
+                Y=torch.ones(4, 3, 2),
+                Yvar=torch.zeros(4, 3, 2),
+                use_input_warping=True,
+            )
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
     @fast_botorch_optimize
@@ -468,7 +478,7 @@ class BotorchDefaultsTest(TestCase):
         covar_module = _get_customized_covar_module(
             covar_module_prior_dict={},
             ard_num_dims=ard_num_dims,
-            batch_shape=batch_shape,
+            aug_batch_shape=batch_shape,
             task_feature=None,
         )
         self.assertIsInstance(covar_module, Module)
@@ -495,7 +505,7 @@ class BotorchDefaultsTest(TestCase):
                 "outputscale_prior": GammaPrior(2.0, 12.0),
             },
             ard_num_dims=ard_num_dims,
-            batch_shape=batch_shape,
+            aug_batch_shape=batch_shape,
             task_feature=3,
         )
         self.assertIsInstance(covar_module, Module)
