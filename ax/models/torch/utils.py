@@ -612,7 +612,7 @@ def pick_best_out_of_sample_point_acqf_class(
 def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     r"""Predicts outcomes given a model and input tensor.
 
-    For a `FullyBayesianPosterior` we currently use a Gaussian approximation where we
+    For a `GaussianMixturePosterior` we currently use a Gaussian approximation where we
     compute the mean and variance of the Gaussian mixture. This should ideally be
     changed to compute quantiles instead when Ax supports non-Gaussian distributions.
 
