@@ -48,6 +48,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space,
     get_sobol,
     get_status_quo,
+    get_test_map_data_experiment,
 )
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
@@ -1053,6 +1054,17 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
         )
+
+        # Clone with MapData.
+        experiment = get_test_map_data_experiment(
+            num_trials=5, num_fetches=3, num_complete=4
+        )
+        cloned_experiment = experiment.clone_with(
+            search_space=larger_search_space,
+            status_quo=new_status_quo,
+        )
+        new_data = cloned_experiment.lookup_data()
+        self.assertIsInstance(new_data, MapData)
 
 
 class ExperimentWithMapDataTest(TestCase):
