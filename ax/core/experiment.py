@@ -1587,7 +1587,9 @@ class Experiment(Base):
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
 
-        cloned_experiment.attach_data(Data.from_multiple_data(datas))
+        cloned_experiment.attach_data(
+            self.default_data_constructor.from_multiple_data(datas)
+        )
 
         return cloned_experiment
 
