@@ -17,6 +17,9 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.core.utils import (
+    get_pending_observation_features_based_on_trial_status as get_pending,
+)
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
@@ -27,9 +30,6 @@ from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.modelbridge_utils import (
-    get_pending_observation_features_based_on_trial_status as get_pending,
-)
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Cont_X_trans, MODEL_KEY_TO_MODEL_SETUP, Models
 from ax.modelbridge.torch import TorchModelBridge

@@ -48,6 +48,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -62,9 +63,6 @@ from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import (
-    get_pending_observation_features_based_on_trial_status,
-)
 from ax.modelbridge.prediction_utils import predict_by_features
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
@@ -1793,8 +1791,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @classmethod
     def _get_pending_observation_features(
         cls,
-        # pyre-fixme[2]: Parameter must be annotated.
-        experiment,
+        experiment: Experiment,
     ) -> Optional[Dict[str, List[ObservationFeatures]]]:
         """Extract pending points for the given experiment.
 

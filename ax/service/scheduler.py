@@ -41,6 +41,8 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.utils import get_pending_observation_features_based_on_trial_status
+
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.core import (
     AxError,
@@ -52,10 +54,6 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
-
-from ax.modelbridge.modelbridge_utils import (
-    get_pending_observation_features_based_on_trial_status,
-)
 from ax.plot.pareto_utils import infer_reference_point_from_experiment
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
