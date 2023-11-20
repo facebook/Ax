@@ -22,12 +22,12 @@ from ax.core.types import (
     TModelPredictArm,
     TParameterization,
 )
+from ax.core.utils import get_pending_observation_features
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import SearchSpaceExhausted, UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.modelbridge_utils import get_pending_observation_features
 from ax.modelbridge.registry import Models
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions,

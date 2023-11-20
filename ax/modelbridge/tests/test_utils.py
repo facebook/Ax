@@ -21,11 +21,13 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.types import ComparisonOp
+from ax.core.utils import (
+    get_pending_observation_features,
+    get_pending_observation_features_based_on_trial_status as get_pending_status,
+)
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
     extract_outcome_constraints,
-    get_pending_observation_features,
-    get_pending_observation_features_based_on_trial_status as get_pending_status,
     observation_data_to_array,
     pending_observations_as_array_list,
 )

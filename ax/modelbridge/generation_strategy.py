@@ -16,12 +16,12 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
+from ax.core.utils import extend_pending_observations
 from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
-from ax.modelbridge.modelbridge_utils import extend_pending_observations
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
