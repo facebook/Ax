@@ -35,7 +35,7 @@ from ax.core.types import (
     TEvaluationOutcome,
     validate_evaluation_outcome,
 )
-from ax.exceptions.core import AxError, UserInputError
+from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
@@ -117,6 +117,10 @@ class BatchTrial(BaseTrial):
         generator_run: GeneratorRun, associated with this trial. This can a
             also be set later through `add_arm` or `add_generator_run`, but a
             trial's associated generator run is immutable once set.
+        generator_runs: GeneratorRuns, associated with this trial. This can a
+            also be set later through `add_arm` or `add_generator_run`, but a
+            trial's associated generator run is immutable once set.  This cannot
+            be combined with the `generator_run` argument.
         trial_type: Type of this trial, if used in MultiTypeExperiment.
         optimize_for_power: Whether to optimize the weights of arms in this
             trial such that the experiment's power to detect effects of
@@ -140,6 +144,7 @@ class BatchTrial(BaseTrial):
         self,
         experiment: core.experiment.Experiment,
         generator_run: Optional[GeneratorRun] = None,
+        generator_runs: Optional[List[GeneratorRun]] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
@@ -158,7 +163,14 @@ class BatchTrial(BaseTrial):
         self._status_quo: Optional[Arm] = None
         self._status_quo_weight_override: Optional[float] = None
         if generator_run is not None:
+            if generator_runs is not None:
+                raise UnsupportedError(
+                    "Cannot specify both `generator_run` and `generator_runs`."
+                )
             self.add_generator_run(generator_run=generator_run)
+        elif generator_runs is not None:
+            for gr in generator_runs:
+                self.add_generator_run(generator_run=gr)
 
         self.optimize_for_power = optimize_for_power
         status_quo = experiment.status_quo

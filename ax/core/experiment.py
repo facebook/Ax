@@ -1059,6 +1059,7 @@ class Experiment(Base):
     def new_batch_trial(
         self,
         generator_run: Optional[GeneratorRun] = None,
+        generator_runs: Optional[List[GeneratorRun]] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
@@ -1070,6 +1071,10 @@ class Experiment(Base):
             generator_run: GeneratorRun, associated with this trial. This can a
                 also be set later through `add_arm` or `add_generator_run`, but a
                 trial's associated generator run is immutable once set.
+            generator_runs: GeneratorRuns, associated with this trial. This can a
+                also be set later through `add_arm` or `add_generator_run`, but a
+                trial's associated generator run is immutable once set.  This cannot
+                be combined with the `generator_run` argument.
             trial_type: Type of this trial, if used in MultiTypeExperiment.
             optimize_for_power: Whether to optimize the weights of arms in this
                 trial such that the experiment's power to detect effects of
@@ -1090,6 +1095,7 @@ class Experiment(Base):
             experiment=self,
             trial_type=trial_type,
             generator_run=generator_run,
+            generator_runs=generator_runs,
             optimize_for_power=optimize_for_power,
             ttl_seconds=ttl_seconds,
             lifecycle_stage=lifecycle_stage,

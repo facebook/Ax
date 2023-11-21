@@ -50,6 +50,7 @@ from ax.utils.testing.core_stubs import (
     get_status_quo,
     get_test_map_data_experiment,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
@@ -1254,3 +1255,38 @@ class ExperimentWithMapDataTest(TestCase):
             old_df.drop(["arm_name", "trial_index"], axis=1),
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
+
+    @fast_botorch_optimize
+    def test_batch_with_multiple_generator_runs(self) -> None:
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        exp.new_batch_trial(generator_runs=[sobol.gen(n=7)]).run().complete()
+
+        data = exp.fetch_data()
+        gp = Models.BOTORCH_MODULAR(
+            experiment=exp, search_space=exp.search_space, data=data
+        )
+        ts = Models.EMPIRICAL_BAYES_THOMPSON(
+            experiment=exp, search_space=exp.search_space, data=data
+        )
+        exp.new_batch_trial(generator_runs=[gp.gen(n=3), ts.gen(n=1)]).run().complete()
+
+        self.assertEqual(len(exp.trials), 2)
+        self.assertEqual(len(exp.trials[0].generator_runs), 1)
+        self.assertEqual(len(exp.trials[0].arms), 7)
+        self.assertEqual(len(exp.trials[1].generator_runs), 2)
+        self.assertEqual(len(exp.trials[1].arms), 4)
+
+    def test_it_does_not_take_both_single_and_multiple_gr_ars(self) -> None:
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        gr1 = sobol.gen(n=7)
+        gr2 = sobol.gen(n=7)
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "Cannot specify both `generator_run` and `generator_runs`.",
+        ):
+            exp.new_batch_trial(
+                generator_run=gr1,
+                generator_runs=[gr2],
+            )
