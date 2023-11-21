@@ -1238,12 +1238,7 @@ def maybe_extract_baseline_comparison_values(
         logger.info("compare_to_baseline: arms_df is None.")
         return None
 
-    if experiment.is_moo_problem:
-        logger.info("compare_to_baseline: not yet implemented for moo problems")
-        return None
-        # TODO: compare_to_baseline for multi-objective optimization
-
-    comparison_arm_df = arms_df[arms_df["arm_name"] == comparison_arm_names[0]]
+    comparison_arm_df = arms_df[arms_df["arm_name"].isin(comparison_arm_names)]
 
     if comparison_arm_df is None or len(comparison_arm_df) == 0:
         logger.info("compare_to_baseline: comparison_arm_df has no rows.")
@@ -1261,6 +1256,31 @@ def maybe_extract_baseline_comparison_values(
             f"compare_to_baseline: baseline row: {baseline_arm_name=} not found in arms"
         )
         return None
+
+    if experiment.is_moo_problem:
+        multi_objective = checked_cast(MultiObjective, optimization_config.objective)
+        result_list = []
+        for objective in multi_objective.objectives:
+            name = objective.metric.name
+            minimize = objective.minimize
+            opt_index = (
+                comparison_arm_df[name].idxmin()
+                if minimize
+                else comparison_arm_df[name].idxmax()
+            )
+            comparison_row = arms_df.iloc[opt_index]
+            baseline_value = baseline_rows.iloc[0][name]
+
+            result_tuple = _build_result_tuple(
+                objective_name=name,
+                objective_minimize=minimize,
+                baseline_arm_name=baseline_arm_name,
+                baseline_value=baseline_value,
+                comparison_row=comparison_row,
+            )
+
+            result_list.append(result_tuple)
+        return result_list if result_list else None
 
     objective_name = optimization_config.objective.metric.name
     baseline_value = baseline_rows.iloc[0][objective_name]
@@ -1295,6 +1315,11 @@ def compare_to_baseline(
         return None
     comparison_list = not_none(comparison_list)
     result_message = ""
+    if len(comparison_list) > 1:
+        result_message = (
+            "Each of the following arms optimizes a different "
+            + "objective metric.<br>"
+        )
 
     for idx, result_tuple in enumerate(comparison_list):
         comparison_message = _construct_comparison_message(*result_tuple)

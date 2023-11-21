@@ -41,7 +41,7 @@ from ax.service.utils.report_utils import (
     plot_feature_importance_by_feature_plotly,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -908,13 +908,40 @@ class ReportUtilsTest(TestCase):
 
         """
         self.maxDiff = None
-        OBJECTIVE_METRIC = "foo"
 
         data = [
-            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
-            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
-            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 0.1},
-            {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 1.0},
+            {
+                "trial_index": 0,
+                "arm_name": BASELINE_ARM_NAME,
+                "m0": 1.0,
+                "m1": 1.0,
+                "m2": 1.0,
+                "m3": 1.0,
+            },
+            {
+                "trial_index": 1,
+                "arm_name": "opt_0",
+                "m0": 2.5,
+                "m1": 0.2,
+                "m2": 1.0,
+                "m3": 1.0,
+            },
+            {
+                "trial_index": 2,
+                "arm_name": "opt_1_min",
+                "m0": 1.2,
+                "m1": -0.1,
+                "m2": 1.0,
+                "m3": 1.0,
+            },
+            {
+                "trial_index": 3,
+                "arm_name": "opt_3",
+                "m0": 0.5,
+                "m1": 0.5,
+                "m2": 1.0,
+                "m3": 1.01,
+            },
         ]
         arms_df = pd.DataFrame(data)
 
@@ -922,42 +949,54 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+            m0 = Metric(name="m0", lower_is_better=False)
+            m1 = Metric(name="m1", lower_is_better=True)
+            m2 = Metric(name="m2", lower_is_better=False)
+            m3 = Metric(name="m3", lower_is_better=False)
             experiment = Experiment(
                 search_space=get_branin_search_space(),
-                tracking_metrics=[true_obj_metric],
+                tracking_metrics=[m0, m1, m2, m3],
             )
 
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[
                         Objective(metric=Metric("m0")),
-                        Objective(metric=Metric("m1")),
-                        Objective(metric=Metric("m2")),
+                        Objective(metric=Metric("m1"), minimize=True),
                         Objective(metric=Metric("m3")),
-                        Objective(metric=Metric("m4")),
                     ]
                 )
             )
             experiment.optimization_config = optimization_config
             self.assertEqual(True, experiment.is_moo_problem)
 
-            comparison_arm_names = ["optimal"]
+            comparison_arm_names = ["opt_0", "opt_1_min", "opt_3"]
 
-            with self.assertLogs("ax", level=INFO) as log:
-                self.assertEqual(
-                    compare_to_baseline(
-                        experiment=experiment,
-                        optimization_config=None,
-                        comparison_arm_names=comparison_arm_names,
-                    ),
-                    None,
-                )
-                self.assertTrue(
-                    any(
-                        "compare_to_baseline: not yet implemented for moo problems"
-                        in log_str
-                        for log_str in log.output
-                    ),
-                    log.output,
-                )
+            preamble = (
+                "Each of the following arms optimizes a different "
+                + "objective metric.<br>"
+            )
+            output_text_0 = _format_comparison_string("opt_0", "m0", 150.0, 1.0, 2.5)
+            output_text_1 = _format_comparison_string(
+                "opt_1_min", "m1", 110.0, 1.0, -0.1
+            )
+            output_text_3 = _format_comparison_string("opt_3", "m3", 1.0, 1.0, 1.01)
+
+            result = not_none(
+                compare_to_baseline(
+                    experiment=experiment,
+                    optimization_config=None,
+                    comparison_arm_names=comparison_arm_names,
+                ),
+            )
+
+            expected_result = (
+                preamble
+                + output_text_0
+                + "<br>"
+                + output_text_1
+                + "<br>"
+                + output_text_3
+            )
+
+            self.assertEqual(result, expected_result)
