@@ -35,6 +35,7 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -81,6 +82,7 @@ CROSS_VALIDATION_CAPTION = (
     "This may hide outliers. You can autoscale the axes to see all trials."
 )
 FEASIBLE_COL_NAME = "is_feasible"
+BASELINE_ARM_NAME = "baseline_arm"
 
 
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
@@ -1116,3 +1118,191 @@ def _warn_and_create_warning_plot(warning_msg: str) -> go.Figure:
         .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
         .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
     )
+
+
+def _format_comparison_string(
+    comparison_arm_name: str,
+    objective_name: str,
+    percent_change: float,
+    baseline_value: float,
+    comparison_value: float,
+) -> str:
+    baseline_arm_name = BASELINE_ARM_NAME
+    return (
+        f"{comparison_arm_name=} "
+        + "improves your objective metric "
+        + f"{objective_name} by {percent_change}%. "
+        + f" {baseline_arm_name=} was improved "
+        + f"from {baseline_value=}"
+        + f" to {comparison_value=}"
+    )
+
+
+def _construct_comparison_message(
+    objective_name: str,
+    objective_minimize: bool,
+    baseline_arm_name: str,
+    baseline_value: float,
+    comparison_arm_name: str,
+    comparison_value: float,
+    digits: int = 2,
+) -> Optional[str]:
+    # TODO: allow for user configured digits value
+    if baseline_value == 0:
+        logger.info(
+            "compare_to_baseline: baseline has value of 0"
+            + ", can't compute percent change."
+        )
+        return None
+
+    if (objective_minimize and (baseline_value < comparison_value)) or (
+        not objective_minimize and (baseline_value > comparison_value)
+    ):
+        logger.info(
+            f"compare_to_baseline: comparison arm {comparison_arm_name}"
+            + f" did not beat baseline arm {baseline_arm_name}. "
+        )
+        return None
+    percent_change = round(
+        ((abs(comparison_value - baseline_value)) / baseline_value) * 100, digits
+    )
+
+    return _format_comparison_string(
+        comparison_arm_name,
+        objective_name,
+        percent_change,
+        baseline_value,
+        comparison_value,
+    )
+
+
+def _build_result_tuple(
+    objective_name: str,
+    objective_minimize: bool,
+    baseline_arm_name: str,
+    baseline_value: float,
+    comparison_row: pd.DataFrame,
+) -> Tuple[str, bool, str, float, str, float]:
+    comparison_arm_name = checked_cast(str, comparison_row["arm_name"])
+    comparison_value = checked_cast(float, comparison_row[objective_name])
+
+    result = (
+        objective_name,
+        objective_minimize,
+        baseline_arm_name,
+        baseline_value,
+        comparison_arm_name,
+        comparison_value,
+    )
+    return result
+
+
+def maybe_extract_baseline_comparison_values(
+    experiment: Experiment,
+    optimization_config: Optional[OptimizationConfig],
+    comparison_arm_names: Optional[List[str]],
+) -> Optional[List[Tuple[str, bool, str, float, str, float]]]:
+    """
+    Extracts the baseline values from the experiment, for use in
+    comparing the baseline arm to the optimal results.
+    Requires the user specifies the names of the arms to compare to.
+
+    Returns:
+        List of tuples containing:
+        (metric_name,
+        minimize,
+        comparison_arm_name,
+        baseline_arm_name,
+        baseline_value,
+        comparison_arm_value)
+    """
+    # TODO: incorporate model uncertainty when available
+    # TODO: extract and use best arms if comparison_arm_names is not provided.
+    #   Can do this automatically using optimization_config.
+    if not comparison_arm_names:
+        logger.info(
+            "compare_to_baseline: comparison_arm_names not provided. Returning None."
+        )
+        return None
+    if not optimization_config:
+        if experiment.optimization_config is None:
+            logger.info(
+                "compare_to_baseline: optimization_config neither"
+                + " provided in inputs nor present on experiment."
+            )
+            return None
+        optimization_config = experiment.optimization_config
+
+    arms_df = exp_to_df(experiment)
+    if arms_df is None:
+        logger.info("compare_to_baseline: arms_df is None.")
+        return None
+
+    if experiment.is_moo_problem:
+        logger.info("compare_to_baseline: not yet implemented for moo problems")
+        return None
+        # TODO: compare_to_baseline for multi-objective optimization
+
+    comparison_arm_df = arms_df[arms_df["arm_name"] == comparison_arm_names[0]]
+
+    if comparison_arm_df is None or len(comparison_arm_df) == 0:
+        logger.info("compare_to_baseline: comparison_arm_df has no rows.")
+        return None
+
+    baseline_arm_name = (
+        BASELINE_ARM_NAME
+        if not experiment.status_quo
+        else not_none(experiment.status_quo).name
+    )
+
+    baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
+    if len(baseline_rows) == 0:
+        logger.info(
+            f"compare_to_baseline: baseline row: {baseline_arm_name=} not found in arms"
+        )
+        return None
+
+    objective_name = optimization_config.objective.metric.name
+    baseline_value = baseline_rows.iloc[0][objective_name]
+    comparison_row = comparison_arm_df.iloc[0]
+
+    return [
+        _build_result_tuple(
+            objective_name=objective_name,
+            objective_minimize=optimization_config.objective.minimize,
+            baseline_arm_name=baseline_arm_name,
+            baseline_value=baseline_value,
+            comparison_row=comparison_row,
+        )
+    ]
+
+
+def compare_to_baseline(
+    experiment: Experiment,
+    optimization_config: Optional[OptimizationConfig],
+    comparison_arm_names: Optional[List[str]],
+) -> Optional[str]:
+    """Calculate metric improvement of the experiment against baseline.
+    Returns the message(s) added to markdown_messages"""
+    # TODO: add baseline_arm_name as a parameter
+
+    comparison_list = maybe_extract_baseline_comparison_values(
+        experiment=experiment,
+        optimization_config=optimization_config,
+        comparison_arm_names=comparison_arm_names,
+    )
+    if not comparison_list:
+        return None
+    comparison_list = not_none(comparison_list)
+    result_message = ""
+
+    for idx, result_tuple in enumerate(comparison_list):
+        comparison_message = _construct_comparison_message(*result_tuple)
+        if comparison_message:
+            result_message = (
+                result_message
+                + not_none(comparison_message)
+                + ("<br>" if idx != len(comparison_list) - 1 else "")
+            )
+
+    return result_message if result_message else None
