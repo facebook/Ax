@@ -1166,6 +1166,8 @@ def _construct_comparison_message(
     percent_change = round(
         ((abs(comparison_value - baseline_value)) / baseline_value) * 100, digits
     )
+    baseline_value = round(baseline_value, digits)
+    comparison_value = round(comparison_value, digits)
 
     return _format_comparison_string(
         comparison_arm_name,

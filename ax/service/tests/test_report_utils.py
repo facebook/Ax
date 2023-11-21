@@ -735,7 +735,7 @@ class ReportUtilsTest(TestCase):
                     any(
                         (
                             "compare_to_baseline: baseline has value of 0"
-                            + ", can't compute percent change."
+                            ", can't compute percent change."
                         )
                         in log_str
                         for log_str in log.output
@@ -761,7 +761,7 @@ class ReportUtilsTest(TestCase):
                     any(
                         (
                             "compare_to_baseline: comparison_arm_names not provided."
-                            + " Returning None."
+                            " Returning None."
                         )
                         in log_str
                         for log_str in log.output
@@ -792,7 +792,8 @@ class ReportUtilsTest(TestCase):
                 self.assertTrue(
                     any(
                         (
-                            "compare_to_baseline: optimization_config neither provided in inputs nor present on experiment."
+                            "compare_to_baseline: optimization_config neither provided "
+                            "in inputs nor present on experiment."
                         )
                         in log_str
                         for log_str in log.output
@@ -894,7 +895,7 @@ class ReportUtilsTest(TestCase):
                     any(
                         (
                             f"compare_to_baseline: baseline row: {baseline_arm_name=}"
-                            + " not found in arms"
+                            " not found in arms"
                         )
                         in log_str
                         for log_str in log.output
@@ -974,7 +975,7 @@ class ReportUtilsTest(TestCase):
 
             preamble = (
                 "Each of the following arms optimizes a different "
-                + "objective metric.<br>"
+                "objective metric.<br>"
             )
             output_text_0 = _format_comparison_string("opt_0", "m0", 150.0, 1.0, 2.5)
             output_text_1 = _format_comparison_string(
