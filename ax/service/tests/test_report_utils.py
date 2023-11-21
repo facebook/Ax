@@ -15,11 +15,15 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
 from ax.modelbridge.registry import Models
 from ax.service.utils.report_utils import (
+    _format_comparison_string,
     _get_cross_validation_plots,
     _get_curve_plot_dropdown,
     _get_metric_name_pairs,
@@ -27,6 +31,8 @@ from ax.service.utils.report_utils import (
     _get_objective_v_param_plots,
     _get_shortest_unique_suffix_dict,
     _objective_vs_true_objective_scatter,
+    BASELINE_ARM_NAME,
+    compare_to_baseline,
     compute_maximum_map_values,
     exp_to_df,
     Experiment,
@@ -40,6 +46,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_branin_search_space,
     get_experiment_with_observations,
     get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
@@ -517,3 +524,440 @@ class ReportUtilsTest(TestCase):
             list(metric_name_pairs),
             list(itertools.combinations([f"m{i}" for i in range(4)], 2)),
         )
+
+    def test_compare_to_baseline(self) -> None:
+        """Test that compare to baseline parses arm df properly,
+        obtains the objective metric values based
+        on the provided OptimizationConfig, and
+        produces the intended text
+        """
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
+            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 2.5},
+            {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 0.05},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=False)
+            experiment = Experiment(
+                search_space=get_branin_search_space(),
+                tracking_metrics=[true_obj_metric],
+            )
+
+            optimization_config = OptimizationConfig(
+                objective=Objective(metric=true_obj_metric, minimize=False),
+                outcome_constraints=[],
+            )
+            experiment.optimization_config = optimization_config
+
+            comparison_arm_names = ["optimal"]
+
+            result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=None,
+                comparison_arm_names=comparison_arm_names,
+            )
+
+            output_text = _format_comparison_string(
+                comparison_arm_names[0], OBJECTIVE_METRIC, 1150.0, 0.2, 2.5
+            )
+
+            self.assertNotEqual(result, None)
+            self.assertEqual(result, output_text)
+
+            bad_comparison_arm_names = ["bad_optimal"]
+            # because result increased from baseline, no improvement result returned
+            bad_result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=None,
+                comparison_arm_names=bad_comparison_arm_names,
+            )
+            self.assertEqual(bad_result, None)
+
+    def test_compare_to_baseline_pass_in_opt(self) -> None:
+        """Test that compare to baseline parses arm df properly,
+        obtains the objective metric values based
+        on the provided OptimizationConfig, and
+        produces the intended text
+        """
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
+            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 2.5},
+            {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 0.05},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=False)
+            experiment = Experiment(
+                search_space=get_branin_search_space(),
+                tracking_metrics=[true_obj_metric],
+                optimization_config=None,
+            )
+
+            optimization_config = OptimizationConfig(
+                objective=Objective(metric=true_obj_metric, minimize=False),
+                outcome_constraints=[],
+            )
+            experiment.optimization_config = optimization_config
+
+            comparison_arm_names = ["optimal"]
+
+            result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=optimization_config,
+                comparison_arm_names=comparison_arm_names,
+            )
+
+            output_text = _format_comparison_string(
+                comparison_arm_names[0], OBJECTIVE_METRIC, 1150.0, 0.2, 2.5
+            )
+
+            self.assertNotEqual(result, None)
+            self.assertEqual(result, output_text)
+
+    def test_compare_to_baseline_minimize(self) -> None:
+        """Test that compare to baseline parses arm df properly,
+        obtains the objective metric values based
+        on the provided OptimizationConfig, and
+        produces the intended text.
+        For the minimize case
+        """
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
+            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 0.1},
+            {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 1.0},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+            experiment = Experiment(
+                search_space=get_branin_search_space(),
+                tracking_metrics=[true_obj_metric],
+            )
+
+            optimization_config = OptimizationConfig(
+                objective=Objective(metric=true_obj_metric, minimize=True),
+                outcome_constraints=[],
+            )
+            experiment.optimization_config = optimization_config
+
+            comparison_arm_names = ["optimal"]
+
+            result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=None,
+                comparison_arm_names=comparison_arm_names,
+            )
+
+            output_text = _format_comparison_string(
+                comparison_arm_names[0], OBJECTIVE_METRIC, 50.0, 0.2, 0.1
+            )
+
+            self.assertNotEqual(result, None)
+            self.assertEqual(result, output_text)
+
+            bad_comparison_arm_names = ["bad_optimal"]
+            # because result increased from baseline, no improvement result returned
+            bad_result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=None,
+                comparison_arm_names=bad_comparison_arm_names,
+            )
+            self.assertEqual(bad_result, None)
+
+    def test_compare_to_baseline_edge_case(self) -> None:
+        """Test that compare to baseline parses arm df properly,
+        obtains the objective metric values based
+        on the provided OptimizationConfig, and
+        produces the intended text
+        """
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+        experiment = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=true_obj_metric, minimize=True),
+            outcome_constraints=[],
+        )
+        experiment.optimization_config = optimization_config
+        comparison_arm_names = ["optimal"]
+
+        # baseline value is 0
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.0},
+            {"trial_index": 1, "arm_name": "optimal", OBJECTIVE_METRIC: 1.0},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_names,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        (
+                            "compare_to_baseline: baseline has value of 0"
+                            + ", can't compute percent change."
+                        )
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+        # no best arm names
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment,
+                        optimization_config=None,
+                        comparison_arm_names=None,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        (
+                            "compare_to_baseline: comparison_arm_names not provided."
+                            + " Returning None."
+                        )
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+        # no optimization config
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                exp_no_opt = Experiment(
+                    search_space=get_branin_search_space(),
+                    tracking_metrics=[true_obj_metric],
+                    optimization_config=None,
+                )
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=exp_no_opt,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_names,
+                    ),
+                    None,
+                )
+                self.assertEqual(exp_no_opt.optimization_config, None)
+                self.assertTrue(
+                    any(
+                        (
+                            "compare_to_baseline: optimization_config neither provided in inputs nor present on experiment."
+                        )
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+    def test_compare_to_baseline_arms_not_found(self) -> None:
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+        experiment = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=true_obj_metric, minimize=True),
+            outcome_constraints=[],
+        )
+        experiment.optimization_config = optimization_config
+        comparison_arm_names = ["optimal"]
+
+        # baseline value is 0
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.0},
+            {"trial_index": 1, "arm_name": "optimal", OBJECTIVE_METRIC: 1.0},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        # no arms df
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=None,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_names,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        ("compare_to_baseline: arms_df is None.") in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+        # best arms df is none
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                comparison_arm_not_found = ["unknown_arm"]
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_not_found,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        ("compare_to_baseline: comparison_arm_df has no rows.")
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+        # baseline not found in arms_df
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            baseline_arm_name = "not_baseline_arm_in_dataframe"
+            experiment_with_status_quo = experiment
+            experiment_with_status_quo.status_quo = Arm(
+                name=baseline_arm_name,
+                parameters={"x1": 0, "x2": 0},
+            )
+            with self.assertLogs("ax", level=INFO) as log:
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment_with_status_quo,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_names,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        (
+                            f"compare_to_baseline: baseline row: {baseline_arm_name=}"
+                            + " not found in arms"
+                        )
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
+
+    def test_compare_to_baseline_moo(self) -> None:
+        """Test that compare to baseline errors out correctly
+        for multi objective problems
+
+        """
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+
+        data = [
+            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
+            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 0.1},
+            {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 1.0},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+            experiment = Experiment(
+                search_space=get_branin_search_space(),
+                tracking_metrics=[true_obj_metric],
+            )
+
+            optimization_config = MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric("m0")),
+                        Objective(metric=Metric("m1")),
+                        Objective(metric=Metric("m2")),
+                        Objective(metric=Metric("m3")),
+                        Objective(metric=Metric("m4")),
+                    ]
+                )
+            )
+            experiment.optimization_config = optimization_config
+            self.assertEqual(True, experiment.is_moo_problem)
+
+            comparison_arm_names = ["optimal"]
+
+            with self.assertLogs("ax", level=INFO) as log:
+                self.assertEqual(
+                    compare_to_baseline(
+                        experiment=experiment,
+                        optimization_config=None,
+                        comparison_arm_names=comparison_arm_names,
+                    ),
+                    None,
+                )
+                self.assertTrue(
+                    any(
+                        "compare_to_baseline: not yet implemented for moo problems"
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
