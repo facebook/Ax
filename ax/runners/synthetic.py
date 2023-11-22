@@ -37,5 +37,6 @@ class SyntheticRunner(Runner):
     ) -> Dict[TrialStatus, Set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
+    @property
     def run_metadata_report_keys(self) -> List[str]:
         return ["name"]
