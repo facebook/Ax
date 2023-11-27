@@ -581,7 +581,12 @@ class ReportUtilsTest(TestCase):
             )
 
             output_text = _format_comparison_string(
-                comparison_arm_names[0], OBJECTIVE_METRIC, 1150.0, 0.2, 2.5
+                comparison_arm_name=comparison_arm_names[0],
+                objective_name=OBJECTIVE_METRIC,
+                percent_change=1150.0,
+                baseline_value=0.2,
+                comparison_value=2.5,
+                digits=2,
             )
 
             self.assertNotEqual(result, None)
@@ -639,7 +644,12 @@ class ReportUtilsTest(TestCase):
             )
 
             output_text = _format_comparison_string(
-                comparison_arm_names[0], OBJECTIVE_METRIC, 1150.0, 0.2, 2.5
+                comparison_arm_name=comparison_arm_names[0],
+                objective_name=OBJECTIVE_METRIC,
+                percent_change=1150.0,
+                baseline_value=0.2,
+                comparison_value=2.5,
+                digits=2,
             )
 
             self.assertNotEqual(result, None)
@@ -688,7 +698,12 @@ class ReportUtilsTest(TestCase):
             )
 
             output_text = _format_comparison_string(
-                comparison_arm_names[0], OBJECTIVE_METRIC, 50.0, 0.2, 0.1
+                comparison_arm_name=comparison_arm_names[0],
+                objective_name=OBJECTIVE_METRIC,
+                percent_change=50.0,
+                baseline_value=0.2,
+                comparison_value=0.1,
+                digits=2,
             )
 
             self.assertNotEqual(result, None)
@@ -991,11 +1006,30 @@ class ReportUtilsTest(TestCase):
                 "Each of the following arms optimizes a different "
                 "objective metric.<br>"
             )
-            output_text_0 = _format_comparison_string("opt_0", "m0", 150.0, 1.0, 2.5)
-            output_text_1 = _format_comparison_string(
-                "opt_1_min", "m1", 110.0, 1.0, -0.1
+            output_text_0 = _format_comparison_string(
+                comparison_arm_name="opt_0",
+                objective_name="m0",
+                percent_change=150.0,
+                baseline_value=1.0,
+                comparison_value=2.5,
+                digits=2,
             )
-            output_text_3 = _format_comparison_string("opt_3", "m3", 1.0, 1.0, 1.01)
+            output_text_1 = _format_comparison_string(
+                comparison_arm_name="opt_1_min",
+                objective_name="m1",
+                percent_change=110.0,
+                baseline_value=1.0,
+                comparison_value=-0.1,
+                digits=2,
+            )
+            output_text_3 = _format_comparison_string(
+                comparison_arm_name="opt_3",
+                objective_name="m3",
+                percent_change=1.0,
+                baseline_value=1.0,
+                comparison_value=1.01,
+                digits=2,
+            )
 
             result = not_none(
                 compare_to_baseline(

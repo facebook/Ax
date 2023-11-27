@@ -1144,6 +1144,7 @@ def _format_comparison_string(
     percent_change: float,
     baseline_value: float,
     comparison_value: float,
+    digits: int,
 ) -> str:
     baseline_arm_name = BASELINE_ARM_NAME
     return (
@@ -1151,8 +1152,8 @@ def _format_comparison_string(
         + "improves your objective metric "
         + f"{objective_name} by {percent_change:.2f}%. "
         + f" {baseline_arm_name=} was improved "
-        + f"from {baseline_value=:.2f}"
-        + f" to {comparison_value=:.2f}"
+        + f"from {baseline_value=:.{digits}f}"
+        + f" to {comparison_value=:.{digits}f}"
     )
 
 
@@ -1184,11 +1185,12 @@ def _construct_comparison_message(
     percent_change = ((abs(comparison_value - baseline_value)) / baseline_value) * 100
 
     return _format_comparison_string(
-        comparison_arm_name,
-        objective_name,
-        percent_change,
-        baseline_value,
-        comparison_value,
+        comparison_arm_name=comparison_arm_name,
+        objective_name=objective_name,
+        percent_change=percent_change,
+        baseline_value=baseline_value,
+        comparison_value=comparison_value,
+        digits=digits,
     )
 
 
