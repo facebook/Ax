@@ -9,6 +9,7 @@ from typing import Any, cast, Dict, List, Optional, Type
 
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.trial import Trial
 from ax.exceptions.core import ExperimentNotFoundError, ObjectNotFoundError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -28,6 +29,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import not_none
 from sqlalchemy.orm import defaultload, lazyload, noload
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 
 # ---------------------------- Loading `Experiment`. ---------------------------
@@ -99,15 +101,14 @@ def _load_experiment(
     # pyre-ignore Incompatible variable type [9]: trial_sqa_class is decl. to have type
     # `Type[SQATrial]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
     trial_sqa_class: Type[SQATrial] = decoder.config.class_to_sqa_class[Trial]
+    imm_OC_and_SS = _get_experiment_immutable_opt_config_and_search_space(
+        experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
+    )
 
     if reduced_state:
         _get_experiment_sqa_func = _get_experiment_sqa_reduced_state
 
     else:
-        imm_OC_and_SS = _get_experiment_immutable_opt_config_and_search_space(
-            experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
-        )
-
         _get_experiment_sqa_func = (
             _get_experiment_sqa_immutable_opt_config_and_search_space
             if imm_OC_and_SS
@@ -132,13 +133,22 @@ def _load_experiment(
     # "lower_is_better" or any other attribute we want to include. This can be
     # implemented in the future if we need to.
     if skip_runners_and_metrics:
+        base_metric_type_int = decoder.config.metric_registry[Metric]
         for sqa_metric in experiment_sqa.metrics:
-            sqa_metric.metric_type = 0
-
-        for sqa_trial in experiment_sqa.trials:
-            for sqa_generator_run in sqa_trial.generator_runs:
-                for sqa_metric in sqa_generator_run.metrics:
-                    sqa_metric.metric_type = 0
+            sqa_metric.metric_type = base_metric_type_int
+        assign_metric_on_gr = not reduced_state and not imm_OC_and_SS
+        if assign_metric_on_gr:
+            try:
+                for sqa_trial in experiment_sqa.trials:
+                    for sqa_generator_run in sqa_trial.generator_runs:
+                        for sqa_metric in sqa_generator_run.metrics:
+                            sqa_metric.metric_type = base_metric_type_int
+            except DetachedInstanceError as e:
+                raise DetachedInstanceError(
+                    "Unable to retrieve metric from SQA generator run, possibly due "
+                    "to parts of the experiment being lazy-loaded. This is not "
+                    f"expected state, please contact Ax support. Original error: {e}"
+                )
 
     return decoder.experiment_from_sqa(
         experiment_sqa=experiment_sqa,
