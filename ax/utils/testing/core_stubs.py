@@ -98,6 +98,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
@@ -121,10 +122,12 @@ TEST_SOBOL_SEED = 1234
 ##############################
 
 
-def get_experiment(with_status_quo: bool = True) -> Experiment:
+def get_experiment(
+    with_status_quo: bool = True, constrain_search_space: bool = True
+) -> Experiment:
     return Experiment(
         name="test",
-        search_space=get_search_space(),
+        search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=get_optimization_config(),
         status_quo=get_status_quo() if with_status_quo else None,
         description="test description",
@@ -146,12 +149,17 @@ def get_experiment_with_map_data_type() -> Experiment:
     )
 
 
-def get_experiment_with_custom_runner_and_metric() -> Experiment:
+def get_experiment_with_custom_runner_and_metric(
+    constrain_search_space: bool = True,
+    immutable: bool = False,
+) -> Experiment:
 
     # Create experiment with custom runner and metric
     experiment = Experiment(
         name="test",
-        search_space=get_search_space(),
+        # Omit constraints to prevent Sobol rejection sampling below,
+        # which floods logs with "Unable to round" warnings.
+        search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=get_optimization_config(),
         description="test description",
         tracking_metrics=[
@@ -169,6 +177,9 @@ def get_experiment_with_custom_runner_and_metric() -> Experiment:
     trial.mark_running()
     experiment.attach_data(get_data(metric_name="custom_test_metric"))
     trial.mark_completed()
+
+    if immutable:
+        experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
 
     return experiment
 
@@ -467,8 +478,8 @@ def get_experiment_with_trial() -> Experiment:
     return trial.experiment
 
 
-def get_experiment_with_batch_trial() -> Experiment:
-    batch_trial = get_batch_trial()
+def get_experiment_with_batch_trial(constrain_search_space: bool = True) -> Experiment:
+    batch_trial = get_batch_trial(constrain_search_space=constrain_search_space)
     return batch_trial.experiment
 
 
@@ -750,20 +761,23 @@ def get_high_dimensional_branin_experiment() -> Experiment:
 ##############################
 
 
-def get_search_space() -> SearchSpace:
+def get_search_space(constrain_search_space: bool = True) -> SearchSpace:
     parameters: List[Parameter] = [
         get_range_parameter(),
         get_range_parameter2(),
         get_choice_parameter(),
         get_fixed_parameter(),
     ]
-    return SearchSpace(
-        parameters=parameters,
-        parameter_constraints=[
+    parameter_constraints = []
+    if constrain_search_space:
+        parameter_constraints = [
             get_order_constraint(),
             get_parameter_constraint(),
             get_sum_constraint1(),
-        ],
+        ]
+    return SearchSpace(
+        parameters=parameters,
+        parameter_constraints=parameter_constraints,
     )
 
 
@@ -1066,9 +1080,13 @@ def get_robust_search_space_environmental(
 
 
 def get_batch_trial(
-    abandon_arm: bool = True, experiment: Optional[Experiment] = None
+    abandon_arm: bool = True,
+    experiment: Optional[Experiment] = None,
+    constrain_search_space: bool = True,
 ) -> BatchTrial:
-    experiment = experiment or get_experiment()
+    experiment = experiment or get_experiment(
+        constrain_search_space=constrain_search_space
+    )
     batch = experiment.new_batch_trial()
     arms = get_arms_from_dict(get_arm_weights1())
     weights = get_weights_from_dict(get_arm_weights1())
