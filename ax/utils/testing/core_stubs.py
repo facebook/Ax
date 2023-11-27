@@ -98,6 +98,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
@@ -150,6 +151,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 
 def get_experiment_with_custom_runner_and_metric(
     constrain_search_space: bool = True,
+    immutable: bool = False,
 ) -> Experiment:
 
     # Create experiment with custom runner and metric
@@ -175,6 +177,9 @@ def get_experiment_with_custom_runner_and_metric(
     trial.mark_running()
     experiment.attach_data(get_data(metric_name="custom_test_metric"))
     trial.mark_completed()
+
+    if immutable:
+        experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
 
     return experiment
 
