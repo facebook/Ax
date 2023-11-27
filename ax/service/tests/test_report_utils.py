@@ -201,6 +201,20 @@ class ReportUtilsTest(TestCase):
         # the last trial should have NaN for rel_time_completed
         self.assertTrue(df["time_completed"].isnull().iloc[2])
 
+    def test_exp_to_df_with_failure(self) -> None:
+        fail_reason = "test reason"
+
+        # Set up experiment with a failed trial
+        exp = get_branin_experiment(with_trial=True)
+        exp.trials[0].run()
+        exp.trials[0].mark_failed(reason=fail_reason)
+
+        df = exp_to_df(exp)
+        self.assertEqual(
+            set(EXPECTED_COLUMNS + ["reason"]) - set(df.columns), {OBJECTIVE_NAME}
+        )
+        self.assertEqual(f"{fail_reason}...", df["reason"].iloc[0])
+
     def test_exp_to_df(self) -> None:
         # MultiTypeExperiment should fail
         exp = get_multi_type_experiment()
