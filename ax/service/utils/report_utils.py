@@ -838,6 +838,24 @@ def exp_to_df(
         df=arms_df, trials_dict=trial_to_status, column_name="trial_status"
     )
 
+    # Add trial reason for failed or abandoned trials
+    trial_to_reason = {
+        index: (
+            f"{trial.failed_reason[:15]}..."
+            if trial.status.is_failed and trial.failed_reason is not None
+            else f"{trial.abandoned_reason[:15]}..."
+            if trial.status.is_abandoned and trial.abandoned_reason is not None
+            else None
+        )
+        for index, trial in trials
+    }
+
+    _merge_trials_dict_with_df(
+        df=arms_df,
+        trials_dict=trial_to_reason,
+        column_name="reason",
+    )
+
     # Add generation_method, accounting for the generic case that generator_runs is of
     # arbitrary length. Repeated methods within a trial are condensed via `set` and an
     # empty set will yield "Unknown" as the method.
@@ -920,7 +938,7 @@ def exp_to_df(
 
     exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
     initial_column_order = (
-        ["trial_index", "arm_name", "trial_status", "generation_method"]
+        ["trial_index", "arm_name", "trial_status", "reason", "generation_method"]
         + (run_metadata_fields or [])
         + (trial_properties_fields or [])
     )
