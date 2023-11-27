@@ -223,6 +223,13 @@ class GenerationNode:
         """If True, this GenerationNode can generate unlimited trials."""
         return self._gen_unlimited_trials
 
+    @property
+    def is_completed(self) -> bool:
+        """Returns True if this GenerationNode is complete and should transition to
+        the next node.
+        """
+        return self.should_transition_to_next_node(raise_data_required_error=False)[0]
+
     def fit(
         self,
         experiment: Experiment,
@@ -391,13 +398,21 @@ class GenerationNode:
         if "AEPsych" in str(self) or any(
             "MinimumPreferenceOccurances" in name for name in criterion_names
         ):
-            return (
-                all(
-                    criterion.is_met(experiment=self.experiment)
-                    for criterion in self.transition_criteria
-                ),
-                None,
-            )
+            if all(
+                criterion.is_met(experiment=self.experiment)
+                for criterion in self.transition_criteria
+            ):
+                # legacy usecase criterion don't define `transition_to` but the
+                # assumption of this naming structure for steps hold for all legacy
+                # generation strategies.
+                next_node_name = (
+                    self.node_name.split("_")[0]
+                    + "_"
+                    + str(int(self.node_name.split("_")[-1]) + 1)
+                )
+                return True, next_node_name
+            else:
+                return False, None
 
         if self.gen_unlimited_trials and len(self.transition_criteria) == 0:
             return False, None
@@ -615,20 +630,20 @@ class GenerationStep(GenerationNode, SortableBase):
                     block_transition_if_unmet=True,
                 )
             )
-            if self.min_trials_observed > 0:
-                transition_criteria.append(
-                    MinTrials(
-                        only_in_statuses=[
-                            TrialStatus.COMPLETED,
-                            TrialStatus.EARLY_STOPPED,
-                        ],
-                        threshold=self.min_trials_observed,
-                        block_gen_if_met=False,
-                        block_transition_if_unmet=True,
-                    )
-                )
         else:
             gen_unlimited_trials = True
+        if self.min_trials_observed > 0:
+            transition_criteria.append(
+                MinTrials(
+                    only_in_statuses=[
+                        TrialStatus.COMPLETED,
+                        TrialStatus.EARLY_STOPPED,
+                    ],
+                    threshold=self.min_trials_observed,
+                    block_gen_if_met=False,
+                    block_transition_if_unmet=True,
+                )
+            )
         if self.max_parallelism is not None:
             transition_criteria.append(
                 MaxGenerationParallelism(
@@ -639,9 +654,10 @@ class GenerationStep(GenerationNode, SortableBase):
                     transition_to=None,
                 )
             )
+        # handle legacy completion_criteria, @mgarrard to revist after update
         if len(self.completion_criteria) > 0:
-            transition_criteria += self.completion_criteria
             gen_unlimited_trials = False
+        transition_criteria += self.completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],

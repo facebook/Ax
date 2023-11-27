@@ -483,22 +483,29 @@ class GenerationStrategy(Base):
         Returns:
             Whether generation strategy moved to the next step.
         """
-        move_to_next_step = self._curr.is_step_completed(
+        move_to_next_step, next_node = self._curr.should_transition_to_next_node(
             raise_data_required_error=raise_data_required_error
         )
         if move_to_next_step:
-            # If nothing left to gen or complete, move to next step if one is available.
-            if len(self._steps) == self._curr.index + 1:
+            assert (
+                self._curr.gen_unlimited_trials is False
+            ), "This node should never attempt to transition since"
+            " it can generate unlimited trials"
+            # TODO: @mgarrard clean up with legacy usecase removal
+            if all(node.is_completed for node in self._steps) and "AEPsych" not in str(
+                self._curr
+            ):
                 raise GenerationStrategyCompleted(
                     f"Generation strategy {self} generated all the trials as "
                     "specified in its steps."
                 )
-            self._curr = self._steps[self._curr.index + 1]
-            # Moving to the next step also entails unsetting this GS's model (since
-            # new step's model will be initialized for the first time; this is done in
-            # `self._fit_current_model).
-            self._model = None
-
+            for step in self._steps:
+                if step.node_name == next_node:
+                    self._curr = step
+                    # Moving to the next step also entails unsetting this GS's model
+                    # (since new step's model will be initialized for the first time;
+                    # this is done in `self._fit_current_model).
+                    self._model = None
         return move_to_next_step
 
     def _get_model_state_from_last_generator_run(self) -> Dict[str, Any]:
