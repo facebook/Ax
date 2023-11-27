@@ -1140,13 +1140,13 @@ def _warn_and_create_warning_plot(warning_msg: str) -> go.Figure:
 
 def _format_comparison_string(
     comparison_arm_name: str,
+    baseline_arm_name: str,
     objective_name: str,
     percent_change: float,
     baseline_value: float,
     comparison_value: float,
     digits: int,
 ) -> str:
-    baseline_arm_name = BASELINE_ARM_NAME
     return (
         f"{comparison_arm_name=} "
         + "improves your objective metric "
@@ -1186,6 +1186,7 @@ def _construct_comparison_message(
 
     return _format_comparison_string(
         comparison_arm_name=comparison_arm_name,
+        baseline_arm_name=BASELINE_ARM_NAME,
         objective_name=objective_name,
         percent_change=percent_change,
         baseline_value=baseline_value,

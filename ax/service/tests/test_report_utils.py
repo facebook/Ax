@@ -582,6 +582,7 @@ class ReportUtilsTest(TestCase):
 
             output_text = _format_comparison_string(
                 comparison_arm_name=comparison_arm_names[0],
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name=OBJECTIVE_METRIC,
                 percent_change=1150.0,
                 baseline_value=0.2,
@@ -645,6 +646,7 @@ class ReportUtilsTest(TestCase):
 
             output_text = _format_comparison_string(
                 comparison_arm_name=comparison_arm_names[0],
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name=OBJECTIVE_METRIC,
                 percent_change=1150.0,
                 baseline_value=0.2,
@@ -699,6 +701,7 @@ class ReportUtilsTest(TestCase):
 
             output_text = _format_comparison_string(
                 comparison_arm_name=comparison_arm_names[0],
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name=OBJECTIVE_METRIC,
                 percent_change=50.0,
                 baseline_value=0.2,
@@ -1008,6 +1011,7 @@ class ReportUtilsTest(TestCase):
             )
             output_text_0 = _format_comparison_string(
                 comparison_arm_name="opt_0",
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name="m0",
                 percent_change=150.0,
                 baseline_value=1.0,
@@ -1016,6 +1020,7 @@ class ReportUtilsTest(TestCase):
             )
             output_text_1 = _format_comparison_string(
                 comparison_arm_name="opt_1_min",
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name="m1",
                 percent_change=110.0,
                 baseline_value=1.0,
@@ -1024,6 +1029,7 @@ class ReportUtilsTest(TestCase):
             )
             output_text_3 = _format_comparison_string(
                 comparison_arm_name="opt_3",
+                baseline_arm_name=BASELINE_ARM_NAME,
                 objective_name="m3",
                 percent_change=1.0,
                 baseline_value=1.0,
