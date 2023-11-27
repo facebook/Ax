@@ -509,7 +509,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
     )
     def get_next_trial(
-        self, ttl_seconds: Optional[int] = None, force: bool = False
+        self,
+        ttl_seconds: Optional[int] = None,
+        force: bool = False,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> Tuple[TParameterization, int]:
         """
         Generate trial with the next set of parameters to try in the iteration process.
@@ -522,6 +525,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 failed properly.
             force: If set to True, this function will bypass the global stopping
                 strategy's decision and generate a new trial anyway.
+            fixed_features: An ObservationFeatures object containing any
+                features that should be fixed at specified values during
+                generation.
 
         Returns:
             Tuple of trial parameterization, trial index
@@ -544,7 +550,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         try:
             trial = self.experiment.new_trial(
-                generator_run=self._gen_new_generator_run(), ttl_seconds=ttl_seconds
+                generator_run=self._gen_new_generator_run(
+                    fixed_features=fixed_features
+                ),
+                ttl_seconds=ttl_seconds,
             )
         except MaxParallelismReachedException as e:
             if self._early_stopping_strategy is not None:
@@ -594,7 +603,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return self.generation_strategy.current_generator_run_limit()
 
     def get_next_trials(
-        self, max_trials: int, ttl_seconds: Optional[int] = None
+        self,
+        max_trials: int,
+        ttl_seconds: Optional[int] = None,
+        fixed_features: Optional[ObservationFeatures] = None,
     ) -> Tuple[Dict[int, TParameterization], bool]:
         """Generate as many trials as currently possible.
 
@@ -611,6 +623,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ttl_seconds: If specified, will consider the trial failed after this
                 many seconds. Used to detect dead trials that were not marked
                 failed properly.
+            fixed_features: An ObservationFeatures object containing any
+                features that should be fixed at specified values during
+                generation.
 
         Returns: two-item tuple of:
               - mapping from trial indices to parameterizations in those trials,
@@ -630,7 +645,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         trials_dict = {}
         for _ in range(max_trials):
             try:
-                params, trial_index = self.get_next_trial(ttl_seconds=ttl_seconds)
+                params, trial_index = self.get_next_trial(
+                    ttl_seconds=ttl_seconds, fixed_features=fixed_features
+                )
                 trials_dict[trial_index] = params
             except OptimizationComplete as err:
                 logger.info(
@@ -1747,11 +1764,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         completed_indices.append(0)  # handle case of no completed trials
         return max(completed_indices)
 
-    def _gen_new_generator_run(self, n: int = 1) -> GeneratorRun:
+    def _gen_new_generator_run(
+        self, n: int = 1, fixed_features: Optional[ObservationFeatures] = None
+    ) -> GeneratorRun:
         """Generate new generator run for this experiment.
 
         Args:
             n: Number of arms to generate.
+            fixed_features: An ObservationFeatures object containing any
+                features that should be fixed at specified values during
+                generation.
         """
         # If random seed is not set for this optimization, context manager does
         # nothing; otherwise, it sets the random seed for torch, but only for the
@@ -1765,6 +1787,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 parameters={}, trial_index=self._get_last_completed_trial_index()
             )
         )
+        if fixed_features:
+            fixed_feats.update_features(fixed_features)
         with manual_seed(seed=self._random_seed):
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
