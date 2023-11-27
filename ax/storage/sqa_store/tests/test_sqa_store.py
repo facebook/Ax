@@ -11,7 +11,7 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
-from ax.core.batch_trial import LifecycleStage
+from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -76,7 +76,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -210,7 +210,9 @@ class SQAStoreTest(TestCase):
     # load experiments with custom runners and metrics without a decoder.
     def test_LoadExperimentSkipMetricsAndRunners(self) -> None:
         # Create a test experiment with a custom metric and runner.
-        experiment = get_experiment_with_custom_runner_and_metric()
+        experiment = get_experiment_with_custom_runner_and_metric(
+            constrain_search_space=False
+        )
 
         # Note that the experiment is created outside of the test code.
         # Confirm that it uses the custom runner and metric
@@ -293,13 +295,14 @@ class SQAStoreTest(TestCase):
         _mock_exp_from_sqa.reset_mock()
 
         # 2. Try case with abandoned arms.
-        exp = self.experiment
+        exp = get_experiment_with_batch_trial(constrain_search_space=False)
         save_experiment(exp)
         loaded_experiment = load_experiment(exp.name, reduced_state=True)
         # Experiments are not the same, because one has abandoned arms info.
         self.assertNotEqual(loaded_experiment, exp)
         # Remove all abandoned arms and check that all else is equal as expected.
-        exp.trials.get(0)._abandoned_arms_metadata = {}
+        t = checked_cast(BatchTrial, exp.trials[0])
+        t._abandoned_arms_metadata = {}
         self.assertEqual(loaded_experiment, exp)
         # Make sure that all relevant decoding functions were called with
         # `reduced_state=True` and correct number of times.
@@ -1615,7 +1618,7 @@ class SQAStoreTest(TestCase):
         _mock_get_gs_sqa_imm_oc_ss,
         _mock_gr_from_sqa,
     ) -> None:
-        experiment = get_experiment_with_batch_trial()
+        experiment = get_experiment_with_batch_trial(constrain_search_space=False)
         experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
         save_experiment(experiment)
 
