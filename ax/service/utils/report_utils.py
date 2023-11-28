@@ -1186,7 +1186,7 @@ def _construct_comparison_message(
 
     return _format_comparison_string(
         comparison_arm_name=comparison_arm_name,
-        baseline_arm_name=BASELINE_ARM_NAME,
+        baseline_arm_name=baseline_arm_name,
         objective_name=objective_name,
         percent_change=percent_change,
         baseline_value=baseline_value,
@@ -1220,6 +1220,7 @@ def maybe_extract_baseline_comparison_values(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig],
     comparison_arm_names: Optional[List[str]],
+    baseline_arm_name: Optional[str],
 ) -> Optional[List[Tuple[str, bool, str, float, str, float]]]:
     """
     Extracts the baseline values from the experiment, for use in
@@ -1263,11 +1264,12 @@ def maybe_extract_baseline_comparison_values(
         logger.info("compare_to_baseline: comparison_arm_df has no rows.")
         return None
 
-    baseline_arm_name = (
-        BASELINE_ARM_NAME
-        if not experiment.status_quo
-        else not_none(experiment.status_quo).name
-    )
+    if baseline_arm_name is None:
+        baseline_arm_name = (
+            BASELINE_ARM_NAME
+            if not experiment.status_quo
+            else not_none(experiment.status_quo).name
+        )
 
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
     if len(baseline_rows) == 0:
@@ -1320,15 +1322,16 @@ def compare_to_baseline(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig],
     comparison_arm_names: Optional[List[str]],
+    baseline_arm_name: Optional[str] = None,
 ) -> Optional[str]:
     """Calculate metric improvement of the experiment against baseline.
     Returns the message(s) added to markdown_messages"""
-    # TODO: add baseline_arm_name as a parameter
 
     comparison_list = maybe_extract_baseline_comparison_values(
         experiment=experiment,
         optimization_config=optimization_config,
         comparison_arm_names=comparison_arm_names,
+        baseline_arm_name=baseline_arm_name,
     )
     if not comparison_list:
         return None

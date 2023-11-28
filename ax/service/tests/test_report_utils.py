@@ -662,13 +662,19 @@ class ReportUtilsTest(TestCase):
         obtains the objective metric values based
         on the provided OptimizationConfig, and
         produces the intended text.
-        For the minimize case
+        For the minimize case.
+        Also will use a custom baseline arm name.
         """
         self.maxDiff = None
         OBJECTIVE_METRIC = "foo"
+        custom_baseline_arm_name = "custom_baseline"
 
         data = [
-            {"trial_index": 0, "arm_name": BASELINE_ARM_NAME, OBJECTIVE_METRIC: 0.2},
+            {
+                "trial_index": 0,
+                "arm_name": custom_baseline_arm_name,
+                OBJECTIVE_METRIC: 0.2,
+            },
             {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
             {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 0.1},
             {"trial_index": 3, "arm_name": "bad_optimal", OBJECTIVE_METRIC: 1.0},
@@ -697,11 +703,12 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 optimization_config=None,
                 comparison_arm_names=comparison_arm_names,
+                baseline_arm_name=custom_baseline_arm_name,
             )
 
             output_text = _format_comparison_string(
                 comparison_arm_name=comparison_arm_names[0],
-                baseline_arm_name=BASELINE_ARM_NAME,
+                baseline_arm_name=custom_baseline_arm_name,
                 objective_name=OBJECTIVE_METRIC,
                 percent_change=50.0,
                 baseline_value=0.2,
