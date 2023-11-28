@@ -55,7 +55,8 @@ class TestSurrogateRunner(TestCase):
         trial = Trial(experiment=MagicMock())
         trial.add_arm(Arm({"x": 2.5, "y": 10.0, "z": 1.0}, name="0_0"))
         run_output = runner.run(trial)
-        self.assertEqual(run_output["dummy metric"]["0_0"].item(), 0.0)
+        self.assertEqual(run_output["dummy metric"]["0_0"], 0.0)
+        self.assertIsInstance(run_output["dummy metric"]["0_0"], float)
         surrogate.predict.assert_called_once()
         X = surrogate.predict.call_args[1]["X"]
         self.assertTrue(torch.allclose(X, torch.tensor([[2.5, 1.0, 0.0]])))
