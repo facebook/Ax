@@ -17,7 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.utils import extend_pending_observations
-from ax.exceptions.core import DataRequiredError, NoDataError, UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 
 from ax.modelbridge.base import ModelBridge
@@ -457,7 +457,6 @@ class GenerationStrategy(Base):
 
         self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
         self._model = self._curr.model_spec.fitted_model
-        self._check_previous_required_observation(data=data)
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
         """Moves this generation strategy to next step if the current step is completed,
@@ -530,21 +529,3 @@ class GenerationStrategy(Base):
                 )
 
         return model_state_on_lgr
-
-    def _check_previous_required_observation(self, data: Data) -> None:
-        previous_step_req_observations = (
-            self._curr.index > 0
-            and self._steps[self._curr.index - 1].min_trials_observed > 0
-        )
-        # If previous step required observed data, we should raise an error even if
-        # enough trials were completed. Such an empty data case does indicate an
-        # invalid state; this check is to improve the experience of detecting and
-        # debugging the invalid state that led to this.
-        if data.df.empty and previous_step_req_observations:
-            raise NoDataError(
-                f"Observed data is required for generation node {self._curr.node_name},"
-                f"(model {self._curr.model_to_gen_from_name}), but fetched data was "
-                "empty. Something is wrong with experiment setup -- likely metrics "
-                "do not implement fetching logic (check your metrics) or no data "
-                "was attached to experiment for completed trials."
-            )
