@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
+from logging import Logger
 from unittest.mock import patch, PropertyMock
 
 from ax.core.observation import ObservationFeatures
@@ -17,9 +19,12 @@ from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
+from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
+
+logger: Logger = get_logger(__name__)
 
 
 class TestGenerationNode(TestCase):
@@ -181,6 +186,37 @@ class TestGenerationNode(TestCase):
             ],
         )
         self.assertEqual(node.fixed_features, ObservationFeatures(parameters={"x": 0}))
+
+    def test_generator_run_limit_unlimited_without_flag(self) -> None:
+        """This tests checks that when the `gen_unlimited_trials` flag is false
+        but there are no generation blocking criteria, then the generator run limit
+        is set to -1 and a warning is logged.
+        """
+        node = GenerationNode(
+            node_name="test",
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.GPEI,
+                    model_kwargs={},
+                    model_gen_kwargs={
+                        "n": -1,
+                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
+                    },
+                ),
+            ],
+            gen_unlimited_trials=False,
+        )
+        warning_msg = (
+            "Even though this node is not flagged for generation of unlimited "
+            "trials, there are no generation blocking criterion, therefore, "
+            "unlimited trials will be generated."
+        )
+        with self.assertLogs(GenerationNode.__module__, logging.WARNING) as logger:
+            self.assertEqual(node.generator_run_limit(), -1)
+            self.assertTrue(
+                any(warning_msg in output for output in logger.output),
+                logger.output,
+            )
 
 
 class TestGenerationStep(TestCase):
