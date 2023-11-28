@@ -308,7 +308,7 @@ class GenerationStrategy(Base):
             return 0, True
 
         # if the generation strategy is not complete, optimization is not complete
-        return self._curr.get_generator_run_limit(), False
+        return self._curr.generator_run_limit(), False
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
