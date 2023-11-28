@@ -12,6 +12,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 from ax.core.types import TEvaluationOutcome
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient, TParameterization
 from ax.service.interactive_loop import interactive_optimize_with_client
 from ax.utils.common.testutils import TestCase
@@ -99,7 +101,11 @@ class TestInteractiveLoop(TestCase):
                 },
             )
 
-        ax_client = AxClient()
+        # GS with lo max parallelismm to induce MaxParallelismException:
+        generation_strategy = GenerationStrategy(
+            steps=[GenerationStep(model=Models.SOBOL, max_parallelism=1, num_trials=-1)]
+        )
+        ax_client = AxClient(generation_strategy=generation_strategy)
         ax_client.create_experiment(
             name="hartmann_test_experiment",
             # pyre-fixme[6]
@@ -115,9 +121,6 @@ class TestInteractiveLoop(TestCase):
             tracking_metric_names=["l2norm"],
             minimize=True,
         )
-
-        # Lower max parallelism to induce MaxParallelismException
-        ax_client.generation_strategy._steps[0].max_parallelism = 1
 
         with self.assertLogs(logger="ax", level=WARN) as logger:
             interactive_optimize_with_client(
