@@ -468,7 +468,7 @@ class GenerationNode:
             return True, transition_nodes[0]
         return False, None
 
-    def generator_run_limit(self) -> int:
+    def generator_run_limit(self, supress_generation_errors: bool = True) -> int:
         """How many generator runs can this generation strategy generate right now,
         assuming each one of them becomes its own trial. Only considers
         `transition_criteria` that are TrialBasedCriterion.
@@ -486,14 +486,42 @@ class GenerationNode:
             }:
                 valid_criterion.append(criterion)
 
+        # TODO: @mgarrard Should we consider returning `None` if there is no limit?
+        # TODO:@mgarrard Should we instead have `raise_generation_error`? The name
+        # of this method doesn't suggest that it would raise errors by default, since
+        # it's just finding out the limit according to the name. I know we want the
+        # errors in some cases, so we could call the flag `raise_error_if_cannot_gen` or
+        # something like that : )
+        trial_based_gen_blocking_criteria = [
+            criterion
+            for criterion in valid_criterion
+            if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
+        ]
         gen_blocking_criterion_delta_from_threshold = [
             criterion.num_till_threshold(
                 experiment=self.experiment, trials_from_node=self.trials_from_node
             )
-            for criterion in valid_criterion
-            if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
+            for criterion in trial_based_gen_blocking_criteria
         ]
 
+        # Raise any necessary generation errors: for any met criterion,
+        # call its `block_continued_generation_error` method The method might not
+        # raise an error, depending on its implementation on given criterion, so the
+        # error from the first met one that does block continued generation, will be
+        # raised.
+        if not supress_generation_errors:
+            for criterion in trial_based_gen_blocking_criteria:
+                # TODO[mgarrard]: Raise a group of all the errors, from each gen-
+                # blocking transition criterion.
+                if criterion.is_met(
+                    self.experiment, trials_from_node=self.trials_from_node
+                ):
+                    criterion.block_continued_generation_error(
+                        node_name=self.node_name,
+                        model_name=self.model_to_gen_from_name,
+                        experiment=self.experiment,
+                        trials_from_node=self.trials_from_node,
+                    )
         if len(gen_blocking_criterion_delta_from_threshold) == 0:
             if not self.gen_unlimited_trials:
                 logger.warning(

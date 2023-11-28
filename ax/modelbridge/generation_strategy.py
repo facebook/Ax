@@ -396,21 +396,13 @@ class GenerationStrategy(Base):
         self._maybe_move_to_next_step()
         self._fit_current_model(data=data)
 
-        # Make sure to not make too many generator runs and
-        # exceed maximum allowed paralellism for the step.
-        num_until_max_parallelism = (
-            self._curr.num_remaining_trials_until_max_parallelism()
-        )
-        if num_until_max_parallelism is not None:
-            num_generator_runs = min(num_generator_runs, num_until_max_parallelism)
-
-        # Make sure not to extend number of trials expected in step.
-        if self._curr.enforce_num_trials and self._curr.num_trials > 0:
-            num_generator_runs = min(
-                num_generator_runs,
-                self._curr.num_trials - self._curr.num_can_complete,
-            )
-
+        # Get GeneratorRun limit that respects the node's transition criterion that
+        # affect the number of generator runs that can be produced.
+        gr_limit = self._curr.generator_run_limit(supress_generation_errors=False)
+        if gr_limit == -1:
+            num_generator_runs = max(num_generator_runs, 1)
+        else:
+            num_generator_runs = max(min(num_generator_runs, gr_limit), 1)
         generator_runs = []
         pending_observations = deepcopy(pending_observations) or {}
         for _ in range(num_generator_runs):
