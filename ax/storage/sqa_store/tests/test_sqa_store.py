@@ -564,7 +564,11 @@ class SQAStoreTest(TestCase):
                 # decoding. Removing subclass from original object here
                 # for parity with the expected decoded (converted) object.
                 original_object._properties.pop(Keys.SUBCLASS)
-
+            # if class_ == "BenchmarkMethod":
+            #     # Some fields of the reloaded GS are not expected to be set (both will
+            #     # be set during next model fitting call), so we unset them on the
+            #     # original GS as well.
+            #     original_object.generation_strategy._unset_non_persistent_state_fields()
             self.assertEqual(
                 original_object,
                 converted_object,
