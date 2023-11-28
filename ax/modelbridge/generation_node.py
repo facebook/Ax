@@ -38,6 +38,7 @@ from ax.modelbridge.transition_criterion import (
     MaxTrials,
     MinTrials,
     TransitionCriterion,
+    TrialBasedCriterion,
 )
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
@@ -466,6 +467,42 @@ class GenerationNode:
                 )
             return True, transition_nodes[0]
         return False, None
+
+    def generator_run_limit(self) -> int:
+        """How many generator runs can this generation strategy generate right now,
+        assuming each one of them becomes its own trial. Only considers
+        `transition_criteria` that are TrialBasedCriterion.
+
+        Returns:
+              - the number of generator runs that can currently be produced, with -1
+                meaning unlimited generator runs,
+        """
+        # TODO @mgarrard remove filter when legacy usecases are updated
+        valid_criterion = []
+        for criterion in self.transition_criteria:
+            if criterion.criterion_class not in {
+                "MinAsks",
+                "RunIndefinitely",
+            }:
+                valid_criterion.append(criterion)
+
+        gen_blocking_criterion_delta_from_threshold = [
+            criterion.num_till_threshold(
+                experiment=self.experiment, trials_from_node=self.trials_from_node
+            )
+            for criterion in valid_criterion
+            if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
+        ]
+
+        if len(gen_blocking_criterion_delta_from_threshold) == 0:
+            if not self.gen_unlimited_trials:
+                logger.warning(
+                    "Even though this node is not flagged for generation of unlimited "
+                    "trials, there are no generation blocking criterion, therefore, "
+                    "unlimited trials will be generated."
+                )
+            return -1
+        return min(gen_blocking_criterion_delta_from_threshold)
 
     def __repr__(self) -> str:
         "String representation of this GenerationNode"
