@@ -508,11 +508,15 @@ class GenerationStrategy(Base):
         # split them per-model there.
         model_state_on_lgr = {}
         model_on_curr = self._curr.model_enum
-        if (
-            lgr is not None
-            and lgr._generation_step_index == self._curr.index
-            and lgr._model_state_after_gen
-        ):
+        if lgr is None:
+            return model_state_on_lgr
+
+        if all(isinstance(s, GenerationStep) for s in self._steps):
+            grs_equal = lgr._generation_step_index == self._curr.index
+        else:
+            grs_equal = lgr._generation_node_name == self._curr.node_name
+
+        if grs_equal and lgr._model_state_after_gen:
             if self.model or isinstance(model_on_curr, ModelRegistryBase):
                 # TODO[drfreund]: Consider moving this to `GenerationStep` or
                 # `GenerationNode`.
