@@ -10,13 +10,6 @@ from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase
 
-MULTI_OBJECTIVE_REPR = """
-MultiObjective(objectives=
-[Objective(metric_name="m1", minimize=False),
-Objective(metric_name="m2", minimize=True),
-Objective(metric_name="m3", minimize=False)])
-"""
-
 
 class ObjectiveTest(TestCase):
     def setUp(self) -> None:

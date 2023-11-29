@@ -21,8 +21,8 @@ EXPERIMENT_IS_TEST_WARNING = (
 # -------------------------- Error messages --------------------------
 
 
-UNEXPECTED_METRIC_COMBINATION = """
-Unexpected combination of dummy base `Metric` class metrics and `Metric`
+UNEXPECTED_METRIC_COMBINATION = """\
+Unexpected combination of dummy base `Metric` class metrics and `Metric` \
 subclasses with defined fetching logic.
 """
 
