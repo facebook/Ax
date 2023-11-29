@@ -159,7 +159,7 @@ class GenerationStrategy(Base):
         """Current model in this strategy. Returns None if no model has been set
         yet (i.e., if no generator runs have been produced from this GS).
         """
-        return self._curr.model_spec._fitted_model
+        return self._curr._fitted_model
 
     @property
     def experiment(self) -> Experiment:
@@ -456,7 +456,7 @@ class GenerationStrategy(Base):
             logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
 
         self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
-        self._model = self._curr.model_spec.fitted_model
+        self._model = self._curr._fitted_model
 
     def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
         """Moves this generation strategy to next step if the current step is completed,
@@ -507,7 +507,7 @@ class GenerationStrategy(Base):
         # Potential solution: store generator runs on `GenerationNode`-s and
         # split them per-model there.
         model_state_on_lgr = {}
-        model_on_curr = self._curr.model
+        model_on_curr = self._curr.model_enum
         if (
             lgr is not None
             and lgr._generation_step_index == self._curr.index

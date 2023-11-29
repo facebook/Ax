@@ -317,6 +317,11 @@ class JSONStoreTest(TestCase):
 
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
+            if class_ == "BenchmarkMethod":
+                # Some fields of the reloaded GS are not expected to be set (both will
+                # be set during next model fitting call), so we unset them on the
+                # original GS as well.
+                original_object.generation_strategy._unset_non_persistent_state_fields()
             if isinstance(original_object, torch.nn.Module):
                 self.assertIsInstance(
                     converted_object,
@@ -407,6 +412,10 @@ class JSONStoreTest(TestCase):
             decoder_registry=CORE_DECODER_REGISTRY,
             class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
         )
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertGreater(len(new_generation_strategy._steps), 0)
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)

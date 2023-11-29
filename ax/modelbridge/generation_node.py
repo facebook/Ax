@@ -171,6 +171,15 @@ class GenerationNode:
         return self.model_spec_to_gen_from.fitted_model
 
     @property
+    def _fitted_model(self) -> Optional[ModelBridge]:
+        """Private property to return optional fitted_model from
+        self.model_spec_to_gen_from for convenience. If no model is fit,
+        will return None. If using the non-private `fitted_model` property,
+        and no model is fit, a UserInput error will be raised.
+        """
+        return self.model_spec_to_gen_from._fitted_model
+
+    @property
     def fixed_features(self) -> Optional[ObservationFeatures]:
         """fixed_features from self.model_spec_to_gen_from for convenience"""
         if len({model_spec.fixed_features for model_spec in self.model_specs}) == 1:
