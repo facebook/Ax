@@ -1013,8 +1013,8 @@ class ReportUtilsTest(TestCase):
             comparison_arm_names = ["opt_0", "opt_1_min", "opt_3"]
 
             preamble = (
-                "Each of the following arms optimizes a different "
-                "objective metric.<br>"
+                "Below is the greatest improvement, if any,"
+                " achieved for each objective metric \n"
             )
             output_text_0 = _format_comparison_string(
                 comparison_arm_name="opt_0",
@@ -1054,10 +1054,11 @@ class ReportUtilsTest(TestCase):
 
             expected_result = (
                 preamble
+                + " * "
                 + output_text_0
-                + "<br>"
+                + " * "
                 + output_text_1
-                + "<br>"
+                + " * "
                 + output_text_3
             )
 

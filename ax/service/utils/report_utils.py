@@ -1148,12 +1148,10 @@ def _format_comparison_string(
     digits: int,
 ) -> str:
     return (
-        f"{comparison_arm_name=} "
-        + "improves your objective metric "
-        + f"{objective_name} by {percent_change:.2f}%. "
-        + f" {baseline_arm_name=} was improved "
-        + f"from {baseline_value=:.{digits}f}"
-        + f" to {comparison_value=:.{digits}f}"
+        "**Metric "
+        f"`{objective_name}` improved {percent_change:.{digits}f}%** "
+        f"from `{baseline_value:.{digits}f}` in arm `'{baseline_arm_name}'` "
+        f"to `{comparison_value:.{digits}f}` in arm `'{comparison_arm_name}'`.\n "
     )
 
 
@@ -1339,17 +1337,17 @@ def compare_to_baseline(
     result_message = ""
     if len(comparison_list) > 1:
         result_message = (
-            "Each of the following arms optimizes a different "
-            + "objective metric.<br>"
+            "Below is the greatest improvement, if any,"
+            " achieved for each objective metric \n"
         )
 
-    for idx, result_tuple in enumerate(comparison_list):
+    for _, result_tuple in enumerate(comparison_list):
         comparison_message = _construct_comparison_message(*result_tuple)
         if comparison_message:
             result_message = (
                 result_message
+                + (" * " if len(comparison_list) > 1 else "")
                 + not_none(comparison_message)
-                + ("<br>" if idx != len(comparison_list) - 1 else "")
             )
 
     return result_message if result_message else None
