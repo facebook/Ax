@@ -95,6 +95,7 @@ class TestScheduler(TestCase):
             model_std_quality=float("-inf"),
             model_fit_generalization=float("-inf"),
             model_std_generalization=float("-inf"),
+            improvement_over_baseline=float("-inf"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -110,6 +111,7 @@ class TestScheduler(TestCase):
             "model_std_quality": float("-inf"),
             "model_fit_generalization": float("-inf"),
             "model_std_generalization": float("-inf"),
+            "improvement_over_baseline": float("-inf"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
@@ -181,6 +183,7 @@ class TestScheduler(TestCase):
             model_std_quality=model_std_quality,
             model_fit_generalization=float("-inf"),
             model_std_generalization=float("-inf"),
+            improvement_over_baseline=float("-inf"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -196,6 +199,7 @@ class TestScheduler(TestCase):
             "model_std_quality": model_std_quality,
             "model_fit_generalization": float("-inf"),
             "model_std_generalization": float("-inf"),
+            "improvement_over_baseline": float("-inf"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
