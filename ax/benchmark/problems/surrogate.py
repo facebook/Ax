@@ -290,7 +290,7 @@ class SurrogateRunner(Runner):
             for arm in trial.arms
         }
         return {
-            metric_name: {arm_name: pred[i] for arm_name, pred in preds.items()}
+            metric_name: {arm_name: float(pred[i]) for arm_name, pred in preds.items()}
             for i, metric_name in enumerate(self.metric_names)
         }
 
