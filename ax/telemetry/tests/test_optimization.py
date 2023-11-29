@@ -156,6 +156,7 @@ class TestOptimization(TestCase):
             "estimated_early_stopping_savings": 19,
             "estimated_global_stopping_savings": 98,
             # Extra fields
+            "improvement_over_baseline": float("-inf"),
             "num_metric_fetch_e_encountered": -1,
             "num_trials_bad_due_to_err": -1,
         }

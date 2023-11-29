@@ -305,6 +305,8 @@ class OptimizationCompletedRecord:
     model_fit_generalization: float
     model_std_generalization: float
 
+    improvement_over_baseline: float
+
     num_metric_fetch_e_encountered: int
     num_trials_bad_due_to_err: int
 
@@ -348,6 +350,9 @@ class OptimizationCompletedRecord:
             total_gen_time=experiment_completed_record.total_gen_time,
             best_point_quality=scheduler_completed_record.best_point_quality,
             **_extract_model_fit_dict(scheduler_completed_record),
+            improvement_over_baseline=(
+                scheduler_completed_record.improvement_over_baseline
+            ),
             num_metric_fetch_e_encountered=(
                 scheduler_completed_record.num_metric_fetch_e_encountered
             ),
@@ -397,6 +402,7 @@ class OptimizationCompletedRecord:
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
             # The following are not applicable for AxClient
+            improvement_over_baseline=float("-inf"),
             num_metric_fetch_e_encountered=-1,
             num_trials_bad_due_to_err=-1,
         )

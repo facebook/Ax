@@ -105,6 +105,8 @@ class SchedulerCompletedRecord:
     model_fit_generalization: float
     model_std_generalization: float
 
+    improvement_over_baseline: float
+
     num_metric_fetch_e_encountered: int
     num_trials_bad_due_to_err: int
 
@@ -141,6 +143,7 @@ class SchedulerCompletedRecord:
             model_std_quality=model_std_quality,
             model_fit_generalization=float("-inf"),  # TODO by cross_validate_by_trial
             model_std_generalization=float("-inf"),
+            improvement_over_baseline=float("-inf"),  # TODO extract improvement result
             num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
             num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
         )
