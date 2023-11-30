@@ -14,16 +14,19 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.utils import extend_pending_observations
+from ax.core.utils import (
+    extend_pending_observations,
+    get_pending_observation_features_based_on_trial_status,
+)
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyCompleted
 
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
-from ax.utils.common.base import Base
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -39,7 +42,7 @@ MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
 )
 
 
-class GenerationStrategy(Base):
+class GenerationStrategy(GenerationStrategyInterface):
     """GenerationStrategy describes which model should be used to generate new
     points for which trials, enabling and automating use of different models
     throughout the optimization process. For instance, it allows to use one
@@ -192,14 +195,6 @@ class GenerationStrategy(Base):
         return not self._uses_registered_models
 
     @property
-    def last_generator_run(self) -> Optional[GeneratorRun]:
-        """Latest generator run produced by this generation strategy.
-        Returns None if no generator runs have been produced yet.
-        """
-        # Used to restore current model when decoding a serialized GS.
-        return self._generator_runs[-1] if self._generator_runs else None
-
-    @property
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
         viewing. For example:
@@ -286,6 +281,53 @@ class GenerationStrategy(Base):
             pending_observations=pending_observations,
             **kwargs,
         )[0]
+
+    def gen_for_multiple_trials_with_multiple_models(
+        self,
+        experiment: Experiment,
+        num_generator_runs: int,
+        data: Optional[Data] = None,
+        n: int = 1,
+    ) -> List[List[GeneratorRun]]:
+        """Produce GeneratorRuns for multiple trials at once with the possibility of
+        ensembling, or using multiple models per trial, getting multiple
+        GeneratorRuns per trial.
+
+        NOTE: This method is in development.  Please do not use it yet.
+
+        Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run in the course of `gen`, and to which that
+                generator run will be added as trial(s). Information stored on the
+                experiment (e.g., trial statuses) is used to determine which model
+                will be used to produce the generator run returned from this method.
+            data: Optional data to be passed to the underlying model's `gen`, which
+                is called within this method and actually produces the resulting
+                generator run. By default, data is all data on the `experiment`.
+            n: Integer representing how many trials should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the ``n`` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from ``n``.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+
+        Returns:
+            A list of lists of lists generator runs. Each outer list represents
+            a trial being suggested and  each inner list represents a generator
+            run for that trial.
+        """
+        grs = self._gen_multiple(
+            experiment=experiment,
+            num_generator_runs=num_generator_runs,
+            data=data,
+            n=n,
+            pending_observations=get_pending_observation_features_based_on_trial_status(
+                experiment=experiment
+            ),
+        )
+        return [[gr] for gr in grs]
 
     def current_generator_run_limit(
         self,

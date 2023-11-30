@@ -32,6 +32,7 @@ import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -1730,7 +1731,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: Optional[GenerationStrategyInterface] = None,
         suppress_all_errors: bool = False,
     ) -> bool:
         return super()._save_generation_strategy_to_db_if_possible(

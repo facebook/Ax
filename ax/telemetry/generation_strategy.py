@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from math import inf
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
-
 from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
 

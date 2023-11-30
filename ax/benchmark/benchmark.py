@@ -104,7 +104,7 @@ def benchmark_replication(
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
     optimization_trace = np.array(scheduler.get_trace())
-    num_baseline_trials = scheduler.generation_strategy._steps[0].num_trials
+    num_baseline_trials = scheduler.standard_generation_strategy._steps[0].num_trials
     score_trace = compute_score_trace(
         optimization_trace=optimization_trace,
         num_baseline_trials=num_baseline_trials,
