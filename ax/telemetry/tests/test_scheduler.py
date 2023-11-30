@@ -45,7 +45,7 @@ class TestScheduler(TestCase):
             ),
             generation_strategy_created_record=(
                 GenerationStrategyCreatedRecord.from_generation_strategy(
-                    generation_strategy=scheduler.generation_strategy
+                    generation_strategy=scheduler.standard_generation_strategy
                 )
             ),
             scheduler_total_trials=0,
@@ -63,7 +63,7 @@ class TestScheduler(TestCase):
                 experiment=scheduler.experiment
             ).__dict__,
             **GenerationStrategyCreatedRecord.from_generation_strategy(
-                generation_strategy=scheduler.generation_strategy
+                generation_strategy=scheduler.standard_generation_strategy
             ).__dict__,
             "scheduler_total_trials": 0,
             "scheduler_max_pending_trials": 10,
