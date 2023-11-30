@@ -626,6 +626,7 @@ def get_experiment_with_observations(
     scalarized: bool = False,
     constrained: bool = False,
     with_tracking_metrics: bool = False,
+    search_space: Optional[SearchSpace] = None,
 ) -> Experiment:
     multi_objective = (len(observations[0]) - constrained) > 1
     if multi_objective:
@@ -680,8 +681,9 @@ def get_experiment_with_observations(
             )
         else:
             optimization_config = OptimizationConfig(objective=objective)
+    search_space = search_space or get_search_space_for_range_values(min=0.0, max=1.0)
     exp = Experiment(
-        search_space=get_search_space_for_range_values(min=0.0, max=1.0),
+        search_space=search_space,
         optimization_config=optimization_config,
         tracking_metrics=[
             Metric(name=f"m{len(observations[0])}", lower_is_better=False)
@@ -691,10 +693,10 @@ def get_experiment_with_observations(
         runner=SyntheticRunner(),
         is_test=True,
     )
+    sobol_generator = get_sobol(search_space=search_space)
     for i, obs in enumerate(observations):
         # Create a dummy trial to add the observation.
-        trial = exp.new_trial()
-        trial.add_arm(Arm({"x": i / 100.0, "y": i / 100.0}))
+        trial = exp.new_trial(generator_run=sobol_generator.gen(n=1))
         data = Data(
             df=pd.DataFrame.from_records(
                 [
