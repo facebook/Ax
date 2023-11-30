@@ -20,6 +20,13 @@ def init_notebook_plotting(offline: bool = False) -> None:
     display_bundle = {"text/html": _wrap_js(_js_requires(offline=offline))}
     display(display_bundle, raw=True)
     logger.info("Injecting Plotly library into cell. Do not overwrite or delete cell.")
+    logger.info(
+        """
+    Please see
+    (https://ax.dev/tutorials/visualizations.html#Fix-for-plots-that-are-not-rendering)
+    if visualizations are not rendering.
+    """.strip()
+    )
     init_notebook_mode()
 
 
