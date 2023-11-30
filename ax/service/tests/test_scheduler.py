@@ -59,6 +59,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_generator_run,
     get_sobol,
+    SpecialGenerationStrategy,
 )
 
 from pyre_extensions import none_throws
@@ -350,9 +351,10 @@ class TestAxScheduler(TestCase):
             ),
         )
 
-    @patch(
-        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
-        return_value=[get_generator_run()],
+    @patch.object(
+        GenerationStrategy,
+        "gen_for_multiple_trials_with_multiple_models",
+        return_value=[[get_generator_run()]],
     )
     def test_run_multi_arm_generator_run_error(self, mock_gen: Mock) -> None:
         scheduler = Scheduler(
@@ -366,7 +368,7 @@ class TestAxScheduler(TestCase):
     @patch(
         # Record calls to function, but still execute it.
         (
-            f"{Scheduler.__module__}."
+            f"{GenerationStrategy.__module__}."
             "get_pending_observation_features_based_on_trial_status"
         ),
         side_effect=get_pending_observation_features_based_on_trial_status,
@@ -987,8 +989,9 @@ class TestAxScheduler(TestCase):
         )
         self.assertEqual(scheduler.run_n_trials(max_trials=3), OptimizationResult())
 
-    @patch(
-        f"{GenerationStrategy.__module__}.GenerationStrategy._gen_multiple",
+    @patch.object(
+        GenerationStrategy,
+        "gen_for_multiple_trials_with_multiple_models",
         side_effect=OptimizationComplete("test error"),
     )
     def test_optimization_complete(self, _) -> None:
@@ -1327,7 +1330,7 @@ class TestAxScheduler(TestCase):
             with patch.object(
                 GenerationStrategy,
                 "_fit_current_model",
-                wraps=scheduler.generation_strategy._fit_current_model,
+                wraps=generation_strategy._fit_current_model,
             ) as fit_model:
                 get_fitted_model_bridge(scheduler)
                 fit_model.assert_called_once()
@@ -1359,3 +1362,25 @@ class TestAxScheduler(TestCase):
         )
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)
+
+    def test_standard_generation_strategy(self) -> None:
+        with self.subTest("with a `GenerationStrategy"):
+            # Tests standard GS creation.
+            scheduler = Scheduler(
+                experiment=self.branin_experiment,
+                generation_strategy=self.sobol_GPEI_GS,
+                options=SchedulerOptions(),
+            )
+            self.assertEqual(scheduler.standard_generation_strategy, self.sobol_GPEI_GS)
+
+        with self.subTest("with a `SpecialGenerationStrategy`"):
+            scheduler = Scheduler(
+                experiment=self.branin_experiment,
+                generation_strategy=SpecialGenerationStrategy(),
+                options=SchedulerOptions(),
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError,
+                "only supported with instances of `GenerationStrategy`",
+            ):
+                scheduler.standard_generation_strategy
