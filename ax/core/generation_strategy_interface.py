@@ -23,13 +23,12 @@ class GenerationStrategyInterface(ABC, Base):
     _experiment: Optional[Experiment] = None
 
     @abstractmethod
-    def gen_multiple_with_ensembling(
+    def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
         num_generator_runs: int,
         data: Optional[Data] = None,
         n: int = 1,
-        extra_gen_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[List[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         ensembling, or using multiple models per trial, getting multiple
@@ -52,8 +51,6 @@ class GenerationStrategyInterface(ABC, Base):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            extra_gen_metadata: A dictionary containing any additional metadata
-                to be attached to created GeneratorRuns.
 
         Returns:
             A list of lists of lists generator runs. Each outer list represents

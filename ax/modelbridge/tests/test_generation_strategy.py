@@ -797,6 +797,94 @@ class TestGenerationStrategy(TestCase):
                             for p in original_pending[m]:
                                 self.assertIn(p, pending[m])
 
+    def test_gen_for_multiple_trials_with_multiple_models(self) -> None:
+        exp = get_experiment_with_multi_objective()
+        sobol_GPEI_gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=5,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ]
+        )
+        with mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+            original_method=ModelSpec.gen,
+        ) as model_spec_gen_mock, mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.fit",
+            original_method=ModelSpec.fit,
+        ) as model_spec_fit_mock:
+            # Generate first four Sobol GRs (one more to gen after that if
+            # first four become trials.
+            grs = sobol_GPEI_gs.gen_for_multiple_trials_with_multiple_models(
+                experiment=exp, num_generator_runs=3
+            )
+        self.assertEqual(len(grs), 3)
+        for gr in grs:
+            self.assertEqual(len(gr), 1)
+            self.assertIsInstance(gr[0], GeneratorRun)
+
+        # We should only fit once; refitting for each `gen` would be
+        # wasteful as there is no new data.
+        model_spec_fit_mock.assert_called_once()
+        self.assertEqual(model_spec_gen_mock.call_count, 3)
+        pending_in_each_gen = enumerate(
+            args_and_kwargs.kwargs.get("pending_observations")
+            for args_and_kwargs in model_spec_gen_mock.call_args_list
+        )
+        for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+            exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
+            if idx > 0:
+                prev_grs = grs[idx - 1]
+                for arm in prev_grs[0].arms:
+                    for m in pending:
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+        model_spec_gen_mock.reset_mock()
+
+        # Check case with pending features initially specified; we should get two
+        # GRs now (remaining in Sobol step) even though we requested 3.
+        original_pending = not_none(get_pending(experiment=exp))
+        first_3_trials_obs_feats = [
+            ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
+            for idx, trial in exp.trials.items()
+            for a in trial.arms
+        ]
+        for m in original_pending:
+            self.assertTrue(
+                same_elements(original_pending[m], first_3_trials_obs_feats)
+            )
+
+        grs = sobol_GPEI_gs.gen_for_multiple_trials_with_multiple_models(
+            experiment=exp,
+            num_generator_runs=3,
+        )
+        self.assertEqual(len(grs), 2)
+        for gr in grs:
+            self.assertEqual(len(gr), 1)
+            self.assertIsInstance(gr[0], GeneratorRun)
+
+        pending_in_each_gen = enumerate(
+            args_and_kwargs[1].get("pending_observations")
+            for args_and_kwargs in model_spec_gen_mock.call_args_list
+        )
+        for gr, (idx, pending) in zip(grs, pending_in_each_gen):
+            exp.new_trial(generator_run=gr[0]).mark_running(no_runner_required=True)
+            if idx > 0:
+                prev_grs = grs[idx - 1]
+                for arm in prev_grs[0].arms:
+                    for m in pending:
+                        # In this case, we should see both the originally-pending
+                        # and the new arms as pending observation features.
+                        self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+                        for p in original_pending[m]:
+                            self.assertIn(p, pending[m])
+
     # ------------- Testing helpers (put tests above this line) -------------
 
     def _run_GS_for_N_rounds(
