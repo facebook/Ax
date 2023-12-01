@@ -29,6 +29,7 @@ from typing import (
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -161,7 +162,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     """
 
     experiment: Experiment
-    generation_strategy: GenerationStrategy
+    generation_strategy: GenerationStrategyInterface
     options: SchedulerOptions
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
@@ -205,7 +206,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def __init__(
         self,
         experiment: Experiment,
-        generation_strategy: GenerationStrategy,
+        generation_strategy: GenerationStrategyInterface,
         options: SchedulerOptions,
         db_settings: Optional[DBSettings] = None,
         _skip_experiment_save: bool = False,
@@ -220,7 +221,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         if not isinstance(experiment, Experiment):
             raise TypeError("{experiment} is not an Ax experiment.")
-        if not isinstance(generation_strategy, GenerationStrategy):
+        if not isinstance(generation_strategy, GenerationStrategyInterface):
             raise TypeError("{generation_strategy} is not a generation strategy.")
         self._validate_options(options=options)
 
@@ -381,6 +382,21 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         return not_none(self.experiment.runner)
 
+    @property
+    def standard_generation_strategy(self) -> GenerationStrategy:
+        """Used for operations in the scheduler that can only be done with
+        and instance of ``GenerationStrategy``.
+        """
+        gs = self.generation_strategy
+        if not isinstance(gs, GenerationStrategy):
+            raise NotImplementedError(
+                "This functionality is only supported with instances of "
+                "`GenerationStrategy` (one that uses `GenerationStrategy` "
+                "class) and not yet with other types of "
+                "`GenerationStrategyInterface`."
+            )
+        return gs
+
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
         if not hasattr(self, "experiment"):
@@ -446,7 +462,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_trial(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -461,7 +477,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -476,7 +492,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     ) -> float:
         return BestPointMixin._get_hypervolume(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -1449,12 +1465,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             List of trials, empty if generation is not possible.
         """
-        pending = get_pending_observation_features_based_on_trial_status(
-            experiment=self.experiment
-        )
         try:
             generator_runs = self._gen_new_trials_from_generation_strategy(
-                num_trials=num_trials, n=n, pending=pending
+                num_trials=num_trials, n=n
             )
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
@@ -1483,9 +1496,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.logger.debug(f"Message from generation strategy: {err}")
             return []
 
-        if (
-            self.options.trial_type == TrialType.TRIAL
-            and len(generator_runs[0].arms) > 1
+        if self.options.trial_type == TrialType.TRIAL and any(
+            len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
+            for generator_run_list in generator_runs
         ):
             raise SchedulerInternalError(
                 "Generation strategy produced multiple arms when only one was expected."
@@ -1493,32 +1506,30 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         return [
             self.experiment.new_batch_trial(
-                generator_run=generator_run,
+                generator_runs=generator_run_list,
                 ttl_seconds=self.options.ttl_seconds_for_trials,
             )
             if self.options.trial_type == TrialType.BATCH_TRIAL
             else self.experiment.new_trial(
-                generator_run=generator_run,
+                generator_run=generator_run_list[0],
                 ttl_seconds=self.options.ttl_seconds_for_trials,
             )
-            for generator_run in generator_runs
+            for generator_run_list in generator_runs
         ]
 
     def _gen_new_trials_from_generation_strategy(
         self,
         num_trials: int,
         n: int,
-        pending: Optional[Dict[str, List[ObservationFeatures]]],
-    ) -> List[GeneratorRun]:
+    ) -> List[List[GeneratorRun]]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
         into account any ``pending`` observations.
         """
-        return self.generation_strategy._gen_multiple(
+        return self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
             experiment=self.experiment,
             num_generator_runs=num_trials,
             n=n,
-            pending_observations=pending,
         )
 
     def _update_and_save_trials(
@@ -1853,7 +1864,7 @@ def get_fitted_model_bridge(scheduler: Scheduler) -> ModelBridge:
     Returns:
         A ModelBridge object fitted to the observations of the scheduler's experiment.
     """
-    gs = scheduler.generation_strategy  # GenerationStrategy
+    gs = scheduler.standard_generation_strategy
     model_bridge = gs.model  # Optional[ModelBridge]
     if model_bridge is None:  # Need to re-fit the model.
         data = scheduler.experiment.fetch_data()

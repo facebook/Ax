@@ -49,7 +49,7 @@ class SchedulerCreatedRecord:
             ),
             generation_strategy_created_record=(
                 GenerationStrategyCreatedRecord.from_generation_strategy(
-                    generation_strategy=scheduler.generation_strategy
+                    generation_strategy=scheduler.standard_generation_strategy
                 )
             ),
             scheduler_total_trials=scheduler.options.total_trials,
@@ -68,7 +68,7 @@ class SchedulerCreatedRecord:
             ),
             transformed_dimensionality=_get_max_transformed_dimensionality(
                 search_space=scheduler.experiment.search_space,
-                generation_strategy=scheduler.generation_strategy,
+                generation_strategy=scheduler.standard_generation_strategy,
             ),
         )
 
