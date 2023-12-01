@@ -34,7 +34,6 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -42,7 +41,6 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
 
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.core import (

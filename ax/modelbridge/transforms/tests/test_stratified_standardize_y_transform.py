@@ -17,9 +17,8 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
+from ax.modelbridge.transforms.tests.test_standardize_y_transform import osd_allclose
 from ax.utils.common.testutils import TestCase
-
-from .test_standardize_y_transform import osd_allclose
 
 
 class StratifiedStandardizeYTransformTest(TestCase):
