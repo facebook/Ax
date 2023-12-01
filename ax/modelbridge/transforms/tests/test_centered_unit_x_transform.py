@@ -4,8 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from ax.modelbridge.tests.test_unit_x_transform import UnitXTransformTest
 from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
+from ax.modelbridge.transforms.tests.test_unit_x_transform import UnitXTransformTest
 
 
 class CenteredUnitXTransformTest(UnitXTransformTest):
