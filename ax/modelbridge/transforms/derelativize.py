@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from logging import Logger
 from typing import List, Optional, TYPE_CHECKING
 
 import numpy as np
@@ -14,12 +15,16 @@ from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import modelbridge as modelbridge_module  # noqa F401
+
+
+logger: Logger = get_logger(__name__)
 
 
 class Derelativize(Transform):
@@ -59,22 +64,17 @@ class Derelativize(Transform):
                 "Optimization config has relative constraint, but model was "
                 "not fit with status quo."
             )
-        try:
-            f, _ = modelbridge.predict([modelbridge.status_quo.features])
-        except Exception:
-            # Check if it is out-of-design.
-            if use_raw_sq or not modelbridge.model_space.check_membership(
-                modelbridge.status_quo.features.parameters
-            ):
-                # Out-of-design: use the raw observation
-                sq_data = ivw_metric_merge(
-                    obsd=not_none(modelbridge.status_quo).data,
-                    conflicting_noiseless="raise",
-                )
-                f, _ = unwrap_observation_data([sq_data])
-            else:
-                # Should have worked.
-                raise
+
+        sq = not_none(modelbridge.status_quo)
+        # Only use model predictions if the status quo is in the search space (including
+        # parameter constraints) and `use_raw_sq` is false.
+        if not use_raw_sq and modelbridge.model_space.check_membership(
+            sq.features.parameters
+        ):
+            f, _ = modelbridge.predict([sq.features])
+        else:
+            sq_data = ivw_metric_merge(obsd=sq.data, conflicting_noiseless="raise")
+            f, _ = unwrap_observation_data([sq_data])
 
         # Plug in the status quo value to each relative constraint.
         for c in optimization_config.all_constraints:
