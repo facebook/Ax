@@ -8,6 +8,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
+from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -198,7 +199,9 @@ def get_model_times(experiment: Experiment) -> Tuple[float, float]:
 
 
 def get_pending_observation_features(
-    experiment: Experiment, include_failed_as_pending: bool = False
+    experiment: Experiment,
+    *,
+    include_out_of_design_points: bool = False,
 ) -> Optional[Dict[str, List[ObservationFeatures]]]:
     """Computes a list of pending observation features (corresponding to arms that
     have been generated and deployed in the course of the experiment, but have not
@@ -210,14 +213,23 @@ def get_pending_observation_features(
 
     Args:
         experiment: Experiment, pending features on which we seek to compute.
-        include_failed_as_pending: Whether to include failed trials as pending
-            (for example, to avoid the model suggesting them again).
+        include_out_of_design_points: By default, this function will not include
+            "out of design" points (those that are not in the search space) among
+            the pending points. This is because pending points are generally used to
+            help the model avoid re-suggesting the same points again. For points
+            outside of the search space, this will not happen, so they typically do
+            not need to be included. However, if the user wants to include them,
+            they can be included by setting this flag to ``True``.
 
     Returns:
         An optional mapping from metric names to a list of observation features,
         pending for that metric (i.e. do not have evaluation data for that metric).
         If there are no pending features for any of the metrics, return is None.
     """
+
+    def _is_in_design(arm: Arm) -> bool:
+        return experiment.search_space.check_membership(parameterization=arm.parameters)
+
     pending_features = {}
     # Note that this assumes that if a metric appears in fetched data, the trial is
     # not pending for the metric. Where only the most recent data matters, this will
@@ -227,50 +239,37 @@ def get_pending_observation_features(
         for metric_name in experiment.metrics:
             if metric_name not in pending_features:
                 pending_features[metric_name] = []
-            include_since_failed = include_failed_as_pending and trial.status.is_failed
-            if isinstance(trial, BatchTrial):
-                if trial.status.is_abandoned or (
-                    (trial.status.is_deployed or include_since_failed)
-                    and metric_name not in dat.df.metric_name.values
-                    and trial.arms is not None
-                ):
-                    for arm in trial.arms:
-                        not_none(pending_features.get(metric_name)).append(
-                            ObservationFeatures.from_arm(
-                                arm=arm,
-                                trial_index=np.int64(trial_index),
-                                metadata=trial._get_candidate_metadata(
-                                    arm_name=arm.name
-                                ),
-                            )
-                        )
-                abandoned_arms = trial.abandoned_arms
-                for abandoned_arm in abandoned_arms:
-                    not_none(pending_features.get(metric_name)).append(
+
+            if trial.status.is_abandoned or (
+                trial.status.is_deployed
+                and metric_name not in dat.df.metric_name.values
+                and trial.arms is not None
+            ):
+                for arm in trial.arms:
+                    # Do not add out-of-design points unless requested.
+                    if not include_out_of_design_points and not _is_in_design(arm=arm):
+                        continue
+                    pending_features[metric_name].append(
                         ObservationFeatures.from_arm(
-                            arm=abandoned_arm,
+                            arm=arm,
                             trial_index=np.int64(trial_index),
-                            metadata=trial._get_candidate_metadata(
-                                arm_name=abandoned_arm.name
-                            ),
+                            metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
 
-            if isinstance(trial, Trial):
-                if trial.status.is_abandoned or (
-                    (trial.status.is_deployed or include_since_failed)
-                    and metric_name not in dat.df.metric_name.values
-                    and trial.arm is not None
-                ):
+            # Also add abandoned arms as pending for all metrics.
+            if isinstance(trial, BatchTrial):
+                for arm in trial.abandoned_arms:
+                    if not include_out_of_design_points and not _is_in_design(arm=arm):
+                        continue
                     not_none(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
-                            arm=not_none(trial.arm),
+                            arm=arm,
                             trial_index=np.int64(trial_index),
-                            metadata=trial._get_candidate_metadata(
-                                arm_name=not_none(trial.arm).name
-                            ),
+                            metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
+
     return pending_features if any(x for x in pending_features.values()) else None
 
 

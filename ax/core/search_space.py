@@ -761,7 +761,6 @@ class HierarchicalSearchSpace(SearchSpace):
                 dummy_values_to_inject[param_name] = choice(param.values)
             elif isinstance(param, RangeParameter):
                 val = uniform(param.lower, param.upper)
-                print(val)
                 if param.parameter_type is ParameterType.INT:
                     val += 0.5
                 dummy_values_to_inject[param_name] = param.cast(val)
