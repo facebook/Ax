@@ -6,7 +6,7 @@
 
 from copy import deepcopy
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 from ax.core.data import Data
@@ -75,20 +75,13 @@ class DerelativizeTransformTest(TestCase):
             ]
         ),
     )
-    # pyre-fixme[3]: Return type must be annotated.
     def test_DerelativizeTransform(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_predict,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_fit,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_observations_from_data,
-    ):
-        t = Derelativize(
-            search_space=None,
-            observations=[],
-        )
+        mock_predict: Mock,
+        mock_fit: Mock,
+        mock_observations_from_data: Mock,
+    ) -> None:
+        t = Derelativize(search_space=None, observations=[])
 
         # ModelBridge with in-design status quo
         search_space = SearchSpace(
@@ -167,6 +160,13 @@ class DerelativizeTransformTest(TestCase):
         obsf = mock_predict.mock_calls[0][1][1][0]
         obsf2 = ObservationFeatures(parameters={"x": 2.0, "y": 10.0})
         self.assertTrue(obsf == obsf2)
+        self.assertEqual(mock_predict.call_count, 1)
+
+        # The model should not be used when `use_raw_status_quo` is True
+        t2 = deepcopy(t)
+        t2.config["use_raw_status_quo"] = True
+        t2.transform_optimization_config(deepcopy(oc), g, None)
+        self.assertEqual(mock_predict.call_count, 1)
 
         # Test with relative constraint, out-of-design status quo
         mock_predict.side_effect = RuntimeError()
@@ -215,7 +215,7 @@ class DerelativizeTransformTest(TestCase):
                 ),
             ]
         )
-        self.assertEqual(mock_predict.call_count, 2)
+        self.assertEqual(mock_predict.call_count, 1)
 
         # Raises error if predict fails with in-design status quo
         g = ModelBridge(
