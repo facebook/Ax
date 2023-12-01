@@ -48,10 +48,10 @@ from ax.utils.common.typeutils import not_none
 logger: Logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
-CANNOT_SELECT_ONE_MODEL_MSG = """
-Base `GenerationNode` does not implement selection among fitted
-models, so exactly one `ModelSpec` must be specified when using
-`GenerationNode._pick_fitted_model_to_gen_from` (usually called
+CANNOT_SELECT_ONE_MODEL_MSG = """\
+Base `GenerationNode` does not implement selection among fitted \
+models, so exactly one `ModelSpec` must be specified when using \
+`GenerationNode._pick_fitted_model_to_gen_from` (usually called \
 by `GenerationNode.gen`.
 """
 MAX_GEN_DRAWS = 5

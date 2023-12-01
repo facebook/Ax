@@ -71,13 +71,13 @@ from ax.utils.common.typeutils import not_none
 from pyre_extensions import assert_is_instance
 
 
-NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """
-This method is not implemented in the base `Scheduler` class.
-If this functionality is desired, specify the method in the
+NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
+This method is not implemented in the base `Scheduler` class. \
+If this functionality is desired, specify the method in the \
 scheduler subclass.
 """
 GS_TYPE_MSG = "This optimization run uses a '{gs_name}' generation strategy."
-OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trials}
+OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trials} \
 trials attached to the underlying Ax experiment '{experiment_name}'.
 """
 FAILURE_EXCEEDED_MSG = (
