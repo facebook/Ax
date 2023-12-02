@@ -49,7 +49,7 @@ class UtilsTest(TestCase):
         self.batch_trial = self.experiment_2.new_batch_trial(GeneratorRun([self.arm]))
         self.batch_trial.set_status_quo_with_weight(self.experiment_2.status_quo, 1)
         self.obs_feat = ObservationFeatures.from_arm(
-            arm=self.trial.arm, trial_index=np.int64(self.trial.index)
+            arm=self.trial.arm, trial_index=self.trial.index
         )
         self.hss_arm = Arm({"model": "XGBoost", "num_boost_rounds": 12})
         self.hss_exp = get_hierarchical_search_space_experiment()
@@ -75,12 +75,12 @@ class UtilsTest(TestCase):
         ).copy()
         self.hss_obs_feat = ObservationFeatures.from_arm(
             arm=self.hss_arm,
-            trial_index=np.int64(self.hss_trial.index),
+            trial_index=self.hss_trial.index,
             metadata=self.hss_cand_metadata,
         )
         self.hss_obs_feat_all_params = ObservationFeatures.from_arm(
             arm=Arm(self.hss_full_parameterization),
-            trial_index=np.int64(self.hss_trial.index),
+            trial_index=self.hss_trial.index,
             metadata={Keys.FULL_PARAMETERIZATION: self.hss_full_parameterization},
         )
         self.df = pd.DataFrame(

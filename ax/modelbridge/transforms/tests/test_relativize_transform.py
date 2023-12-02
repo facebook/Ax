@@ -36,7 +36,6 @@ from ax.utils.testing.core_stubs import (
     get_search_space,
 )
 from hypothesis import assume, given, settings, strategies as st
-from numpy import int64
 
 
 class RelativizeDataTest(TestCase):
@@ -143,7 +142,7 @@ class RelativizeDataTest(TestCase):
             modelbridge=modelbridge,
         )
         # making observation coming from trial_index not in modelbridge
-        observations[0].features.trial_index = int64(999)
+        observations[0].features.trial_index = 999
         self.assertRaises(ValueError, tf.transform_observations, observations)
 
         # When observation has missing trial_index and
@@ -214,9 +213,7 @@ class RelativizeDataTest(TestCase):
             ),
         ]
         obs_features = [
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 1}, trial_index=0),
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
         ]
         observations = recombine_observations(obs_features, obs_data, arm_names)
@@ -275,9 +272,7 @@ class RelativizeDataTest(TestCase):
             ),
         ]
         obs_features = [
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 1}, trial_index=0),
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
         ]
         modelbridge = Mock(

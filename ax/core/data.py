@@ -53,13 +53,13 @@ class BaseData(Base, SerializationMixin):
         "mean": np.float64,
         "sem": np.float64,
         # Metadata columns available for all subclasses.
-        "trial_index": np.int64,
+        "trial_index": int,
         "start_time": pd.Timestamp,
         "end_time": pd.Timestamp,
-        "n": np.int64,
+        "n": int,
         # Metadata columns available for only some subclasses.
         "frac_nonnull": np.float64,
-        "random_split": np.int64,
+        "random_split": int,
         "fidelities": str,  # Dictionary stored as json
     }
 
@@ -130,7 +130,7 @@ class BaseData(Base, SerializationMixin):
             ).items()
             if col in df.columns.values
             and not (
-                cls.column_data_types(extra_column_types)[col] is np.int64
+                cls.column_data_types(extra_column_types)[col] is int
                 and df.loc[:, col].isnull().any()
             )
             and not (coltype is Any)

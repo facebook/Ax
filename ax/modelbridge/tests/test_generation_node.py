@@ -103,8 +103,6 @@ class TestGenerationNode(TestCase):
                         "n": 1,
                         "fixed_features": ObservationFeatures(
                             parameters={},
-                            # pyre-fixme[6]: For 2nd param expected
-                            #  `Optional[int64]` but got `int`.
                             trial_index=0,
                         ),
                     },

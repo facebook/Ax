@@ -255,7 +255,7 @@ def get_branin_experiment_with_status_quo_trials(
         t.run().mark_completed()
     status_quo_features = ObservationFeatures(
         parameters=exp.trials[0].status_quo.parameters,  # pyre-fixme [16]
-        trial_index=0,  # pyre-ignore [6] See T163830566
+        trial_index=0,
     )
     return exp, status_quo_features
 

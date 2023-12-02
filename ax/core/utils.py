@@ -252,7 +252,7 @@ def get_pending_observation_features(
                     pending_features[metric_name].append(
                         ObservationFeatures.from_arm(
                             arm=arm,
-                            trial_index=np.int64(trial_index),
+                            trial_index=trial_index,
                             metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
@@ -265,7 +265,7 @@ def get_pending_observation_features(
                     not_none(pending_features.get(metric_name)).append(
                         ObservationFeatures.from_arm(
                             arm=arm,
-                            trial_index=np.int64(trial_index),
+                            trial_index=trial_index,
                             metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
@@ -321,7 +321,7 @@ def get_pending_observation_features_based_on_trial_status(
                     pending_features[metric_name].append(
                         ObservationFeatures.from_arm(
                             arm=arm,
-                            trial_index=np.int64(trial.index),
+                            trial_index=trial.index,
                             metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )

@@ -52,7 +52,6 @@ class CastTransformTest(TestCase):
                 "l2_reg_weight": 0.0001,
                 "num_boost_rounds": 12,
             },
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=9,
             metadata=None,
         )
@@ -63,7 +62,6 @@ class CastTransformTest(TestCase):
                 "l2_reg_weight": 0.0001,
                 "num_boost_rounds": 12,
             },
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=10,
             metadata=None,
         )

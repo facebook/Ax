@@ -441,7 +441,6 @@ def compute_posterior_pareto_frontier(
                 [
                     ObservationFeatures(
                         parameters=status_quo.parameters,
-                        # pyre-fixme [6]: Expected `Optional[np.int64]` for trial_index
                         trial_index=trial_index,
                     )
                 ]

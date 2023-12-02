@@ -7,7 +7,6 @@
 from logging import Logger
 from typing import Dict, List, Optional, TYPE_CHECKING, Union
 
-import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import RobustSearchSpace, SearchSpace
@@ -158,5 +157,5 @@ class TrialAsTask(Transform):
                 pval = obsf.parameters.pop(p_name)
             if self.inverse_map is not None:
                 # pyre-fixme[61]: `pval` may not be initialized here.
-                obsf.trial_index = np.int64(self.inverse_map[pval])
+                obsf.trial_index = self.inverse_map[pval]
         return observation_features

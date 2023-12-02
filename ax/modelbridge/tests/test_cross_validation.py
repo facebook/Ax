@@ -36,7 +36,6 @@ class CrossValidationTest(TestCase):
     def setUp(self) -> None:
         self.training_data = [
             Observation(
-                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=0),
                 data=ObservationData(
                     means=np.array([2.0, 4.0]),
@@ -46,7 +45,6 @@ class CrossValidationTest(TestCase):
                 arm_name="1_1",
             ),
             Observation(
-                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=1),
                 data=ObservationData(
                     means=np.array([3.0, 5.0, 6.0]),
@@ -67,7 +65,6 @@ class CrossValidationTest(TestCase):
                 arm_name="1_2",
             ),
             Observation(
-                # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
                 features=ObservationFeatures(parameters={"x": 4.0}, trial_index=2),
                 data=ObservationData(
                     means=np.array([9.0, 10.0]),

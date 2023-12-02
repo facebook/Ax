@@ -605,7 +605,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             experiment=exp,
             data=data,
         )
-        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         fixed_features = ObservationFeatures(parameters={}, trial_index=1)
         expected_base_gen_args = modelbridge._get_transformed_gen_args(
             search_space=search_space.clone(),

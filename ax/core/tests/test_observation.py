@@ -83,7 +83,6 @@ class ObservationsTest(TestCase):
     def test_Clone(self) -> None:
         # Test simple cloning.
         arm = Arm({"x": 0, "y": "a"})
-        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
         self.assertIsNot(obsf, obsf.clone())
         self.assertEqual(obsf, obsf.clone())
@@ -96,7 +95,6 @@ class ObservationsTest(TestCase):
 
     def test_ObservationFeaturesFromArm(self) -> None:
         arm = Arm({"x": 0, "y": "a"})
-        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
         self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
@@ -119,11 +117,9 @@ class ObservationsTest(TestCase):
             # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
             #  float, int, str]]` but got `Dict[str, str]`.
             parameters=new_parameters,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=4,
             start_time=pd.Timestamp("2005-02-25"),
             end_time=pd.Timestamp("2005-02-26"),
-            # pyre-fixme[6]: For 5th param expected `Optional[int64]` but got `int`.
             random_split=7,
         )
         obsf.update_features(new_obsf)

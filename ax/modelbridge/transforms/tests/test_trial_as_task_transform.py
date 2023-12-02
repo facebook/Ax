@@ -26,13 +26,9 @@ class TrialAsTaskTransformTest(TestCase):
             ]
         )
         self.training_feats = [
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 1}, trial_index=0),
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 2}, trial_index=0),
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 3}, trial_index=1),
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             ObservationFeatures({"x": 4}, trial_index=2),
         ]
         self.training_obs = [
