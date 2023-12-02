@@ -334,6 +334,7 @@ def load_generation_strategy_by_experiment_name(
     config: Optional[SQAConfig] = None,
     experiment: Optional[Experiment] = None,
     reduced_state: bool = False,
+    skip_runners_and_metrics: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy attached to an experiment specified by a name
     and restores it from its corresponding SQA object.
@@ -345,6 +346,7 @@ def load_generation_strategy_by_experiment_name(
         decoder=decoder,
         experiment=experiment,
         reduced_state=reduced_state,
+        skip_runners_and_metrics=skip_runners_and_metrics,
     )
 
 
@@ -367,6 +369,7 @@ def _load_generation_strategy_by_experiment_name(
     decoder: Decoder,
     experiment: Optional[Experiment] = None,
     reduced_state: bool = False,
+    skip_runners_and_metrics: bool = False,
 ) -> GenerationStrategy:
     """Load a generation strategy attached to an experiment specified by a name,
     using given Decoder instance.
@@ -387,6 +390,7 @@ def _load_generation_strategy_by_experiment_name(
             experiment_name=experiment_name,
             decoder=decoder,
             reduced_state=reduced_state,
+            skip_runners_and_metrics=skip_runners_and_metrics,
         )
     return _load_generation_strategy_by_id(
         gs_id=gs_id, decoder=decoder, experiment=experiment, reduced_state=reduced_state

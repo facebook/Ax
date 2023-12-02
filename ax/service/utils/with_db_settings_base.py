@@ -215,6 +215,7 @@ class WithDBSettingsBase:
         self,
         experiment_name: str,
         reduced_state: bool = False,
+        skip_runners_and_metrics: bool = False,
     ) -> Tuple[Optional[Experiment], Optional[GenerationStrategy]]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
@@ -250,6 +251,7 @@ class WithDBSettingsBase:
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
             ax_object_field_overrides=self.AX_OBJECT_FIELD_OVERRIDES,
+            skip_runners_and_metrics=skip_runners_and_metrics,
         )
         if not isinstance(experiment, Experiment):
             raise ValueError("Service API only supports `Experiment`.")
