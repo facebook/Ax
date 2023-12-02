@@ -62,10 +62,10 @@ class ObservationFeatures(Base):
     def __init__(
         self,
         parameters: TParameterization,
-        trial_index: Optional[np.int64] = None,
+        trial_index: Optional[int] = None,
         start_time: Optional[pd.Timestamp] = None,
         end_time: Optional[pd.Timestamp] = None,
-        random_split: Optional[np.int64] = None,
+        random_split: Optional[int] = None,
         metadata: TCandidateMetadata = None,
     ) -> None:
         self.parameters = parameters
@@ -78,10 +78,10 @@ class ObservationFeatures(Base):
     @staticmethod
     def from_arm(
         arm: Arm,
-        trial_index: Optional[np.int64] = None,
+        trial_index: Optional[int] = None,
         start_time: Optional[pd.Timestamp] = None,
         end_time: Optional[pd.Timestamp] = None,
-        random_split: Optional[np.int64] = None,
+        random_split: Optional[int] = None,
         metadata: TCandidateMetadata = None,
     ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional

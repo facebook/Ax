@@ -488,7 +488,7 @@ class BaseModelBridgeTest(TestCase):
         mock_gen.return_value = GenResults(
             observation_features=[
                 ObservationFeatures(
-                    parameters={"x1": float(i), "x2": float(i)}, trial_index=np.int64(1)
+                    parameters={"x1": float(i), "x2": float(i)}, trial_index=1
                 )
                 for i in range(5)
             ],
@@ -539,7 +539,6 @@ class BaseModelBridgeTest(TestCase):
         status_quo_features = ObservationFeatures(
             # pyre-fixme[16]: `BaseTrial` has no attribute `status_quo`.
             parameters=exp.trials[trial_index].status_quo.parameters,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             trial_index=trial_index,
         )
         modelbridge = ModelBridge(

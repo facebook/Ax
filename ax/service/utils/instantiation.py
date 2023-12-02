@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Dict, List, Optional, Sequence, Type, Union
 
-import numpy as np
-
 from ax.core.arm import Arm
 from ax.core.experiment import DataType, DEFAULT_OBJECTIVE_NAME, Experiment
 from ax.core.map_metric import MapMetric
@@ -966,5 +964,5 @@ class InstantiationBase:
             parameters=fixed_features.parameters,
             trial_index=None
             if fixed_features.trial_index is None
-            else np.int64(fixed_features.trial_index),
+            else fixed_features.trial_index,
         )

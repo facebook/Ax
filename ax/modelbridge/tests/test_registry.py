@@ -450,7 +450,6 @@ class ModelRegistryTest(TestCase):
         # test it can generate
         mtgp_run = mtgp.gen(
             n=1,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             fixed_features=ObservationFeatures(parameters={}, trial_index=1),
         )
         self.assertEqual(len(mtgp_run.arms), 1)
@@ -531,9 +530,7 @@ class ModelRegistryTest(TestCase):
 
                 gr = mtgp.gen(
                     n=1,
-                    fixed_features=ObservationFeatures(
-                        {}, trial_index=1  # pyre-ignore[6]
-                    ),
+                    fixed_features=ObservationFeatures({}, trial_index=1),
                 )
                 self.assertEqual(len(gr.arms), 1)
 

@@ -8,8 +8,6 @@ from typing import cast, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
@@ -765,7 +763,7 @@ class TestGenerationStrategy(TestCase):
             # GRs now (remaining in Sobol step) even though we requested 3.
             original_pending = not_none(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
-                ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
+                ObservationFeatures.from_arm(arm=a, trial_index=idx)
                 for idx, trial in exp.trials.items()
                 for a in trial.arms
             ]
@@ -851,7 +849,7 @@ class TestGenerationStrategy(TestCase):
         # GRs now (remaining in Sobol step) even though we requested 3.
         original_pending = not_none(get_pending(experiment=exp))
         first_3_trials_obs_feats = [
-            ObservationFeatures.from_arm(arm=a, trial_index=np.int64(idx))
+            ObservationFeatures.from_arm(arm=a, trial_index=idx)
             for idx, trial in exp.trials.items()
             for a in trial.arms
         ]

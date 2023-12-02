@@ -156,8 +156,6 @@ def get_MTGP_NEHVI(
     else:
         status_quo_features = ObservationFeatures(
             parameters=status_quo.parameters,
-            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
-            #  `int`.
             trial_index=trial_index,
         )
 
@@ -376,8 +374,6 @@ def get_MTGP_LEGACY(
     else:
         status_quo_features = ObservationFeatures(
             parameters=status_quo.parameters,
-            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
-            #  `int`.
             trial_index=trial_index,
         )
 
@@ -654,8 +650,6 @@ def get_MTGP_PAREGO(
     else:
         status_quo_features = ObservationFeatures(
             parameters=status_quo.parameters,
-            # pyre-fixme[6]: Expected `Optional[numpy.int64]` for 2nd param but got
-            #  `int`.
             trial_index=trial_index,
         )
     return checked_cast(

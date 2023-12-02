@@ -401,7 +401,6 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))
         mt_ehvi_run = mt_ehvi.gen(
             n=1,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             fixed_features=ObservationFeatures(parameters={}, trial_index=1),
         )
         self.assertEqual(len(mt_ehvi_run.arms), 1)
@@ -542,7 +541,6 @@ class ModelBridgeFactoryTestMultiObjective(TestCase):
         self.assertEqual(task_covar_factor.shape, torch.Size([2, 2]))
         mt_ehvi_run = mt_ehvi.gen(
             n=1,
-            # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
             fixed_features=ObservationFeatures(parameters={}, trial_index=1),
         )
         self.assertEqual(len(mt_ehvi_run.arms), 1)
