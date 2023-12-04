@@ -1172,8 +1172,8 @@ def _construct_comparison_message(
         )
         return None
 
-    if (objective_minimize and (baseline_value < comparison_value)) or (
-        not objective_minimize and (baseline_value > comparison_value)
+    if (objective_minimize and (baseline_value <= comparison_value)) or (
+        not objective_minimize and (baseline_value >= comparison_value)
     ):
         logger.info(
             f"compare_to_baseline: comparison arm {comparison_arm_name}"

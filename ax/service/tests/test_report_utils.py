@@ -1063,3 +1063,60 @@ class ReportUtilsTest(TestCase):
             )
 
             self.assertEqual(result, expected_result)
+
+    def test_compare_to_baseline_equal(self) -> None:
+        """Test case where baseline value is equal to optimal value"""
+        self.maxDiff = None
+        OBJECTIVE_METRIC = "foo"
+        custom_baseline_arm_name = "custom_baseline"
+
+        data = [
+            {
+                "trial_index": 0,
+                "arm_name": custom_baseline_arm_name,
+                OBJECTIVE_METRIC: 0.2,
+            },
+            {"trial_index": 1, "arm_name": "dummy", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 2, "arm_name": "optimal", OBJECTIVE_METRIC: 0.5},
+            {"trial_index": 3, "arm_name": "equal", OBJECTIVE_METRIC: 0.2},
+        ]
+        arms_df = pd.DataFrame(data)
+
+        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+        experiment = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=true_obj_metric, minimize=True),
+            outcome_constraints=[],
+        )
+        experiment.optimization_config = optimization_config
+
+        comparison_arm_names = ["equal"]
+
+        with patch(
+            "ax.service.utils.report_utils.exp_to_df",
+            return_value=arms_df,
+        ):
+            with self.assertLogs("ax", level=INFO) as log:
+                result = compare_to_baseline(
+                    experiment=experiment,
+                    optimization_config=optimization_config,
+                    comparison_arm_names=comparison_arm_names,
+                    baseline_arm_name=custom_baseline_arm_name,
+                )
+                self.assertEqual(result, None)
+                self.assertTrue(
+                    any(
+                        (
+                            "compare_to_baseline:"
+                            f" comparison arm equal"
+                            f" did not beat baseline arm {custom_baseline_arm_name}."
+                        )
+                        in log_str
+                        for log_str in log.output
+                    ),
+                    log.output,
+                )
