@@ -4,10 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from inspect import signature
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
-
+from typeguard import check_type
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -106,6 +107,20 @@ def checked_cast_to_tuple(typ: Tuple[Type[V], ...], val: V) -> T:
         raise ValueError(f"Value was not of type {type!r}:\n{val!r}")
     # pyre-fixme[7]: Expected `T` but got `V`.
     return val
+
+
+def version_safe_check_type(argname: str, value: T, expected_type: Type[T]) -> None:
+    """Excecute the check_type function if it has the expected signature, otherwise
+    warn.  This is done to support newer versions of typeguard with minimal loss
+    of functionality for users that have dependency conflicts"""
+    # Get the signature of the check_type function
+    sig = signature(check_type)
+    # Get the parameters of the check_type function
+    params = sig.parameters
+    # Check if the check_type function has the expected signature
+    params = set(params.keys())
+    if all(arg in params for arg in ["argname", "value", "expected_type"]):
+        check_type(argname, value, expected_type)
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
