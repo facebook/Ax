@@ -428,6 +428,24 @@ class BestPointMixin(metaclass=ABCMeta):
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
     ) -> List[float]:
+        """Compute the optimization trace at each iteration.
+
+        Given an experiment and an optimization config, compute the performance
+        at each iteration. For multi-objective, the performance is compute as the
+        hypervolume. For single objective, the performance is compute as the best
+        observed objective value.
+
+        An iteration here refers to a completed or early-stopped (batch) trial.
+        There will be one performance metric in the trace for each iteration.
+
+        Args:
+            experiment: The experiment to get the trace for.
+            optimization_config: Optimization config to use in place of the one
+                stored on the experiment.
+
+        Returns:
+            A list of performance values at each iteration.
+        """
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -437,7 +455,9 @@ class BestPointMixin(metaclass=ABCMeta):
             metric_names.update({cons.metric.name})
         metric_names = list(metric_names)
         # Convert data into a tensor.
-        Y = extract_Y_from_data(experiment=experiment, metric_names=metric_names)
+        Y, trial_indices = extract_Y_from_data(
+            experiment=experiment, metric_names=metric_names
+        )
         if Y.numel() == 0:
             return []
 
@@ -508,26 +528,40 @@ class BestPointMixin(metaclass=ABCMeta):
             feas = torch.all(torch.stack([c(Y) <= 0 for c in cons_tfs], dim=-1), dim=-1)
             # Set the infeasible points to reference point or the worst observed value.
             Y_obj[~feas] = infeas_value
+        # Get unique trial indices. Note: only completed/early-stopped
+        # trials are present.
+        unique_trial_indices = trial_indices.unique().sort().values.tolist()
+        # compute the performance at each iteration (completed/early-stopped
+        # trial).
+        # For `BatchTrial`s, there is one performance value per iteration, even
+        # if the iteration (`BatchTrial`) has multiple arms.
         if optimization_config.is_moo_problem:
             # Compute the hypervolume trace.
             partitioning = DominatedPartitioning(
                 ref_point=weighted_objective_thresholds.double()
             )
-            # compute hv at each iteration
+            # compute hv for each iteration (trial_index)
             hvs = []
-            for Yi in Y_obj.split(1):
+            for trial_index in unique_trial_indices:
+                new_Y = Y_obj[trial_indices == trial_index]
                 # update with new point
-                partitioning.update(Y=Yi)
+                partitioning.update(Y=new_Y)
                 hv = partitioning.compute_hypervolume().item()
                 hvs.append(hv)
             return hvs
-        else:
-            # Find the best observed value.
-            raw_maximum = np.maximum.accumulate(Y_obj.cpu().numpy())
-            if optimization_config.objective.minimize:
-                # Negate the result if it is a minimization problem.
-                raw_maximum = -raw_maximum
-            return raw_maximum.tolist()
+        running_max = float("-inf")
+        raw_maximum = np.zeros(len(unique_trial_indices))
+        # Find the best observed value for each iterations.
+        # Enumerate the unique trial indices because only indices
+        # of completed/early-stopped trials are present.
+        for i, trial_index in enumerate(unique_trial_indices):
+            new_Y = Y_obj[trial_indices == trial_index]
+            running_max = max(running_max, new_Y.max().item())
+            raw_maximum[i] = running_max
+        if optimization_config.objective.minimize:
+            # Negate the result if it is a minimization problem.
+            raw_maximum = -raw_maximum
+        return raw_maximum.tolist()
 
     @staticmethod
     def _get_trace_by_progression(

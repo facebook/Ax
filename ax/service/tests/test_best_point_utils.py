@@ -18,7 +18,7 @@ from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.cross_validation import AssessModelFitResult
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
@@ -362,7 +362,6 @@ class TestBestPointUtils(TestCase):
                         "sem": 0.0,
                     }
                 )
-        df_0 = df_dicts[:2]
         experiment.attach_data(Data(df=pd.DataFrame.from_records(df_dicts)))
 
         expected_Y = torch.stack(
@@ -372,39 +371,47 @@ class TestBestPointUtils(TestCase):
             ],
             dim=-1,
         )
-        Y = extract_Y_from_data(
+        Y, trial_indices = extract_Y_from_data(
             experiment=experiment,
             metric_names=["foo", "bar"],
         )
+        expected_trial_indices = torch.arange(20)
         self.assertTrue(torch.allclose(Y, expected_Y))
+        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
         # Check that it respects ordering of metric names.
-        Y = extract_Y_from_data(
+        Y, trial_indices = extract_Y_from_data(
             experiment=experiment,
             metric_names=["bar", "foo"],
         )
         self.assertTrue(torch.allclose(Y, expected_Y[:, [1, 0]]))
+        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
         # Extract partial metrics.
-        Y = extract_Y_from_data(experiment=experiment, metric_names=["bar"])
+        Y, trial_indices = extract_Y_from_data(
+            experiment=experiment, metric_names=["bar"]
+        )
         self.assertTrue(torch.allclose(Y, expected_Y[:, [1]]))
+        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
         # Works with messed up ordering of data.
         clone_dicts = df_dicts.copy()
         random.shuffle(clone_dicts)
         experiment._data_by_trial = {}
         experiment.attach_data(Data(df=pd.DataFrame.from_records(clone_dicts)))
-        Y = extract_Y_from_data(
+        Y, trial_indices = extract_Y_from_data(
             experiment=experiment,
             metric_names=["foo", "bar"],
         )
         self.assertTrue(torch.allclose(Y, expected_Y))
+        self.assertTrue(torch.equal(trial_indices, expected_trial_indices))
 
         # Check that it skips trials that are not completed.
         experiment.trials[0].mark_running(no_runner_required=True, unsafe=True)
         experiment.trials[1].mark_abandoned(unsafe=True)
-        Y = extract_Y_from_data(
+        Y, trial_indices = extract_Y_from_data(
             experiment=experiment,
             metric_names=["foo", "bar"],
         )
         self.assertTrue(torch.allclose(Y, expected_Y[2:]))
+        self.assertTrue(torch.equal(trial_indices, expected_trial_indices[2:]))
 
         # Error with missing data.
         with self.assertRaisesRegex(
@@ -420,28 +427,42 @@ class TestBestPointUtils(TestCase):
 
         # Error with extra data.
         with self.assertRaisesRegex(
-            UserInputError, "Trial data has more than one row per metric. "
+            UserInputError, "Trial data has more than one row per arm, metric pair. "
         ):
             # Skipping first 5 data points since first two trials are not completed.
             base_df = pd.DataFrame.from_records(df_dicts[5:])
-
             extract_Y_from_data(
                 experiment=experiment,
                 metric_names=["foo", "bar"],
                 data=Data(df=pd.concat((base_df, base_df))),
             )
 
-        # Check that it errors with BatchTrial.
+        # Check that it works with BatchTrial.
         experiment = get_branin_experiment()
-        BatchTrial(experiment=experiment, index=0).mark_running(
-            no_runner_required=True
-        ).mark_completed()
-        with self.assertRaisesRegex(UnsupportedError, "BatchTrials are not supported."):
-            extract_Y_from_data(
-                experiment=experiment,
-                metric_names=["foo", "bar"],
-                data=Data(df=pd.DataFrame.from_records(df_0)),
-            )
+        batch_trial = BatchTrial(experiment=experiment, index=0)
+        batch_trial.add_arm(Arm(name="0_0", parameters={"x1": 0.0, "x2": 0.0}))
+        batch_trial.add_arm(Arm(name="0_1", parameters={"x1": 1.0, "x2": 0.0}))
+        batch_trial.mark_running(no_runner_required=True).mark_completed()
+        df_dicts_batch = []
+        for i in (0, 1):
+            for metric_name in ["foo", "bar"]:
+                df_dicts_batch.append(
+                    {
+                        "trial_index": 0,
+                        "metric_name": metric_name,
+                        "arm_name": f"0_{i}",
+                        "mean": float(i) if metric_name == "foo" else i + 5.0,
+                        "sem": 0.0,
+                    }
+                )
+        batch_df = pd.DataFrame.from_records(df_dicts_batch)
+        Y, trial_indices = extract_Y_from_data(
+            experiment=experiment,
+            metric_names=["foo", "bar"],
+            data=Data(df=batch_df),
+        )
+        self.assertTrue(torch.allclose(Y, expected_Y[:2]))
+        self.assertTrue(torch.equal(trial_indices, torch.zeros(2, dtype=torch.long)))
 
     def test_is_row_feasible(self) -> None:
         exp = get_experiment_with_observations(

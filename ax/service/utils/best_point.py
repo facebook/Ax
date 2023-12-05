@@ -780,7 +780,7 @@ def extract_Y_from_data(
     experiment: Experiment,
     metric_names: List[str],
     data: Optional[Data] = None,
-) -> Tensor:
+) -> Tuple[Tensor, Tensor]:
     r"""Converts the experiment observation data into a tensor.
 
     NOTE: This requires block design for observations. It will
@@ -796,11 +796,14 @@ def extract_Y_from_data(
             each `trial_index` in the `data`.
 
     Returns:
-        A tensor of observed metrics.
+        A two-element Tuple containing a tensor of observed metrics and a
+        tensor of trial_indices.
     """
     df = data.df if data is not None else experiment.lookup_data().df
     if len(df) == 0:
-        return torch.empty(0, len(metric_names), dtype=torch.double)
+        y = torch.empty(0, len(metric_names), dtype=torch.double)
+        indices = torch.empty(0, dtype=torch.long)
+        return y, indices
 
     trials_to_use = []
     data_to_use = df[df["metric_name"].isin(metric_names)]
@@ -810,12 +813,10 @@ def extract_Y_from_data(
         if trial.status not in [TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED]:
             # Skip trials that are not completed or early stopped.
             continue
-        if isinstance(trial, BatchTrial):
-            raise UnsupportedError("BatchTrials are not supported.")
         trials_to_use.append(trial_idx)
-        if len(trial_data) > len(set(trial_data["metric_name"])):
+        if trial_data[["metric_name", "arm_name"]].duplicated().any():
             raise UserInputError(
-                "Trial data has more than one row per metric. "
+                "Trial data has more than one row per arm, metric pair. "
                 f"Got\n\n{trial_data}\n\nfor trial {trial_idx}."
             )
         # We have already ensured that `trial_data` has no metrics not in
@@ -830,13 +831,18 @@ def extract_Y_from_data(
     keeps = df["trial_index"].isin(trials_to_use)
 
     if not keeps.any():
-        return torch.empty(0, len(metric_names), dtype=torch.double)
+        return torch.empty(0, len(metric_names), dtype=torch.double), torch.empty(
+            0, dtype=torch.long
+        )
 
     data_as_wide = df[keeps].pivot(
-        columns="metric_name", index="trial_index", values="mean"
+        columns="metric_name", index=["trial_index", "arm_name"], values="mean"
     )[metric_names]
-
-    return torch.tensor(data_as_wide.to_numpy()).to(torch.double)
+    means = torch.tensor(data_as_wide.to_numpy()).to(torch.double)
+    trial_indices = torch.tensor(
+        data_as_wide.reset_index()["trial_index"].to_numpy(), dtype=torch.long
+    )
+    return means, trial_indices
 
 
 def _objective_threshold_from_nadir(

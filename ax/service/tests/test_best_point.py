@@ -8,7 +8,9 @@ from unittest.mock import Mock
 import pandas as pd
 
 from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
@@ -16,6 +18,9 @@ from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
+    get_arm_weights2,
+    get_arms_from_dict,
+    get_experiment_with_batch_trial,
     get_experiment_with_observations,
     get_experiment_with_trial,
 )
@@ -94,6 +99,51 @@ class TestBestPointMixin(TestCase):
         # W/ empty data.
         exp = get_experiment_with_trial()
         self.assertEqual(get_trace(exp), [])
+
+        # test batch trial
+        exp = get_experiment_with_batch_trial()
+        trial = exp.trials[0]
+        exp.optimization_config.outcome_constraints[0].relative = False
+        trial.mark_running(no_runner_required=True).mark_completed()
+        df_dict = []
+        for i, arm in enumerate(trial.arms):
+            df_dict.extend(
+                [
+                    {
+                        "trial_index": 0,
+                        "metric_name": m,
+                        "arm_name": arm.name,
+                        "mean": float(i),
+                        "sem": 0.0,
+                    }
+                    for m in exp.metrics.keys()
+                ]
+            )
+        exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict)))
+        self.assertEqual(get_trace(exp), [len(trial.arms) - 1])
+        # test that there is performance metric in the trace for each
+        # completed/early-stopped trial
+        trial1 = checked_cast(BatchTrial, trial).clone_to()
+        trial1.mark_abandoned()
+        arms = get_arms_from_dict(get_arm_weights2())
+        trial2 = exp.new_batch_trial(GeneratorRun(arms))
+        trial2.mark_running(no_runner_required=True).mark_completed()
+        df_dict2 = []
+        for i, arm in enumerate(trial2.arms):
+            df_dict2.extend(
+                [
+                    {
+                        "trial_index": 2,
+                        "metric_name": m,
+                        "arm_name": arm.name,
+                        "mean": 10 * float(i),
+                        "sem": 0.0,
+                    }
+                    for m in exp.metrics.keys()
+                ]
+            )
+        exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
+        self.assertEqual(get_trace(exp), [2, 20.0])
 
     def test_get_hypervolume(self) -> None:
         # W/ empty data.
