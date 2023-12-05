@@ -941,6 +941,7 @@ def exp_to_df(
         ["trial_index", "arm_name", "trial_status", "reason", "generation_method"]
         + (run_metadata_fields or [])
         + (trial_properties_fields or [])
+        + ([FEASIBLE_COL_NAME] if FEASIBLE_COL_NAME in exp_df.columns else [])
     )
     for column_name in reversed(initial_column_order):
         if column_name in exp_df.columns:
