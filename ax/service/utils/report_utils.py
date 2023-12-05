@@ -1200,6 +1200,17 @@ def _build_result_tuple(
     baseline_value: float,
     comparison_row: pd.DataFrame,
 ) -> Tuple[str, bool, str, float, str, float]:
+    """Formats inputs into a tuple for use in creating
+    the comparison message.
+
+    Returns:
+        (metric_name,
+        minimize,
+        baseline_arm_name,
+        baseline_value,
+        comparison_arm_name,
+        comparison_arm_value,)
+    """
     comparison_arm_name = checked_cast(str, comparison_row["arm_name"])
     comparison_value = checked_cast(float, comparison_row[objective_name])
 
@@ -1229,10 +1240,11 @@ def maybe_extract_baseline_comparison_values(
         List of tuples containing:
         (metric_name,
         minimize,
-        comparison_arm_name,
         baseline_arm_name,
         baseline_value,
-        comparison_arm_value)
+        comparison_arm_name,
+        comparison_arm_value,
+        )
     """
     # TODO: incorporate model uncertainty when available
     # TODO: extract and use best arms if comparison_arm_names is not provided.
@@ -1316,24 +1328,13 @@ def maybe_extract_baseline_comparison_values(
     ]
 
 
-def compare_to_baseline(
-    experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig],
-    comparison_arm_names: Optional[List[str]],
-    baseline_arm_name: Optional[str] = None,
+def compare_to_baseline_impl(
+    comparison_list: List[Tuple[str, bool, str, float, str, float]]
 ) -> Optional[str]:
-    """Calculate metric improvement of the experiment against baseline.
-    Returns the message(s) added to markdown_messages"""
-
-    comparison_list = maybe_extract_baseline_comparison_values(
-        experiment=experiment,
-        optimization_config=optimization_config,
-        comparison_arm_names=comparison_arm_names,
-        baseline_arm_name=baseline_arm_name,
-    )
-    if not comparison_list:
-        return None
-    comparison_list = not_none(comparison_list)
+    """Implementation of compare_to_baseline, taking in a
+    list of arm comparisons.
+    Can be used directly with the output of
+    'maybe_extract_baseline_comparison_values'"""
     result_message = ""
     if len(comparison_list) > 1:
         result_message = (
@@ -1351,3 +1352,24 @@ def compare_to_baseline(
             )
 
     return result_message if result_message else None
+
+
+def compare_to_baseline(
+    experiment: Experiment,
+    optimization_config: Optional[OptimizationConfig],
+    comparison_arm_names: Optional[List[str]],
+    baseline_arm_name: Optional[str] = None,
+) -> Optional[str]:
+    """Calculate metric improvement of the experiment against baseline.
+    Returns the message(s) added to markdown_messages."""
+
+    comparison_list = maybe_extract_baseline_comparison_values(
+        experiment=experiment,
+        optimization_config=optimization_config,
+        comparison_arm_names=comparison_arm_names,
+        baseline_arm_name=baseline_arm_name,
+    )
+    if not comparison_list:
+        return None
+    comparison_list = not_none(comparison_list)
+    return compare_to_baseline_impl(comparison_list)
