@@ -1384,3 +1384,96 @@ class TestAxScheduler(TestCase):
                 "only supported with instances of `GenerationStrategy`",
             ):
                 scheduler.standard_generation_strategy
+
+    def test_get_improvement_over_baseline(self) -> None:
+        n_total_trials = 8
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                total_trials=n_total_trials,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+
+        scheduler.run_all_trials()
+
+        first_trial_name = (
+            scheduler.experiment.trials[0].lookup_data().df["arm_name"].iloc[0]
+        )
+        percent_improvement = scheduler.get_improvement_over_baseline(
+            baseline_arm_name=first_trial_name,
+        )
+
+        # Assert that the best trial improves, or
+        # at least doesn't regress, over the first trial.
+        self.assertGreaterEqual(percent_improvement, 0.0)
+
+    def test_get_improvement_over_baseline_robustness(self) -> None:
+        """Test edge cases for get_improvement_over_baseline"""
+        experiment = get_branin_experiment_with_multi_objective()
+        experiment.runner = self.runner
+
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=self.sobol_GPEI_GS,
+            # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
+            options=SchedulerOptions(init_seconds_between_polls=0.1),
+        )
+
+        with self.assertRaises(NotImplementedError):
+            scheduler.get_improvement_over_baseline(
+                baseline_arm_name=None,
+            )
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                total_trials=2,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+
+        with self.assertRaises(UserInputError):
+            scheduler.get_improvement_over_baseline(
+                baseline_arm_name=None,
+            )
+
+        exp = scheduler.experiment
+        exp_copy = Experiment(
+            search_space=exp.search_space,
+            name=exp.name,
+            optimization_config=None,
+            tracking_metrics=exp.tracking_metrics,
+            runner=exp.runner,
+        )
+        scheduler.experiment = exp_copy
+
+        with self.assertRaises(ValueError):
+            scheduler.get_improvement_over_baseline(baseline_arm_name="baseline")
+
+    def test_get_improvement_over_baseline_no_baseline(self) -> None:
+        """Test that get_improvement_over_baseline returns UserInputError when
+        baseline is not found in data."""
+        n_total_trials = 8
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=self.two_sobol_steps_GS,
+            options=SchedulerOptions(
+                total_trials=n_total_trials,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+        )
+
+        scheduler.run_all_trials()
+
+        with self.assertRaises(UserInputError):
+            scheduler.get_improvement_over_baseline(
+                baseline_arm_name="baseline_arm_not_in_data",
+            )
