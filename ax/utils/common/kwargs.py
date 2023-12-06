@@ -10,7 +10,7 @@ from logging import Logger
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
-from typeguard import check_type
+from ax.utils.common.typeutils import version_safe_check_type
 
 logger: Logger = get_logger(__name__)
 
@@ -82,7 +82,7 @@ def validate_kwarg_typing(typed_callables: List[Callable], **kwargs: Any) -> Non
                     # if the keyword is a callable, we only do shallow checks
                     if not (callable(kw_val) and callable(param.annotation)):
                         try:
-                            check_type(kw, kw_val, param.annotation)
+                            version_safe_check_type(kw, kw_val, param.annotation)
                         except TypeError:
                             message = (
                                 f"`{typed_callable}` expected argument `{kw}` to be of"
