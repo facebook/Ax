@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import cast, Dict
+from unittest import mock
 
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
@@ -85,7 +86,10 @@ class TestScheduler(TestCase):
             ),
         )
 
-        record = SchedulerCompletedRecord.from_scheduler(scheduler=scheduler)
+        with mock.patch.object(
+            scheduler, "get_improvement_over_baseline", return_value=5.0
+        ):
+            record = SchedulerCompletedRecord.from_scheduler(scheduler=scheduler)
         expected = SchedulerCompletedRecord(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
@@ -95,7 +99,7 @@ class TestScheduler(TestCase):
             model_std_quality=float("-inf"),
             model_fit_generalization=float("-inf"),
             model_std_generalization=float("-inf"),
-            improvement_over_baseline=float("-inf"),
+            improvement_over_baseline=5.0,
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -111,11 +115,31 @@ class TestScheduler(TestCase):
             "model_std_quality": float("-inf"),
             "model_fit_generalization": float("-inf"),
             "model_std_generalization": float("-inf"),
-            "improvement_over_baseline": float("-inf"),
+            "improvement_over_baseline": 5.0,
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
         self.assertEqual(flat, expected_dict)
+
+    def test_scheduler_raise_exceptions(self) -> None:
+        scheduler = Scheduler(
+            experiment=get_branin_experiment(),
+            generation_strategy=get_generation_strategy(),
+            options=SchedulerOptions(
+                total_trials=0,
+                tolerated_trial_failure_rate=0.2,
+                init_seconds_between_polls=10,
+            ),
+        )
+
+        with mock.patch.object(
+            scheduler,
+            "get_improvement_over_baseline",
+            side_effect=Exception("test_exception"),
+        ):
+            record = SchedulerCompletedRecord.from_scheduler(scheduler=scheduler)
+        flat = record.flatten()
+        self.assertEqual(flat["improvement_over_baseline"], float("-inf"))
 
     def test_scheduler_model_fit_metrics_logging(self) -> None:
         # set up for model fit metrics
