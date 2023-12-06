@@ -543,6 +543,71 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         return OptimizationResult()
 
+    def get_improvement_over_baseline(
+        self,
+        baseline_arm_name: Optional[str] = None,
+    ) -> float:
+        """Returns the scalarized improvement over baseline, if applicable.
+
+        Returns:
+            For Single Objective cases, returns % improvement of objective.
+            Positive indicates improvement over baseline. Negative indicates regression.
+            For Multi Objective cases, throws NotImplementedError
+        """
+        if self.experiment.is_moo_problem:
+            raise NotImplementedError(
+                "`get_improvement_over_baseline` not yet implemented"
+                + " for multi-objective problems."
+            )
+        if not baseline_arm_name:
+            raise UserInputError(
+                "`get_improvement_over_baseline` missing required parameter: "
+                + f"{baseline_arm_name=}, "
+            )
+
+        optimization_config = self.experiment.optimization_config
+        if not optimization_config:
+            raise ValueError("No optimization config found.")
+
+        objective_metric_name = optimization_config.objective.metric.name
+
+        # get the baseline trial
+        data = self.experiment.lookup_data().df
+        data = data[data["arm_name"] == baseline_arm_name]
+        if len(data) == 0:
+            raise UserInputError(
+                "`get_improvement_over_baseline`"
+                " could not find baseline arm"
+                f" `{baseline_arm_name}` in the experiment data."
+            )
+        data = data[data["metric_name"] == objective_metric_name]
+        baseline_value = data.iloc[0]["mean"]
+
+        # Find objective value of the best trial
+        idx, param, best_arm = not_none(
+            self.get_best_trial(
+                optimization_config=optimization_config, use_model_predictions=False
+            )
+        )
+        best_arm = not_none(best_arm)
+        best_obj_value = best_arm[0][objective_metric_name]
+
+        def percent_change(x: float, y: float, minimize: bool) -> float:
+            if x == 0:
+                raise ZeroDivisionError(
+                    "Cannot compute percent improvement when denom is zero"
+                )
+            percent_change = (y - x) / abs(x) * 100
+            if minimize:
+                percent_change = -percent_change
+            return percent_change
+
+        return percent_change(
+            x=baseline_value,
+            y=best_obj_value,
+            minimize=optimization_config.objective.minimize,
+        )
+
     # ---------- Methods below should generally not be modified in subclasses. ---------
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
