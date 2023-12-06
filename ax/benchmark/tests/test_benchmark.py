@@ -147,6 +147,7 @@ class TestBenchmark(TestCase):
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     scheduler_options=get_sequential_optimization_scheduler_options(),
+                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
                 "MBM::SingleTaskGP_qLogNEI",
@@ -155,6 +156,7 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=FixedNoiseGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
                 "MBM::FixedNoiseGP_qLogNEI",
@@ -163,6 +165,7 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=FixedNoiseGP,
                     acquisition_cls=qNoisyExpectedHypervolumeImprovement,
+                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
                 "MBM::FixedNoiseGP_qNEHVI",
@@ -171,6 +174,7 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SaasFullyBayesianSingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
@@ -231,7 +235,9 @@ class TestBenchmark(TestCase):
             methods=[
                 get_sobol_benchmark_method(),
                 get_sobol_botorch_modular_acquisition(
-                    model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=False,
                 ),
             ],
             seeds=(0, 1),
@@ -250,7 +256,9 @@ class TestBenchmark(TestCase):
         )
 
         generation_strategy = get_sobol_botorch_modular_acquisition(
-            model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+            model_cls=SingleTaskGP,
+            acquisition_cls=qLogNoisyExpectedImprovement,
+            distribute_replications=False,
         ).generation_strategy
 
         method = BenchmarkMethod(
