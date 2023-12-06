@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from unittest.mock import patch
 
 import numpy as np
@@ -21,6 +22,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     best_feasible_objective,
+    extract_pending_observations,
     get_missing_metrics,
     get_missing_metrics_by_name,
     get_model_times,
@@ -541,3 +543,49 @@ class UtilsTest(TestCase):
                         self.hss_arm.signature
                     ],
                 )
+
+    def test_extract_pending_observations(self) -> None:
+        exp_with_many_trials = get_experiment()
+        for _ in range(100):
+            exp_with_many_trials.new_trial().add_arm(self.arm)
+
+        exp_with_many_trials_and_batch = deepcopy(exp_with_many_trials)
+        exp_with_many_trials_and_batch.new_batch_trial().add_arm(self.arm)
+
+        m = extract_pending_observations.__module__
+        with patch(f"{m}.get_pending_observation_features") as mock_pending, patch(
+            f"{m}.get_pending_observation_features_based_on_trial_status"
+        ) as mock_pending_ts:
+            # Check the typical case: few trials, we can use regular `get_pending...`.
+            extract_pending_observations(experiment=self.experiment)
+            mock_pending.assert_called_once_with(
+                experiment=self.experiment, include_out_of_design_points=False
+            )
+            mock_pending.reset_mock()
+
+            # Check out-of-design filter propagation.
+            extract_pending_observations(
+                experiment=self.experiment, include_out_of_design_points=True
+            )
+            mock_pending.assert_called_once_with(
+                experiment=self.experiment, include_out_of_design_points=True
+            )
+            mock_pending.reset_mock()
+
+            # Check many-trials case and out-of-design filter propagation.
+            extract_pending_observations(
+                experiment=exp_with_many_trials, include_out_of_design_points=True
+            )
+            mock_pending_ts.assert_called_once_with(
+                experiment=exp_with_many_trials, include_out_of_design_points=True
+            )
+
+            # Check "many-trials but batch trial present" case
+            # and out-of-design filter propagation.
+            extract_pending_observations(
+                experiment=exp_with_many_trials_and_batch,
+                include_out_of_design_points=True,
+            )
+            mock_pending_ts.assert_called_once_with(
+                experiment=exp_with_many_trials, include_out_of_design_points=True
+            )
