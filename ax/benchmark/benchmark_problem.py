@@ -23,6 +23,7 @@ from ax.core.types import ComparisonOp
 from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.base import Base
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.test_functions.synthetic import SyntheticTestFunction
@@ -146,30 +147,53 @@ class BenchmarkProblem(Base):
 
         dim = test_problem_kwargs.get("dim", None)
         name = _get_name(test_problem, infer_noise, dim)
+
+        if infer_noise:
+            noise_sd = None
+        elif isinstance(test_problem.noise_std, list):
+            # Convention is to have the first outcome be the objective,
+            # and the remaining ones the constraints.
+            noise_sd = test_problem.noise_std[0]
+        else:
+            noise_sd = checked_cast(float, test_problem.noise_std or 0.0)
+
+        # TODO: Support constrained MOO problems.
+
         objective = Objective(
             metric=BotorchTestProblemMetric(
                 name=name,
-                noise_sd=None if infer_noise else (test_problem.noise_std or 0),
+                noise_sd=noise_sd,
                 index=0,
             ),
             minimize=True,
         )
+
         if is_constrained:
+            n_con = test_problem.num_constraints
+            if test_problem.constraint_noise_std is None:
+                constraint_noise_sds = [None] * n_con
+            elif isinstance(test_problem.constraint_noise_std, list):
+                constraint_noise_sds = test_problem.constraint_noise_std[:n_con]
+            else:
+                constraint_noise_sds = [noise_sd] * n_con
+
             outcome_constraints = [
                 OutcomeConstraint(
                     metric=BotorchTestProblemMetric(
                         name=f"constraint_slack_{i}",
-                        noise_sd=None if infer_noise else (test_problem.noise_std or 0),
+                        noise_sd=constraint_noise_sds[i],
                         index=i,
                     ),
                     op=ComparisonOp.GEQ,
                     bound=0.0,
                     relative=False,
                 )
-                for i in range(test_problem.num_constraints)
+                for i in range(n_con)
             ]
+
         else:
             outcome_constraints = []
+
         optimization_config = OptimizationConfig(
             objective=objective,
             outcome_constraints=outcome_constraints,
@@ -328,13 +352,21 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         dim = test_problem_kwargs.get("dim", None)
         name = _get_name(test_problem, infer_noise, dim)
 
+        n_obj = test_problem.num_objectives
+        if infer_noise:
+            noise_sds = [None] * n_obj
+        elif isinstance(test_problem.noise_std, list):
+            noise_sds = test_problem.noise_std
+        else:
+            noise_sds = [checked_cast(float, test_problem.noise_std or 0.0)] * n_obj
+
         metrics = [
             BotorchTestProblemMetric(
                 name=f"{name}_{i}",
-                noise_sd=None if infer_noise else (test_problem.noise_std or 0),
+                noise_sd=noise_sd,
                 index=i,
             )
-            for i in range(test_problem.num_objectives)
+            for i, noise_sd in enumerate(noise_sds)
         ]
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
