@@ -26,6 +26,9 @@ from pyre_extensions import none_throws
 
 TArmTrial = Tuple[str, int]
 
+# Threshold for switching to pending points extraction based on trial status.
+MANY_TRIALS_IN_EXPERIMENT = 100
+
 
 # --------------------------- Data intergrity utils. ---------------------------
 
@@ -198,15 +201,52 @@ def get_model_times(experiment: Experiment) -> Tuple[float, float]:
 # -------------------- Pending observations extraction utils. ---------------------
 
 
+def extract_pending_observations(
+    experiment: Experiment,
+    include_out_of_design_points: bool = False,
+) -> Optional[Dict[str, List[ObservationFeatures]]]:
+    """Computes a list of pending observation features (corresponding to:
+    - arms that have been generated and run in the course of the experiment,
+    but have not been completed with data,
+    - arms that have been abandoned or belong to abandoned trials).
+
+    This function dispatches to:
+    - ``get_pending_observation_features`` if experiment is using
+    ``BatchTrial``-s or has fewer than 100 trials,
+    - ``get_pending_observation_features_based_on_trial_status`` if
+    experiment is using  ``Trial``-s and has more than 100 trials.
+
+    ``get_pending_observation_features_based_on_trial_status`` is a faster
+    way to compute pending observations, but it is not guaranteed to be
+    accurate for ``BatchTrial`` settings and makes assumptions, e.g.
+    arms in ``COMPLETED`` trial never being pending. See docstring of
+    that function for more details.
+
+    NOTE: Pending observation features are passed to the model to
+    instruct it to not generate the same points again.
+    """
+    if len(experiment.trials) >= MANY_TRIALS_IN_EXPERIMENT and all(
+        isinstance(t, Trial) for t in experiment.trials.values()
+    ):
+        return get_pending_observation_features_based_on_trial_status(
+            experiment=experiment,
+            include_out_of_design_points=include_out_of_design_points,
+        )
+
+    return get_pending_observation_features(
+        experiment=experiment, include_out_of_design_points=include_out_of_design_points
+    )
+
+
 def get_pending_observation_features(
     experiment: Experiment,
     *,
     include_out_of_design_points: bool = False,
 ) -> Optional[Dict[str, List[ObservationFeatures]]]:
-    """Computes a list of pending observation features (corresponding to arms that
-    have been generated and deployed in the course of the experiment, but have not
-    been completed with data or to arms that have been abandoned or belong to
-    abandoned trials).
+    """Computes a list of pending observation features (corresponding to:
+    - arms that have been generated and run in the course of the experiment,
+    but have not been completed with data,
+    - arms that have been abandoned or belong to abandoned trials).
 
     NOTE: Pending observation features are passed to the model to
     instruct it to not generate the same points again.
@@ -273,7 +313,8 @@ def get_pending_observation_features(
     return pending_features if any(x for x in pending_features.values()) else None
 
 
-# TODO: allow user to pass search space which overrides that on the experiment.
+# TODO: allow user to pass search space which overrides that on the experiment
+# (to use for the `include_out_of_design_points` check)
 def get_pending_observation_features_based_on_trial_status(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
