@@ -24,6 +24,7 @@ class TestMethods(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qKnowledgeGradient,
             scheduler_options=get_sequential_optimization_scheduler_options(),
+            distribute_replications=False,
         )
         self.assertEqual(method.name, "MBM::SingleTaskGP_qKnowledgeGradient")
         gs = method.generation_strategy
@@ -44,6 +45,7 @@ class TestMethods(TestCase):
             model_cls=SingleTaskGP,
             scheduler_options=get_sequential_optimization_scheduler_options(),
             acquisition_cls=LogExpectedImprovement,
+            distribute_replications=False,
         )
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
         # Only run one non-Sobol trial
