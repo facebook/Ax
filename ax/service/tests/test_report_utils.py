@@ -351,6 +351,7 @@ class ReportUtilsTest(TestCase):
         )
         exp = get_branin_experiment(with_batch=True, minimize=True)
         exp.trials[0].run()
+        exp.trials[0].mark_completed()
         model = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
         for gsa, true_objective_metric_name in itertools.product(
             [False, True], ["branin", None]
@@ -470,13 +471,15 @@ class ReportUtilsTest(TestCase):
             generator_run=Models.SOBOL(search_space=exp.search_space).gen(n=1)
         )
         exp.trials[1].run()
+        for t in exp.trials.values():
+            t.mark_completed()
         plots = get_standard_plots(
             experiment=exp,
             model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             true_objective_metric_name="branin",
         )
 
-        self.assertEqual(len(plots), 9)
+        self.assertEqual(len(plots), 10)
         self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
         self.assertIn(
             "Objective branin_map vs. True Objective Metric branin",

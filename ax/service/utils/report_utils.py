@@ -58,7 +58,7 @@ from ax.plot.scatter import interact_fitted_plotly, plot_multiple_metrics
 from ax.plot.slice import interact_slice_plotly
 from ax.plot.trace import (
     map_data_multiple_metrics_dropdown_plotly,
-    optimization_trace_single_method_plotly,
+    plot_objective_value_vs_trial_index,
 )
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.service.utils.early_stopping import get_early_stopping_metrics
@@ -105,6 +105,11 @@ def _get_objective_trace_plot(
             scatter_plot_with_hypervolume_trace_plotly(experiment=experiment),
             *_pairwise_pareto_plotly_scatter(experiment=experiment),
         ]
+    runner = experiment.runner
+    run_metadata_report_keys = None
+    if runner is not None:
+        run_metadata_report_keys = runner.run_metadata_report_keys
+    exp_df = exp_to_df(exp=experiment, run_metadata_fields=run_metadata_report_keys)
 
     optimization_config = experiment.optimization_config
     if optimization_config is None:
@@ -120,25 +125,14 @@ def _get_objective_trace_plot(
     )
 
     plots = [
-        optimization_trace_single_method_plotly(
-            y=np.array([data.df[data.df["metric_name"] == metric_name]["mean"]]),
-            title=f"Best {metric_name} found vs. # of iterations",
-            ylabel=metric_name,
-            model_transitions=model_transitions,
-            # Try and use the metric's lower_is_better property, but fall back on
-            # objective's minimize property if relevant
-            optimization_direction=(
-                (
-                    "minimize"
-                    if experiment.metrics[metric_name].lower_is_better is True
-                    else "maximize"
-                )
-                if experiment.metrics[metric_name].lower_is_better is not None
-                else (
-                    "minimize" if optimization_config.objective.minimize else "maximize"
-                )
-            ),
-            plot_trial_points=True,
+        plot_objective_value_vs_trial_index(
+            exp_df=exp_df,
+            metric_colname=metric_name,
+            minimize=optimization_config.objective.minimize
+            if optimization_config.objective.metric.name == metric_name
+            else experiment.metrics[metric_name].lower_is_better,
+            title=f"Best {metric_name} found vs. trial index",
+            hover_data_colnames=run_metadata_report_keys,
         )
         for metric_name in metric_names
     ]
