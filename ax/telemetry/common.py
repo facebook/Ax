@@ -3,7 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Tuple, Type
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, Type
+
+from ax.core.experiment import Experiment
 
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 
@@ -21,6 +24,8 @@ INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
 
 # Models whose generated trails will count towards other_trials
 OTHER_MODELS: List[Models] = []
+# Product surface to use if none is provided
+DEFAULT_PRODUCT_SURFACE = "unknown"
 
 
 def _get_max_transformed_dimensionality(
@@ -82,3 +87,12 @@ def _extract_transforms_and_configs(
         transform_configs = transform_configs or bridge_kwargs.get("transform_configs")
 
     return (transforms or [], transform_configs or {})
+
+
+def get_unique_identifier(experiment: Experiment) -> str:
+    """
+    Return a unique identifier for an experiment so creation and completion
+    events can be joined.
+    """
+    str_time = datetime.strftime(experiment.time_created, "%Y-%m-%d %H:%M:%S")
+    return f"{experiment.name}_{str_time}"

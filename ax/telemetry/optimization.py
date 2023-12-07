@@ -8,9 +8,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
+from ax.core.experiment import Experiment
+from ax.modelbridge.generation_strategy import GenerationStrategy
+
 from ax.service.ax_client import AxClient
 from ax.service.scheduler import Scheduler
 from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecord
+from ax.telemetry.common import (
+    _get_max_transformed_dimensionality,
+    DEFAULT_PRODUCT_SURFACE,
+    get_unique_identifier,
+)
+from ax.telemetry.experiment import ExperimentCreatedRecord
+from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 from ax.telemetry.scheduler import SchedulerCompletedRecord, SchedulerCreatedRecord
 
 
@@ -47,16 +57,16 @@ class OptimizationCreatedRecord:
     runner_cls: str
 
     # GenerationStrategyCreatedRecord fields
-    generation_strategy_name: str
-    num_requested_initialization_trials: int
-    num_requested_bayesopt_trials: int
-    num_requested_other_trials: int
-    max_parallelism: int
+    generation_strategy_name: Optional[str]
+    num_requested_initialization_trials: Optional[int]
+    num_requested_bayesopt_trials: Optional[int]
+    num_requested_other_trials: Optional[int]
+    max_parallelism: Optional[int]
 
     # {AxClient, Scheduler}CreatedRecord fields
     early_stopping_strategy_cls: Optional[str]
     global_stopping_strategy_cls: Optional[str]
-    transformed_dimensionality: int
+    transformed_dimensionality: Optional[int]
     scheduler_total_trials: Optional[int]
     scheduler_max_pending_trials: int
     arms_per_trial: int
@@ -261,6 +271,126 @@ class OptimizationCreatedRecord:
             ),
             arms_per_trial=ax_client_created_record.arms_per_trial,
             unique_identifier=unique_identifier,
+            product_surface=product_surface,
+            launch_surface=launch_surface,
+            deployed_job_id=deployed_job_id,
+            trial_evaluation_identifier=trial_evaluation_identifier,
+            is_manual_generation_strategy=is_manual_generation_strategy,
+            warm_started_from=warm_started_from,
+            num_custom_trials=num_custom_trials,
+            # The following are not applicable for AxClient
+            scheduler_total_trials=None,
+            scheduler_max_pending_trials=-1,
+            support_tier="",  # This support may be added in the future
+        )
+
+    @classmethod
+    def from_experiment(
+        cls,
+        experiment: Experiment,
+        generation_strategy: Optional[GenerationStrategy],
+        product_surface: str,
+        launch_surface: str,
+        deployed_job_id: int,
+        is_manual_generation_strategy: bool,
+        num_custom_trials: int,
+        warm_started_from: Optional[str] = None,
+        arms_per_trial: Optional[int] = None,
+        trial_evaluation_identifier: Optional[str] = None,
+    ) -> OptimizationCreatedRecord:
+        experiment_created_record = ExperimentCreatedRecord.from_experiment(
+            experiment=experiment,
+        )
+        generation_strategy_created_record = (
+            None
+            if generation_strategy is None
+            else (
+                GenerationStrategyCreatedRecord.from_generation_strategy(
+                    generation_strategy=generation_strategy,
+                )
+            )
+        )
+        arms_per_trial = -1 if arms_per_trial is None else arms_per_trial
+        product_surface = (
+            DEFAULT_PRODUCT_SURFACE if product_surface is None else product_surface
+        )
+
+        return cls(
+            experiment_name=experiment_created_record.experiment_name,
+            experiment_type=experiment_created_record.experiment_type,
+            num_continuous_range_parameters=(
+                experiment_created_record.num_continuous_range_parameters
+            ),
+            num_int_range_parameters_small=(
+                experiment_created_record.num_int_range_parameters_small
+            ),
+            num_int_range_parameters_medium=(
+                experiment_created_record.num_int_range_parameters_medium
+            ),
+            num_int_range_parameters_large=(
+                experiment_created_record.num_int_range_parameters_large
+            ),
+            num_log_scale_range_parameters=(
+                experiment_created_record.num_log_scale_range_parameters
+            ),
+            num_unordered_choice_parameters_small=(
+                experiment_created_record.num_unordered_choice_parameters_small
+            ),
+            num_unordered_choice_parameters_medium=(
+                experiment_created_record.num_unordered_choice_parameters_medium
+            ),
+            num_unordered_choice_parameters_large=(
+                experiment_created_record.num_unordered_choice_parameters_large
+            ),
+            num_fixed_parameters=experiment_created_record.num_fixed_parameters,
+            dimensionality=experiment_created_record.dimensionality,
+            hierarchical_tree_height=(
+                experiment_created_record.hierarchical_tree_height
+            ),
+            num_parameter_constraints=(
+                experiment_created_record.num_parameter_constraints
+            ),
+            num_objectives=experiment_created_record.num_objectives,
+            num_tracking_metrics=experiment_created_record.num_tracking_metrics,
+            num_outcome_constraints=experiment_created_record.num_outcome_constraints,
+            num_map_metrics=experiment_created_record.num_map_metrics,
+            metric_cls_to_quantity=experiment_created_record.metric_cls_to_quantity,
+            runner_cls=experiment_created_record.runner_cls,
+            generation_strategy_name=(
+                None
+                if generation_strategy_created_record is None
+                else generation_strategy_created_record.generation_strategy_name
+            ),
+            num_requested_initialization_trials=(
+                None
+                if generation_strategy_created_record is None
+                else generation_strategy_created_record.num_requested_initialization_trials
+            ),
+            num_requested_bayesopt_trials=(
+                None
+                if generation_strategy_created_record is None
+                else generation_strategy_created_record.num_requested_bayesopt_trials
+            ),
+            num_requested_other_trials=(
+                None
+                if generation_strategy_created_record is None
+                else generation_strategy_created_record.num_requested_other_trials
+            ),
+            max_parallelism=(
+                None
+                if generation_strategy_created_record is None
+                else generation_strategy_created_record.max_parallelism
+            ),
+            early_stopping_strategy_cls=None,
+            global_stopping_strategy_cls=None,
+            transformed_dimensionality=None
+            if generation_strategy is None
+            else _get_max_transformed_dimensionality(
+                search_space=experiment.search_space,
+                generation_strategy=generation_strategy,
+            ),
+            arms_per_trial=arms_per_trial,
+            unique_identifier=get_unique_identifier(experiment=experiment),
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
