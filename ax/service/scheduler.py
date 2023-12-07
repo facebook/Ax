@@ -727,7 +727,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.options.init_seconds_between_polls is not None
             and self.options.early_stopping_strategy is not None
         ):
-            self.logger.warn(
+            self.logger.warning(
                 "Both `init_seconds_between_polls` and `early_stopping_strategy "
                 "supplied. `init_seconds_between_polls="
                 f"{self.options.init_seconds_between_polls}` will be overrridden by "
@@ -854,7 +854,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         if failure_rate_exceeded:
             if self._num_trials_bad_due_to_err > num_bad_in_scheduler / 2:
-                self.logger.warn(
+                self.logger.warning(
                     "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
                     "which was primarily caused by failure to fetch metrics. Please "
                     "check if anything could cause your metrics to be flaky or "
@@ -1631,7 +1631,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 try:
                     trial.mark_running(no_runner_required=True)
                 except ValueError as e:
-                    self.logger.warn(
+                    self.logger.warning(
                         "Unable to mark trial as RUNNING due to the following error:\n"
                         + str(e)
                     )

@@ -240,7 +240,7 @@ class Experiment(Base):
                 sq_idx += 1
 
             self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
-            logger.warn(
+            logger.warning(
                 "Experiment's status_quo is updated. "
                 "Generally the status_quo should not be changed after being set."
             )
