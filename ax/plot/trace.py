@@ -8,12 +8,14 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.utils.common.timeutils import timestamps_in_range
 from ax.utils.common.typeutils import not_none
+from plotly import express as px
 from plotly.express.colors import sample_colorscale
 
 FIVE_MINUTES = timedelta(minutes=5)
@@ -496,7 +498,19 @@ def optimization_trace_single_method_plotly(
     return go.Figure(layout=layout, data=data, layout_yaxis_range=layout_yaxis_range)
 
 
-def _autoset_axis_limits(y: np.ndarray, optimization_direction: str) -> List[float]:
+def _autoset_axis_limits(
+    y: np.ndarray,
+    optimization_direction: str,
+    force_include_value: Optional[float] = None,
+) -> List[float]:
+    """Provides automatic axis limits based on the data and optimization direction.
+    All best points are included in this range, and by default the worst points are
+    truncated at some distance below the median, where that distance is given by
+    1.5 * (the distance between the median and the best quartile).
+
+    If `force_include_value` is provided, the worst points will be truncated at this
+    value if it is worse than the truncation point described above.
+    """
     q1 = np.percentile(y, q=25, interpolation="lower").min()
     q2_min = np.percentile(y, q=50, interpolation="linear").min()
     q2_max = np.percentile(y, q=50, interpolation="linear").max()
@@ -504,9 +518,13 @@ def _autoset_axis_limits(y: np.ndarray, optimization_direction: str) -> List[flo
     if optimization_direction == "minimize":
         y_lower = y.min()
         y_upper = q2_max + 1.5 * (q2_max - q1)
+        if force_include_value is not None:
+            y_upper = max(y_upper, force_include_value)
     else:
         y_lower = q2_min - 1.5 * (q3 - q2_min)
         y_upper = y.max()
+        if force_include_value is not None:
+            y_lower = min(y_lower, force_include_value)
     y_padding = 0.1 * (y_upper - y_lower)
     y_lower, y_upper = y_lower - y_padding, y_upper + y_padding
     return [y_lower, y_upper]
@@ -755,3 +773,138 @@ def get_running_trials_per_minute(
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
+
+
+def plot_objective_value_vs_trial_index(
+    exp_df: pd.DataFrame,
+    metric_colname: str,
+    minimize: bool,
+    title: Optional[str] = None,
+    hover_data_colnames: Optional[List[str]] = None,
+    autoset_axis_limits: bool = True,
+) -> go.Figure:
+    """Returns a plotly figure showing the optimization trace for a single metric.
+
+    Args:
+        exp_df: DataFrame with the following columns
+            - "trial_index": Index of each trial.
+            - "arm_name": Name of each arm evaluated in the corresponding trial.
+            - metric_colname: Name of the objective metric (user-provided).
+            - "is_feasible": Whether each arm is feasible (optional). If not
+                provided, all arms will be considered feasible.
+            - "generation_method": Generation method used to generate each arm
+                (optional).
+            - hover_data_colnames: Columns to be displayed on hover (user-provided).
+        metric_colname: Name of the column in exp_df that contains the
+            objective metric values.
+        minimize: Optimization direction of the objective.
+        title: Title of the plot (optional).
+        hover_data_colnames: Names of additional columns to display on hover.
+        autoset_axis_limits: Automatically try to set the limit for each axis to focus
+            on the region of interest. Will always include first point.
+    Returns:
+        Optimization trace as a plot.
+    """
+    # Protect input exp_df from changes.
+    exp_df = exp_df.copy()
+
+    # Use completed trials only.
+    trial_status_colname = "trial_status"
+    if trial_status_colname in exp_df.columns:
+        exp_df = exp_df.loc[exp_df[trial_status_colname].str.match("COMPLETED")]
+
+    # Check if feasibility and generation method columns exist.
+    is_feasible_colname = "is_feasible" if "is_feasible" in exp_df.columns else None
+    generation_method_colname = (
+        "generation_method" if "generation_method" in exp_df.columns else None
+    )
+
+    scatter = px.scatter(
+        data_frame=exp_df,
+        x="trial_index",
+        y=metric_colname,
+        color=is_feasible_colname,
+        symbol=generation_method_colname,
+        hover_name="arm_name",
+        hover_data=hover_data_colnames,
+    )
+    running_feasible_optimum_df = compute_running_feasible_optimum_df(
+        exp_df=exp_df,
+        metric_colname=metric_colname,
+        minimize=minimize,
+        is_feasible_colname=is_feasible_colname,
+    )
+    line = px.line(
+        data_frame=running_feasible_optimum_df,
+        x="trial_index",
+        y="running_optimum",
+        color="Legend",
+        line_shape="hv",
+    )
+    # pyre-ignore[16]: `go.graph_objs.Figure` has no attribute add_trace.
+    fig = scatter.add_trace(line.data[0])
+    if autoset_axis_limits:
+        layout_yaxis_range = _autoset_axis_limits(
+            y=exp_df[metric_colname].to_numpy(),
+            optimization_direction="minimize" if minimize else "maximize",
+            force_include_value=running_feasible_optimum_df.loc[0, metric_colname],
+        )
+        fig.update_layout(yaxis_range=layout_yaxis_range)
+    if title is not None:
+        fig.update_layout(title=title)
+    return fig
+
+
+def compute_running_feasible_optimum_df(
+    exp_df: pd.DataFrame,
+    metric_colname: str,
+    minimize: bool,
+    is_feasible_colname: Optional[str],
+) -> pd.DataFrame:
+    """Computes the running feasible optimum for a given metric."""
+    # If feasibility column is not provided, assume all arms are feasible.
+    if is_feasible_colname is None:
+        running_feasible_optimum_df = exp_df
+    else:
+        running_feasible_optimum_df = exp_df[
+            exp_df["is_feasible"].notnull() & exp_df["is_feasible"]
+        ]
+    running_feasible_optimum_df = running_feasible_optimum_df[
+        ["trial_index", metric_colname]
+    ].copy()
+
+    # Compute running optimum.
+    if minimize:
+        running_feasible_optimum_df = (
+            running_feasible_optimum_df.groupby("trial_index").min().reset_index()
+        )
+        running_feasible_optimum_df["running_optimum"] = running_feasible_optimum_df[
+            metric_colname
+        ].cummin()
+    else:
+        running_feasible_optimum_df = (
+            running_feasible_optimum_df.groupby("trial_index").max().reset_index()
+        )
+        running_feasible_optimum_df["running_optimum"] = running_feasible_optimum_df[
+            metric_colname
+        ].cummax()
+
+    # Infill missing/infeasible trials.
+    available_trial_indices = exp_df[exp_df[metric_colname].notnull()]["trial_index"]
+    new_index = pd.Index(
+        np.arange(
+            start=available_trial_indices.min(),
+            stop=available_trial_indices.max() + 1,
+        ),
+        name="trial_index",
+    )
+    running_feasible_optimum_df = (
+        running_feasible_optimum_df.set_index("trial_index")
+        .reindex(new_index)
+        .reset_index()
+        .fillna(method="ffill")
+    )
+
+    # Add legend column.
+    running_feasible_optimum_df["Legend"] = "Running optimum"
+    return running_feasible_optimum_df
