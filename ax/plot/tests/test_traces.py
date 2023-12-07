@@ -33,14 +33,14 @@ class TracesTest(TestCase):
     def test_Traces(self) -> None:
         # Assert that each type of plot can be constructed successfully
         plot = optimization_trace_single_method_plotly(
-            np.array([[1., 2., 3.], [4., 5., 6.]]),
+            np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
             list(self.model.metric_names)[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
         )
         self.assertIsInstance(plot, go.Figure)
         plot = optimization_trace_single_method(
-            np.array([[1., 2., 3.], [4., 5., 6.]]),
+            np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
             list(self.model.metric_names)[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
@@ -50,7 +50,7 @@ class TracesTest(TestCase):
     def test_TracesAutoAxes(self) -> None:
         for optimization_direction in ["minimize", "maximize", "passthrough"]:
             plot = optimization_trace_single_method_plotly(
-                np.array([[1., 2., 3.], [4., 5., 6.]]),
+                np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
                 list(self.model.metric_names)[0],
                 optimization_direction=optimization_direction,
                 autoset_axis_limits=True,
