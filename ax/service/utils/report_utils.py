@@ -762,7 +762,7 @@ def exp_to_df(
     """
 
     if len(kwargs) > 0:
-        logger.warn(
+        logger.warning(
             "`kwargs` in exp_to_df is deprecated. Please remove extra arguments."
         )
 
