@@ -347,8 +347,8 @@ def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
 
     See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.
     """
-    q1 = np.percentile(Y, q=25, interpolation="lower")
-    q3 = np.percentile(Y, q=75, interpolation="higher")
+    q1 = np.percentile(Y, q=25, method="lower")
+    q3 = np.percentile(Y, q=75, method="higher")
     iqr = q3 - q1
     return q1 - 1.5 * iqr if lower else q3 + 1.5 * iqr
 
@@ -383,8 +383,8 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
     with a GEQ constraint.
     """
     Y = np.array(metric_values)
-    q1 = np.percentile(Y, q=25, interpolation="lower")
-    q3 = np.percentile(Y, q=75, interpolation="higher")
+    q1 = np.percentile(Y, q=25, method="lower")
+    q3 = np.percentile(Y, q=75, method="higher")
     lower_cutoff, upper_cutoff = DEFAULT_CUTOFFS
     for oc in outcome_constraints:
         bnd = oc.bound
@@ -424,14 +424,14 @@ def _quantiles_to_cutoffs(
     elif lower == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_l = DEFAULT_CUTOFFS[0]
     else:
-        cutoff_l = np.percentile(Y, lower * 100, interpolation="lower")
+        cutoff_l = np.percentile(Y, lower * 100, method="lower")
 
     if upper == AUTO_WINS_QUANTILE:
         cutoff_u = _get_tukey_cutoffs(Y=Y, lower=False)
     elif upper == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_u = DEFAULT_CUTOFFS[1]
     else:
-        cutoff_u = np.percentile(Y, (1 - upper) * 100, interpolation="higher")
+        cutoff_u = np.percentile(Y, (1 - upper) * 100, method="higher")
 
     cutoff_l = min(cutoff_l, bnd_l) if bnd_l is not None else cutoff_l
     cutoff_u = max(cutoff_u, bnd_u) if bnd_u is not None else cutoff_u
