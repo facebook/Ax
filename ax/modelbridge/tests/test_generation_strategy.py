@@ -19,7 +19,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
@@ -1081,7 +1081,6 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         self.assertEqual(sobol_GPEI_GS_nodes.name, "Sobol+GPEI_Nodes")
-        self.assertEqual(sobol_GPEI_GS_nodes.model_transitions, [5])
 
         for i in range(7):
             g = sobol_GPEI_GS_nodes.gen(exp)
@@ -1134,6 +1133,30 @@ class TestGenerationStrategy(TestCase):
                 ms = ms.copy()
                 del ms["generated_points"]
                 self.assertEqual(ms, {"init_position": i + 1})
+
+    def test_step_based_gs_only(self) -> None:
+        """Test the step_based_gs_only decorator"""
+        sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs={},
+            model_gen_kwargs={"n": 2},
+        )
+        gs_test = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="node_1",
+                    model_specs=[sobol_model_spec],
+                ),
+                GenerationNode(
+                    node_name="node_2",
+                    model_specs=[sobol_model_spec],
+                ),
+            ],
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError, "is not supported for GenerationNode based"
+        ):
+            gs_test.current_step_index
 
     # ------------- Testing helpers (put tests above this line) -------------
 
