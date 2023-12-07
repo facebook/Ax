@@ -869,7 +869,6 @@ def pareto_frontier(
         optimization_config=optimization_config,
         arm_names=arm_names,
         use_model_predictions=use_model_predictions,
-        transform_outcomes_and_configs=False,
     )
 
     # If no objective thresholds are present we cannot compute hypervolume -- return
@@ -1021,7 +1020,6 @@ def hypervolume(
         objective_thresholds=objective_thresholds,
         optimization_config=optimization_config,
         use_model_predictions=use_model_predictions,
-        transform_outcomes_and_configs=False,
     )
     if obj_t is None:
         raise ValueError(
