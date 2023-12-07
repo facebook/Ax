@@ -55,3 +55,14 @@ class GenerationStrategyRepeatedPoints(GenerationStrategyCompleted):
     """
 
     pass
+
+
+class GenerationStrategyMisconfiguredException(AxError):
+    """Special exception indicating that the generation strategy is misconfigured."""
+
+    def __init__(self, error_info: Optional[str]) -> None:
+        super().__init__(
+            "This GenerationStrategy was unable to be initialized properly. Please "
+            + "check the documentation, and adjust the configuration accordingly. "
+            + f"{error_info}"
+        )

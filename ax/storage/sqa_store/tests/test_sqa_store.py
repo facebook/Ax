@@ -1270,6 +1270,10 @@ class SQAStoreTest(TestCase):
             # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
             gs_id=generation_strategy._db_id
         )
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(generation_strategy, new_generation_strategy)
         self.assertIsNone(generation_strategy._experiment)
 

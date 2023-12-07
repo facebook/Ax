@@ -1983,6 +1983,7 @@ class TestAxClient(TestCase):
         # set during next model fitting call), so we unset them on the original GS as
         # well.
         gs._unset_non_persistent_state_fields()
+        ax_client.generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -2342,7 +2343,10 @@ class TestAxClient(TestCase):
         ax_client.generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )
-        self.assertEqual(ax_client.generation_strategy._curr.model_name, "BoTorch")
+        self.assertEqual(
+            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            "BoTorch",
+        )
 
         # Check calling get_best_parameters fails (user must call
         # get_pareto_optimal_parameters).
@@ -2409,7 +2413,10 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
-        self.assertEqual(ax_client.generation_strategy._curr.model_name, "Sobol")
+        self.assertEqual(
+            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            "Sobol",
+        )
 
         cfg = not_none(ax_client.experiment.optimization_config)
         assert isinstance(cfg, MultiObjectiveOptimizationConfig)

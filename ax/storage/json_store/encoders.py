@@ -494,7 +494,7 @@ def generation_strategy_to_dict(
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
         "steps": generation_strategy._steps,
-        "curr_index": generation_strategy._curr.index,
+        "curr_index": generation_strategy.current_step_index,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,

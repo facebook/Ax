@@ -858,7 +858,7 @@ class Encoder:
                 encoder_registry=self.config.json_encoder_registry,
                 class_encoder_registry=self.config.json_class_encoder_registry,
             ),
-            curr_index=generation_strategy._curr.index,
+            curr_index=generation_strategy.current_step_index,
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
         )
