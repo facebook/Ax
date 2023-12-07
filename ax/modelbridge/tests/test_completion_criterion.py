@@ -71,7 +71,7 @@ class TestCompletionCritereon(TestCase):
                 )
             )
 
-            self.assertEqual(generation_strategy._curr.model, Models.GPEI)
+            self.assertEqual(generation_strategy._curr.model_enum, Models.GPEI)
 
     def test_many_criteria(self) -> None:
         criteria = [
@@ -145,4 +145,4 @@ class TestCompletionCritereon(TestCase):
                 )
             )
 
-            self.assertEqual(generation_strategy._curr.model, Models.GPEI)
+            self.assertEqual(generation_strategy._curr.model_enum, Models.GPEI)

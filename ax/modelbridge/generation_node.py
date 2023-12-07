@@ -100,6 +100,7 @@ class GenerationNode:
 
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
+    # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Optional[Sequence[TransitionCriterion]]
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment

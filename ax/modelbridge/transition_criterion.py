@@ -12,14 +12,14 @@ from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.generation_strategy import DataRequiredError
-from ax.utils.common.base import Base
+from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin, serialize_init_args
 
 logger: Logger = get_logger(__name__)
 
 
-class TransitionCriterion(Base, SerializationMixin):
+class TransitionCriterion(SortableBase, SerializationMixin):
     # TODO: @mgarrard rename to ActionCriterion
     """
     Simple class to descibe a condition which must be met for this GenerationNode to
@@ -66,7 +66,7 @@ class TransitionCriterion(Base, SerializationMixin):
         """If the criterion of this TransitionCriterion is met, returns True."""
         pass
 
-    @abstractmethod
+    # TODO: @mgarrard add back abstractmethod once legacy usecases are updated
     def block_continued_generation_error(
         self,
         node_name: Optional[str],
@@ -84,6 +84,12 @@ class TransitionCriterion(Base, SerializationMixin):
 
     def __repr__(self) -> str:
         return f"{self.criterion_class}({serialize_init_args(obj=self)})"
+
+    @property
+    def _unique_id(self) -> str:
+        """Unique id for this TransitionCriterion."""
+        # TODO @mgarrard validate that this is unique enough
+        return str(self)
 
 
 class TrialBasedCriterion(TransitionCriterion):

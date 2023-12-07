@@ -74,7 +74,7 @@ class TestTransitionCriterion(TestCase):
                     raise_data_required_error=False
                 )
             )
-            self.assertEqual(generation_strategy._curr.model, Models.GPEI)
+            self.assertEqual(generation_strategy._curr.model_enum, Models.GPEI)
 
     def test_default_step_criterion_setup(self) -> None:
         """This test ensures that the default completion criterion for GenerationSteps

@@ -328,7 +328,7 @@ def _update_generation_strategy(
     with session_scope() as session:
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
-                "curr_index": generation_strategy._curr.index,
+                "curr_index": generation_strategy.current_step_index,
                 "experiment_id": experiment_id,
             }
         )
