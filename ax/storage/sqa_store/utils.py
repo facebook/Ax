@@ -35,6 +35,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_seen_trial_indices_by_status",
     "_steps",
     "analysis_scheduler",
+    "_nodes",
 }
 SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
 
