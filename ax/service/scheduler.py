@@ -1261,7 +1261,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 trial_indices=running_trial_indices,
                 overwrite_existing_data=True,
             )
-            updated_any_trial = len(results) > 0
+            updated_any_trial = any(
+                r.is_ok()
+                for results_by_metric_name in results.values()
+                for r in results_by_metric_name.values()
+            )
 
         # 3. Determine which trials to stop early
         stop_trial_info = self.should_stop_trials_early(
@@ -1312,14 +1316,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
             updated_trials.extend(trials)
 
-        if not updated_any_trial:  # Did not update anything, nothing to save.
-            return False
+        if updated_any_trial:  # Only save if there were updates.
+            self.logger.debug(f"Updating {len(updated_trials)} trials in DB.")
+            self._save_or_update_trials_in_db_if_possible(
+                experiment=self.experiment,
+                trials=updated_trials,
+            )
 
-        self.logger.debug(f"Updating {len(updated_trials)} trials in DB.")
-        self._save_or_update_trials_in_db_if_possible(
-            experiment=self.experiment,
-            trials=updated_trials,
-        )
         return updated_any_trial
 
     def _process_completed_trials(self, newly_completed: Set[int]) -> None:

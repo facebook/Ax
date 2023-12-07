@@ -23,6 +23,7 @@ from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
+from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -1201,6 +1202,41 @@ class TestAxScheduler(TestCase):
         self.assertIsNone(scheduler.experiment.trials[completed_idx]._failed_reason)
 
     def test_fetch_and_process_trials_data_results_failed_objective_available_while_running(  # noqa
+        self,
+    ) -> None:
+        with patch(
+            f"{BraninTimestampMapMetric.__module__}.BraninTimestampMapMetric.f",
+            side_effect=[Exception("yikes!"), {"mean": 0, "timestamp": 12345}],
+        ), patch(
+            f"{BraninMetric.__module__}.BraninMetric.f",
+            side_effect=[Exception("yikes!"), 0],
+        ), patch(
+            f"{SyntheticRunner.__module__}.SyntheticRunner.poll_trial_status",
+            side_effect=[
+                {TrialStatus.RUNNING: {0}},
+                {TrialStatus.COMPLETED: {0}},
+            ],
+        ), self.assertLogs(
+            logger="ax.service.scheduler", level="INFO"
+        ) as lg:
+            scheduler = Scheduler(
+                experiment=get_branin_experiment_with_timestamp_map_metric(),
+                generation_strategy=self.two_sobol_steps_GS,
+                options=SchedulerOptions(),
+            )
+            scheduler.run_n_trials(max_trials=1)
+
+            self.assertTrue(
+                any(
+                    "Failed to fetch branin_map for trial 0" in msg for msg in lg.output
+                )
+            )
+            self.assertTrue(
+                any("Waiting for completed trials" in msg for msg in lg.output)
+            )
+        self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.COMPLETED)
+
+    def test_fetch_and_process_trials_data_results_failed_non_objective(
         self,
     ) -> None:
         with patch(
