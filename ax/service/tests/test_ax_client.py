@@ -2883,7 +2883,7 @@ class TestAxClient(TestCase):
             self.assertEqual(ff.parameters, {})
             self.assertEqual(ff.trial_index, 0)
 
-    def test_get_optimization_trace_discard_unfeasible_trials(self) -> None:
+    def test_get_optimization_trace_discard_infeasible_trials(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
