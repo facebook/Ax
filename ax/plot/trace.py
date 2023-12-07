@@ -256,6 +256,7 @@ def sem_range_scatter(
         Tuple[go.Scatter]: plotly graph objects for lower and upper bounds
     """
     mean = np.mean(y, axis=0)
+    y[np.isinf(y)] = np.nan  # avoids RuntimeWarning in np.std due to invalid values
     sem = np.std(y, axis=0) / np.sqrt(y.shape[0])
     return (
         go.Scatter(
