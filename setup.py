@@ -73,7 +73,6 @@ TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
     "pyro-ppl",  # Required for to call run_inference.
     "pytorch-lightning",  # For the early stopping tutorial.
     "papermill",  # For executing the tutorials.
-    "memory_profiler",  # For measuring memory usage of the tutorials.
 ]
 
 

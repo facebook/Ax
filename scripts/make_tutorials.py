@@ -15,7 +15,6 @@ from typing import Dict, Optional
 
 import nbformat
 from bs4 import BeautifulSoup
-from memory_profiler import memory_usage
 from nbconvert import HTMLExporter, ScriptExporter
 
 TUTORIALS_TO_SKIP = [
