@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 
 from ax.core.experiment import Experiment
 
