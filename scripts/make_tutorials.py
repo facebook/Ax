@@ -13,7 +13,9 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 
+import papermill
 import nbformat
+from nbclient.exceptions import CellTimeoutError
 from bs4 import BeautifulSoup
 from nbconvert import HTMLExporter, ScriptExporter
 
@@ -115,14 +117,14 @@ def run_script(
 ) -> None:
     if env is not None:
         env = {**os.environ, **env}
-    run_out = subprocess.run(
-        ["papermill", tutorial, "|"],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=timeout_minutes * 60,
+    for k, v in env.items():
+        os.environ[k] = v
+    papermill.execute_notebook(
+        tutorial,
+        tutorial,
+        # This timeout is on cell-execution time, not on total runtime.
+        execution_timeout=timeout_minutes * 60,
     )
-    return run_out
 
 
 def gen_tutorials(
@@ -161,11 +163,6 @@ def gen_tutorials(
         print("Generating {} tutorial".format(tid))
         paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
 
-        # load notebook
-        with open(paths["tutorial_path"], "r") as infile:
-            nb_str = infile.read()
-            nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
-
         total_time = None
 
         if tid in TUTORIALS_TO_SKIP:
@@ -180,7 +177,7 @@ def gen_tutorials(
             timeout_minutes = 15 if smoke_test else 150
             try:
                 # Execute notebook.
-                run_out = run_script(
+                run_script(
                     tutorial=tutorial_path,
                     timeout_minutes=timeout_minutes,
                     env=env,
@@ -189,23 +186,22 @@ def gen_tutorials(
                 print(
                     f"Finished executing tutorial {tid} in {total_time:.2f} seconds. "
                 )
-            except subprocess.TimeoutExpired:
+            except CellTimeoutError:
                 has_errors = True
                 print(
                     f"Tutorial {tid} exceeded the maximum runtime of "
                     f"{timeout_minutes} minutes."
                 )
-            try:
-                run_out.check_returncode()
-            except subprocess.CalledProcessError:
+            except Exception as e:
                 has_errors = True
                 print(
-                    f"Encountered error running tutorial {tid}: \n"
-                    f"stdout: \n {run_out.stdout} \n"
-                    f"stderr: \n {run_out.stderr} \n"
+                    f"Encountered error running tutorial {tid}: \n {e}"
                 )
-            except NameError:
-                pass  # In case the execution times out and run_out is not defined.
+
+        # load notebook
+        with open(paths["tutorial_path"], "r") as infile:
+            nb_str = infile.read()
+            nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")
         html, _ = exporter.from_notebook_node(nb)
