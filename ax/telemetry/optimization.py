@@ -315,6 +315,11 @@ class OptimizationCreatedRecord:
             DEFAULT_PRODUCT_SURFACE if product_surface is None else product_surface
         )
 
+        num_requested_initialization_trials = (
+            None
+            if generation_strategy_created_record is None
+            else generation_strategy_created_record.num_requested_initialization_trials
+        )
         return cls(
             experiment_name=experiment_created_record.experiment_name,
             experiment_type=experiment_created_record.experiment_type,
@@ -361,11 +366,7 @@ class OptimizationCreatedRecord:
                 if generation_strategy_created_record is None
                 else generation_strategy_created_record.generation_strategy_name
             ),
-            num_requested_initialization_trials=(
-                None
-                if generation_strategy_created_record is None
-                else generation_strategy_created_record.num_requested_initialization_trials
-            ),
+            num_requested_initialization_trials=num_requested_initialization_trials,
             num_requested_bayesopt_trials=(
                 None
                 if generation_strategy_created_record is None
