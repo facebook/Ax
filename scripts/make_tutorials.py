@@ -7,16 +7,15 @@
 import argparse
 import json
 import os
-import subprocess
 import tarfile
 import time
 from pathlib import Path
 from typing import Dict, Optional
 
-import papermill
 import nbformat
-from nbclient.exceptions import CellTimeoutError
+import papermill
 from bs4 import BeautifulSoup
+from nbclient.exceptions import CellTimeoutError
 from nbconvert import HTMLExporter, ScriptExporter
 
 TUTORIALS_TO_SKIP = [
@@ -194,9 +193,7 @@ def gen_tutorials(
                 )
             except Exception as e:
                 has_errors = True
-                print(
-                    f"Encountered error running tutorial {tid}: \n {e}"
-                )
+                print(f"Encountered error running tutorial {tid}: \n {e}")
 
         # load notebook
         with open(paths["tutorial_path"], "r") as infile:
