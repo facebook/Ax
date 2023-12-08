@@ -5,20 +5,37 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Tuple
+from typing import Dict, List, Tuple, Union
 
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
+from ax.core.search_space import SearchSpace
+from ax.core.types import TParamValue, TParamValueList
 from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
+from ax.utils.common.typeutils import checked_cast
 from pandas.core.frame import DataFrame
 
 
 COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]
+PARAM_FLAGS = ["is_fidelity"]
+RANGE_PARAM_FLAGS = ["log_scale", "logit_scale"]
+CHOICE_PARAM_FLAGS = ["is_ordered", "is_hierarchical", "is_task", "sort_values"]
+FIXED_PARAM_FLAGS = ["is_hierarchical"]
+PARAMETER_DF_COLNAMES = {
+    "name": "Name",
+    "type": "Type",
+    "domain": "Domain",
+    "parameter_type": "Datatype",
+    "flags": "Flags",
+    "target_value": "Target Value",
+    "dependents": "Dependent Parameters",
+}
 
 
 def get_color(x: float, ci: float, rel: bool, reverse: bool) -> str:
@@ -161,3 +178,63 @@ def table_view_plot(
     fig = go.Figure(data=[trace], layout=layout)
     # pyre-fixme[7]: Expected `Tuple[DataFrame]` but got `AxPlotConfig`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+
+
+def search_space_summary_df(search_space: SearchSpace) -> DataFrame:
+    """Returns a summary of the search space for an experiment."""
+    records = [
+        _extract_parameter_record(parameter=p) for p in search_space.parameters.values()
+    ]
+    return pd.DataFrame(records).fillna(value="None")
+
+
+def _extract_parameter_record(
+    parameter: Parameter,
+) -> Dict[str, Union[TParamValueList, TParamValue, str, List[str]]]:
+    # Extract domain, type, and relevant flags per parameter subclass.
+    available_flags = PARAM_FLAGS.copy()
+    if isinstance(parameter, RangeParameter):
+        domain = f"bounds: {[parameter.lower, parameter.upper]}"
+        available_flags += RANGE_PARAM_FLAGS
+    elif isinstance(parameter, ChoiceParameter):
+        domain = f"values: {parameter.values}"
+        available_flags += CHOICE_PARAM_FLAGS
+    else:  # FixedParameter
+        parameter = checked_cast(FixedParameter, parameter)
+        domain = f"value: {parameter.value}"
+        available_flags += FIXED_PARAM_FLAGS
+
+    # Extract flags.
+    flags = [
+        _maybe_remove_prefix(flag)
+        for flag in available_flags
+        if getattr(parameter, flag)
+    ]
+    if isinstance(parameter, ChoiceParameter) and not parameter.is_ordered:
+        flags = ["unordered"] + flags
+
+    # Assemble record.
+    record = {
+        PARAMETER_DF_COLNAMES["name"]: parameter.name,
+        PARAMETER_DF_COLNAMES["type"]: parameter.__class__.__name__[
+            : -len("parameter")
+        ],
+        PARAMETER_DF_COLNAMES["domain"]: domain,
+        PARAMETER_DF_COLNAMES["parameter_type"]: parameter.parameter_type.name.lower(),
+        PARAMETER_DF_COLNAMES["flags"]: ", ".join(flags) if flags else None,
+    }
+
+    # Add target_values and dependents if necessary.
+    if parameter.is_fidelity or getattr(parameter, "is_task", False):
+        record[PARAMETER_DF_COLNAMES["target_value"]] = parameter.target_value
+    if parameter.is_hierarchical:
+        record[PARAMETER_DF_COLNAMES["dependents"]] = parameter.dependents
+
+    return record
+
+
+def _maybe_remove_prefix(flag: str) -> str:
+    prefix = "is_"
+    if flag.startswith(prefix):
+        return flag[len(prefix) :]
+    return flag
