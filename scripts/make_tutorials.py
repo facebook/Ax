@@ -168,10 +168,11 @@ def gen_tutorials(
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
 
         total_time = None
-        if exec_tutorials and exec_on_build:
-            if tid in TUTORIALS_TO_SKIP:
-                print(f"Skipping {tid}")
-                continue
+
+        if tid in TUTORIALS_TO_SKIP:
+            print(f"Skipping execution of {tid}")
+            continue
+        elif exec_tutorials and exec_on_build:
             tutorial_path = Path(paths["tutorial_path"])
             print("Executing tutorial {}".format(tid))
             start_time = time.monotonic()
@@ -180,16 +181,14 @@ def gen_tutorials(
             timeout_minutes = 15 if smoke_test else 150
             try:
                 # Execute notebook.
-                mem_usage, run_out = memory_usage(
-                    (run_script, (tutorial_path, timeout_minutes), {"env": env}),
-                    retval=True,
-                    include_children=True,
+                run_out = run_script(
+                    tutorial=tutorial_path,
+                    timeout_minutes=timeout_minutes,
+                    env=env,
                 )
                 total_time = time.monotonic() - start_time
                 print(
                     f"Finished executing tutorial {tid} in {total_time:.2f} seconds. "
-                    f"Starting memory usage was {mem_usage[0]} MB & "
-                    f"the peak memory usage was {max(mem_usage)} MB."
                 )
             except subprocess.TimeoutExpired:
                 has_errors = True
@@ -206,6 +205,8 @@ def gen_tutorials(
                     f"stdout: \n {run_out.stdout} \n"
                     f"stderr: \n {run_out.stderr} \n"
                 )
+            except NameError:
+                pass  # In case the execution times out and run_out is not defined.
         # convert notebook to HTML
         exporter = HTMLExporter(template_name="classic")
         html, _ = exporter.from_notebook_node(nb)
