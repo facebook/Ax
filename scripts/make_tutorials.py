@@ -115,9 +115,7 @@ def run_script(
     tutorial: Path, timeout_minutes: int, env: Optional[Dict[str, str]] = None
 ) -> None:
     if env is not None:
-        env = {**os.environ, **env}
-    for k, v in env.items():
-        os.environ[k] = v
+        os.environ.update(env)
     papermill.execute_notebook(
         tutorial,
         tutorial,
