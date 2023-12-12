@@ -43,11 +43,8 @@ class GpDGSMGpMean(object):
             model: A BoTorch model.
             bounds: Parameter bounds over which to evaluate model sensitivity.
             derivative_gp: If true, the derivative of the GP is used to compute
-                the gradient instead of backward. If `kernel_type` is matern_l1,
-                only the mean function of derivative GP can be used, and the
-                variance is not defined.
-            kernel_type: Takes "rbf" or "matern_l1" or "matern_l2", set only
-                if `derivative_gp` is true.
+                the gradient instead of backward.
+            kernel_type: Takes "rbf" or "matern", set only if `derivative_gp` is true.
             Y_scale: Scale the derivatives by this amount, to undo scaling
                 done on the training data.
             num_mc_samples: The number of MonteCarlo grid samples
@@ -222,10 +219,8 @@ class GpDGSMGpSampling(GpDGSMGpMean):
             num_gp_samples: If method is "GP samples", the number of GP samples has
                 to be set.
             derivative_gp: If true, the derivative of the GP is used to compute the
-                gradient instead of backward. If `kernel_type` is matern_l1,
-                `derivative_gp` should be False because the variance is not defined.
-            kernel_type: Takes "rbf" or "matern_l1" or "matern_l2", set only if
-                `derivative_gp` is true.
+                gradient instead of backward.
+            kernel_type: Takes "rbf" or "matern", set only if `derivative_gp` is true.
             Y_scale: Scale the derivatives by this amount, to undo scaling done on
                 the training data.
             num_mc_samples: The number of Monte Carlo grid samples.
