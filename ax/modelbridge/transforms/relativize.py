@@ -241,6 +241,7 @@ class Relativize(Transform):
                     mean_c=mean_c,
                     sem_c=sem_c,
                     as_percent=True,
+                    control_as_constant=True,
                 )
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel**2
