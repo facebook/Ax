@@ -33,6 +33,7 @@ from ax.utils.common.kwargs import (
     filter_kwargs,
     get_function_argument_names,
 )
+from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
 
 
@@ -48,7 +49,7 @@ class ModelSpecJSONEncoder(json.JSONEncoder):
 
 
 @dataclass
-class ModelSpec(SortableBase):
+class ModelSpec(SortableBase, SerializationMixin):
     model_enum: ModelRegistryBase
     # Kwargs to pass into the `Model` + `ModelBridge` constructors in
     # `ModelRegistryBase.__call__`.

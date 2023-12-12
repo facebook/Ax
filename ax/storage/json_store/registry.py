@@ -76,7 +76,10 @@ from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
 from ax.modelbridge.factory import Models
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
@@ -84,6 +87,7 @@ from ax.modelbridge.transition_criterion import (
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
     MinTrials,
+    TransitionCriterion,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
@@ -110,6 +114,7 @@ from ax.storage.json_store.encoders import (
     data_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
+    generation_node_to_dict,
     generation_step_to_dict,
     generation_strategy_to_dict,
     generator_run_to_dict,
@@ -118,6 +123,7 @@ from ax.storage.json_store.encoders import (
     map_data_to_dict,
     map_key_info_to_dict,
     metric_to_dict,
+    model_spec_to_dict,
     multi_objective_benchmark_problem_to_dict,
     multi_objective_optimization_config_to_dict,
     multi_objective_to_dict,
@@ -181,6 +187,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     FixedParameter: fixed_parameter_to_dict,
     GammaPrior: botorch_component_to_dict,
     GenerationStep: generation_step_to_dict,
+    GenerationNode: generation_node_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
@@ -197,6 +204,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MinTrials: transition_criterion_to_dict,
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
+    ModelSpec: model_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveBenchmarkProblem: multi_objective_benchmark_problem_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -228,6 +236,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     RiskMeasure: risk_measure_to_dict,
     RobustSearchSpace: robust_search_space_to_dict,
     Round: botorch_component_to_dict,
+    TransitionCriterion: transition_criterion_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     SingleObjectiveBenchmarkProblem: single_objective_benchmark_problem_to_dict,
@@ -292,6 +301,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "FactorialMetric": FactorialMetric,
     "FixedParameter": FixedParameter,
     "GammaPrior": GammaPrior,
+    "GenerationNode": GenerationNode,
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
@@ -312,6 +322,8 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
     "Models": Models,
+    "ModelRegistryBase": ModelRegistryBase,
+    "ModelSpec": ModelSpec,
     "MultiObjective": MultiObjective,
     "MultiObjectiveBenchmarkProblem": MultiObjectiveBenchmarkProblem,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,

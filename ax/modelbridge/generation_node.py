@@ -42,6 +42,7 @@ from ax.modelbridge.transition_criterion import (
 )
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
+from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
 
 
@@ -62,7 +63,7 @@ MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
 )
 
 
-class GenerationNode:
+class GenerationNode(SerializationMixin, SortableBase):
     """Base class for GenerationNode, capable of fitting one or more model specs under
     the hood and generating candidates from them.
 
@@ -240,6 +241,11 @@ class GenerationNode:
         the next node.
         """
         return self.should_transition_to_next_node(raise_data_required_error=False)[0]
+
+    @property
+    def _unique_id(self) -> str:
+        """Returns a unique id for this GenerationNode"""
+        return self.node_name
 
     def fit(
         self,

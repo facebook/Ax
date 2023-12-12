@@ -8,6 +8,7 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Type
 
 import numpy as np
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -15,11 +16,19 @@ from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.factory import get_sobol
+from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transition_criterion import MinimumPreferenceOccurances
+from ax.modelbridge.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrials,
+    MinimumPreferenceOccurances,
+    MinTrials,
+)
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
@@ -160,17 +169,31 @@ def get_generation_strategy(
     with_experiment: bool = False,
     with_callable_model_kwarg: bool = True,
     with_completion_criteria: int = 0,
+    with_generation_nodes: bool = False,
 ) -> GenerationStrategy:
-    gs = choose_generation_strategy(
-        search_space=get_search_space(), should_deduplicate=True
-    )
+    if with_generation_nodes:
+        gs = sobol_gpei_generation_node_gs()
+        gs._nodes[0]._model_spec_to_gen_from = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs={"init_position": 3},
+            model_gen_kwargs={"some_gen_kwarg": "some_value"},
+        )
+        if with_callable_model_kwarg:
+            # pyre-ignore[16]: testing hack to test serialization of callable kwargs
+            # in generation steps.
+            gs._nodes[0]._model_spec_to_gen_from.model_kwargs[
+                "model_constructor"
+            ] = get_sobol
+    else:
+        gs = choose_generation_strategy(
+            search_space=get_search_space(), should_deduplicate=True
+        )
+        if with_callable_model_kwarg:
+            # pyre-ignore[16]: testing hack to test serialization of callable kwargs
+            # in generation steps.
+            gs._steps[0].model_kwargs["model_constructor"] = get_sobol
     if with_experiment:
         gs._experiment = get_experiment()
-    fake_func = get_experiment
-    if with_callable_model_kwarg:
-        # pyre-ignore[16]: testing hack to test serialization of callable kwargs
-        # in generation steps.
-        gs._steps[0].model_kwargs["model_constructor"] = fake_func
 
     if with_completion_criteria > 0:
         gs._steps[0].num_trials = -1
@@ -178,6 +201,74 @@ def get_generation_strategy(
             MinimumPreferenceOccurances(metric_name="m1", threshold=3)
         ] * with_completion_criteria
     return gs
+
+
+def sobol_gpei_generation_node_gs() -> GenerationStrategy:
+    """Returns a basic SOBOL +GPEI GS usecase using GenerationNodes for testing"""
+    sobol_criterion = [
+        MaxTrials(
+            threshold=5,
+            transition_to="GPEI_node",
+            block_gen_if_met=True,
+            only_in_statuses=None,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+        )
+    ]
+    gpei_criterion = [
+        MaxTrials(
+            threshold=2,
+            transition_to=None,
+            block_gen_if_met=True,
+            only_in_statuses=None,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+        ),
+        # Here MinTrials and MaxParallelism don't enforce anything, but
+        # we wanted to have an instance of them to test for storage compatibility.
+        MinTrials(
+            threshold=0,
+            transition_to=None,
+            block_gen_if_met=False,
+            only_in_statuses=[TrialStatus.CANDIDATE],
+            not_in_statuses=None,
+        ),
+        MaxGenerationParallelism(
+            threshold=1000,
+            transition_to=None,
+            block_gen_if_met=True,
+            only_in_statuses=[TrialStatus.RUNNING],
+            not_in_statuses=None,
+        ),
+    ]
+    step_model_kwargs = {"silently_filter_kwargs": True}
+    sobol_model_spec = ModelSpec(
+        model_enum=Models.SOBOL,
+        model_kwargs=step_model_kwargs,
+        model_gen_kwargs={},
+    )
+    gpei_model_spec = ModelSpec(
+        model_enum=Models.GPEI,
+        model_kwargs=step_model_kwargs,
+        model_gen_kwargs={},
+    )
+    sobol_node = GenerationNode(
+        node_name="sobol_node",
+        transition_criteria=sobol_criterion,
+        model_specs=[sobol_model_spec],
+        gen_unlimited_trials=False,
+    )
+    gpei_node = GenerationNode(
+        node_name="GPEI_node",
+        transition_criteria=gpei_criterion,
+        model_specs=[gpei_model_spec],
+        gen_unlimited_trials=False,
+    )
+
+    sobol_GPEI_GS_nodes = GenerationStrategy(
+        name="Sobol+GPEI_Nodes",
+        nodes=[sobol_node, gpei_node],
+        steps=None,
+    )
+    return sobol_GPEI_GS_nodes
 
 
 def get_transform_type() -> Type[Transform]:
