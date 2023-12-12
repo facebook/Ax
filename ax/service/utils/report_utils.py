@@ -1220,6 +1220,50 @@ def _build_result_tuple(
     return result
 
 
+def select_baseline_arm(
+    experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: Optional[str]
+) -> Tuple[str, bool]:
+    """
+    Choose a baseline arm that is found in arms_df
+
+    Returns:
+        Tuple:
+            baseline_arm_name if valid baseline exists
+            true when baseline selected from first arm of sweep
+        raise ValueError if no valid baseline found
+    """
+
+    if baseline_arm_name:
+        if arms_df[arms_df["arm_name"] == baseline_arm_name].empty:
+            raise ValueError(
+                f"compare_to_baseline: baseline row: {baseline_arm_name=}"
+                " not found in arms"
+            )
+        return baseline_arm_name, False
+
+    else:
+        if (
+            experiment.status_quo
+            and not arms_df[
+                arms_df["arm_name"] == not_none(experiment.status_quo).name
+            ].empty
+        ):
+            baseline_arm_name = not_none(experiment.status_quo).name
+            return baseline_arm_name, False
+
+        if (
+            experiment.trials
+            and experiment.trials[0].arms
+            and not arms_df[
+                arms_df["arm_name"] == experiment.trials[0].arms[0].name
+            ].empty
+        ):
+            baseline_arm_name = experiment.trials[0].arms[0].name
+            return baseline_arm_name, True
+        else:
+            raise ValueError("compare_to_baseline: could not find valid baseline arm")
+
+
 def maybe_extract_baseline_comparison_values(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig],
@@ -1269,19 +1313,15 @@ def maybe_extract_baseline_comparison_values(
         logger.info("compare_to_baseline: comparison_arm_df has no rows.")
         return None
 
-    if baseline_arm_name is None:
-        baseline_arm_name = (
-            BASELINE_ARM_NAME
-            if not experiment.status_quo
-            else not_none(experiment.status_quo).name
+    try:
+        baseline_arm_name, _ = select_baseline_arm(
+            experiment=experiment, arms_df=arms_df, baseline_arm_name=baseline_arm_name
         )
+    except Exception as e:
+        logger.info(f"compare_to_baseline: could not select baseline arm. Reason: {e}")
+        return None
 
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
-    if len(baseline_rows) == 0:
-        logger.info(
-            f"compare_to_baseline: baseline row: {baseline_arm_name=} not found in arms"
-        )
-        return None
 
     if experiment.is_moo_problem:
         multi_objective = checked_cast(MultiObjective, optimization_config.objective)
@@ -1342,7 +1382,7 @@ def compare_to_baseline_impl(
         if comparison_message:
             result_message = (
                 result_message
-                + (" * " if len(comparison_list) > 1 else "")
+                + (" \n* " if len(comparison_list) > 1 else "")
                 + not_none(comparison_message)
             )
 

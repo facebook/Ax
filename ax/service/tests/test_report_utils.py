@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
 import itertools
 from collections import namedtuple
 from logging import INFO, WARN
@@ -39,6 +40,7 @@ from ax.service.utils.report_utils import (
     FEASIBLE_COL_NAME,
     get_standard_plots,
     plot_feature_importance_by_feature_plotly,
+    select_baseline_arm,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -581,6 +583,7 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 optimization_config=None,
                 comparison_arm_names=comparison_arm_names,
+                baseline_arm_name=BASELINE_ARM_NAME,
             )
 
             output_text = _format_comparison_string(
@@ -602,6 +605,7 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 optimization_config=None,
                 comparison_arm_names=bad_comparison_arm_names,
+                baseline_arm_name=BASELINE_ARM_NAME,
             )
             self.assertEqual(bad_result, None)
 
@@ -645,6 +649,7 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 optimization_config=optimization_config,
                 comparison_arm_names=comparison_arm_names,
+                baseline_arm_name=BASELINE_ARM_NAME,
             )
 
             output_text = _format_comparison_string(
@@ -728,6 +733,7 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 optimization_config=None,
                 comparison_arm_names=bad_comparison_arm_names,
+                baseline_arm_name=BASELINE_ARM_NAME,
             )
             self.assertEqual(bad_result, None)
 
@@ -770,6 +776,7 @@ class ReportUtilsTest(TestCase):
                         experiment=experiment,
                         optimization_config=None,
                         comparison_arm_names=comparison_arm_names,
+                        baseline_arm_name=BASELINE_ARM_NAME,
                     ),
                     None,
                 )
@@ -796,6 +803,7 @@ class ReportUtilsTest(TestCase):
                         experiment=experiment,
                         optimization_config=None,
                         comparison_arm_names=None,
+                        baseline_arm_name=BASELINE_ARM_NAME,
                     ),
                     None,
                 )
@@ -827,6 +835,7 @@ class ReportUtilsTest(TestCase):
                         experiment=exp_no_opt,
                         optimization_config=None,
                         comparison_arm_names=comparison_arm_names,
+                        baseline_arm_name=BASELINE_ARM_NAME,
                     ),
                     None,
                 )
@@ -878,6 +887,7 @@ class ReportUtilsTest(TestCase):
                         experiment=experiment,
                         optimization_config=None,
                         comparison_arm_names=comparison_arm_names,
+                        baseline_arm_name=BASELINE_ARM_NAME,
                     ),
                     None,
                 )
@@ -901,6 +911,7 @@ class ReportUtilsTest(TestCase):
                         experiment=experiment,
                         optimization_config=None,
                         comparison_arm_names=comparison_arm_not_found,
+                        baseline_arm_name=BASELINE_ARM_NAME,
                     ),
                     None,
                 )
@@ -918,18 +929,19 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            baseline_arm_name = "not_baseline_arm_in_dataframe"
             experiment_with_status_quo = experiment
             experiment_with_status_quo.status_quo = Arm(
-                name=baseline_arm_name,
+                name=BASELINE_ARM_NAME,
                 parameters={"x1": 0, "x2": 0},
             )
+            baseline_arm_name = "not_baseline_arm_in_dataframe"
             with self.assertLogs("ax", level=INFO) as log:
                 self.assertEqual(
                     compare_to_baseline(
                         experiment=experiment_with_status_quo,
                         optimization_config=None,
                         comparison_arm_names=comparison_arm_names,
+                        baseline_arm_name=baseline_arm_name,
                     ),
                     None,
                 )
@@ -1052,16 +1064,17 @@ class ReportUtilsTest(TestCase):
                     experiment=experiment,
                     optimization_config=None,
                     comparison_arm_names=comparison_arm_names,
+                    baseline_arm_name=BASELINE_ARM_NAME,
                 ),
             )
 
             expected_result = (
                 preamble
-                + " * "
+                + " \n* "
                 + output_text_0
-                + " * "
+                + " \n* "
                 + output_text_1
-                + " * "
+                + " \n* "
                 + output_text_3
             )
 
@@ -1123,3 +1136,97 @@ class ReportUtilsTest(TestCase):
                     ),
                     log.output,
                 )
+
+    def test_compare_to_baseline_select_baseline_arm(self) -> None:
+        OBJECTIVE_METRIC = "objective"
+        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+        experiment = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+
+        # specified baseline
+        data = [
+            {
+                "trial_index": 0,
+                "arm_name": "m_0",
+                OBJECTIVE_METRIC: 0.2,
+            },
+            {
+                "trial_index": 1,
+                "arm_name": BASELINE_ARM_NAME,
+                OBJECTIVE_METRIC: 0.2,
+            },
+            {
+                "trial_index": 2,
+                "arm_name": "status_quo",
+                OBJECTIVE_METRIC: 0.2,
+            },
+        ]
+        arms_df = pd.DataFrame(data)
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=BASELINE_ARM_NAME,
+            ),
+            (BASELINE_ARM_NAME, False),
+        )
+
+        # specified baseline arm not in trial
+        wrong_baseline_name = "wrong_baseline_name"
+        with self.assertRaisesRegex(
+            ValueError,
+            "compare_to_baseline: baseline row: .*" + " not found in arms",
+        ):
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=wrong_baseline_name,
+            ),
+
+        # status quo baseline arm
+        experiment_with_status_quo = copy.deepcopy(experiment)
+        experiment_with_status_quo.status_quo = Arm(
+            name="status_quo",
+            parameters={"x1": 0, "x2": 0},
+        )
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment_with_status_quo,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            ),
+            ("status_quo", False),
+        )
+        # first arm from trials
+        custom_arm = Arm(name="m_0", parameters={"x1": 0.1, "x2": 0.2})
+        experiment.new_trial().add_arm(custom_arm)
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            ),
+            ("m_0", True),
+        )
+
+        # none selected
+        experiment_with_no_valid_baseline = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+        experiment_with_no_valid_baseline.status_quo = Arm(
+            name="not found",
+            parameters={"x1": 0, "x2": 0},
+        )
+        custom_arm = Arm(name="also not found", parameters={"x1": 0.1, "x2": 0.2})
+        experiment_with_no_valid_baseline.new_trial().add_arm(custom_arm)
+        with self.assertRaisesRegex(
+            ValueError, "compare_to_baseline: could not find valid baseline arm"
+        ):
+            select_baseline_arm(
+                experiment=experiment_with_no_valid_baseline,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            ),
