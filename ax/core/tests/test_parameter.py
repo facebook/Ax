@@ -173,6 +173,15 @@ class RangeParameterTest(TestCase):
         with self.assertRaises(NotImplementedError):
             self.param1.dependents
 
+    def test_available_flags(self) -> None:
+        range_flags = ["is_fidelity", "log_scale", "logit_scale"]
+        self.assertListEqual(self.param1.available_flags, range_flags)
+        self.assertListEqual(self.param2.available_flags, range_flags)
+
+    def test_domain_repr(self) -> None:
+        self.assertEqual(self.param1.domain_repr, "range=[1.0, 3.0]")
+        self.assertEqual(self.param2.domain_repr, "range=[10, 15]")
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
@@ -383,6 +392,25 @@ class ChoiceParameterTest(TestCase):
                 dependents={"c": "other_param"},
             )
 
+    def test_available_flags(self) -> None:
+        choice_flags = [
+            "is_fidelity",
+            "is_ordered",
+            "is_hierarchical",
+            "is_task",
+            "sort_values",
+        ]
+        self.assertListEqual(self.param1.available_flags, choice_flags)
+        self.assertListEqual(self.param2.available_flags, choice_flags)
+        self.assertListEqual(self.param3.available_flags, choice_flags)
+        self.assertListEqual(self.param4.available_flags, choice_flags)
+
+    def test_domain_repr(self) -> None:
+        self.assertEqual(self.param1.domain_repr, "values=['foo', 'bar', 'baz']")
+        self.assertEqual(self.param2.domain_repr, "values=['foo', 'bar', 'baz']")
+        self.assertEqual(self.param3.domain_repr, "values=['foo', 'bar']")
+        self.assertEqual(self.param4.domain_repr, "values=[1, 2]")
+
 
 class FixedParameterTest(TestCase):
     def setUp(self) -> None:
@@ -390,6 +418,9 @@ class FixedParameterTest(TestCase):
             name="x", parameter_type=ParameterType.BOOL, value=True
         )
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
+        self.param2 = FixedParameter(
+            name="y", parameter_type=ParameterType.STRING, value="foo"
+        )
 
     def test_BadCreations(self) -> None:
         with self.assertRaises(UserInputError):
@@ -470,6 +501,15 @@ class FixedParameterTest(TestCase):
                 #  bool, float, int, str], List[str]]]` but got `Dict[bool, str]`.
                 dependents={False: "other_param"},
             )
+
+    def test_available_flags(self) -> None:
+        fixed_flags = ["is_fidelity", "is_hierarchical"]
+        self.assertListEqual(self.param1.available_flags, fixed_flags)
+        self.assertListEqual(self.param2.available_flags, fixed_flags)
+
+    def test_domain_repr(self) -> None:
+        self.assertEqual(self.param1.domain_repr, "value=True")
+        self.assertEqual(self.param2.domain_repr, "value='foo'")
 
 
 class ParameterEqualityTest(TestCase):
