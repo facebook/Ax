@@ -512,6 +512,7 @@ def _autoset_axis_limits(
     If `force_include_value` is provided, the worst points will be truncated at this
     value if it is worse than the truncation point described above.
     """
+    # TODO: replace interpolation->method once it becomes standard.
     q1 = np.percentile(y, q=25, interpolation="lower").min()
     q2_min = np.percentile(y, q=50, interpolation="linear").min()
     q2_max = np.percentile(y, q=50, interpolation="linear").max()
