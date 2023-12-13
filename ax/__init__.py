@@ -34,6 +34,13 @@ from ax.modelbridge import Models
 from ax.service import OptimizationLoop, optimize
 from ax.storage import json_load, json_save
 
+try:
+    # Marking this as a manual import to avoid autodeps complaints
+    # due to imports from non-existent file.
+    from ax.version import version as __version__  # @manual  # pyre-ignore[21]
+except Exception:  # pragma: no cover
+    __version__ = "Unknown"
+
 
 __all__ = [
     "Arm",
