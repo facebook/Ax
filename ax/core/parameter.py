@@ -27,6 +27,13 @@ FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "
     "Please use FixedParameter instead when setting a single possible value."
 )
+REPR_FLAGS_IF_TRUE_ONLY = [
+    "is_fidelity",
+    "is_task",
+    "is_hierarchical",
+    "log_scale",
+    "logit_scale",
+]
 
 
 class ParameterType(Enum):
@@ -141,11 +148,29 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         return str(self)
 
     def _base_repr(self) -> str:
-        return (
+        ret_val = (
             f"{self.__class__.__name__}("
             f"name='{self._name}', "
             f"parameter_type={self.parameter_type.name}, "
+            f"{self.domain_repr}"
         )
+
+        # Add binary flags.
+        for flag in self.available_flags:
+            val = getattr(self, flag, False)
+            if flag not in REPR_FLAGS_IF_TRUE_ONLY or (
+                flag in REPR_FLAGS_IF_TRUE_ONLY and val is True
+            ):
+                ret_val += f", {flag}={val}"
+
+        # Add target_value if one exists.
+        if self.target_value is not None:
+            tval_rep = self.target_value
+            if self.parameter_type == ParameterType.STRING:
+                tval_rep = f"'{tval_rep}'"
+            ret_val += f", target_value={tval_rep}"
+
+        return ret_val
 
     @abstractproperty
     def domain_repr(self) -> str:
@@ -416,21 +441,9 @@ class RangeParameter(Parameter):
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
-        ret_val += f"range=[{self._lower}, {self._upper}]"
 
-        if self._log_scale:
-            ret_val += f", log_scale={self._log_scale}"
-
-        if self._logit_scale:
-            ret_val += f", logit_scale={self._logit_scale}"
-
-        if self._digits:
+        if self._digits is not None:
             ret_val += f", digits={self._digits}"
-
-        if self.is_fidelity:
-            ret_val += (
-                f", fidelity={self.is_fidelity}, target_value={self.target_value}"
-            )
 
         return ret_val + ")"
 
@@ -625,21 +638,6 @@ class ChoiceParameter(Parameter):
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
-        ret_val += f"values={self._values}, "
-        ret_val += f"is_ordered={self._is_ordered}, "
-        ret_val += f"sort_values={self._sort_values}"
-
-        if self._is_task:
-            ret_val += f", is_task={self._is_task}"
-
-        if self._is_fidelity:
-            ret_val += f", is_fidelity={self.is_fidelity}"
-
-        if self.target_value is not None:
-            tval_rep = self.target_value
-            if self.parameter_type == ParameterType.STRING:
-                tval_rep = f"'{tval_rep}'"
-            ret_val += f", target_value={tval_rep}"
 
         if self._dependents:
             ret_val += f", dependents={self._dependents}"
@@ -751,16 +749,6 @@ class FixedParameter(Parameter):
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
-
-        if self._parameter_type == ParameterType.STRING:
-            ret_val += f"value='{self._value}'"
-        else:
-            ret_val += f"value={self._value}"
-
-        if self._is_fidelity:
-            ret_val += (
-                f", fidelity={self.is_fidelity}, target_value={self.target_value}"
-            )
         return ret_val + ")"
 
     @property
