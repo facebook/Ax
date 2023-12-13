@@ -5,6 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 import pandas as pd
+from ax.core.experiment import Experiment
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.outcome_constraint import (
+    ComparisonOp,
+    ObjectiveThreshold,
+    OutcomeConstraint,
+)
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -12,8 +21,12 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
-from ax.plot.table_view import search_space_summary_df
+from ax.plot.table_view import metric_summary_df, search_space_summary_df
 from ax.utils.common.testutils import TestCase
+
+
+class TestMetric(Metric):
+    pass
 
 
 class TracesTest(TestCase):
@@ -113,5 +126,91 @@ class TracesTest(TestCase):
                 "Domain": ["range=[0, 2]", "range=[0.1, 10.0]"],
                 "Datatype": ["int", "float"],
             }
+        )
+        pd.testing.assert_frame_equal(df, expected_df)
+
+    def test_metric_summary_df(self) -> None:
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=SearchSpace(parameters=[]),
+            optimization_config=MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(
+                            metric=Metric(name="my_objective_1", lower_is_better=True),
+                            minimize=True,
+                        ),
+                        Objective(
+                            metric=TestMetric(name="my_objective_2"), minimize=False
+                        ),
+                    ]
+                ),
+                objective_thresholds=[
+                    ObjectiveThreshold(
+                        metric=TestMetric(name="my_objective_2"),
+                        bound=5.1,
+                        relative=False,
+                        op=ComparisonOp.GEQ,
+                    )
+                ],
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        metric=Metric(name="my_constraint_1", lower_is_better=False),
+                        bound=1,
+                        relative=True,
+                        op=ComparisonOp.GEQ,
+                    ),
+                    OutcomeConstraint(
+                        metric=TestMetric(name="my_constraint_2"),
+                        bound=-7.8,
+                        relative=False,
+                        op=ComparisonOp.LEQ,
+                    ),
+                ],
+            ),
+            tracking_metrics=[
+                Metric(name="my_tracking_metric_1", lower_is_better=True),
+                TestMetric(name="my_tracking_metric_2", lower_is_better=False),
+                Metric(name="my_tracking_metric_3"),
+            ],
+        )
+        df = metric_summary_df(experiment)
+        expected_df = pd.DataFrame(
+            data={
+                "Name": [
+                    "my_objective_1",
+                    "my_objective_2",
+                    "my_constraint_1",
+                    "my_constraint_2",
+                    "my_tracking_metric_1",
+                    "my_tracking_metric_2",
+                    "my_tracking_metric_3",
+                ],
+                "Type": [
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                ],
+                "Goal": [
+                    "minimize",
+                    "maximize",
+                    "constrain",
+                    "constrain",
+                    "track",
+                    "track",
+                    "track",
+                ],
+                "Bound": ["None", ">= 5.1", ">= 1%", "<= -7.8", "None", "None", "None"],
+                "Lower is Better": [True, "None", False, "None", True, False, "None"],
+            }
+        )
+        expected_df["Goal"] = pd.Categorical(
+            df["Goal"],
+            categories=["minimize", "maximize", "constrain", "track", "None"],
+            ordered=True,
         )
         pd.testing.assert_frame_equal(df, expected_df)

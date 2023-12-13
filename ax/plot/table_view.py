@@ -5,17 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Hashable, Mapping, Tuple
+from typing import Hashable, List, Mapping, Optional, Tuple
 
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective
+from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
 from ax.plot.scatter import _error_scatter_data
+from ax.utils.common.typeutils import checked_cast
 from pandas.core.frame import DataFrame
 
 
@@ -28,6 +32,13 @@ PARAMETER_DF_COLNAMES: Mapping[Hashable, str] = {
     "flags": "Flags",
     "target_value": "Target Value",
     "dependents": "Dependent Parameters",
+}
+METRIC_DF_COLNAMES: Mapping[Hashable, str] = {
+    "name": "Name",
+    "type": "Type",
+    "goal": "Goal",
+    "bound": "Bound",
+    "lower_is_better": "Lower is Better",
 }
 
 
@@ -181,5 +192,57 @@ def search_space_summary_df(search_space: SearchSpace) -> DataFrame:
     # Reorder columns.
     df = df[
         [colname for colname in PARAMETER_DF_COLNAMES.values() if colname in df.columns]
+    ]
+    return df
+
+
+def metric_summary_df(
+    experiment: Experiment, metric_names: Optional[List[str]] = None
+) -> DataFrame:
+    """Returns a summary of the metrics for an experiment."""
+    records = {}
+    for metric_name in metric_names or experiment.metrics.keys():
+        m = experiment.metrics[metric_name]
+        records[m.name] = m.summary_dict
+    if experiment.optimization_config is not None:
+        opt_config = experiment.optimization_config
+        if experiment.is_moo_problem:
+            multi_objective = checked_cast(MultiObjective, opt_config.objective)
+            objectives = multi_objective.objectives
+        else:
+            objectives = [opt_config.objective]
+        for objective in objectives:
+            records[objective.metric.name][METRIC_DF_COLNAMES["goal"]] = (
+                "minimize" if objective.minimize else "maximize"
+            )
+
+        for constraint in opt_config.all_constraints:
+            if not isinstance(constraint, ObjectiveThreshold):
+                records[constraint.metric.name][
+                    METRIC_DF_COLNAMES["goal"]
+                ] = "constrain"
+            op = ">= " if constraint.op == ComparisonOp.GEQ else "<= "
+            relative = "%" if constraint.relative else ""
+            records[constraint.metric.name][
+                METRIC_DF_COLNAMES["bound"]
+            ] = f"{op}{constraint.bound}{relative}"
+
+    for metric in experiment.tracking_metrics or []:
+        records[metric.name][METRIC_DF_COLNAMES["goal"]] = "track"
+
+    # Sort metrics rows by purpose and name, then sort columns.
+    df = pd.DataFrame(records.values()).fillna(value="None")
+    df.rename(columns=METRIC_DF_COLNAMES, inplace=True)
+    df[METRIC_DF_COLNAMES["goal"]] = pd.Categorical(
+        df[METRIC_DF_COLNAMES["goal"]],
+        categories=["minimize", "maximize", "constrain", "track", "None"],
+        ordered=True,
+    )
+    df = df.sort_values(
+        by=[METRIC_DF_COLNAMES["goal"], METRIC_DF_COLNAMES["name"]]
+    ).reset_index()
+    # Reorder columns.
+    df = df[
+        [colname for colname in METRIC_DF_COLNAMES.values() if colname in df.columns]
     ]
     return df
