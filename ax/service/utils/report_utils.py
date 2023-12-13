@@ -1032,6 +1032,18 @@ def _pareto_frontier_scatter_2d_plotly(
         minimize=minimize,
     )
 
+    return pareto_frontier_scatter_2d_plotly(
+        experiment, metric_names, reference_point, minimize
+    )
+
+
+def pareto_frontier_scatter_2d_plotly(
+    experiment: Experiment,
+    metric_names: Tuple[str, str],
+    reference_point: Optional[Tuple[float, float]] = None,
+    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+) -> go.Figure:
+
     df = exp_to_df(experiment)
     Y = df[list(metric_names)].to_numpy()
     Y_pareto = (
