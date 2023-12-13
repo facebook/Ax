@@ -60,7 +60,7 @@ def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
         self: "GenerationStrategy", *args: List[Any], **kwargs: Dict[str, Any]
     ) -> T:
 
-        if self.is_node_based(self._nodes):
+        if self.is_node_based:
             raise UnsupportedError(
                 f"{f.__name__} is not supported for GenerationNode based"
                 " GenerationStrategies."
@@ -118,7 +118,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             )
         # pyre-ignore[8]
         self._nodes = steps if steps is not None else nodes
-        node_based_strategy = self.is_node_based(nodes=self._nodes)
+        node_based_strategy = self.is_node_based
 
         if isinstance(steps, list) and not node_based_strategy:
             self._validate_and_set_step_sequence(steps=self._nodes)
@@ -245,11 +245,12 @@ class GenerationStrategy(GenerationStrategyInterface):
         """List of generation steps."""
         return self._nodes  # pyre-ignore[7]
 
-    def is_node_based(self, nodes: List[GenerationNode]) -> bool:
+    @property
+    def is_node_based(self) -> bool:
         """Whether this strategy consists of GenerationNodes or GenerationSteps.
         This is useful for determining initialization properties and other logic.
         """
-        if any(isinstance(n, GenerationStep) for n in nodes):
+        if any(isinstance(n, GenerationStep) for n in self._nodes):
             return False
         return True
 
@@ -313,6 +314,11 @@ class GenerationStrategy(GenerationStrategyInterface):
                 " current_step property."
             )
         return self._curr
+
+    @property
+    def current_node_name(self) -> str:
+        """Current generation node name."""
+        return self._curr.node_name
 
     @property
     @step_based_gs_only
@@ -525,7 +531,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
-        if self.is_node_based(nodes=self._nodes):
+        if self.is_node_based:
             nodes = deepcopy(self._nodes)
             for n in nodes:
                 # Unset the generation strategy back-pointer, so the nodes are not
@@ -737,7 +743,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         if lgr is None:
             return model_state_on_lgr
 
-        if not self.is_node_based(nodes=self._nodes):
+        if not self.is_node_based:
             grs_equal = lgr._generation_step_index == self.current_step_index
         else:
             grs_equal = lgr._generation_node_name == self._curr.node_name

@@ -49,7 +49,9 @@ from ax.early_stopping.strategies import (
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONEncodeError
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
+from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import _encode_callables_as_references
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import TransitionCriterion
@@ -480,6 +482,19 @@ def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
     }
 
 
+def generation_node_to_dict(generation_node: GenerationNode) -> Dict[str, Any]:
+    """Convert Ax generation node to a dictionary."""
+    return {
+        "__type": generation_node.__class__.__name__,
+        "model_specs": generation_node.model_specs,
+        "should_deduplicate": generation_node.should_deduplicate,
+        "node_name": generation_node.node_name,
+        "gen_unlimited_trials": generation_node.gen_unlimited_trials,
+        "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
+        "transition_criteria": generation_node.transition_criteria,
+    }
+
+
 def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
@@ -489,15 +504,20 @@ def generation_strategy_to_dict(
             "Generation strategies that use custom models provided through "
             "callables cannot be serialized and stored."
         )
+    node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
-        "steps": generation_strategy._steps,
-        "curr_index": generation_strategy.current_step_index,
+        "steps": generation_strategy._steps if not node_based_gs else [],
+        "curr_index": generation_strategy.current_step_index
+        if not node_based_gs
+        else -1,
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,
+        "nodes": generation_strategy._nodes,
+        "curr_node_name": generation_strategy.current_node_name,
     }
 
 
@@ -506,6 +526,21 @@ def transition_criterion_to_dict(criterion: TransitionCriterion) -> Dict[str, An
     properties = criterion.serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties
+
+
+def model_spec_to_dict(model_spec: ModelSpec) -> Dict[str, Any]:
+    """Convert Ax model spec to a dictionary."""
+    if isinstance(model_spec, FactoryFunctionModelSpec):
+        raise NotImplementedError(
+            f"JSON serialization not yet implemented for model spec: {model_spec}"
+            " because it leverages a factory function instead of `Models` registry."
+        )
+    return {
+        "__type": model_spec.__class__.__name__,
+        "model_enum": model_spec.model_enum,
+        "model_kwargs": model_spec.model_kwargs,
+        "model_gen_kwargs": model_spec.model_gen_kwargs,
+    }
 
 
 def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:

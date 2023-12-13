@@ -160,6 +160,15 @@ TEST_CASES = [
             get_generation_strategy, with_experiment=True, with_completion_criteria=3
         ),
     ),
+    (
+        "GenerationStrategy",
+        partial(
+            get_generation_strategy,
+            with_experiment=True,
+            with_generation_nodes=True,
+            with_callable_model_kwarg=False,
+        ),
+    ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
@@ -607,6 +616,27 @@ class JSONStoreTest(TestCase):
             "does not have a corresponding entry in CLASS_TO_REVERSE_REGISTRY",
         ):
             class_from_json({"index": 0, "class": "unknown_path"})
+
+    def test_unregistered_model_not_supported_in_nodes(self) -> None:
+        """Support for callables within model kwargs on ModelSpecs stored on
+        GenerationNodes is currently not supported. This is supported for
+        GenerationSteps due to legacy compatibility.
+        """
+        with self.assertRaisesRegex(
+            JSONEncodeError,
+            "is not registered with a corresponding encoder",
+        ):
+            gs = get_generation_strategy(
+                with_experiment=True,
+                with_generation_nodes=True,
+                with_callable_model_kwarg=True,
+                with_completion_criteria=0,
+            )
+            object_to_json(
+                gs,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            )
 
     def test_BadStateDict(self) -> None:
         interval = get_interval()

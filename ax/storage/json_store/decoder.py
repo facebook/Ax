@@ -30,11 +30,19 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationNode,
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import _decode_callables_from_references
 from ax.modelbridge.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrials,
     MinimumPreferenceOccurances,
     MinimumTrialsInStatus,
+    MinTrials,
     TransitionCriterion,
 )
 from ax.models.torch.botorch_modular.model import SurrogateSpec
@@ -176,6 +184,18 @@ def object_from_json(
         elif _class == GenerationStep:
             return generation_step_from_json(
                 generation_step_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+        elif _class == GenerationNode:
+            return generation_node_from_json(
+                generation_node_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+        elif _class == ModelSpec:
+            return model_spec_from_json(
+                model_spec_json=object_json,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
@@ -348,6 +368,8 @@ def transition_criteria_from_json(
     if transition_criteria_json is None:
         return None
 
+    # TODO: @mgarrard see if this can use deserialize_init_args
+    # and be moved up to a higher level so we don't construct a list
     criterion_list = []
     for criterion_json in transition_criteria_json:
         criterion_type = criterion_json.pop("__type")
@@ -369,6 +391,81 @@ def transition_criteria_from_json(
                     transition_to=criterion_json.pop("transition_to")
                     if "transition_to" in criterion_json.keys()
                     else None,
+                )
+            )
+        elif criterion_type == "MaxGenerationParallelism":
+            criterion_list.append(
+                MaxGenerationParallelism(
+                    threshold=criterion_json.pop("threshold"),
+                    only_in_statuses=object_from_json(
+                        criterion_json.pop("only_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "only_in_statuses" in criterion_json.keys()
+                    else None,
+                    not_in_statuses=object_from_json(
+                        criterion_json.pop("not_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "not_in_statuses" in criterion_json.keys()
+                    else None,
+                    transition_to=criterion_json.pop("transition_to", None),
+                    block_transition_if_unmet=criterion_json.pop(
+                        "block_transition_if_unmet", False
+                    ),
+                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
+                )
+            )
+        elif criterion_type == "MaxTrials":
+            criterion_list.append(
+                MaxTrials(
+                    threshold=criterion_json.pop("threshold"),
+                    only_in_statuses=object_from_json(
+                        criterion_json.pop("only_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "only_in_statuses" in criterion_json.keys()
+                    else None,
+                    not_in_statuses=object_from_json(
+                        criterion_json.pop("not_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "not_in_statuses" in criterion_json.keys()
+                    else None,
+                    transition_to=criterion_json.pop("transition_to", None),
+                    block_transition_if_unmet=criterion_json.pop(
+                        "block_transition_if_unmet", False
+                    ),
+                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
+                )
+            )
+        elif criterion_type == "MinTrials":
+            criterion_list.append(
+                MinTrials(
+                    threshold=criterion_json.pop("threshold"),
+                    only_in_statuses=object_from_json(
+                        criterion_json.pop("only_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "only_in_statuses" in criterion_json.keys()
+                    else None,
+                    not_in_statuses=object_from_json(
+                        criterion_json.pop("not_in_statuses"),
+                        decoder_registry=decoder_registry,
+                        class_decoder_registry=class_decoder_registry,
+                    )
+                    if "not_in_statuses" in criterion_json.keys()
+                    else None,
+                    transition_to=criterion_json.pop("transition_to", None),
+                    block_transition_if_unmet=criterion_json.pop(
+                        "block_transition_if_unmet", False
+                    ),
+                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
                 )
             )
     return criterion_list
@@ -675,6 +772,39 @@ def _convert_generation_step_keys_for_backwards_compatibility(
     return object_json
 
 
+def generation_node_from_json(
+    generation_node_json: Dict[str, Any],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> GenerationNode:
+    """Load GenerationNode object from JSON."""
+    return GenerationNode(
+        node_name=generation_node_json.pop("node_name"),
+        model_specs=object_from_json(
+            generation_node_json.pop("model_specs"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        # TODO @mgarrad this should probably be a object_from_json but bestmodelselector
+        # isn't implemented
+        best_model_selector=generation_node_json.pop("best_model_selector", None),
+        should_deduplicate=generation_node_json.pop("should_deduplicate", False),
+        gen_unlimited_trials=generation_node_json.pop("gen_unlimited_trials", True),
+        transition_criteria=transition_criteria_from_json(
+            generation_node_json.pop("transition_criteria"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        if "transition_criteria" in generation_node_json.keys()
+        else None,
+    )
+
+
 def generation_step_from_json(
     generation_step_json: Dict[str, Any],
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
@@ -733,6 +863,46 @@ def generation_step_from_json(
     return generation_step
 
 
+def model_spec_from_json(
+    model_spec_json: Dict[str, Any],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> ModelSpec:
+    """Load ModelSpec from JSON."""
+    kwargs = model_spec_json.pop("model_kwargs", None)
+    gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
+    return ModelSpec(
+        model_enum=object_from_json(
+            model_spec_json.pop("model_enum"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
+        model_kwargs=_decode_callables_from_references(
+            object_from_json(
+                kwargs,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            ),
+        )
+        if kwargs
+        else None,
+        model_gen_kwargs=_decode_callables_from_references(
+            object_from_json(
+                gen_kwargs,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            ),
+        )
+        if gen_kwargs
+        else None,
+    )
+
+
 def generation_strategy_from_json(
     generation_strategy_json: Dict[str, Any],
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
@@ -745,12 +915,32 @@ def generation_strategy_from_json(
     experiment: Optional[Experiment] = None,
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
+    nodes = (
+        object_from_json(
+            generation_strategy_json.pop("nodes"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        if "nodes" in generation_strategy_json
+        else []
+    )
+
     steps = object_from_json(
         generation_strategy_json.pop("steps"),
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+    if len(steps) > 0:
+        gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+        gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
+    else:
+        gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
+        curr_node_name = generation_strategy_json.pop("curr_node_name")
+        for node in gs._nodes:
+            if node.node_name == curr_node_name:
+                gs._curr = node
+                break
+
     gs._db_id = object_from_json(
         generation_strategy_json.pop("db_id"),
         decoder_registry=decoder_registry,
@@ -761,7 +951,6 @@ def generation_strategy_from_json(
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
     )
-    gs._curr = gs._steps[generation_strategy_json.pop("curr_index")]
     gs._generator_runs = object_from_json(
         generation_strategy_json.pop("generator_runs"),
         decoder_registry=decoder_registry,

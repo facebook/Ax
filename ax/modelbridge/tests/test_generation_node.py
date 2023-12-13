@@ -123,6 +123,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(node.diagnostics, node.model_specs[0].diagnostics)
         self.assertEqual(node.node_name, "test")
         self.assertEqual(node.gen_unlimited_trials, True)
+        self.assertEqual(node._unique_id, "test")
 
     def test_node_string_representation(self) -> None:
         node = GenerationNode(
