@@ -5,12 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Tuple
+from typing import Hashable, Mapping, Tuple
 
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.search_space import SearchSpace
 from ax.modelbridge.factory import get_empirical_bayes_thompson, get_thompson
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotMetric, Z
 from ax.plot.helper import get_plot_data
@@ -19,6 +20,15 @@ from pandas.core.frame import DataFrame
 
 
 COLOR_SCALE = ["#ff3333", "#ff6666", "#ffffff", "#99ff99", "#33ff33"]
+PARAMETER_DF_COLNAMES: Mapping[Hashable, str] = {
+    "name": "Name",
+    "type": "Type",
+    "domain": "Domain",
+    "parameter_type": "Datatype",
+    "flags": "Flags",
+    "target_value": "Target Value",
+    "dependents": "Dependent Parameters",
+}
 
 
 def get_color(x: float, ci: float, rel: bool, reverse: bool) -> str:
@@ -161,3 +171,15 @@ def table_view_plot(
     fig = go.Figure(data=[trace], layout=layout)
     # pyre-fixme[7]: Expected `Tuple[DataFrame]` but got `AxPlotConfig`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
+
+
+def search_space_summary_df(search_space: SearchSpace) -> DataFrame:
+    """Returns a summary of the search space for an experiment."""
+    records = [p.summary_dict for p in search_space.parameters.values()]
+    df = pd.DataFrame(records).fillna(value="None")
+    df.rename(columns=PARAMETER_DF_COLNAMES, inplace=True)
+    # Reorder columns.
+    df = df[
+        [colname for colname in PARAMETER_DF_COLNAMES.values() if colname in df.columns]
+    ]
+    return df
