@@ -12,7 +12,7 @@ from math import inf
 from typing import Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
-from ax.core.types import TParamValue
+from ax.core.types import TParamValue, TParamValueList
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
@@ -181,6 +181,41 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     def available_flags(self) -> List[str]:
         """List of boolean attributes that can be set on this parameter."""
         return ["is_fidelity"]
+
+    @property
+    def summary_dict(
+        self,
+    ) -> Dict[str, Union[TParamValueList, TParamValue, str, List[str]]]:
+
+        # Assemble dict.
+        summary_dict = {
+            "name": self.name,
+            "type": self.__class__.__name__.removesuffix("Parameter"),
+            "domain": self.domain_repr,
+            "parameter_type": self.parameter_type.name.lower(),
+        }
+
+        # Extract flags.
+        flags = []
+        for flag in self.available_flags:
+            flag_val = getattr(self, flag, None)
+            flag_repr = flag.removeprefix("is_")
+            if flag == "sort_values":
+                flag_repr = "sorted"
+            if flag_val is True:
+                flags.append(flag_repr)
+            elif flag_val is False and flag not in REPR_FLAGS_IF_TRUE_ONLY:
+                flags.append("un" + flag_repr)
+
+        # Add flags, target_values, and dependents if present.
+        if flags:
+            summary_dict["flags"] = ", ".join(flags)
+        if getattr(self, "is_fidelity", False) or getattr(self, "is_task", False):
+            summary_dict["target_value"] = self.target_value
+        if getattr(self, "is_hierarchical", False):
+            summary_dict["dependents"] = self.dependents
+
+        return summary_dict
 
 
 class RangeParameter(Parameter):
