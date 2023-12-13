@@ -181,6 +181,28 @@ class RangeParameterTest(TestCase):
         self.assertEqual(self.param1.domain_repr, "range=[1.0, 3.0]")
         self.assertEqual(self.param2.domain_repr, "range=[10, 15]")
 
+    def test_summary_dict(self) -> None:
+        self.assertDictEqual(
+            self.param1.summary_dict,
+            {
+                "name": "x",
+                "type": "Range",
+                "domain": "range=[1.0, 3.0]",
+                "parameter_type": "float",
+                "flags": "fidelity, log_scale",
+                "target_value": 2.0,
+            },
+        )
+        self.assertDictEqual(
+            self.param2.summary_dict,
+            {
+                "name": "y",
+                "type": "Range",
+                "domain": "range=[10, 15]",
+                "parameter_type": "int",
+            },
+        )
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
@@ -415,6 +437,50 @@ class ChoiceParameterTest(TestCase):
         self.assertEqual(self.param3.domain_repr, "values=['foo', 'bar']")
         self.assertEqual(self.param4.domain_repr, "values=[1, 2]")
 
+    def test_summary_dict(self) -> None:
+        self.assertDictEqual(
+            self.param1.summary_dict,
+            {
+                "name": "x",
+                "type": "Choice",
+                "domain": "values=['foo', 'bar', 'baz']",
+                "parameter_type": "string",
+                "flags": "unordered, unsorted",
+            },
+        )
+        self.assertDictEqual(
+            self.param2.summary_dict,
+            {
+                "name": "x",
+                "type": "Choice",
+                "domain": "values=['foo', 'bar', 'baz']",
+                "parameter_type": "string",
+                "flags": "ordered, task, unsorted",
+                "target_value": "baz",
+            },
+        )
+        self.assertDictEqual(
+            self.param3.summary_dict,
+            {
+                "name": "x",
+                "type": "Choice",
+                "domain": "values=['foo', 'bar']",
+                "parameter_type": "string",
+                "flags": "fidelity, unordered, unsorted",
+                "target_value": "bar",
+            },
+        )
+        self.assertDictEqual(
+            self.param4.summary_dict,
+            {
+                "name": "x",
+                "type": "Choice",
+                "domain": "values=[1, 2]",
+                "parameter_type": "int",
+                "flags": "ordered, sorted",
+            },
+        )
+
 
 class FixedParameterTest(TestCase):
     def setUp(self) -> None:
@@ -517,6 +583,26 @@ class FixedParameterTest(TestCase):
     def test_domain_repr(self) -> None:
         self.assertEqual(self.param1.domain_repr, "value=True")
         self.assertEqual(self.param2.domain_repr, "value='foo'")
+
+    def test_summary_dict(self) -> None:
+        self.assertDictEqual(
+            self.param1.summary_dict,
+            {
+                "name": "x",
+                "type": "Fixed",
+                "domain": "value=True",
+                "parameter_type": "bool",
+            },
+        )
+        self.assertDictEqual(
+            self.param2.summary_dict,
+            {
+                "name": "y",
+                "type": "Fixed",
+                "domain": "value='foo'",
+                "parameter_type": "string",
+            },
+        )
 
 
 class ParameterEqualityTest(TestCase):
