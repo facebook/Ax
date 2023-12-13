@@ -347,6 +347,7 @@ def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
 
     See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.
     """
+    # TODO: replace interpolation->method once it becomes standard.
     q1 = np.percentile(Y, q=25, interpolation="lower")
     q3 = np.percentile(Y, q=75, interpolation="higher")
     iqr = q3 - q1
@@ -383,6 +384,7 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
     with a GEQ constraint.
     """
     Y = np.array(metric_values)
+    # TODO: replace interpolation->method once it becomes standard.
     q1 = np.percentile(Y, q=25, interpolation="lower")
     q3 = np.percentile(Y, q=75, interpolation="higher")
     lower_cutoff, upper_cutoff = DEFAULT_CUTOFFS
