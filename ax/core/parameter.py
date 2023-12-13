@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 from enum import Enum
 from math import inf
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -146,6 +146,15 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             f"name='{self._name}', "
             f"parameter_type={self.parameter_type.name}, "
         )
+
+    @abstractproperty
+    def domain_repr(self) -> str:
+        """Returns a string representation of the domain."""
+        pass
+
+    @property
+    def available_flags(self) -> List[str]:
+        return ["is_fidelity"]
 
 
 class RangeParameter(Parameter):
@@ -424,6 +433,14 @@ class RangeParameter(Parameter):
 
         return ret_val + ")"
 
+    @property
+    def available_flags(self) -> List[str]:
+        return super().available_flags + ["log_scale", "logit_scale"]
+
+    @property
+    def domain_repr(self) -> str:
+        return f"range={[self.lower, self.upper]}"
+
 
 class ChoiceParameter(Parameter):
     """Parameter object that specifies a discrete set of values.
@@ -626,6 +643,19 @@ class ChoiceParameter(Parameter):
 
         return ret_val + ")"
 
+    @property
+    def available_flags(self) -> List[str]:
+        return super().available_flags + [
+            "is_ordered",
+            "is_hierarchical",
+            "is_task",
+            "sort_values",
+        ]
+
+    @property
+    def domain_repr(self) -> str:
+        return f"values={self.values}"
+
 
 class FixedParameter(Parameter):
     """Parameter object that specifies a single fixed value."""
@@ -727,3 +757,14 @@ class FixedParameter(Parameter):
                 f", fidelity={self.is_fidelity}, target_value={self.target_value}"
             )
         return ret_val + ")"
+
+    @property
+    def available_flags(self) -> List[str]:
+        return super().available_flags + ["is_hierarchical"]
+
+    @property
+    def domain_repr(self) -> str:
+        if self._parameter_type == ParameterType.STRING:
+            return f"value='{self._value}'"
+        else:
+            return f"value={self._value}"
