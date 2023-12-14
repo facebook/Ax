@@ -13,9 +13,10 @@ from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, Hashable, List, Mapping, Optional, Set, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from ax import core
 from ax.core.arm import Arm
 from ax.core.parameter import (
@@ -41,6 +42,15 @@ from ax.utils.common.typeutils import not_none
 
 
 logger: Logger = get_logger(__name__)
+PARAMETER_DF_COLNAMES: Mapping[Hashable, str] = {
+    "name": "Name",
+    "type": "Type",
+    "domain": "Domain",
+    "parameter_type": "Datatype",
+    "flags": "Flags",
+    "target_value": "Target Value",
+    "dependents": "Dependent Parameters",
+}
 
 
 class SearchSpace(Base):
@@ -394,6 +404,34 @@ class SearchSpace(Base):
     def __hash__(self) -> int:
         """Make the class hashable to support grouping of GeneratorRuns."""
         return hash(repr(self))
+
+    @property
+    def summary_df(self) -> pd.DataFrame:
+        """Creates a dataframe with information about each parameter in the given
+        search space. The resulting dataframe has one row per parameter, and the
+        following columns:
+            - Name: the name of the parameter.
+            - Type: the parameter subclass (Fixed, Range, Choice).
+            - Domain: the parameter's domain (e.g., "range=[0, 1]" or
+              "values=['a', 'b']").
+            - Datatype: the datatype of the parameter (int, float, str, bool).
+            - Flags: flags associated with the parameter, if any.
+            - Target Value: the target value of the parameter, if applicable.
+            - Dependent Parameters: for parameters in hierarchical search spaces,
+            mapping from parameter value -> list of dependent parameter names.
+        """
+        records = [p.summary_dict for p in self.parameters.values()]
+        df = pd.DataFrame(records).fillna(value="None")
+        df.rename(columns=PARAMETER_DF_COLNAMES, inplace=True)
+        # Reorder columns.
+        df = df[
+            [
+                colname
+                for colname in PARAMETER_DF_COLNAMES.values()
+                if colname in df.columns
+            ]
+        ]
+        return df
 
 
 class HierarchicalSearchSpace(SearchSpace):

@@ -9,6 +9,8 @@ from random import choice
 from typing import cast, List
 from unittest import mock
 
+import pandas as pd
+
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
@@ -387,6 +389,103 @@ class SearchSpaceTest(TestCase):
         # Test constructing an arm with a bad param name
         with self.assertRaises(ValueError):
             self.ss1.construct_arm({"a": "notafloat"})
+
+    def test_search_space_summary_df(self) -> None:
+        min_search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x1", parameter_type=ParameterType.INT, lower=0, upper=2
+                ),
+                RangeParameter(
+                    "x2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.1,
+                    upper=10,
+                ),
+            ]
+        )
+        max_search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x1", parameter_type=ParameterType.INT, lower=0, upper=2
+                ),
+                RangeParameter(
+                    "x2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.1,
+                    upper=10,
+                    log_scale=True,
+                    is_fidelity=True,
+                    target_value=10,
+                ),
+                FixedParameter("x3", parameter_type=ParameterType.BOOL, value=True),
+                ChoiceParameter(
+                    "x4",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "b", "c"],
+                    is_ordered=False,
+                    dependents={"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                ),
+                ChoiceParameter(
+                    "x5",
+                    parameter_type=ParameterType.STRING,
+                    values=["d", "e", "f"],
+                    is_ordered=True,
+                ),
+                RangeParameter(
+                    name="x6",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+        df = max_search_space.summary_df
+        expected_df = pd.DataFrame(
+            data={
+                "Name": ["x1", "x2", "x3", "x4", "x5", "x6"],
+                "Type": ["Range", "Range", "Fixed", "Choice", "Choice", "Range"],
+                "Domain": [
+                    "range=[0, 2]",
+                    "range=[0.1, 10.0]",
+                    "value=True",
+                    "values=['a', 'b', 'c']",
+                    "values=['d', 'e', 'f']",
+                    "range=[0.0, 1.0]",
+                ],
+                "Datatype": ["int", "float", "bool", "string", "string", "float"],
+                "Flags": [
+                    "None",
+                    "fidelity, log_scale",
+                    "None",
+                    "unordered, hierarchical, unsorted",
+                    "ordered, unsorted",
+                    "None",
+                ],
+                "Target Value": ["None", 10.0, "None", "None", "None", "None"],
+                "Dependent Parameters": [
+                    "None",
+                    "None",
+                    "None",
+                    {"a": ["x1", "x2"], "b": ["x4", "x5"], "c": ["x6"]},
+                    "None",
+                    "None",
+                ],
+            }
+        )
+
+        pd.testing.assert_frame_equal(df, expected_df)
+
+        df = min_search_space.summary_df
+        expected_df = pd.DataFrame(
+            data={
+                "Name": ["x1", "x2"],
+                "Type": ["Range", "Range"],
+                "Domain": ["range=[0, 2]", "range=[0.1, 10.0]"],
+                "Datatype": ["int", "float"],
+            }
+        )
+        pd.testing.assert_frame_equal(df, expected_df)
 
 
 class SearchSpaceDigestTest(TestCase):
