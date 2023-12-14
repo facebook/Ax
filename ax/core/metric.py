@@ -164,6 +164,15 @@ class Metric(SortableBase, SerializationMixin):
             class_name=self.__class__.__name__, metric_name=self.name
         )
 
+    @property
+    def summary_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary containing the metric's name and properties."""
+        return {
+            "name": self.name,
+            "type": self.__class__.__name__,
+            "lower_is_better": self.lower_is_better,
+        }
+
     # NOTE: This should be overridden if there is a benefit to fetching multiple
     # metrics that all share the `fetch_multi_group_by_metric` setting, at once.
     # This gives an opportunity to perform a given operation (e.g. retrieve results

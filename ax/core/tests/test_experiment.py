@@ -17,6 +17,12 @@ from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    ObjectiveThreshold,
+)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -24,6 +30,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
@@ -57,6 +64,12 @@ DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
 DUMMY_RUN_METADATA: Dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 DUMMY_ARM_NAME = "test_arm_name"
+
+
+class TestMetric(Metric):
+    """Shell metric class for testing."""
+
+    pass
 
 
 class SyntheticRunnerWithMetadataKeys(SyntheticRunner):
@@ -1066,6 +1079,92 @@ class ExperimentTest(TestCase):
         )
         new_data = cloned_experiment.lookup_data()
         self.assertIsInstance(new_data, MapData)
+
+    def test_metric_summary_df(self) -> None:
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=SearchSpace(parameters=[]),
+            optimization_config=MultiObjectiveOptimizationConfig(
+                objective=MultiObjective(
+                    objectives=[
+                        Objective(
+                            metric=Metric(name="my_objective_1", lower_is_better=True),
+                            minimize=True,
+                        ),
+                        Objective(
+                            metric=TestMetric(name="my_objective_2"), minimize=False
+                        ),
+                    ]
+                ),
+                objective_thresholds=[
+                    ObjectiveThreshold(
+                        metric=TestMetric(name="my_objective_2"),
+                        bound=5.1,
+                        relative=False,
+                        op=ComparisonOp.GEQ,
+                    )
+                ],
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        metric=Metric(name="my_constraint_1", lower_is_better=False),
+                        bound=1,
+                        relative=True,
+                        op=ComparisonOp.GEQ,
+                    ),
+                    OutcomeConstraint(
+                        metric=TestMetric(name="my_constraint_2"),
+                        bound=-7.8,
+                        relative=False,
+                        op=ComparisonOp.LEQ,
+                    ),
+                ],
+            ),
+            tracking_metrics=[
+                Metric(name="my_tracking_metric_1", lower_is_better=True),
+                TestMetric(name="my_tracking_metric_2", lower_is_better=False),
+                Metric(name="my_tracking_metric_3"),
+            ],
+        )
+        df = experiment.metric_config_summary_df
+        expected_df = pd.DataFrame(
+            data={
+                "Name": [
+                    "my_objective_1",
+                    "my_objective_2",
+                    "my_constraint_1",
+                    "my_constraint_2",
+                    "my_tracking_metric_1",
+                    "my_tracking_metric_2",
+                    "my_tracking_metric_3",
+                ],
+                "Type": [
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                    "TestMetric",
+                    "Metric",
+                ],
+                "Goal": [
+                    "minimize",
+                    "maximize",
+                    "constrain",
+                    "constrain",
+                    "track",
+                    "track",
+                    "track",
+                ],
+                "Bound": ["None", ">= 5.1", ">= 1%", "<= -7.8", "None", "None", "None"],
+                "Lower is Better": [True, "None", False, "None", True, False, "None"],
+            }
+        )
+        expected_df["Goal"] = pd.Categorical(
+            df["Goal"],
+            categories=["minimize", "maximize", "constrain", "track", "None"],
+            ordered=True,
+        )
+        pd.testing.assert_frame_equal(df, expected_df)
 
 
 class ExperimentWithMapDataTest(TestCase):

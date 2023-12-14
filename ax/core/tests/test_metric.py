@@ -15,6 +15,10 @@ from ax.utils.testing.core_stubs import (
 )
 
 
+class TestMetric(Metric):
+    pass
+
+
 METRIC_STRING = "Metric('m1')"
 
 
@@ -109,3 +113,24 @@ class MetricTest(TestCase):
             m.bulk_fetch_experiment_data(
                 experiment=exp_1, trials=list(exp_2.trials.values()), metrics=[m]
             )
+
+    def test_summary_dict(self) -> None:
+        metric = Metric(name="m1", lower_is_better=False)
+        self.assertDictEqual(
+            metric.summary_dict,
+            {
+                "name": "m1",
+                "type": "Metric",
+                "lower_is_better": False,
+            },
+        )
+
+        metric = TestMetric(name="m2", lower_is_better=True)
+        self.assertDictEqual(
+            metric.summary_dict,
+            {
+                "name": "m2",
+                "type": "TestMetric",
+                "lower_is_better": True,
+            },
+        )

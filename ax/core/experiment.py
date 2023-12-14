@@ -12,7 +12,18 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
 from functools import partial, reduce
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Type
+from typing import (
+    Any,
+    Dict,
+    Hashable,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 import ax.core.observation as observation
 import pandas as pd
@@ -25,12 +36,13 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
 from ax.core.parameter import Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TParameterization
+from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
@@ -51,6 +63,13 @@ round_floats_for_logging = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
+METRIC_DF_COLNAMES: Mapping[Hashable, str] = {
+    "name": "Name",
+    "type": "Type",
+    "goal": "Goal",
+    "bound": "Bound",
+    "lower_is_better": "Lower is Better",
+}
 
 
 # pyre-fixme[13]: Attribute `_search_space` is never initialized.
@@ -1598,6 +1617,72 @@ class Experiment(Base):
         )
 
         return cloned_experiment
+
+    @property
+    def metric_config_summary_df(self) -> pd.DataFrame:
+        """Creates a dataframe with information about each metric in the
+        experiment. The resulting dataframe has one row per metric, and the
+        following columns:
+            - Name: the name of the metric.
+            - Type: the metric subclass (e.g., Metric, BraninMetric).
+            - Goal: the goal for this for this metric, based on the optimization
+              config (minimize, maximize, constraint or track).
+            - Bound: the bound of this metric (e.g., "<=10.0") if it is being used
+              as part of an ObjectiveThreshold or OutcomeConstraint.
+            - Lower is Better: whether the user prefers this metric to be lower,
+              if provided.
+
+        """
+        records = {}
+        for metric_name in self.metrics.keys():
+            m = self.metrics[metric_name]
+            records[m.name] = m.summary_dict
+        if self.optimization_config is not None:
+            opt_config = self.optimization_config
+            if self.is_moo_problem:
+                multi_objective = checked_cast(MultiObjective, opt_config.objective)
+                objectives = multi_objective.objectives
+            else:
+                objectives = [opt_config.objective]
+            for objective in objectives:
+                records[objective.metric.name][METRIC_DF_COLNAMES["goal"]] = (
+                    "minimize" if objective.minimize else "maximize"
+                )
+
+            for constraint in opt_config.all_constraints:
+                if not isinstance(constraint, ObjectiveThreshold):
+                    records[constraint.metric.name][
+                        METRIC_DF_COLNAMES["goal"]
+                    ] = "constrain"
+                op = ">= " if constraint.op == ComparisonOp.GEQ else "<= "
+                relative = "%" if constraint.relative else ""
+                records[constraint.metric.name][
+                    METRIC_DF_COLNAMES["bound"]
+                ] = f"{op}{constraint.bound}{relative}"
+
+        for metric in self.tracking_metrics or []:
+            records[metric.name][METRIC_DF_COLNAMES["goal"]] = "track"
+
+        # Sort metrics rows by purpose and name, then sort columns.
+        df = pd.DataFrame(records.values()).fillna(value="None")
+        df.rename(columns=METRIC_DF_COLNAMES, inplace=True)
+        df[METRIC_DF_COLNAMES["goal"]] = pd.Categorical(
+            df[METRIC_DF_COLNAMES["goal"]],
+            categories=["minimize", "maximize", "constrain", "track", "None"],
+            ordered=True,
+        )
+        df = df.sort_values(
+            by=[METRIC_DF_COLNAMES["goal"], METRIC_DF_COLNAMES["name"]]
+        ).reset_index()
+        # Reorder columns.
+        df = df[
+            [
+                colname
+                for colname in METRIC_DF_COLNAMES.values()
+                if colname in df.columns
+            ]
+        ]
+        return df
 
 
 def add_arm_and_prevent_naming_collision(
