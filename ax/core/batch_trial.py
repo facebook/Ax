@@ -645,7 +645,7 @@ class BatchTrial(BaseTrial):
         )
         self._validate_batch_trial_data(data=data)
 
-        self._run_metadata = metadata or {}
+        self._run_metadata = self._run_metadata if metadata is None else metadata
         self.experiment.attach_data(data)
 
         data_for_logging = _round_floats_for_logging(item=evaluations)
