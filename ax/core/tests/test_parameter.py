@@ -29,9 +29,8 @@ class RangeParameterTest(TestCase):
             target_value=2,
         )
         self.param1_repr = (
-            "RangeParameter(name='x', parameter_type=FLOAT, "
-            "range=[1.0, 3.0], log_scale=True, digits=5, fidelity=True, target_"
-            "value=2.0)"
+            "RangeParameter(name='x', parameter_type=FLOAT, range=[1.0, 3.0], "
+            "is_fidelity=True, log_scale=True, target_value=2.0, digits=5)"
         )
 
         self.param2 = RangeParameter(
@@ -200,6 +199,11 @@ class ChoiceParameterTest(TestCase):
             is_task=True,
             target_value="baz",
         )
+        self.param2_repr = (
+            "ChoiceParameter(name='x', parameter_type=STRING, "
+            "values=['foo', 'bar', 'baz'], is_ordered=False, is_task=True, "
+            "sort_values=False, target_value='baz')"
+        )
         self.param3 = ChoiceParameter(
             name="x",
             parameter_type=ParameterType.STRING,
@@ -209,8 +213,8 @@ class ChoiceParameterTest(TestCase):
         )
         self.param3_repr = (
             "ChoiceParameter(name='x', parameter_type=STRING, "
-            "values=['foo', 'bar'], is_ordered=False, sort_values=False, "
-            "is_fidelity=True, target_value='bar')"
+            "values=['foo', 'bar'], is_fidelity=True, is_ordered=False, "
+            "sort_values=False, target_value='bar')"
         )
         self.param4 = ChoiceParameter(
             name="x",
@@ -420,6 +424,9 @@ class FixedParameterTest(TestCase):
         self.param1_repr = "FixedParameter(name='x', parameter_type=BOOL, value=True)"
         self.param2 = FixedParameter(
             name="y", parameter_type=ParameterType.STRING, value="foo"
+        )
+        self.param2_repr = (
+            "FixedParameter(name='y', parameter_type=STRING, value='foo')"
         )
 
     def test_BadCreations(self) -> None:
