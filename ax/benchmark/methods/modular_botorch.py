@@ -65,7 +65,6 @@ def get_sobol_botorch_modular_acquisition(
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
-                max_parallelism=1,
                 model_kwargs=model_kwargs,
             ),
         ],
