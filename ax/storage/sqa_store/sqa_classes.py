@@ -367,6 +367,11 @@ class SQAGenerationStrategy(Base):
     curr_index: int = Column(Integer, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
+    # pyre-fixme[8]: Attribute has type `List[Dict[str, typing.Any]]`; used as
+    #  `Column[typing.Any]`.
+    nodes: List[Dict[str, Any]] = Column(JSONEncodedList, nullable=True)
+    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
+    curr_node_name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True)
 
     generator_runs: List[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun",
