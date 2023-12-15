@@ -1308,6 +1308,61 @@ class SQAStoreTest(TestCase):
             not_none(new_generation_strategy._experiment)._name, experiment._name
         )
 
+    def test_EncodeDecodeGenerationNodeBasedGenerationStrategy(self) -> None:
+        """Test to ensure that GenerationNode based GenerationStrategies are
+        able to be encoded/decoded correctly.
+        """
+        # we don't support callable models for GenNode based strategies
+        generation_strategy = get_generation_strategy(
+            with_generation_nodes=True, with_callable_model_kwarg=False
+        )
+        # Check that we can save a generation strategy without an experiment
+        # attached.
+        save_generation_strategy(generation_strategy=generation_strategy)
+        # Also try restoring this generation strategy by its ID in the DB.
+        new_generation_strategy = load_generation_strategy_by_id(
+            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
+            gs_id=generation_strategy._db_id
+        )
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsNone(generation_strategy._experiment)
+
+        # Cannot load generation strategy before it has been saved
+        experiment = get_branin_experiment()
+        save_experiment(experiment)
+        with self.assertRaises(ObjectNotFoundError):
+            load_generation_strategy_by_experiment_name(experiment_name=experiment.name)
+
+        # Check that we can encode and decode the generation strategy *after*
+        # it has generated some trials and been updated with some data.
+        # Since we now need to `gen`, we remove the fake callable kwarg we added,
+        # since model does not expect it.
+        generation_strategy = get_generation_strategy(with_generation_nodes=True)
+        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        generation_strategy.gen(experiment, data=get_branin_data())
+        save_experiment(experiment)
+        # TODO @mgarrard passes up until this point
+        save_generation_strategy(generation_strategy=generation_strategy)
+        # Try restoring the generation strategy using the experiment its
+        # attached to.
+        new_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsInstance(new_generation_strategy._nodes[0].model_enum, Models)
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+
     def test_EncodeDecodeGenerationStrategyReducedState(self) -> None:
         """Try restoring the generation strategy using the experiment its attached to,
         passing the experiment object.

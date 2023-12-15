@@ -840,6 +840,7 @@ class Encoder:
             cast(Type[Base], GenerationStrategy)
         ]
         generator_runs_sqa = []
+        node_based_strategy = generation_strategy.is_node_based
         for idx, gr in enumerate(generation_strategy._generator_runs):
             # Never reduce the state of the last generator run because that
             # generator run is needed to recreate the model when reloading the
@@ -857,10 +858,22 @@ class Encoder:
                 generation_strategy._steps,
                 encoder_registry=self.config.json_encoder_registry,
                 class_encoder_registry=self.config.json_class_encoder_registry,
-            ),
-            curr_index=generation_strategy.current_step_index,
+            )
+            if not node_based_strategy
+            else [],
+            curr_index=generation_strategy.current_step_index
+            if not node_based_strategy
+            else -1,
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
+            nodes=object_to_json(
+                generation_strategy._nodes,
+                encoder_registry=self.config.json_encoder_registry,
+                class_encoder_registry=self.config.json_class_encoder_registry,
+            )
+            if node_based_strategy
+            else [],
+            curr_node_name=generation_strategy.current_node_name,
         )
         return gs_sqa
 
