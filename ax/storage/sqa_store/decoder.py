@@ -740,8 +740,24 @@ class Decoder:
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
-        gs._curr = gs._steps[gs_sqa.curr_index]
+        nodes = object_from_json(
+            gs_sqa.nodes,
+            decoder_registry=self.config.json_decoder_registry,
+            class_decoder_registry=self.config.json_class_decoder_registry,
+        )
+
+        # GenerationStrategies can ony be initialized with either steps or nodes.
+        # Determine which to use to initialize this GenerationStrategy.
+        if len(steps) > 0:
+            gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
+            gs._curr = gs._steps[gs_sqa.curr_index]
+        else:
+            gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
+            curr_node_name = gs_sqa.curr_node_name
+            for node in gs._nodes:
+                if node.node_name == curr_node_name:
+                    gs._curr = node
+                    break
         immutable_ss_and_oc = (
             experiment.immutable_search_space_and_opt_config
             if experiment is not None
