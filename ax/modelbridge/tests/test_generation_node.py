@@ -8,6 +8,8 @@ import logging
 from logging import Logger
 from unittest.mock import patch, PropertyMock
 
+from ax.core.base_trial import TrialStatus
+
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.cross_validation import (
@@ -19,6 +21,7 @@ from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -135,6 +138,10 @@ class TestGenerationNode(TestCase):
                     model_gen_kwargs={},
                 ),
             ],
+            gen_unlimited_trials=False,
+            transition_criteria=[
+                MaxTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
+            ],
         )
         string_rep = str(node)
         self.assertEqual(
@@ -142,7 +149,12 @@ class TestGenerationNode(TestCase):
             (
                 "GenerationNode(model_specs=[ModelSpec(model_enum=GPEI,"
                 " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-                " )], node_name=test)"
+                " )], node_name=test, gen_unlimited_trials=False, "
+                "transition_criteria=[MaxTrials({'threshold': 5, "
+                "'only_in_statuses': [<TrialStatus.RUNNING: 4>], "
+                "'not_in_statuses': None, 'transition_to': None, "
+                "'block_transition_if_unmet': True, 'block_gen_if_met': False})]"
+                ")"
             ),
         )
 

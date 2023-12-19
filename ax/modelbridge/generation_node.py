@@ -168,15 +168,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self.model_spec_to_gen_from.fitted_model
 
     @property
-    def _fitted_model(self) -> Optional[ModelBridge]:
-        """Private property to return optional fitted_model from
-        self.model_spec_to_gen_from for convenience. If no model is fit,
-        will return None. If using the non-private `fitted_model` property,
-        and no model is fit, a UserInput error will be raised.
-        """
-        return self.model_spec_to_gen_from._fitted_model
-
-    @property
     def fixed_features(self) -> Optional[ObservationFeatures]:
         """fixed_features from self.model_spec_to_gen_from for convenience"""
         if len({model_spec.fixed_features for model_spec in self.model_specs}) == 1:
@@ -241,6 +232,15 @@ class GenerationNode(SerializationMixin, SortableBase):
     def _unique_id(self) -> str:
         """Returns a unique id for this GenerationNode"""
         return self.node_name
+
+    @property
+    def _fitted_model(self) -> Optional[ModelBridge]:
+        """Private property to return optional fitted_model from
+        self.model_spec_to_gen_from for convenience. If no model is fit,
+        will return None. If using the non-private `fitted_model` property,
+        and no model is fit, a UserInput error will be raised.
+        """
+        return self.model_spec_to_gen_from._fitted_model
 
     def fit(
         self,
@@ -546,13 +546,16 @@ class GenerationNode(SerializationMixin, SortableBase):
     def __repr__(self) -> str:
         "String representation of this GenerationNode"
         # add model specs
-        repr = f"{self.__class__.__name__}(model_specs="
+        str_rep = f"{self.__class__.__name__}(model_specs="
         model_spec_str = str(self.model_specs).replace("\n", " ").replace("\t", "")
-        repr += model_spec_str
+        str_rep += model_spec_str
 
-        # add node name
-        repr += f", node_name={self.node_name}"
-        return f"{repr})"
+        # add node name, gen_unlimited_trials, and transition_criteria
+        str_rep += f", node_name={self.node_name}"
+        str_rep += f", gen_unlimited_trials={str(self.gen_unlimited_trials)}"
+        str_rep += f", transition_criteria={str(self.transition_criteria)}"
+
+        return f"{str_rep})"
 
 
 @dataclass
