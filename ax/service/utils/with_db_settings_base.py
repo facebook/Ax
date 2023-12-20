@@ -53,9 +53,9 @@ try:  # We don't require SQLAlchemy by default.
     from ax.storage.sqa_store.encoder import Encoder
     from ax.storage.sqa_store.load import (
         _get_experiment_id,
-        _get_generation_strategy_id,
         _load_experiment,
         _load_generation_strategy_by_experiment_name,
+        get_generation_strategy_id,
     )
     from ax.storage.sqa_store.save import (
         _save_experiment,
@@ -150,7 +150,7 @@ class WithDBSettingsBase:
         )
         if not exp_id:
             return None, None
-        gs_id = _get_generation_strategy_id(
+        gs_id = get_generation_strategy_id(
             experiment_name=experiment_name, decoder=self.db_settings.decoder
         )
         return exp_id, gs_id
