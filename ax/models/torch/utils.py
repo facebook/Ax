@@ -682,10 +682,11 @@ def _datasets_to_legacy_inputs(
     for dataset in datasets:
         if not isinstance(dataset, SupervisedDataset):
             raise UnsupportedError("Legacy setup only supports `SupervisedDataset`s")
-        Xs.append(dataset.X)
-        Ys.append(dataset.Y)
-        if dataset.Yvar is not None:
-            Yvars.append(dataset.Yvar)
-        else:
-            Yvars.append(torch.full_like(Ys[-1], float("nan")))
+        for i, _ in enumerate(dataset.outcome_names):
+            Xs.append(dataset.X)
+            Ys.append(dataset.Y[:, i].unsqueeze(-1))
+            if dataset.Yvar is not None:
+                Yvars.append(dataset.Yvar[:, i].unsqueeze(-1))
+            else:
+                Yvars.append(torch.full_like(Ys[-1], float("nan")))
     return Xs, Ys, Yvars
