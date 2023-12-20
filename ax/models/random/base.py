@@ -20,7 +20,7 @@ from ax.models.model_utils import (
 from ax.models.types import TConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, checked_cast_to_tuple
 from botorch.utils.sampling import HitAndRunPolytopeSampler
 from torch import Tensor
 
@@ -45,9 +45,12 @@ class RandomModel(Model):
         deduplicate: If True (defaults to True), a single instantiation
             of the model will not return the same point twice. This flag
             is used in rejection sampling.
-        scramble: If True, permutes the parameter values among
-            the elements of the Sobol sequence. Default is True.
         seed: An optional seed value for scrambling.
+        generated_points: A set of previously generated points to use
+            for deduplication. These should be provided in the raw transformed
+            space the model operates in.
+        fallback_to_sample_polytope: If True, when rejection sampling fails,
+            we fall back to the HitAndRunPolytopeSampler.
     """
 
     def __init__(
@@ -67,6 +70,7 @@ class RandomModel(Model):
         # Used for deduplication.
         self.generated_points = generated_points
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
+        self.attempted_draws: int = 0
 
     def gen(
         self,
@@ -114,11 +118,7 @@ class RandomModel(Model):
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws")
             if max_draws is not None:
-                # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]`
-                #  for 1st param but got
-                #  `Union[botorch.acquisition.acquisition.AcquisitionFunction, float,
-                #  int, str]`.
-                max_draws = int(max_draws)
+                max_draws = int(checked_cast_to_tuple((int, float), max_draws))
         try:
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
@@ -161,10 +161,10 @@ class RandomModel(Model):
                 points = polytope_sampler.draw(
                     n=n, seed=self.seed + num_generated
                 ).numpy()
+                # TODO: Should this round & deduplicate?
             else:
                 raise e
 
-        # pyre-fixme[16]: `RandomModel` has no attribute `attempted_draws`.
         self.attempted_draws = attempted_draws
         if self.deduplicate:
             if self.generated_points is None:
@@ -193,9 +193,9 @@ class RandomModel(Model):
         Args:
             n: Number of points to generate.
             d: Dimension of parameter space.
+            tunable_feature_indices: Parameter indices (in d) which are tunable.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
-            tunable_feature_indices: Parameter indices (in d) which are tunable.
 
         Returns:
             An (n x d) array of generated points.

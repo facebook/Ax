@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Protocol, Set, Tuple, Union
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TParamCounter
 from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
@@ -60,10 +58,34 @@ def rejection_sample(
     rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     existing_points: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, int]:
-    """Rejection sample in parameter space.
+    """Rejection sample in parameter space. Parameter space is typically
+    [0, 1] for all tunable parameters.
 
     Models must implement a `gen_unconstrained` method in order to support
     rejection sampling via this utility.
+
+    Args:
+        gen_unconstrained: A callable that generates unconstrained points in
+            the parameter space. This is typically the `_gen_unconstrained` method
+            of a `RandomModel`.
+        n: Number of samples to generate.
+        d: Dimensionality of the parameter space.
+        tunable_feature_indices: Indices of the tunable features in the
+            parameter space.
+        linear_constraints: A tuple of (A, b). For k linear constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x <= b.
+        deduplicate: If true, reject points that are duplicates of previously
+            generated points. The points are deduplicated after applying the
+            rounding function.
+        max_draws: Maximum number of attemped draws before giving up.
+        fixed_features: A map {feature_index: value} for features that
+            should be fixed to a particular value during generation.
+        rounding_func: A function that rounds an optimization result
+            appropriately (e.g., according to `round-trip` transformations).
+        existing_points: A set of previously generated points to use
+            for deduplication. These should be provided in the parameter
+            space model operates in.
     """
     # We need to perform the round trip transformation on our generated point
     # in order to deduplicate in the original search space.
@@ -71,10 +93,8 @@ def rejection_sample(
     if deduplicate and rounding_func is None:
         raise ValueError("Rounding function must be provided for deduplication.")
 
-    failed_constraint_dict: TParamCounter = defaultdict(lambda: 0)
     # Rejection sample with parameter constraints.
     points = np.zeros((n, d))
-
     attempted_draws = 0
     successful_draws = 0
     if max_draws is None:
@@ -90,37 +110,36 @@ def rejection_sample(
             fixed_features=fixed_features,
         )[0]
 
-        # Note: this implementation may not be performant, if the feasible volume
-        # is small, since applying the rounding_func is relatively expensive.
-        # If sampling in spaces with low feasible volume is slow, this function
-        # could be applied after checking the linear constraints.
-        if rounding_func is not None:
-            point = rounding_func(point)
-
         # Check parameter constraints, always in raw transformed space.
         if linear_constraints is not None:
-            all_constraints_satisfied, violators = check_param_constraints(
+            all_constraints_satisfied, _ = check_param_constraints(
                 linear_constraints=linear_constraints, point=point
             )
-            for violator in violators:
-                failed_constraint_dict[violator] += 1
         else:
             all_constraints_satisfied = True
-            violators = np.array([])
 
-        # Deduplicate: don't add the same point twice.
-        duplicate = False
-        if deduplicate:
-            if existing_points is not None:
-                prev_points = np.vstack([points[:successful_draws, :], existing_points])
-            else:
-                prev_points = points[:successful_draws, :]
-            duplicate = check_duplicate(point=point, points=prev_points)
+        if all_constraints_satisfied:
+            # Apply the rounding function if the point satisfies the linear constraints.
+            if rounding_func is not None:
+                # NOTE: This could still fail rounding with a logger warning. But this
+                # should be rare since the point is feasible in the continuous space.
+                point = rounding_func(point)
 
-        # Add point if valid.
-        if all_constraints_satisfied and not duplicate:
-            points[successful_draws] = point
-            successful_draws += 1
+            # Deduplicate: don't add the same point twice.
+            duplicate = False
+            if deduplicate:
+                if existing_points is not None:
+                    prev_points = np.vstack(
+                        [points[:successful_draws, :], existing_points]
+                    )
+                else:
+                    prev_points = points[:successful_draws, :]
+                duplicate = check_duplicate(point=point, points=prev_points)
+
+            # Add point if valid.
+            if not duplicate:
+                points[successful_draws] = point
+                successful_draws += 1
         attempted_draws += 1
 
     if successful_draws < n:
@@ -576,7 +595,8 @@ def enumerate_discrete_combinations(
     if n_combos > 50:
         warnings.warn(
             f"Enumerating {n_combos} combinations of discrete parameter values "
-            "while optimizing over a mixed search space. This can be very slow."
+            "while optimizing over a mixed search space. This can be very slow.",
+            stacklevel=2,
         )
     fixed_features_list = [
         dict(zip(discrete_choices.keys(), c))

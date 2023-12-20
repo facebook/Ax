@@ -38,7 +38,7 @@ class SobolGeneratorTest(TestCase):
         self.assertEqual(generator._get_state().get("init_position"), 3)
 
     def test_SobolGeneratorFixedSpace(self) -> None:
-        generator = SobolGenerator(seed=0)
+        generator = SobolGenerator(seed=0, deduplicate=False)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         generated_points, _ = generator.gen(
             n=3,
@@ -50,6 +50,23 @@ class SobolGeneratorTest(TestCase):
         np_bounds = np.array(bounds)
         self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+        # Should error out if deduplicating since there's only one feasible point.
+        generator = SobolGenerator(seed=0, deduplicate=True)
+        with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
+            generated_points, _ = generator.gen(
+                n=3,
+                bounds=bounds,
+                fixed_features={0: 1, 1: 2},
+                rounding_func=lambda x: x,
+            )
+        # But we can generate 1 point.
+        generated_points, _ = generator.gen(
+            n=1,
+            bounds=bounds,
+            fixed_features={0: 1, 1: 2},
+            rounding_func=lambda x: x,
+        )
+        self.assertEqual(np.shape(generated_points), (1, 2))
 
     def test_SobolGeneratorNoScramble(self) -> None:
         generator = SobolGenerator(scramble=False)

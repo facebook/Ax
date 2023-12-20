@@ -24,14 +24,11 @@ class SobolGenerator(RandomModel):
     the fit or predict methods.
 
     Attributes:
-        deduplicate: If true, a single instantiation of the generator will not
-            return the same point twice.
         init_position: The initial state of the Sobol generator.
             Starts at 0 by default.
         scramble: If True, permutes the parameter values among
             the elements of the Sobol sequence. Default is True.
-        seed: An optional seed value for scrambling.
-
+        See base `RandomModel` for a description of remaining attributes.
     """
 
     def __init__(
@@ -44,14 +41,15 @@ class SobolGenerator(RandomModel):
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(
-            deduplicate=deduplicate, seed=seed, generated_points=generated_points
+            deduplicate=deduplicate,
+            seed=seed,
+            generated_points=generated_points,
+            fallback_to_sample_polytope=fallback_to_sample_polytope,
         )
         self.init_position = init_position
         self.scramble = scramble
         # Initialize engine on gen.
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._engine = None
-        self.fallback_to_sample_polytope = fallback_to_sample_polytope
+        self._engine: Optional[SobolEngine] = None
 
     def init_engine(self, n_tunable_features: int) -> SobolEngine:
         """Initialize singleton SobolEngine, only on gen.
@@ -95,8 +93,7 @@ class SobolGenerator(RandomModel):
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that rounds an optimization result
-                appropriately (e.g., according to `round-trip` transformations)
-                but *unused here*.
+                appropriately (e.g., according to `round-trip` transformations).
 
         Returns:
             2-element tuple containing
@@ -128,39 +125,20 @@ class SobolGenerator(RandomModel):
         state.update({"init_position": self.init_position})
         return state
 
-    @copy_doc(RandomModel._gen_unconstrained)
-    def _gen_unconstrained(
-        self,
-        n: int,
-        d: int,
-        tunable_feature_indices: np.ndarray,
-        fixed_features: Optional[Dict[int, float]] = None,
-    ) -> np.ndarray:
-        if len(tunable_feature_indices) == 0:
-            # Search space is entirely fixed, should return the only avail. point.
-            fixed_features = fixed_features or {}
-            # pyre-fixme[7]: Expected `ndarray` but got `Tuple[typing.Any, typing.Any]`.
-            return (
-                np.tile(np.array([list(not_none(fixed_features).values())]), (n, 1)),
-                np.ones(n),
-            )
-        return super()._gen_unconstrained(
-            n=n,
-            d=d,
-            tunable_feature_indices=tunable_feature_indices,
-            fixed_features=fixed_features,
-        )
-
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples.
 
-        tunable_d is ignored; as it is specified at engine initialization.
-
         Args:
-            bounds: A list of d (lower, upper) tuples for each column of X.
-            fixed_feature_indices: Indices of features which are fixed at a
-                particular value.
+            n: Number of samples to generate.
+            tunable_d: The dimension of the generated samples. This must
+                match the tunable parameters used while initializing the
+                Sobol engine.
+
+        Returns:
+            A numpy array of samples of shape `(n x tunable_d)`.
         """
+        if tunable_d == 0:
+            return np.zeros((n, 0))
         if self.engine is None:
             raise ValueError(
                 "Sobol Engine must be initialized before candidate generation."

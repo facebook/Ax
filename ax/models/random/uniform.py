@@ -17,9 +17,7 @@ class UniformGenerator(RandomModel):
     As a uniform generator does not make use of a model, it does not implement
     the fit or predict methods.
 
-    Attributes:
-        seed: An optional seed value for the underlying PRNG.
-
+    See base `RandomModel` for a description of model attributes.
     """
 
     def __init__(
