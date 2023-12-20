@@ -17,12 +17,14 @@ from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import (
+    Observation,
     ObservationData,
     ObservationFeatures,
     recombine_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
 from ax.modelbridge.base import ModelBridge
@@ -742,7 +744,7 @@ class TorchModelBridgeTest(TestCase):
                 task_features=[2] if use_task else [],
                 target_values={2: 0} if use_task else {},  # pyre-ignore
             )
-            converted_datasets, _ = mb._convert_observations(
+            converted_datasets, ordered_outcomes, _ = mb._convert_observations(
                 observation_data=observation_data,
                 observation_features=observation_features,
                 outcomes=metric_names,
@@ -764,6 +766,7 @@ class TorchModelBridgeTest(TestCase):
             self.assertIsNone(dataset.Yvar)
             self.assertEqual(dataset.feature_names, feature_names)
             self.assertEqual(dataset.outcome_names, metric_names)
+            self.assertEqual(ordered_outcomes, metric_names)
 
             with self.assertRaisesRegex(ValueError, "was not observed."):
                 mb._convert_observations(
@@ -811,7 +814,7 @@ class TorchModelBridgeTest(TestCase):
             )
             for y in raw_Y
         ]
-        converted_datasets, _ = mb._convert_observations(
+        converted_datasets, ordered_outcomes, _ = mb._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=metric_names,
@@ -826,6 +829,9 @@ class TorchModelBridgeTest(TestCase):
             ),
         )
         self.assertEqual(len(converted_datasets), 2)
+        expected_outcomes = list(converted_datasets[0].outcome_names)
+        expected_outcomes.extend(list(converted_datasets[1].outcome_names))
+        self.assertEqual(ordered_outcomes, expected_outcomes)
         for dataset in converted_datasets:
             self.assertIsInstance(dataset, ContextualDataset)
             self.assertEqual(dataset.feature_names, feature_names)
@@ -856,3 +862,34 @@ class TorchModelBridgeTest(TestCase):
                         torch.cat([raw_Y.unsqueeze(-1) for _ in range(3)], dim=-1),
                     )
                 )
+        # Test _get_fit_args handling of outcome names
+        mb._fit_tracking_metrics = True
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name=f"x{i}",
+                    lower=0.0,
+                    upper=5.0,
+                    parameter_type=ParameterType.FLOAT,
+                )
+                for i in range(3)
+            ]
+        )
+        observations = []
+        for i, od in enumerate(observation_data):
+            observations.append(Observation(data=od, features=observation_features[i]))
+        converted_datasets2, _, _ = mb._get_fit_args(
+            search_space=search_space,
+            observations=observations,
+            parameters=feature_names,
+            update_outcomes_and_parameters=True,
+        )
+        self.assertEqual(mb.outcomes, expected_outcomes)
+        self.assertEqual(converted_datasets, converted_datasets2)
+        datasets, _, _ = mb._get_fit_args(
+            search_space=search_space,
+            observations=observations,
+            parameters=feature_names,
+            update_outcomes_and_parameters=False,
+        )
+        self.assertEqual(mb.outcomes, expected_outcomes)

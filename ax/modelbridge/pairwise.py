@@ -28,7 +28,9 @@ class PairwiseModelBridge(TorchModelBridge):
         outcomes: List[str],
         parameters: List[str],
         search_space_digest: Optional[SearchSpaceDigest],
-    ) -> Tuple[List[SupervisedDataset], Optional[List[List[TCandidateMetadata]]]]:
+    ) -> Tuple[
+        List[SupervisedDataset], List[str], Optional[List[List[TCandidateMetadata]]]
+    ]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
         """
@@ -74,9 +76,9 @@ class PairwiseModelBridge(TorchModelBridge):
             candidate_metadata.append(candidate_metadata_dict[outcome])
 
         if not any_candidate_metadata_is_not_none:
-            return datasets, None
+            return datasets, outcomes, None
 
-        return datasets, candidate_metadata
+        return datasets, outcomes, candidate_metadata
 
 
 def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:

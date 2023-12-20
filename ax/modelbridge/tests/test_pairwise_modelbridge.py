@@ -70,7 +70,7 @@ class PairwiseModelBridgeTest(TestCase):
         parameters = ["y1", "y2"]
         outcomes = ["pairwise_pref_query"]
 
-        datasets, candidate_metadata = pmb._convert_observations(
+        datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=outcomes,
@@ -81,7 +81,7 @@ class PairwiseModelBridgeTest(TestCase):
         self.assertTrue(isinstance(datasets[0], RankingDataset))
         self.assertTrue(candidate_metadata is None)
 
-        datasets, candidate_metadata = pmb._convert_observations(
+        datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features_with_metadata,
             outcomes=outcomes,
