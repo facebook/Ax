@@ -556,6 +556,13 @@ def recombine_observations(
     observation_data: List[ObservationData],
     arm_names: Optional[List[str]] = None,
 ) -> List[Observation]:
+    """
+    Construct a list of `Observation`s from the given arguments.
+
+    In the returned list of `Observation`s, element `i` has `features` from
+    `observation_features[i]`, `data` from `observation_data[i]`, and, if
+    applicable, `arm_name` from `arm_names[i]`.
+    """
     if len(observation_features) != len(observation_data):
         raise ValueError("Got features and data of different lengths")
     if arm_names is not None and len(observation_features) != len(arm_names):
