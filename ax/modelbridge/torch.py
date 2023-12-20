@@ -299,7 +299,9 @@ class TorchModelBridge(ModelBridge):
         outcomes: List[str],
         parameters: List[str],
         search_space_digest: Optional[SearchSpaceDigest],
-    ) -> Tuple[List[SupervisedDataset], Optional[List[List[TCandidateMetadata]]]]:
+    ) -> Tuple[
+        List[SupervisedDataset], List[str], Optional[List[List[TCandidateMetadata]]]
+    ]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
 
@@ -317,18 +319,11 @@ class TorchModelBridge(ModelBridge):
                 `MultiTaskDataset` where applicable.
 
         Returns:
-            - A list of `Dataset` objects.
-                For non-contextual experiment, each element in the list corresponds to
-                one outcome and the list is sorted based on the outcomes.
-                For contextual experiment, each element in the list can correspond to
-                either one outcome (overall) or multiple outcomes
-                (context-level outcome).
-                The list is sorted based on the outcomes only if there is no
-                contextl-level outcome; when there is a mixed of context-level and
-                overall outcomes, the ordering will be handled by the downstream
-                GP model.
-                If the outcome does not have any observations, then the corresponding
-                element in the list will be `None`.
+            - A list of `Dataset` objects. The datsets will be for the set of outcomes
+                specified in `outcomes`, not necessarily in that order. Some outcomes
+                will be grouped into a single dataset if there are contextual datasets.
+            - A list of outcomes in the order that they appear in the datasets,
+                accounting for reordering made necessary by contextual datasets.
             - An optional list of lists of candidate metadata. Each inner list
                 corresponds to one outcome. Each element in the inner list corresponds
                 to one observation.
@@ -410,10 +405,19 @@ class TorchModelBridge(ModelBridge):
                 ),
             )
 
-        if not any_candidate_metadata_is_not_none:
-            return datasets, None
+        # Get the order of outcomes
+        ordered_outcomes = []
+        for d in datasets:
+            ordered_outcomes.extend(d.outcome_names)
+        # Re-order candidate metadata
+        if any_candidate_metadata_is_not_none:
+            ordered_metadata = []
+            for outcome in ordered_outcomes:
+                ordered_metadata.append(candidate_metadata[outcomes.index(outcome)])
+        else:
+            ordered_metadata = None
 
-        return datasets, candidate_metadata
+        return datasets, ordered_outcomes, ordered_metadata
 
     def _cross_validate(
         self,
@@ -604,13 +608,19 @@ class TorchModelBridge(ModelBridge):
             search_space=search_space, param_names=self.parameters
         )
         # Convert observations to datasets
-        datasets, candidate_metadata = self._convert_observations(
+        datasets, ordered_outcomes, candidate_metadata = self._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=self.outcomes,
             parameters=parameters,
             search_space_digest=search_space_digest,
         )
+        if update_outcomes_and_parameters:
+            self.outcomes = ordered_outcomes
+        else:
+            assert (
+                ordered_outcomes == self.outcomes
+            ), f"Unexpected ordering of outcomes: {ordered_outcomes} != {self.outcomes}"
         return datasets, candidate_metadata, search_space_digest
 
     def _fit(

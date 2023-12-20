@@ -710,7 +710,8 @@ def get_pareto_frontier_and_configs(
             " the default was `transform_outcomes_and_configs=True`; now this argument "
             "is deprecated and behavior is as if "
             "`transform_outcomes_and_configs=False`. You did not specify "
-            "`transform_outcomes_and_configs`, so this warning requires no action."
+            "`transform_outcomes_and_configs`, so this warning requires no action.",
+            stacklevel=2,
         )
     elif transform_outcomes_and_configs:
         raise UnsupportedError(
@@ -724,13 +725,15 @@ def get_pareto_frontier_and_configs(
             "`transform_outcomes_and_configs` at all is deprecated because `False` is "
             "now the only allowed behavior. In the future, this will become an error.",
             DeprecationWarning,
+            stacklevel=2,
         )
     # Input validation
     if use_model_predictions:
         if observation_data is not None:
             warnings.warn(
                 "You provided `observation_data` when `use_model_predictions` is True; "
-                "`observation_data` will not be used."
+                "`observation_data` will not be used.",
+                stacklevel=2,
             )
     else:
         if observation_data is None:
@@ -1363,12 +1366,8 @@ def process_contextual_datasets(
                 'context2': ['m1_c2', 'm2_c2', 'm3_c2'],
             }
 
-    Returns: A list of `ContextualDataset` objects.
-        - If datasets contain overall outcome only, each element in the list can
-        correspond and the list is sorted based on the outcomes.
-        - If datasets contains a mixed of context-level and overall outcomes, each
-        element may contain multiple outcomes; and the ordering of predicted output
-        will be handled by the downstream
+    Returns: A list of `ContextualDataset` objects. Order generally will not be that of
+        `outcomes`.
     """
     context_buckets = list(parameter_decomposition.keys())
     remaining_metrics = deepcopy(outcomes)
