@@ -12,6 +12,7 @@ from logging import Logger
 from typing import (
     Any,
     Callable,
+    cast,
     Dict,
     Iterable,
     List,
@@ -41,6 +42,7 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.cross_validation import cross_validate
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.plot.contour import interact_contour_plotly
@@ -83,6 +85,11 @@ CROSS_VALIDATION_CAPTION = (
 )
 FEASIBLE_COL_NAME = "is_feasible"
 BASELINE_ARM_NAME = "baseline_arm"
+UNPREDICTABLE_METRICS_MESSAGE = (
+    "The following metric(s) are behaving unpredictably and may be noisy or "
+    "misconfigured: {}. Please check that they are measuring the intended quantity, "
+    "and are expected to vary reliably as a function of your parameters."
+)
 
 
 def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
@@ -1420,3 +1427,61 @@ def compare_to_baseline(
         return None
     comparison_list = not_none(comparison_list)
     return compare_to_baseline_impl(comparison_list)
+
+
+def warn_if_unpredictable_metrics(
+    experiment: Experiment,
+    generation_strategy: GenerationStrategy,
+    model_fit_threshold: float,
+    metric_names: Optional[List[str]] = None,
+    model_fit_metric_name: str = "coefficient_of_determination",
+) -> Optional[str]:
+    """Warn if any optimization config metrics are considered unpredictable,
+    i.e., their coefficient of determination is less than model_fit_threshold.
+    Args:
+        experiment: The experiment containing the data and optimization_config.
+            If there is no optimization config, this function checks all metrics
+            attached to the experiment.
+        generation_strategy: The generation strategy containing the model.
+        model_fit_threshold: If a model's coefficient of determination is below
+            this threshold, that metric is considered unpredictable.
+        metric_names: If specified, only check these metrics.
+        model_fit_metric_name: Name of the metric to apply the model fit threshold to.
+
+    Returns:
+        A string warning the user about unpredictable metrics, if applicable.
+    """
+    # Get fit quality dict.
+    model_bridge = generation_strategy.model  # Optional[ModelBridge]
+    if model_bridge is None:  # Need to re-fit the model.
+        data = experiment.lookup_data()
+        generation_strategy._fit_current_model(data=data)
+        model_bridge = cast(ModelBridge, generation_strategy.model)
+    model_fit_dict = model_bridge.compute_model_fit_metrics(experiment=experiment)
+    fit_quality_dict = model_fit_dict[model_fit_metric_name]
+
+    # Extract salient metrics from experiment.
+    if metric_names is None:
+        if experiment.optimization_config is None:
+            metric_names = list(experiment.metrics.keys())
+        else:
+            metric_names = list(not_none(experiment.optimization_config).metrics.keys())
+    else:
+        # Raise a ValueError if any metric names are invalid.
+        bad_metric_names = set(metric_names) - set(experiment.metrics.keys())
+        if len(bad_metric_names) > 0:
+            raise ValueError(
+                f"Invalid metric names: {bad_metric_names}. Please only use "
+                "metric_names that are available on the present experiment, "
+                f"which are: {list(experiment.metrics.keys())}."
+            )
+
+    # Flag metrics whose coefficient of determination is below the threshold.
+    unpredictable_metrics = {
+        k: v
+        for k, v in fit_quality_dict.items()
+        if k in metric_names and v < model_fit_threshold
+    }
+
+    if len(unpredictable_metrics) > 0:
+        return UNPREDICTABLE_METRICS_MESSAGE.format(list(unpredictable_metrics.keys()))

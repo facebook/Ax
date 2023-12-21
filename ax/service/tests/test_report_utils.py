@@ -22,7 +22,10 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
+from ax.modelbridge.generation_node import GenerationStep
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.service.scheduler import Scheduler
 from ax.service.utils.report_utils import (
     _format_comparison_string,
     _get_cross_validation_plots,
@@ -41,7 +44,9 @@ from ax.service.utils.report_utils import (
     get_standard_plots,
     plot_feature_importance_by_feature_plotly,
     select_baseline_arm,
+    warn_if_unpredictable_metrics,
 )
+from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
@@ -1229,4 +1234,80 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment_with_no_valid_baseline,
                 arms_df=arms_df,
                 baseline_arm_name=None,
-            ),
+            )
+
+    def test_warn_if_unpredictable_metrics(self) -> None:
+        expected_msg = (
+            "The following metric(s) are behaving unpredictably and may be noisy or "
+            "misconfigured: ['branin']. Please check that they are measuring the "
+            "intended quantity, and are expected to vary reliably as a function of "
+            "your parameters."
+        )
+
+        # Create scheduler and run a few trials.
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=3,
+                    min_trials_observed=3,
+                    max_parallelism=3,
+                ),
+                GenerationStep(model=Models.GPEI, num_trials=-1, max_parallelism=3),
+            ]
+        )
+        gs.experiment = exp
+        scheduler = Scheduler(
+            generation_strategy=gs, experiment=exp, options=SchedulerOptions()
+        )
+        scheduler.run_n_trials(4)
+
+        # Set fitted model to None to test refitting.
+        scheduler.generation_strategy._curr.model_spec_to_gen_from._fitted_model = None
+
+        # Threshold 1.0 (should always generate a warning)
+        msg = warn_if_unpredictable_metrics(
+            experiment=exp,
+            generation_strategy=gs,
+            model_fit_threshold=1.0,
+        )
+        self.assertEqual(msg, expected_msg)
+
+        # Threshold -1.0 (should never generate a warning)
+        msg = warn_if_unpredictable_metrics(
+            experiment=exp,
+            generation_strategy=gs,
+            model_fit_threshold=-1.0,
+        )
+        self.assertIsNone(msg)
+
+        # Test with no optimization config.
+        exp._tracking_metrics = exp.metrics
+        exp._optimization_config = None
+        msg = warn_if_unpredictable_metrics(
+            experiment=exp,
+            generation_strategy=gs,
+            model_fit_threshold=1.0,
+        )
+        self.assertEqual(msg, expected_msg)
+
+        # Test with manually specified metric_names.
+        msg = warn_if_unpredictable_metrics(
+            experiment=exp,
+            generation_strategy=gs,
+            model_fit_threshold=1.0,
+            metric_names=["branin"],
+        )
+        self.assertEqual(msg, expected_msg)
+
+        # Test with metric name that isn't in the experiment.
+        with self.assertRaisesRegex(
+            ValueError, "Invalid metric names: {'bad_metric_name'}"
+        ):
+            warn_if_unpredictable_metrics(
+                experiment=exp,
+                generation_strategy=gs,
+                model_fit_threshold=1.0,
+                metric_names=["bad_metric_name"],
+            )
