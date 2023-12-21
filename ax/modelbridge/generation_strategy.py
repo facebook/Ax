@@ -80,9 +80,6 @@ class GenerationStrategy(GenerationStrategyInterface):
     described in the `trials_per_model` argument.
 
     Args:
-        nodes: A list of `GenerationNode` describing a graphical representation
-            of the generation strategy. Either, but not both, of `nodes` and `steps`
-            must be provided.
         nodes: A list of `GenerationNode`. Each `GenerationNode` in the list
             represents a single node in a `GenerationStrategy` which, when
             composed of `GenerationNodes`, can be conceptualized as a graph instead
