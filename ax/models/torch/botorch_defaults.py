@@ -297,7 +297,7 @@ def get_acqf(
             X_pending: Optional[Tensor] = None,
             **kwargs: Any,
         ) -> AcquisitionFunction:
-
+            kwargs.pop("objective_thresholds", None)
             return _get_acquisition_func(
                 model=model,
                 acquisition_function_name=acquisition_function_name,
@@ -405,6 +405,8 @@ def _get_acquisition_func(
     if chebyshev_scalarization:
         with torch.no_grad():
             Y = model.posterior(X_observed).mean  # pyre-ignore [16]
+        if isinstance(model, ModelListGP) and Y.ndim == 3:
+            Y = torch.mean(Y, 0)
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
