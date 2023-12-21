@@ -1469,6 +1469,16 @@ def get_multi_objective() -> Objective:
     )
 
 
+def get_many_branin_objective_opt_config(
+    n_objectives: int,
+) -> MultiObjectiveOptimizationConfig:
+    return MultiObjectiveOptimizationConfig(
+        objective=MultiObjective(
+            objectives=[get_branin_objective(name=f"m{i}") for i in range(n_objectives)]
+        )
+    )
+
+
 def get_scalarized_objective() -> Objective:
     return ScalarizedObjective(
         metrics=[Metric(name="m1"), Metric(name="m3")],
@@ -1477,8 +1487,8 @@ def get_scalarized_objective() -> Objective:
     )
 
 
-def get_branin_objective(minimize: bool = False) -> Objective:
-    return Objective(metric=get_branin_metric(), minimize=minimize)
+def get_branin_objective(name: str = "branin", minimize: bool = False) -> Objective:
+    return Objective(metric=get_branin_metric(name=name), minimize=minimize)
 
 
 def get_branin_multi_objective(num_objectives: int = 2) -> Objective:
