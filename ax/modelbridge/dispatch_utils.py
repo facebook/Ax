@@ -15,7 +15,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, Models
+from ax.modelbridge.registry import MODEL_KEY_TO_MODEL_SETUP, ModelRegistryBase, Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
@@ -68,7 +68,7 @@ def _make_botorch_step(
     min_trials_observed: Optional[int] = None,
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
-    model: Models = Models.BOTORCH_MODULAR,
+    model: ModelRegistryBase = Models.BOTORCH_MODULAR,
     model_kwargs: Optional[Dict[str, Any]] = None,
     winsorization_config: Optional[
         Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
@@ -139,7 +139,7 @@ def _suggest_gp_model(
     num_trials: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
     use_saasbo: bool = False,
-) -> Union[None, Models]:
+) -> Union[None, ModelRegistryBase]:
     """Suggest a model based on the search space. None means we use Sobol.
 
     1. We use Sobol if the number of total iterations in the optimization is
@@ -303,6 +303,7 @@ def choose_generation_strategy(
     disable_progbar: Optional[bool] = None,
     jit_compile: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
+    suggested_model_override: Optional[ModelRegistryBase] = None,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -398,11 +399,13 @@ def choose_generation_strategy(
             strategy with a given experiment before it's first used to ``gen`` with
             that experiment). Can also provide `optimization_config` if it is not
             provided as an arg to this function.
+        suggested_model_override: If specified, this model will be used for the GP
+            step and automatic selection will be skipped.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
 
-    suggested_model = _suggest_gp_model(
+    suggested_model = suggested_model_override or _suggest_gp_model(
         search_space=search_space,
         num_trials=num_trials,
         optimization_config=optimization_config,
@@ -558,7 +561,8 @@ def _get_winsorization_transform_config(
         if winsorization_config is not None:
             warnings.warn(
                 "`no_winsorization = True` but `winsorization_config` has been set. "
-                "Not winsorizing."
+                "Not winsorizing.",
+                stacklevel=2,
             )
         return None
     if winsorization_config:
@@ -566,5 +570,5 @@ def _get_winsorization_transform_config(
     return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
 
 
-def is_saasbo(model: Models) -> bool:
+def is_saasbo(model: ModelRegistryBase) -> bool:
     return model.name in ["SAASBO", "FULLYBAYESIAN", "FULLYBAYESIANMOO"]
