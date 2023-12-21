@@ -1080,6 +1080,12 @@ class ExperimentTest(TestCase):
         new_data = cloned_experiment.lookup_data()
         self.assertIsInstance(new_data, MapData)
 
+        experiment = get_experiment()
+        cloned_experiment = experiment.clone_with()
+        self.assertEqual(cloned_experiment.name, "cloned_experiment_" + experiment.name)
+        cloned_experiment._name = experiment.name
+        self.assertEqual(cloned_experiment, experiment)
+
     def test_metric_summary_df(self) -> None:
         experiment = Experiment(
             name="test_experiment",
