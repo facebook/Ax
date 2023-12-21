@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import itertools
+from copy import deepcopy
+from unittest import mock
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -41,10 +43,20 @@ TEST_DATA = Data(
 
 class TrialTest(TestCase):
     def setUp(self) -> None:
+        self.mock_supports_trial_type = mock.patch(
+            f"{get_experiment.__module__}.Experiment.supports_trial_type",
+            return_value=True,
+        )
+        self.mock_supports_trial_type.start()
         self.experiment = get_experiment()
-        self.trial = self.experiment.new_trial()
+        self.trial = self.experiment.new_trial(ttl_seconds=123, trial_type="foo")
+        self.trial.update_run_metadata(metadata={"foo": "bar"})
+        self.trial.update_stop_metadata(metadata={"bar": "baz"})
         self.arm = get_arms()[0]
         self.trial.add_arm(self.arm)
+
+    def tearDown(self) -> None:
+        self.mock_supports_trial_type.stop()
 
     def test_eq(self) -> None:
         new_trial = self.experiment.new_trial()
@@ -67,7 +79,7 @@ class TrialTest(TestCase):
         with self.assertRaises(AttributeError):
             self.experiment.new_trial().arm_weights
 
-        self.trial._status = TrialStatus.RUNNING
+        self.trial.mark_running(no_runner_required=True)
         self.assertTrue(self.trial.status.is_running)
 
         self.trial._status = TrialStatus.COMPLETED
@@ -249,14 +261,20 @@ class TrialTest(TestCase):
         self.assertEqual(str(self.trial), repr_)
 
     def test_update_run_metadata(self) -> None:
-        self.assertEqual(len(self.trial.run_metadata), 0)
+        self.assertEqual(len(self.trial.run_metadata), 1)
+        old_run_metadata = deepcopy(self.trial.run_metadata)
         self.trial.update_run_metadata({"something": "new"})
-        self.assertEqual(self.trial.run_metadata, {"something": "new"})
+        self.assertDictEqual(
+            self.trial.run_metadata, {**old_run_metadata, "something": "new"}
+        )
 
     def test_update_stop_metadata(self) -> None:
-        self.assertEqual(len(self.trial.stop_metadata), 0)
+        self.assertEqual(len(self.trial.stop_metadata), 1)
+        old_stop_metadata = deepcopy(self.trial.stop_metadata)
         self.trial.update_stop_metadata({"something": "new"})
-        self.assertEqual(self.trial.stop_metadata, {"something": "new"})
+        self.assertEqual(
+            self.trial.stop_metadata, {**old_stop_metadata, "something": "new"}
+        )
 
     def test_update_trial_data(self) -> None:
         # Verify components before we attach trial data
@@ -319,14 +337,16 @@ class TrialTest(TestCase):
         # cloned trial attached to the same experiment
         new_trial = self.trial.clone_to()
         self.assertIs(new_trial.experiment, self.trial.experiment)
-        self.assertEqual(new_trial.arm, self.trial.arm)
+        # Test equality of all attributes except index, time_created, and experiment.
+        for k, v in new_trial.__dict__.items():
+            if k in ["_index", "_time_created", "_experiment"]:
+                continue
+            self.assertEqual(v, self.trial.__dict__[k])
 
         # cloned trial attached to a new experiment
         new_experiment = get_experiment()
         new_trial = self.trial.clone_to(new_experiment)
-        self.assertEqual(new_trial.arm, self.trial.arm)
-        self.assertIsNot(new_trial.experiment, self.trial.experiment)
-        self.assertIs(new_trial.experiment, new_experiment)
+        self.assertEqual(new_trial, self.trial)
 
         # make sure updating cloned trial doesn't affect original one
         new_trial._status = TrialStatus.COMPLETED
