@@ -220,6 +220,29 @@ class TestGenerationStrategy(TestCase):
             str(gs2), "GenerationStrategy(name='Sobol', steps=[Sobol for all trials])"
         )
 
+        gs3 = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="test",
+                    model_specs=[
+                        ModelSpec(
+                            model_enum=Models.SOBOL,
+                            model_kwargs={},
+                            model_gen_kwargs={},
+                        ),
+                    ],
+                )
+            ]
+        )
+        self.assertEqual(
+            str(gs3),
+            "GenerationStrategy(name='Sobol', nodes=[GenerationNode("
+            "model_specs=[ModelSpec(model_enum=Sobol, "
+            "model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
+            " )], node_name=test, gen_unlimited_trials=True, "
+            "transition_criteria=[])])",
+        )
+
     def test_equality(self) -> None:
         gs1 = GenerationStrategy(
             name="Sobol+GPEI",

@@ -579,12 +579,14 @@ class GenerationStrategy(GenerationStrategyInterface):
         for s in self._nodes:
             s._model_spec_to_gen_from = None
 
-    def __repr__(self) -> str:
-        """String representation of this generation strategy."""
-        repr = f"GenerationStrategy(name='{self.name}', steps=["
+    @step_based_gs_only
+    def _step_repr(self, step_str_rep: str) -> str:
+        """Return the string representation of the steps in a GenerationStrategy
+        composed of GenerationSteps.
+        """
+        step_str_rep += "steps=["
         remaining_trials = "subsequent" if len(self._nodes) > 1 else "all"
         for step in self._nodes:
-            # TODO @mgarrard handle this more gracefully for more general nodes
             num_trials = remaining_trials
             for criterion in step.transition_criteria:
                 if criterion.criterion_class == "MaxTrials" and isinstance(
@@ -597,10 +599,18 @@ class GenerationStrategy(GenerationStrategyInterface):
             except TypeError:
                 model_name = "model with unknown name"
 
-            repr += f"{model_name} for {num_trials} trials, "
-        repr = repr[:-2]
-        repr += "])"
-        return repr
+            step_str_rep += f"{model_name} for {num_trials} trials, "
+        step_str_rep = step_str_rep[:-2]
+        step_str_rep += "])"
+        return step_str_rep
+
+    def __repr__(self) -> str:
+        """String representation of this generation strategy."""
+        gs_str = f"GenerationStrategy(name='{self.name}', "
+        if not self.is_node_based:
+            return self._step_repr(gs_str)
+        gs_str += f"nodes={str(self._nodes)})"
+        return gs_str
 
     # ------------------------- Candidate generation helpers. -------------------------
 
