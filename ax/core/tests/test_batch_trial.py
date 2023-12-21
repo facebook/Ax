@@ -6,6 +6,7 @@
 
 import math
 from time import sleep
+from unittest import mock
 from unittest.mock import patch, PropertyMock
 
 import numpy as np
@@ -389,38 +390,54 @@ class BatchTrialTest(TestCase):
                 Arm(parameters={"x": 3, "y": "fooz", "z": False})
             )
 
-    def test_clone_to(self) -> None:
-        # cloning the trial and attached it to the same experiment
-        new_batch_trial_0 = self.batch.clone_to()
+    @mock.patch(
+        f"{get_experiment.__module__}.Experiment.supports_trial_type",
+        return_value=True,
+    )
+    def test_clone_to(self, _) -> None:
+        experiment = get_experiment()
+        experiment.status_quo = None
+        batch = experiment.new_batch_trial(ttl_seconds=123, trial_type="foo")
+        arms = get_arms()
+        weights = get_weights()
+        status_quo = arms[0]
+        arms = arms[1:]
+        weights = weights[1:]
+        batch.add_arms_and_weights(arms=arms, weights=weights)
+        batch.update_run_metadata(metadata={"foo": "bar"})
+        batch.update_stop_metadata(metadata={"bar": "baz"})
 
+        # cloning the trial and attached it to the same experiment
+        new_batch_trial_0 = batch.clone_to()
         # cloning the trial and attached it to a new experiment
         new_experiment = get_experiment()
-        self.batch.clone_to(new_experiment)
+        new_experiment.status_quo = None
+        batch.clone_to(new_experiment)
         new_batch_trial_1 = checked_cast(BatchTrial, new_experiment.trials[0])
 
-        for new_batch_trial in [new_batch_trial_0, new_batch_trial_1]:
-            self.assertEqual(len(new_batch_trial.generator_run_structs), 1)
-            self.assertEqual(len(new_batch_trial.arms), 2)
-            self.assertEqual(new_batch_trial.runner, self.batch.runner)
-            self.assertEqual(new_batch_trial.trial_type, self.batch.trial_type)
+        self.assertEqual(new_batch_trial_0.index, 1)
+        # Set index to original trial's value for equality check.
+        new_batch_trial_0._index = batch.index
+        self.assertEqual(new_batch_trial_0, batch)
+        self.assertEqual(new_batch_trial_1, batch)
 
         # make sure modifying the cloned batch trial does not affect original one
         new_batch_trial_1.add_arm(
             Arm(name="new_arm", parameters={"w": 2.6, "x": 2, "y": "baz", "z": True})
         )
         self.assertEqual(len(new_batch_trial_1.arms), 3)
-        self.assertEqual(len(self.batch.arms), 2)
+        self.assertEqual(len(batch.arms), 2)
 
         # cloning a trial that has status quo arm
         status_quo = Arm(
             name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
         )
-        self.batch.set_status_quo_and_optimize_power(status_quo)
-        new_batch_trial = self.batch.clone_to()
-        self.assertEqual(len(new_batch_trial.generator_run_structs), 1)
-        self.assertEqual(len(new_batch_trial.arms), 3)
-        self.assertEqual(new_batch_trial.runner, self.batch.runner)
-        self.assertEqual(new_batch_trial.trial_type, self.batch.trial_type)
+        batch.set_status_quo_and_optimize_power(status_quo)
+        new_batch_trial = batch.clone_to()
+        self.assertEqual(new_batch_trial.index, 2)
+        # Set index to original trial's value for equality check.
+        new_batch_trial._index = batch.index
+        self.assertEqual(new_batch_trial, batch)
 
     def test_Runner(self) -> None:
         # Verify BatchTrial without runner will fail
