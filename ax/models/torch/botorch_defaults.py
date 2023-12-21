@@ -34,6 +34,7 @@ from botorch.utils import (
     get_outcome_constraint_transforms,
 )
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
+from botorch.utils.transforms import is_ensemble
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -297,7 +298,7 @@ def get_acqf(
             X_pending: Optional[Tensor] = None,
             **kwargs: Any,
         ) -> AcquisitionFunction:
-
+            kwargs.pop("objective_thresholds", None)
             return _get_acquisition_func(
                 model=model,
                 acquisition_function_name=acquisition_function_name,
@@ -405,6 +406,8 @@ def _get_acquisition_func(
     if chebyshev_scalarization:
         with torch.no_grad():
             Y = model.posterior(X_observed).mean  # pyre-ignore [16]
+        if is_ensemble(model):
+            Y = torch.mean(Y, dim=0)
         obj_tf = get_chebyshev_scalarization(weights=objective_weights, Y=Y)
     else:
         obj_tf = get_objective_weights_transform(objective_weights)
