@@ -1532,7 +1532,7 @@ class Experiment(Base):
         runner: Optional[Runner] = None,
         status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
-        is_test: bool = False,
+        is_test: Optional[bool] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> Experiment:
         r"""
@@ -1612,9 +1612,10 @@ class Experiment(Base):
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
 
-        cloned_experiment.attach_data(
-            self.default_data_constructor.from_multiple_data(datas)
-        )
+        if len(datas) > 0:
+            cloned_experiment.attach_data(
+                self.default_data_constructor.from_multiple_data(datas)
+            )
 
         return cloned_experiment
 
