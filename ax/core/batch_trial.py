@@ -9,6 +9,7 @@ from __future__ import annotations
 import warnings
 
 from collections import defaultdict, OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -351,7 +352,9 @@ class BatchTrial(BaseTrial):
         self._refresh_arms_by_name()
 
     @immutable_once_run
-    def set_status_quo_with_weight(self, status_quo: Arm, weight: float) -> BatchTrial:
+    def set_status_quo_with_weight(
+        self, status_quo: Arm, weight: Optional[float]
+    ) -> BatchTrial:
         """Sets status quo arm with given weight. This weight *overrides* any
         weight the status quo has from generator runs attached to this batch.
         Thus, this function is not the same as using add_arm, which will
@@ -581,7 +584,9 @@ class BatchTrial(BaseTrial):
         """
         use_old_experiment = experiment is None
         experiment = self._experiment if experiment is None else experiment
-        new_trial = experiment.new_batch_trial()
+        new_trial = experiment.new_batch_trial(
+            trial_type=self._trial_type, ttl_seconds=self._ttl_seconds
+        )
         for struct in self._generator_run_structs:
             if use_old_experiment:
                 # don't clone gen run in case we are attaching cloned trial to
@@ -589,19 +594,17 @@ class BatchTrial(BaseTrial):
                 new_trial.add_generator_run(struct.generator_run, struct.weight)
             else:
                 new_trial.add_generator_run(struct.generator_run.clone(), struct.weight)
-        new_trial.trial_type = self._trial_type
-        new_trial.runner = self._runner.clone() if self._runner else None
 
         if (self._status_quo is not None) and include_sq:
-            sq_weight = (
-                self._status_quo_weight_override
-                if self._status_quo_weight_override is not None
-                else 1.0
-            )
+            sq_weight = self._status_quo_weight_override
             new_trial.set_status_quo_with_weight(
                 self._status_quo.clone(),
                 weight=sq_weight,
             )
+        new_trial.runner = self._runner.clone() if self._runner else None
+        new_trial._run_metadata = deepcopy(self._run_metadata)
+        new_trial._stop_metadata = deepcopy(self._stop_metadata)
+        new_trial._num_arms_created = self._num_arms_created
         return new_trial
 
     def attach_batch_trial_data(

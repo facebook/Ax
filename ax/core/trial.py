@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from functools import partial
 
 from logging import Logger
@@ -340,10 +342,14 @@ class Trial(BaseTrial):
             A new instance of the trial.
         """
         experiment = self._experiment if experiment is None else experiment
-        new_trial = experiment.new_trial()
+        new_trial = experiment.new_trial(
+            ttl_seconds=self.ttl_seconds, trial_type=self.trial_type
+        )
         if self.generator_run is not None:
             new_trial.add_generator_run(self.generator_run.clone())
-        new_trial.trial_type = self._trial_type
+        new_trial._run_metadata = deepcopy(self._run_metadata)
+        new_trial._stop_metadata = deepcopy(self._stop_metadata)
+        new_trial._num_arms_created = self._num_arms_created
         new_trial.runner = self._runner.clone() if self._runner else None
 
         return new_trial
