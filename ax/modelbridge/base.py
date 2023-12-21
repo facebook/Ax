@@ -1184,7 +1184,7 @@ def _predict_on_training_data(
         A tuple containing three dictionaries for 1) observed metric values, and the
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
-    data = experiment.fetch_data()
+    data = experiment.lookup_data()
     observations = observations_from_data(
         experiment=experiment, data=data
     )  # List[Observation]
