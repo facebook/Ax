@@ -285,6 +285,16 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(gs_6_init_trials._steps[0].model, Models.SOBOL)
             self.assertEqual(gs_6_init_trials._steps[0].num_trials, 6)
             self.assertEqual(gs_6_init_trials._steps[1].model, Models.BOTORCH_MODULAR)
+        with self.subTest("suggested_model_override"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space()
+            )
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+            sobol_saasbo = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                suggested_model_override=Models.SAASBO,
+            )
+            self.assertEqual(sobol_saasbo._steps[1].model, Models.SAASBO)
 
     def test_make_botorch_step_extra(self) -> None:
         # Test parts of _make_botorch_step that are not directly exposed in
