@@ -415,6 +415,16 @@ class GenerationStrategy(GenerationStrategyInterface):
             ]
         )
 
+    @property
+    def optimization_complete(self) -> bool:
+        """Checks whether all nodes are completed in the generation strategy and
+        the current node is not an AEPsych node.
+        """
+        # TODO: @mgarrard clean up with legacy usecase removal
+        return all(node.is_completed for node in self._nodes) and "AEPsych" not in str(
+            self._curr
+        )
+
     def gen(
         self,
         experiment: Experiment,
@@ -714,10 +724,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 self._curr.gen_unlimited_trials is False
             ), "This node should never attempt to transition since"
             " it can generate unlimited trials"
-            # TODO: @mgarrard clean up with legacy usecase removal
-            if all(node.is_completed for node in self._nodes) and "AEPsych" not in str(
-                self._curr
-            ):
+            if self.optimization_complete:
                 raise GenerationStrategyCompleted(
                     f"Generation strategy {self} generated all the trials as "
                     "specified in its steps."
