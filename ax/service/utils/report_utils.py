@@ -1454,9 +1454,14 @@ def warn_if_unpredictable_metrics(
     # Get fit quality dict.
     model_bridge = generation_strategy.model  # Optional[ModelBridge]
     if model_bridge is None:  # Need to re-fit the model.
-        data = experiment.lookup_data()
-        generation_strategy._fit_current_model(data=data)
+        generation_strategy._fit_current_model(data=None)
         model_bridge = cast(ModelBridge, generation_strategy.model)
+    if isinstance(model_bridge, RandomModelBridge):
+        logger.info(
+            "Current modelbridge on GenerationStrategy is RandomModelBridge. "
+            "Not checking metric predictability."
+        )
+        return None
     model_fit_dict = model_bridge.compute_model_fit_metrics(experiment=experiment)
     fit_quality_dict = model_fit_dict[model_fit_metric_name]
 
