@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod, abstractproperty
+from copy import deepcopy
 from enum import Enum
 from math import inf
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -668,7 +669,7 @@ class ChoiceParameter(Parameter):
             is_fidelity=self._is_fidelity,
             target_value=self._target_value,
             sort_values=self._sort_values,
-            dependents=self._dependents,
+            dependents=deepcopy(self._dependents),
         )
 
     def __repr__(self) -> str:

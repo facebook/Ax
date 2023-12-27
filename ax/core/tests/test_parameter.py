@@ -14,6 +14,7 @@ from ax.core.parameter import (
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 
 
 class RangeParameterTest(TestCase):
@@ -342,6 +343,18 @@ class ChoiceParameterTest(TestCase):
 
         param_clone._values.append("boo")
         self.assertNotEqual(len(self.param1.values), len(param_clone.values))
+
+        # With dependents.
+        param = ChoiceParameter(
+            name="x",
+            parameter_type=ParameterType.STRING,
+            values=["foo", "bar", "baz"],
+            dependents={"foo": ["y", "z"], "bar": ["w"]},
+        )
+        param_clone = param.clone()
+        not_none(param_clone._dependents)["foo"] = ["y"]
+        self.assertEqual(param.dependents, {"foo": ["y", "z"], "bar": ["w"]})
+        self.assertEqual(param_clone.dependents, {"foo": ["y"], "bar": ["w"]})
 
     def test_HierarchicalValidation(self) -> None:
         self.assertFalse(self.param1.is_hierarchical)
