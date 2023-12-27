@@ -32,7 +32,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
 
         Args:
             min_trials: Minimum number of trials before the stopping strategy kicks in.
-            inactive_when_pending_trials: If set, the optimization will not stopped as
+            inactive_when_pending_trials: If set, the optimization will not stop as
                 long as it has running trials.
         """
         self.min_trials = min_trials
