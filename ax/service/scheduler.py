@@ -1561,6 +1561,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
             return []
+        except Exception as err:
+            if self._log_next_no_trials_reason:
+                self.logger.info(
+                    "Generated all trials that can be generated currently. "
+                    "`generation_strategy` encountered an unknown error "
+                    f"{err}."
+                )
+            self.logger.debug(f"Message from generation strategy: {err}")
+            return []
 
         if self.options.trial_type == TrialType.TRIAL and any(
             len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
