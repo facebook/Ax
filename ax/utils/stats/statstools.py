@@ -147,6 +147,7 @@ def relativize(
     bias_correction: bool = True,
     cov_means: Union[np.ndarray, List[float], float] = 0.0,
     as_percent: bool = False,
+    control_as_constant: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Ratio estimator based on the delta method.
 
@@ -195,6 +196,9 @@ def relativize(
             the means and standard errors of the ratios.
         cov_means: Sample covariance between test and control
         as_percent: If true, return results in percent (* 100)
+        control_as_constant: If true, control is treated as a constant.
+            bias_correction, sem_c, and cov_means are ignored when this is true.
+
 
     Returns:
         rel_hat: Inferred means of the sampling distribution of
@@ -216,14 +220,20 @@ def relativize(
     m_t = np.array(means_t)
     s_t = np.array(sems_t)
     cov_t = np.array(cov_means)
-    c = m_t / mean_c
-    r_hat = (m_t - mean_c) / np.abs(mean_c)
-    if bias_correction:
-        r_hat = r_hat - m_t * sem_c**2 / np.abs(mean_c) ** 3
-    # If everything's the same, then set r_hat to zero
-    same = (m_t == mean_c) & (s_t == sem_c)
-    r_hat = ~same * r_hat
-    var = ((s_t**2) - 2 * c * cov_t + (c**2) * (sem_c**2)) / (mean_c**2)
+    abs_mean_c = np.abs(mean_c)
+    r_hat = (m_t - mean_c) / abs_mean_c
+
+    if control_as_constant:
+        var = (s_t / abs_mean_c) ** 2
+    else:
+        c = m_t / mean_c
+        if bias_correction:
+            r_hat = r_hat - m_t * sem_c**2 / abs_mean_c**3
+
+        # If everything's the same, then set r_hat to zero
+        same = (m_t == mean_c) & (s_t == sem_c)
+        r_hat = ~same * r_hat
+        var = ((s_t**2) - 2 * c * cov_t + (c**2) * (sem_c**2)) / (mean_c**2)
     if as_percent:
         return (r_hat * 100, np.sqrt(var) * 100)
     else:
@@ -238,6 +248,7 @@ def unrelativize(
     bias_correction: bool = True,
     cov_means: Union[np.ndarray, List[float], float] = 0.0,
     as_percent: bool = False,
+    control_as_constant: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Reverse operation of ax.utils.stats.statstools.relativize.
@@ -252,12 +263,13 @@ def unrelativize(
         cov_means: Sample covariance between the **unrelativized** test and control
         as_percent: If true, assuming `means_t` and `sems_t` are percentages
                     (i.e., 1 means 1%).
+        control_as_constant: If true, control is treated as a constant.
+            bias_correction, sem_c, and cov_means are ignored when this is true.
 
     Returns:
         m_t: Inferred sample (test) means in the unrelativized scale
         s_t: Inferred SEM of sample (test) means in the unrelativized scale
     """
-
     means_t = np.array(means_t, dtype=float)
     sems_t = np.array(sems_t, dtype=float)
 
@@ -265,15 +277,22 @@ def unrelativize(
         means_t = means_t / 100
         sems_t = sems_t / 100
 
-    m_t = means_t * np.abs(mean_c) + mean_c
-    if bias_correction:
-        m_t = m_t / (1 - (sem_c / np.abs(mean_c)) ** 2)
+    abs_mean_c = np.abs(mean_c)
+    m_t = means_t * abs_mean_c + mean_c
 
-    var = sems_t**2
-    c = m_t / mean_c
-    s_t2 = var * (mean_c**2) + 2 * c * cov_means - (c**2) * (sem_c**2)
-    # s_t2 can be numerically negative
-    s_t = np.sqrt(s_t2.clip(min=0.0))
+    if control_as_constant:
+        s_t = sems_t * abs_mean_c
+    else:
+        if bias_correction:
+            m_t = m_t / (1 - (sem_c / abs_mean_c) ** 2)
+
+        var = sems_t**2
+        c = m_t / mean_c
+        s_t2 = var * (mean_c**2) + 2 * c * cov_means - (c**2) * (sem_c**2)
+
+        # This is only positive when sems_t > sem_c * mean_c * (means_t + 1)
+        # If above condition cannot be guaranteed, use control_as_constant = True
+        s_t = np.sqrt(s_t2.clip(min=0.0))
 
     # if means_t is 0.0 exactly, return control mean and sem directly
     if np.isscalar(means_t):
@@ -363,6 +382,7 @@ def relativize_data(
     as_percent: bool = False,
     include_sq: bool = False,
     bias_correction: bool = True,
+    control_as_constant: bool = False,
 ) -> Data:
     """Relativize a data object w.r.t. a status_quo arm.
 
@@ -375,6 +395,8 @@ def relativize_data(
             metric values. Uses a second-order Taylor expansion for approximating
             the means and standard errors or the ratios, see
             ax.utils.stats.statstools.relativize for more details.
+        control_as_constant: If true, control is treated as a constant.
+            bias_correction is ignored when this is true.
 
     Returns:
         The new data object with the relativized metrics (excluding the
@@ -403,6 +425,7 @@ def relativize_data(
             sem_c=sq_sem,
             as_percent=as_percent,
             bias_correction=bias_correction,
+            control_as_constant=control_as_constant,
         )
         dfs.append(
             pd.concat(

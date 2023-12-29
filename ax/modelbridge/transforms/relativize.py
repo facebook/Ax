@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+
 from math import sqrt
-from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401
 
 
-class Relativize(Transform):
+class BaseRelativize(Transform, ABC):
     """
     Change the relative flag of the given relative optimization configuration
     to False. This is needed in order for the new opt config to pass ModelBridge
@@ -37,6 +39,10 @@ class Relativize(Transform):
     Also transforms absolute data and opt configs to relative.
 
     Requires a modelbridge with a status quo set to work.
+
+    Abstract property control_as_constant is set to True/False in its subclasses
+    Relativize and RelativizeWithConstantControl respectively to account for
+    appropriate transform/untransform differently.
     """
 
     MISSING_STATUS_QUO_ERROR = "Cannot relativize data without status quo data"
@@ -59,6 +65,11 @@ class Relativize(Transform):
         self.modelbridge: ModelBridge = not_none(
             modelbridge, "Relativize transform requires a modelbridge"
         )
+
+    @property
+    @abstractmethod
+    def control_as_constant(self) -> bool:
+        """Whether or not the control is treated as a constant in the model."""
 
     def transform_optimization_config(
         self,
@@ -191,8 +202,8 @@ class Relativize(Transform):
             for obs in observations
         ]
 
-    @staticmethod
     def _get_relative_data(
+        self,
         data: ObservationData,
         status_quo_data: ObservationData,
         rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
@@ -204,6 +215,7 @@ class Relativize(Transform):
             data: ObservationData object to relativize
             status_quo_data: The status quo data (un)relativization is based upon
             rel_op: relativize or unrelativize operator.
+            control_as_constant: if treating the control metric as constant
 
         Returns:
             (un)relativized ObservationData
@@ -241,7 +253,33 @@ class Relativize(Transform):
                     mean_c=mean_c,
                     sem_c=sem_c,
                     as_percent=True,
+                    control_as_constant=self.control_as_constant,
                 )
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel**2
         return result
+
+
+class Relativize(BaseRelativize):
+    """
+    Relative transform that by applying delta method.
+
+    Note that not all valid-valued relativized mean and
+    standard error can be unrelativized when control_as_constant=True.
+    See utils.stats.statstools.unrelativize for more details.
+    """
+
+    @property
+    def control_as_constant(self) -> bool:
+        return False
+
+
+class RelativizeWithConstantControl(BaseRelativize):
+    """
+    Relative transform that treats the control metric as a constant when transforming
+    and untransforming the data.
+    """
+
+    @property
+    def control_as_constant(self) -> bool:
+        return True
