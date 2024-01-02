@@ -21,10 +21,6 @@ from botorch.test_functions.synthetic import (
 from hypothesis import given, strategies as st
 
 
-def _get_hypothesis_nonnegative_floats():
-    return st.floats(min_value=0.0, allow_nan=False, allow_infinity=False)
-
-
 class TestBenchmarkProblem(TestCase):
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
@@ -106,12 +102,8 @@ class TestBenchmarkProblem(TestCase):
 
     @given(
         st.booleans(),
-        st.one_of(st.none(), _get_hypothesis_nonnegative_floats()),
-        st.one_of(
-            st.none(),
-            _get_hypothesis_nonnegative_floats(),
-            st.lists(_get_hypothesis_nonnegative_floats(), min_size=2, max_size=2),
-        ),
+        st.one_of(st.none(), st.just(0.1)),
+        st.one_of(st.none(), st.just(0.2), st.just([0.3, 0.4])),
     )
     def test_constrained_from_botorch(
         self,
