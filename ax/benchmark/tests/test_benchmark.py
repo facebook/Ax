@@ -18,6 +18,7 @@ from ax.benchmark.benchmark_method import (
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
@@ -142,6 +143,15 @@ class TestBenchmark(TestCase):
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
         for method, problem, expected_name in [
+            (
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=True,
+                ),
+                get_problem("constrained_gramacy_fixed_noise", num_trials=6),
+                "MBM::SingleTaskGP_qLogNEI",
+            ),
             (
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,

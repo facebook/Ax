@@ -170,12 +170,14 @@ class BenchmarkProblem(Base):
 
         if is_constrained:
             n_con = test_problem.num_constraints
-            if test_problem.constraint_noise_std is None:
+            if infer_noise:
                 constraint_noise_sds = [None] * n_con
+            elif test_problem.constraint_noise_std is None:
+                constraint_noise_sds = [0.0] * n_con
             elif isinstance(test_problem.constraint_noise_std, list):
                 constraint_noise_sds = test_problem.constraint_noise_std[:n_con]
             else:
-                constraint_noise_sds = [noise_sd] * n_con
+                constraint_noise_sds = [test_problem.constraint_noise_std] * n_con
 
             outcome_constraints = [
                 OutcomeConstraint(

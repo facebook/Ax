@@ -3,14 +3,24 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import List, Optional, Union
+
 from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
 from ax.core.types import ComparisonOp
+from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
+from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann
+from botorch.test_functions.synthetic import (
+    Ackley,
+    ConstrainedGramacy,
+    ConstrainedHartmann,
+)
+from hypothesis import given, strategies as st
 
 
 class TestBenchmarkProblem(TestCase):
@@ -91,6 +101,71 @@ class TestBenchmarkProblem(TestCase):
                 )
 
             self.assertEqual(repr(test_problem), expected_repr)
+
+    # pyre-fixme[56]: Invalid decoration. Pyre was not able to infer the type of
+    # argument `hypothesis.strategies.booleans()` to decorator factory
+    # `hypothesis.given`.
+    @given(
+        st.booleans(),
+        st.one_of(st.none(), st.just(0.1)),
+        st.one_of(st.none(), st.just(0.2), st.just([0.3, 0.4])),
+    )
+    def test_constrained_from_botorch(
+        self,
+        infer_noise: bool,
+        objective_noise_std: Optional[float],
+        constraint_noise_std: Optional[Union[float, List[float]]],
+    ) -> None:
+        ax_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            test_problem_class=ConstrainedGramacy,
+            test_problem_kwargs={
+                "noise_std": objective_noise_std,
+                "constraint_noise_std": constraint_noise_std,
+            },
+            num_trials=1,
+            infer_noise=infer_noise,
+        )
+        runner = checked_cast(BotorchTestProblemRunner, ax_problem.runner)
+        self.assertTrue(runner._is_constrained)
+        botorch_problem = checked_cast(ConstrainedGramacy, runner.test_problem)
+        self.assertEqual(botorch_problem.noise_std, objective_noise_std)
+        self.assertEqual(botorch_problem.constraint_noise_std, constraint_noise_std)
+        opt_config = ax_problem.optimization_config
+        outcome_constraints = opt_config.outcome_constraints
+        self.assertEqual(
+            [constraint.metric.name for constraint in outcome_constraints],
+            [f"constraint_slack_{i}" for i in range(botorch_problem.num_constraints)],
+        )
+        if infer_noise:
+            expected_opt_noise_sd = None
+        elif objective_noise_std is None:
+            expected_opt_noise_sd = 0.0
+        else:
+            expected_opt_noise_sd = objective_noise_std
+
+        self.assertEqual(
+            checked_cast(
+                BotorchTestProblemMetric, opt_config.objective.metric
+            ).noise_sd,
+            expected_opt_noise_sd,
+        )
+
+        if infer_noise:
+            expected_constraint_noise_sd = [None for _ in range(2)]
+        elif constraint_noise_std is None:
+            expected_constraint_noise_sd = [0.0 for _ in range(2)]
+        elif isinstance(constraint_noise_std, float):
+            expected_constraint_noise_sd = [constraint_noise_std for _ in range(2)]
+        else:
+            expected_constraint_noise_sd = constraint_noise_std
+
+        self.assertEqual(
+            [
+                checked_cast(BotorchTestProblemMetric, constraint.metric).noise_sd
+                for constraint in outcome_constraints
+            ],
+            expected_constraint_noise_sd,
+        )
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
