@@ -127,7 +127,7 @@ class MaxValueEntropySearch(BotorchModel):
         )
         bounds_ = bounds_.transpose(0, 1)
 
-        candidate_set = torch.rand(candidate_size, bounds_.size(1))
+        candidate_set = torch.rand(candidate_size, bounds_.size(1), device=self.device)
         candidate_set = bounds_[0] + (bounds_[1] - bounds_[0]) * candidate_set
 
         target_fidelities = {
