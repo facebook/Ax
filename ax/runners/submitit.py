@@ -112,6 +112,13 @@ class SubmitItRunner(Runner):
             trial_status[ax_job_state].append(t.index)
 
         return trial_status
+    
+    def stop(
+        self, trial: BaseTrial, reason: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Need to make sure to kill jobs when the scheduler exits."""
+        del reason
+        self.jobs[trial.index].stop()
 
 
 class SubmitItMetricFetcher(Metric):
