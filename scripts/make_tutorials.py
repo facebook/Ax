@@ -20,7 +20,6 @@ from nbconvert import HTMLExporter, ScriptExporter
 
 TUTORIALS_TO_SKIP = [
     "raytune_pytorch_cnn",  # TODO: Times out CI but passes locally. Investigate.
-    "early_stopping",  # TODO: The trials fail. Investigate.
 ]
 
 
