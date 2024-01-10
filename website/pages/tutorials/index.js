@@ -106,7 +106,7 @@ class TutorialHome extends React.Component {
                  Hyperparameter Optimization on SLURM via SubmitIt
                 </a>
                 &nbsp; shows how to use the AxClient to schedule jobs and tune 
-                hyperparameters on a SLURM cluster.
+                hyperparameters on a Slurm cluster.
               </li>
             </ul>
             <ul>
