@@ -276,10 +276,11 @@ class GenerationStrategy(GenerationStrategyInterface):
         return not self._uses_registered_models
 
     @property
-    @step_based_gs_only
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
-        viewing. For example:
+        viewing.
+
+        For example for a GenerationStrategy composed of GenerationSteps:
         Gen. Step | Model | Trial Index | Trial Status | Arm Parameterizations
         0         | Sobol | 0           | RUNNING      | {"0_0":{"x":9.17...}}
         """
@@ -293,11 +294,15 @@ class GenerationStrategy(GenerationStrategyInterface):
             len(step.trials_from_node) == 0 for step in self._nodes
         ):
             return None
+
+        step_or_node_col = (
+            "Generation Node" if self.is_node_based else "Generation Step"
+        )
         records = [
             {
-                "Generation Step": step.node_name,
+                step_or_node_col: node.node_name,
                 "Generation Model": self._nodes[
-                    step_idx
+                    node_idx
                 ].model_spec_to_gen_from.model_key,
                 "Trial Index": trial_idx,
                 "Trial Status": self.experiment.trials[trial_idx].status.name,
@@ -306,12 +311,13 @@ class GenerationStrategy(GenerationStrategyInterface):
                     for arm in self.experiment.trials[trial_idx].arms
                 },
             }
-            for step_idx, step in enumerate(self._nodes)
-            for trial_idx in step.trials_from_node
+            for node_idx, node in enumerate(self._nodes)
+            for trial_idx in node.trials_from_node
         ]
+
         return pd.DataFrame.from_records(records).reindex(
             columns=[
-                "Generation Step",
+                step_or_node_col,
                 "Generation Model",
                 "Trial Index",
                 "Trial Status",

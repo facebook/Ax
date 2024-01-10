@@ -566,6 +566,69 @@ class TestGenerationStrategy(TestCase):
             "GenerationStep_1",
         )
 
+        # construct the same GS as above but directly with nodes
+        sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs={},
+            model_gen_kwargs={},
+        )
+        node_gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_2_trial",
+                    model_specs=[sobol_model_spec],
+                    transition_criteria=[
+                        MaxTrials(
+                            threshold=2,
+                            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                            block_gen_if_met=True,
+                            block_transition_if_unmet=True,
+                            transition_to="sobol_3_trial",
+                        )
+                    ],
+                    gen_unlimited_trials=False,
+                ),
+                GenerationNode(
+                    node_name="sobol_3_trial",
+                    model_specs=[sobol_model_spec],
+                    transition_criteria=[
+                        MaxTrials(
+                            threshold=2,
+                            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                            block_gen_if_met=True,
+                            block_transition_if_unmet=True,
+                            transition_to=None,
+                        )
+                    ],
+                    gen_unlimited_trials=False,
+                ),
+            ]
+        )
+        self.assertIsNone(node_gs.trials_as_df)
+        # Now the trial should appear in the DF.
+        trial = exp.new_trial(node_gs.gen(experiment=exp))
+
+        self.assertFalse(node_gs.trials_as_df.empty)
+        self.assertEqual(
+            node_gs.trials_as_df.head()["Trial Status"][0],
+            "CANDIDATE",
+        )
+        # Changes in trial status should be reflected in the DF.
+        trial._status = TrialStatus.RUNNING
+        self.assertEqual(node_gs.trials_as_df.head()["Trial Status"][0], "RUNNING")
+        # Check that rows are present for step 0 and 1 after moving to step 1
+        for _i in range(3):
+            # attach necessary trials to fill up the Generation Strategy
+            trial = exp.new_trial(node_gs.gen(experiment=exp))
+        self.assertEqual(
+            node_gs.trials_as_df.head()["Generation Node"][0],
+            "sobol_2_trial",
+        )
+        self.assertEqual(
+            node_gs.trials_as_df.head()["Generation Node"][2],
+            "sobol_3_trial",
+        )
+
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
