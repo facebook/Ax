@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from logging import Logger
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Dict, List, Optional, Set, TYPE_CHECKING, Union
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
@@ -71,35 +71,24 @@ class TrialAsTask(Transform):
             )
         # Get trial level map
         if config is not None and "trial_level_map" in config:
-            # pyre-ignore [9]
-            trial_level_map: Dict[str, Dict[Union[int, str], Union[int, str]]] = config[
-                "trial_level_map"
-            ]
-            # Validate
-            self.trial_level_map: Dict[str, Dict[int, Union[int, str]]] = {}
-            for _p_name, level_dict in trial_level_map.items():
-                # cast trial index as an integer
-                int_keyed_level_dict = {
-                    int(trial_index): v for trial_index, v in level_dict.items()
-                }
-                self.trial_level_map[_p_name] = int_keyed_level_dict
-                # Check that trials match those in data
-                level_map = set(int_keyed_level_dict.keys())
-                if not trials.issubset(level_map):
-                    raise ValueError(
-                        f"Not all trials in data ({trials}) contained "
-                        f"in trial level map for {_p_name} ({level_map})"
-                    )
+            # pyre-ignore [6]
+            self._set_level_map(inverse=False, config=config, trial_indices=trials)
         else:
             # Set TRIAL_PARAM for each trial to the corresponding trial_index.
-            # pyre-fixme[6]: Expected `Union[bytes, str, typing.SupportsInt]` for
-            #  1st param but got `Optional[np.int64]`.
-            self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
-        if len(self.trial_level_map) == 1:
-            level_dict = next(iter(self.trial_level_map.values()))
-            self.inverse_map: Optional[Dict[Union[int, str], int]] = {
-                v: k for k, v in level_dict.items()
+            self.trial_level_map: Dict[str, Dict[int, str]] = {
+                # pyre-fixme [6]: Expected `Union[bytes, str, typing.SupportsInt]` for
+                #  1st param but got `Optional[int]`.
+                TRIAL_PARAM: {int(b): str(b) for b in trials}
             }
+        if len(self.trial_level_map) == 1:
+            if config is not None and "inverse_trial_level_map" in config:
+                # pyre-ignore [6]
+                self._set_level_map(inverse=True, config=config, trial_indices=trials)
+            else:
+                level_dict = next(iter(self.trial_level_map.values()))
+                self.inverse_map: Optional[Dict[Union[int, str], int]] = {
+                    v: k for k, v in level_dict.items()
+                }
         else:
             self.inverse_map = None
         # Compute target values
@@ -111,6 +100,54 @@ class TrialAsTask(Transform):
                 target_trial = min(trial_map.keys())
                 logger.debug(f"Setting target value for {p_name} to {target_trial}")
             self.target_values[p_name] = trial_map[target_trial]
+
+    def _set_level_map(
+        self, inverse: bool, config: TConfig, trial_indices: Set[int]
+    ) -> None:
+        key = "inverse_trial_level_map" if inverse else "trial_level_map"
+        # pyre-ignore [9]
+        trial_level_map: Dict[str, Dict[Union[int, str], Union[int, str]]] = config[key]
+        # Validate
+        new_trial_level_map = {}
+        if inverse:
+            if len(trial_level_map) != 1:
+                raise ValueError(
+                    "Inverse trial level map must have exactly one parameter."
+                )
+
+        for _p_name, level_dict in trial_level_map.items():
+            # Keys loaded from json are strings
+            # Cast them back to integers if need be.
+            if inverse:
+                is_int_valued = all(
+                    isinstance(v, int)
+                    for v in next(iter(self.trial_level_map.values())).values()
+                )
+                new_level_dict = {
+                    int(v) if is_int_valued else v: int(trial_index)
+                    for v, trial_index in level_dict.items()
+                }
+
+            else:
+                new_level_dict = {
+                    int(trial_index): v for trial_index, v in level_dict.items()
+                }
+            new_trial_level_map[_p_name] = new_level_dict
+            if not inverse:
+                trials_in_map = set(new_level_dict.keys())
+                if not trial_indices.issubset(trials_in_map):
+                    raise ValueError(
+                        f"Not all trials in data ({trial_indices}) contained "
+                        f"in trial level map for {_p_name} ({trials_in_map})"
+                    )
+        if inverse:
+            self.inverse_map: Dict[Union[int, str], int] = next(
+                iter(new_trial_level_map.values())
+            )
+        else:
+            self.trial_level_map: Dict[
+                str, Dict[int, Union[int, str]]
+            ] = new_trial_level_map
 
     def transform_observation_features(
         self, observation_features: List[ObservationFeatures]
@@ -138,7 +175,8 @@ class TrialAsTask(Transform):
             trial_param = ChoiceParameter(
                 name=p_name,
                 parameter_type=ParameterType.INT if is_int else ParameterType.STRING,
-                values=level_values,  # pyre-fixme [6]
+                # pyre-ignore [6]
+                values=level_values,
                 # if all values are integers, retain the original order
                 # they are encoded in TaskEncode
                 is_ordered=is_int,
