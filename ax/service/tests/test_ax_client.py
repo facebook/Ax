@@ -1618,6 +1618,36 @@ class TestAxClient(TestCase):
         df = ax_client.experiment.lookup_data_for_trial(idx)[0].df
         self.assertEqual(df["mean"].item(), 3.0)
 
+        # Incomplete trial fails
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"missing_metric": (1, 0.0)})
+        self.assertTrue(ax_client.get_trial(idx).status.is_failed)
+
+    def test_incomplete_multi_fidelity_trial(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
+            ],
+            minimize=True,
+            objective_name="branin",
+            support_intermediate_data=True,
+        )
+        # Trial with complete data
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx, raw_data=[({"fidelity": 1}, {"branin": (123, 0.0)})]
+        )
+        self.assertTrue(ax_client.get_trial(idx).status.is_completed)
+        # Trial with incomplete data
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx,
+            raw_data=[({"fidelity": 2}, {"missing_metric": (456, 0.0)})],
+        )
+        self.assertTrue(ax_client.get_trial(idx).status.is_failed)
+
     def test_trial_completion_with_metadata_with_iso_times(self) -> None:
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
