@@ -32,6 +32,7 @@ import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import DataType, Experiment
+from ax.core.formatting_utils import data_and_evaluations_from_raw_data
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
@@ -1626,7 +1627,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
 
         if complete_trial:
-            trial.mark_completed()
+            if not self._validate_all_required_metrics_present(
+                raw_data=raw_data, trial_index=trial_index
+            ):
+                logger.warning(
+                    "Marking the trial as failed because it is missing one"
+                    "or more required metrics."
+                )
+                trial.mark_failed()
+            else:
+                trial.mark_completed()
 
         self._save_or_update_trial_in_db_if_possible(
             experiment=self.experiment,
@@ -1788,6 +1798,26 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."
         )
+
+    def _validate_all_required_metrics_present(
+        self, raw_data: TEvaluationOutcome, trial_index: int
+    ) -> bool:
+        """Check if all required metrics are present in the given raw data."""
+        opt_config = self.experiment.optimization_config
+        if opt_config is None:
+            return True
+
+        _, data = data_and_evaluations_from_raw_data(
+            raw_data={"data": raw_data},
+            sample_sizes={},
+            trial_index=trial_index,
+            data_type=self.experiment.default_data_type,
+            metric_names=opt_config.objective.metric_names,
+        )
+        required_metrics = set(opt_config.metrics.keys())
+        provided_metrics = data.metric_names
+        missing_metrics = required_metrics - provided_metrics
+        return not missing_metrics
 
     @classmethod
     def _get_pending_observation_features(
