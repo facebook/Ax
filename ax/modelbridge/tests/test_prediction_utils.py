@@ -11,6 +11,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.modelbridge.prediction_utils import predict_at_point, predict_by_features
 from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 
@@ -135,7 +136,7 @@ def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
                 "bounds": [0.1, 1.0],
             },
         ],
-        objective_name="test_metric1",
+        objectives={"test_metric1": ObjectiveProperties(minimize=False)},
         outcome_constraints=["test_metric2 <= 1.5"],
     )
 

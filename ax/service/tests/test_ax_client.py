@@ -269,8 +269,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            objective_name="branin",
-            minimize=True,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         for i in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
@@ -570,8 +569,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            objective_name="branin",
-            minimize=True,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         trials, completed = ax_client.get_next_trials(max_trials=3)
         self.assertEqual(trials, {})
@@ -774,8 +772,7 @@ class TestAxClient(TestCase):
                     "value_type": "int",
                 },
             ],
-            objective_name="test_objective",
-            minimize=True,
+            objectives={"test_objective": ObjectiveProperties(minimize=True)},
             outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
             parameter_constraints=["x4 <= x6"],
             tracking_metric_names=["test_tracking_metric"],
@@ -1156,78 +1153,6 @@ class TestAxClient(TestCase):
             ],
         )
 
-    def test_it_does_not_accept_both_legacy_and_new_objective_params(self) -> None:
-        """Test basic experiment creation."""
-        ax_client = AxClient(
-            GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
-            )
-        )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
-            ax_client.experiment
-        params = {
-            "name": "test_experiment",
-            "parameters": [
-                {
-                    "name": "x",
-                    "type": "range",
-                    "bounds": [0.001, 0.1],
-                    "value_type": "float",
-                    "log_scale": True,
-                    "digits": 6,
-                },
-                {
-                    "name": "y",
-                    "type": "choice",
-                    "values": [1, 2, 3],
-                    "value_type": "int",
-                    "is_ordered": True,
-                },
-                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"},
-                {
-                    "name": "x4",
-                    "type": "range",
-                    "bounds": [1.0, 3.0],
-                    "value_type": "int",
-                },
-                {
-                    "name": "x5",
-                    "type": "choice",
-                    "values": ["one", "two", "three"],
-                    "value_type": "str",
-                },
-                {
-                    "name": "x6",
-                    "type": "range",
-                    "bounds": [1.0, 3.0],
-                    "value_type": "int",
-                },
-            ],
-            "objectives": {
-                "test_objective": ObjectiveProperties(minimize=True, threshold=2.0),
-            },
-            "outcome_constraints": ["some_metric >= 3", "some_metric <= 4.0"],
-            "parameter_constraints": ["x4 <= x6"],
-            "tracking_metric_names": ["test_tracking_metric"],
-            "is_test": True,
-        }
-        with self.subTest("objective_name"):
-            with self.assertRaises(UnsupportedError):
-                # pyre-ignore[6]
-                ax_client.create_experiment(objective_name="something", **params)
-        with self.subTest("minimize"):
-            with self.assertRaises(UnsupportedError):
-                # pyre-ignore[6]
-                ax_client.create_experiment(minimize=False, **params)
-        with self.subTest("both"):
-            with self.assertRaises(UnsupportedError):
-                ax_client.create_experiment(
-                    objective_name="another thing",
-                    minimize=False,
-                    # pyre-ignore[6]
-                    **params,
-                )
-
     def test_create_moo_experiment(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient(
@@ -1405,7 +1330,7 @@ class TestAxClient(TestCase):
                 parameters=[
                     {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"}
                 ],
-                objective_name="test_objective",
+                objectives={"test_objective": ObjectiveProperties(minimize=True)},
                 outcome_constraints=["test_objective >= 3"],
             )
 
@@ -1417,7 +1342,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         for _ in range(6):
             parameterization, trial_index = ax_client.get_next_trial()
@@ -1439,7 +1363,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
-            minimize=True,
             support_intermediate_data=True,
         )
 
@@ -1470,7 +1393,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         self.assertFalse(
             ax_client.generation_strategy._steps[0].enforce_num_trials, False
@@ -1486,9 +1408,8 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
-            minimize=True,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
             support_intermediate_data=True,
-            objective_name="branin",
         )
         parameterization, trial_index = ax_client.get_next_trial()
         # Launch Trial and update it 3 times with additional data.
@@ -1514,7 +1435,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
-            minimize=True,
             support_intermediate_data=False,
         )
         parameterization, trial_index = no_intermediate_data_ax_client.get_next_trial()
@@ -1630,8 +1550,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 1.0]},
             ],
-            minimize=True,
-            objective_name="branin",
+            objectives={"branin": ObjectiveProperties(minimize=True)},
             support_intermediate_data=True,
         )
         # Trial with complete data
@@ -1714,7 +1633,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
 
         # A ttl trial that ends adds no data.
@@ -1742,7 +1660,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(
@@ -1763,7 +1680,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         batch_trial = ax_client.experiment.new_batch_trial(
             generator_run=GeneratorRun(
@@ -1785,7 +1701,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         _, idx = ax_client.get_next_trial()
         ax_client.log_trial_failure(idx, metadata={"dummy": "test"})
@@ -1806,7 +1721,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         params, idx = ax_client.attach_trial(
             parameters={"x": 0.0, "y": 1.0},
@@ -1836,7 +1750,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         params, idx = ax_client.attach_trial(
             parameters={"x": 0.0, "y": 1.0}, ttl_seconds=1
@@ -1868,7 +1781,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         params, idx = ax_client.attach_trial(parameters={"x": 0.0, "y": 1.0})
         ax_client.complete_trial(trial_index=idx, raw_data=np.int32(5))
@@ -1885,8 +1797,7 @@ class TestAxClient(TestCase):
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
                 ],
-                objective_name="test_objective",
-                minimize=True,
+                objectives={"test_objective": ObjectiveProperties(minimize=True)},
                 outcome_constraints=["some_metric <= 4.0%"],
             )
 
@@ -1900,7 +1811,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         self.assertEqual(ax_client.get_max_parallelism(), [(5, 5), (-1, 3)])
         self.assertEqual(
@@ -1917,7 +1827,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         with self.assertRaisesRegex(DataRequiredError, "All trials for current model "):
             run_trials_using_recommended_parallelism(ax_client, [(6, 6), (-1, 3)], 20)
@@ -1997,7 +1906,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
         for _ in range(5):
             parameters, trial_index = ax_client.get_next_trial()
@@ -2023,7 +1931,6 @@ class TestAxClient(TestCase):
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
                 ],
-                minimize=True,
             )
         with self.assertRaises(ValueError):
             # Overwriting existing experiment with overwrite flag with present
@@ -2046,7 +1953,6 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
         )
 
         # Log a trial
@@ -2065,7 +1971,6 @@ class TestAxClient(TestCase):
                     {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                     {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
                 ],
-                minimize=True,
             )
         # Overwriting existing experiment with overwrite flag.
         ax_client.create_experiment(
@@ -2278,8 +2183,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
-            objective_name="branin",
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         params, trial_idx = ax_client.get_next_trial()
         found_trial_idx = ax_client._find_last_trial_with_parameterization(
@@ -2305,8 +2209,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
-            objective_name="branin",
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         params, trial_idx = ax_client.get_next_trial()
         self.assertTrue(
@@ -2340,8 +2243,7 @@ class TestAxClient(TestCase):
                 {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
-            minimize=True,
-            objective_name="branin",
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         with self.assertRaisesRegex(
             expected_exception=RuntimeError,
@@ -2972,7 +2874,7 @@ def _set_up_client_for_get_model_predictions_no_next_trial() -> AxClient:
                 "bounds": [0.1, 1.0],
             },
         ],
-        objective_name="test_metric1",
+        objectives={"test_metric1": ObjectiveProperties(minimize=False)},
         outcome_constraints=["test_metric2 <= 1.5"],
     )
 

@@ -16,6 +16,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient, TParameterization
 from ax.service.interactive_loop import interactive_optimize_with_client
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import hartmann6
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -58,9 +59,8 @@ class TestInteractiveLoop(TestCase):
                 }
                 for i in range(1, 7)
             ],
-            objective_name="hartmann6",
+            objectives={"hartmann6": ObjectiveProperties(minimize=True)},
             tracking_metric_names=["l2norm"],
-            minimize=True,
         )
 
         optimization_completed = interactive_optimize_with_client(
@@ -117,9 +117,8 @@ class TestInteractiveLoop(TestCase):
                 }
                 for i in range(1, 7)
             ],
-            objective_name="hartmann6",
+            objectives={"hartmann6": ObjectiveProperties(minimize=True)},
             tracking_metric_names=["l2norm"],
-            minimize=True,
         )
 
         with self.assertLogs(logger="ax", level=WARN) as logger:

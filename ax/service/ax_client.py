@@ -217,6 +217,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 "by passing it in `model_kwargs` while creating the "
                 "`generation_strategy`.",
                 RuntimeWarning,
+                stacklevel=2,
             )
         self._generation_strategy = generation_strategy
         self._enforce_sequential_optimization = enforce_sequential_optimization
@@ -245,8 +246,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         name: Optional[str] = None,
         description: Optional[str] = None,
         owners: Optional[List[str]] = None,
-        objective_name: Optional[str] = None,
-        minimize: Optional[bool] = None,
         objectives: Optional[Dict[str, ObjectiveProperties]] = None,
         parameter_constraints: Optional[List[str]] = None,
         outcome_constraints: Optional[List[str]] = None,
@@ -284,11 +283,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 6. "digits" (int) for float-valued range parameters.
             name: Name of the experiment to be created.
             description: Description of the experiment to be created.
-            objective_name[DEPRECATED]: Name of the metric used as objective
-                in this experiment. This metric must be present in `raw_data`
-                argument to `complete_trial`.
-            minimize[DEPRECATED]: Whether this experiment represents a minimization
-                 problem.
             objectives: Mapping from an objective name to object containing:
                 minimize: Whether this experiment represents a minimization problem.
                 threshold: The bound in the objective's threshold constraint.
@@ -331,12 +325,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self._validate_early_stopping_strategy(support_intermediate_data)
 
         objective_kwargs = {}
-        if (objective_name or minimize is not None) and objectives:
-            raise UnsupportedError(
-                "You may either pass an an objective object "
-                "or an objective_name and minimize param, but not both"
-            )
-        elif objectives is not None:
+        if objectives is not None:
             objective_kwargs["objectives"] = {
                 objective: ("minimize" if properties.minimize else "maximize")
                 for objective, properties in objectives.items()
@@ -345,13 +334,6 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 objective_kwargs[
                     "objective_thresholds"
                 ] = self.build_objective_thresholds(objectives)
-        elif objective_name or minimize is not None:
-            objective_kwargs["objective_name"] = objective_name
-            objective_kwargs["minimize"] = minimize or False
-            warnings.warn(
-                "objective_name and minimize are deprecated",
-                category=DeprecationWarning,
-            )
 
         experiment = self.make_experiment(
             name=name,

@@ -10,6 +10,7 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import OptimizationShouldStop
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.measurement.synthetic_functions import branin
 from ax.utils.testing.core_stubs import DummyGlobalStoppingStrategy
@@ -39,8 +40,7 @@ class TestGlobalStoppingIntegration(TestCase):
                     "bounds": [0.0, 15.0],
                 },
             ],
-            objective_name="branin",
-            minimize=True,
+            objectives={"branin": ObjectiveProperties(minimize=True)},
         )
         return ax_client
 

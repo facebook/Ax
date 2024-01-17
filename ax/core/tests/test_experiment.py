@@ -36,6 +36,7 @@ from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -192,7 +193,7 @@ class ExperimentTest(TestCase):
                     "bounds": [0.0, 1.0],
                 },
             ],
-            objective_name="objective",
+            objectives={"objective": ObjectiveProperties(minimize=False)},
             parameter_constraints=["x1 + x2 <= 1"],
         )
 
@@ -213,7 +214,7 @@ class ExperimentTest(TestCase):
                         "bounds": [0.0, 1.0],
                     },
                 ],
-                objective_name="objective",
+                objectives={"objective": ObjectiveProperties(minimize=False)},
                 parameter_constraints=["x1 + x2 <= 1"],
             )
 
@@ -230,7 +231,7 @@ class ExperimentTest(TestCase):
                         "bounds": [0.0, 1.0],
                     },
                 ],
-                objective_name="objective",
+                objectives={"objective": ObjectiveProperties(minimize=False)},
                 parameter_constraints=["x1 + x2 <= 1"],
             )
 
