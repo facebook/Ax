@@ -8,12 +8,10 @@ from unittest.mock import patch
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.modelbridge.completion_criterion import (
-    MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
-)
+from ax.modelbridge.completion_criterion import MinimumPreferenceOccurances
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transition_criterion import MinTrials
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
 
@@ -76,7 +74,7 @@ class TestCompletionCritereon(TestCase):
     def test_many_criteria(self) -> None:
         criteria = [
             MinimumPreferenceOccurances(metric_name="m1", threshold=3),
-            MinimumTrialsInStatus(status=TrialStatus.COMPLETED, threshold=5),
+            MinTrials(only_in_statuses=[TrialStatus.COMPLETED], threshold=5),
         ]
 
         experiment = get_experiment()
