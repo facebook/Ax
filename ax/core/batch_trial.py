@@ -330,6 +330,10 @@ class BatchTrial(BaseTrial):
             self._set_generation_step_index(
                 generation_step_index=generator_run._generation_step_index
             )
+        if generator_run._generation_node_name is not None:
+            self._set_generation_node_name(
+                generation_node_name=generator_run._generation_node_name
+            )
         self._refresh_arms_by_name()
         return self
 

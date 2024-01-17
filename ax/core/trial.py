@@ -161,6 +161,9 @@ class Trial(BaseTrial):
         self._set_generation_step_index(
             generation_step_index=generator_run._generation_step_index
         )
+        self._set_generation_node_name(
+            generation_node_name=generator_run._generation_node_name
+        )
         return self
 
     @property

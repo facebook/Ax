@@ -951,6 +951,7 @@ class Decoder:
             else None
         )
         trial._generation_step_index = trial_sqa.generation_step_index
+        trial._generation_node_name = trial_sqa.generation_node_name
         trial._properties = dict(trial_sqa.properties or {})
         trial.db_id = trial_sqa.id
         return trial

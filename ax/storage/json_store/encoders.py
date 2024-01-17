@@ -126,6 +126,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "optimize_for_power": batch.optimize_for_power,
         "generation_step_index": batch._generation_step_index,
         "properties": batch._properties,
+        "generation_node_name": batch._generation_node_name,
     }
 
 
@@ -198,6 +199,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
         "num_arms_created": trial._num_arms_created,
         "generation_step_index": trial._generation_step_index,
         "properties": trial._properties,
+        "generation_node_name": trial._generation_node_name,
     }
 
 

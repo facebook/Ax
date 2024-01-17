@@ -433,6 +433,8 @@ class SQATrial(Base):
     trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
     generation_step_index: Optional[int] = Column(Integer)
+    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
+    generation_node_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
     properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})

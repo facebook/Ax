@@ -1002,6 +1002,7 @@ class Encoder:
             generation_step_index=trial._generation_step_index,
             properties=trial._properties,
             lifecycle_stage=lifecycle_stage,
+            generation_node_name=trial._generation_node_name,
         )
         return trial_sqa
 
