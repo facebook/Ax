@@ -230,6 +230,22 @@ class AxSchedulerTestCase(TestCase):
         GenerationStrategyInterface
     ] = GenerationStrategy
     PENDING_FEATURES_CALL_LOCATION: str = str(GenerationStrategy.__module__)
+    ALWAYS_USE_DB = False
+    EXPECTED_SCHEDULER_REPR: str = (
+        "Scheduler(experiment=Experiment(branin_test_experiment), "
+        "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
+        "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
+        "options=SchedulerOptions(max_pending_trials=10, "
+        "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
+        "total_trials=0, tolerated_trial_failure_rate=0.2, "
+        "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
+        "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
+        "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
+        "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
+        "debug_log_run_metadata=False, early_stopping_strategy=None, "
+        "global_stopping_strategy=None, suppress_storage_errors_after_"
+        "retries=False))"
+    )
 
     def setUp(self) -> None:
         super().setUp()
@@ -285,6 +301,9 @@ class AxSchedulerTestCase(TestCase):
             RunnerWithEarlyStoppingStrategy: 2001,
             RunnerWithFrequentFailedTrials: 2002,
             NoReportResultsRunner: 2003,
+            BrokenRunnerValueError: 2004,
+            RunnerWithAllFailedTrials: 2005,
+            BrokenRunnerRuntimeError: 2006,
             **CORE_RUNNER_REGISTRY,
         }
 
@@ -312,6 +331,12 @@ class AxSchedulerTestCase(TestCase):
         decoder = Decoder(config=config)
         return DBSettings(encoder=encoder, decoder=decoder)
 
+    @property
+    def db_settings_if_always_needed(self) -> Optional[DBSettings]:
+        if self.ALWAYS_USE_DB:
+            return self.db_settings
+        return None
+
     def test_init_with_no_impl(self) -> None:
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -324,6 +349,7 @@ class AxSchedulerTestCase(TestCase):
                     generation_strategy=self.sobol_GPEI_GS,
                 ),
                 options=SchedulerOptions(total_trials=10),
+                db_settings=self.db_settings_if_always_needed,
             )
 
     def test_init_with_no_impl_with_runner(self) -> None:
@@ -339,6 +365,7 @@ class AxSchedulerTestCase(TestCase):
                     generation_strategy=self.sobol_GPEI_GS,
                 ),
                 options=SchedulerOptions(total_trials=10),
+                db_settings=self.db_settings_if_always_needed,
             )
 
     def test_init_with_branin_experiment(self) -> None:
@@ -354,6 +381,7 @@ class AxSchedulerTestCase(TestCase):
                 tolerated_trial_failure_rate=0.2,
                 init_seconds_between_polls=10,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         self.assertEqual(scheduler.experiment, self.branin_experiment)
         self.assertEqual(scheduler.generation_strategy, rgs)
@@ -385,25 +413,12 @@ class AxSchedulerTestCase(TestCase):
                 tolerated_trial_failure_rate=0.2,
                 init_seconds_between_polls=10,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         self.maxDiff = None
         self.assertEqual(
             f"{scheduler}",
-            (
-                "Scheduler(experiment=Experiment(branin_test_experiment), "
-                "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
-                "steps=[Sobol for 5 trials, BoTorch for subsequent trials]), "
-                "options=SchedulerOptions(max_pending_trials=10, "
-                "trial_type=<TrialType.TRIAL: 0>, batch_size=None, "
-                "total_trials=0, tolerated_trial_failure_rate=0.2, "
-                "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
-                "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
-                "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
-                "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
-                "debug_log_run_metadata=False, early_stopping_strategy=None, "
-                "global_stopping_strategy=None, suppress_storage_errors_after_"
-                "retries=False))"
-            ),
+            self.EXPECTED_SCHEDULER_REPR,
         )
 
     def test_validate_early_stopping_strategy(self) -> None:
@@ -421,6 +436,7 @@ class AxSchedulerTestCase(TestCase):
                 options=SchedulerOptions(
                     early_stopping_strategy=DummyEarlyStoppingStrategy()
                 ),
+                db_settings=self.db_settings_if_always_needed,
             )
 
         # should not error
@@ -430,6 +446,7 @@ class AxSchedulerTestCase(TestCase):
             options=SchedulerOptions(
                 early_stopping_strategy=DummyEarlyStoppingStrategy()
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
     def test_run_multi_arm_generator_run_error(self) -> None:
@@ -446,6 +463,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
                 options=SchedulerOptions(total_trials=1),
+                db_settings=self.db_settings_if_always_needed,
             )
             with self.assertRaisesRegex(
                 SchedulerInternalError, ".* only one was expected"
@@ -466,6 +484,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         with patch(
             # Record calls to function, but still execute it.
@@ -523,6 +542,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         trials_info = {"n_completed": 0}
 
@@ -551,6 +571,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_n_trials(max_trials=1, idle_callback=idle_callback)
         self.assertEqual(len(scheduler.experiment.trials), 1)
@@ -594,6 +615,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         trial = scheduler.experiment.new_trial()
         parameter_dict = {"x1": 5, "x2": 5}
@@ -656,6 +678,7 @@ class AxSchedulerTestCase(TestCase):
                     min_trials=2, trial_to_stop=5
                 ),
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_n_trials(max_trials=10)
         self.assertEqual(len(scheduler.experiment.trials), 5)
@@ -675,6 +698,7 @@ class AxSchedulerTestCase(TestCase):
                     min_trials=2, trial_to_stop=5
                 ),
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_n_trials(max_trials=10, ignore_global_stopping_strategy=True)
         self.assertEqual(len(scheduler.experiment.trials), 10)
@@ -692,6 +716,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         with patch.object(
             scheduler.experiment.runner, "stop", return_value=None
@@ -714,6 +739,7 @@ class AxSchedulerTestCase(TestCase):
                 total_trials=8,
                 init_seconds_between_polls=1,  # No wait between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         with patch.object(
             scheduler, "wait_for_completed_trials_and_report_results", return_value=None
@@ -739,6 +765,7 @@ class AxSchedulerTestCase(TestCase):
                 total_trials=8,
                 init_seconds_between_polls=0,  # No wait between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_all_trials(timeout_hours=0)  # Forcing optimization to time out.
         self.assertEqual(len(scheduler.experiment.trials), 0)
@@ -758,6 +785,7 @@ class AxSchedulerTestCase(TestCase):
                     init_seconds_between_polls=0,  # No wait bw polls so test is fast.
                     log_filepath=temp_file.name,
                 ),
+                db_settings=self.db_settings_if_always_needed,
             ).run_all_trials()
             self.assertGreater(os.stat(temp_file.name).st_size, 0)
             self.assertIn("Running trials [0]", str(temp_file.readline()))
@@ -780,6 +808,7 @@ class AxSchedulerTestCase(TestCase):
                     log_filepath=temp_file.name,
                     logging_level=WARNING,
                 ),
+                db_settings=self.db_settings_if_always_needed,
             ).run_all_trials()
             # Ensure that the temp file remains empty
             self.assertEqual(os.stat(temp_file.name).st_size, 0)
@@ -796,6 +825,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=SchedulerOptions(total_trials=1),
+            db_settings=self.db_settings_if_always_needed,
         )
         # Should raise after 3 retries.
         with self.assertRaisesRegex(RuntimeError, ".* testing .*"):
@@ -815,6 +845,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=SchedulerOptions(total_trials=1),
+            db_settings=self.db_settings_if_always_needed,
         )
         # Should raise right away since ValueError is non-retriable.
         with self.assertRaisesRegex(ValueError, ".* testing .*"):
@@ -836,6 +867,7 @@ class AxSchedulerTestCase(TestCase):
                 init_seconds_between_polls=0,  # No wait between polls so test is fast.
                 min_seconds_before_poll=0.0,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_all_trials()
         self.assertTrue(
@@ -859,6 +891,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=options,
+            db_settings=self.db_settings_if_always_needed,
         )
         with self.assertRaises(FailureRateExceededError):
             scheduler.run_all_trials()
@@ -879,6 +912,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=options,
+            db_settings=self.db_settings_if_always_needed,
         )
         self.assertEqual(scheduler._num_preexisting_trials, num_preexisting_trials)
         with self.assertRaises(FailureRateExceededError):
@@ -973,6 +1007,7 @@ class AxSchedulerTestCase(TestCase):
                 total_trials=8,
                 init_seconds_between_polls=0,  # No wait between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         scheduler.run_n_trials(max_trials=1)
         with patch.object(
@@ -995,6 +1030,7 @@ class AxSchedulerTestCase(TestCase):
             options=SchedulerOptions(
                 init_seconds_between_polls=0,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         # `BaseBonesScheduler.poll_trial_status` is written to mark one
         # trial as `COMPLETED` at a time, so we should be obtaining results
@@ -1029,6 +1065,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         # All trials should be marked complete after one run.
         with patch.object(
@@ -1090,6 +1127,7 @@ class AxSchedulerTestCase(TestCase):
                 init_seconds_between_polls=0.1,
                 early_stopping_strategy=OddIndexEarlyStoppingStrategy(),
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         with patch.object(
             scheduler, "stop_trial_runs", return_value=None
@@ -1151,6 +1189,7 @@ class AxSchedulerTestCase(TestCase):
                     init_seconds_between_polls=0,
                     run_trials_in_batches=True,
                 ),
+                db_settings=self.db_settings_if_always_needed,
             )
 
             with patch.object(
@@ -1173,6 +1212,7 @@ class AxSchedulerTestCase(TestCase):
             options=SchedulerOptions(
                 init_seconds_between_polls=0,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         self.assertEqual(scheduler.run_n_trials(max_trials=3), OptimizationResult())
 
@@ -1190,6 +1230,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         with patch.object(
             self.GENERATION_STRATEGY_INTERFACE_CLASS,
@@ -1246,6 +1287,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         last_n_completed = 0
         idx = 0
@@ -1282,6 +1324,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         self.assertIsNone(scheduler.get_best_parameters())
@@ -1335,6 +1378,7 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=gs,
             # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
             options=SchedulerOptions(init_seconds_between_polls=0.1),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         scheduler.run_n_trials(max_trials=1)
@@ -1365,6 +1409,7 @@ class AxSchedulerTestCase(TestCase):
                 trial_type=TrialType.BATCH_TRIAL,
                 batch_size=2,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         scheduler.run_n_trials(max_trials=1)
@@ -1387,6 +1432,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=options,
+            db_settings=self.db_settings_if_always_needed,
         )
 
         with patch.object(
@@ -1443,6 +1489,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=experiment,
                 generation_strategy=gs,
                 options=SchedulerOptions(),
+                db_settings=self.db_settings_if_always_needed,
             )
             scheduler.run_n_trials(max_trials=1)
 
@@ -1470,6 +1517,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
                 options=SchedulerOptions(),
+                db_settings=self.db_settings_if_always_needed,
             )
             scheduler.run_n_trials(max_trials=1)
 
@@ -1500,6 +1548,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=gs,
                 options=SchedulerOptions(),
+                db_settings=self.db_settings_if_always_needed,
             )
 
             # This trial will fail
@@ -1533,6 +1582,7 @@ class AxSchedulerTestCase(TestCase):
             options=SchedulerOptions(
                 total_trials=None,
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
         # With total_trials=None.
         should_stop, message = scheduler.completion_criterion()
@@ -1577,6 +1627,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=SchedulerOptions(),
+            db_settings=self.db_settings_if_always_needed,
         )
         # need to run some trials to initialize the ModelBridge
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
@@ -1636,6 +1687,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=self.sobol_GPEI_GS,
                 options=SchedulerOptions(),
+                db_settings=self.db_settings_if_always_needed,
             )
             self.assertEqual(scheduler.standard_generation_strategy, self.sobol_GPEI_GS)
 
@@ -1644,6 +1696,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=SpecialGenerationStrategy(),
                 options=SchedulerOptions(),
+                db_settings=self.db_settings_if_always_needed,
             )
             with self.assertRaisesRegex(
                 NotImplementedError,
@@ -1667,6 +1720,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         scheduler.run_all_trials()
@@ -1697,6 +1751,7 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=gs,
             # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
             options=SchedulerOptions(init_seconds_between_polls=0.1),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         with self.assertRaises(NotImplementedError):
@@ -1707,6 +1762,7 @@ class AxSchedulerTestCase(TestCase):
     def test_get_improvement_over_baseline_robustness_user_input_error(self) -> None:
         """Test edge cases for get_improvement_over_baseline"""
         experiment = get_branin_experiment_with_multi_objective()
+        experiment.name = f"{self.branin_experiment.name}_but_moo"
         experiment.runner = self.runner
 
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1721,6 +1777,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         with self.assertRaises(UserInputError):
@@ -1758,6 +1815,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
             ),
+            db_settings=self.db_settings_if_always_needed,
         )
 
         scheduler.run_all_trials()
