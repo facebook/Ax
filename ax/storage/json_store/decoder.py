@@ -9,7 +9,7 @@ from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -1040,7 +1040,7 @@ def surrogate_from_list_surrogate_json(
 
 
 def get_input_transform_json_components(
-    input_transforms_json: Optional[List[Dict[str, Any]]],
+    input_transforms_json: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]],
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
@@ -1051,11 +1051,15 @@ def get_input_transform_json_components(
 ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
     if input_transforms_json is None:
         return None, None
-    input_transforms_json = [
-        input_transform_json
-        for input_transform_json in input_transforms_json
-        if input_transform_json is not None
-    ]
+    if isinstance(input_transforms_json, dict):
+        # This is a single input transform.
+        input_transforms_json = [input_transforms_json]
+    else:
+        input_transforms_json = [
+            input_transform_json
+            for input_transform_json in input_transforms_json
+            if input_transform_json is not None
+        ]
     input_transform_classes_json = [
         input_transform_json["index"] for input_transform_json in input_transforms_json
     ]
