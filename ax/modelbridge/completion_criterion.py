@@ -7,7 +7,6 @@ from logging import Logger
 
 from ax.modelbridge.transition_criterion import (
     MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
     TransitionCriterion,
 )
 from ax.utils.common.logger import get_logger
@@ -35,19 +34,6 @@ class MinimumPreferenceOccurances(MinimumPreferenceOccurances):
 
     logger.warning(
         "CompletionCriterion, which MinimumPreferenceOccurance inherits from, is"
-        " deprecated. Please use TransitionCriterion instead."
-    )
-    pass
-
-
-class MinimumTrialsInStatus(MinimumTrialsInStatus):
-    """
-    Deprecated child class that has been replaced by `MinimumTrialsInStatus`
-    in `TransitionCriterion`, and will be fully reaped in a future release.
-    """
-
-    logger.warning(
-        "CompletionCriterion, which MinimumTrialsInStatus inherits from, is"
         " deprecated. Please use TransitionCriterion instead."
     )
     pass
