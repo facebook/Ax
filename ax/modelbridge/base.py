@@ -865,6 +865,12 @@ class ModelBridge(ABC):
             model_state_after_gen=self._get_serialized_model_state(),
             candidate_metadata_by_arm_signature=candidate_metadata,
         )
+        if len(gr.arms) < n:
+            logger.warning(
+                f"{self} was not able to generate {n} unique candidates. "
+                "Generated arms have the following weights, as there are repeats:\n"
+                f"{gr.weights}"
+            )
         self.fit_time_since_gen = 0.0
         return gr
 
@@ -1086,6 +1092,9 @@ class ModelBridge(ABC):
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
         raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(model={self.model})"
 
 
 def unwrap_observation_data(observation_data: List[ObservationData]) -> TModelPredict:
