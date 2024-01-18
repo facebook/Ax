@@ -440,13 +440,39 @@ def get_surrogate_as_dict() -> Dict[str, Any]:
     }
 
 
-def get_surrogate_spec_as_dict(model_class: Optional[str] = None) -> Dict[str, Any]:
+def get_surrogate_spec_as_dict(
+    model_class: Optional[str] = None, with_legacy_input_transform: bool = False
+) -> Dict[str, Any]:
     """
     For use ensuring backwards compatibility when loading SurrogateSpec
     with input_transform and outcome_transform kwargs.
     """
     if model_class is None:
         model_class = "SingleTaskGP"
+    if with_legacy_input_transform:
+        input_transform = {
+            "__type": "Normalize",
+            "index": {
+                "__type": "Type[InputTransform]",
+                "index": "Normalize",
+                "class": "<class 'botorch.models.transforms.input.InputTransform'>",
+            },
+            "class": "<class 'botorch.models.transforms.input.Normalize'>",
+            "state_dict": {
+                "d": 7,
+                "indices": None,
+                "bounds": None,
+                "batch_shape": {"__type": "torch_Size", "value": "[]"},
+                "transform_on_train": True,
+                "transform_on_eval": True,
+                "transform_on_fantasize": True,
+                "reverse": False,
+                "min_range": 1e-08,
+                "learn_bounds": False,
+            },
+        }
+    else:
+        input_transform = None
     return {
         "__type": "SurrogateSpec",
         "botorch_model_class": {
@@ -468,7 +494,7 @@ def get_surrogate_spec_as_dict(model_class: Optional[str] = None) -> Dict[str, A
         "covar_module_kwargs": None,
         "likelihood_class": None,
         "likelihood_kwargs": None,
-        "input_transform": None,
+        "input_transform": input_transform,
         "outcome_transform": None,
         "allow_batched_models": False,
         "outcomes": [],

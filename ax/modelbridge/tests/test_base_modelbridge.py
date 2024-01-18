@@ -224,6 +224,7 @@ class BaseModelBridgeTest(TestCase):
                 "Input data is not standardized. Please consider scaling the "
                 "input to zero mean and unit variance.",
                 InputDataWarning,
+                stacklevel=2,
             )
             return [get_observation1trans().data]
 
