@@ -340,12 +340,14 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         threshold: int,
         transition_to: Optional[str] = None,
         block_gen_if_met: Optional[bool] = False,
+        block_transition_if_unmet: Optional[bool] = True,
     ) -> None:
         self.metric_name = metric_name
         self.threshold = threshold
         super().__init__(
             transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
+            block_transition_if_unmet=block_transition_if_unmet,
         )
 
     def is_met(
