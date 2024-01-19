@@ -29,6 +29,7 @@ from ax.modelbridge.base import (
 from ax.modelbridge.registry import Models, Y_trans
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -307,6 +308,61 @@ class BaseModelBridgeTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
             modelbridge.gen(n=1, optimization_config=new_oc)
+
+    @mock.patch(
+        "ax.modelbridge.base.observations_from_data",
+        autospec=True,
+        return_value=([get_observation1(), get_observation2()]),
+    )
+    @mock.patch(
+        "ax.modelbridge.base.gen_arms",
+        autospec=True,
+        return_value=([Arm(parameters={})], None),
+    )
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    def test_repeat_candidates(
+        self, mock_fit: Mock, mock_gen_arms: Mock, mock_observations_from_data: Mock
+    ) -> None:
+        modelbridge = ModelBridge(
+            search_space=get_search_space_for_value(),
+            model=Model(),
+            experiment=get_experiment_for_value(),
+        )
+        # mock _gen to return 1 result
+        modelbridge._gen = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._gen",
+            autospec=True,
+            return_value=GenResults(
+                observation_features=[get_observation1trans().features], weights=[2]
+            ),
+        )
+        modelbridge._set_kwargs_to_save(
+            model_key="TestModel", model_kwargs={}, bridge_kwargs={}
+        )
+        with self.assertLogs("ax", level="INFO") as cm:
+            modelbridge.gen(
+                n=2,
+            )
+            self.assertTrue(
+                any(
+                    "was not able to generate 2 unique candidates" in x
+                    for x in cm.output
+                ),
+                cm.output,
+            )
+
+        with self.assertLogs("ax", level="INFO") as cm:
+            modelbridge.gen(
+                n=1,
+            )
+            get_logger("ax").info("log to prevent error if there are no other logs")
+            self.assertFalse(
+                any(
+                    "was not able to generate 2 unique candidates" in x
+                    for x in cm.output
+                ),
+                cm.output,
+            )
 
     @mock.patch(
         "ax.modelbridge.base.gen_arms",
