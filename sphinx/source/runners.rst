@@ -15,6 +15,13 @@ BoTorch Test Problem
     :undoc-members:
     :show-inheritance:
 
+SingleRunningTrialMixin
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.runners.single_running_trial_mixin
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Synthetic Runner
 ~~~~~~~~~~~~~~~~
