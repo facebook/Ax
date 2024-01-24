@@ -81,6 +81,7 @@ class Keys(str, Enum):
     TASK_FEATURES = "task_features"
     WARM_START_REFITTING = "warm_start_refitting"
     X_BASELINE = "X_baseline"
+    PAIRWISE_PREFERENCE_QUERY = "pairwise_pref_query"
 
 
 DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: Tuple[float, float] = (0.0, 0.2)
