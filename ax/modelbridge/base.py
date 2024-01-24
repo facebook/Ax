@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
-import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -38,13 +37,6 @@ from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.stats.model_fit_stats import (
-    coefficient_of_determination,
-    compute_model_fit_metrics,
-    mean_of_the_standardized_error,
-    ModelFitMetricProtocol,
-    std_of_the_standardized_error,
-)
 from botorch.exceptions.warnings import InputDataWarning
 
 logger: Logger = get_logger(__name__)
@@ -947,50 +939,6 @@ class ModelBridge(ABC):
         """
         raise NotImplementedError
 
-    def compute_model_fit_metrics(
-        self,
-        experiment: Experiment,
-        fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
-    ) -> Dict[str, Dict[str, float]]:
-        """Computes the model fit metrics from the scheduler state.
-
-        Args:
-            experiment: The experiment with whose data to compute the model fit metrics.
-            fit_metrics_dict: An optional dictionary with model fit metric functions,
-            i.e. a ModelFitMetricProtocol, as values and their names as keys.
-
-        Returns:
-            A nested dictionary mapping from the *model fit* metric names and the
-            *experimental metric* names to the values of the model fit metrics.
-
-            Example for an imaginary AutoML experiment that seeks to minimize the test
-            error after training an expensive model, with respect to hyper-parameters:
-
-            ```
-            model_fit_dict = model_fit_metrics_from_scheduler(scheduler)
-            model_fit_dict["coefficient_of_determination"]["test error"] =
-                `coefficient of determination of the test error predictions`
-            ```
-        """
-        # TODO: cross_validate_by_trial-based generalization quality
-        # IDEA: store y_obs, y_pred, se_pred as well
-        y_obs, y_pred, se_pred = _predict_on_training_data(
-            model_bridge=self, experiment=experiment
-        )
-        if fit_metrics_dict is None:
-            fit_metrics_dict = {
-                "coefficient_of_determination": coefficient_of_determination,
-                "mean_of_the_standardized_error": mean_of_the_standardized_error,
-                "std_of_the_standardized_error": std_of_the_standardized_error,
-            }
-
-        return compute_model_fit_metrics(
-            y_obs=y_obs,
-            y_pred=y_pred,
-            se_pred=se_pred,
-            fit_metrics_dict=fit_metrics_dict,
-        )
-
     def _set_kwargs_to_save(
         self,
         model_key: str,
@@ -1167,59 +1115,6 @@ def clamp_observation_features(
                 )
                 obsf.parameters[p.name] = p.upper
     return observation_features
-
-
-"""
-############################## Model Fit Metrics Utils ##############################
-"""
-
-
-def _predict_on_training_data(
-    model_bridge: ModelBridge,
-    experiment: Experiment,
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
-    """Makes predictions on the training data of a given experiment using a ModelBridge
-    and returning the observed values, and the corresponding predictive means and
-    predictive standard deviations of the model.
-
-     NOTE: This is a helper function for `ModelBridge.compute_model_fit_metrics` and
-    could be attached to the class.
-
-    Args:
-        model_bridge: A ModelBridge object with which to make predictions.
-        experiment: The experiment with whose data to compute the model fit metrics.
-
-    Returns:
-        A tuple containing three dictionaries for 1) observed metric values, and the
-        model's associated 2) predictive means and 3) predictive standard deviations.
-    """
-    data = experiment.lookup_data()
-    observations = observations_from_data(
-        experiment=experiment, data=data
-    )  # List[Observation]
-    observation_features = [obs.features for obs in observations]
-    mean_predicted, cov_predicted = model_bridge.predict(
-        observation_features=observation_features
-    )  # Dict[str, List[float]]
-    mean_observed = [
-        obs.data.means_dict for obs in observations
-    ]  # List[Dict[str, float]]
-    metric_names = list(data.metric_names)
-    mean_observed = _list_of_dicts_to_dict_of_lists(
-        list_of_dicts=mean_observed, keys=metric_names
-    )
-    # converting dictionary values to arrays
-    mean_observed = {k: np.array(v) for k, v in mean_observed.items()}
-    mean_predicted = {k: np.array(v) for k, v in mean_predicted.items()}
-    std_predicted = {m: np.sqrt(np.array(cov_predicted[m][m])) for m in cov_predicted}
-    return mean_observed, mean_predicted, std_predicted
-
-
-def _list_of_dicts_to_dict_of_lists(
-    list_of_dicts: List[Dict[str, float]], keys: List[str]
-) -> Dict[str, List[float]]:
-    """Converts a list of dicts indexed by a string to a dict of lists."""
-    return {key: [d[key] for d in list_of_dicts] for key in keys}
 
 
 def _get_status_quo_by_trial(

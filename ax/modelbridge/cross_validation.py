@@ -14,7 +14,8 @@ from numbers import Number
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
-from ax.core.observation import Observation, ObservationData
+from ax.core.experiment import Experiment
+from ax.core.observation import Observation, ObservationData, observations_from_data
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge
 from ax.utils.common.logger import get_logger
@@ -28,7 +29,11 @@ from ax.utils.stats.model_fit_stats import (
     _rank_correlation,
     _total_raw_effect,
     _wmape,
+    coefficient_of_determination,
     compute_model_fit_metrics,
+    mean_of_the_standardized_error,
+    ModelFitMetricProtocol,
+    std_of_the_standardized_error,
 )
 
 logger: Logger = get_logger(__name__)
@@ -111,7 +116,10 @@ def cross_validate(
         folds = n
 
     arm_names_rnd = np.array(list(arm_names))
-    np.random.shuffle(arm_names_rnd)
+    # Not necessary to shuffle when using LOO, avoids differences in floating point
+    # computations making equality tests brittle.
+    if folds != -1:
+        np.random.shuffle(arm_names_rnd)
     result = []
     for train_names, test_names in _gen_train_test_split(
         folds=folds, arm_names=arm_names_rnd
@@ -429,3 +437,155 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         ]
         best_diagnostic = self.criterion(aggregated_diagnostic_values)
         return aggregated_diagnostic_values.index(best_diagnostic)
+
+
+"""
+############################## Model Fit Metrics Utils ##############################
+"""
+
+
+def compute_model_fit_metrics_from_modelbridge(
+    model_bridge: ModelBridge,
+    experiment: Experiment,
+    fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
+    generalization: bool = False,
+) -> Dict[str, Dict[str, float]]:
+    """Computes the model fit metrics given a ModelBridge and an Experiment.
+
+    Args:
+        model_bridge: The ModelBridge for which to compute the model fit metrics.
+        experiment: The experiment with whose data to compute the metrics if
+            generalization == False. Otherwise, the data is taken from the ModelBridge.
+        fit_metrics_dict: An optional dictionary with model fit metric functions,
+            i.e. a ModelFitMetricProtocol, as values and their names as keys.
+        generalization: Boolean indicating whether to compute the generalization
+            metrics on cross-validation data or on the training data. The latter
+            helps diagnose problems with model training, rather than generalization.
+
+    Returns:
+        A nested dictionary mapping from the *model fit* metric names and the
+        *experimental metric* names to the values of the model fit metrics.
+
+        Example for an imaginary AutoML experiment that seeks to minimize the test
+        error after training an expensive model, with respect to hyper-parameters:
+
+        ```
+        model_fit_dict = compute_model_fit_metrics_from_modelbridge(model_bridge, exp)
+        model_fit_dict["coefficient_of_determination"]["test error"] =
+            `coefficient of determination of the test error predictions`
+        ```
+    """
+    y_obs, y_pred, se_pred = (
+        _predict_on_cross_validation_data(model_bridge=model_bridge)
+        if generalization
+        else _predict_on_training_data(model_bridge=model_bridge, experiment=experiment)
+    )
+
+    if fit_metrics_dict is None:
+        fit_metrics_dict = {
+            "coefficient_of_determination": coefficient_of_determination,
+            "mean_of_the_standardized_error": mean_of_the_standardized_error,
+            "std_of_the_standardized_error": std_of_the_standardized_error,
+        }
+
+    return compute_model_fit_metrics(
+        y_obs=y_obs,
+        y_pred=y_pred,
+        se_pred=se_pred,
+        fit_metrics_dict=fit_metrics_dict,
+    )
+
+
+def _predict_on_training_data(
+    model_bridge: ModelBridge,
+    experiment: Experiment,
+) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
+    """Makes predictions on the training data of a given experiment using a ModelBridge
+    and returning the observed values, and the corresponding predictive means and
+    predictive standard deviations of the model.
+
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+
+    Args:
+        model_bridge: A ModelBridge object with which to make predictions.
+        experiment: The experiment with whose data to compute the model fit metrics.
+
+    Returns:
+        A tuple containing three dictionaries for 1) observed metric values, and the
+        model's associated 2) predictive means and 3) predictive standard deviations.
+    """
+    data = experiment.lookup_data()
+    observations = observations_from_data(
+        experiment=experiment, data=data
+    )  # List[Observation]
+    observation_features = [obs.features for obs in observations]
+    mean_predicted, cov_predicted = model_bridge.predict(
+        observation_features=observation_features
+    )  # Dict[str, List[float]]
+    mean_observed = [
+        obs.data.means_dict for obs in observations
+    ]  # List[Dict[str, float]]
+    metric_names = list(data.metric_names)
+    mean_observed = _list_of_dicts_to_dict_of_lists(
+        list_of_dicts=mean_observed, keys=metric_names
+    )
+    # converting dictionary values to arrays
+    mean_observed = {k: np.array(v) for k, v in mean_observed.items()}
+    mean_predicted = {k: np.array(v) for k, v in mean_predicted.items()}
+    std_predicted = {m: np.sqrt(np.array(cov_predicted[m][m])) for m in cov_predicted}
+    return mean_observed, mean_predicted, std_predicted
+
+
+def _predict_on_cross_validation_data(
+    model_bridge: ModelBridge,
+) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
+    """Makes leave-one-out cross-validation predictions on the training data of the
+    ModelBridge and returns the observed values, and the corresponding predictive means
+    and predictive standard deviations of the model as numpy arrays.
+
+    NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
+
+    Args:
+        model_bridge: A ModelBridge object with which to make predictions.
+
+    Returns:
+        A tuple containing three dictionaries, each mapping metric_name to:
+            1. observed metric values,
+            2. LOOCV predicted mean at each observed point, and
+            3. LOOCV predicted standard deviation at each observed point.
+    """
+    # IDEA: could use cross_validate_by_trial on the last few trials, since the
+    # cross-validation performance on these is likely more correlated with the
+    # performance of the model on an upcoming trial due to the sequential nature
+    # of the data generated by BO.
+    cv = cross_validate(model=model_bridge)
+
+    metric_names = cv[0].observed.data.metric_names
+    mean_observed = {k: [] for k in metric_names}
+    mean_predicted = {k: [] for k in metric_names}
+    std_predicted = {k: [] for k in metric_names}
+
+    for cvi in cv:
+        obs = cvi.observed.data
+        for k, v in zip(obs.metric_names, obs.means):
+            mean_observed[k].append(v)
+
+        pred = cvi.predicted
+        for k, v in zip(pred.metric_names, pred.means):
+            mean_predicted[k].append(v)
+
+        pred_se = np.sqrt(pred.covariance.diagonal().clip(0))
+        for k, v in zip(pred.metric_names, pred_se):
+            std_predicted[k].append(v)
+
+    mean_observed = {k: np.array(v) for k, v in mean_observed.items()}
+    mean_predicted = {k: np.array(v) for k, v in mean_predicted.items()}
+    std_predicted = {k: np.array(v) for k, v in std_predicted.items()}
+    return mean_observed, mean_predicted, std_predicted
+
+
+def _list_of_dicts_to_dict_of_lists(
+    list_of_dicts: List[Dict[str, float]], keys: List[str]
+) -> Dict[str, List[float]]:
+    """Converts a list of dicts indexed by a string to a dict of lists."""
+    return {key: [d[key] for d in list_of_dicts] for key in keys}

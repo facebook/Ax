@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from warnings import warn
 
 import numpy as np
+from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 
 from ax.service.scheduler import get_fitted_model_bridge, Scheduler
 from ax.telemetry.common import _get_max_transformed_dimensionality
@@ -114,25 +115,32 @@ class SchedulerCompletedRecord:
     def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCompletedRecord:
         try:
             model_bridge = get_fitted_model_bridge(scheduler)
-            model_fit_dict = model_bridge.compute_model_fit_metrics(
-                experiment=scheduler.experiment
+            model_fit_dict = compute_model_fit_metrics_from_modelbridge(
+                model_bridge=model_bridge,
+                experiment=scheduler.experiment,
+                generalization=False,
             )
-            # We'd ideally log the entire `model_fit_dict` as a single model fit metric
-            # can't capture the nuances of multiple experimental metrics, but this might
-            # lead to database performance issues. So instead, we take the worst
-            # coefficient of determination as model fit quality and store the full data
-            # in Manifold (TODO).
-            model_fit_quality = min(
-                model_fit_dict["coefficient_of_determination"].values()
-            )
+            model_fit_quality = _model_fit_metric(model_fit_dict)
             # similar for uncertainty quantification, but distance from 1 matters
             std = list(model_fit_dict["std_of_the_standardized_error"].values())
             model_std_quality = _model_std_quality(np.array(std))
+
+            # generalization metrics
+            model_gen_dict = compute_model_fit_metrics_from_modelbridge(
+                model_bridge=model_bridge,
+                experiment=scheduler.experiment,
+                generalization=True,
+            )
+            model_fit_generalization = _model_fit_metric(model_gen_dict)
+            gen_std = list(model_gen_dict["std_of_the_standardized_error"].values())
+            model_std_generalization = _model_std_quality(np.array(gen_std))
 
         except Exception as e:
             warn("Encountered exception in computing model fit quality: " + str(e))
             model_fit_quality = float("-inf")
             model_std_quality = float("-inf")
+            model_fit_generalization = float("-inf")
+            model_std_generalization = float("-inf")
 
         try:
             improvement_over_baseline = scheduler.get_improvement_over_baseline()
@@ -150,8 +158,8 @@ class SchedulerCompletedRecord:
             best_point_quality=float("-inf"),  # TODO[T147907632]
             model_fit_quality=model_fit_quality,
             model_std_quality=model_std_quality,
-            model_fit_generalization=float("-inf"),  # TODO by cross_validate_by_trial
-            model_std_generalization=float("-inf"),
+            model_fit_generalization=model_fit_generalization,
+            model_std_generalization=model_std_generalization,
             improvement_over_baseline=improvement_over_baseline,
             num_metric_fetch_e_encountered=scheduler._num_metric_fetch_e_encountered,
             num_trials_bad_due_to_err=scheduler._num_trials_bad_due_to_err,
@@ -169,6 +177,15 @@ class SchedulerCompletedRecord:
             **self_dict,
             **experiment_completed_record_dict,
         }
+
+
+def _model_fit_metric(metric_dict: Dict[str, Dict[str, float]]) -> float:
+    # We'd ideally log the entire `model_fit_dict` as a single model fit metric
+    # can't capture the nuances of multiple experimental metrics, but this might
+    # lead to database performance issues. So instead, we take the worst
+    # coefficient of determination as model fit quality and store the full data
+    # in Manifold (TODO).
+    return min(metric_dict["coefficient_of_determination"].values())
 
 
 def _model_std_quality(std: np.ndarray) -> float:
