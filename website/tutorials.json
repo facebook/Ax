@@ -37,6 +37,10 @@
       "title": "Hyperparameter Optimization for PyTorch"
     },
     {
+      "id": "submitit",
+      "title": "Hyperparameter Optimization on SLURM via SubmitIt"
+    },
+    {
       "id": "raytune_pytorch_cnn",
       "title": "Hyperparameter Optimization via Raytune"
     },

@@ -73,6 +73,7 @@ TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
     "pyro-ppl",  # Required for to call run_inference.
     "pytorch-lightning",  # For the early stopping tutorial.
     "papermill",  # For executing the tutorials.
+    "submitit",  # Required for building the SubmitIt notebook.
 ]
 
 

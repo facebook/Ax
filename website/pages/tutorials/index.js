@@ -102,6 +102,15 @@ class TutorialHome extends React.Component {
             </ul>
             <ul>
               <li>
+                <a href="submitit.html">
+                 Hyperparameter Optimization on SLURM via SubmitIt
+                </a>
+                &nbsp; shows how to use the AxClient to schedule jobs and tune 
+                hyperparameters on a Slurm cluster.
+              </li>
+            </ul>
+            <ul>
+              <li>
                 <a href="raytune_pytorch_cnn.html">
                   Hyperparameter Optimization via Raytune
                 </a>
