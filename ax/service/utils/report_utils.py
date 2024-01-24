@@ -41,7 +41,10 @@ from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge import ModelBridge
-from ax.modelbridge.cross_validation import cross_validate
+from ax.modelbridge.cross_validation import (
+    compute_model_fit_metrics_from_modelbridge,
+    cross_validate,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
@@ -1462,7 +1465,11 @@ def warn_if_unpredictable_metrics(
             "Not checking metric predictability."
         )
         return None
-    model_fit_dict = model_bridge.compute_model_fit_metrics(experiment=experiment)
+    model_fit_dict = compute_model_fit_metrics_from_modelbridge(
+        model_bridge=model_bridge,
+        experiment=experiment,
+        generalization=True,  # use generalization metrics for user warning
+    )
     fit_quality_dict = model_fit_dict[model_fit_metric_name]
 
     # Extract salient metrics from experiment.

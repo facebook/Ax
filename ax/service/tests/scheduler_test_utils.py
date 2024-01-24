@@ -26,6 +26,7 @@ from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
+from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -1655,9 +1656,9 @@ class AxSchedulerTestCase(TestCase):
         # testing get_fitted_model_bridge
         model_bridge = get_fitted_model_bridge(scheduler)
 
-        # testing compatibility with model_bridge.compute_model_fit_metrics
-        fit_metrics = model_bridge.compute_model_fit_metrics(
-            experiment=scheduler.experiment
+        # testing compatibility with compute_model_fit_metrics_from_modelbridge
+        fit_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge, experiment=scheduler.experiment
         )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
@@ -1674,8 +1675,10 @@ class AxSchedulerTestCase(TestCase):
         self.assertIsInstance(std_branin, float)
 
         # testing with empty metrics dict
-        empty_metrics = model_bridge.compute_model_fit_metrics(
-            experiment=scheduler.experiment, fit_metrics_dict={}
+        empty_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge,
+            experiment=scheduler.experiment,
+            fit_metrics_dict={},
         )
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)

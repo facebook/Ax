@@ -4,13 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import cast, Dict
+from typing import Any, cast, Dict
 from unittest import mock
+
+import numpy as np
 
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
+from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -103,7 +106,7 @@ class TestScheduler(TestCase):
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
-        self.assertEqual(record, expected)
+        self._compare_scheduler_completed_records(record, expected)
 
         flat = record.flatten()
         expected_dict = {
@@ -119,7 +122,7 @@ class TestScheduler(TestCase):
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
-        self.assertEqual(flat, expected_dict)
+        self._compare_flattened_scheduler_completed_records(flat, expected_dict)
 
     def test_scheduler_raise_exceptions(self) -> None:
         scheduler = Scheduler(
@@ -179,9 +182,13 @@ class TestScheduler(TestCase):
         # end-to-end test with Scheduler
         record = SchedulerCompletedRecord.from_scheduler(scheduler=scheduler)
         model_bridge = get_fitted_model_bridge(scheduler)
-        fit_metrics = model_bridge.compute_model_fit_metrics(
-            experiment=scheduler.experiment
+
+        fit_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge,
+            experiment=scheduler.experiment,
+            generalization=False,
         )
+        # checking fit metrics
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
         r2 = cast(Dict[str, float], r2)
@@ -198,6 +205,20 @@ class TestScheduler(TestCase):
 
         model_std_quality = 1 / std_branin
 
+        # check generalization metrics
+        gen_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge,
+            experiment=scheduler.experiment,
+            generalization=True,
+        )
+        r2_gen = gen_metrics.get("coefficient_of_determination")
+        r2_gen = cast(Dict[str, float], r2_gen)
+        r2_gen_branin = r2_gen["branin"]
+        gen_std = gen_metrics.get("std_of_the_standardized_error")
+        gen_std = cast(Dict[str, float], gen_std)
+        gen_std_branin = gen_std["branin"]
+        model_std_generalization = 1 / gen_std_branin
+
         expected = SchedulerCompletedRecord(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
@@ -205,13 +226,13 @@ class TestScheduler(TestCase):
             best_point_quality=float("-inf"),
             model_fit_quality=r2_branin,
             model_std_quality=model_std_quality,
-            model_fit_generalization=float("-inf"),
-            model_std_generalization=float("-inf"),
+            model_fit_generalization=r2_gen_branin,
+            model_std_generalization=model_std_generalization,
             improvement_over_baseline=float("-inf"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
-        self.assertEqual(record, expected)
+        self._compare_scheduler_completed_records(record, expected)
 
         flat = record.flatten()
         expected_dict = {
@@ -221,10 +242,50 @@ class TestScheduler(TestCase):
             "best_point_quality": float("-inf"),
             "model_fit_quality": r2_branin,
             "model_std_quality": model_std_quality,
-            "model_fit_generalization": float("-inf"),
-            "model_std_generalization": float("-inf"),
+            "model_fit_generalization": r2_gen_branin,
+            "model_std_generalization": model_std_generalization,
             "improvement_over_baseline": float("-inf"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
-        self.assertEqual(flat, expected_dict)
+        self._compare_flattened_scheduler_completed_records(flat, expected_dict)
+
+    def _compare_scheduler_completed_records(
+        self, record: SchedulerCompletedRecord, expected: SchedulerCompletedRecord
+    ) -> None:
+        self.assertEqual(
+            record.experiment_completed_record, expected.experiment_completed_record
+        )
+        numeric_fields = [
+            "best_point_quality",
+            "model_fit_quality",
+            "model_std_quality",
+            "model_fit_generalization",
+            "model_std_generalization",
+            "improvement_over_baseline",
+            "num_metric_fetch_e_encountered",
+            "num_trials_bad_due_to_err",
+        ]
+        for field in numeric_fields:
+            rec_field = getattr(record, field)
+            exp_field = getattr(expected, field)
+            if np.isnan(rec_field):
+                self.assertTrue(np.isnan(exp_field))
+            else:
+                self.assertAlmostEqual(rec_field, exp_field)
+
+    def _compare_flattened_scheduler_completed_records(
+        self, flat: Dict[str, Any], expected: Dict[str, Any]
+    ) -> None:
+        self.assertEqual(set(flat.keys()), set(expected.keys()))
+        for field in expected:
+            rec_field = flat[field]
+            exp_field = expected[field]
+            # for floating point values, compare approximately and consider NaNs equal
+            if isinstance(rec_field, float):
+                if np.isnan(rec_field):
+                    self.assertTrue(np.isnan(exp_field))
+                else:
+                    self.assertAlmostEqual(rec_field, exp_field)
+            else:
+                self.assertEqual(rec_field, exp_field)

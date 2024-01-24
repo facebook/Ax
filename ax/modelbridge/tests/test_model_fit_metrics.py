@@ -10,6 +10,7 @@ from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
+from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -59,8 +60,10 @@ class TestModelBridgeFitMetrics(TestCase):
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
         model_bridge = get_fitted_model_bridge(scheduler)
 
-        # testing ModelBridge.compute_model_fit_metrics with default metrics
-        fit_metrics = model_bridge.compute_model_fit_metrics(self.branin_experiment)
+        # testing compute_model_fit_metrics_from_modelbridge with default metrics
+        fit_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge, experiment=self.branin_experiment
+        )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
         r2 = cast(Dict[str, float], r2)
@@ -76,8 +79,10 @@ class TestModelBridgeFitMetrics(TestCase):
         self.assertIsInstance(std_branin, float)
 
         # testing with empty metrics
-        empty_metrics = model_bridge.compute_model_fit_metrics(
-            self.branin_experiment, fit_metrics_dict={}
+        empty_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge,
+            experiment=self.branin_experiment,
+            fit_metrics_dict={},
         )
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)
