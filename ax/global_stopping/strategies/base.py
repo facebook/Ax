@@ -77,8 +77,12 @@ class BaseGlobalStoppingStrategy(ABC, Base):
             message = "There are pending trials in the experiment."
             return False, message
 
-        if len(experiment.trials_by_status[TrialStatus.COMPLETED]) == 0:
-            message = "There are no completed trials yet."
+        num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
+        if num_completed_trials < self.min_trials:
+            message = (
+                f"There are only {num_completed_trials} completed trials, "
+                f"but {self} has a minumum of {self.min_trials}."
+            )
             return False, message
 
         return self._should_stop_optimization(experiment, **kwargs)
