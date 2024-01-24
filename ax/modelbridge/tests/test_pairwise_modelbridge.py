@@ -20,11 +20,14 @@ from ax.modelbridge.pairwise import (
 )
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.types import TConfig
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
+from botorch.acquisition.analytic import AnalyticAcquisitionFunction
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import Normalize
 from botorch.utils.datasets import RankingDataset
@@ -117,19 +120,30 @@ class PairwiseModelBridgeTest(TestCase):
             },
         )
 
-        pmb = PairwiseModelBridge(
-            experiment=self.experiment,
-            search_space=self.experiment.search_space,
-            data=self.data,
-            model=BoTorchModel(
-                botorch_acqf_class=qNoisyExpectedImprovement,
-                surrogate=surrogate,
-            ),
-            transforms=[],
-        )
-        # Can generate candidates correctly
-        generator_run = pmb.gen(n=2)
-        self.assertEqual(len(generator_run.arms), 2)
+        for botorch_acqf_class in [
+            qNoisyExpectedImprovement,
+            AnalyticExpectedUtilityOfBestOption,
+        ]:
+            pmb = PairwiseModelBridge(
+                experiment=self.experiment,
+                search_space=self.experiment.search_space,
+                data=self.data,
+                model=BoTorchModel(
+                    botorch_acqf_class=botorch_acqf_class,
+                    surrogate=surrogate,
+                ),
+                transforms=[],
+            )
+
+            if issubclass(botorch_acqf_class, AnalyticAcquisitionFunction):
+                # Analytic Acqfs do not support pending points and sequential opt
+                model_gen_options: TConfig = {"optimizer_kwargs": {"sequential": False}}
+            else:
+                model_gen_options = None
+
+            # Can generate candidates correctly
+            generator_run = pmb.gen(n=2, model_gen_options=model_gen_options)
+            self.assertEqual(len(generator_run.arms), 2)
 
         observation_data = [
             ObservationData(
