@@ -137,10 +137,10 @@ class SchedulerCompletedRecord:
 
         except Exception as e:
             warn("Encountered exception in computing model fit quality: " + str(e))
-            model_fit_quality = float("-inf")
-            model_std_quality = float("-inf")
-            model_fit_generalization = float("-inf")
-            model_std_generalization = float("-inf")
+            model_fit_quality = float("nan")
+            model_std_quality = float("nan")
+            model_fit_generalization = float("nan")
+            model_std_generalization = float("nan")
 
         try:
             improvement_over_baseline = scheduler.get_improvement_over_baseline()
@@ -149,13 +149,13 @@ class SchedulerCompletedRecord:
                 "Encountered exception in computing improvement over baseline: "
                 + str(e)
             )
-            improvement_over_baseline = float("-inf")
+            improvement_over_baseline = float("nan")
 
         return cls(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ),
-            best_point_quality=float("-inf"),  # TODO[T147907632]
+            best_point_quality=float("nan"),  # TODO[T147907632]
             model_fit_quality=model_fit_quality,
             model_std_quality=model_std_quality,
             model_fit_generalization=model_fit_generalization,
