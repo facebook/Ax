@@ -109,11 +109,11 @@ class AxClientCompletedRecord:
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
-            best_point_quality=float("-inf"),  # TODO[T147907632]
-            model_fit_quality=float("-inf"),  # TODO[T147907632]
-            model_std_quality=float("-inf"),
-            model_fit_generalization=float("-inf"),  # TODO via cross_validate_by_trial
-            model_std_generalization=float("-inf"),
+            best_point_quality=float("nan"),  # TODO[T147907632]
+            model_fit_quality=float("nan"),  # TODO[T147907632]
+            model_std_quality=float("nan"),
+            model_fit_generalization=float("nan"),
+            model_std_generalization=float("nan"),
         )
 
     def flatten(self) -> Dict[str, Any]:

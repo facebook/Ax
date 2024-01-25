@@ -36,6 +36,8 @@ from typing import (
 )
 from unittest.mock import MagicMock
 
+import numpy as np
+
 import yappi
 
 from ax.utils.common.base import Base
@@ -410,6 +412,42 @@ class TestCase(fake_filesystem_unittest.TestCase):
         context = _AssertRaisesContextOn(exc, self, line, regex)
         # pyre-ignore [16]: ... has no attribute `handle`.
         return context.handle("assertRaisesOn", [], {})
+
+    def assertDictsAlmostEqual(
+        self, a: Dict[str, Any], b: Dict[str, Any], consider_nans_equal: bool = False
+    ) -> None:
+        """Testing utility that checks that
+        1) the keys of `a` and `b` are identical, and that
+        2) the values of `a` and `b` are almost equal if they have a floating point
+        type, considering NaNs as equal, and otherwise just equal.
+
+        Args:
+            test: The test case object.
+            a: A dictionary.
+            b: Another dictionary.
+            consider_nans_equal: Whether to consider NaNs equal when comparing floating
+                point numbers.
+        """
+        set_a = set(a.keys())
+        set_b = set(b.keys())
+        key_msg = (
+            "Dict keys differ."
+            f"Keys that are in a but not b: {set_a - set_b}."
+            f"Keys that are in b but not a: {set_b - set_a}."
+        )
+        self.assertEqual(set_a, set_b, msg=key_msg)
+        for field in b:
+            a_field = a[field]
+            b_field = b[field]
+            msg = f"Dict values differ for key {field}: {a[field]=}, {b[field]=}."
+            # for floating point values, compare approximately and consider NaNs equal
+            if isinstance(a_field, float):
+                if consider_nans_equal and np.isnan(a_field):
+                    self.assertTrue(np.isnan(b_field), msg=msg)
+                else:
+                    self.assertAlmostEqual(a_field, b_field, msg=msg)
+            else:
+                self.assertEqual(a_field, b_field, msg=msg)
 
     @staticmethod
     @contextlib.contextmanager

@@ -6,6 +6,8 @@
 
 from typing import Dict, List, Sequence, Union
 
+import numpy as np
+
 from ax.core.types import TParamValue
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecord
@@ -118,10 +120,31 @@ class TestAxClient(TestCase):
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
-            best_point_quality=float("-inf"),
-            model_fit_quality=float("-inf"),
-            model_std_quality=float("-inf"),
-            model_fit_generalization=float("-inf"),
-            model_std_generalization=float("-inf"),
+            best_point_quality=float("nan"),
+            model_fit_quality=float("nan"),
+            model_std_quality=float("nan"),
+            model_fit_generalization=float("nan"),
+            model_std_generalization=float("nan"),
         )
-        self.assertEqual(record, expected)
+        self._compare_axclient_completed_records(record, expected)
+
+    def _compare_axclient_completed_records(
+        self, record: AxClientCompletedRecord, expected: AxClientCompletedRecord
+    ) -> None:
+        self.assertEqual(
+            record.experiment_completed_record, expected.experiment_completed_record
+        )
+        numeric_fields = [
+            "best_point_quality",
+            "model_fit_quality",
+            "model_std_quality",
+            "model_fit_generalization",
+            "model_std_generalization",
+        ]
+        for field in numeric_fields:
+            rec_field = getattr(record, field)
+            exp_field = getattr(expected, field)
+            if np.isnan(rec_field):
+                self.assertTrue(np.isnan(exp_field))
+            else:
+                self.assertAlmostEqual(rec_field, exp_field)

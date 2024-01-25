@@ -533,7 +533,7 @@ class OptimizationCompletedRecord:
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
             # The following are not applicable for AxClient
-            improvement_over_baseline=float("-inf"),
+            improvement_over_baseline=float("nan"),
             num_metric_fetch_e_encountered=-1,
             num_trials_bad_due_to_err=-1,
         )

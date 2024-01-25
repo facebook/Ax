@@ -239,7 +239,9 @@ class TestOptimization(TestCase):
             "estimated_global_stopping_savings": 98,
         }
 
-        self.assertEqual(asdict(record), expected_dict)
+        self.assertDictsAlmostEqual(
+            asdict(record), expected_dict, consider_nans_equal=True
+        )
 
     def test_optimization_completed_record_from_ax_client(self) -> None:
         ax_client = AxClient()
@@ -267,9 +269,11 @@ class TestOptimization(TestCase):
             "estimated_early_stopping_savings": 19,
             "estimated_global_stopping_savings": 98,
             # Extra fields
-            "improvement_over_baseline": float("-inf"),
+            "improvement_over_baseline": float("nan"),
             "num_metric_fetch_e_encountered": -1,
             "num_trials_bad_due_to_err": -1,
         }
 
-        self.assertEqual(asdict(record), expected_dict)
+        self.assertDictsAlmostEqual(
+            asdict(record), expected_dict, consider_nans_equal=True
+        )

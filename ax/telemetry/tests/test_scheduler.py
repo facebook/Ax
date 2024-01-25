@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, cast, Dict
+from typing import cast, Dict
 from unittest import mock
 
 import numpy as np
@@ -25,6 +25,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_search_space
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+
 
 NUM_SOBOL = 5
 
@@ -97,11 +98,11 @@ class TestScheduler(TestCase):
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ),
-            best_point_quality=float("-inf"),
-            model_fit_quality=float("-inf"),  # -inf because no model has been fit
-            model_std_quality=float("-inf"),
-            model_fit_generalization=float("-inf"),
-            model_std_generalization=float("-inf"),
+            best_point_quality=float("nan"),
+            model_fit_quality=float("nan"),  # nan because no model has been fit
+            model_std_quality=float("nan"),
+            model_fit_generalization=float("nan"),
+            model_std_generalization=float("nan"),
             improvement_over_baseline=5.0,
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
@@ -113,16 +114,16 @@ class TestScheduler(TestCase):
             **ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ).__dict__,
-            "best_point_quality": float("-inf"),
-            "model_fit_quality": float("-inf"),
-            "model_std_quality": float("-inf"),
-            "model_fit_generalization": float("-inf"),
-            "model_std_generalization": float("-inf"),
+            "best_point_quality": float("nan"),
+            "model_fit_quality": float("nan"),
+            "model_std_quality": float("nan"),
+            "model_fit_generalization": float("nan"),
+            "model_std_generalization": float("nan"),
             "improvement_over_baseline": 5.0,
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
-        self._compare_flattened_scheduler_completed_records(flat, expected_dict)
+        self.assertDictsAlmostEqual(flat, expected_dict, consider_nans_equal=True)
 
     def test_scheduler_raise_exceptions(self) -> None:
         scheduler = Scheduler(
@@ -142,7 +143,7 @@ class TestScheduler(TestCase):
         ):
             record = SchedulerCompletedRecord.from_scheduler(scheduler=scheduler)
         flat = record.flatten()
-        self.assertEqual(flat["improvement_over_baseline"], float("-inf"))
+        self.assertTrue(np.isnan(flat["improvement_over_baseline"]))
 
     def test_scheduler_model_fit_metrics_logging(self) -> None:
         # set up for model fit metrics
@@ -223,12 +224,12 @@ class TestScheduler(TestCase):
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ),
-            best_point_quality=float("-inf"),
+            best_point_quality=float("nan"),
             model_fit_quality=r2_branin,
             model_std_quality=model_std_quality,
             model_fit_generalization=r2_gen_branin,
             model_std_generalization=model_std_generalization,
-            improvement_over_baseline=float("-inf"),
+            improvement_over_baseline=float("nan"),
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
         )
@@ -239,16 +240,16 @@ class TestScheduler(TestCase):
             **ExperimentCompletedRecord.from_experiment(
                 experiment=scheduler.experiment
             ).__dict__,
-            "best_point_quality": float("-inf"),
+            "best_point_quality": float("nan"),
             "model_fit_quality": r2_branin,
             "model_std_quality": model_std_quality,
             "model_fit_generalization": r2_gen_branin,
             "model_std_generalization": model_std_generalization,
-            "improvement_over_baseline": float("-inf"),
+            "improvement_over_baseline": float("nan"),
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
         }
-        self._compare_flattened_scheduler_completed_records(flat, expected_dict)
+        self.assertDictsAlmostEqual(flat, expected_dict, consider_nans_equal=True)
 
     def _compare_scheduler_completed_records(
         self, record: SchedulerCompletedRecord, expected: SchedulerCompletedRecord
@@ -273,19 +274,3 @@ class TestScheduler(TestCase):
                 self.assertTrue(np.isnan(exp_field))
             else:
                 self.assertAlmostEqual(rec_field, exp_field)
-
-    def _compare_flattened_scheduler_completed_records(
-        self, flat: Dict[str, Any], expected: Dict[str, Any]
-    ) -> None:
-        self.assertEqual(set(flat.keys()), set(expected.keys()))
-        for field in expected:
-            rec_field = flat[field]
-            exp_field = expected[field]
-            # for floating point values, compare approximately and consider NaNs equal
-            if isinstance(rec_field, float):
-                if np.isnan(rec_field):
-                    self.assertTrue(np.isnan(exp_field))
-                else:
-                    self.assertAlmostEqual(rec_field, exp_field)
-            else:
-                self.assertEqual(rec_field, exp_field)
