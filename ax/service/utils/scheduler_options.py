@@ -100,6 +100,8 @@ class SchedulerOptions:
             multiple times. Only use if SQL storage is not important for the given
             use case, since this will only log, but not raise, an exception if
             it's encountered while saving to DB or loading from it.
+        wait_for_running_trials: Whether the scheduler should wait for running trials
+            or exit.
     """
 
     max_pending_trials: int = 10
@@ -120,3 +122,4 @@ class SchedulerOptions:
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
     global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
     suppress_storage_errors_after_retries: bool = False
+    wait_for_running_trials: bool = True

@@ -651,13 +651,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             include trials that at the time of polling already have a terminal
             (ABANDONED, FAILED, COMPLETED) status (but it may).
         """
-        return self.runner.poll_trial_status(
-            trials=(
-                self.experiment.trials.values()
-                if poll_all_trial_statuses
-                else self.pending_trials
-            )
+        trials = (
+            self.experiment.trials.values()
+            if poll_all_trial_statuses
+            else self.pending_trials
         )
+        if len(trials) == 0:
+            return {}
+        return self.runner.poll_trial_status(trials=trials)
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
@@ -809,6 +810,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "Optimization timed out (timeout hours: " f"{self._timeout_hours})!"
             )
         return timed_out
+
+    @property
+    def should_wait_for_running_trials(self) -> bool:
+        """Whether this scheduler should wait for running trials to complete.
+
+        If False, the scheduler will not wait for running trials to complete and
+        will simply exit.
+        """
+        return self.options.wait_for_running_trials
 
     def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
         """Checks if the failure rate (set in scheduler options) has been exceeded.
@@ -980,7 +990,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
-
+            if not self.should_wait_for_running_trials:
+                return
             yield self.wait_for_completed_trials_and_report_results(
                 idle_callback, force_refit=True
             )
@@ -1032,6 +1043,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             >>> print(trials_info["n_completed"])
             3
         """
+        self.poll_and_process_results()
         for _ in self.run_trials_and_yield_results(
             max_trials=max_trials,
             ignore_global_stopping_strategy=ignore_global_stopping_strategy,
@@ -1085,13 +1097,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "Please either specify `num_trials` in `SchedulerOptions` input "
                 "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
-        for _ in self.run_trials_and_yield_results(
+        return self.run_n_trials(
             max_trials=not_none(self.options.total_trials),
             timeout_hours=timeout_hours,
             idle_callback=idle_callback,
-        ):
-            pass
-        return self.summarize_final_result()
+        )
 
     def run(self, max_new_trials: int) -> bool:
         """Schedules trial evaluation(s) if stopping criterion is not triggered,
