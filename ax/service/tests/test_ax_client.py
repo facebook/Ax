@@ -682,7 +682,14 @@ class TestAxClient(TestCase):
         with self.assertRaisesRegex(ValueError, ".* no trials"):
             ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
-            parameterization, trial_index = ax_client.get_next_trial()
+            with mock.patch("ax.service.ax_client.logger.info") as mock_log:
+                parameterization, trial_index = ax_client.get_next_trial()
+            log_message = mock_log.call_args.args[0]
+            if i < 5:
+                expected_model = "Sobol"
+            else:
+                expected_model = "BoTorch"
+            self.assertIn(f"using model {expected_model}", log_message)
             x, y = parameterization.get("x"), parameterization.get("y")
             ax_client.complete_trial(
                 trial_index,
