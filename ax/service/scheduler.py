@@ -201,6 +201,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # In MOO cases, the following will be populated by an inferred reference point
     # for pareto front after a certain number of completed trials.
     __inferred_reference_point: Optional[List[ObjectiveThreshold]] = None
+    # Default kwargs passed when fetching data if not overridden on `SchedulerOptions`
+    DEFAULT_FETCH_KWARGS = {
+        "overwrite_existing_data": True,
+    }
 
     def __init__(
         self,
@@ -686,6 +690,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         for trial, reason in zip(trials, reasons):
             self.runner.stop(trial=trial, reason=reason)
+            trial.mark_early_stopped()
 
     def wait_for_completed_trials_and_report_results(
         self,
@@ -1208,12 +1213,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def poll_and_process_results(self, poll_all_trial_statuses: bool = False) -> bool:
         """Takes the following actions:
             1. Poll trial runs for their statuses
-            2. If any experiment metrics are available while running,
-               fetch data for running trials
-            3. Determine which trials should be early stopped
-            4. Early-stop those trials
-            5. Update the experiment with the new trial statuses
-            6. Fetch the data for newly completed trials
+            2. Find trials to fetch data for
+            3. Apply new trial statuses
+            4. Fetch data
+            5. Early-stop trials where possible
+            6. Save modified trials, having either new statuses or new data
 
         Returns:
             A boolean representing whether any trial evaluations completed
@@ -1222,25 +1226,147 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         self._sleep_if_too_early_to_poll()
 
-        updated_any_trial = False  # Whether any trial updates were performed.
-        prev_completed_trial_idcs = set(
-            self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]
-        )
-
-        # 1. Poll trial statuses
+        # POLL TRIAL STATUSES
         new_status_to_trial_idcs = self.poll_trial_status(
             poll_all_trial_statuses=poll_all_trial_statuses
         )
 
-        # Note: We could use `new_status_to_trial_idcs[TrialStatus.Running]`
-        # for the running_trial_indices, but we don't enforce
-        # that users return the status of trials that are not being updated.
-        # Thus, if a trial was running in the last poll and is still running
-        # in this poll, it might not appear in new_status_to_trial_idcs.
-        # Instead, to get the list of all currently running trials at this
-        # point in time, we look at self.running_trials, which contains trials
-        # that were running in the last poll, and we exclude trials that were
-        # newly terminated in this poll.
+        trial_indices_with_updated_data_or_status = set()
+
+        # GET TRIALS TO FETCH DATA FOR
+        # This must be done before updating the trial statuses, so we can differentiate
+        # newly and previously completed trials.
+        trial_indices_to_fetch = self._get_trial_indices_to_fetch(
+            new_status_to_trial_idcs=new_status_to_trial_idcs
+        )
+
+        # UPDATE TRIAL STATUSES
+        trial_indices_with_updated_statuses = self._apply_new_trial_statuses(
+            new_status_to_trial_idcs=new_status_to_trial_idcs,
+        )
+        updated_any_trial_status = len(trial_indices_with_updated_statuses) > 0
+        trial_indices_with_updated_data_or_status.update(
+            trial_indices_with_updated_statuses
+        )
+
+        # FETCH DATA FOR TRIALS EXPECTING DATA
+        trial_indices_with_new_data = (
+            self._fetch_data_and_return_trial_indices_with_new_data(
+                trial_idcs=trial_indices_to_fetch,
+            )
+        )
+        trial_indices_with_updated_data_or_status.update(trial_indices_with_new_data)
+
+        # EARLY STOP TRIALS
+        stop_trial_info = self.should_stop_trials_early(
+            trial_indices=self.experiment.running_trial_indices,
+        )
+        self.stop_trial_runs(
+            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
+            reasons=list(stop_trial_info.values()),
+        )
+        if len(stop_trial_info) > 0:
+            trial_indices_with_updated_data_or_status.update(set(stop_trial_info))
+            updated_any_trial_status = True
+
+        # UPDATE TRIALS IN DB
+        if (
+            len(trial_indices_with_updated_data_or_status) > 0
+        ):  # Only save if there were updates.
+            self.logger.debug(
+                f"Updating {len(trial_indices_with_updated_data_or_status)} "
+                "trials in DB."
+            )
+            self._save_or_update_trials_in_db_if_possible(
+                experiment=self.experiment,
+                trials=[
+                    self.experiment.trials[i]
+                    for i in trial_indices_with_updated_data_or_status
+                ],
+            )
+
+        return updated_any_trial_status
+
+    def _fetch_data_and_return_trial_indices_with_new_data(
+        self, trial_idcs: Set[int]
+    ) -> Set[int]:
+        """Fetch data for any trials on the experiment that are expecting new data.
+
+        Args:
+            trial_idcs: A set of trial indices to fetch data for.
+
+        Returns:
+            Set of trial indices that were updated with new data.  We're not asserting
+            that the new data is different than the old data, but may want to
+            in the future.
+        """
+        if len(trial_idcs) > 0:
+            results = self._fetch_and_process_trials_data_results(
+                trial_indices=trial_idcs,
+            )
+            return {
+                i
+                for i, results_by_metric_name in results.items()
+                for r in results_by_metric_name.values()
+                if r.is_ok()
+            }
+        return set()
+
+    def _apply_new_trial_statuses(
+        self, new_status_to_trial_idcs: Dict[TrialStatus, Set[int]]
+    ) -> Set[int]:
+        """Apply new trial statuses to the experiment according to poll results.
+
+        Args:
+            new_status_to_trial_idcs: Changes to be applied to trial statuses from
+                poll_trial_status.
+
+        Returns:
+            Set of trial indices that were updated with new statuses.
+        """
+        updated_trial_indices = set()
+        for status, trial_idcs in new_status_to_trial_idcs.items():
+            if status.is_candidate or status.is_deployed:
+                # No need to consider candidate, staged or running trials here (none of
+                # these trials should actually be candidates, but we can filter on that)
+                continue
+
+            if len(trial_idcs) > 0:
+                idcs = make_indices_str(indices=trial_idcs)
+                self.logger.info(f"Retrieved {status.name} trials: {idcs}.")
+
+            # Update trial statuses and record which trials were updated.
+            trials = self.experiment.get_trials_by_indices(trial_idcs)
+            updated_trial_indices.update(trial_idcs)
+            for trial in trials:
+                if status.is_failed or status.is_abandoned:
+                    try:
+                        reason = self.runner.poll_exception(trial)
+                        trial.mark_as(status=status, unsafe=True, reason=reason)
+                    except NotImplementedError:
+                        # Some runners do not implement poll_failure_reason, so
+                        # we fall back to marking the without a reason.
+                        trial.mark_as(status=status, unsafe=True)
+                else:
+                    trial.mark_as(status=status, unsafe=True)
+        return updated_trial_indices
+
+    def _get_trial_indices_to_fetch(
+        self, new_status_to_trial_idcs: Dict[TrialStatus, Set[int]]
+    ) -> Set[int]:
+        """Get trial indices to fetch data for the experiment given
+        `new_status_to_trial_idcs` and metric properties.  This should include:
+            - newly completed trials (about to be completed)
+            - running trials if the experiment has metrics available while running
+            - previously completed (or early stopped) trials if the experiment
+                has metrics with new data after completion which finished recently
+
+        Args:
+            new_status_to_trial_idcs: Changes about to be applied to trial statuses.
+
+        Returns:
+            Set of trial indices to fetch data for.
+        """
         terminated_trial_idcs = {
             index
             for status, indices in new_status_to_trial_idcs.items()
@@ -1252,11 +1378,27 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             for trial in self.running_trials
             if trial.index not in terminated_trial_idcs
         }
+        # add in any trials that will be marked running
+        running_trial_indices.update(
+            new_status_to_trial_idcs.get(TrialStatus.RUNNING, set())
+        )
 
-        # 2. If any experiment metrics are available while running,
-        #    fetch data for running trials
-        # create set of trials that have updated data
-        updated_trial_indices = set()
+        # includes completed and early stopped trials
+        prev_completed_trial_idcs = {
+            t.index for t in self.experiment.trials_expecting_data
+        } - self.experiment.running_trial_indices
+        trial_indices_to_fetch = set()
+
+        # Fetch data for newly completed trials
+        newly_completed = (
+            new_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
+            - prev_completed_trial_idcs
+        )
+        idcs = make_indices_str(indices=newly_completed)
+        self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
+        trial_indices_to_fetch.update(newly_completed)
+
+        # Fetch data for running trials that have metrics available while running
         if (
             any(
                 m.is_available_while_running() for m in self.experiment.metrics.values()
@@ -1270,77 +1412,36 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 f"Fetching data for trials: {idcs} because some metrics "
                 "on experiment are available while trials are running."
             )
-            results = self._fetch_and_process_trials_data_results(
-                trial_indices=running_trial_indices,
-                overwrite_existing_data=True,
+            trial_indices_to_fetch.update(running_trial_indices)
+
+        # Fetch data for previously completed trials that have metrics available
+        # after trial completion that were completed within the max of the period
+        # specified by metrics
+        recently_completed_trial_indices = self._get_recently_completed_trial_indices()
+        if len(recently_completed_trial_indices) > 0:
+            idcs = make_indices_str(indices=recently_completed_trial_indices)
+            self.logger.info(
+                f"Fetching data for trials: {idcs} because some metrics "
+                "on experiment have new data after completion."
             )
-            updated_trial_indices = {
-                i
-                for i, results_by_metric_name in results.items()
-                for r in results_by_metric_name.values()
-                if r.is_ok()
-            }
-            updated_any_trial = len(updated_trial_indices) > 0
+            trial_indices_to_fetch.update(recently_completed_trial_indices)
+        return trial_indices_to_fetch
 
-        # 3. Determine which trials to stop early
-        stop_trial_info = self.should_stop_trials_early(
-            trial_indices=running_trial_indices
+    def _get_recently_completed_trial_indices(self) -> Set[int]:
+        """Get trials that have completed within the max period specified by metrics."""
+        if len(self.experiment.metrics) == 0:
+            return set()
+
+        max_period = max(
+            m.period_of_new_data_after_trial_completion()
+            for m in self.experiment.metrics.values()
         )
-
-        # 4. Stop trials early
-        self.stop_trial_runs(
-            trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
-            reasons=list(stop_trial_info.values()),
-        )
-
-        # 5. Update trial statuses on the experiment
-        new_status_to_trial_idcs = self._update_status_dict(
-            status_dict=new_status_to_trial_idcs,
-            updating_status_dict={TrialStatus.EARLY_STOPPED: set(stop_trial_info)},
-        )
-
-        for status, trial_idcs in new_status_to_trial_idcs.items():
-            if status.is_candidate or status.is_deployed:
-                # No need to consider candidate, staged or running trials here (none of
-                # these trials should actually be candidates, but we can filter on that)
-                continue
-
-            if len(trial_idcs) > 0:
-                idcs = make_indices_str(indices=trial_idcs)
-                self.logger.info(f"Retrieved {status.name} trials: {idcs}.")
-                updated_any_trial = True
-
-            # Update trial statuses and record which trials were updated.
-            trials = self.experiment.get_trials_by_indices(trial_idcs)
-            for trial in trials:
-                if status.is_failed or status.is_abandoned:
-                    try:
-                        reason = self.runner.poll_exception(trial)
-                        trial.mark_as(status=status, unsafe=True, reason=reason)
-                    except NotImplementedError:
-                        # Some runners do not implement poll_failure_reason, so
-                        # we fall back to marking the without a reason.
-                        trial.mark_as(status=status, unsafe=True)
-                else:
-                    trial.mark_as(status=status, unsafe=True)
-
-            # 6. Fetch data for newly completed trials
-            if status.is_completed:
-                newly_completed = trial_idcs - prev_completed_trial_idcs
-                self._process_completed_trials(newly_completed=newly_completed)
-
-            updated_trial_indices = updated_trial_indices.union(
-                {t.index for t in trials}
-            )
-
-        if updated_any_trial:  # Only save if there were updates.
-            self.logger.debug(f"Updating {len(updated_trial_indices)} trials in DB.")
-            self._save_or_update_trials_in_db_if_possible(
-                experiment=self.experiment,
-                trials=[self.experiment.trials[i] for i in updated_trial_indices],
-            )
-
-        return updated_any_trial
+        return {
+            t.index
+            for t in self.experiment.trials_expecting_data
+            if t.time_completed is not None
+            and datetime.now() - not_none(t.time_completed) < max_period
+        }
 
     def _process_completed_trials(self, newly_completed: Set[int]) -> None:
         # Fetch the data for newly completed trials; this will cache the data
@@ -1350,7 +1451,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self.logger.info(f"Fetching data for trials: {idcs}.")
         self._fetch_and_process_trials_data_results(
             trial_indices=newly_completed,
-            overwrite_existing_data=False,
         )
 
     def should_stop_trials_early(
@@ -1841,7 +1941,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _fetch_and_process_trials_data_results(
         self,
         trial_indices: Iterable[int],
-        overwrite_existing_data: bool = False,
     ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """
         Fetches results from experiment and modifies trial statuses depending on
@@ -1850,9 +1949,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
-            if "overwrite_existing_data" not in kwargs:
-                kwargs["overwrite_existing_data"] = overwrite_existing_data
-
+            for k, v in self.DEFAULT_FETCH_KWARGS.items():
+                kwargs.setdefault(k, v)
+            if kwargs.get("overwrite_existing_data") and kwargs.get(
+                "combine_with_last_data"
+            ):
+                # to avoid error https://fburl.com/code/ilix4okj
+                kwargs["overwrite_existing_data"] = False
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,
                 **kwargs,
