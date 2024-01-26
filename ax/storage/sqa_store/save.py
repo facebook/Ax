@@ -15,6 +15,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.runner import Runner
+from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.exceptions.storage import SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -438,6 +439,25 @@ def update_properties_on_experiment(
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
                 "properties": experiment_with_updated_properties._properties,
+            }
+        )
+
+
+def update_properties_on_trial(
+    trial_with_updated_properties: BaseTrial,
+    config: Optional[SQAConfig] = None,
+) -> None:
+    config = config or SQAConfig()
+    trial_sqa_class = config.class_to_sqa_class[Trial]
+
+    trial_id = trial_with_updated_properties.db_id
+    if trial_id is None:
+        raise ValueError("Trial must be saved before being updated.")
+
+    with session_scope() as session:
+        session.query(trial_sqa_class).filter_by(id=trial_id).update(
+            {
+                "properties": trial_with_updated_properties._properties,
             }
         )
 

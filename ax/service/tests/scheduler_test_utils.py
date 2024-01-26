@@ -12,8 +12,11 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Callable, cast, Dict, Iterable, Optional, Set, Type
 from unittest.mock import call, Mock, patch, PropertyMock
 
+import pandas as pd
+
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.data import Data
 
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
@@ -48,6 +51,7 @@ from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.constants import Keys
@@ -249,7 +253,8 @@ class AxSchedulerTestCase(TestCase):
         "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
         "debug_log_run_metadata=False, early_stopping_strategy=None, "
         "global_stopping_strategy=None, suppress_storage_errors_after_"
-        "retries=False, wait_for_running_trials=True))"
+        "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
+        "validate_metrics=True))"
     )
 
     def setUp(self) -> None:
@@ -1071,6 +1076,20 @@ class AxSchedulerTestCase(TestCase):
             ),
             1,
         )
+
+    def test_from_stored_experiment(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        save_experiment(self.branin_experiment, config=self.db_config)
+        with self.subTest("it errors by default without a generation strategy"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "did not have a generation strategy",
+            ):
+                Scheduler.from_stored_experiment(
+                    experiment_name=self.branin_experiment.name,
+                    options=SchedulerOptions(),
+                    db_settings=self.db_settings,
+                )
 
     def test_unknown_generation_errors_eventually_exit(self) -> None:
         scheduler = Scheduler(
@@ -1899,3 +1918,77 @@ class AxSchedulerTestCase(TestCase):
             scheduler.get_improvement_over_baseline(
                 baseline_arm_name="baseline_arm_not_in_data",
             )
+
+    def test_it_can_skip_metric_validation(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        self.branin_experiment._optimization_config = None
+        for metric in self.branin_experiment.metrics:
+            self.branin_experiment.remove_tracking_metric(metric)
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                validate_metrics=False,
+                early_stopping_strategy=DummyEarlyStoppingStrategy(),
+                # Avoids error because `seconds_between_polls`
+                # is not defined on `DummyEarlyStoppingStrategy`
+                # init_seconds_between_polls=0.1,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        scheduler.run_n_trials(max_trials=1)
+
+        self.assertEqual(len(scheduler.experiment.completed_trials), 1)
+
+    def test_it_does_not_overwrite_data_with_combine_fetch_kwarg(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                fetch_kwargs={
+                    "combine_with_last_data": True,
+                }
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        scheduler.run_n_trials(max_trials=1)
+
+        self.assertEqual(len(self.branin_experiment.completed_trials), 1)
+        self.branin_experiment.attach_data(
+            Data(
+                df=pd.DataFrame(
+                    {
+                        "arm_name": ["0_0"],
+                        "metric_name": ["foo"],
+                        "mean": [1.0],
+                        "sem": [0.1],
+                        "trial_index": [0],
+                    }
+                )
+            )
+        )
+        attached_metrics = (
+            self.branin_experiment.lookup_data().df["metric_name"].unique()
+        )
+        # the attach has overwritten the data, so we can infer that
+        # fetching happened in the next `run_n_trials()`
+        self.assertNotIn("branin", attached_metrics)
+
+        scheduler.run_n_trials(max_trials=1)
+        attached_metrics = (
+            self.branin_experiment.lookup_data().df["metric_name"].unique()
+        )
+        # it did fetch again, but kept "foo" because of the combine kwarg
+        self.assertIn("foo", attached_metrics)
+        self.assertIn("branin", attached_metrics)

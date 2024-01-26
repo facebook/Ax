@@ -56,6 +56,7 @@ from ax.storage.sqa_store.save import (
     save_or_update_trials,
     update_generation_strategy,
     update_properties_on_experiment,
+    update_properties_on_trial,
     update_runner_on_experiment,
 )
 from ax.storage.sqa_store.sqa_classes import (
@@ -1755,6 +1756,29 @@ class SQAStoreTest(TestCase):
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
+
+    def test_update_properties_on_trial(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        self.assertNotIn("foo", experiment.trials[0]._properties)
+        save_experiment(experiment)
+
+        # Add a property to the trial
+        experiment.trials[0]._properties["foo"] = "bar"
+        update_properties_on_trial(
+            trial_with_updated_properties=experiment.trials[0],
+        )
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(loaded_experiment.trials[0]._properties["foo"], "bar")
+
+    def test_update_properties_on_trial_not_saved(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        experiment.trials[0]._properties["foo"] = "bar"
+        with self.assertRaisesRegex(
+            ValueError, "Trial must be saved before being updated."
+        ):
+            update_properties_on_trial(
+                trial_with_updated_properties=experiment.trials[0],
+            )
 
     def test_RepeatedArmStorage(self) -> None:
         experiment = get_experiment_with_batch_trial()

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from logging import LoggerAdapter
@@ -308,7 +309,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if not gs and not generation_strategy:
             raise ValueError(
                 f"Experiment {experiment_name} did not have a generation "
-                "strategy associated with in in database, so a new "
+                "strategy associated with it in the database, so a new "
                 "generation strategy must be provided as argument to "
                 "`Scheduler.from_stored_experiment`."
             )
@@ -1216,7 +1217,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         Returns:
             A boolean representing whether any trial evaluations completed
-            of have been marked as failed or abandoned, changing the number of
+            or have been marked as failed or abandoned, changing the number of
             currently running trials.
         """
         self._sleep_if_too_early_to_poll()
@@ -1254,6 +1255,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # 2. If any experiment metrics are available while running,
         #    fetch data for running trials
+        # create set of trials that have updated data
+        updated_trial_indices = set()
         if (
             any(
                 m.is_available_while_running() for m in self.experiment.metrics.values()
@@ -1271,11 +1274,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 trial_indices=running_trial_indices,
                 overwrite_existing_data=True,
             )
-            updated_any_trial = any(
-                r.is_ok()
-                for results_by_metric_name in results.values()
+            updated_trial_indices = {
+                i
+                for i, results_by_metric_name in results.items()
                 for r in results_by_metric_name.values()
-            )
+                if r.is_ok()
+            }
+            updated_any_trial = len(updated_trial_indices) > 0
 
         # 3. Determine which trials to stop early
         stop_trial_info = self.should_stop_trials_early(
@@ -1293,7 +1298,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             status_dict=new_status_to_trial_idcs,
             updating_status_dict={TrialStatus.EARLY_STOPPED: set(stop_trial_info)},
         )
-        updated_trials = []
+
         for status, trial_idcs in new_status_to_trial_idcs.items():
             if status.is_candidate or status.is_deployed:
                 # No need to consider candidate, staged or running trials here (none of
@@ -1324,13 +1329,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 newly_completed = trial_idcs - prev_completed_trial_idcs
                 self._process_completed_trials(newly_completed=newly_completed)
 
-            updated_trials.extend(trials)
+            updated_trial_indices = updated_trial_indices.union(
+                {t.index for t in trials}
+            )
 
         if updated_any_trial:  # Only save if there were updates.
-            self.logger.debug(f"Updating {len(updated_trials)} trials in DB.")
+            self.logger.debug(f"Updating {len(updated_trial_indices)} trials in DB.")
             self._save_or_update_trials_in_db_if_possible(
                 experiment=self.experiment,
-                trials=updated_trials,
+                trials=[self.experiment.trials[i] for i in updated_trial_indices],
             )
 
         return updated_any_trial
@@ -1341,7 +1348,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # fetch it during candidate generation.
         idcs = make_indices_str(indices=newly_completed)
         self.logger.info(f"Fetching data for trials: {idcs}.")
-        self._fetch_and_process_trials_data_results(trial_indices=newly_completed)
+        self._fetch_and_process_trials_data_results(
+            trial_indices=newly_completed,
+            overwrite_existing_data=False,
+        )
 
     def should_stop_trials_early(
         self, trial_indices: Set[int]
@@ -1460,7 +1470,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if not (0.0 <= options.tolerated_trial_failure_rate < 1.0):
             raise ValueError("`tolerated_trial_failure_rate` must be in [0, 1).")
 
-        if options.early_stopping_strategy is not None:
+        if options.early_stopping_strategy is not None and options.validate_metrics:
             if not any(
                 m.is_available_while_running() for m in self.experiment.metrics.values()
             ):
@@ -1740,15 +1750,22 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             "`Scheduler` requires that experiment specifies metrics "
             "with implemented fetching logic."
         )
+        metrics_are_invalid = False
         if not experiment.metrics:
-            raise UnsupportedError(msg)
+            metrics_are_invalid = True
         else:
             base_metrics = {
                 m_name for m_name, m in experiment.metrics.items() if type(m) is Metric
             }
             if base_metrics:
                 msg += f" Metrics {base_metrics} do not implement fetching logic."
+                metrics_are_invalid = True
+
+        if metrics_are_invalid:
+            if self.options.validate_metrics:
                 raise UnsupportedError(msg)
+            else:
+                self.logger.warning(msg)
 
     def _enforce_immutable_search_space_and_opt_config(self) -> None:
         """Experiments with immutable search space and optimization config don't
@@ -1821,25 +1838,30 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             experiment_with_updated_properties=self.experiment
         )
 
-    def _fetch_trials_data(
-        self, trial_indices: Iterable[int], overwrite_existing_data: bool = False
-    ) -> None:
-        """Fetches data from experiment."""
-        self.experiment.fetch_trials_data(
-            trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
-        )
-
     def _fetch_and_process_trials_data_results(
-        self, trial_indices: Iterable[int], overwrite_existing_data: bool = False
+        self,
+        trial_indices: Iterable[int],
+        overwrite_existing_data: bool = False,
     ) -> Dict[int, Dict[str, MetricFetchResult]]:
         """
         Fetches results from experiment and modifies trial statuses depending on
         success or failure.
         """
 
-        results = self.experiment.fetch_trials_data_results(
-            trial_indices=trial_indices, overwrite_existing_data=overwrite_existing_data
-        )
+        try:
+            kwargs = deepcopy(self.options.fetch_kwargs)
+            if "overwrite_existing_data" not in kwargs:
+                kwargs["overwrite_existing_data"] = overwrite_existing_data
+
+            results = self.experiment.fetch_trials_data_results(
+                trial_indices=trial_indices,
+                **kwargs,
+            )
+        except Exception as e:
+            self.logger.exception(
+                f"Failed to fetch data for trials {trial_indices} with error: {e}"
+            )
+            return {}
 
         for trial_index, results_by_metric_name in results.items():
             for metric_name, result in results_by_metric_name.items():

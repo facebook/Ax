@@ -3,10 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from logging import INFO
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -102,6 +102,9 @@ class SchedulerOptions:
             it's encountered while saving to DB or loading from it.
         wait_for_running_trials: Whether the scheduler should wait for running trials
             or exit.
+        fetch_kwargs: Kwargs to be used when fetching data.
+        validate_metrics: Whether to raise an error if there is a problem with the
+            metrics attached to the experiment.
     """
 
     max_pending_trials: int = 10
@@ -123,3 +126,5 @@ class SchedulerOptions:
     global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
     suppress_storage_errors_after_retries: bool = False
     wait_for_running_trials: bool = True
+    fetch_kwargs: Dict[str, Any] = field(default_factory=dict)
+    validate_metrics: bool = True
