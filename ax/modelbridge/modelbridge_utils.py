@@ -534,6 +534,17 @@ def get_fixed_features(
     return fixed_features_dict
 
 
+def get_fixed_features_from_experiment(
+    experiment: Experiment,
+) -> ObservationFeatures:
+    completed_indices = [t.index for t in experiment.completed_trials]
+    completed_indices.append(0)  # handle case of no completed trials
+    return ObservationFeatures(
+        parameters={},
+        trial_index=max(completed_indices),
+    )
+
+
 def pending_observations_as_array_list(
     pending_observations: Dict[str, List[ObservationFeatures]],
     outcome_names: List[str],

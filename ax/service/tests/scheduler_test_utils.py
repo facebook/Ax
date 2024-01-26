@@ -33,7 +33,7 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Models, ST_MTGP_trans
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
@@ -71,6 +71,7 @@ from ax.utils.testing.core_stubs import (
     get_sobol,
     SpecialGenerationStrategy,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -2032,3 +2033,48 @@ class AxSchedulerTestCase(TestCase):
         # it did fetch again, but kept "foo" because of the combine kwarg
         self.assertIn("foo", attached_metrics)
         self.assertIn("branin", attached_metrics)
+
+    @fast_botorch_optimize
+    def test_it_works_with_multitask_models(
+        self,
+    ) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=GenerationStrategy(
+                steps=[
+                    GenerationStep(
+                        model=Models.SOBOL,
+                        num_trials=1,
+                    ),
+                    GenerationStep(
+                        model=Models.GPEI,
+                        num_trials=1,
+                    ),
+                    GenerationStep(
+                        model=Models.BOTORCH_MODULAR,
+                        model_kwargs={
+                            # this will cause and error if the model
+                            # doesn't get fixed features
+                            "transforms": ST_MTGP_trans,
+                        },
+                        num_trials=1,
+                    ),
+                ]
+            ),
+        )
+
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                total_trials=3,
+                # pyre-fixme[6]: For 2nd param expected `Optional[int]` but got `float`.
+                init_seconds_between_polls=0.1,  # Short between polls so test is fast.
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        scheduler.run_n_trials(max_trials=3)
+
+        # This is to ensure it generated from all nodes
+        self.assertTrue(scheduler.standard_generation_strategy.optimization_complete)
+        self.assertEqual(len(self.branin_experiment.trials), 3)

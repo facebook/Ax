@@ -32,7 +32,12 @@ from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Cont_X_trans, MODEL_KEY_TO_MODEL_SETUP, Models
+from ax.modelbridge.registry import (
+    Cont_X_trans,
+    MODEL_KEY_TO_MODEL_SETUP,
+    Models,
+    ST_MTGP_trans,
+)
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
@@ -52,6 +57,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_hierarchical_search_space_experiment,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestGenerationStrategy(TestCase):
@@ -978,6 +984,50 @@ class TestGenerationStrategy(TestCase):
                         self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
                         for p in original_pending[m]:
                             self.assertIn(p, pending[m])
+
+    @fast_botorch_optimize
+    def test_gen_for_multiple_trials_with_multiple_models_with_fixed_features(
+        self,
+    ) -> None:
+        exp = get_branin_experiment()
+        gs = GenerationStrategy(
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=1,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.BOTORCH_MODULAR,
+                    model_kwargs={
+                        # this will cause and error if the model
+                        # doesn't get fixed features
+                        "transforms": ST_MTGP_trans,
+                        **self.step_model_kwargs,
+                    },
+                    num_trials=1,
+                ),
+            ]
+        )
+        for _ in range(3):
+            grs = gs.gen_for_multiple_trials_with_multiple_models(
+                experiment=exp,
+                num_generator_runs=1,
+                n=2,
+            )
+            exp.new_batch_trial(generator_runs=grs[0]).mark_running(
+                no_runner_required=True
+            ).mark_completed()
+            exp.fetch_data()
+
+        # This is to ensure it generated from all nodes
+        self.assertTrue(gs.optimization_complete)
+        self.assertEqual(len(exp.trials), 3)
 
     # ---------- Tests for GenerationStrategies composed of GenerationNodes --------
     def test_gs_setup_with_nodes(self) -> None:
