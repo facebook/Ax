@@ -10,6 +10,7 @@ import traceback
 import warnings
 
 from dataclasses import dataclass
+from datetime import timedelta
 from functools import reduce
 from logging import Logger
 
@@ -125,6 +126,26 @@ class Metric(SortableBase, SerializationMixin):
         via `experiment.attach_data`.
         """
         return False
+
+    # NOTE: Override this if your metric can fetch new data even after the trial is
+    # completed.
+    @classmethod
+    def period_of_new_data_after_trial_completion(cls) -> timedelta:
+        """Period of time metrics of this class are still expecting new data to arrive
+        after trial completion.  This is useful for metrics whose results are processed
+        by some sort of data pipeline, where the pipeline will continue to land
+        additional data even after the trial is completed.
+
+        If the metric is not available after trial completion, this method will
+        return `timedelta(0)`. Otherwise, it should return the maximum amount of time
+        that the metric may have new data arrive after the trial is completed.
+
+        NOTE: This property will not prevent new data from attempting to be refetched
+        for completed trials when calling `experiment.fetch_data()`.  Its purpose is to
+        prevent `experiment.fetch_data()` from being called in `Scheduler` and anywhere
+        else it is checked.
+        """
+        return timedelta(0)
 
     # NOTE: This is rarely overridden –– oonly if you want to fetch data in groups
     # consisting of multiple different metric classes, for data to be fetched together.

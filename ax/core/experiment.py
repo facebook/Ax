@@ -1128,7 +1128,8 @@ class Experiment(Base):
         except KeyError:
             missing = set(trial_indices) - set(self.trials)
             raise ValueError(
-                f"Trial indices {missing} are not associated with the experiment."
+                f"Trial indices {missing} are not associated with the experiment.\n"
+                f"Trials indices available on this experiment: {list(self.trials)}."
             )
 
     def reset_runners(self, runner: Runner) -> None:
