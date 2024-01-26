@@ -31,6 +31,7 @@ from ax.exceptions.generation_strategy import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
+from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -510,9 +511,6 @@ class GenerationStrategy(GenerationStrategyInterface):
                 the ``n`` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from ``n``.
-            pending_observations: A map from metric name to pending
-                observations for that metric, used by some models to avoid
-                resuggesting points that are currently being evaluated.
 
         Returns:
             A list of lists of lists generator runs. Each outer list represents
@@ -527,6 +525,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             pending_observations=get_pending_observation_features_based_on_trial_status(
                 experiment=experiment
             ),
+            fixed_features=get_fixed_features_from_experiment(experiment=experiment),
         )
         return [[gr] for gr in grs]
 
