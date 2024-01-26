@@ -1989,6 +1989,7 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self, early_stop_trials: Optional[Dict[int, Optional[str]]] = None
     ) -> None:
         self.early_stop_trials: Dict[int, Optional[str]] = early_stop_trials or {}
+        self.seconds_between_polls = 1
 
     def should_stop_trials_early(
         self,
