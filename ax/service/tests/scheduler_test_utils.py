@@ -17,6 +17,7 @@ import pandas as pd
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 
 from ax.core.experiment import Experiment
@@ -58,7 +59,7 @@ from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     DummyEarlyStoppingStrategy,
     DummyGlobalStoppingStrategy,
@@ -267,7 +268,7 @@ class AxSchedulerTestCase(TestCase):
         "debug_log_run_metadata=False, early_stopping_strategy=None, "
         "global_stopping_strategy=None, suppress_storage_errors_after_"
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
-        "validate_metrics=True))"
+        "validate_metrics=True, status_quo_weight=0.0))"
     )
 
     def setUp(self) -> None:
@@ -425,7 +426,7 @@ class AxSchedulerTestCase(TestCase):
             current_timestamp_in_millis(),
         )
 
-    def ftest_repr(self) -> None:
+    def test_repr(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_GPEI_GS,
@@ -1533,7 +1534,7 @@ class AxSchedulerTestCase(TestCase):
 
         self.assertIsNotNone(scheduler.get_pareto_optimal_parameters())
 
-    def test_batch_trial(self) -> None:
+    def test_batch_trial(self, status_quo_weight: float = 0.0) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
@@ -1545,13 +1546,26 @@ class AxSchedulerTestCase(TestCase):
                 init_seconds_between_polls=0,  # Short between polls so test is fast.
                 trial_type=TrialType.BATCH_TRIAL,
                 batch_size=2,
+                status_quo_weight=status_quo_weight,
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-
+        self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
-        self.assertEqual(len(scheduler.experiment.trials[0].arms), 2)
+        trial = checked_cast(BatchTrial, scheduler.experiment.trials[0])
+        self.assertEqual(
+            len(trial.arms),
+            2 if status_quo_weight == 0.0 else 3,
+        )
+        if status_quo_weight > 0:
+            self.assertEqual(
+                trial.arm_weights[self.branin_experiment.status_quo],
+                1.0,
+            )
+
+    def test_batch_trial_with_status_quo(self) -> None:
+        self.test_batch_trial(status_quo_weight=1.0)
 
     def test_poll_and_process_results_with_reasons(self) -> None:
         options = SchedulerOptions(

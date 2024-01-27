@@ -1698,19 +1698,26 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise SchedulerInternalError(
                 "Generation strategy produced multiple arms when only one was expected."
             )
+        trials = []
+        for generator_run_list in generator_runs:
+            if self.options.trial_type == TrialType.BATCH_TRIAL:
+                trial = self.experiment.new_batch_trial(
+                    generator_runs=generator_run_list,
+                    ttl_seconds=self.options.ttl_seconds_for_trials,
+                )
+                if self.options.status_quo_weight > 0:
+                    trial.set_status_quo_with_weight(
+                        status_quo=self.experiment.status_quo,
+                        weight=self.options.status_quo_weight,
+                    )
+            else:
+                trial = self.experiment.new_trial(
+                    generator_run=generator_run_list[0],
+                    ttl_seconds=self.options.ttl_seconds_for_trials,
+                )
 
-        return [
-            self.experiment.new_batch_trial(
-                generator_runs=generator_run_list,
-                ttl_seconds=self.options.ttl_seconds_for_trials,
-            )
-            if self.options.trial_type == TrialType.BATCH_TRIAL
-            else self.experiment.new_trial(
-                generator_run=generator_run_list[0],
-                ttl_seconds=self.options.ttl_seconds_for_trials,
-            )
-            for generator_run_list in generator_runs
-        ]
+            trials.append(trial)
+        return trials
 
     def _gen_new_trials_from_generation_strategy(
         self,

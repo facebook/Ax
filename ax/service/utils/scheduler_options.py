@@ -105,6 +105,9 @@ class SchedulerOptions:
         fetch_kwargs: Kwargs to be used when fetching data.
         validate_metrics: Whether to raise an error if there is a problem with the
             metrics attached to the experiment.
+        status_quo_weight: The weight of the status quo arm. This is only used
+            if the scheduler is using a BatchTrial. This requires that the status_quo
+            be set on the experiment.
     """
 
     max_pending_trials: int = 10
@@ -128,3 +131,4 @@ class SchedulerOptions:
     wait_for_running_trials: bool = True
     fetch_kwargs: Dict[str, Any] = field(default_factory=dict)
     validate_metrics: bool = True
+    status_quo_weight: float = 0.0
