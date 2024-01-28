@@ -53,6 +53,7 @@ from botorch.models.transforms.input import (
     InputTransform,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
+from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -207,7 +208,9 @@ class Surrogate(Base):
             if self.botorch_model_class == PairwiseGP and isinstance(
                 dataset, RankingDataset
             ):
-                Xi = dataset.X.values
+                # directly accessing the d-dim X tensor values
+                # instead of the augmented 2*d-dim dataset.X from RankingDataset
+                Xi = checked_cast(SliceContainer, dataset._X).values
             else:
                 Xi = dataset.X
             for _ in range(dataset.Y.shape[-1]):
