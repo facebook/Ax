@@ -4,71 +4,158 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from unittest import mock
+from typing import Dict
 
 import numpy as np
 import torch
+from ax.core import Arm, GeneratorRun
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.modelbridge.base import ModelBridge
+from ax.core.parameter import RangeParameter
+from ax.core.types import TEvaluationOutcome, TParameterization
+
 from ax.modelbridge.pairwise import (
     _binary_pref_to_comp_pair,
     _consolidate_comparisons,
     PairwiseModelBridge,
 )
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.service.utils.instantiation import InstantiationBase
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
+from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
+from botorch.models.transforms.input import Normalize
 from botorch.utils.datasets import RankingDataset
 
 
 class PairwiseModelBridgeTest(TestCase):
-    @mock.patch(
-        f"{ModelBridge.__module__}.ModelBridge.__init__",
-        autospec=True,
-        return_value=None,
-    )
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def test_PairwiseModelBridge(self, mock_init):
-        # Test _convert_observations
-        pmb = PairwiseModelBridge(
-            # pyre-fixme[6]: For 1st param expected `Experiment` but got `None`.
-            experiment=None,
-            # pyre-fixme[6]: For 2nd param expected `SearchSpace` but got `None`.
-            search_space=None,
-            # pyre-fixme[6]: For 3rd param expected `Data` but got `None`.
-            data=None,
-            # pyre-fixme[6]: For 4th param expected `TorchModel` but got `None`.
-            model=None,
-            transforms=[],
-            torch_dtype=None,
-            torch_device=None,
+    def setUp(self) -> None:
+        def evaluate(
+            parameters: Dict[str, TParameterization]
+        ) -> Dict[str, TEvaluationOutcome]:
+            # A pair at a time
+            assert len(parameters.keys()) == 2
+            arm1, arm2 = list(parameters.keys())
+            arm1_outcome_values = [
+                checked_cast(float, v) for v in parameters[arm1].values()
+            ]
+            arm2_outcome_values = [
+                checked_cast(float, v) for v in parameters[arm2].values()
+            ]
+            arm1_sum = float(sum(arm1_outcome_values))
+            arm2_sum = float(sum(arm2_outcome_values))
+            is_arm1_preferred = int(arm1_sum - arm2_sum > 0)
+            return {
+                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY: is_arm1_preferred},
+                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY: 1 - is_arm1_preferred},
+            }
+
+        experiment = InstantiationBase.make_experiment(
+            name="pref_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 0.6],
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [0.0, 0.7],
+                },
+            ],
+            objective_name=Keys.PAIRWISE_PREFERENCE_QUERY,
+            minimize=False,
+            is_test=True,
         )
+
+        for _ in range(3):
+            gr = GeneratorRun(
+                [
+                    Arm(
+                        {
+                            pn: np.random.uniform(
+                                low=checked_cast(RangeParameter, p).lower,
+                                high=checked_cast(RangeParameter, p).upper,
+                            )
+                            for pn, p in experiment.search_space.parameters.items()
+                        }
+                    )
+                    for _ in range(2)
+                ]
+            )
+            trial = experiment.new_batch_trial(generator_run=gr)
+            trial.attach_batch_trial_data(
+                raw_data=evaluate({a.name: a.parameters for a in trial.arms})
+            )
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+
+        # Manually add arms from previous trials
+        trial = experiment.new_batch_trial()
+        trial.add_arm(experiment.trials[1].arms[0])
+        trial.add_arm(experiment.trials[2].arms[0])
+        trial.attach_batch_trial_data(
+            raw_data=evaluate({a.name: a.parameters for a in trial.arms})
+        )
+        trial.mark_running(no_runner_required=True)
+        trial.mark_completed()
+
+        self.experiment = experiment
+        self.data = experiment.lookup_data()
+
+    def test_PairwiseModelBridge(self) -> None:
+        surrogate = Surrogate(
+            botorch_model_class=PairwiseGP,
+            mll_class=PairwiseLaplaceMarginalLogLikelihood,
+            input_transform_classes=[Normalize],
+            input_transform_options={
+                "Normalize": {"d": len(self.experiment.parameters)}
+            },
+        )
+
+        pmb = PairwiseModelBridge(
+            experiment=self.experiment,
+            search_space=self.experiment.search_space,
+            data=self.data,
+            model=BoTorchModel(
+                botorch_acqf_class=qNoisyExpectedImprovement,
+                surrogate=surrogate,
+            ),
+            transforms=[],
+        )
+        # Can generate candidates correctly
+        generator_run = pmb.gen(n=2)
+        self.assertEqual(len(generator_run.arms), 2)
 
         observation_data = [
             ObservationData(
-                metric_names=["pairwise_pref_query"],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
                 means=np.array([0]),
                 covariance=np.array([[np.nan]]),
             ),
             ObservationData(
-                metric_names=["pairwise_pref_query"],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
                 means=np.array([1]),
                 covariance=np.array([[np.nan]]),
             ),
         ]
         observation_features = [
-            ObservationFeatures(parameters={"y1": 0.1, "y2": 0.2}, trial_index=0),
-            ObservationFeatures(parameters={"y1": 0.3, "y2": 0.4}, trial_index=0),
+            ObservationFeatures(parameters={"X1": 0.1, "X2": 0.2}, trial_index=0),
+            ObservationFeatures(parameters={"X1": 0.3, "X2": 0.4}, trial_index=0),
         ]
         observation_features_with_metadata = [
-            ObservationFeatures(parameters={"y1": 0.1, "y2": 0.2}, trial_index=0),
+            ObservationFeatures(parameters={"X1": 0.1, "X2": 0.2}, trial_index=0),
             ObservationFeatures(
-                parameters={"y1": 0.3, "y2": 0.4},
+                parameters={"X1": 0.3, "X2": 0.4},
                 trial_index=0,
                 metadata={"metadata_key": "metadata_val"},
             ),
         ]
-        parameters = ["y1", "y2"]
-        outcomes = ["pairwise_pref_query"]
+        parameters = ["X1", "X2"]
+        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY)]
 
         datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,
