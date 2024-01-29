@@ -15,11 +15,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
 
 
-class TestCompletionCritereon(TestCase):
+class TestAEPsychCriterion(TestCase):
     """
-    `CompletionCriterion` is deprecrated and replaced by `TransitionCriterion`.
-    However, some legacy code still depends on the skelton implementation of
-    `CompletionCriterion`, so we will keep this test case until full reaping.
+    This test class tests the AEPsych usecase implementation. Previously, AEPsych
+    used `CompletionCriterion` to determine when to move to the next generation.
+    However, `CompletionCriterion` is deprecrated and replaced by `TransitionCriterion`.
+    We still want to test the bespoke TransitionCriterion used by AEPsych
     """
 
     def test_single_criterion(self) -> None:

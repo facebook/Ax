@@ -25,12 +25,6 @@ Generation Node
     :undoc-members:
     :show-inheritance:
 
-Completion Criterion
-.. automodule:: ax.modelbridge.completion_criterion
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Transition Criterion
 .. automodule:: ax.modelbridge.transition_criterion
     :members:
