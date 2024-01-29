@@ -409,7 +409,8 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(
             str(minimum_preference_occurances_criterion),
             "MinimumPreferenceOccurances({'metric_name': 'm1', 'threshold': 3, "
-            + "'transition_to': None, 'block_gen_if_met': False})",
+            + "'transition_to': None, 'block_gen_if_met': False, "
+            "'block_transition_if_unmet': True})",
         )
         deprecated_min_trials_criterion = MinimumTrialsInStatus(
             status=TrialStatus.COMPLETED, threshold=3

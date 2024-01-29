@@ -8,10 +8,9 @@ from unittest.mock import patch
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.modelbridge.completion_criterion import MinimumPreferenceOccurances
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.modelbridge.transition_criterion import MinTrials
+from ax.modelbridge.transition_criterion import MinimumPreferenceOccurances, MinTrials
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment
 
