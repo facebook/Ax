@@ -1157,6 +1157,14 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(total_trials_completed_so_far, total_trials)
 
     def test_run_trials_and_yield_results_with_early_stopper(self) -> None:
+        self._helper_for_run_trials_and_yield_results_with_early_stopper()
+
+    def _helper_for_run_trials_and_yield_results_with_early_stopper(
+        self,
+        # Overridable for generation_strategy_interfaces that aren't
+        # capable of respecting parallelism
+        respect_parellelism: bool = True,
+    ) -> None:
         total_trials = 3
         self.branin_experiment.runner = InfinitePollRunner()
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1182,11 +1190,15 @@ class AxSchedulerTestCase(TestCase):
             res_list = list(
                 scheduler.run_trials_and_yield_results(max_trials=total_trials)
             )
-            # Two steps complete the experiment given parallelism.
-            expected_num_polls = 2
+            expected_num_polls = 2 if respect_parellelism else 1
             self.assertEqual(len(res_list), expected_num_polls + 1)
             # Both trials in first batch of parallelism will be early stopped
-            self.assertEqual(len(res_list[0]["trials_early_stopped_so_far"]), 2)
+            self.assertEqual(
+                len(res_list[0]["trials_early_stopped_so_far"]),
+                self.two_sobol_steps_GS._steps[0].max_parallelism
+                if respect_parellelism
+                else total_trials,
+            )
             # Third trial in second batch of parallelism will be early stopped
             self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
             self.assertEqual(
