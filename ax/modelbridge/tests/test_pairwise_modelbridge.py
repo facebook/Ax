@@ -25,6 +25,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import Normalize
 from botorch.utils.datasets import RankingDataset
@@ -116,19 +117,29 @@ class PairwiseModelBridgeTest(TestCase):
             },
         )
 
-        pmb = PairwiseModelBridge(
-            experiment=self.experiment,
-            search_space=self.experiment.search_space,
-            data=self.data,
-            model=BoTorchModel(
-                botorch_acqf_class=qNoisyExpectedImprovement,
-                surrogate=surrogate,
+        cases = [
+            (qNoisyExpectedImprovement, None),
+            (
+                AnalyticExpectedUtilityOfBestOption,
+                # Analytic Acqfs do not support pending points and sequential opt
+                {"optimizer_kwargs": {"sequential": False}},
             ),
-            transforms=[],
-        )
-        # Can generate candidates correctly
-        generator_run = pmb.gen(n=2)
-        self.assertEqual(len(generator_run.arms), 2)
+        ]
+        for botorch_acqf_class, model_gen_options in cases:
+            pmb = PairwiseModelBridge(
+                experiment=self.experiment,
+                search_space=self.experiment.search_space,
+                data=self.data,
+                model=BoTorchModel(
+                    botorch_acqf_class=botorch_acqf_class,
+                    surrogate=surrogate,
+                ),
+                transforms=[],
+            )
+            # Can generate candidates correctly
+            # pyre-ignore: Incompatible parameter type [6]
+            generator_run = pmb.gen(n=2, model_gen_options=model_gen_options)
+            self.assertEqual(len(generator_run.arms), 2)
 
         observation_data = [
             ObservationData(
