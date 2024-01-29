@@ -5,10 +5,7 @@
 
 from logging import Logger
 
-from ax.modelbridge.transition_criterion import (
-    MinimumPreferenceOccurances,
-    TransitionCriterion,
-)
+from ax.modelbridge.transition_criterion import TransitionCriterion
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
@@ -22,18 +19,5 @@ class CompletionCriterion(TransitionCriterion):
 
     logger.warning(
         "CompletionCriterion is deprecated, please use TransitionCriterion instead."
-    )
-    pass
-
-
-class MinimumPreferenceOccurances(MinimumPreferenceOccurances):
-    """
-    Deprecated child class that has been replaced by `MinimumPreferenceOccurances`
-    in `TransitionCriterion`, and will be fully reaped in a future release.
-    """
-
-    logger.warning(
-        "CompletionCriterion, which MinimumPreferenceOccurance inherits from, is"
-        " deprecated. Please use TransitionCriterion instead."
     )
     pass
