@@ -83,6 +83,7 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.status.is_running)
 
         self.trial._status = TrialStatus.COMPLETED
+        self.assertEqual(str(self.trial._status), "TrialStatus.COMPLETED")
         self.assertTrue(self.trial.status.is_completed)
         self.assertTrue(self.trial.completed_successfully)
 

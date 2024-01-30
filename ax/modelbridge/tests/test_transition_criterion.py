@@ -380,8 +380,8 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(
             str(max_trials_criterion),
             "MaxTrials({'threshold': 5, "
-            + "'only_in_statuses': [<TrialStatus.COMPLETED: 3>], "
-            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "'only_in_statuses': [<enum 'TrialStatus'>.COMPLETED], "
+            + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_1', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True})",
@@ -397,8 +397,8 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(
             str(minimum_trials_in_status_criterion),
             "MinTrials({'threshold': 0, 'only_in_statuses': "
-            + "[<TrialStatus.COMPLETED: 3>, <TrialStatus.EARLY_STOPPED: 7>], "
-            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "[<enum 'TrialStatus'>.COMPLETED, <enum 'TrialStatus'>.EARLY_STOPPED], "
+            + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True})",
@@ -418,7 +418,7 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(
             str(deprecated_min_trials_criterion),
             "MinimumTrialsInStatus({"
-            + "'status': <TrialStatus.COMPLETED: 3>, "
+            + "'status': <enum 'TrialStatus'>.COMPLETED, "
             + "'threshold': 3, "
             + "'transition_to': None})",
         )
@@ -433,8 +433,8 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(
             str(max_parallelism),
             "MaxGenerationParallelism({'threshold': 3, 'only_in_statuses': "
-            + "[<TrialStatus.EARLY_STOPPED: 7>], "
-            + "'not_in_statuses': [<TrialStatus.FAILED: 2>], "
+            + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
+            + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True})",

@@ -151,6 +151,9 @@ class TrialStatus(int, Enum):
         """
         return f"{self!s}"
 
+    def __repr__(self) -> str:
+        return f"{self.__class__}.{self.name}"
+
 
 DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
     TrialStatus.RUNNING,
