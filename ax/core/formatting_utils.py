@@ -53,7 +53,7 @@ def raw_data_to_evaluation(
                 if not isinstance(dat, (float, int)):
                     raise UserInputError(
                         "Raw data for an arm is expected to either be a tuple of "
-                        "numerical mean and SEM or just a numerical mean."
+                        "numerical mean and SEM or just a numerical mean. "
                         f"Got: {dat} for metric '{metric_name}'."
                     )
                 raw_data[metric_name] = (float(dat), None)
