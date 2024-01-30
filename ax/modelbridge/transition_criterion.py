@@ -66,7 +66,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
         """If the criterion of this TransitionCriterion is met, returns True."""
         pass
 
-    # TODO: @mgarrard add back abstractmethod once legacy usecases are updated
+    @abstractmethod
     def block_continued_generation_error(
         self,
         node_name: Optional[str],
