@@ -70,6 +70,16 @@ class TrialAsTaskTransformTest(TestCase):
             observations=self.training_obs,
             config={"trial_level_map": self.bm2, "target_trial": 2},
         )
+        self.single_trial_level_map = {"bp1": {0: "u1", 1: "u1", 2: "u2"}}
+        self.inverse_map_custom = {"bp1": {"u1": 0, "u2": 2}}
+        self.t5 = TrialAsTask(
+            search_space=self.search_space,
+            observations=self.training_obs,
+            config={
+                "trial_level_map": self.single_trial_level_map,
+                "inverse_trial_level_map": self.inverse_map_custom,
+            },
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(
@@ -101,6 +111,24 @@ class TrialAsTaskTransformTest(TestCase):
                 observations=self.training_obs,
                 config={"trial_level_map": bm},
             )
+        # test passing inverse_trial_level_map
+        self.assertEqual(self.t5.trial_level_map, self.single_trial_level_map)
+        self.assertEqual(self.t5.inverse_map, self.inverse_map_custom["bp1"])
+        # test multiple parameters in inverse trial level map
+        with self.assertRaisesRegex(
+            ValueError, "Inverse trial level map must have exactly one parameter."
+        ):
+            TrialAsTask(
+                search_space=self.search_space,
+                observations=self.training_obs,
+                config={
+                    "trial_level_map": self.single_trial_level_map,
+                    "inverse_trial_level_map": {
+                        "bp1": {"u1": 0, "u2": 2},
+                        "bp2": {"u1": 0, "u2": 2},
+                    },
+                },
+            )
 
     def test_TransformObservationFeatures(self) -> None:
         obs_ft1 = deepcopy(self.training_feats)
@@ -128,6 +156,23 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft4 = deepcopy(self.training_feats)
         obs_ft4 = self.t3.untransform_observation_features(obs_ft4)
         self.assertEqual(obs_ft4, self.training_feats)
+        obs_ft5 = self.t5.transform_observation_features(obs_ft1)
+        obs_ft_trans5 = [
+            ObservationFeatures({"x": 1, "bp1": "u1"}),
+            ObservationFeatures({"x": 2, "bp1": "u1"}),
+            ObservationFeatures({"x": 3, "bp1": "u1"}),
+            ObservationFeatures({"x": 4, "bp1": "u2"}),
+        ]
+        self.assertEqual(obs_ft5, obs_ft_trans5)
+        obs_ft5 = self.t5.untransform_observation_features(obs_ft5)
+        # check the training feature with trial index of 1 is mapped back
+        # to 0, according to inverse_map
+        for obs_ft, train_ft in zip(obs_ft5, self.training_feats):
+            if train_ft.trial_index == 1:
+                self.assertEqual(obs_ft.trial_index, 0)
+            else:
+                self.assertEqual(obs_ft.trial_index, train_ft.trial_index)
+            self.assertEqual(obs_ft.parameters, train_ft.parameters)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
