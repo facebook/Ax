@@ -978,11 +978,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 n_remaining_to_generate = self._num_remaining_requested_trials - len(
                     self.candidate_trials
                 )
-
-            # Wait for trial evaluations to complete and process results.
-            yield self.wait_for_completed_trials_and_report_results(
-                idle_callback=idle_callback
+            # this is safeguard in case no trial statuses have been updated, and
+            # wait_for_running_trials=False, in which case we do not want to continue
+            # to loop and poll
+            report_results = self._check_exit_status_and_report_results(
+                n_existing=n_existing, idle_callback=idle_callback, force_refit=False
             )
+            if report_results is None:
+                return
+            else:
+                yield report_results
 
         # When done scheduling, wait for the remaining trials to finish running
         # (unless optimization is aborting, in which case stop right away).
@@ -996,16 +1001,30 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
-            if not self.should_wait_for_running_trials:
-                return
-            yield self.wait_for_completed_trials_and_report_results(
-                idle_callback, force_refit=True
+            report_results = self._check_exit_status_and_report_results(
+                n_existing=n_existing, idle_callback=idle_callback, force_refit=True
             )
+            if report_results is None:
+                return
+            else:
+                yield report_results
 
         yield self._complete_optimization(
             num_preexisting_trials=n_existing, idle_callback=idle_callback
         )
         return
+
+    def _check_exit_status_and_report_results(
+        self,
+        n_existing: int,
+        idle_callback: Optional[Callable[[Scheduler], None]],
+        force_refit: bool,
+    ) -> Optional[Dict[str, Any]]:
+        if not self.should_wait_for_running_trials:
+            return None
+        return self.wait_for_completed_trials_and_report_results(
+            idle_callback, force_refit=True
+        )
 
     def run_n_trials(
         self,
