@@ -331,10 +331,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         """Checks whether all nodes are completed in the generation strategy and
         the current node is not an AEPsych node.
         """
-        # TODO: @mgarrard clean up with legacy usecase removal
-        return all(node.is_completed for node in self._nodes) and "AEPsych" not in str(
-            self._curr
-        )
+        return all(node.is_completed for node in self._nodes)
 
     @step_based_gs_only
     def _validate_and_set_step_sequence(self, steps: List[GenerationStep]) -> None:
@@ -379,8 +376,8 @@ class GenerationStrategy(GenerationStrategyInterface):
             if idx != len(self._steps):
                 for transition_criteria in step.transition_criteria:
                     if (
-                        transition_criteria.criterion_class == "MinTrials"
-                        or transition_criteria.criterion_class == "MaxTrials"
+                        transition_criteria.criterion_class
+                        != "MaxGenerationParallelism"
                     ):
                         transition_criteria._transition_to = (
                             f"GenerationStep_{str(idx + 1)}"

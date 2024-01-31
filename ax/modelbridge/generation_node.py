@@ -405,27 +405,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         Returns:
             bool: Whether we should transition to the next node.
         """
-        # TODO: @mgarrard remove check when legacy usecase is updated
-        criterion_names = [str(criterion) for criterion in self.transition_criteria]
-        if "AEPsych" in str(self) or any(
-            "MinimumPreferenceOccurances" in name for name in criterion_names
-        ):
-            if all(
-                criterion.is_met(experiment=self.experiment)
-                for criterion in self.transition_criteria
-            ):
-                # legacy usecase criterion don't define `transition_to` but the
-                # assumption of this naming structure for steps hold for all legacy
-                # generation strategies.
-                next_node_name = (
-                    self.node_name.split("_")[0]
-                    + "_"
-                    + str(int(self.node_name.split("_")[-1]) + 1)
-                )
-                return True, next_node_name
-            else:
-                return False, None
-
         if self.gen_unlimited_trials and len(self.transition_criteria) == 0:
             return False, None
 
@@ -488,15 +467,6 @@ class GenerationNode(SerializationMixin, SortableBase):
               - the number of generator runs that can currently be produced, with -1
                 meaning unlimited generator runs,
         """
-        # TODO @mgarrard remove filter when legacy usecases are updated
-        valid_criterion = []
-        for criterion in self.transition_criteria:
-            if criterion.criterion_class not in {
-                "MinAsks",
-                "RunIndefinitely",
-            }:
-                valid_criterion.append(criterion)
-
         # TODO: @mgarrard Should we consider returning `None` if there is no limit?
         # TODO:@mgarrard Should we instead have `raise_generation_error`? The name
         # of this method doesn't suggest that it would raise errors by default, since
@@ -505,7 +475,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # something like that : )
         trial_based_gen_blocking_criteria = [
             criterion
-            for criterion in valid_criterion
+            for criterion in self.transition_criteria
             if criterion.block_gen_if_met and isinstance(criterion, TrialBasedCriterion)
         ]
         gen_blocking_criterion_delta_from_threshold = [

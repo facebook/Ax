@@ -391,6 +391,10 @@ def transition_criteria_from_json(
                     transition_to=criterion_json.pop("transition_to")
                     if "transition_to" in criterion_json.keys()
                     else None,
+                    block_transition_if_unmet=criterion_json.pop(
+                        "block_transition_if_unmet", True
+                    ),
+                    block_gen_if_met=criterion_json.pop("block_gen_if_met", False),
                 )
             )
         elif criterion_type == "MaxGenerationParallelism":
