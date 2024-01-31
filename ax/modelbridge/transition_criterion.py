@@ -378,7 +378,10 @@ class MinimumTrialsInStatus(TransitionCriterion):
     """
 
     def __init__(
-        self, status: TrialStatus, threshold: int, transition_to: Optional[str] = None
+        self,
+        status: TrialStatus,
+        threshold: int,
+        transition_to: Optional[str] = None,
     ) -> None:
         self.status = status
         self.threshold = threshold

@@ -342,13 +342,17 @@ class JSONStoreTest(TestCase):
             if isinstance(original_object, GenerationStrategy):
                 original_object._unset_non_persistent_state_fields()
                 # for the test, completion criterion are set post init
-                # and therefore do not become transition critirion, unset
+                # and therefore do not become transition criterion, unset
                 # for this specific test only
                 if "with_completion_criteria" in fake_func.keywords:
                     for step in original_object._steps:
                         step._transition_criteria = None
                     for step in converted_object._steps:
                         step._transition_criteria = None
+                    # also unset the `transition_to` field for the same reason
+                    for criterion in converted_object._steps[0].completion_criteria:
+                        if criterion.criterion_class == "MinimumPreferenceOccurances":
+                            criterion._transition_to = None
             try:
                 self.assertEqual(
                     original_object,

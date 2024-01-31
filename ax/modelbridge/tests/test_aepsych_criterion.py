@@ -49,6 +49,11 @@ class TestAEPsychCriterion(TestCase):
                 raise_data_required_error=False
             )
         )
+        # check the transition_to is being set
+        self.assertEqual(
+            generation_strategy._curr.transition_criteria[0].transition_to,
+            "GenerationStep_1",
+        )
 
         data = Data(
             df=pd.DataFrame(
