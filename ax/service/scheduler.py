@@ -162,7 +162,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     experiment: Experiment
     generation_strategy: GenerationStrategyInterface
-    options: SchedulerOptions
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
     # results}. This is a mapping and not a list to allow for changing of
@@ -214,10 +213,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         db_settings: Optional[DBSettings] = None,
         _skip_experiment_save: bool = False,
     ) -> None:
+        self.experiment = experiment
         # Initialize options used in `__repr__` upfront, before any errors
         # might be enncountered, reporting of which would call `__repr__`.
         self.options = options
-        self.experiment = experiment
         # NOTE: Parallelism schedule is embedded in the generation
         # strategy, as `GenerationStep.max_parallelism`.
         self.generation_strategy = generation_strategy
@@ -226,7 +225,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise TypeError("{experiment} is not an Ax experiment.")
         if not isinstance(generation_strategy, GenerationStrategyInterface):
             raise TypeError("{generation_strategy} is not a generation strategy.")
-        self._validate_options(options=options)
 
         # Initialize storage layer for the scheduler.
         super().__init__(
@@ -347,6 +345,17 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             }
         )
         return scheduler
+
+    @property
+    def options(self) -> SchedulerOptions:
+        """Scheduler options."""
+        return self._options  # pyre-ignore [16]
+
+    @options.setter
+    def options(self, options: SchedulerOptions) -> None:
+        """Set scheduler options."""
+        self._validate_options(options=options)
+        self._options = options
 
     @property
     def running_trials(self) -> List[BaseTrial]:
