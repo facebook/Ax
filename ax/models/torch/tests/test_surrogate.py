@@ -14,7 +14,7 @@ import torch
 from ax.core.search_space import RobustSearchSpaceDigest, SearchSpaceDigest
 from ax.exceptions.core import UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import _extract_model_kwargs, Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorch_model
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
@@ -54,6 +54,72 @@ RANK = "rank"
 class SingleTaskGPWithDifferentConstructor(SingleTaskGP):
     def __init__(self, train_X: Tensor, train_Y: Tensor) -> None:
         super().__init__(train_X=train_X, train_Y=train_Y)
+
+
+class ExtractModelKwargsTest(TestCase):
+    def test__extract_model_kwargs(self) -> None:
+        feature_names = ["a", "b"]
+        bounds = [(0.0, 1.0), (0.0, 1.0)]
+
+        with self.subTest("Multi-fidelity with task features not supported"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+                task_features=[0],
+                fidelity_features=[0],
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError, "Multi-Fidelity GP models with task_features"
+            ):
+                _extract_model_kwargs(
+                    search_space_digest=search_space_digest,
+                )
+
+        with self.subTest("Multiple task features not supported"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+                task_features=[0, 1],
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError, "Multiple task features are not supported"
+            ):
+                _extract_model_kwargs(
+                    search_space_digest=search_space_digest,
+                )
+
+        with self.subTest("Task feature provided"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+                task_features=[1],
+            )
+            model_kwargs = _extract_model_kwargs(
+                search_space_digest=search_space_digest,
+            )
+            self.assertSetEqual(
+                set(model_kwargs.keys()),
+                {"fidelity_features", "task_feature", "categorical_features"},
+            )
+            self.assertEqual(model_kwargs["task_feature"], 1)
+            self.assertEqual(model_kwargs["fidelity_features"], [])
+            self.assertEqual(model_kwargs["categorical_features"], [])
+
+        with self.subTest("No task feature provided"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+            )
+            model_kwargs = _extract_model_kwargs(
+                search_space_digest=search_space_digest,
+            )
+            self.assertSetEqual(
+                set(model_kwargs.keys()),
+                {"fidelity_features", "task_feature", "categorical_features"},
+            )
+            self.assertIsNone(model_kwargs["task_feature"])
+            self.assertEqual(model_kwargs["fidelity_features"], [])
+            self.assertEqual(model_kwargs["categorical_features"], [])
 
 
 class SurrogateTest(TestCase):
