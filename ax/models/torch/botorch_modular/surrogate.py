@@ -9,7 +9,7 @@ from __future__ import annotations
 import inspect
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type
+from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -258,26 +258,24 @@ class Surrogate(Base):
             dataset=dataset, botorch_model_class=botorch_model_class
         ):
             return self._submodels[outcome_names]
-        (
-            fidelity_features,
-            task_feature,
-            categorical_features,
-            input_transform_classes,
-            input_transform_options,
-        ) = self._extract_construct_model_list_kwargs(
-            search_space_digest=search_space_digest,
+        model_kwargs_from_ss = self._extract_model_kwargs(
+            search_space_digest=search_space_digest
         )
 
-        input_constructor_kwargs = {
-            **self.model_options,
-            "fidelity_features": fidelity_features,
-            "task_feature": task_feature,
-            "categorical_features": categorical_features,
-        }
-        botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
-        formatted_model_inputs = botorch_model_class.construct_inputs(
-            training_data=dataset, **input_constructor_kwargs
+        (
+            input_transform_classes,
+            input_transform_options,
+        ) = self._extract_construct_input_transform_args(
+            search_space_digest=search_space_digest
         )
+
+        formatted_model_inputs = botorch_model_class.construct_inputs(
+            training_data=dataset,
+            **self.model_options,
+            **model_kwargs_from_ss,
+        )
+
+        botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
         self._set_formatted_inputs(
             formatted_model_inputs=formatted_model_inputs,
             inputs=[
@@ -713,15 +711,19 @@ class Surrogate(Base):
             "allow_batched_models": self.allow_batched_models,
         }
 
-    def _extract_construct_model_list_kwargs(
+    def _extract_model_kwargs(
         self, search_space_digest: SearchSpaceDigest
-    ) -> Tuple[
-        List[int],
-        Optional[int],
-        List[int],
-        Optional[List[Type[InputTransform]]],
-        Dict[str, Dict[str, Any]],
-    ]:
+    ) -> Dict[str, Union[List[int], Optional[int]]]:
+        """
+        Extracts keyword arguments that are passed to the `construct_inputs`
+        method of a BoTorch `Model` class.
+
+        Args:
+            search_space_digest: A `SearchSpaceDigest`.
+
+        Returns:
+            A dict of fidelity features, task features, and categorical features.
+        """
         fidelity_features = search_space_digest.fidelity_features
         task_features = search_space_digest.task_features
         if len(fidelity_features) > 0 and len(task_features) > 0:
@@ -737,6 +739,29 @@ class Surrogate(Base):
             task_feature = task_features[0]
         else:
             task_feature = None
+
+        return {
+            "fidelity_features": fidelity_features,
+            "task_feature": task_feature,
+            "categorical_features": search_space_digest.categorical_features,
+        }
+
+    def _extract_construct_input_transform_args(
+        self, search_space_digest: SearchSpaceDigest
+    ) -> Tuple[Optional[List[Type[InputTransform]]], Dict[str, Dict[str, Any]]]:
+        """
+        Extracts input transform classes and input transform options that will
+        be used in `self._set_formatted_inputs` and ultimately passed to
+        BoTorch.
+
+        Args:
+            search_space_digest: A `SearchSpaceDigest`.
+
+        Returns:
+            A tuple containing
+                - Either `None` or a list of input transform classes,
+                - A dictionary of input transform options.
+        """
 
         # Construct input perturbation if doing robust optimization.
         # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
@@ -766,9 +791,6 @@ class Surrogate(Base):
             submodel_input_transform_options = self.input_transform_options
 
         return (
-            fidelity_features,
-            task_feature,
-            search_space_digest.categorical_features,
             submodel_input_transform_classes,
             submodel_input_transform_options,
         )
