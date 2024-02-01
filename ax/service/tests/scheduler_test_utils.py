@@ -624,19 +624,26 @@ class AxSchedulerTestCase(TestCase):
         self.assertFalse(test_obj[0] == 0)
         self.assertTrue(test_obj[1] == "apple")
 
-    def test_run_n_trials_single_step_existing_experiment(self) -> None:
+    def test_run_n_trials_single_step_existing_experiment(
+        self, all_completed_trials: bool = False
+    ) -> None:
         # Test using the Scheduler to run a single experiment update step.
         # This is the typical behavior in Axolotl.
         branin_experiment = get_branin_experiment(
-            with_batch=True,
             with_status_quo=True,
             with_completed_trial=True,
         )
         branin_experiment.runner = SyntheticRunnerWithSingleRunningTrial()
         trial0 = branin_experiment.trials[0]
         trial0.assign_runner()
-        branin_experiment.trials[1].assign_runner()
-        trial0.mark_running()
+        sobol_generator = get_sobol(search_space=branin_experiment.search_space)
+        sobol_run = sobol_generator.gen(n=15)
+        trial1 = branin_experiment.new_batch_trial(optimize_for_power=False)
+        trial1.add_generator_run(sobol_run)
+        trial1.assign_runner()
+        trial1.mark_running()
+        if all_completed_trials:
+            trial1.mark_completed()
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
@@ -678,18 +685,41 @@ class AxSchedulerTestCase(TestCase):
                     timeout_hours=None,
                     idle_callback=None,
                 ),
-                call.poll_and_process_results(),
             ]
             self.assertEqual(manager.mock_calls, expected_calls)
             self.assertEqual(len(scheduler.experiment.trials), 3)
             # check status
+            # Note: there is a one step delay here since we do no poll again
+            # after running a new trial. So the previous trial is only marked as
+            # completed when scheduler.run_n_trials is called again.
+            self.assertEqual(
+                scheduler.experiment.trials[0].status, TrialStatus.COMPLETED
+            )
+            self.assertEqual(
+                scheduler.experiment.trials[1].status,
+                TrialStatus.COMPLETED if all_completed_trials else TrialStatus.RUNNING,
+            )
+            self.assertEqual(scheduler.experiment.trials[2].status, TrialStatus.RUNNING)
+            scheduler.run_n_trials(max_trials=1)
+            self.assertEqual(len(scheduler.experiment.trials), 4)
             self.assertEqual(
                 scheduler.experiment.trials[0].status, TrialStatus.COMPLETED
             )
             self.assertEqual(
                 scheduler.experiment.trials[1].status, TrialStatus.COMPLETED
             )
-            self.assertEqual(scheduler.experiment.trials[2].status, TrialStatus.RUNNING)
+            self.assertEqual(
+                scheduler.experiment.trials[2].status,
+                TrialStatus.RUNNING,
+            )
+            self.assertEqual(scheduler.experiment.trials[3].status, TrialStatus.RUNNING)
+
+    def test_run_n_trials_single_step_all_completed_trials(self) -> None:
+        # test that scheduler does not continue to loop, but rather exits it immediately
+        # if wait_for_running_trials is False
+        self.test_run_n_trials_single_step_existing_experiment(
+            all_completed_trials=True
+        )
 
     def test_run_preattached_trials_only(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
