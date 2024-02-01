@@ -24,6 +24,13 @@ CONSTRAINT_WARNING_MESSAGE: str = (
 LOWER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Lower", "is_better": "lower"}
 UPPER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Upper", "is_better": "higher"}
 
+CONSTRAINT_THRESHOLD_WARNING_MESSAGE: str = (
+    "Constraint threshold on {name} appears invalid: {bound} bound on metric "
+    + "for which {is_better} values is better."
+)
+UPPER_BOUND_THRESHOLD: Dict[str, str] = {"bound": "Positive", "is_better": "lower"}
+LOWER_BOUND_THRESHOLD: Dict[str, str] = {"bound": "Negative", "is_better": "higher"}
+
 
 class OutcomeConstraint(SortableBase):
     """Base class for representing outcome constraints.
@@ -49,7 +56,7 @@ class OutcomeConstraint(SortableBase):
     def __init__(
         self, metric: Metric, op: ComparisonOp, bound: float, relative: bool = True
     ) -> None:
-        self._validate_metric_constraint(metric=metric, op=op)
+        self._validate_metric_constraint_op(metric=metric, op=op)
         self._metric = metric
         self._op = op
         self.bound = bound
@@ -61,7 +68,7 @@ class OutcomeConstraint(SortableBase):
 
     @metric.setter
     def metric(self, metric: Metric) -> None:
-        self._validate_metric_constraint(metric=metric, op=self.op)
+        self._validate_metric_constraint_op(metric=metric, op=self.op)
         self._metric = metric
 
     @property
@@ -70,7 +77,7 @@ class OutcomeConstraint(SortableBase):
 
     @op.setter
     def op(self, op: ComparisonOp) -> None:
-        self._validate_metric_constraint(metric=self.metric, op=op)
+        self._validate_metric_constraint_op(metric=self.metric, op=op)
         self._op = op
 
     def clone(self) -> OutcomeConstraint:
@@ -83,13 +90,24 @@ class OutcomeConstraint(SortableBase):
         )
 
     @staticmethod
-    def _validate_metric_constraint(metric: Metric, op: ComparisonOp) -> None:
+    def _validate_metric_constraint_op(
+        metric: Metric, op: ComparisonOp
+    ) -> Tuple[bool, str]:
         """Ensure constraint is compatible with metric definition.
 
         Args:
             metric: Metric to constrain.
             op: Specifies whether metric should be greater or equal
-                to, or less than or equal to, some bound.
+                to, or less than or equal to, some bound. In case metric has:
+                - lower_is_better=True, op is interpreted as an upper bound and
+                    should be LEQ.
+                - lower_is_better=False, op is interpreted as a lower bound and
+                    should be GEQ.
+
+        Returns: A tuple consisting of
+            - A boolean indicating whether the constraint is valid,
+            - A string containing a warning message if the constraint is invalid.
+
         """
         fmt_data = None
         if metric.lower_is_better is not None:
@@ -99,7 +117,47 @@ class OutcomeConstraint(SortableBase):
                 fmt_data = UPPER_BOUND_MISMATCH
         if fmt_data is not None:
             fmt_data["name"] = metric.name
-            logger.debug(CONSTRAINT_WARNING_MESSAGE.format(**fmt_data))
+            msg = CONSTRAINT_WARNING_MESSAGE.format(**fmt_data)
+            logger.debug(msg)
+            return False, msg
+        return True, str()
+
+    def _validate_constraint(self) -> Tuple[bool, str]:
+        """Ensure constraint is compatible with metric definition.
+        In case metric has:
+            - lower_is_better=True: op is interpreted as an upper bound
+                and should be LEQ; bound should be positive in case
+                of relative constraint.
+            - lower_is_better=False, op is interpreted as a lower bound
+                and should be GEQ; bound should be negative in case
+                of relative constraint.
+
+        Returns: A tuple consisting of
+            - A boolean indicating whether the constraint is valid,
+            - A string containing a warning message if the constraint is invalid.
+        """
+        valid_op, msg = self._validate_metric_constraint_op(
+            metric=self.metric, op=self.op
+        )
+        if not valid_op:
+            return False, msg
+
+        if not self.relative:
+            return True, str()
+
+        fmt_data = None
+        if self.metric.lower_is_better is not None:
+            if self.bound < 0 and self.metric.lower_is_better:
+                fmt_data = UPPER_BOUND_THRESHOLD
+            if self.bound > 0 and not self.metric.lower_is_better:
+                fmt_data = LOWER_BOUND_THRESHOLD
+        if fmt_data is not None:
+            fmt_data["name"] = self.metric.name
+            msg += CONSTRAINT_THRESHOLD_WARNING_MESSAGE.format(**fmt_data)
+            logger.debug(msg)
+            return False, msg
+
+        return True, str()
 
     def __repr__(self) -> str:
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
@@ -201,7 +259,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         weights: Optional[List[float]] = None,
     ) -> None:
         for metric in metrics:
-            self._validate_metric_constraint(metric=metric, op=op)
+            self._validate_metric_constraint_op(metric=metric, op=op)
 
         if weights is None:
             weights = [1.0 / len(metrics)] * len(metrics)
@@ -225,7 +283,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
     @metrics.setter
     def metrics(self, metrics: List[Metric]) -> None:
         for metric in metrics:
-            self._validate_metric_constraint(metric=metric, op=self.op)
+            self._validate_metric_constraint_op(metric=metric, op=self.op)
         self._metrics = metrics
 
     @property
@@ -249,7 +307,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
     @op.setter
     def op(self, op: ComparisonOp) -> None:
         for metric in self.metrics:
-            self._validate_metric_constraint(metric=metric, op=op)
+            self._validate_metric_constraint_op(metric=metric, op=op)
         self._op = op
 
     def clone(self) -> ScalarizedOutcomeConstraint:
