@@ -15,7 +15,12 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TYPE_CHECKING, Uni
 import torch
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import (
+    AbandonedArm,
+    BatchTrial,
+    GeneratorRunStruct,
+    LifecycleStage,
+)
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
 from ax.core.trial import Trial
@@ -67,6 +72,7 @@ def batch_trial_from_json(
     generation_step_index: Optional[int] = None,
     properties: Optional[Dict[str, Any]] = None,
     stop_metadata: Optional[Dict[str, Any]] = None,
+    lifecycle_stage: Optional[LifecycleStage] = None,
     **kwargs: Any,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
@@ -96,6 +102,7 @@ def batch_trial_from_json(
     batch._status_quo_weight_override = status_quo_weight_override
     batch.optimize_for_power = optimize_for_power
     batch._generation_step_index = generation_step_index
+    batch._lifecycle_stage = lifecycle_stage
     batch._properties = properties
     batch._refresh_arms_by_name()  # Trigger cache build
     warn_on_kwargs(callable_with_kwargs=BatchTrial, **kwargs)

@@ -108,6 +108,9 @@ class SchedulerOptions:
         status_quo_weight: The weight of the status quo arm. This is only used
             if the scheduler is using a BatchTrial. This requires that the status_quo
             be set on the experiment.
+        enforce_immutable_search_space_and_opt_config: Whether to enforce that the
+            search space and optimization config are immutable.  If true, will add
+            `"immutable_search_space_and_opt_config": True` to experiment properties
     """
 
     max_pending_trials: int = 10
@@ -132,3 +135,4 @@ class SchedulerOptions:
     fetch_kwargs: Dict[str, Any] = field(default_factory=dict)
     validate_metrics: bool = True
     status_quo_weight: float = 0.0
+    enforce_immutable_search_space_and_opt_config: bool = True

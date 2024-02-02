@@ -656,6 +656,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 wait_for_running_trials=False,
+                enforce_immutable_search_space_and_opt_config=False,
             ),
             db_settings=self.db_settings_if_always_needed,
         )
