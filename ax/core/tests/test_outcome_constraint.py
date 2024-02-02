@@ -78,6 +78,28 @@ class OutcomeConstraintTest(TestCase):
         )
         self.assertTrue(constraint1 < constraint2)
 
+    def test_validate_constraint(self) -> None:
+
+        metric = Metric(name="metric0", lower_is_better=False)
+        oc = OutcomeConstraint(metric, bound=-3, relative=True, op=ComparisonOp.GEQ)
+        self.assertTrue(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=-3, relative=True, op=ComparisonOp.LEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=3, relative=True, op=ComparisonOp.GEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=3, relative=True, op=ComparisonOp.LEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+
+        metric = Metric(name="metric1", lower_is_better=True)
+        oc = OutcomeConstraint(metric, bound=3, relative=True, op=ComparisonOp.LEQ)
+        self.assertTrue(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=3, relative=True, op=ComparisonOp.GEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=-3, relative=True, op=ComparisonOp.LEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+        oc = OutcomeConstraint(metric, bound=-3, relative=True, op=ComparisonOp.GEQ)
+        self.assertFalse(oc._validate_constraint()[0])
+
 
 class ObjectiveThresholdTest(TestCase):
     def setUp(self) -> None:
