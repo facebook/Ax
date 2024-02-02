@@ -20,6 +20,7 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
+    choose_model_class,
     construct_acquisition_and_optimizer_options,
 )
 from ax.models.torch.utils import _filter_X_observed
@@ -248,46 +249,49 @@ class BoTorchModelTest(TestCase):
         ):
             self.model.botorch_acqf_class
 
-    @mock.patch(f"{SURROGATE_PATH}.choose_model_class", return_value=SingleTaskGP)
     @mock.patch(f"{SURROGATE_PATH}.use_model_list", return_value=False)
-    def test_construct(self, _: Mock, mock_choose_model_class: Mock) -> None:
-        # Ensure proper error is raised when mixing data w/ and w/o variance
+    def test__construct__raises_on_mixed_data(self, _: Mock) -> None:
+        """Ensure proper error is raised when mixing data w/ and w/o variance."""
         ds1, ds2 = self.non_block_design_training_data
+        datasets = [
+            ds1,
+            SupervisedDataset(
+                X=ds2.X,
+                Y=ds2.Y,
+                feature_names=ds2.feature_names,
+                outcome_names=ds2.outcome_names,
+            ),
+        ]
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert mixed data with and without variance"
         ):
             self.model.fit(
-                datasets=[
-                    ds1,
-                    SupervisedDataset(
-                        X=ds2.X,
-                        Y=ds2.Y,
-                        feature_names=ds2.feature_names,
-                        outcome_names=ds2.outcome_names,
-                    ),
-                ],
+                datasets=datasets,
                 metric_names=self.metric_names_for_list_surrogate,
-                search_space_digest=self.mf_search_space_digest,
+                search_space_digest=self.search_space_digest,
             )
 
-        # Ensure non-block design data is converted with warnings
+    @mock.patch(f"{SURROGATE_PATH}.use_model_list", return_value=False)
+    def test__construct__converts_non_block(self, _: Mock) -> None:
+        """Ensure non-block design data is converted with warnings."""
         ds = self.block_design_training_data[0]
         X1 = ds.X
         X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
+        datasets = [
+            ds,
+            SupervisedDataset(
+                X=X2,
+                Y=ds.Y,
+                Yvar=ds.Yvar,
+                feature_names=ds.feature_names,
+                outcome_names=self.metric_names_for_list_surrogate[1:],
+            ),
+        ]
         with warnings.catch_warnings(record=True) as ws:
             self.model.fit(
-                datasets=[
-                    ds,
-                    SupervisedDataset(
-                        X=X2,
-                        Y=ds.Y,
-                        Yvar=ds.Yvar,
-                        feature_names=ds.feature_names,
-                        outcome_names=self.metric_names_for_list_surrogate[1:],
-                    ),
-                ],
+                datasets=datasets,
                 metric_names=self.metric_names_for_list_surrogate,
-                search_space_digest=self.mf_search_space_digest,
+                search_space_digest=self.search_space_digest,
             )
         # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
         self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
@@ -299,14 +303,18 @@ class BoTorchModelTest(TestCase):
             )
         )
 
-        # Test autoset
+    def test__construct(self) -> None:
+        """Test autoset."""
         self.model._surrogates = {}
-        self.model.fit(
-            datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
-            candidate_metadata=self.candidate_metadata,
-        )
+        with mock.patch(
+            f"{SURROGATE_PATH}.choose_model_class", wraps=choose_model_class
+        ) as mock_choose_model_class:
+            self.model.fit(
+                datasets=self.block_design_training_data,
+                metric_names=self.metric_names,
+                search_space_digest=self.mf_search_space_digest,
+                candidate_metadata=self.candidate_metadata,
+            )
         # `choose_model_class` is called.
         mock_choose_model_class.assert_called_with(
             datasets=self.block_design_training_data,
