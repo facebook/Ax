@@ -43,7 +43,11 @@ from ax.models.types import TConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_optional
+from ax.utils.common.typeutils import (
+    _argparse_type_encoder,
+    checked_cast,
+    checked_cast_optional,
+)
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.pairwise_gp import PairwiseGP
@@ -55,6 +59,7 @@ from botorch.models.transforms.input import (
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
+from botorch.utils.dispatcher import Dispatcher
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -294,49 +299,11 @@ class Surrogate(Base):
             dataset=dataset, botorch_model_class=botorch_model_class
         ):
             return self._submodels[outcome_names]
-        model_kwargs_from_ss = _extract_model_kwargs(
-            search_space_digest=search_space_digest
-        )
-
-        (
-            input_transform_classes,
-            input_transform_options,
-        ) = self._extract_construct_input_transform_args(
-            search_space_digest=search_space_digest
-        )
-
-        formatted_model_inputs = botorch_model_class.construct_inputs(
-            training_data=dataset,
-            **self.model_options,
-            **model_kwargs_from_ss,
-        )
-
-        botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
-        self._set_formatted_inputs(
-            formatted_model_inputs=formatted_model_inputs,
-            inputs=[
-                (
-                    "covar_module",
-                    self.covar_module_class,
-                    self.covar_module_options,
-                ),
-                ("likelihood", self.likelihood_class, self.likelihood_options),
-                (
-                    "outcome_transform",
-                    self.outcome_transform_classes,
-                    self.outcome_transform_options,
-                ),
-                (
-                    "input_transform",
-                    input_transform_classes,
-                    deepcopy(input_transform_options),
-                ),
-            ],
+        formatted_model_inputs = submodel_input_constructor(
+            botorch_model_class,  # Do not pass as kwarg since this is used to dispatch.
             dataset=dataset,
-            # This is used when constructing the input transforms.
             search_space_digest=search_space_digest,
-            # This is used to check if the arguments are supported.
-            botorch_model_class_args=botorch_model_class_args,
+            surrogate=self,
         )
         # pyre-ignore [45]
         model = botorch_model_class(**formatted_model_inputs)
@@ -805,3 +772,75 @@ class Surrogate(Base):
     @outcomes.setter
     def outcomes(self, value: List[str]) -> None:
         raise RuntimeError("Setting outcomes manually is disallowed.")
+
+
+submodel_input_constructor = Dispatcher(
+    name="submodel_input_constructor", encoder=_argparse_type_encoder
+)
+
+
+@submodel_input_constructor.register(Model)
+def _submodel_input_constructor_base(
+    botorch_model_class: Type[Model],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+    surrogate: Surrogate,
+) -> Dict[str, Any]:
+    """Construct the inputs required to initialize a BoTorch model.
+
+    Args:
+        botorch_model_class: The BoTorch model class to instantiate.
+        dataset: The training data for the model.
+        search_space_digest: Search space digest used to set up model arguments.
+        surrogate: A reference to the surrogate that created the model.
+            This can be used by the constructor to obtain any additional
+            arguments that are not readily available.
+
+    Returns:
+        A dictionary of inputs for constructing the model.
+    """
+    model_kwargs_from_ss = _extract_model_kwargs(
+        search_space_digest=search_space_digest
+    )
+
+    (
+        input_transform_classes,
+        input_transform_options,
+    ) = surrogate._extract_construct_input_transform_args(
+        search_space_digest=search_space_digest
+    )
+
+    formatted_model_inputs = botorch_model_class.construct_inputs(
+        training_data=dataset,
+        **surrogate.model_options,
+        **model_kwargs_from_ss,
+    )
+
+    botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
+    surrogate._set_formatted_inputs(
+        formatted_model_inputs=formatted_model_inputs,
+        inputs=[
+            (
+                "covar_module",
+                surrogate.covar_module_class,
+                surrogate.covar_module_options,
+            ),
+            ("likelihood", surrogate.likelihood_class, surrogate.likelihood_options),
+            (
+                "outcome_transform",
+                surrogate.outcome_transform_classes,
+                surrogate.outcome_transform_options,
+            ),
+            (
+                "input_transform",
+                input_transform_classes,
+                deepcopy(input_transform_options),
+            ),
+        ],
+        dataset=dataset,
+        # This is used when constructing the input transforms.
+        search_space_digest=search_space_digest,
+        # This is used to check if the arguments are supported.
+        botorch_model_class_args=botorch_model_class_args,
+    )
+    return formatted_model_inputs
