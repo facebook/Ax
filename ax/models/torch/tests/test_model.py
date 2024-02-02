@@ -74,6 +74,12 @@ class BoTorchModelTest(TestCase):
             botorch_acqf_class=self.botorch_acqf_class,
             acquisition_options=self.acquisition_options,
         )
+        self.mf_model = BoTorchModel(
+            surrogate=Surrogate(botorch_model_class=SingleTaskMultiFidelityGP),
+            acquisition_class=self.acquisition_class,
+            botorch_acqf_class=self.botorch_acqf_class,
+            acquisition_options=self.acquisition_options,
+        )
 
         self.dtype = torch.float
         self.device = torch.device("cpu")
@@ -116,7 +122,6 @@ class BoTorchModelTest(TestCase):
         self.mf_search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            task_features=[],
             fidelity_features=[2],
             target_values={1: 1.0},
         )
@@ -206,21 +211,21 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(self.surrogate, list(self.model.surrogates.values())[0])
 
     def test_Xs_property(self) -> None:
-        self.model.fit(
+        self.mf_model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
 
-        self.assertEqual(len(self.model.Xs), 1)
+        self.assertEqual(len(self.mf_model.Xs), 1)
         self.assertTrue(
-            self.model.Xs[0].equal(torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]]))
+            self.mf_model.Xs[0].equal(torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]]))
         )
 
         with self.assertRaisesRegex(NotImplementedError, "Xs not implemented"):
-            self.model._surrogates = {"foo": Surrogate(), "bar": Surrogate()}
-            self.model.Xs
+            self.mf_model._surrogates = {"foo": Surrogate(), "bar": Surrogate()}
+            self.mf_model.Xs
 
     def test_dtype(self) -> None:
         self.model.fit(
@@ -256,7 +261,7 @@ class BoTorchModelTest(TestCase):
         with self.assertRaisesRegex(
             UnsupportedError, "Cannot convert mixed data with and without variance"
         ):
-            self.model.fit(
+            self.mf_model.fit(
                 datasets=[
                     ds1,
                     SupervisedDataset(
@@ -275,7 +280,7 @@ class BoTorchModelTest(TestCase):
         X1 = ds.X
         X2 = torch.cat((X1[:1], torch.rand_like(X1[1:])))
         with warnings.catch_warnings(record=True) as ws:
-            self.model.fit(
+            self.mf_model.fit(
                 datasets=[
                     ds,
                     SupervisedDataset(
@@ -300,8 +305,8 @@ class BoTorchModelTest(TestCase):
         )
 
         # Test autoset
-        self.model._surrogates = {}
-        self.model.fit(
+        self.mf_model._surrogates = {}
+        self.mf_model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,

@@ -88,7 +88,7 @@ class ExtractModelKwargsTest(TestCase):
                     search_space_digest=search_space_digest,
                 )
 
-        with self.subTest("Task feature provided"):
+        with self.subTest("Task feature provided, fidelity and categorical not"):
             search_space_digest = SearchSpaceDigest(
                 feature_names=feature_names,
                 bounds=bounds,
@@ -97,15 +97,10 @@ class ExtractModelKwargsTest(TestCase):
             model_kwargs = _extract_model_kwargs(
                 search_space_digest=search_space_digest,
             )
-            self.assertSetEqual(
-                set(model_kwargs.keys()),
-                {"fidelity_features", "task_feature", "categorical_features"},
-            )
+            self.assertSetEqual(set(model_kwargs.keys()), {"task_feature"})
             self.assertEqual(model_kwargs["task_feature"], 1)
-            self.assertEqual(model_kwargs["fidelity_features"], [])
-            self.assertEqual(model_kwargs["categorical_features"], [])
 
-        with self.subTest("No task feature provided"):
+        with self.subTest("No feature info provided"):
             search_space_digest = SearchSpaceDigest(
                 feature_names=feature_names,
                 bounds=bounds,
@@ -113,13 +108,23 @@ class ExtractModelKwargsTest(TestCase):
             model_kwargs = _extract_model_kwargs(
                 search_space_digest=search_space_digest,
             )
-            self.assertSetEqual(
-                set(model_kwargs.keys()),
-                {"fidelity_features", "task_feature", "categorical_features"},
+            self.assertEqual(len(model_kwargs.keys()), 0)
+
+        with self.subTest("Fidelity and categorical features provided"):
+            search_space_digest = SearchSpaceDigest(
+                feature_names=feature_names,
+                bounds=bounds,
+                fidelity_features=[0],
+                categorical_features=[1],
             )
-            self.assertIsNone(model_kwargs["task_feature"])
-            self.assertEqual(model_kwargs["fidelity_features"], [])
-            self.assertEqual(model_kwargs["categorical_features"], [])
+            model_kwargs = _extract_model_kwargs(
+                search_space_digest=search_space_digest,
+            )
+            self.assertSetEqual(
+                set(model_kwargs.keys()), {"fidelity_features", "categorical_features"}
+            )
+            self.assertEqual(model_kwargs["fidelity_features"], [0])
+            self.assertEqual(model_kwargs["categorical_features"], [1])
 
 
 class SurrogateTest(TestCase):
@@ -404,8 +409,7 @@ class SurrogateTest(TestCase):
     def test_construct_model(self) -> None:
         for botorch_model_class in (SaasFullyBayesianSingleTaskGP, SingleTaskGP):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
-            surrogate.model_options = {"some_option": "some_value"}
-            with self.assertRaises(TypeError):
+            with self.assertRaisesRegex(TypeError, "posterior"):
                 # Base `Model` does not implement `posterior`, so instantiating it here
                 # will fail.
                 Surrogate()._construct_model(
@@ -438,13 +442,11 @@ class SurrogateTest(TestCase):
             self.assertTrue(torch.equal(call_kwargs["train_Y"], self.Ys[0]))
             self.assertEqual(len(call_kwargs), 2)
 
-            # Check that `model_options` are properly propagated.
+            # TODO: There used to be a test for passing `model_options` here.
+            # This was removed since the test was passing invalid options. It
+            # needs to be written to pass valid options
             mock_construct_inputs.assert_called_with(
                 training_data=self.training_data[0],
-                some_option="some_value",
-                fidelity_features=[],
-                task_feature=None,
-                categorical_features=[],
             )
 
             # Check that the model & dataset are cached.
@@ -752,7 +754,11 @@ class SurrogateWithModelListTest(TestCase):
         Xs1, Ys1, Yvars1, self.bounds, _, self.feature_names, _ = get_torch_test_data(
             dtype=self.dtype, task_features=self.task_features, offset=1.0
         )
-        self.search_space_digest = SearchSpaceDigest(
+        self.single_task_search_space_digest = SearchSpaceDigest(
+            feature_names=self.feature_names,
+            bounds=self.bounds,
+        )
+        self.multi_task_search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=self.bounds,
             task_features=self.task_features,
@@ -765,7 +771,7 @@ class SurrogateWithModelListTest(TestCase):
             outcome_names=self.outcomes[:1],
         )
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
-            dtype=self.dtype, task_features=self.search_space_digest.task_features
+            dtype=self.dtype, task_features=self.task_features
         )
         ds2 = SupervisedDataset(
             X=Xs2[0],
@@ -776,10 +782,11 @@ class SurrogateWithModelListTest(TestCase):
         )
         self.botorch_submodel_class_per_outcome = {
             self.outcomes[0]: choose_model_class(
-                datasets=[self.ds1], search_space_digest=self.search_space_digest
+                datasets=[self.ds1],
+                search_space_digest=self.multi_task_search_space_digest,
             ),
             self.outcomes[1]: choose_model_class(
-                datasets=[ds2], search_space_digest=self.search_space_digest
+                datasets=[ds2], search_space_digest=self.multi_task_search_space_digest
             ),
         }
         self.botorch_model_class = MultiTaskGP
@@ -844,7 +851,7 @@ class SurrogateWithModelListTest(TestCase):
                 else self.supervised_training_data,
                 metric_names=self.outcomes,
                 search_space_digest=dataclasses.replace(
-                    self.search_space_digest,
+                    self.multi_task_search_space_digest,
                     task_features=self.task_features,
                 ),
             )
@@ -864,8 +871,6 @@ class SurrogateWithModelListTest(TestCase):
                     # `call_args` is a tuple of (args, kwargs), and we check kwargs.
                     mock_MTGP_construct_inputs.call_args_list[idx][1],
                     {
-                        "categorical_features": [],
-                        "fidelity_features": [],
                         "task_feature": self.task_features[0],
                         "training_data": expected_training_data,
                         "rank": 1,
@@ -926,10 +931,18 @@ class SurrogateWithModelListTest(TestCase):
             self.assertIsNone(surrogate._model)
             # Should instantiate mll and `fit_gpytorch_mll` when `state_dict`
             # is `None`.
+            search_space_digest = (
+                self.multi_task_search_space_digest
+                # pyre-ignore[6]: Incompatible parameter type: In call
+                # `issubclass`, for 1st positional argument, expected
+                # `Type[typing.Any]` but got `Optional[Type[Model]]`.
+                if issubclass(surrogate.botorch_model_class, MultiTaskGP)
+                else self.single_task_search_space_digest
+            )
             surrogate.fit(
                 datasets=[self.ds1, self.ds3],
                 metric_names=self.outcomes,
-                search_space_digest=self.search_space_digest,
+                search_space_digest=search_space_digest,
             )
             mock_state_dict.assert_not_called()
             if i == 0:
@@ -960,7 +973,7 @@ class SurrogateWithModelListTest(TestCase):
             surrogate.fit(
                 datasets=[self.ds1, self.ds3],
                 metric_names=self.outcomes,
-                search_space_digest=self.search_space_digest,
+                search_space_digest=search_space_digest,
                 refit=False,
                 state_dict=state_dict,
             )
@@ -1015,7 +1028,7 @@ class SurrogateWithModelListTest(TestCase):
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
-                    task_features=self.task_features,
+                    task_features=[],
                 ),
             )
         surrogate = Surrogate(
@@ -1034,7 +1047,7 @@ class SurrogateWithModelListTest(TestCase):
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
-                task_features=self.task_features,
+                task_features=[],
             ),
         )
         models: torch.nn.modules.container.ModuleList = surrogate.model.models
@@ -1099,7 +1112,7 @@ class SurrogateWithModelListTest(TestCase):
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
-                    task_features=self.task_features,
+                    task_features=[],
                 ),
             )
             models = checked_cast(ModelListGP, surrogate._model).models
@@ -1146,7 +1159,7 @@ class SurrogateWithModelListTest(TestCase):
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
-                    task_features=self.task_features,
+                    task_features=[],
                     robust_digest=RobustSearchSpaceDigest(
                         sample_param_perturbations=lambda: np.zeros((2, 2)),
                         environmental_variables=["a"],
@@ -1180,7 +1193,7 @@ class SurrogateWithModelListTest(TestCase):
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
-                task_features=self.task_features,
+                task_features=[],
                 robust_digest=robust_digest,
             ),
         )
