@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from importlib import import_module
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ax.exceptions.core import UserInputError
@@ -82,7 +81,8 @@ class ParameterDistribution(SortableBase):
 
     def _construct_distribution_object(self) -> None:
         r"""Constructs the scipy distribution object."""
-        stats = import_module("scipy.stats")
+        import scipy.stats as stats
+
         try:
             dist_class = getattr(stats, self.distribution_class)
         except AttributeError:
