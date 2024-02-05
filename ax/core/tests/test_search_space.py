@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import dataclasses
+import warnings
 from random import choice
 from typing import cast, List
 from unittest import mock
@@ -816,11 +817,26 @@ class HierarchicalSearchSpaceTest(TestCase):
             hss_1_obs_feats_1_flattened.metadata.get(Keys.FULL_PARAMETERIZATION),
         )
         # Check that flattening observation features without metadata does nothing.
-        self.assertEqual(
-            self.hss_1.flatten_observation_features(
-                observation_features=hss_1_obs_feats_1
-            ),
-            hss_1_obs_feats_1,
+        with warnings.catch_warnings(record=True) as ws:
+            self.assertEqual(
+                self.hss_1.flatten_observation_features(
+                    observation_features=hss_1_obs_feats_1
+                ),
+                hss_1_obs_feats_1,
+            )
+        self.assertTrue(
+            any("Cannot flatten observation features" in str(w.message) for w in ws)
+        )
+        # Check that no warning is raised if the observation feature doesn't
+        # have parameterization (for trial-index only features).
+        obs_ft = ObservationFeatures(parameters={}, trial_index=0)
+        with warnings.catch_warnings(record=True) as ws:
+            self.assertEqual(
+                self.hss_1.flatten_observation_features(observation_features=obs_ft),
+                obs_ft,
+            )
+        self.assertFalse(
+            any("Cannot flatten observation features" in str(w.message) for w in ws)
         )
 
     @mock.patch(f"{HierarchicalSearchSpace.__module__}.uniform", return_value=0.6)
@@ -881,7 +897,9 @@ class HierarchicalSearchSpaceTest(TestCase):
             f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
         ) as mock_choice:
             flattened_only_dummies = self.hss_2.flatten_observation_features(
-                observation_features=ObservationFeatures(parameters={}),
+                observation_features=ObservationFeatures(
+                    parameters={"num_boost_rounds": 12}
+                ),
                 inject_dummy_values_to_complete_flat_parameterization=True,
             ).parameters
             self.assertEqual(
@@ -893,14 +911,10 @@ class HierarchicalSearchSpaceTest(TestCase):
         )
 
         # Case 4: test setting of fixed parameters
-        with mock.patch(
-            f"{HierarchicalSearchSpace.__module__}.choice", wraps=choice
-        ) as mock_choice:
-            flattened_only_dummies = self.hss_with_fixed.flatten_observation_features(
-                observation_features=ObservationFeatures(parameters={}),
-                inject_dummy_values_to_complete_flat_parameterization=True,
-            ).parameters
-            mock_choice.assert_called_once_with([False, True])
+        flattened_only_dummies = self.hss_with_fixed.flatten_observation_features(
+            observation_features=ObservationFeatures(parameters={"use_linear": True}),
+            inject_dummy_values_to_complete_flat_parameterization=True,
+        ).parameters
         self.assertEqual(
             set(flattened_only_dummies.keys()),
             set(self.hss_with_fixed.parameters.keys()),
