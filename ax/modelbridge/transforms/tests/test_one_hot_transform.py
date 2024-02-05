@@ -185,3 +185,77 @@ class OneHotTransformTest(TestCase):
         # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
         self.assertNotIn("c", rss_new.parameters)
+
+    def test_heterogeneous_search_space(self) -> None:
+        small_ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x", parameter_type=ParameterType.FLOAT, lower=0, upper=1
+                ),
+                ChoiceParameter(
+                    name="b",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "c"],
+                    is_ordered=False,
+                ),
+            ]
+        )
+        non_subset_ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="b",
+                    parameter_type=ParameterType.STRING,
+                    values=["a", "d"],
+                    is_ordered=False,
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "are not a subset of"):
+            self.t.transform_search_space(non_subset_ss)
+
+        # Check only the present parameters are encoded.
+        tf_ss = self.t.transform_search_space(small_ss)
+        expected_params = {
+            "x",
+            "b" + OH_PARAM_INFIX + "_0",
+            "b" + OH_PARAM_INFIX + "_2",
+        }
+        self.assertEqual(set(tf_ss.parameters.keys()), expected_params)
+
+        # Check untransforming features with missing OH params.
+        obs_ft = [
+            ObservationFeatures(
+                parameters={
+                    "x": 0.5,
+                    "b" + OH_PARAM_INFIX + "_0": 0.0,
+                    "b" + OH_PARAM_INFIX + "_2": 0.5,
+                }
+            ),
+            ObservationFeatures(
+                parameters={
+                    "x": 0.5,
+                    "b" + OH_PARAM_INFIX + "_0": 0.3,
+                    "b" + OH_PARAM_INFIX + "_2": 0.1,
+                }
+            ),
+        ]
+        untf_obs = self.t.untransform_observation_features(obs_ft)
+        expected_obs = [
+            ObservationFeatures(parameters={"x": 0.5, "b": "c"}),
+            ObservationFeatures(parameters={"x": 0.5, "b": "a"}),
+        ]
+        self.assertEqual(untf_obs, expected_obs)
+
+        # Untransforming all 0s doesn't produce the missing param.
+        obs_ft = [
+            ObservationFeatures(
+                parameters={
+                    "x": 0.5,
+                    "b" + OH_PARAM_INFIX + "_0": 0.0,
+                    "b" + OH_PARAM_INFIX + "_2": 0.0,
+                }
+            )
+            for i in range(10)
+        ]
+        untf_obs = self.t.untransform_observation_features(obs_ft)
+        self.assertFalse(any(obs.parameters.get("b") == "b" for obs in untf_obs))
