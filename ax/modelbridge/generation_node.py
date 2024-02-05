@@ -703,9 +703,19 @@ class GenerationStep(GenerationNode, SortableBase):
                     transition_to=None,
                 )
             )
-        # handle legacy completion_criteria, @mgarrard to revist after update
+
+        # For AEPsych usecases, leverage the `RunIndefinitely` criterion to set
+        # gen_unlimited_trials, if this criterion is not found, default to False.
         if len(self.completion_criteria) > 0:
-            gen_unlimited_trials = False
+            run_indefinitely_atrr = (
+                # Pyre-ignore [16]: Not all transition criterion have run_indefinetly
+                # attribute, and we don't want them to.
+                criterion.run_indefinitely
+                for criterion in self.completion_criteria
+                if criterion.criterion_class == "RunIndefinitely"
+            )
+            gen_unlimited_trials = next(run_indefinitely_atrr, False)
+
         transition_criteria += self.completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
