@@ -524,6 +524,10 @@ class HierarchicalSearchSpace(SearchSpace):
             obs_feats.parameters = {**full_parameterization, **obs_feats.parameters}
             return obs_feats
 
+        if obs_feats.parameters == {}:
+            # Return as is if the observation feature does not have any parameters.
+            return obs_feats
+
         if inject_dummy_values_to_complete_flat_parameterization:
             # To cast a parameterization to flattened search space, inject dummy values
             # for parameters that were not present in it.
