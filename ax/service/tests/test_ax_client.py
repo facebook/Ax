@@ -1433,8 +1433,10 @@ class TestAxClient(TestCase):
                     raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
             # pyre-fixme[16]: `Data` has no attribute `map_df`.
-            current_data = ax_client.experiment.fetch_data().map_df
-            self.assertEqual(len(current_data), 0 if t < 2 else 3)
+            fetch_data = ax_client.experiment.fetch_data().map_df
+            self.assertEqual(len(fetch_data), 0 if t < 2 else 3)
+            lookup_data = ax_client.experiment.lookup_data().map_df
+            self.assertEqual(len(lookup_data), t + 1)
 
         no_intermediate_data_ax_client = AxClient()
         no_intermediate_data_ax_client.create_experiment(
