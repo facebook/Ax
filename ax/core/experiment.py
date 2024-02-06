@@ -54,8 +54,6 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 logger: logging.Logger = get_logger(__name__)
 
-DEFAULT_OBJECTIVE_NAME = "objective"
-
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
 # pyre-fixme[5]: Global expression must be annotated.
@@ -1709,6 +1707,7 @@ def add_arm_and_prevent_naming_collision(
         except ValueError as e:
             warnings.warn(
                 f"Attaching arm {old_trial.arm} to trial {new_trial} while preserving "
-                f"its name failed with error: {e}. Retrying with `clear_name=True`."
+                f"its name failed with error: {e}. Retrying with `clear_name=True`.",
+                stacklevel=2,
             )
             new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=True))

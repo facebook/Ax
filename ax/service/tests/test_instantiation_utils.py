@@ -10,7 +10,6 @@ from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.exceptions.core import UnsupportedError
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -128,18 +127,6 @@ class TestInstantiationtUtils(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
                 {"x1": None, "x2": None, "x3": None},
-            )
-
-    def test_objective_validation(self) -> None:
-        with self.assertRaisesRegex(UnsupportedError, "Ambiguous objective definition"):
-            InstantiationBase.make_experiment(
-                # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None,
-                #  Dict[str, List[str]], List[Union[None, bool, float, int, str]],
-                #  bool, float, int, str]]]` but got `Dict[str, Union[List[int],
-                #  str]]`.
-                parameters={"name": "x", "type": "range", "bounds": [0, 1]},
-                objective_name="branin",
-                objectives={"branin": "minimize", "currin": "maximize"},
             )
 
     def test_add_tracking_metrics(self) -> None:

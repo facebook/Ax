@@ -11,8 +11,7 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Sequence, Type, Union
 
 from ax.core.arm import Arm
-from ax.core.experiment import DataType, DEFAULT_OBJECTIVE_NAME, Experiment
-from ax.core.map_metric import MapMetric
+from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
@@ -43,6 +42,8 @@ from ax.utils.common.typeutils import (
     checked_cast_to_tuple,
     not_none,
 )
+
+DEFAULT_OBJECTIVE_NAME = "objective"
 
 logger: Logger = get_logger(__name__)
 
@@ -735,33 +736,13 @@ class InstantiationBase:
         )
 
     @classmethod
-    def _make_optimization_config_from_legacy_args(
-        cls,
-        objective_name: str,
-        minimize: bool = False,
-        support_intermediate_data: bool = False,
-        outcome_constraints: Optional[List[str]] = None,
-        status_quo_arm: Optional[Arm] = None,
-    ) -> Optional[OptimizationConfig]:
-        """This will create a single objective OptimizationConfig based on the
-        objective_name arg.  The return is optional because in subclasses
-        we may not wish to return any default optimization config
+    def _get_default_objectives(cls) -> Optional[Dict[str, str]]:
+        """Get the default objective and its optimization direction.
+
+        The return type is optional since some subclasses may not wish to
+        use any optimization config by default.
         """
-        return OptimizationConfig(
-            objective=Objective(
-                metric=cls._make_metric(
-                    name=objective_name,
-                    lower_is_better=minimize,
-                    metric_class=MapMetric if support_intermediate_data else Metric,
-                    for_opt_config=True,
-                ),
-                minimize=minimize,
-            ),
-            outcome_constraints=cls.make_outcome_constraints(
-                outcome_constraints=outcome_constraints or [],
-                status_quo_defined=status_quo_arm is not None,
-            ),
-        )
+        return {DEFAULT_OBJECTIVE_NAME: "maximize"}
 
     @classmethod
     def make_experiment(
@@ -776,10 +757,6 @@ class InstantiationBase:
         experiment_type: Optional[str] = None,
         tracking_metric_names: Optional[List[str]] = None,
         metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
-        # Single-objective optimization arguments:
-        objective_name: Optional[str] = None,
-        minimize: bool = False,
-        # Multi-objective optimization arguments:
         objectives: Optional[Dict[str, str]] = None,
         objective_thresholds: Optional[List[str]] = None,
         support_intermediate_data: bool = False,
@@ -823,13 +800,8 @@ class InstantiationBase:
                 a product in which it is used), if any.
             tracking_metric_names: Names of additional tracking metrics not used for
                 optimization.
-            objective_name: Name of the metric used as objective in this experiment,
-                if experiment is single-objective optimization.
-            minimize: Whether this experiment represents a minimization problem, if
-                experiment is a single-objective optimization.
             objectives: Mapping from an objective name to "minimize" or "maximize"
-                representing the direction for that objective. Used only for
-                multi-objective optimization experiments.
+                representing the direction for that objective.
             objective_thresholds: A list of objective threshold constraints for multi-
                 objective optimization, in the same string format as
                 `outcome_constraints` argument.
@@ -845,28 +817,10 @@ class InstantiationBase:
             metric_definitions: A mapping of metric names to extra kwargs to pass
                 to that metric
         """
-        if objective_name is not None and (
-            objectives is not None or objective_thresholds is not None
-        ):
-            raise UnsupportedError(
-                "Ambiguous objective definition: for single-objective optimization "
-                "`objective_name` and `minimize` arguments expected. For "
-                "multi-objective optimization `objectives` and `objective_thresholds` "
-                "arguments expected."
-            )
-
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
-        # TODO(jej): Needs to be decided per-metric when supporting heterogenous data.
-        if objectives is None:
-            optimization_config = cls._make_optimization_config_from_legacy_args(
-                objective_name=objective_name or DEFAULT_OBJECTIVE_NAME,
-                minimize=minimize,
-                support_intermediate_data=support_intermediate_data,
-                outcome_constraints=outcome_constraints,
-                status_quo_arm=status_quo_arm,
-            )
-        else:
+        objectives = objectives or cls._get_default_objectives()
+        if objectives:
             optimization_config = cls.make_optimization_config(
                 objectives=objectives,
                 objective_thresholds=objective_thresholds or [],
@@ -874,6 +828,8 @@ class InstantiationBase:
                 status_quo_defined=status_quo_arm is not None,
                 metric_definitions=metric_definitions,
             )
+        else:
+            optimization_config = None
 
         tracking_metrics = (
             None

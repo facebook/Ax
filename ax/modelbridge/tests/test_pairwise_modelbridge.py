@@ -67,8 +67,7 @@ class PairwiseModelBridgeTest(TestCase):
                     "bounds": [0.0, 0.7],
                 },
             ],
-            objective_name=Keys.PAIRWISE_PREFERENCE_QUERY,
-            minimize=False,
+            objectives={Keys.PAIRWISE_PREFERENCE_QUERY: "minimize"},
             is_test=True,
         )
 
