@@ -10,6 +10,7 @@ from datetime import datetime
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecord
+from ax.telemetry.common import get_unique_identifier
 from ax.telemetry.experiment import ExperimentCreatedRecord
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 from ax.telemetry.optimization import (
@@ -37,6 +38,7 @@ class TestOptimization(TestCase):
         record = OptimizationCreatedRecord.from_scheduler(
             scheduler=scheduler,
             unique_identifier="foo",
+            owner="bar",
             product_surface="Axolotl",
             launch_surface="web",
             deployed_job_id=1118,
@@ -50,6 +52,7 @@ class TestOptimization(TestCase):
         expected_dict = {
             **SchedulerCreatedRecord.from_scheduler(scheduler=scheduler).flatten(),
             "unique_identifier": "foo",
+            "owner": "bar",
             "product_surface": "Axolotl",
             "launch_surface": "web",
             "deployed_job_id": 1118,
@@ -77,6 +80,7 @@ class TestOptimization(TestCase):
         record = OptimizationCreatedRecord.from_ax_client(
             ax_client=ax_client,
             unique_identifier="foo",
+            owner="bar",
             product_surface="Axolotl",
             launch_surface="web",
             deployed_job_id=1118,
@@ -89,6 +93,7 @@ class TestOptimization(TestCase):
         expected_dict = {
             **AxClientCreatedRecord.from_ax_client(ax_client=ax_client).flatten(),
             "unique_identifier": "foo",
+            "owner": "bar",
             "product_surface": "Axolotl",
             "launch_surface": "web",
             "deployed_job_id": 1118,
@@ -117,6 +122,8 @@ class TestOptimization(TestCase):
         record = OptimizationCreatedRecord.from_experiment(
             experiment=experiment,
             generation_strategy=None,
+            unique_identifier=get_unique_identifier(experiment=experiment),
+            owner="bar",
             product_surface="foo",
             launch_surface="web",
             deployed_job_id=1118,
@@ -129,6 +136,7 @@ class TestOptimization(TestCase):
         expected_dict = {
             **asdict(ExperimentCreatedRecord.from_experiment(experiment=experiment)),
             "unique_identifier": "branin_test_experiment_2023-04-07 16:01:23",
+            "owner": "bar",
             "product_surface": "foo",
             "launch_surface": "web",
             "deployed_job_id": 1118,
@@ -176,6 +184,8 @@ class TestOptimization(TestCase):
         record = OptimizationCreatedRecord.from_experiment(
             experiment=experiment,
             generation_strategy=generation_strategy,
+            unique_identifier=get_unique_identifier(experiment=experiment),
+            owner="bar",
             product_surface="foo",
             launch_surface="web",
             deployed_job_id=1118,
@@ -193,6 +203,7 @@ class TestOptimization(TestCase):
                 )
             ),
             "unique_identifier": "test_experiment_2023-04-07 16:01:23",
+            "owner": "bar",
             "product_surface": "foo",
             "launch_surface": "web",
             "deployed_job_id": 1118,
