@@ -421,11 +421,17 @@ class ModelRegistryTest(TestCase):
             status_quo_features=status_quo_features,
         )
         self.assertIsInstance(mtgp, TorchModelBridge)
+        # Test that it can generate.
+        mtgp_run = mtgp.gen(
+            n=1,
+            fixed_features=ObservationFeatures(parameters={}, trial_index=1),
+        )
+        self.assertEqual(len(mtgp_run.arms), 1)
 
         exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
             num_sobol_trials=1
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "TrialAsTask transform expects"):
             Models.ST_MTGP_LEGACY(
                 experiment=exp,
                 data=exp.fetch_data(),
