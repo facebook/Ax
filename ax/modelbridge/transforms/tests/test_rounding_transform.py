@@ -32,3 +32,5 @@ class RoundingTest(TestCase):
             ),
             1,
         )
+        # Negative value is not selected.
+        self.assertEqual(randomized_onehot_round(np.array([0.0, -1.0, 0.0]))[1], 0.0)

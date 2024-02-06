@@ -4,13 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List, Optional, TYPE_CHECKING, TypeVar
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParameterization
+from ax.core.types import TParameterization, TParamValue
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.rounding import (
     randomized_onehot_round,
@@ -18,7 +18,7 @@ from ax.modelbridge.transforms.rounding import (
 )
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
-from sklearn.preprocessing import LabelBinarizer, LabelEncoder
+from ax.utils.common.typeutils import checked_cast
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -26,34 +26,32 @@ if TYPE_CHECKING:
 
 
 OH_PARAM_INFIX = "_OH_PARAM_"
-T = TypeVar("T")
 
 
 class OneHotEncoder:
-    """Joins the two encoders needed for OneHot transform."""
+    """OneHot encodes a list of labels."""
 
-    int_encoder: LabelEncoder
-    label_binarizer: LabelBinarizer
+    def __init__(self, values: List[TParamValue]) -> None:
+        assert len(values) >= 2
+        self.values: List[TParamValue] = values
+        self.encoded_len: int = 1 if len(values) == 2 else len(values)
 
-    def __init__(self, values: List[T]) -> None:
-        self.int_encoder = LabelEncoder().fit(values)
-        self.label_binarizer = LabelBinarizer().fit(self.int_encoder.transform(values))
+    def transform(self, label: TParamValue) -> List[int]:
+        """One hot encode a given label."""
+        effective_index = self.values.index(label)
+        if self.encoded_len == 1:
+            return [effective_index]
+        else:
+            encoding = [0 for _ in range(self.encoded_len)]
+            encoding[effective_index] = 1
+            return encoding
 
-    def transform(self, labels: List[T]) -> np.ndarray:
-        """One hot encode a list of labels."""
-        return self.label_binarizer.transform(self.int_encoder.transform(labels))
-
-    def inverse_transform(self, encoded_labels: List[T]) -> List[T]:
-        """Inverse transorm a list of one hot encoded labels."""
-        return self.int_encoder.inverse_transform(
-            self.label_binarizer.inverse_transform(encoded_labels)
-        )
-
-    @property
-    def classes(self) -> np.ndarray:
-        """Return number of classes discovered while fitting transform."""
-        # pyre-fixme[16]: `LabelBinarizer` has no attribute `classes_`.
-        return self.label_binarizer.classes_
+    def inverse_transform(self, encoded_label: List[int]) -> TParamValue:
+        """Inverse transorm a one hot encoded label."""
+        if self.encoded_len == 1:
+            return self.values[encoded_label[0]]
+        else:
+            return self.values[encoded_label.index(1)]
 
 
 class OneHot(Transform):
@@ -100,16 +98,19 @@ class OneHot(Transform):
             self.rounding = config.get("rounding", "strict")
         self.encoder: Dict[str, OneHotEncoder] = {}
         self.encoded_parameters: Dict[str, List[str]] = {}
+        self.encoded_values: Dict[str, List[TParamValue]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_ordered and not p.is_task:
+                self.encoded_values[p.name] = p.values
                 self.encoder[p.name] = OneHotEncoder(p.values)
-                nc = len(self.encoder[p.name].classes)
-                if nc == 2:
+                encoded_len = self.encoder[p.name].encoded_len
+                if encoded_len == 1:
                     # Two levels handled in one parameter
                     self.encoded_parameters[p.name] = [p.name + OH_PARAM_INFIX]
                 else:
                     self.encoded_parameters[p.name] = [
-                        "{}{}_{}".format(p.name, OH_PARAM_INFIX, i) for i in range(nc)
+                        "{}{}_{}".format(p.name, OH_PARAM_INFIX, i)
+                        for i in range(encoded_len)
                     ]
 
     def transform_observation_features(
@@ -118,7 +119,7 @@ class OneHot(Transform):
         for obsf in observation_features:
             for p_name, encoder in self.encoder.items():
                 if p_name in obsf.parameters:
-                    vals = encoder.transform(labels=[obsf.parameters.pop(p_name)])[0]
+                    vals = encoder.transform(label=obsf.parameters.pop(p_name))
                     updated_parameters: TParameterization = {
                         self.encoded_parameters[p_name][i]: v
                         for i, v in enumerate(vals)
@@ -130,11 +131,29 @@ class OneHot(Transform):
         transformed_parameters: Dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters:
+                p = checked_cast(ChoiceParameter, p)
                 if p.is_fidelity:
                     raise ValueError(
                         f"Cannot one-hot-encode fidelity parameter {p_name}"
                     )
-                for new_p_name in self.encoded_parameters[p_name]:
+                if not set(p.values).issubset(self.encoded_values[p_name]):
+                    raise ValueError(
+                        f"{p_name} has values {p.values} which are not a subset of "
+                        f"the original values {self.encoded_values[p_name]} used to "
+                        "initialize the transform."
+                    )
+                encoded_p = self.encoded_parameters[p_name]
+                if len(encoded_p) > 1:
+                    # Remove any parameters that are not in the search space being
+                    # transformed. This is necessary if the search space used to
+                    # initialize the transform is larger than the search space
+                    # being transformed, to ensure that the missing parameters
+                    # do not get selected.
+                    encoded_p = [
+                        encoded_p[self.encoded_values[p_name].index(v)]
+                        for v in p.values
+                    ]
+                for new_p_name in encoded_p:
                     transformed_parameters[new_p_name] = RangeParameter(
                         name=new_p_name,
                         parameter_type=ParameterType.FLOAT,
@@ -162,23 +181,22 @@ class OneHot(Transform):
                 has_params = [
                     p in obsf.parameters for p in self.encoded_parameters[p_name]
                 ]
-                if not all(has_params):
-                    if any(has_params):
-                        raise ValueError(f"Missing some parameters for {p_name}")
+                if not any(has_params):
                     continue
                 x = np.array(
-                    [obsf.parameters.pop(p) for p in self.encoded_parameters[p_name]]
+                    [
+                        # If the parameter isn't present, default to -1 ensure it
+                        # does not get selected after rounding.
+                        obsf.parameters.pop(p, -1.0)
+                        for p in self.encoded_parameters[p_name]
+                    ]
                 )
                 if self.rounding == "strict":
                     x = strict_onehot_round(x)
                 else:
                     x = randomized_onehot_round(x)
-                val = self.encoder[p_name].inverse_transform(encoded_labels=x[None, :])[
-                    0
-                ]
-                if isinstance(val, np.str_):
-                    val = str(val)
-                if isinstance(val, np.bool_):
-                    val = bool(val)  # Numpy bools don't serialize
+                val = self.encoder[p_name].inverse_transform(
+                    encoded_label=x.astype(int).tolist()
+                )
                 obsf.parameters[p_name] = val
         return observation_features

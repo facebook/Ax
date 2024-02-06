@@ -23,11 +23,16 @@ def randomized_round(x: float) -> int:
 
 def randomized_onehot_round(x: np.ndarray) -> np.ndarray:
     """Randomized rounding of x to a one-hot vector.
-    x should be 0 <= x <= 1."""
+    x should be 0 <= x <= 1. If x includes negative values,
+    they will be rounded to zero.
+    """
+    neg_x = x < 0
+    x[neg_x] = 0
     if len(x) == 1:
         return np.array([randomized_round(x[0])])
     if sum(x) == 0:
         x = np.ones_like(x)
+        x[neg_x] = 0
     w = x / sum(x)
     hot = np.random.choice(len(w), size=1, p=w)[0]
     z = np.zeros_like(x)
