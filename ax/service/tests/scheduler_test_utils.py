@@ -268,7 +268,8 @@ class AxSchedulerTestCase(TestCase):
         "debug_log_run_metadata=False, early_stopping_strategy=None, "
         "global_stopping_strategy=None, suppress_storage_errors_after_"
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
-        "validate_metrics=True, status_quo_weight=0.0))"
+        "validate_metrics=True, status_quo_weight=0.0, "
+        "enforce_immutable_search_space_and_opt_config=True))"
     )
 
     def setUp(self) -> None:
@@ -656,6 +657,7 @@ class AxSchedulerTestCase(TestCase):
                 # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 wait_for_running_trials=False,
+                enforce_immutable_search_space_and_opt_config=False,
             ),
             db_settings=self.db_settings_if_always_needed,
         )

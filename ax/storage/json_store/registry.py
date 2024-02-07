@@ -25,7 +25,12 @@ from ax.benchmark.problems.surrogate import SurrogateMetric, SurrogateRunner
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
+from ax.core.batch_trial import (
+    AbandonedArm,
+    BatchTrial,
+    GeneratorRunStruct,
+    LifecycleStage,
+)
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.generator_run import GeneratorRun
@@ -311,6 +316,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "Interval": Interval,
     "JenattonMetric": JenattonMetric,
+    "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
     "L2NormMetric": L2NormMetric,
     "MapData": MapData,

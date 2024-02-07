@@ -241,7 +241,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # generator run.
         self._validate_remaining_trials(experiment=experiment)
         self._validate_runner_and_implemented_metrics(experiment=experiment)
-        self._enforce_immutable_search_space_and_opt_config()
+        if self.options.enforce_immutable_search_space_and_opt_config:
+            self._enforce_immutable_search_space_and_opt_config()
         self._initialize_experiment_status_properties()
 
         if self.db_settings_set and not _skip_experiment_save:
@@ -280,6 +281,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         options: SchedulerOptions,
         db_settings: Optional[DBSettings] = None,
         generation_strategy: Optional[GenerationStrategy] = None,
+        reduced_state: bool = True,
         **kwargs: Any,
     ) -> Scheduler:
         """Create a ``Scheduler`` with a previously stored experiment, which
@@ -301,7 +303,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             db_settings=db_settings or cls.get_default_db_settings()
         )
         exp, gs = dbs._load_experiment_and_generation_strategy(
-            experiment_name=experiment_name, reduced_state=True
+            experiment_name=experiment_name,
+            reduced_state=reduced_state,
         )
         if db_settings:
             kwargs = {**kwargs, "db_settings": db_settings}
