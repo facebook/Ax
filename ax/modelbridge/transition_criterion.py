@@ -103,10 +103,12 @@ class TrialBasedCriterion(TransitionCriterion):
         only_in_statuses: Optional[List[TrialStatus]] = None,
         not_in_statuses: Optional[List[TrialStatus]] = None,
         transition_to: Optional[str] = None,
+        use_all_trials_in_exp: Optional[bool] = False,
     ) -> None:
         self.threshold = threshold
         self.only_in_statuses = only_in_statuses
         self.not_in_statuses = not_in_statuses
+        self.use_all_trials_in_exp = use_all_trials_in_exp
         super().__init__(
             transition_to=transition_to,
             block_transition_if_unmet=block_transition_if_unmet,
@@ -160,6 +162,11 @@ class TrialBasedCriterion(TransitionCriterion):
             experiment: The experiment associated with this GenerationStrategy.
         """
         all_trials_to_check = self.all_trials_to_check(experiment=experiment)
+        # Some criteria may rely on experiment level data, instead of only trials
+        # generated from the node associated with the criterion.
+        if self.use_all_trials_in_exp:
+            return len(all_trials_to_check)
+
         if trials_from_node is None:
             logger.warning(
                 "`trials_from_node` is None, will check threshold on"
@@ -204,6 +211,7 @@ class MaxGenerationParallelism(TrialBasedCriterion):
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = False,
         block_gen_if_met: Optional[bool] = True,
+        use_all_trials_in_exp: Optional[bool] = False,
     ) -> None:
         super().__init__(
             threshold=threshold,
@@ -212,6 +220,7 @@ class MaxGenerationParallelism(TrialBasedCriterion):
             transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
             block_transition_if_unmet=block_transition_if_unmet,
+            use_all_trials_in_exp=use_all_trials_in_exp,
         )
 
     def block_continued_generation_error(
@@ -258,6 +267,7 @@ class MaxTrials(TrialBasedCriterion):
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = True,
         block_gen_if_met: Optional[bool] = False,
+        use_all_trials_in_exp: Optional[bool] = False,
     ) -> None:
         super().__init__(
             threshold=threshold,
@@ -266,6 +276,7 @@ class MaxTrials(TrialBasedCriterion):
             transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
             block_transition_if_unmet=block_transition_if_unmet,
+            use_all_trials_in_exp=use_all_trials_in_exp,
         )
 
     def block_continued_generation_error(
@@ -300,6 +311,7 @@ class MinTrials(TrialBasedCriterion):
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = True,
         block_gen_if_met: Optional[bool] = False,
+        use_all_trials_in_exp: Optional[bool] = False,
     ) -> None:
         super().__init__(
             threshold=threshold,
@@ -308,6 +320,7 @@ class MinTrials(TrialBasedCriterion):
             transition_to=transition_to,
             block_gen_if_met=block_gen_if_met,
             block_transition_if_unmet=block_transition_if_unmet,
+            use_all_trials_in_exp=use_all_trials_in_exp,
         )
 
     def block_continued_generation_error(

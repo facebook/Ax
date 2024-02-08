@@ -384,7 +384,8 @@ class TestTransitionCriterion(TestCase):
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_1', "
             + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True})",
+            + "'block_gen_if_met': True, "
+            + "'use_all_trials_in_exp': False})",
         )
         minimum_trials_in_status_criterion = MinTrials(
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
@@ -401,7 +402,8 @@ class TestTransitionCriterion(TestCase):
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True})",
+            + "'block_gen_if_met': True, "
+            + "'use_all_trials_in_exp': False})",
         )
         minimum_preference_occurances_criterion = MinimumPreferenceOccurances(
             metric_name="m1", threshold=3
@@ -437,5 +439,6 @@ class TestTransitionCriterion(TestCase):
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True})",
+            + "'block_gen_if_met': True, "
+            + "'use_all_trials_in_exp': False})",
         )
