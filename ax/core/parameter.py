@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
 from ax.core.types import TParamValue, TParamValueList
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import AxWarning, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 
@@ -539,19 +539,26 @@ class ChoiceParameter(Parameter):
         self._parameter_type = parameter_type
         self._is_task = is_task
         self._is_fidelity = is_fidelity
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._target_value = self.cast(target_value)
+        self._target_value: TParamValue = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
-        # Cap the number of possible values
+        # Cap the number of possible values.
         if len(values) > MAX_VALUES_CHOICE_PARAM:
             raise UserInputError(
                 f"`ChoiceParameter` with more than {MAX_VALUES_CHOICE_PARAM} values "
                 "is not supported! Use a `RangeParameter` instead."
             )
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._values = self._cast_values(values)
+        # Remove duplicate values.
+        if len(values) != len(set_values := set(values)):
+            warn(
+                f"Duplicate values found for ChoiceParameter {name}. "
+                "Initializing the parameter with duplicate values removed. ",
+                AxWarning,
+                stacklevel=2,
+            )
+            values = list(set_values)  # to please pyre...
+        self._values: List[TParamValue] = self._cast_values(values)
         # pyre-fixme[4]: Attribute must be annotated.
         self._is_ordered = (
             is_ordered
@@ -559,8 +566,7 @@ class ChoiceParameter(Parameter):
             else self._get_default_bool_and_warn(param_string="is_ordered")
         )
         # sort_values defaults to True if the parameter is not a string
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._sort_values = (
+        self._sort_values: bool = (
             sort_values
             if sort_values is not None
             else self._get_default_bool_and_warn(param_string="sort_values")

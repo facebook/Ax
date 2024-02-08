@@ -22,7 +22,7 @@ import numpy as np
 
 TNumeric = Union[float, int]
 TParamCounter = DefaultDict[int, int]
-TParamValue = Optional[Union[str, bool, float, int]]
+TParamValue = Union[None, str, bool, float, int]
 TParameterization = Dict[str, TParamValue]
 TParamValueList = List[TParamValue]  # a parameterization without the keys
 TContextStratum = Optional[Dict[str, Union[str, float, int]]]
