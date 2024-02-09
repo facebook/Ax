@@ -12,7 +12,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import AxWarning, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 
@@ -493,6 +493,15 @@ class ChoiceParameterTest(TestCase):
                 "flags": "ordered, sorted",
             },
         )
+
+    def test_duplicate_values(self) -> None:
+        with self.assertWarnsRegex(AxWarning, "Duplicate values found"):
+            p = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "bar", "foo"],
+            )
+        self.assertEqual(p.values, ["foo", "bar"])
 
 
 class FixedParameterTest(TestCase):
