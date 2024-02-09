@@ -153,8 +153,8 @@ class TestGenerationNode(TestCase):
                 "transition_criteria=[MaxTrials({'threshold': 5, "
                 "'only_in_statuses': [<enum 'TrialStatus'>.RUNNING], "
                 "'not_in_statuses': None, 'transition_to': None, "
-                "'block_transition_if_unmet': True, 'block_gen_if_met': False})]"
-                ")"
+                "'block_transition_if_unmet': True, 'block_gen_if_met': False, "
+                "'use_all_trials_in_exp': False})])"
             ),
         )
 
