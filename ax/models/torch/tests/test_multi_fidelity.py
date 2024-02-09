@@ -17,7 +17,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.knowledge_gradient import qMultiFidelityKnowledgeGradient
-from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.utils.datasets import SupervisedDataset
 
 
@@ -31,7 +31,7 @@ MFKG_PATH = (
 class MultiFidelityAcquisitionTest(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
-        self.botorch_model_class = SingleTaskGP
+        self.botorch_model_class = SingleTaskMultiFidelityGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
         self.Y = torch.tensor([[3.0], [4.0]])
