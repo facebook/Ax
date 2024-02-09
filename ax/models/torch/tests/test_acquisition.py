@@ -119,7 +119,6 @@ class AcquisitionTest(TestCase):
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            fidelity_features=self.fidelity_features,
             target_values={2: 1.0},
         )
         self.surrogate.fit(

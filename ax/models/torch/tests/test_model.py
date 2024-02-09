@@ -8,7 +8,7 @@ import dataclasses
 import warnings
 from contextlib import ExitStack
 from copy import deepcopy
-from typing import Dict, OrderedDict
+from typing import Dict, OrderedDict, Type
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -17,7 +17,11 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
+from ax.models.torch.botorch_modular.model import (
+    BoTorchModel,
+    choose_botorch_acqf_class,
+    SurrogateSpec,
+)
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
@@ -44,7 +48,7 @@ from botorch.acquisition.objective import GenericMCObjective
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
-from botorch.models.model import ModelList
+from botorch.models.model import Model, ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
@@ -117,7 +121,6 @@ class BoTorchModelTest(TestCase):
         self.mf_search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
-            task_features=[],
             fidelity_features=[2],
             target_values={1: 1.0},
         )
@@ -140,7 +143,6 @@ class BoTorchModelTest(TestCase):
         self.linear_constraints = None
         self.fixed_features = None
         self.pending_observations = None
-        self.rounding_func = "func"
         self.moo_metric_names = ["y1", "y2", "y3"]
         self.moo_training_data = [  # block design
             SupervisedDataset(
@@ -165,9 +167,6 @@ class BoTorchModelTest(TestCase):
             fixed_features=self.fixed_features,
             pending_observations=self.pending_observations,
             model_gen_options=self.model_gen_options,
-            # pyre-fixme[6]: For 7th param expected
-            #  `Optional[typing.Callable[[Tensor], Tensor]]` but got `str`.
-            rounding_func=self.rounding_func,
         )
         self.moo_torch_opt_config = dataclasses.replace(
             self.torch_opt_config,
@@ -210,7 +209,7 @@ class BoTorchModelTest(TestCase):
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
+            search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
 
@@ -227,7 +226,7 @@ class BoTorchModelTest(TestCase):
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
+            search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         self.assertEqual(self.model.dtype, torch.float32)
@@ -236,7 +235,7 @@ class BoTorchModelTest(TestCase):
         self.model.fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
+            search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         self.assertEqual(self.model.device, torch.device("cpu"))
@@ -453,51 +452,52 @@ class BoTorchModelTest(TestCase):
         wraps=construct_acquisition_and_optimizer_options,
     )
     @mock.patch(f"{CURRENT_PATH}.Acquisition.optimize")
-    @mock.patch(f"{MODEL_PATH}.get_rounding_func", return_value="func")
-    @mock.patch(f"{MODEL_PATH}._to_inequality_constraints", return_value=[])
     @mock.patch(
-        f"{MODEL_PATH}.choose_botorch_acqf_class", return_value=qExpectedImprovement
+        f"{MODEL_PATH}.choose_botorch_acqf_class", wraps=choose_botorch_acqf_class
     )
-    def test_gen(
+    def _test_gen(
         self,
         mock_choose_botorch_acqf_class: Mock,
-        mock_inequality_constraints: Mock,
-        mock_rounding: Mock,
         mock_optimize: Mock,
         mock_construct_options: Mock,
+        botorch_model_class: Type[Model],
+        search_space_digest: SearchSpaceDigest,
     ) -> None:
-        qEI_input_constructor = get_acqf_input_constructor(qExpectedImprovement)
+        qLogNEI_input_constructor = get_acqf_input_constructor(
+            qLogNoisyExpectedImprovement
+        )
         mock_input_constructor = mock.MagicMock(
-            qEI_input_constructor, side_effect=qEI_input_constructor
+            qLogNEI_input_constructor, side_effect=qLogNEI_input_constructor
         )
         _register_acqf_input_constructor(
-            acqf_cls=qExpectedImprovement,
+            acqf_cls=qLogNoisyExpectedImprovement,
             input_constructor=mock_input_constructor,
         )
         mock_optimize.return_value = (
             torch.tensor([1.0]),
             torch.tensor([2.0]),
         )
+        surrogate = Surrogate(botorch_model_class=botorch_model_class)
         model = BoTorchModel(
-            surrogate=self.surrogate,
+            surrogate=surrogate,
             acquisition_class=Acquisition,
             acquisition_options=self.acquisition_options,
         )
         model.surrogates[Keys.ONLY_SURROGATE].fit(
             datasets=self.block_design_training_data,
             metric_names=self.metric_names,
-            search_space_digest=self.mf_search_space_digest,
+            search_space_digest=search_space_digest,
         )
         model._botorch_acqf_class = None
         # Assert that error is raised if we haven't fit the model
         with self.assertRaises(RuntimeError):
             model.gen(
                 n=1,
-                search_space_digest=self.mf_search_space_digest,
+                search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
         # Add search space digest reference to make the model think it's been fit
-        model._search_space_digest = self.mf_search_space_digest
+        model._search_space_digest = search_space_digest
         with mock.patch.object(
             BoTorchModel,
             "_instantiate_acquisition",
@@ -505,19 +505,20 @@ class BoTorchModelTest(TestCase):
         ) as mock_init_acqf:
             model.gen(
                 n=1,
-                search_space_digest=self.mf_search_space_digest,
+                search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
             # Assert acquisition initialized with expected arguments
             mock_init_acqf.assert_called_once_with(
-                search_space_digest=self.mf_search_space_digest,
+                search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
                 acq_options=self.acquisition_options,
             )
-        ckwargs = mock_input_constructor.call_args[1]
+
         mock_input_constructor.assert_called_once()
+        ckwargs = mock_input_constructor.call_args[1]
         m = ckwargs["model"]
-        self.assertIsInstance(m, SingleTaskGP)
+        self.assertIsInstance(m, botorch_model_class)
         self.assertEqual(m.num_outputs, 1)
         training_data = ckwargs["training_data"]
         self.assertIsInstance(training_data, SupervisedDataset)
@@ -541,7 +542,7 @@ class BoTorchModelTest(TestCase):
             Xs=[dataset.X for dataset in self.block_design_training_data],
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
-            bounds=self.search_space_digest.bounds,
+            bounds=search_space_digest.bounds,
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
         )
@@ -561,21 +562,33 @@ class BoTorchModelTest(TestCase):
         )
         # Assert `choose_botorch_acqf_class` is called
         mock_choose_botorch_acqf_class.assert_called_once()
-        self.assertEqual(model._botorch_acqf_class, qExpectedImprovement)
+        self.assertEqual(model._botorch_acqf_class, qLogNoisyExpectedImprovement)
 
         # Assert `optimize` called with kwargs
         mock_optimize.assert_called_with(
             n=1,
-            search_space_digest=self.mf_search_space_digest,
-            inequality_constraints=[],
+            search_space_digest=search_space_digest,
+            inequality_constraints=None,
             fixed_features=self.fixed_features,
-            rounding_func="func",
+            rounding_func=None,
             optimizer_options=self.optimizer_options,
         )
 
         _register_acqf_input_constructor(
-            acqf_cls=qExpectedImprovement,
-            input_constructor=qEI_input_constructor,
+            acqf_cls=qLogNoisyExpectedImprovement,
+            input_constructor=qLogNEI_input_constructor,
+        )
+
+    def test_gen_SingleTaskGP(self) -> None:
+        self._test_gen(
+            botorch_model_class=SingleTaskGP,
+            search_space_digest=self.search_space_digest,
+        )
+
+    def test_gen_SingleTaskMultiFidelityGP(self) -> None:
+        self._test_gen(
+            botorch_model_class=SingleTaskMultiFidelityGP,
+            search_space_digest=self.mf_search_space_digest,
         )
 
     @fast_botorch_optimize
@@ -704,12 +717,11 @@ class BoTorchModelTest(TestCase):
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
-                fidelity_features=self.mf_search_space_digest.fidelity_features,
             ),
         )
         model.evaluate_acquisition_function(
             X=self.X_test,
-            search_space_digest=self.mf_search_space_digest,
+            search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             acq_options=self.acquisition_options,
         )
