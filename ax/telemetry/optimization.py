@@ -17,7 +17,6 @@ from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecor
 from ax.telemetry.common import (
     _get_max_transformed_dimensionality,
     DEFAULT_PRODUCT_SURFACE,
-    get_unique_identifier,
 )
 from ax.telemetry.experiment import ExperimentCreatedRecord
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
@@ -33,6 +32,7 @@ class OptimizationCreatedRecord:
     """
 
     unique_identifier: str
+    owner: str
 
     # ExperimentCreatedRecord fields
     experiment_name: Optional[str]
@@ -89,6 +89,7 @@ class OptimizationCreatedRecord:
         cls,
         scheduler: Scheduler,
         unique_identifier: str,
+        owner: str,
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
@@ -174,6 +175,7 @@ class OptimizationCreatedRecord:
             ),
             arms_per_trial=scheduler_created_record.arms_per_trial,
             unique_identifier=unique_identifier,
+            owner=owner,
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
@@ -189,6 +191,7 @@ class OptimizationCreatedRecord:
         cls,
         ax_client: AxClient,
         unique_identifier: str,
+        owner: str,
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
@@ -271,6 +274,7 @@ class OptimizationCreatedRecord:
             ),
             arms_per_trial=ax_client_created_record.arms_per_trial,
             unique_identifier=unique_identifier,
+            owner=owner,
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
@@ -289,6 +293,8 @@ class OptimizationCreatedRecord:
         cls,
         experiment: Experiment,
         generation_strategy: Optional[GenerationStrategy],
+        unique_identifier: str,
+        owner: str,
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
@@ -391,7 +397,8 @@ class OptimizationCreatedRecord:
                 generation_strategy=generation_strategy,
             ),
             arms_per_trial=arms_per_trial,
-            unique_identifier=get_unique_identifier(experiment=experiment),
+            unique_identifier=unique_identifier,
+            owner=owner,
             product_surface=product_surface,
             launch_surface=launch_surface,
             deployed_job_id=deployed_job_id,
@@ -441,8 +448,7 @@ class OptimizationCompletedRecord:
     num_metric_fetch_e_encountered: int
     num_trials_bad_due_to_err: int
 
-    # Can be used to join against deployment engine-specific tables for more metadata,
-    # and with scheduler creation event table
+    # TODO[mpolson64] Deprecate this field as it is redundant with unique_identifier
     deployed_job_id: Optional[int]
 
     # Miscellaneous deployment specific info
