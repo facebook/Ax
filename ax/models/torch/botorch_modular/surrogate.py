@@ -76,7 +76,7 @@ logger: Logger = get_logger(__name__)
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest,
-) -> Dict[str, Union[List[int], Optional[int]]]:
+) -> Dict[str, Union[List[int], int]]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -85,7 +85,8 @@ def _extract_model_kwargs(
         search_space_digest: A `SearchSpaceDigest`.
 
     Returns:
-        A dict of fidelity features, task features, and categorical features.
+        A dict of fidelity features, categorical features, and, if present, task
+        features.
     """
     fidelity_features = search_space_digest.fidelity_features
     task_features = search_space_digest.task_features
@@ -94,20 +95,20 @@ def _extract_model_kwargs(
             "Multi-Fidelity GP models with task_features are "
             "currently not supported."
         )
+
     # TODO: Allow each metric having different task_features or fidelity_features
     # TODO: Need upstream change in the modelbrdige
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
-    elif len(task_features) == 1:
-        task_feature = task_features[0]
-    else:
-        task_feature = None
 
-    return {
-        "fidelity_features": fidelity_features,
-        "task_feature": task_feature,
-        "categorical_features": search_space_digest.categorical_features,
-    }
+    kwargs: Dict[str, Union[List[int], int]] = {}
+    if len(search_space_digest.categorical_features) > 0:
+        kwargs["categorical_features"] = search_space_digest.categorical_features
+    if len(fidelity_features) > 0:
+        kwargs["fidelity_features"] = fidelity_features
+    if len(task_features) == 1:
+        kwargs["task_feature"] = task_features[0]
+    return kwargs
 
 
 class Surrogate(Base):
