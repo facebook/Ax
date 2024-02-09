@@ -250,6 +250,8 @@ class CrossValidationTest(TestCase):
         self.assertAlmostEqual(diag["Total raw effect"]["b"], 1.5)
         self.assertAlmostEqual(diag["Log likelihood"]["a"], -50.09469266602336)
         self.assertAlmostEqual(diag["Log likelihood"]["b"], -25.82334285505847)
+        self.assertEqual(diag["MSE"]["a"], 18.2)
+        self.assertEqual(diag["MSE"]["b"], 38.75)
 
     def test_AssessModelFit(self) -> None:
         # Construct diagnostics
