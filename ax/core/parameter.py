@@ -550,14 +550,15 @@ class ChoiceParameter(Parameter):
                 "is not supported! Use a `RangeParameter` instead."
             )
         # Remove duplicate values.
-        if len(values) != len(set_values := set(values)):
+        # Using dict to deduplicate here since set doesn't preserve order but dict does.
+        if len(values) != len(dict_values := dict.fromkeys(values)):
             warn(
                 f"Duplicate values found for ChoiceParameter {name}. "
                 "Initializing the parameter with duplicate values removed. ",
                 AxWarning,
                 stacklevel=2,
             )
-            values = list(set_values)  # to please pyre...
+            values = list(dict_values)
         self._values: List[TParamValue] = self._cast_values(values)
         # pyre-fixme[4]: Attribute must be annotated.
         self._is_ordered = (
