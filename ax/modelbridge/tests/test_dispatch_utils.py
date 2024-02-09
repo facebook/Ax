@@ -79,6 +79,14 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 2)
             self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
+        with self.subTest("min sobol trials"):
+            sobol_gpei = choose_generation_strategy(
+                search_space=get_branin_search_space(),
+                min_sobol_trials_observed=1,
+            )
+            self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
+            self.assertEqual(sobol_gpei._steps[0].min_trials_observed, 1)
+            self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
         with self.subTest("num_initialization_trials > max_initialization_trials"):
             sobol_gpei = choose_generation_strategy(
                 search_space=get_branin_search_space(),

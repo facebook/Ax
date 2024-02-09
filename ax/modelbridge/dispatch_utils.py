@@ -294,6 +294,7 @@ def choose_generation_strategy(
     num_initialization_trials: Optional[int] = None,
     num_completed_initialization_trials: int = 0,
     max_initialization_trials: Optional[int] = None,
+    min_sobol_trials_observed: Optional[int] = None,
     max_parallelism_cap: Optional[int] = None,
     max_parallelism_override: Optional[int] = None,
     optimization_config: Optional[OptimizationConfig] = None,
@@ -352,6 +353,9 @@ def choose_generation_strategy(
             initialization trials is reduced by this number. This is useful when
             warm-starting an experiment, to specify what number of completed trials
             can be used to satisfy the initialization_trial requirement.
+        min_sobol_trials_observed: Minimum number of Sobol trials that must be
+            observed before proceeding to the next generation step. Defaults to
+            `ceil(num_initialization_trials / 2)`.
         max_parallelism_cap: Integer cap on parallelism in this generation strategy.
             If specified, ``max_parallelism`` setting in each generation step will be
             set to the minimum of the default setting for that step and the value of
@@ -502,6 +506,7 @@ def choose_generation_strategy(
             steps.append(
                 _make_sobol_step(
                     num_trials=num_remaining_initialization_trials,
+                    min_trials_observed=min_sobol_trials_observed,
                     enforce_num_trials=enforce_sequential_optimization,
                     seed=random_seed,
                     max_parallelism=sobol_parallelism,
