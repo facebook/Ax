@@ -26,6 +26,7 @@ from ax.utils.stats.model_fit_stats import (
     _log_likelihood,
     _mape,
     _mean_prediction_ci,
+    _mse,
     _rank_correlation,
     _total_raw_effect,
     _wmape,
@@ -48,6 +49,7 @@ CORRELATION_COEFFICIENT = "Correlation coefficient"
 RANK_CORRELATION = "Rank correlation"
 FISHER_EXACT_TEST_P = "Fisher exact test p"
 LOG_LIKELIHOOD = "Log likelihood"
+MSE = "MSE"
 
 
 class CVResult(NamedTuple):
@@ -259,6 +261,7 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
         RANK_CORRELATION: _rank_correlation,
         FISHER_EXACT_TEST_P: _fisher_exact_test_p,
         LOG_LIKELIHOOD: _log_likelihood,
+        MSE: _mse,
     }
     diagnostics = compute_model_fit_metrics(
         y_obs=y_obs, y_pred=y_pred, se_pred=se_pred, fit_metrics_dict=diagnostic_fns

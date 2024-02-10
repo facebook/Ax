@@ -145,6 +145,11 @@ def _mape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     return float(np.mean(np.abs(y_pred - y_obs) / np.abs(y_obs).clip(min=eps)))
 
 
+def _mse(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
+    """Mean squared error"""
+    return float(np.mean((y_pred - y_obs) ** 2))
+
+
 def _wmape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     """Weighted mean absolute predictive error"""
     eps = np.finfo(y_obs.dtype).eps
