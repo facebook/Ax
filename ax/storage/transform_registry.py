@@ -21,7 +21,10 @@ from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.modelbridge.transforms.metrics_as_task import MetricsAsTask
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.power_transform_y import PowerTransformY
-from ax.modelbridge.transforms.relativize import Relativize
+from ax.modelbridge.transforms.relativize import (
+    Relativize,
+    RelativizeWithConstantControl,
+)
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -73,6 +76,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     MetricsAsTask: 22,
     LogY: 23,
     Relativize: 24,
+    RelativizeWithConstantControl: 25,
 }
 
 
