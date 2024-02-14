@@ -712,34 +712,19 @@ def infer_objective_thresholds(
         )
     num_outcomes = objective_weights.shape[0]
     if subset_idcs is None:
-        # check if only a subset of outcomes are modeled
-        nonzero = objective_weights != 0
-        if outcome_constraints is not None:
-            A, _ = outcome_constraints
-            nonzero = nonzero | torch.any(A != 0, dim=0)
-        expected_subset_idcs = nonzero.nonzero().view(-1)
-        if model.num_outputs > expected_subset_idcs.numel():
-            # subset the model so that we only compute the posterior
-            # over the relevant outcomes
-            subset_model_results = subset_model(
-                model=model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-            )
-            model = subset_model_results.model
-            objective_weights = subset_model_results.objective_weights
-            outcome_constraints = subset_model_results.outcome_constraints
-            subset_idcs = subset_model_results.indices
-        else:
-            # model is already subsetted.
-            subset_idcs = expected_subset_idcs
-            # subset objective weights and outcome constraints
-            objective_weights = objective_weights[subset_idcs]
-            if outcome_constraints is not None:
-                outcome_constraints = (
-                    outcome_constraints[0][:, subset_idcs],
-                    outcome_constraints[1],
-                )
+        # Subset the model so that we only compute the posterior
+        # over the relevant outcomes.
+        # This is a no-op if the model is already only modeling
+        # the relevant outcomes.
+        subset_model_results = subset_model(
+            model=model,
+            objective_weights=objective_weights,
+            outcome_constraints=outcome_constraints,
+        )
+        model = subset_model_results.model
+        objective_weights = subset_model_results.objective_weights
+        outcome_constraints = subset_model_results.outcome_constraints
+        subset_idcs = subset_model_results.indices
     else:
         objective_weights = objective_weights[subset_idcs]
         if outcome_constraints is not None:
