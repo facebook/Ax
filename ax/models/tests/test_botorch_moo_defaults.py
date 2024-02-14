@@ -280,6 +280,7 @@ class BotorchMOODefaultsTest(TestCase):
         wraps=lambda y: y,
     )
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
+        # TODO: refactor this test into smaller test cases
         for dtype in (torch.float, torch.double):
             tkwargs: Dict[str, Any] = {
                 "device": torch.device("cuda") if cuda else torch.device("cpu"),
@@ -310,14 +311,6 @@ class BotorchMOODefaultsTest(TestCase):
                         wraps=infer_reference_point,
                     )
                 )
-                # after subsetting, the model will only have two outputs
-                _mock_num_outputs = es.enter_context(
-                    mock.patch(
-                        "botorch.utils.testing.MockModel.num_outputs",
-                        new_callable=mock.PropertyMock,
-                    )
-                )
-                _mock_num_outputs.return_value = 3
                 # after subsetting, the model will only have two outputs
                 model = MockModel(
                     MockPosterior(
@@ -402,6 +395,13 @@ class BotorchMOODefaultsTest(TestCase):
                         )
                     )
                 )
+                es.enter_context(
+                    mock.patch.object(
+                        model,
+                        "subset_output",
+                        return_value=model,
+                    )
+                )
 
                 # test passing X_observed
                 obj_thresholds = infer_objective_thresholds(
@@ -439,6 +439,13 @@ class BotorchMOODefaultsTest(TestCase):
                         ],
                         **tkwargs,
                     )
+                )
+            )
+            es.enter_context(
+                mock.patch.object(
+                    subset_model,
+                    "subset_output",
+                    return_value=subset_model,
                 )
             )
             obj_thresholds = infer_objective_thresholds(

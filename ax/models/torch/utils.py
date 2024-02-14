@@ -291,7 +291,11 @@ def subset_model(
         nonzero = nonzero | torch.any(A != 0, dim=0)
     idcs_t = torch.arange(nonzero.size(0), device=objective_weights.device)[nonzero]
     idcs = idcs_t.tolist()
-    if len(idcs) == model.num_outputs:
+    # note that the number of metrics can be different than
+    # model.num_outputs which counts multiple tasks per
+    # outcome as separate outputs
+    num_outcomes = objective_weights.shape[0]
+    if len(idcs) == num_outcomes:
         # if we use all model outputs, just return the inputs
         return SubsetModelData(
             model=model,
@@ -299,13 +303,13 @@ def subset_model(
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
             indices=torch.arange(
-                model.num_outputs,
+                num_outcomes,
                 device=objective_weights.device,
             ),
         )
     elif len(idcs) > model.num_outputs:
         raise RuntimeError(
-            "Model size inconsistency. Tryting to subset a model with "
+            "Model size inconsistency. Trying to subset a model with "
             f"{model.num_outputs} outputs to {len(idcs)} outputs"
         )
     try:
