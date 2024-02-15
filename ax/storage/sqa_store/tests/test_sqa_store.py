@@ -245,36 +245,38 @@ class SQAStoreTest(TestCase):
         )
 
         for immutable in [True, False]:
-            experiment = get_experiment_with_custom_runner_and_metric(
-                constrain_search_space=False,
-                immutable=immutable,
-            )
+            for multi_objective in [True, False]:
+                experiment = get_experiment_with_custom_runner_and_metric(
+                    constrain_search_space=False,
+                    immutable=immutable,
+                    multi_objective=multi_objective,
+                )
 
-            # Save the experiment to db using the updated registries.
-            save_experiment(experiment, config=sqa_config)
+                # Save the experiment to db using the updated registries.
+                save_experiment(experiment, config=sqa_config)
 
-            # At this point try to load the experiment back without specifying
-            # updated registries. Confirm that this attempt fails.
-            with self.assertRaises(SQADecodeError):
-                loaded_experiment = load_experiment(experiment.name)
+                # At this point try to load the experiment back without specifying
+                # updated registries. Confirm that this attempt fails.
+                with self.assertRaises(SQADecodeError):
+                    loaded_experiment = load_experiment(experiment.name)
 
-            # Now load it with the skip_runners_and_metrics argument set.
-            # The experiment should load (i.e. no exceptions raised)
-            loaded_experiment = load_experiment(
-                experiment.name, skip_runners_and_metrics=True
-            )
+                # Now load it with the skip_runners_and_metrics argument set.
+                # The experiment should load (i.e. no exceptions raised)
+                loaded_experiment = load_experiment(
+                    experiment.name, skip_runners_and_metrics=True
+                )
 
-            # Validate that:
-            #   - the runner is not loaded
-            #   - the metric is loaded as a base Metric class, not CustomTestMetric
-            self.assertIs(loaded_experiment.runner, None)
-            self.assertTrue("custom_test_metric" in loaded_experiment.metrics)
-            self.assertEqual(
-                loaded_experiment.metrics["custom_test_metric"].__class__, Metric
-            )
-            self.assertEqual(len(loaded_experiment.trials), 1)
-            self.assertIs(loaded_experiment.trials[0].runner, None)
-            delete_experiment(exp_name=experiment.name)
+                # Validate that:
+                #   - the runner is not loaded
+                #   - the metric is loaded as a base Metric class, not CustomTestMetric
+                self.assertIs(loaded_experiment.runner, None)
+                self.assertTrue("custom_test_metric" in loaded_experiment.metrics)
+                self.assertEqual(
+                    loaded_experiment.metrics["custom_test_metric"].__class__, Metric
+                )
+                self.assertEqual(len(loaded_experiment.trials), 1)
+                self.assertIs(loaded_experiment.trials[0].runner, None)
+                delete_experiment(exp_name=experiment.name)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",

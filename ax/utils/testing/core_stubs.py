@@ -153,6 +153,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 def get_experiment_with_custom_runner_and_metric(
     constrain_search_space: bool = True,
     immutable: bool = False,
+    multi_objective: bool = False,
 ) -> Experiment:
 
     # Create experiment with custom runner and metric
@@ -161,7 +162,9 @@ def get_experiment_with_custom_runner_and_metric(
         # Omit constraints to prevent Sobol rejection sampling below,
         # which floods logs with "Unable to round" warnings.
         search_space=get_search_space(constrain_search_space=constrain_search_space),
-        optimization_config=get_optimization_config(),
+        optimization_config=get_multi_objective_optimization_config(custom_metric=True)
+        if multi_objective
+        else get_optimization_config(),
         description="test description",
         tracking_metrics=[
             CustomTestMetric(name="custom_test_metric", test_attribute="test")
@@ -1492,6 +1495,20 @@ def get_multi_objective() -> Objective:
     )
 
 
+def get_custom_multi_objective() -> Objective:
+    return MultiObjective(
+        objectives=[
+            Objective(metric=CustomTestMetric(name="m1", test_attribute="test")),
+            Objective(
+                metric=CustomTestMetric(
+                    name="m3", lower_is_better=True, test_attribute="test"
+                ),
+                minimize=True,
+            ),
+        ],
+    )
+
+
 def get_many_branin_objective_opt_config(
     n_objectives: int,
 ) -> MultiObjectiveOptimizationConfig:
@@ -1557,8 +1574,11 @@ def get_map_optimization_config() -> OptimizationConfig:
     return OptimizationConfig(objective=objective)
 
 
-def get_multi_objective_optimization_config() -> MultiObjectiveOptimizationConfig:
-    objective = get_multi_objective()
+def get_multi_objective_optimization_config(
+    custom_metric: bool = False,
+) -> MultiObjectiveOptimizationConfig:
+
+    objective = get_custom_multi_objective() if custom_metric else get_multi_objective()
     outcome_constraints = [get_outcome_constraint()]
     objective_thresholds = [
         get_objective_threshold(metric_name="m1"),
@@ -2241,9 +2261,14 @@ class CustomTestRunner(Runner):
 
 
 class CustomTestMetric(Metric):
-    def __init__(self, name: str, test_attribute: str) -> None:
+    def __init__(
+        self,
+        name: str,
+        test_attribute: str,
+        lower_is_better: Optional[bool] = None,
+    ) -> None:
         self.test_attribute = test_attribute
-        super().__init__(name=name)
+        super().__init__(name=name, lower_is_better=lower_is_better)
 
 
 class SpecialGenerationStrategy(GenerationStrategyInterface):

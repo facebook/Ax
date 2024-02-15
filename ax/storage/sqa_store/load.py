@@ -26,6 +26,8 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
+
+from ax.storage.utils import MetricIntent
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import checked_cast, not_none
 from sqlalchemy.orm import defaultload, lazyload, noload
@@ -136,6 +138,13 @@ def _load_experiment(
         base_metric_type_int = decoder.config.metric_registry[Metric]
         for sqa_metric in experiment_sqa.metrics:
             sqa_metric.metric_type = base_metric_type_int
+            # Handle multi-objective metrics that are not directly attached to
+            # the experiment
+            if sqa_metric.intent == MetricIntent.MULTI_OBJECTIVE:
+                if sqa_metric.properties is None:
+                    sqa_metric.properties = {}
+                sqa_metric.properties["skip_runners_and_metrics"] = True
+
         assign_metric_on_gr = not reduced_state and not imm_OC_and_SS
         if assign_metric_on_gr:
             try:
