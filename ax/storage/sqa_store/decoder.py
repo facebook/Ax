@@ -1036,6 +1036,12 @@ class Decoder:
                 because the parent metric has no children metrics."
             )
 
+        if parent_metric_sqa.properties and parent_metric_sqa.properties.get(
+            "skip_runners_and_metrics"
+        ):
+            for child_metric in metrics_sqa_children:
+                child_metric.metric_type = self.config.metric_registry[Metric]
+
         # Extracting metric and weight for each child
         objectives = [
             Objective(
