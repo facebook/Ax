@@ -10,12 +10,12 @@ from contextlib import ExitStack
 from copy import deepcopy
 from typing import Dict, OrderedDict, Type
 from unittest import mock
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxError, AxWarning, UnsupportedError
+from ax.exceptions.core import AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import (
     BoTorchModel,
@@ -320,7 +320,7 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
         )
 
-    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit")
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model")
     def test_fit(self, mock_fit: Mock) -> None:
         # If surrogate is not yet set, initialize it with dispatcher functions.
         self.model._surrogates = {}
@@ -339,25 +339,19 @@ class BoTorchModelTest(TestCase):
 
         self.assertIsInstance(self.model.search_space_digest, SearchSpaceDigest)
         self.assertEqual(self.model.search_space_digest, self.mf_search_space_digest)
+        self.assertEqual(self.model.output_order, [0])
 
         # Since we want to refit on updates but not warm start refit, we clear the
         # state dict.
         mock_fit.assert_called_with(
-            datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
+            dataset=self.block_design_training_data[0],
             search_space_digest=self.mf_search_space_digest,
-            candidate_metadata=self.candidate_metadata,
+            botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
             refit=True,
         )
 
-        # since Surrogate.fit is mocked, it didn't actually assign the outcomes
-        with patch.object(
-            self.model.surrogate,
-            "_outcomes",
-            self.metric_names,
-        ):
-            labels_to_outcomes = self.model.outcomes_by_surrogate_label
+        labels_to_outcomes = self.model.outcomes_by_surrogate_label
         self.assertIsInstance(labels_to_outcomes, dict)
         self.assertEqual(len(labels_to_outcomes), 1)
         self.assertEqual(next(iter(labels_to_outcomes.values())), self.metric_names)
@@ -366,6 +360,45 @@ class BoTorchModelTest(TestCase):
     def test_predict(self, mock_predict: Mock) -> None:
         self.model.predict(X=self.X_test)
         mock_predict.assert_called_with(X=self.X_test)
+
+    @fast_botorch_optimize
+    def test_multiple_surrogates(self) -> None:
+        surrogate_specs = {
+            "Vanilla": SurrogateSpec(
+                botorch_model_class=SingleTaskGP,
+                outcomes=["y1", "y3"],
+            ),
+            "Bayesian": SurrogateSpec(
+                botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                outcomes=["y2"],
+            ),
+        }
+        model = BoTorchModel(surrogate_specs=surrogate_specs)
+        model.fit(
+            datasets=self.moo_training_data,
+            metric_names=self.moo_metric_names,
+            search_space_digest=self.search_space_digest,
+            candidate_metadata=self.candidate_metadata,
+        )
+        self.assertEqual(list(model.surrogates.keys()), list(surrogate_specs.keys()))
+        self.assertEqual(model.output_order, [0, 2, 1])
+        f1, cov1 = model.surrogates["Vanilla"].predict(self.X_test)
+        f2, cov2 = model.surrogates["Bayesian"].predict(self.X_test)
+        n = self.X_test.shape[0]
+        true_f = torch.zeros(n, 3, dtype=self.X_test.dtype, device=self.X_test.device)
+        true_f[:, 0] = f1[:, 0]
+        true_f[:, 2] = f1[:, 1]
+        true_f[:, 1] = f2[:, 0]
+        true_cov = torch.zeros(
+            n, 3, 3, dtype=self.X_test.dtype, device=self.X_test.device
+        )
+        for i in range(2):
+            true_cov[i, 0, 0] = cov1[i, 0, 0]
+            true_cov[i, 2, 2] = cov1[i, 1, 1]
+            true_cov[i, 1, 1] = cov2[i, 0, 0]
+        f_joint, cov_joint = model.predict(self.X_test)
+        self.assertTrue(torch.allclose(true_f, f_joint))
+        self.assertTrue(torch.allclose(true_cov, cov_joint))
 
     @mock.patch(f"{MODEL_PATH}.BoTorchModel.fit")
     def test_cross_validate(self, mock_fit: Mock) -> None:
@@ -474,7 +507,6 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogates[Keys.ONLY_SURROGATE].fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         model._botorch_acqf_class = None
@@ -591,7 +623,6 @@ class BoTorchModelTest(TestCase):
             )
             model.surrogates[Keys.ONLY_SURROGATE].fit(
                 datasets=self.block_design_training_data,
-                metric_names=self.metric_names,
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
             if botorch_model_class == SaasFullyBayesianSingleTaskGP:
@@ -702,7 +733,6 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogates[Keys.ONLY_SURROGATE].fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 bounds=[],
@@ -722,9 +752,10 @@ class BoTorchModelTest(TestCase):
         mock_acquisition.return_value.evaluate.assert_called()
 
     @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
-    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model", return_value=None)
+    @mock.patch(f"{SURROGATE_PATH}.ModelListGP")
     def test_surrogate_model_options_propagation(
-        self, _: Mock, mock_init: Mock
+        self, _m1: Mock, _m2: Mock, mock_init: Mock
     ) -> None:
         model = BoTorchModel(
             surrogate_specs={
@@ -756,8 +787,11 @@ class BoTorchModelTest(TestCase):
         )
 
     @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
-    @mock.patch(f"{SURROGATE_PATH}.Surrogate.fit", return_value=None)
-    def test_surrogate_options_propagation(self, _: Mock, mock_init: Mock) -> None:
+    @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model", return_value=None)
+    @mock.patch(f"{SURROGATE_PATH}.ModelListGP")
+    def test_surrogate_options_propagation(
+        self, _m1: Mock, _m2: Mock, mock_init: Mock
+    ) -> None:
         model = BoTorchModel(
             surrogate_specs={"name": SurrogateSpec(allow_batched_models=False)}
         )
@@ -796,6 +830,7 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
+        self.assertEqual(model.output_order, [0, 1])
         # A model list should be chosen, since Xs are not all the same.
         model_list = checked_cast(
             ModelList, model.surrogates[Keys.AUTOSET_SURROGATE].model

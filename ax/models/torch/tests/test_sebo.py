@@ -64,10 +64,8 @@ class TestSebo(TestCase):
         )
         self.surrogates.fit(
             datasets=self.training_data,
-            metric_names=["m1"],
             search_space_digest=self.search_space_digest,
         )
-        self.surrogates._outcomes = ["m1"]
 
         self.botorch_acqf_class = qNoisyExpectedHypervolumeImprovement
         self.objective_weights = torch.tensor([1.0], **tkwargs)

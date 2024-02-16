@@ -14,7 +14,7 @@ from ax.exceptions.core import AxError, AxWarning, UnsupportedError
 from ax.models.torch.botorch_modular.utils import (
     _get_shared_rows,
     _tensor_difference,
-    check_metric_dataset_match,
+    check_outcome_dataset_match,
     choose_botorch_acqf_class,
     choose_model_class,
     construct_acquisition_and_optimizer_options,
@@ -508,49 +508,49 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(torch.allclose(ineq_constraints[1][1], torch.tensor([-1])))
         self.assertEqual(ineq_constraints[1][2], -2.0)
 
-    def test_check_metric_dataset_match(self) -> None:
+    def test_check_check_outcome_dataset_match(self) -> None:
         ds = self.fixed_noise_datasets[0]
         # Simple test with one metric & dataset.
         for exact_match in (True, False):
             self.assertIsNone(
-                check_metric_dataset_match(
-                    metric_names=ds.outcome_names,
+                check_outcome_dataset_match(
+                    outcome_names=ds.outcome_names,
                     datasets=[ds],
                     exact_match=exact_match,
                 )
             )
-        # Error with duplicate metric names.
-        with self.assertRaisesRegex(AxError, "duplicate metric names"):
-            check_metric_dataset_match(
-                metric_names=["y", "y"], datasets=[ds], exact_match=False
+        # Error with duplicate outcome names.
+        with self.assertRaisesRegex(AxError, "duplicate outcome names"):
+            check_outcome_dataset_match(
+                outcome_names=["y", "y"], datasets=[ds], exact_match=False
             )
         ds2 = self.supervised_datasets[0]
         # Error with duplicate outcomes in datasets.
         with self.assertRaisesRegex(AxError, "duplicate outcomes"):
-            check_metric_dataset_match(
-                metric_names=["y", "y2"], datasets=[ds, ds2], exact_match=False
+            check_outcome_dataset_match(
+                outcome_names=["y", "y2"], datasets=[ds, ds2], exact_match=False
             )
         ds2.outcome_names = ["y2"]
         # Simple test with two metrics & datasets.
         for exact_match in (True, False):
             self.assertIsNone(
-                check_metric_dataset_match(
-                    metric_names=["y", "y2"],
+                check_outcome_dataset_match(
+                    outcome_names=["y", "y2"],
                     datasets=[ds, ds2],
                     exact_match=exact_match,
                 )
             )
         # Exact match required but too many datasets provided.
         with self.assertRaisesRegex(AxError, "must correspond to an outcome"):
-            check_metric_dataset_match(
-                metric_names=["y"],
+            check_outcome_dataset_match(
+                outcome_names=["y"],
                 datasets=[ds, ds2],
                 exact_match=True,
             )
         # The same check passes if we don't require exact match.
         self.assertIsNone(
-            check_metric_dataset_match(
-                metric_names=["y"],
+            check_outcome_dataset_match(
+                outcome_names=["y"],
                 datasets=[ds, ds2],
                 exact_match=False,
             )
@@ -558,8 +558,8 @@ class BoTorchModelUtilsTest(TestCase):
         # Error if metric doesn't exist in the datasets.
         for exact_match in (True, False):
             with self.assertRaisesRegex(AxError, "but the datasets model"):
-                check_metric_dataset_match(
-                    metric_names=["z"],
+                check_outcome_dataset_match(
+                    outcome_names=["z"],
                     datasets=[ds, ds2],
                     exact_match=exact_match,
                 )
@@ -576,33 +576,35 @@ class BoTorchModelUtilsTest(TestCase):
         )
         # Test with single dataset.
         self.assertEqual(
-            [ds], get_subset_datasets(datasets=[ds], subset_metric_names=["y"])
+            [ds], get_subset_datasets(datasets=[ds], subset_outcome_names=["y"])
         )
         # Edge case of empty metric list.
-        self.assertEqual([], get_subset_datasets(datasets=[ds], subset_metric_names=[]))
+        self.assertEqual(
+            [], get_subset_datasets(datasets=[ds], subset_outcome_names=[])
+        )
         # Multiple datasets, single metric.
         self.assertEqual(
             [ds],
-            get_subset_datasets(datasets=[ds, ds2, ds3], subset_metric_names=["y"]),
+            get_subset_datasets(datasets=[ds, ds2, ds3], subset_outcome_names=["y"]),
         )
         self.assertEqual(
             [ds2],
-            get_subset_datasets(datasets=[ds, ds2, ds3], subset_metric_names=["y2"]),
+            get_subset_datasets(datasets=[ds, ds2, ds3], subset_outcome_names=["y2"]),
         )
         # Multi-output dataset, 1 metric -- not allowed.
         with self.assertRaisesRegex(UnsupportedError, "multi-outcome dataset"):
-            get_subset_datasets(datasets=[ds, ds2, ds3], subset_metric_names=["y3"])
+            get_subset_datasets(datasets=[ds, ds2, ds3], subset_outcome_names=["y3"])
         # Multiple datasets, multiple metrics -- datasets in the same order as metrics.
         self.assertEqual(
             [ds2, ds],
             get_subset_datasets(
-                datasets=[ds, ds2, ds3], subset_metric_names=["y2", "y"]
+                datasets=[ds, ds2, ds3], subset_outcome_names=["y2", "y"]
             ),
         )
         self.assertEqual(
             [ds3, ds],
             get_subset_datasets(
-                datasets=[ds, ds2, ds3], subset_metric_names=["y3", "y", "y4"]
+                datasets=[ds, ds2, ds3], subset_outcome_names=["y3", "y", "y4"]
             ),
         )
 

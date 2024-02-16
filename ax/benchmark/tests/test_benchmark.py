@@ -121,7 +121,6 @@ class TestBenchmark(TestCase):
                 datasets = [get_dataset()]
                 surrogate.fit(
                     datasets,
-                    metric_names=datasets[0].outcome_names,
                     search_space_digest=extract_search_space_digest(
                         problem.search_space,
                         param_names=[*problem.search_space.parameters.keys()],
