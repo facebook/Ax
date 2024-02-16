@@ -1393,7 +1393,6 @@ def process_contextual_datasets(
                         datasets[outcomes.index(metric_i)] for metric_i in metric_list
                     ],
                     parameter_decomposition=parameter_decomposition,
-                    context_buckets=context_buckets,
                     metric_decomposition=metric_decomposition,
                 )
             )
@@ -1409,7 +1408,6 @@ def process_contextual_datasets(
                 ContextualDataset(
                     datasets=[datasets[outcomes.index(metric_i)]],
                     parameter_decomposition=parameter_decomposition,
-                    context_buckets=context_buckets,
                 )
             )
     return contextual_datasets
