@@ -343,67 +343,67 @@ def get_post_processing_func(
         return rounding_func
 
 
-def check_metric_dataset_match(
-    metric_names: List[str],
+def check_outcome_dataset_match(
+    outcome_names: List[str],
     datasets: List[SupervisedDataset],
     exact_match: bool,
 ) -> None:
-    """Check that the metric names match the outcome names of datasets.
+    """Check that the given outcome names match those of datasets.
 
-    Based on `exact_match` we either require that metric names are
+    Based on `exact_match` we either require that outcome names are
     a subset of all outcomes or require the them to be the same.
 
-    Also checks that there are no duplicates in metric or outcome names.
+    Also checks that there are no duplicates in outcome names.
 
     Args:
-        metric_names: A list of metric names.
+        outcome_names: A list of outcome names.
         datasets: A list of `SupervisedDataset` objects.
-        exact_match: If True, metric names must be the same as the union of
-            outcomes names of the datasets. Otherwise, we check that the
-            metric names are a subset of all outcomes.
+        exact_match: If True, outcome_names must be the same as the union of
+            outcome names of the datasets. Otherwise, we check that the
+            outcome_names are a subset of all outcomes.
 
     Raises:
         ValueError: If there is no match.
     """
     all_outcomes = sum((ds.outcome_names for ds in datasets), [])
     set_all_outcomes = set(all_outcomes)
-    set_all_metrics = set(metric_names)
+    set_all_spec_outcomes = set(outcome_names)
     if len(set_all_outcomes) != len(all_outcomes):
         raise AxError("Found duplicate outcomes in the datasets.")
-    if len(set_all_metrics) != len(metric_names):
-        raise AxError("Found duplicate metric names.")
+    if len(set_all_spec_outcomes) != len(outcome_names):
+        raise AxError("Found duplicate outcome names.")
 
     if not exact_match:
-        if not set_all_metrics.issubset(set_all_outcomes):
+        if not set_all_spec_outcomes.issubset(set_all_outcomes):
             raise AxError(
-                "Metric names must be a subset of the outcome names of the datasets."
-                f"Got {metric_names=} but the datasets model {set_all_outcomes}."
+                "Outcome names must be a subset of the outcome names of the datasets."
+                f"Got {outcome_names=} but the datasets model {set_all_outcomes}."
             )
-    elif set_all_metrics != set_all_outcomes:
+    elif set_all_spec_outcomes != set_all_outcomes:
         raise AxError(
-            "Each metric name must correspond to an outcome in the datasets. "
-            f"Got {metric_names=} but the datasets model {set_all_outcomes}."
+            "Each outcome name must correspond to an outcome in the datasets. "
+            f"Got {outcome_names=} but the datasets model {set_all_outcomes}."
         )
 
 
 def get_subset_datasets(
     datasets: List[SupervisedDataset],
-    subset_metric_names: List[str],
+    subset_outcome_names: List[str],
 ) -> List[SupervisedDataset]:
     """Get the list of datasets corresponding to the given subset of
-    metric names. This is used to separate out datasets that are
+    outcome names. This is used to separate out datasets that are
     used by one surrogate.
 
     Args:
         datasets: A list of `SupervisedDataset` objects.
-        subset_metric_names: A list of metric names to get datasets for.
+        subset_outcome_names: A list of outcome names to get datasets for.
 
     Returns:
         A list of `SupervisedDataset` objects corresponding to the given
-        subset of metric names.
+        subset of outcome names.
     """
-    check_metric_dataset_match(
-        metric_names=subset_metric_names, datasets=datasets, exact_match=False
+    check_outcome_dataset_match(
+        outcome_names=subset_outcome_names, datasets=datasets, exact_match=False
     )
     single_outcome_datasets = {
         ds.outcome_names[0]: ds for ds in datasets if len(ds.outcome_names) == 1
@@ -412,21 +412,21 @@ def get_subset_datasets(
         tuple(ds.outcome_names): ds for ds in datasets if len(ds.outcome_names) > 1
     }
     subset_datasets = []
-    metrics_processed = []
-    for metric_name in subset_metric_names:
-        if metric_name in metrics_processed:
-            # This can happen if the metric appears in a multi-outcome
+    outcomes_processed = []
+    for outcome_name in subset_outcome_names:
+        if outcome_name in outcomes_processed:
+            # This can happen if the outcome appears in a multi-outcome
             # dataset that is already processed.
             continue
-        if metric_name in single_outcome_datasets:
-            # The default case of metric with a corresponding dataset.
-            ds = single_outcome_datasets[metric_name]
+        if outcome_name in single_outcome_datasets:
+            # The default case of outcome with a corresponding dataset.
+            ds = single_outcome_datasets[outcome_name]
         else:
-            # The case of metric being part of a multi-outcome dataset.
+            # The case of outcome being part of a multi-outcome dataset.
             for outcome_names in multi_outcome_datasets.keys():
-                if metric_name in outcome_names:
+                if outcome_name in outcome_names:
                     ds = multi_outcome_datasets[outcome_names]
-                    if not set(ds.outcome_names).issubset(subset_metric_names):
+                    if not set(ds.outcome_names).issubset(subset_outcome_names):
                         raise UnsupportedError(
                             "Breaking up a multi-outcome dataset between "
                             "surrogates is not supported."
@@ -434,7 +434,7 @@ def get_subset_datasets(
                     break
         # Pyre-ignore [61]: `ds` may not be defined but it is guaranteed to be defined.
         subset_datasets.append(ds)
-        metrics_processed.extend(ds.outcome_names)
+        outcomes_processed.extend(ds.outcome_names)
     return subset_datasets
 
 
