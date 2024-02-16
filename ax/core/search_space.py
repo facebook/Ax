@@ -96,7 +96,7 @@ class SearchSpace(Base):
         return self._parameter_constraints
 
     @property
-    def range_parameters(self) -> Dict[str, Parameter]:
+    def range_parameters(self) -> Dict[str, RangeParameter]:
         return {
             name: parameter
             for name, parameter in self.parameters.items()

@@ -37,6 +37,7 @@ from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import DataRequiredError, UserInputError
@@ -158,9 +159,11 @@ def _get_objective_v_param_plots(
 ) -> List[go.Figure]:
     search_space = experiment.search_space
 
-    range_params = get_range_parameters_from_list(
-        list(search_space.range_parameters.values()), min_num_values=5
-    )
+    range_params = [
+        checked_cast(Parameter, param)
+        for param in search_space.range_parameters.values()
+    ]
+    range_params = get_range_parameters_from_list(range_params, min_num_values=5)
     if len(range_params) < 1:
         # if search space contains no range params
         logger.warning(

@@ -42,7 +42,6 @@ class TestBenchmarkProblem(TestCase):
             )
             self.assertTrue(
                 all(
-                    # pyre-fixme[16]: `Parameter` has no attribute `lower`.
                     test_problem.search_space.range_parameters[f"x{i}"].lower
                     == botorch_test_problem._bounds[i][0]
                     for i in range(botorch_test_problem.dim)
@@ -51,7 +50,6 @@ class TestBenchmarkProblem(TestCase):
             )
             self.assertTrue(
                 all(
-                    # pyre-fixme[16]: `Parameter` has no attribute `upper`.
                     test_problem.search_space.range_parameters[f"x{i}"].upper
                     == botorch_test_problem._bounds[i][1]
                     for i in range(botorch_test_problem.dim)
@@ -187,7 +185,6 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
-                # pyre-fixme[16]: `Parameter` has no attribute `lower`.
                 branin_currin_problem.search_space.range_parameters[f"x{i}"].lower
                 == test_problem._bounds[i][0]
                 for i in range(test_problem.dim)
@@ -196,7 +193,6 @@ class TestBenchmarkProblem(TestCase):
         )
         self.assertTrue(
             all(
-                # pyre-fixme[16]: `Parameter` has no attribute `upper`.
                 branin_currin_problem.search_space.range_parameters[f"x{i}"].upper
                 == test_problem._bounds[i][1]
                 for i in range(test_problem.dim)
