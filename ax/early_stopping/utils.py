@@ -72,7 +72,7 @@ def align_partial_results(
     # set multi-index over trial, metric, and progression key
     df = df.set_index(["trial_index", "metric_name", progr_key])
     # sort index
-    df = df.sort_index(level=["trial_index", progr_key])
+    df = df.sort_index()
     # drop sem if all NaN (assumes presence of sem column)
     has_sem = not df["sem"].isnull().all()
     if not has_sem:
@@ -85,8 +85,6 @@ def align_partial_results(
     for tidx in df.index.levels[0]:  # this could be slow if there are many trials
         for metric in df.index.levels[1]:
             # grab trial+metric sub-df and reindex to common index
-            # NOTE (FIXME?): The following line can lead to a
-            # "PerformanceWarning: indexing past lexsort depth may impact performance."
             df_ridx = df.loc[(tidx, metric)].reindex(index_union)
             # interpolate / fill missing results
             # TODO: Allow passing of additional kwargs to `interpolate`
