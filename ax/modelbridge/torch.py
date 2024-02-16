@@ -448,7 +448,6 @@ class TorchModelBridge(ModelBridge):
         # Use the model to do the cross validation
         f_test, cov_test = not_none(self.model).cross_validate(
             datasets=datasets,
-            metric_names=self.outcomes,
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
             **kwargs,
@@ -647,7 +646,6 @@ class TorchModelBridge(ModelBridge):
         self.model = model
         self.model.fit(
             datasets=datasets,
-            metric_names=self.outcomes,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
             **kwargs,

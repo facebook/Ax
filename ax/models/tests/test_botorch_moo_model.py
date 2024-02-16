@@ -181,7 +181,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=["y1", "y2"],
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -238,7 +237,6 @@ class BotorchMOOModelTest(TestCase):
         )
         model.fit(
             datasets=training_data,
-            metric_names=["y1", "y2"],
             search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
@@ -257,7 +255,6 @@ class BotorchMOOModelTest(TestCase):
         )
         model.fit(
             datasets=training_data,
-            metric_names=["y1", "y2"],
             search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
@@ -314,7 +311,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=["y1", "y2"],
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -425,7 +421,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=["y1", "y2"],
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -484,7 +479,6 @@ class BotorchMOOModelTest(TestCase):
 
             model.fit(
                 datasets=training_data_m3,
-                metric_names=["y1", "y2", "y3"],
                 search_space_digest=search_space_digest,
             )
             torch_opt_config = TorchOptConfig(
@@ -531,7 +525,6 @@ class BotorchMOOModelTest(TestCase):
             ]
             model.fit(
                 datasets=training_data_multiple,
-                metric_names=["y1", "y2", "dummy_metric"],
                 search_space_digest=search_space_digest,
             )
             es.enter_context(
@@ -727,7 +720,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -806,7 +798,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -911,7 +902,6 @@ class BotorchMOOModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=training_data,
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()

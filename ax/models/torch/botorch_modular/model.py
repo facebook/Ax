@@ -250,7 +250,6 @@ class BoTorchModel(TorchModel, Base):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         # state dict by surrogate label
@@ -263,8 +262,6 @@ class BoTorchModel(TorchModel, Base):
         Args:
             datasets: A list of ``SupervisedDataset`` containers, each
                 corresponding to the data of one or more metrics (outcomes).
-            metric_names: A list of metric names. Each metric must correspond
-                to exactly one outcome in the datasets.
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
@@ -277,6 +274,7 @@ class BoTorchModel(TorchModel, Base):
                 model input constructor in ``Surrogate.fit``.
         """
         # Check that the datasets correspond to the metric names.
+        metric_names = sum((ds.outcome_names for ds in datasets), [])
         check_metric_dataset_match(
             metric_names=metric_names, datasets=datasets, exact_match=True
         )
@@ -469,12 +467,12 @@ class BoTorchModel(TorchModel, Base):
     def cross_validate(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         **additional_model_inputs: Any,
     ) -> Tuple[Tensor, Tensor]:
         # Will fail if metric_names exist across multiple models
+        metric_names = sum((ds.outcome_names for ds in datasets), [])
         surrogate_labels = (
             [
                 label
@@ -487,7 +485,7 @@ class BoTorchModel(TorchModel, Base):
         if len(surrogate_labels) != 1:
             raise UserInputError(
                 "May not cross validate multiple Surrogates at once. Please input "
-                f"metric_names that exist on one Surrogate. {metric_names} spans "
+                f"datasets that exist on one Surrogate. {metric_names} spans "
                 f"{surrogate_labels}"
             )
         surrogate_label = surrogate_labels[0]

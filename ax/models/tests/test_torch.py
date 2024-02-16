@@ -30,7 +30,6 @@ class TorchModelTest(TestCase):
         torch_model = TorchModel()
         torch_model.fit(
             datasets=[self.dataset],
-            metric_names=["y"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1"],
                 bounds=[(0, 1)],
@@ -64,7 +63,6 @@ class TorchModelTest(TestCase):
         with self.assertRaises(NotImplementedError):
             torch_model.cross_validate(
                 datasets=[self.dataset],
-                metric_names=["y"],
                 X_test=torch.ones(1),
                 search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
             )
