@@ -43,7 +43,6 @@ class SACBOTest(TestCase):
         # test fit
         m1.fit(
             datasets=[dataset],
-            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=feature_names,
                 bounds=[(0.0, 1.0) for _ in range(4)],
@@ -81,7 +80,6 @@ class SACBOTest(TestCase):
         m2 = SACBO(decomposition={"1": ["x1", "x3"], "2": ["x2", "x4"]})
         m2.fit(
             datasets=[dataset],
-            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2", "x3", "x4"],
                 bounds=[(0.0, 1.0) for _ in range(4)],
@@ -96,7 +94,6 @@ class SACBOTest(TestCase):
         with self.assertRaises(ValueError):
             m2.fit(
                 datasets=[dataset],
-                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[(0.0, 1.0) for _ in range(4)],
@@ -107,7 +104,6 @@ class SACBOTest(TestCase):
         with self.assertRaises(AssertionError):
             m2.fit(
                 datasets=[dataset],
-                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x0", "x1", "x2", "x3"],
                     bounds=[(0.0, 1.0) for _ in range(4)],

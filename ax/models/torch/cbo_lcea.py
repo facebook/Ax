@@ -117,7 +117,6 @@ class LCEABO(BotorchModel):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
@@ -126,7 +125,6 @@ class LCEABO(BotorchModel):
         self.feature_names = search_space_digest.feature_names
         super().fit(
             datasets=datasets,
-            metric_names=metric_names,
             search_space_digest=search_space_digest,
         )
 

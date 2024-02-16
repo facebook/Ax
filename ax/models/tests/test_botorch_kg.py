@@ -74,7 +74,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
 
@@ -181,7 +180,6 @@ class KnowledgeGradientTest(TestCase):
         model.fit(
             datasets=[self.dataset],
             search_space_digest=self.search_space_digest,
-            metric_names=self.metric_names,
         )
         self.assertTrue(model.use_input_warping)
         self.assertTrue(hasattr(model.model, "input_transform"))
@@ -193,7 +191,6 @@ class KnowledgeGradientTest(TestCase):
         model.fit(
             datasets=[self.dataset],
             search_space_digest=self.search_space_digest,
-            metric_names=self.metric_names,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
 
@@ -208,7 +205,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
-            metric_names=["L2NormMetric"],
             search_space_digest=search_space_digest,
         )
 
@@ -276,7 +272,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient(use_input_warping=True)
         model.fit(
             datasets=[self.dataset],
-            metric_names=["L2NormMetric"],
             search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
@@ -288,7 +283,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient(use_loocv_pseudo_likelihood=True)
         model.fit(
             datasets=[self.dataset],
-            metric_names=["L2NormMetric"],
             search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
@@ -298,7 +292,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
-            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -377,7 +370,6 @@ class KnowledgeGradientTest(TestCase):
         model = KnowledgeGradient()
         model.fit(
             datasets=[self.dataset],
-            metric_names=["L2NormMetric"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,

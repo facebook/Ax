@@ -309,7 +309,6 @@ class ALEBOTest(TestCase):
         # Test fit
         m.fit(
             datasets=[dataset, dataset],
-            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=[],
                 # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,

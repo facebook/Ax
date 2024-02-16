@@ -143,7 +143,6 @@ class TorchModelBridgeTest(TestCase):
             )
         model_fit_args = model.fit.mock_calls[0][2]
         self.assertEqual(model_fit_args["datasets"], list(datasets.values()))
-        self.assertEqual(model_fit_args["metric_names"], ["y1", "y2"])
         self.assertEqual(model_fit_args["search_space_digest"], ssd)
         self.assertIsNone(model_fit_args["candidate_metadata"])
         self.assertEqual(ma._last_observations, observations)
@@ -702,7 +701,6 @@ class TorchModelBridgeTest(TestCase):
             else:
                 expected_outcomes = ["m1", "m2"]
             self.assertEqual(modelbridge.outcomes, expected_outcomes)
-            self.assertEqual(call_kwargs["metric_names"], expected_outcomes)
             self.assertEqual(len(call_kwargs["datasets"]), len(expected_outcomes))
 
     def test_convert_observations(self) -> None:

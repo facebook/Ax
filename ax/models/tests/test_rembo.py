@@ -47,7 +47,6 @@ class REMBOTest(TestCase):
         with self.assertRaises(AssertionError):
             m.fit(
                 datasets=datasets,
-                metric_names=my_metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[], bounds=[(0.0, 1.0)] * 4
                 ),
@@ -55,7 +54,6 @@ class REMBOTest(TestCase):
         search_space_digest = SearchSpaceDigest(feature_names=[], bounds=bounds)
         m.fit(
             datasets=datasets,
-            metric_names=my_metric_names,
             search_space_digest=search_space_digest,
         )
 

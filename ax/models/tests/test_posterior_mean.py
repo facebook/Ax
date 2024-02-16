@@ -52,7 +52,6 @@ class PosteriorMeanTest(TestCase):
         )
         model.fit(
             datasets=[dataset],
-            metric_names=["y"],
             search_space_digest=self.search_space_digest,
         )
 
@@ -84,7 +83,6 @@ class PosteriorMeanTest(TestCase):
         model = MultiObjectiveBotorchModel(acqf_constructor=get_PosteriorMean)
         model.fit(
             datasets=[dataset, dataset],
-            metric_names=["m1", "m2"],
             search_space_digest=self.search_space_digest,
         )
         new_X_dummy = torch.rand(1, 1, 3, **self.tkwargs)
