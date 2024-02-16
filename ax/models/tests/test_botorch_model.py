@@ -70,14 +70,14 @@ class BotorchModelTest(TestCase):
                 Y=Ys1[0],
                 Yvar=Yvars1[0],
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=["y"],
             ),
             SupervisedDataset(
                 X=Xs2[0],
                 Y=Ys2[0],
                 Yvar=Yvars2[0],
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=["w"],
             ),
         ]
         with self.assertRaisesRegex(RuntimeError, "Please fit the model first"):
@@ -97,7 +97,6 @@ class BotorchModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=datasets,
-                metric_names=["y", "w"],
                 search_space_digest=search_space_digest,
             )
             self.assertTrue(isinstance(model.search_space_digest, SearchSpaceDigest))
@@ -151,7 +150,6 @@ class BotorchModelTest(TestCase):
         with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
             model.fit(
                 datasets=datasets,
-                metric_names=["y", "w"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=feature_names,
                     bounds=bounds,
@@ -240,7 +238,6 @@ class BotorchModelTest(TestCase):
                 with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                     model.fit(
                         datasets=datasets,
-                        metric_names=metric_names,
                         search_space_digest=SearchSpaceDigest(
                             feature_names=feature_names,
                             bounds=bounds,
@@ -304,7 +301,6 @@ class BotorchModelTest(TestCase):
             with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
                 model.fit(
                     datasets=datasets_block,
-                    metric_names=["y1", "y2"],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=feature_names,
                         bounds=bounds,
@@ -528,7 +524,6 @@ class BotorchModelTest(TestCase):
             ]
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
-                metric_names=["y1", "y2"],
                 X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertTrue(mean.shape == torch.Size([2, 2]))
@@ -538,7 +533,6 @@ class BotorchModelTest(TestCase):
             model.refit_on_cv = True
             mean, variance = model.cross_validate(
                 datasets=combined_datasets,
-                metric_names=["y1", "y2"],
                 X_test=torch.tensor([[1.2, 3.2, 4.2], [2.4, 5.2, 3.2]], **tkwargs),
             )
             self.assertTrue(mean.shape == torch.Size([2, 2]))
@@ -555,7 +549,6 @@ class BotorchModelTest(TestCase):
             ):
                 unfit_model.cross_validate(
                     datasets=combined_datasets,
-                    metric_names=["y1", "y2"],
                     X_test=Xs1[0],
                 )
             with self.assertRaisesRegex(
@@ -624,7 +617,6 @@ class BotorchModelTest(TestCase):
             model.fit(
                 # pyre-fixme[61]: `datasets` is undefined, or not always defined.
                 datasets=datasets,
-                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=feature_names,
                     bounds=bounds,
@@ -680,7 +672,6 @@ class BotorchModelTest(TestCase):
                             outcome_names=metric_names,
                         )
                     ],
-                    metric_names=metric_names[:1],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=feature_names,
                         bounds=bounds,
@@ -749,7 +740,6 @@ class BotorchModelTest(TestCase):
                         outcome_names=metric_names,
                     ),
                 ],
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
             _mock_fit_model.assert_called_once()
@@ -777,7 +767,6 @@ class BotorchModelTest(TestCase):
         ):
             model.fit(
                 datasets=[],
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
             )
 
