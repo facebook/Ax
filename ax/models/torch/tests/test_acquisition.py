@@ -123,7 +123,6 @@ class AcquisitionTest(TestCase):
         )
         self.surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.search_space_digest.feature_names[:1],
                 bounds=self.search_space_digest.bounds,
@@ -630,7 +629,6 @@ class AcquisitionTest(TestCase):
         )
         self.surrogate.fit(
             datasets=moo_training_data,
-            metric_names=["m1", "m2", "m3"],
             search_space_digest=self.search_space_digest,
         )
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])

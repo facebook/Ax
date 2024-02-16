@@ -26,7 +26,6 @@ from ax.models.torch.botorch_modular.input_constructors.outcome_transform import
     outcome_transform_argparse,
 )
 from ax.models.torch.botorch_modular.utils import (
-    check_metric_dataset_match,
     choose_model_class,
     convert_to_block_design,
     fit_botorch_model,
@@ -489,7 +488,6 @@ class Surrogate(Base):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[OrderedDict[str, Tensor]] = None,
@@ -516,8 +514,6 @@ class Surrogate(Base):
             datasets: A list of ``SupervisedDataset`` containers, each
                 corresponding to the data of one metric (outcome), to be passed
                 to ``Model.construct_inputs`` in BoTorch.
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
@@ -525,9 +521,6 @@ class Surrogate(Base):
             state_dict: Optional state dict to load.
             refit: Whether to re-optimize model parameters.
         """
-        check_metric_dataset_match(
-            metric_names=metric_names, datasets=datasets, exact_match=True
-        )
         self._discard_cached_model_and_data_if_search_space_digest_changed(
             search_space_digest=search_space_digest
         )
@@ -549,6 +542,7 @@ class Surrogate(Base):
         self._training_data = datasets
 
         models = []
+        outcome_names = []
         for i, dataset in enumerate(datasets):
             submodel_state_dict = None
             if state_dict is not None:
@@ -566,13 +560,13 @@ class Surrogate(Base):
                 refit=refit,
             )
             models.append(model)
+            outcome_names.extend(dataset.outcome_names)
 
         if should_use_model_list:
             self._model = ModelListGP(*models)
         else:
             self._model = models[0]
-        # Update the outcomes to match the metrics, to which we just fit the model.
-        self._outcomes = metric_names
+        self._outcomes = outcome_names  # In the order of input datasets
 
     def _discard_cached_model_and_data_if_search_space_digest_changed(
         self, search_space_digest: SearchSpaceDigest

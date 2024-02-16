@@ -216,7 +216,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
             refit=self.refit,
         )
@@ -240,7 +239,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=training_data,
-            metric_names=["metric", "m2"],
             search_space_digest=self.search_space_digest,
             refit=True,
         )
@@ -301,7 +299,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
             refit=self.refit,
         )
@@ -320,7 +317,6 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(UserInputError, "BoTorch model"):
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
                 refit=self.refit,
             )
@@ -348,7 +344,6 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
             )
             self.assertEqual(self.dtype, surrogate.dtype)
@@ -364,7 +359,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         mock_fit.assert_called_once()
@@ -377,7 +371,6 @@ class SurrogateTest(TestCase):
         # Refit with same arguments.
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         # Still only called once -- i.e. not fitted again:
@@ -396,7 +389,6 @@ class SurrogateTest(TestCase):
         with patch(f"{SURROGATE_PATH}.logger.info") as mock_log:
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=search_space_digest,
             )
         mock_log.assert_called_once()
@@ -493,7 +485,6 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(UserInputError, "does not support"):
             surrogate.fit(
                 self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
             )
         # Pass custom options to a SingleTaskGP and make sure they are used
@@ -508,7 +499,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         model = not_none(surrogate._model)
@@ -530,7 +520,6 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
             )
             surrogate.predict(X=self.Xs[0])
@@ -542,7 +531,6 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
             )
             # `best_in_sample_point` requires `objective_weights`
@@ -600,7 +588,6 @@ class SurrogateTest(TestCase):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.search_space_digest,
             )
             # currently cannot use function with fixed features
@@ -649,7 +636,6 @@ class SurrogateTest(TestCase):
             )
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.search_space_digest.feature_names,
                     bounds=self.bounds,
@@ -667,7 +653,6 @@ class SurrogateTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.fit(
                 datasets=self.training_data,
-                metric_names=self.metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.search_space_digest.feature_names,
                     bounds=self.bounds,
@@ -681,7 +666,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.search_space_digest.feature_names,
                 bounds=self.bounds,
@@ -702,7 +686,6 @@ class SurrogateTest(TestCase):
         )
         surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         self.assertIsInstance(surrogate.model, MixedSingleTaskGP)
@@ -730,7 +713,6 @@ class SurrogateTest(TestCase):
         surrogate = Surrogate(allow_batched_models=False)
         surrogate.fit(
             datasets=training_data,
-            metric_names=["metric", "m2"],
             search_space_digest=search_space_digest,
         )
         self.assertIsInstance(surrogate.model, ModelListGP)
@@ -846,7 +828,6 @@ class SurrogateWithModelListTest(TestCase):
                 datasets=self.fixed_noise_training_data
                 if fixed_noise
                 else self.supervised_training_data,
-                metric_names=self.outcomes,
                 search_space_digest=dataclasses.replace(
                     self.multi_task_search_space_digest,
                     task_features=self.task_features,
@@ -938,7 +919,6 @@ class SurrogateWithModelListTest(TestCase):
             )
             surrogate.fit(
                 datasets=[self.ds1, self.ds3],
-                metric_names=self.outcomes,
                 search_space_digest=search_space_digest,
             )
             mock_state_dict.assert_not_called()
@@ -969,7 +949,6 @@ class SurrogateWithModelListTest(TestCase):
             surrogate._submodels = {}  # Prevent re-use of fitted model.
             surrogate.fit(
                 datasets=[self.ds1, self.ds3],
-                metric_names=self.outcomes,
                 search_space_digest=search_space_digest,
                 refit=False,
                 state_dict=state_dict,
@@ -1021,7 +1000,6 @@ class SurrogateWithModelListTest(TestCase):
         with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
             surrogate.fit(
                 datasets=self.supervised_training_data,
-                metric_names=self.outcomes,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
@@ -1040,7 +1018,6 @@ class SurrogateWithModelListTest(TestCase):
         )
         surrogate.fit(
             datasets=self.supervised_training_data,
-            metric_names=self.outcomes,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -1105,7 +1082,6 @@ class SurrogateWithModelListTest(TestCase):
             )
             surrogate.fit(
                 datasets=self.supervised_training_data,
-                metric_names=self.outcomes,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
@@ -1152,7 +1128,6 @@ class SurrogateWithModelListTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
             surrogate.fit(
                 datasets=self.supervised_training_data,
-                metric_names=self.outcomes,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
@@ -1172,7 +1147,6 @@ class SurrogateWithModelListTest(TestCase):
         with self.assertRaisesRegex(NotImplementedError, "input transforms"):
             surrogate.fit(
                 datasets=self.supervised_training_data,
-                metric_names=self.outcomes,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=self.feature_names,
                     bounds=self.bounds,
@@ -1186,7 +1160,6 @@ class SurrogateWithModelListTest(TestCase):
         )
         surrogate.fit(
             datasets=self.supervised_training_data,
-            metric_names=self.outcomes,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,

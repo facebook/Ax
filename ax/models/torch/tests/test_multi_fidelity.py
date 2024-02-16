@@ -55,7 +55,6 @@ class MultiFidelityAcquisitionTest(TestCase):
         )
         self.surrogate.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         self.acquisition_options = {Keys.NUM_FANTASIES: 64}

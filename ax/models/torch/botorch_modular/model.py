@@ -8,6 +8,7 @@ import dataclasses
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import wraps
+from itertools import chain
 from typing import (
     Any,
     Callable,
@@ -33,7 +34,7 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
-    check_metric_dataset_match,
+    check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
     get_subset_datasets,
@@ -151,6 +152,7 @@ class BoTorchModel(TorchModel, Base):
 
     surrogate_specs: Dict[str, SurrogateSpec]
     _surrogates: Dict[str, Surrogate]
+    _output_order: Optional[List[int]] = None
 
     _botorch_acqf_class: Optional[Type[AcquisitionFunction]]
     _search_space_digest: Optional[SearchSpaceDigest] = None
@@ -179,9 +181,10 @@ class BoTorchModel(TorchModel, Base):
             outcomes_by_surrogate_label = {
                 label: spec.outcomes for label, spec in surrogate_specs.items()
             }
-            if sum(
-                len(outcomes) for outcomes in outcomes_by_surrogate_label.values()
-            ) != len(set(*outcomes_by_surrogate_label.values())):
+            all_outcomes = list(
+                chain.from_iterable(outcomes_by_surrogate_label.values())
+            )
+            if len(all_outcomes) != len(set(all_outcomes)):
                 raise UserInputError(
                     "Each outcome may be modeled by only one Surrogate, found "
                     f"{outcomes_by_surrogate_label}"
@@ -223,7 +226,6 @@ class BoTorchModel(TorchModel, Base):
     @single_surrogate_only
     def surrogate(self) -> Surrogate:
         """Surrogate, if there is only one."""
-
         return next(iter(self.surrogates.values()))
 
     @property
@@ -235,7 +237,6 @@ class BoTorchModel(TorchModel, Base):
         NOTE: This is an accessor for ``self.surrogate.Xs``
         and returns it unchanged.
         """
-
         return self.surrogate.Xs
 
     @property
@@ -261,7 +262,7 @@ class BoTorchModel(TorchModel, Base):
 
         Args:
             datasets: A list of ``SupervisedDataset`` containers, each
-                corresponding to the data of one or more metrics (outcomes).
+                corresponding to the data of one or more outcomes.
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
@@ -273,11 +274,10 @@ class BoTorchModel(TorchModel, Base):
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
         """
-        # Check that the datasets correspond to the metric names.
-        metric_names = sum((ds.outcome_names for ds in datasets), [])
-        check_metric_dataset_match(
-            metric_names=metric_names, datasets=datasets, exact_match=True
-        )
+        outcome_names = sum((ds.outcome_names for ds in datasets), [])
+        check_outcome_dataset_match(
+            outcome_names=outcome_names, datasets=datasets, exact_match=True
+        )  # Checks for duplicate outcome names
 
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
@@ -289,7 +289,6 @@ class BoTorchModel(TorchModel, Base):
             surrogate.model_options.update(additional_model_inputs)
             surrogate.fit(
                 datasets=datasets,
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
                 candidate_metadata=candidate_metadata,
                 state_dict=state_dicts.get(Keys.ONLY_SURROGATE)
@@ -297,6 +296,7 @@ class BoTorchModel(TorchModel, Base):
                 else None,
                 refit=refit,
             )
+            self._output_order = list(range(len(outcome_names)))
             return
 
         # Step 1. Initialize a Surrogate for every SurrogateSpec
@@ -321,44 +321,79 @@ class BoTorchModel(TorchModel, Base):
         }
 
         # Step 1.5. If any outcomes are not explicitly assigned to a Surrogate, create
-        # a new Surrogate for all these metrics (which will autoset its botorch model
+        # a new Surrogate for all these outcomes (which will autoset its botorch model
         # class per outcome) UNLESS there is only one SurrogateSpec with no outcomes
-        # assigned to it, in which case that will be used for all metrics.
-        assigned_metric_names = {
+        # assigned to it, in which case that will be used for all outcomes.
+        assigned_outcome_names = {
             item
             for sublist in [spec.outcomes for spec in self.surrogate_specs.values()]
             for item in sublist
         }
-        unassigned_metric_names = [
-            name for name in metric_names if name not in assigned_metric_names
+        unassigned_outcome_names = [
+            name for name in outcome_names if name not in assigned_outcome_names
         ]
-        if len(unassigned_metric_names) > 0 and len(self.surrogates) != 1:
+        if len(unassigned_outcome_names) > 0 and len(self.surrogates) != 1:
             self._surrogates[Keys.AUTOSET_SURROGATE] = Surrogate()
 
         # Step 2. Fit each Surrogate iteratively using its assigned outcomes
         for label, surrogate in self.surrogates.items():
             if label == Keys.AUTOSET_SURROGATE or len(self.surrogates) == 1:
-                subset_metric_names = unassigned_metric_names
+                subset_outcome_names = unassigned_outcome_names
             else:
-                subset_metric_names = self.surrogate_specs[label].outcomes
+                subset_outcome_names = self.surrogate_specs[label].outcomes
             subset_datasets = get_subset_datasets(
-                datasets=datasets, subset_metric_names=subset_metric_names
+                datasets=datasets, subset_outcome_names=subset_outcome_names
             )
             surrogate.model_options.update(additional_model_inputs)
             surrogate.fit(
                 datasets=subset_datasets,
-                metric_names=subset_metric_names,
                 search_space_digest=search_space_digest,
                 candidate_metadata=candidate_metadata,
                 state_dict=(state_dicts or {}).get(label),
                 refit=refit,
             )
 
-    @single_surrogate_only
-    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
-        """Predict if only one Surrogate, Error if there are many"""
+        # Step 3. Output order of outcomes must match input order, but now outcomes are
+        # grouped according to surrogate. Compute the permutation from surrogate order
+        # to input ordering.
+        surrogate_order = []
+        for surrogate in self.surrogates.values():
+            surrogate_order.extend(surrogate.outcomes)
+        self._output_order = list(
+            np.argsort([outcome_names.index(name) for name in surrogate_order])
+        )
 
-        return self.surrogate.predict(X=X)
+    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+        """Predicts, potentially from multiple surrogates.
+
+        If predictions are from multiple surrogates, will stitch outputs together
+        in same order as input datasets, using self.output_order.
+
+        Args:
+            X: (n x d) Tensor of input locations.
+
+        Returns: Tuple of tensors: (n x m) mean, (n x m x m) covariance.
+        """
+        if len(self.surrogates) == 1:
+            return self.surrogate.predict(X=X)
+        fs, covs = [], []
+        for surrogate in self.surrogates.values():
+            f, cov = surrogate.predict(X=X)
+            fs.append(f)
+            covs.append(cov)
+        f = torch.cat(fs, dim=-1)
+        cov = torch.zeros(
+            f.shape[0], f.shape[1], f.shape[1], dtype=X.dtype, device=X.device
+        )
+        i = 0
+        for cov_i in covs:
+            d = cov_i.shape[-1]
+            cov[:, i : (i + d), i : (i + d)] = cov_i
+            i += d
+        # Permute from surrogate order to input ordering
+        f = f[:, self.output_order]
+        cov = cov[:, :, self.output_order][:, self.output_order, :]
+        return f, cov
 
     def predict_from_surrogate(
         self, surrogate_label: str, X: Tensor
@@ -639,3 +674,11 @@ class BoTorchModel(TorchModel, Base):
         for k, v in self.surrogates.items():
             outcomes_by_surrogate_label[k] = v.outcomes
         return outcomes_by_surrogate_label
+
+    @property
+    def output_order(self) -> List[int]:
+        if self._output_order is None:
+            raise RuntimeError(
+                "`output_order` is not initialized. Must `fit` the model first."
+            )
+        return self._output_order
