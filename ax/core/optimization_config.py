@@ -272,7 +272,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         """Inits OptimizationConfig.
 
         Args:
-            objective: Metric+direction to use for the optimization.
+            objective: Metric+direction to use for the optimization. Should be either a
+                MultiObjective or a ScalarizedObjective.
             outcome_constraints: Constraints on metrics.
             objective_thesholds: Thresholds objectives must exceed. Used for
                 multi-objective optimization and for calculating frontiers

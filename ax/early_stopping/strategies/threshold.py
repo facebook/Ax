@@ -123,7 +123,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         df_objective = df[df["metric_name"] == metric_name]
         decisions = {
-            trial_index: self.should_stop_trial_early(
+            trial_index: self._should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
                 df=df_objective,
@@ -138,7 +138,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if should_stop
         }
 
-    def should_stop_trial_early(
+    def _should_stop_trial_early(
         self,
         trial_index: int,
         experiment: Experiment,

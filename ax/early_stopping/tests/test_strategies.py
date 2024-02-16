@@ -4,11 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from typing import Any, cast, Dict, Optional, Set
 
 import numpy as np
-
-import pandas as pd
+from ax.core import OptimizationConfig
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -26,7 +26,7 @@ from ax.early_stopping.strategies.logical import (
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
@@ -147,11 +147,13 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             num_trials=3, num_fetches=5, num_complete=3
         )
         es_strategy = FakeStrategy(min_progression=3, max_progression=5)
+        metric_name, _ = es_strategy._default_objective_and_direction(
+            experiment=experiment
+        )
+
         map_data = es_strategy._check_validity_and_get_data(
             experiment,
-            metric_names=[
-                es_strategy._default_objective_and_direction(experiment=experiment)[0]
-            ],
+            metric_names=[metric_name],
         )
         map_data = checked_cast(MapData, map_data)
         self.assertTrue(
@@ -162,6 +164,27 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 map_key=map_data.map_keys[0],
             )[0]
         )
+
+        # try to get data from different metric name
+        fake_df = deepcopy(map_data.map_df)
+        trial_index = 0
+        fake_df = fake_df.drop(fake_df.index[fake_df["trial_index"] == trial_index])
+        fake_es, fake_reason = es_strategy.is_eligible(
+            trial_index=trial_index,
+            experiment=experiment,
+            df=fake_df,
+            map_key=map_data.map_keys[0],
+        )
+        self.assertFalse(fake_es)
+        self.assertEqual(
+            fake_reason, "No data available to make an early stopping decision."
+        )
+
+        fake_map_data = es_strategy._check_validity_and_get_data(
+            experiment,
+            metric_names=["fake_metric_name"],
+        )
+        self.assertIsNone(fake_map_data)
 
         es_strategy = FakeStrategy(min_progression=5)
         self.assertFalse(
@@ -435,7 +458,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop = _evaluate_early_stopping_with_df(
             early_stopping_strategy=early_stopping_strategy,
             experiment=exp,
-            df=data.map_df,
+            metric_name="branin_map",
         )
         self.assertEqual(set(should_stop), {0, 1, 3})
 
@@ -489,7 +512,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         should_stop = _evaluate_early_stopping_with_df(
             early_stopping_strategy=early_stopping_strategy,
             experiment=exp,
-            df=data.map_df,
+            metric_name="branin_map",
         )
         self.assertEqual(set(should_stop), {0, 1})
 
@@ -678,25 +701,29 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
 def _evaluate_early_stopping_with_df(
     early_stopping_strategy: PercentileEarlyStoppingStrategy,
     experiment: Experiment,
-    df: pd.DataFrame,
+    metric_name: str,
 ) -> Dict[int, Optional[str]]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
-    metric_to_aligned_means, _ = align_partial_results(
-        df=df,
-        progr_key="timestamp",
-        metrics=["branin_map"],
+    data = not_none(
+        early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
-    aligned_means = metric_to_aligned_means["branin_map"]
+    metric_to_aligned_means, _ = align_partial_results(
+        df=data.map_df,
+        progr_key="timestamp",
+        metrics=[metric_name],
+    )
+    aligned_means = metric_to_aligned_means[metric_name]
     decisions = {
-        trial_index: early_stopping_strategy.should_stop_trial_early(
+        trial_index: early_stopping_strategy._should_stop_trial_early(
             trial_index=trial_index,
             experiment=experiment,
             df=aligned_means,
-            df_raw=df,
+            df_raw=data.map_df,
             map_key="timestamp",
-            # pyre-fixme[16]: `Optional` has no attribute `objective`.
-            minimize=experiment.optimization_config.objective.minimize,
+            minimize=cast(
+                OptimizationConfig, experiment.optimization_config
+            ).objective.minimize,
         )
         for trial_index in set(experiment.trials.keys())
     }

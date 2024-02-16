@@ -152,8 +152,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         for metric_name in metric_names:
             if metric_name not in set(data.df["metric_name"]):
                 logger.info(
-                    f"{self.__class__.__name__} did not receive data "
-                    "from the objective metric. Not stopping any trials."
+                    f"{self.__class__.__name__} did not receive data from the "
+                    f"objective metric `{metric_name}`. Not stopping any trials."
                 )
                 return None
 
@@ -201,12 +201,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     @staticmethod
     def _log_and_return_no_data(
-        logger: logging.Logger, trial_index: int
+        logger: logging.Logger, trial_index: int, metric_name: str
     ) -> Tuple[bool, str]:
         """Helper function for logging/constructing a reason when there is no data."""
         logger.info(
-            f"There is not yet any data associated with trial {trial_index}. "
-            "Not early stopping this trial."
+            f"There is not yet any data associated with trial {trial_index} and "
+            f"metric {metric_name}. Not early stopping this trial."
         )
         return False, "No data available to make an early stopping decision."
 
@@ -217,11 +217,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_last_progression: float,
         min_progression: Optional[float],
         max_progression: Optional[float],
+        metric_name: str,
     ) -> Tuple[bool, str]:
         """Helper function for logging/constructing a reason when min progression
         is not yet reached."""
         reason = (
-            f"Most recent progression ({trial_last_progression}) falls out of the "
+            f"Most recent progression ({trial_last_progression}) that is available for "
+            f"metric {metric_name} falls out of the "
             f"min/max_progression range ({min_progression}, {max_progression})."
         )
         logger.info(
@@ -327,7 +329,24 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             4. Check that the trial hasn't surpassed `self.max_progression`
         Returns two elements: a boolean indicating if all checks are passed and a
         str indicating the reason that early stopping is not applied (None if all
-        checks pass)."""
+        checks pass).
+
+        Args:
+            trial_index: The index of the trial to check.
+            experiment: The experiment containing the trial.
+            df: A dataframe containing the time-dependent metrics for the trial.
+                NOTE: `df` should only contain data with `metric_name` fields that are
+                associated with the early stopping strategy. This is usually done
+                automatically in `_check_validity_and_get_data`. `is_eligible` might
+                otherwise return False even though the trial is eligible, if there are
+                secondary tracking metrics that are in `df` but shouldn't be considered
+                in the early stopping decision.
+            map_key: The name of the column containing the progression (e.g. time).
+
+        Returns:
+            A tuple of two elements: a boolean indicating if the trial is eligible and
+                an optional string indicating any reason for ineligiblity.
+        """
         # check for ignored indices
         if (
             self.trial_indices_to_ignore is not None
@@ -337,30 +356,36 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 logger=logger, trial_index=trial_index
             )
 
-        # check for no data
-        df_trial = df[df["trial_index"] == trial_index].dropna(subset=["mean"])
-        if df_trial.empty:
-            return self._log_and_return_no_data(logger=logger, trial_index=trial_index)
+        # Check eligibility of each metric.
+        for metric_name, metric_df in df.groupby("metric_name"):
+            # check for no data
+            df_trial = metric_df[metric_df["trial_index"] == trial_index]
+            df_trial = df_trial.dropna(subset=["mean"])
+            if df_trial.empty:
+                return self._log_and_return_no_data(
+                    logger=logger, trial_index=trial_index, metric_name=metric_name
+                )
 
-        # check for min/max progression
-        trial_last_prog = df_trial[map_key].max()
-        logger.info(f"Last progression of Trial {trial_index} is {trial_last_prog}.")
-        if self.min_progression is not None and trial_last_prog < self.min_progression:
-            return self._log_and_return_progression_range(
-                logger=logger,
-                trial_index=trial_index,
-                trial_last_progression=trial_last_prog,
-                min_progression=self.min_progression,
-                max_progression=self.max_progression,
+            # check for min/max progression
+            trial_last_prog = df_trial[map_key].max()
+            logger.info(
+                f"Last progression of Trial {trial_index} is {trial_last_prog}."
             )
-        if self.max_progression is not None and trial_last_prog > self.max_progression:
-            return self._log_and_return_progression_range(
-                logger=logger,
-                trial_index=trial_index,
-                trial_last_progression=trial_last_prog,
-                min_progression=self.min_progression,
-                max_progression=self.max_progression,
-            )
+            if (
+                self.min_progression is not None
+                and trial_last_prog < self.min_progression
+            ) or (
+                self.max_progression is not None
+                and trial_last_prog > self.max_progression
+            ):
+                return self._log_and_return_progression_range(
+                    logger=logger,
+                    trial_index=trial_index,
+                    trial_last_progression=trial_last_prog,
+                    min_progression=self.min_progression,
+                    max_progression=self.max_progression,
+                    metric_name=metric_name,
+                )
         return True, None
 
     def _default_objective_and_direction(
