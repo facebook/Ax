@@ -315,22 +315,28 @@ def get_robust_branin_experiment(
 def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
     rate: Optional[float] = None,
+    map_tracking_metric: bool = False,
 ) -> Experiment:
+    def get_map_metric(name: str) -> BraninTimestampMapMetric:
+        return BraninTimestampMapMetric(
+            name=name,
+            param_names=["x1", "x2"],
+            rate=rate,
+            lower_is_better=True,
+        )
+
+    tracking_metric = (
+        get_map_metric("tracking_branin_map")
+        if map_tracking_metric
+        else BraninMetric(name="branin", param_names=["x1", "x2"])
+    )
     exp = Experiment(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
-            objective=Objective(
-                metric=BraninTimestampMapMetric(
-                    name="branin_map",
-                    param_names=["x1", "x2"],
-                    rate=rate,
-                    lower_is_better=True,
-                ),
-                minimize=True,
-            )
+            objective=Objective(metric=get_map_metric("branin_map"), minimize=True)
         ),
-        tracking_metrics=[BraninMetric(name="branin", param_names=["x1", "x2"])],
+        tracking_metrics=[tracking_metric],
         runner=SyntheticRunner(),
         default_data_type=DataType.MAP_DATA,
     )
@@ -360,9 +366,14 @@ def run_branin_experiment_with_generation_strategy(
 
 
 def get_test_map_data_experiment(
-    num_trials: int, num_fetches: int, num_complete: int
+    num_trials: int,
+    num_fetches: int,
+    num_complete: int,
+    map_tracking_metric: bool = False,
 ) -> Experiment:
-    experiment = get_branin_experiment_with_timestamp_map_metric(rate=0.5)
+    experiment = get_branin_experiment_with_timestamp_map_metric(
+        rate=0.5, map_tracking_metric=map_tracking_metric
+    )
     for i in range(num_trials):
         trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
         trial.run()
