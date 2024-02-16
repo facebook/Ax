@@ -293,14 +293,13 @@ class BotorchModel(TorchModel):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
         if len(datasets) == 0:
             raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
         self.Xs, self.Ys, self.Yvars = _datasets_to_legacy_inputs(datasets=datasets)
-        self.metric_names = metric_names
+        self.metric_names = sum((ds.outcome_names for ds in datasets), [])
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
         self.dtype = self.Xs[0].dtype

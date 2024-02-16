@@ -27,7 +27,6 @@ class RandomForestTest(TestCase):
         m = RandomForest(num_trees=5)
         m.fit(
             datasets=datasets,
-            metric_names=["y1", "y2"],
             search_space_digest=SearchSpaceDigest(
                 feature_names=["x1", "x2"],
                 # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float,

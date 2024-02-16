@@ -80,7 +80,6 @@ class FrontierEvaluatorTest(TestCase):
                         outcome_names=["a", "b", "c"],
                     )
                 ],
-                metric_names=["a", "b", "c"],
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x1", "x2"],
                     bounds=bounds,

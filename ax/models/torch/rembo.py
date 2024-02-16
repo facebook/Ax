@@ -65,7 +65,6 @@ class REMBO(BotorchModel):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
@@ -79,7 +78,6 @@ class REMBO(BotorchModel):
         low_d_datasets = self._convert_and_normalize_datasets(datasets=datasets)
         super().fit(
             datasets=low_d_datasets,
-            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=[f"x{i}" for i in range(self.A.shape[1])],
                 bounds=[(0.0, 1.0)] * len(self.bounds_d),

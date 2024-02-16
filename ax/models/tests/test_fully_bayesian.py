@@ -176,7 +176,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         bounds=bounds,
                         task_features=tfs,
                     ),
-                    metric_names=["y1", "y2"],
                 )
 
                 # Check that there are no unexpected constraints on the hyperparameters
@@ -376,7 +375,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         )
                         for X, Y, Yvar, mn in zip(Xs_mt, Ys_mt, Yvars_mt, mns_mt)
                     ],
-                    metric_names=mns_mt,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns_mt,
                         bounds=bounds_mt,
@@ -396,7 +394,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
                         )
                     ],
-                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
@@ -427,7 +424,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         )
                         for X, Y, Yvar, mn in zip(Xs1 + Xs2, Ys1 + Ys2, Yvars, mns * 2)
                     ],
-                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
@@ -762,7 +758,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                         Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
                     )
                 ],
-                metric_names=mns,
                 search_space_digest=search_space_digest,
             )
             # pyre-fixme[16]: `BaseFullyBayesianBotorchModelTest` has no
@@ -826,7 +821,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
                         )
                     ],
-                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
@@ -872,7 +866,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
                         )
                     ],
-                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
@@ -906,7 +899,6 @@ class BaseFullyBayesianBotorchModelTest(ABC):
                             Xs1 + Xs2, Ys1 + Ys2, Yvars1 + Yvars2, mns * 2
                         )
                     ],
-                    metric_names=mns,
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,
@@ -1014,7 +1006,6 @@ class SingleObjectiveFullyBayesianBotorchModelTest(
                         )
                         for X, Y, Yvar, mn in zip(Xs1, Ys1, Yvars1, mns)
                     ],
-                    metric_names=[mns[0]],
                     search_space_digest=SearchSpaceDigest(
                         feature_names=fns,
                         bounds=bounds,

@@ -119,7 +119,6 @@ class TorchModel(BaseModel):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:
@@ -128,8 +127,6 @@ class TorchModel(BaseModel):
         Args:
             datasets: A list of ``SupervisedDataset`` containers, each
                 corresponding to the data of one metric (outcome).
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
@@ -198,7 +195,6 @@ class TorchModel(BaseModel):
     def cross_validate(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
     ) -> Tuple[Tensor, Tensor]:
@@ -210,8 +206,6 @@ class TorchModel(BaseModel):
         Args:
             datasets: A list of ``SupervisedDataset`` containers, each
                 corresponding to the data of one metric (outcome).
-            metric_names: A list of metric names, with the i-th metric
-                corresponding to the i-th dataset.
             X_test: (j x d) tensor of the j points at which to make predictions.
             search_space_digest: A SearchSpaceDigest object containing
                 metadata on the features in X.

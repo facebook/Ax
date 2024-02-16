@@ -49,7 +49,6 @@ class LCEABOTest(TestCase):
         # Test fit
         m1.fit(
             datasets=training_data,
-            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=feature_names,
                 bounds=[(0.0, 1.0) for _ in range(4)],
@@ -87,7 +86,6 @@ class LCEABOTest(TestCase):
         m2 = LCEABO(decomposition={"1": ["x0", "x2"], "2": ["x1", "x3"]})
         m2.fit(
             datasets=training_data,
-            metric_names=metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=feature_names,
                 bounds=[(0.0, 1.0) for _ in range(4)],
@@ -102,7 +100,6 @@ class LCEABOTest(TestCase):
         with self.assertRaises(ValueError):
             m2.fit(
                 datasets=training_data,
-                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=[],
                     bounds=[(0.0, 1.0) for _ in range(4)],
@@ -113,7 +110,6 @@ class LCEABOTest(TestCase):
         with self.assertRaises(AssertionError):
             m2.fit(
                 datasets=training_data,
-                metric_names=metric_names,
                 search_space_digest=SearchSpaceDigest(
                     feature_names=["x0", "x6", "x10", "z"],
                     bounds=[(0.0, 1.0) for _ in range(4)],

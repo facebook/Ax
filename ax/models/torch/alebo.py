@@ -838,7 +838,6 @@ class ALEBO(BotorchModel):
     def fit(
         self,
         datasets: List[SupervisedDataset],
-        metric_names: List[str],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
     ) -> None:

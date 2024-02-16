@@ -350,16 +350,7 @@ class BoTorchModelTest(TestCase):
             state_dict=None,
             refit=True,
         )
-        # ensure that error is raised when len(metric_names) != len(datasets)
-        with self.assertRaisesRegex(
-            AxError,
-            "Each metric name must correspond to an outcome in the datasets.",
-        ):
-            self.model.fit(
-                datasets=self.block_design_training_data,
-                metric_names=self.metric_names + ["zzz", "zzzzzz"],
-                search_space_digest=self.mf_search_space_digest,
-            )
+
         # since Surrogate.fit is mocked, it didn't actually assign the outcomes
         with patch.object(
             self.model.surrogate,
@@ -380,7 +371,6 @@ class BoTorchModelTest(TestCase):
     def test_cross_validate(self, mock_fit: Mock) -> None:
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -403,7 +393,6 @@ class BoTorchModelTest(TestCase):
             ) as mock_clone_reset:
                 self.model.cross_validate(
                     datasets=self.block_design_training_data,
-                    metric_names=self.metric_names,
                     X_test=self.X_test,
                     search_space_digest=self.mf_search_space_digest,
                 )

@@ -55,7 +55,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
 
@@ -140,7 +139,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         self.assertTrue(model.use_input_warping)
@@ -152,7 +150,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
@@ -166,7 +163,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
 
@@ -232,7 +228,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch(use_input_warping=True)
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -248,7 +243,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch(use_loocv_pseudo_likelihood=True)
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=search_space_digest,
         )
         self.assertTrue(model.use_loocv_pseudo_likelihood)
@@ -259,7 +253,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
@@ -290,7 +283,6 @@ class MaxValueEntropySearchTest(TestCase):
         model = MaxValueEntropySearch()
         model.fit(
             datasets=self.training_data,
-            metric_names=self.metric_names,
             search_space_digest=SearchSpaceDigest(
                 feature_names=self.feature_names,
                 bounds=self.bounds,
