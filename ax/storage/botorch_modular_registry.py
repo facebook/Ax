@@ -46,6 +46,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models import SaasFullyBayesianSingleTaskGP
+from botorch.models.contextual import LCEAGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 # BoTorch `Model` imports
@@ -112,6 +113,7 @@ MODEL_REGISTRY: Dict[Type[Model], str] = {
     SingleTaskMultiFidelityGP: "SingleTaskMultiFidelityGP",
     SaasFullyBayesianSingleTaskGP: "SaasFullyBayesianSingleTaskGP",
     SaasFullyBayesianMultiTaskGP: "SaasFullyBayesianMultiTaskGP",
+    LCEAGP: "LCEAGP",
 }
 
 
