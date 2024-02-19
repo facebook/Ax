@@ -144,7 +144,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         aligned_means = metric_to_aligned_means[metric_name]
         decisions = {
-            trial_index: self.should_stop_trial_early(
+            trial_index: self._should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
                 df=aligned_means,
@@ -160,7 +160,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             if should_stop
         }
 
-    def should_stop_trial_early(
+    def _should_stop_trial_early(
         self,
         trial_index: int,
         experiment: Experiment,
