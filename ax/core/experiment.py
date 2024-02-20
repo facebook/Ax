@@ -1122,7 +1122,8 @@ class Experiment(Base):
         """Grabs trials on this experiment by their indices."""
         trial_indices = list(trial_indices)
         try:
-            return [self.trials[idx] for idx in trial_indices]
+            trials = self.trials
+            return [trials[idx] for idx in trial_indices]
         except KeyError:
             missing = set(trial_indices) - set(self.trials)
             raise ValueError(

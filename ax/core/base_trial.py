@@ -222,8 +222,7 @@ class BaseTrial(ABC, SortableBase):
         if ttl_seconds is not None and ttl_seconds <= 0:
             raise ValueError("TTL must be a positive integer (or None).")
         self._ttl_seconds: Optional[int] = ttl_seconds
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._index = self._experiment._attach_trial(self, index=index)
+        self._index: int = self._experiment._attach_trial(self, index=index)
 
         if trial_type is not None:
             if not self._experiment.supports_trial_type(trial_type):
@@ -234,8 +233,7 @@ class BaseTrial(ABC, SortableBase):
             trial_type = self._experiment.default_trial_type
         self._trial_type: Optional[str] = trial_type
 
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.__status = None
+        self.__status: Optional[TrialStatus] = None
         # Uses `_status` setter, which updates trial statuses to trial indices
         # mapping on the experiment, with which this trial is associated.
         self._status = TrialStatus.CANDIDATE
@@ -259,8 +257,7 @@ class BaseTrial(ABC, SortableBase):
         # If generator run(s) in this trial were generated from a generation
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._generation_step_index = None
+        self._generation_step_index: Optional[int] = None
         # pyre-fixme[4]: Attribute must be annotated.
         self._properties = {}
 
@@ -278,7 +275,11 @@ class BaseTrial(ABC, SortableBase):
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
         self._mark_failed_if_past_TTL()
-        return self._status
+        return not_none(self._status)
+
+    @status.setter
+    def status(self, status: TrialStatus) -> None:
+        raise NotImplementedError("Use `trial.mark_*` methods to set trial status.")
 
     @property
     def ttl_seconds(self) -> Optional[int]:
@@ -309,10 +310,6 @@ class BaseTrial(ABC, SortableBase):
     def did_not_complete(self) -> bool:
         """Checks if trial status is terminal, but not `COMPLETED`."""
         return self.status.is_terminal and not self.completed_successfully
-
-    @status.setter
-    def status(self, status: TrialStatus) -> None:
-        raise NotImplementedError("Use `trial.mark_*` methods to set trial status.")
 
     @property
     def runner(self) -> Optional[Runner]:
@@ -706,7 +703,7 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if not unsafe and self._status.is_terminal:
+        if not unsafe and not_none(self._status).is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
         self._abandoned_reason = reason
@@ -789,7 +786,7 @@ class BaseTrial(ABC, SortableBase):
         """If trial has TTL set and is running, check if the TTL has elapsed
         and mark the trial failed if so.
         """
-        if self.ttl_seconds is None or not self._status.is_running:
+        if self.ttl_seconds is None or not not_none(self._status).is_running:
             return
         time_run_started = self._time_run_started
         assert time_run_started is not None
@@ -798,11 +795,12 @@ class BaseTrial(ABC, SortableBase):
             self.mark_failed()
 
     @property
-    def _status(self) -> TrialStatus:
+    def _status(self) -> Optional[TrialStatus]:
         """The status of the trial in the experimentation lifecycle. This private
         property exists to allow for a corresponding setter, since its important
         that the trial statuses mapping on the experiment is updated always when
-        a trial status is updated.
+        a trial status is updated. In addition, the private property can be None
+        whereas the public `status` errors out if self._status is None.
         """
         return self.__status
 
@@ -811,9 +809,10 @@ class BaseTrial(ABC, SortableBase):
         """Setter for the `_status` attribute that also updates the experiment's
         `_trial_indices_by_status mapping according to the newly set trial status.
         """
-        if self._status is not None:
-            assert self.index in self._experiment._trial_indices_by_status[self._status]
-            self._experiment._trial_indices_by_status[self._status].remove(self.index)
+        status = self._status
+        if status is not None:
+            assert self.index in self._experiment._trial_indices_by_status[status]
+            self._experiment._trial_indices_by_status[status].remove(self.index)
         self._experiment._trial_indices_by_status[trial_status].add(self.index)
         self.__status = trial_status
 
