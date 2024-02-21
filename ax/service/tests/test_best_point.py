@@ -14,6 +14,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import DataRequiredError
+from ax.service.utils.best_point import extract_Y_from_data
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -170,3 +171,18 @@ class TestBestPointMixin(TestCase):
             scalarized=True,
         )
         self.assertEqual(get_best(exp), 6)
+
+    def test_extract_Y_from_data(self) -> None:
+        # Single objective, minimize.
+        exp = get_experiment_with_observations(
+            observations=[[11], [10], [9], [15], [5]], minimize=True
+        )
+        self.assertNotEqual(len(exp.lookup_data().df), 0)
+
+        if not exp.optimization_config:
+            raise TypeError("No objective")
+
+        metric_names = exp.optimization_config.objective.metric_names
+
+        output, _ = extract_Y_from_data(experiment=exp, metric_names=metric_names)
+        self.assertNotEqual(len(output), 0)

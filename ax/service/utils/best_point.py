@@ -835,9 +835,13 @@ def extract_Y_from_data(
             0, dtype=torch.long
         )
 
-    data_as_wide = df[keeps].pivot(
-        columns="metric_name", index=["trial_index", "arm_name"], values="mean"
+    data_as_wide = pd.pivot_table(
+        df[keeps],
+        index=["trial_index", "arm_name"],
+        columns="metric_name",
+        values="mean",
     )[metric_names]
+
     means = torch.tensor(data_as_wide.to_numpy()).to(torch.double)
     trial_indices = torch.tensor(
         data_as_wide.reset_index()["trial_index"].to_numpy(), dtype=torch.long
