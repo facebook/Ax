@@ -100,6 +100,7 @@ def plot_feature_importance_by_feature_plotly(
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
 
@@ -114,6 +115,7 @@ def plot_feature_importance_by_feature_plotly(
         relative: Whether to normalize feature importances so that they add to 1.
         caption: An HTML-formatted string to place at the bottom of the plot.
         importance_measure: The name of the importance metric to be added to the title.
+        label_dict: A dictionary mapping metric names to short labels.
     Returns a go.Figure of feature importances.
     """
     if sensitivity_values is None:
@@ -131,6 +133,11 @@ def plot_feature_importance_by_feature_plotly(
                 "Feature importances cannot be computed by the model."
             )
 
+    if label_dict is not None:
+        sensitivity_values = {  # pyre-ignore
+            label_dict.get(metric_name, metric_name): v
+            for metric_name, v in sensitivity_values.items()
+        }
     traces = []
     dropdown = []
     for i, metric_name in enumerate(sorted(sensitivity_values.keys())):
@@ -204,8 +211,11 @@ def plot_feature_importance_by_feature_plotly(
     )
     if importance_measure:
         title = title + " based on " + importance_measure
+    longest_label = max(len(f) for f in features)
+    longest_metric = max(len(m) for m in sensitivity_values.keys())
     layout = go.Layout(
         height=200 + len(features) * 20,
+        width=10 * longest_label + max(10 * longest_metric, 400),
         hovermode="closest",
         margin=go.layout.Margin(
             l=8 * min(max(len(idx) for idx in features), 75)
@@ -228,6 +238,7 @@ def plot_feature_importance_by_feature(
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
+    label_dict: Optional[Dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
@@ -238,6 +249,7 @@ def plot_feature_importance_by_feature(
             relative=relative,
             caption=caption,
             importance_measure=importance_measure,
+            label_dict=label_dict,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )
