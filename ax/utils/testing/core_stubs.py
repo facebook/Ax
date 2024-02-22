@@ -2133,7 +2133,6 @@ def get_surrogate() -> Surrogate:
     return Surrogate(
         botorch_model_class=get_model_type(),
         mll_class=get_mll_type(),
-        model_options={"some_option": "some_value"},
     )
 
 
