@@ -1534,6 +1534,8 @@ class Experiment(Base):
         description: Optional[str] = None,
         is_test: Optional[bool] = None,
         properties: Optional[Dict[str, Any]] = None,
+        trial_indices: Optional[List[int]] = None,
+        data: Optional[Data] = None,
     ) -> Experiment:
         r"""
         Return a copy of this experiment with some attributes replaced.
@@ -1554,6 +1556,11 @@ class Experiment(Base):
                 it uses the same value.
             properties: New properties dictionary. If None, it uses a copy of the
                 same properties.
+            trial_indices: If specified, only clones the specified trials. If None,
+                clones all trials.
+            data: If specified, attach this data to the cloned experiment. If None,
+                clones the data attached to the original experiment if
+                the experiment has any data.
         """
         search_space = (
             self.search_space.clone() if (search_space is None) else search_space
@@ -1603,7 +1610,22 @@ class Experiment(Base):
         )
 
         datas = []
-        for trial_index, trial in self.trials.items():
+        # clone only the specified trials
+        original_trial_indices = self.trials.keys()
+        trial_indices = (
+            set(original_trial_indices) if trial_indices is None else set(trial_indices)
+        )
+        if (
+            len(trial_indices_diff := trial_indices.difference(original_trial_indices))
+            > 0
+        ):
+            warnings.warn(
+                f"Trials indexed with {trial_indices_diff} are not a part "
+                "of the original experiment. ",
+                stacklevel=2,
+            )
+        for trial_index in trial_indices.intersection(original_trial_indices):
+            trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
                 trial.clone_to(cloned_experiment)
                 trial_data, storage_time = self.lookup_data_for_trial(trial_index)
@@ -1612,10 +1634,10 @@ class Experiment(Base):
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
 
-        if len(datas) > 0:
-            cloned_experiment.attach_data(
-                self.default_data_constructor.from_multiple_data(datas)
-            )
+        if (data is None) and (len(datas) > 0):
+            data = self.default_data_constructor.from_multiple_data(datas)
+        if data is not None:
+            cloned_experiment.attach_data(data)
 
         return cloned_experiment
 

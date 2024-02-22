@@ -1070,6 +1070,27 @@ class ExperimentTest(TestCase):
             checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
         )
 
+        # clone specific trials and new data only
+        df = pd.DataFrame(
+            {
+                "arm_name": ["1_0"],
+                "metric_name": ["branin"],
+                "mean": [100.0],
+                "sem": [1.0],
+                "trial_index": [1],
+            },
+        )
+        cloned_experiment = experiment.clone_with(trial_indices=[1], data=Data(df=df))
+        self.assertEqual(len(cloned_experiment.trials), 1)
+        self.assertEqual(len(experiment.trials), 2)
+        cloned_df = cloned_experiment.lookup_data_for_trial(1)[0].df
+        self.assertEqual(cloned_df.shape[0], 1)
+        self.assertEqual(cloned_df["mean"].iloc[0], 100.0)
+        self.assertEqual(cloned_df["sem"].iloc[0], 1.0)
+        # make sure the original experiment data is unchanged
+        df = experiment.lookup_data_for_trial(1)[0].df
+        self.assertEqual(df["sem"].iloc[0], 0.0)
+
         # Clone with MapData.
         experiment = get_test_map_data_experiment(
             num_trials=5, num_fetches=3, num_complete=4
