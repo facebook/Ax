@@ -234,12 +234,17 @@ def _suggest_gp_model(
         # So, we do not want to use them when there are too many unordered choices.
         method = Models.SAASBO if use_saasbo else Models.BOTORCH_MODULAR
         reason = (
-            "there are more ordered parameters than there are categories for the "
-            "unordered categorical parameters."
-            if num_ordered_parameters >= num_unordered_choices
-            else "there is at least one ordered parameter and there are fewer than "
-            f"{MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION} choices for "
-            "unordered parameters."
+            (
+                "there are more ordered parameters than there are categories for the "
+                "unordered categorical parameters."
+                if num_ordered_parameters >= num_unordered_choices
+                else "there is at least one ordered parameter and there are fewer than "
+                f"{MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION} choices for "
+                "unordered parameters."
+            )
+            if num_unordered_choices > 0
+            else "there is at least one ordered parameter"
+            " and there are no unordered categorical parameters."
         )
         logger.info(f"Using {method} since {reason}")
         return method
