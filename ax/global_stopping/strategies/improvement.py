@@ -61,11 +61,14 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 The first trial that could be used for analysis is
                 `min_trials - window_size`; the first trial for which stopping
                 might be recommended is `min_trials`.
-            improvement_bar: Threshold (in [0,1]) for considering relative improvement
-                over the best point.
+            improvement_bar: Threshold for considering improvement over the best
+                point, relative to the interquartile range of values seen so
+                far. Must be >= 0.
             inactive_when_pending_trials: If set, the optimization will not stopped as
                 long as it has running trials.
         """
+        if improvement_bar < 0:
+            raise ValueError("improvement_bar must be >= 0.")
         super().__init__(
             min_trials=min_trials,
             inactive_when_pending_trials=inactive_when_pending_trials,
@@ -99,6 +102,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 when computing hv of the pareto front against. This is used only in the
                 MOO setting. If not specified, the objective thresholds on the
                 experiment's optimization config will be used for the purpose.
+            kwargs: Unused.
 
         Returns:
             A Tuple with a boolean determining whether the optimization should stop,

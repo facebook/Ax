@@ -360,6 +360,12 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             f"There are only 0 completed trials, but {gss} has a minumum of 2.",
         )
 
+    def test_improvement_bar_nonnegative(self) -> None:
+        with self.assertRaisesRegex(ValueError, "improvement_bar must be >= 0."):
+            ImprovementGlobalStoppingStrategy(
+                min_trials=2, window_size=3, improvement_bar=-0.1
+            )
+
     def test_constraint_satisfaction(self) -> None:
         metric_values = [
             (0.1, 0.6, 0.1),  # feasible
