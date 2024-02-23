@@ -49,6 +49,7 @@ from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Models
+
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -63,6 +64,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.measurement.synthetic_functions import Branin
 from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
@@ -2859,6 +2861,48 @@ class TestAxClient(TestCase):
         plot_config = ax_client.get_optimization_trace()
 
         self.assertListEqual(plot_config.data["data"][0]["y"], [3.0, 2.0, 2.0, 2.0])
+
+    def test_SingleTaskGP_log_unordered_categorical_parameters(self) -> None:
+        logs = []
+
+        ax_client = AxClient(random_seed=0)
+        params = [
+            {
+                "name": f"x{i + 1}",
+                "type": "range",
+                "bounds": [*Branin._domain[i]],
+                "value_type": "float",
+                "log_scale": False,
+            }
+            for i in range(2)
+        ]
+
+        with mock.patch(
+            "ax.modelbridge.dispatch_utils.logger.info",
+            side_effect=(lambda log: logs.append(log)),
+        ):
+            ax_client.create_experiment(
+                name="branin_test_experiment",
+                # pyre-fixme[6]: for argument `parameters`, expected
+                # `List[Dict[str, Union[None, Dict[str, List[str]],
+                # Sequence[Union[None, bool, float, int, str]],
+                # bool, float, int, str]]]`
+                # but got `List[Dict[str, Union[List[int], bool, str]]]`
+                parameters=params,
+                objectives={"branin": ObjectiveProperties(minimize=True)},
+            )
+        found_no_log = False
+        for log in logs:
+            # This message is confusing because there
+            # are no unordered categorical parameters.
+            self.assertNotIn(
+                "categories for the unordered categorical parameters.", log
+            )
+
+            if "are no unordered categorical parameters." in log:
+                found_no_log = True
+
+        self.assertTrue(found_no_log)
 
 
 # Utility functions for testing get_model_predictions without calling
