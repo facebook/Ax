@@ -427,6 +427,7 @@ class Surrogate(Base):
         ]
 
         input_transforms = [
+            # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
             single_input_class(**single_input_transform_kwargs)
             for single_input_class, single_input_transform_kwargs in zip(
                 input_classes, input_transform_kwargs
@@ -470,6 +471,7 @@ class Surrogate(Base):
         ]
 
         outcome_transforms = [
+            # pyre-fixme[45]: Cannot instantiate abstract class `OutcomeTransform`.
             input_class(**single_outcome_transform_kwargs)
             for input_class, single_outcome_transform_kwargs in zip(
                 input_classes, outcome_transform_kwargs

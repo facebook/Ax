@@ -94,7 +94,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         )
         self.lineno = None
         self.filename = None
-        # pyre-fixme[28]: Unexpected keyword argument `expected`.
         super().__init__(
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
@@ -283,6 +282,10 @@ def setup_import_mocks(
     # Replace the original import with the custom one
     # pyre-fixme[61]
     original_import = builtins.__import__
+    # pyre-fixme[9]: __import__ has type `(name: str, globals: Optional[Mapping[str,
+    #  object]] = ..., locals: Optional[Mapping[str, object]] = ..., fromlist:
+    #  Sequence[str] = ..., level: int = ...) -> ModuleType`; used as `(name: str,
+    #  *(Any), **(Any)) -> Any`.
     builtins.__import__ = custom_import
 
 
@@ -410,7 +413,6 @@ class TestCase(fake_filesystem_unittest.TestCase):
     ) -> ContextManager[None]:
         """Assert that an exception is raised on a specific line."""
         context = _AssertRaisesContextOn(exc, self, line, regex)
-        # pyre-ignore [16]: ... has no attribute `handle`.
         return context.handle("assertRaisesOn", [], {})
 
     def assertDictsAlmostEqual(

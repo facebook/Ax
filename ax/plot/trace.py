@@ -471,7 +471,9 @@ def optimization_trace_single_method_plotly(
             y_lower = np.percentile(y, 25, axis=0).min()
             y_upper = np.percentile(y, 75, axis=0).max()
         else:
+            # pyre-fixme[61]: `y_running_optimum` is undefined, or not always defined.
             y_lower = np.percentile(y_running_optimum, 25, axis=0).min()
+            # pyre-fixme[61]: `y_running_optimum` is undefined, or not always defined.
             y_upper = np.percentile(y_running_optimum, 75, axis=0).max()
         if optimum is not None and optimum < y_lower:
             y_lower = optimum

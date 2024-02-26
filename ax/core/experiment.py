@@ -1612,10 +1612,13 @@ class Experiment(Base):
         datas = []
         # clone only the specified trials
         original_trial_indices = self.trials.keys()
+        # pyre-fixme[9]: trial_indices has type `Optional[List[int]]`; used as
+        #  `Set[int]`.
         trial_indices = (
             set(original_trial_indices) if trial_indices is None else set(trial_indices)
         )
         if (
+            # pyre-fixme[16]: `Optional` has no attribute `difference`.
             len(trial_indices_diff := trial_indices.difference(original_trial_indices))
             > 0
         ):
@@ -1624,6 +1627,7 @@ class Experiment(Base):
                 "of the original experiment. ",
                 stacklevel=2,
             )
+        # pyre-fixme[16]: `Optional` has no attribute `intersection`.
         for trial_index in trial_indices.intersection(original_trial_indices):
             trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):

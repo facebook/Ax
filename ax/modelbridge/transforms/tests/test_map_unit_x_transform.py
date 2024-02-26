@@ -73,7 +73,12 @@ class MapUnitXTransformTest(TestCase):
             for step in ("step_1", "step_2"):
                 if step in expected_obsf.parameters:
                     self.assertAlmostEqual(
-                        obsf.parameters[step], expected_obsf.parameters[step]
+                        obsf.parameters[step],
+                        # pyre-fixme[6]: For 2nd argument expected
+                        #  `SupportsRSub[Variable[_T],
+                        #  SupportsAbs[SupportsRound[object]]]` but got `Union[None,
+                        #  bool, float, int, str]`.
+                        expected_obsf.parameters[step],
                     )
 
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
@@ -81,7 +86,12 @@ class MapUnitXTransformTest(TestCase):
             for step in ("step_1", "step_2"):
                 if step in expected_obsf.parameters:
                     self.assertAlmostEqual(
-                        obsf.parameters[step], expected_obsf.parameters[step]
+                        obsf.parameters[step],
+                        # pyre-fixme[6]: For 2nd argument expected
+                        #  `SupportsRSub[Variable[_T],
+                        #  SupportsAbs[SupportsRound[object]]]` but got `Union[None,
+                        #  bool, float, int, str]`.
+                        expected_obsf.parameters[step],
                     )
 
     def test_TransformSearchSpace(self) -> None:

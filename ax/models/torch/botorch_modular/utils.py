@@ -214,6 +214,7 @@ def convert_to_block_design(
         Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
         if is_fixed:
             Yvar = torch.cat(
+                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
                 [ds.Yvar[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
