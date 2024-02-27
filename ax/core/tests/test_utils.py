@@ -44,6 +44,7 @@ from pyre_extensions import none_throws
 
 class UtilsTest(TestCase):
     def setUp(self) -> None:
+        self.maxDiff = None
         self.experiment = get_experiment()
         self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
@@ -399,6 +400,17 @@ class UtilsTest(TestCase):
         self.batch_trial.mark_running(no_runner_required=True)
         # Status quo of this experiment is out-of-design, so it shouldn't be
         # among the pending points.
+        print("Pending: " + str(get_pending_observation_features(self.experiment_2)))
+        print(
+            "Expected: "
+            + str(
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [self.obs_feat],
+                    "m1": [self.obs_feat],
+                }
+            )
+        )
         self.assertEqual(
             get_pending_observation_features(self.experiment_2),
             {
@@ -456,6 +468,101 @@ class UtilsTest(TestCase):
                 "m1": [self.obs_feat, sq_obs_feat],
             },
         )
+
+    def test_get_pending_observation_features_cache_hit(self) -> None:
+        # Pending observations should be none if there aren't any.
+        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.trial.mark_running(no_runner_required=True)
+        # Now that the trial is deployed, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # With `fetch_data` on trial returning data for metric "m2", that metric
+        # should no longer have pending observation features.
+        with patch.object(
+            self.trial,
+            "lookup_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
+            )
+        self.assertEqual(dict(self.experiment.not_pending_cache), {0: {"m2"}})
+
+        # With `fetch_data` on all metrics, no data should be returned.
+        # This should be cached in experiment.not_pending_cahce.
+        with patch.object(
+            self.trial,
+            "lookup_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m2": (1, 0), "m1": (0, 1), "tracking": (1, 0)}},
+                trial_index=self.trial.index,
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                None,
+            )
+        self.assertEqual(
+            dict(self.experiment.not_pending_cache), {0: {"m2", "m1", "tracking"}}
+        )
+
+        # Now that for trial 0 all metrics are cached as "not pending", assert that
+        # lookup data receives no calls.
+        with patch.object(
+            self.trial,
+            "lookup_data",
+            side_effect=ValueError("Should never call on a cache hit"),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                None,
+            )
+        self.assertEqual(
+            dict(self.experiment.not_pending_cache), {0: {"m2", "m1", "tracking"}}
+        )
+
+        # When a trial is abandoned, it should appear in pending features whether
+        # or not there is data for it, independently of cache.
+        self.trial._status = TrialStatus.ABANDONED  # Cannot re-mark a failed trial.
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+
+        # When an arm is abandoned, it should appear in pending features whether
+        # or not there is data for it.
+        self.batch_trial.mark_arm_abandoned(arm_name="0_0")
+        # Checking with data for all metrics.
+        with patch.object(
+            self.batch_trial,
+            "fetch_data",
+            return_value=Metric._wrap_trial_data_multi(
+                data=Data.from_evaluations(
+                    {
+                        self.batch_trial.arms[0].name: {
+                            "m1": (1, 0),
+                            "m2": (1, 0),
+                            "tracking": (1, 0),
+                        }
+                    },
+                    trial_index=self.trial.index,
+                ),
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [self.obs_feat],
+                    "m1": [self.obs_feat],
+                },
+            )
 
     def test_get_pending_observation_features_based_on_trial_status(self) -> None:
         # Pending observations should be none if there aren't any as trial is

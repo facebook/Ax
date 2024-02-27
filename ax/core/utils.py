@@ -270,44 +270,71 @@ def get_pending_observation_features(
     def _is_in_design(arm: Arm) -> bool:
         return experiment.search_space.check_membership(parameterization=arm.parameters)
 
-    pending_features = {}
+    pending_features = {metric_name: [] for metric_name in experiment.metrics}
+
+    def add_arm_to_pending_features(
+        arm: Arm,
+        metric_name: str,
+        pending_features: Dict[str, List[ObservationFeatures]],
+    ) -> bool:
+        if not include_out_of_design_points and not _is_in_design(arm=arm):
+            return False
+        pending_features[metric_name].append(
+            ObservationFeatures.from_arm(
+                arm=arm,
+                trial_index=trial.index,
+                metadata=trial._get_candidate_metadata(arm_name=arm.name),
+            )
+        )
+        return True
+
     # Note that this assumes that if a metric appears in fetched data, the trial is
     # not pending for the metric. Where only the most recent data matters, this will
     # work, but may need to add logic to check previously added data objects, too.
     for trial_index, trial in experiment.trials.items():
-        dat = trial.lookup_data()
+        # if we know all metrics to be not pending for this trial,
+        # skip the expensive "lookup_data" call
+        not_pending_metric_names = experiment.not_pending_cache.get(trial_index, {})
+
+        if (
+            trial.status.is_deployed
+            and not experiment.metrics.keys() - not_pending_metric_names
+        ):
+            # Know from cache that no metrics are pending for this trial.
+            continue
+        elif trial.status.is_deployed:
+            dat = trial.lookup_data()
+        else:
+            dat = None
+
         for metric_name in experiment.metrics:
-            if metric_name not in pending_features:
-                pending_features[metric_name] = []
+            if (
+                trial.status.is_deployed
+                and metric_name in not_none(dat).df.metric_name.values
+                and trial.arms is not None
+            ):
+                # not pending cache is default dict, so [] acccess is safe.
+                experiment.not_pending_cache[trial_index].add(metric_name)
 
             if trial.status.is_abandoned or (
                 trial.status.is_deployed
-                and metric_name not in dat.df.metric_name.values
+                and metric_name not in not_none(dat).df.metric_name.values
                 and trial.arms is not None
             ):
                 for arm in trial.arms:
-                    # Do not add out-of-design points unless requested.
-                    if not include_out_of_design_points and not _is_in_design(arm=arm):
-                        continue
-                    pending_features[metric_name].append(
-                        ObservationFeatures.from_arm(
-                            arm=arm,
-                            trial_index=trial_index,
-                            metadata=trial._get_candidate_metadata(arm_name=arm.name),
-                        )
+                    add_arm_to_pending_features(
+                        arm=arm,
+                        metric_name=metric_name,
+                        pending_features=pending_features,
                     )
 
             # Also add abandoned arms as pending for all metrics.
             if isinstance(trial, BatchTrial):
                 for arm in trial.abandoned_arms:
-                    if not include_out_of_design_points and not _is_in_design(arm=arm):
-                        continue
-                    not_none(pending_features.get(metric_name)).append(
-                        ObservationFeatures.from_arm(
-                            arm=arm,
-                            trial_index=trial_index,
-                            metadata=trial._get_candidate_metadata(arm_name=arm.name),
-                        )
+                    add_arm_to_pending_features(
+                        arm=arm,
+                        metric_name=metric_name,
+                        pending_features=pending_features,
                     )
 
     return pending_features if any(x for x in pending_features.values()) else None
