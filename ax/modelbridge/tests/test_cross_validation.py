@@ -15,7 +15,10 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.parameter import FixedParameter, ParameterType
+from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.modelbridge.cross_validation import (
     assess_model_fit,
@@ -30,6 +33,7 @@ from ax.modelbridge.cross_validation import (
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.modeling_stubs import get_observation1trans, get_observation2trans
 
 
 class CrossValidationTest(TestCase):
@@ -81,6 +85,14 @@ class CrossValidationTest(TestCase):
                 metric_names=["a", "b"],
             )
         ] * 4
+        self.observation_data_transformed_result = [get_observation1trans().data] * 4
+        self.transformed_cv_input_dict = {
+            "cv_training_data": [get_observation2trans()],
+            "cv_test_points": [get_observation1trans().features],
+            "search_space": SearchSpace(
+                [FixedParameter("x", ParameterType.FLOAT, 8.0)]
+            ),
+        }
         self.diagnostics: List[CVDiagnostics] = [
             {"Fisher exact test p": {"y_a": 0.0, "y_b": 0.4}},
             {"Fisher exact test p": {"y_a": 0.1, "y_b": 0.1}},
@@ -99,6 +111,16 @@ class CrossValidationTest(TestCase):
             "ax.modelbridge.base.ModelBridge.cross_validate",
             autospec=True,
             return_value=self.observation_data,
+        )
+        ma._transform_inputs_for_cv = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._transform_inputs_for_cv",
+            autospec=True,
+            return_value=list(self.transformed_cv_input_dict.values()),
+        )
+        ma._cross_validate = mock.MagicMock(
+            "ax.modelbridge.base.ModelBridge._cross_validate",
+            autospec=True,
+            return_value=self.observation_data_transformed_result,
         )
         # Do cross validation
         with self.assertRaises(ValueError):
@@ -149,6 +171,36 @@ class CrossValidationTest(TestCase):
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
+        # Test LOO in transformed space
+        result = cross_validate(model=ma, folds=-1, untransform=False)
+        result_predicted_obs_data = [cv_result.predicted for cv_result in result]
+        self.assertEqual(
+            result_predicted_obs_data, self.observation_data_transformed_result
+        )
+        # Check that ModelBridge._transform_inputs_for_cv was called correctly.
+        z = ma._transform_inputs_for_cv.mock_calls
+        self.assertEqual(len(z), 3)
+        train = [
+            [obs.features.parameters["x"] for obs in r[2]["cv_training_data"]]
+            for r in z
+        ]
+        test = [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
+        # Test no overlap between train and test sets, and all points used
+        for i in range(3):
+            self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
+            self.assertEqual(len(train[i]) + len(test[i]), 4)
+        # Test all points used as test points
+        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
+        #  `List[List[typing.Any]]`.
+        all_test = np.hstack(test)
+        self.assertTrue(
+            np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
+        )
+        # Test ModelBridge._cross_validate was called correctly.
+        z = ma._cross_validate.mock_calls
+        self.assertEqual(len(z), 3)
+        ma._cross_validate.assert_called_with(**self.transformed_cv_input_dict)
+
         # Test selector
 
         # pyre-fixme[3]: Return type must be annotated.

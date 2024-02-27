@@ -895,13 +895,9 @@ class ModelBridge(ABC):
             A list of predictions at the test points.
         """
         # Apply transforms to cv_training_data and cv_test_points
-        cv_test_points = deepcopy(cv_test_points)
-        cv_training_data = deepcopy(cv_training_data)
-        search_space = self._model_space.clone()
-        for t in self.transforms.values():
-            cv_training_data = t.transform_observations(cv_training_data)
-            cv_test_points = t.transform_observation_features(cv_test_points)
-            search_space = t.transform_search_space(search_space)
+        cv_training_data, cv_test_points, search_space = self._transform_inputs_for_cv(
+            cv_training_data=cv_training_data, cv_test_points=cv_test_points
+        )
 
         # Apply terminal transform, and get predictions.
         with warnings.catch_warnings():
@@ -938,6 +934,31 @@ class ModelBridge(ABC):
         and reverse terminal transform on the results.
         """
         raise NotImplementedError
+
+    def _transform_inputs_for_cv(
+        self,
+        cv_training_data: List[Observation],
+        cv_test_points: List[ObservationFeatures],
+    ) -> Tuple[List[Observation], List[ObservationFeatures], SearchSpace]:
+        """Apply transforms to cv_training_data and cv_test_points,
+        and return cv_training_data, cv_test_points, and search space in
+        transformed space. This is to prepare data to be used in _cross_validate.
+
+        Args:
+            cv_training_data: The training data to use for cross validation.
+            cv_test_points: The test points at which predictions will be made.
+
+        Returns:
+            cv_training_data, cv_test_points, and search space
+            in transformed space."""
+        cv_test_points = deepcopy(cv_test_points)
+        cv_training_data = deepcopy(cv_training_data)
+        search_space = self._model_space.clone()
+        for t in self.transforms.values():
+            cv_training_data = t.transform_observations(cv_training_data)
+            cv_test_points = t.transform_observation_features(cv_test_points)
+            search_space = t.transform_search_space(search_space)
+        return cv_training_data, cv_test_points, search_space
 
     def _set_kwargs_to_save(
         self,

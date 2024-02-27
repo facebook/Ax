@@ -188,6 +188,7 @@ class TestScheduler(TestCase):
             model_bridge=model_bridge,
             experiment=scheduler.experiment,
             generalization=False,
+            untransform=False,
         )
         # checking fit metrics
         r2 = fit_metrics.get("coefficient_of_determination")
@@ -211,6 +212,7 @@ class TestScheduler(TestCase):
             model_bridge=model_bridge,
             experiment=scheduler.experiment,
             generalization=True,
+            untransform=False,
         )
         r2_gen = gen_metrics.get("coefficient_of_determination")
         r2_gen = cast(Dict[str, float], r2_gen)

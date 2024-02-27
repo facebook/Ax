@@ -236,12 +236,28 @@ class BaseModelBridgeTest(TestCase):
         )
         cv_training_data = [get_observation2()]
         cv_test_points = [get_observation1().features]
+
+        # Test transforms applied on cv_training_data, cv_test_points
+        (
+            transformed_cv_training_data,
+            transformed_cv_test_points,
+            transformed_ss,
+        ) = modelbridge._transform_inputs_for_cv(
+            cv_training_data=cv_training_data, cv_test_points=cv_test_points
+        )
+        self.assertEqual(transformed_cv_training_data, [get_observation2trans()])
+        self.assertEqual(transformed_cv_test_points, [get_observation1trans().features])
+        self.assertEqual(
+            transformed_ss, SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)])
+        )
+
         with warnings.catch_warnings(record=True) as ws:
             cv_predictions = modelbridge.cross_validate(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
         self.assertTrue(called)
         self.assertFalse(any(w.category is InputDataWarning for w in ws))
+
         # pyre-fixme[16]: Callable `_cross_validate` has no attribute
         #  `assert_called_with`.
         modelbridge._cross_validate.assert_called_with(
