@@ -77,6 +77,9 @@ class ChemistryMetricTest(TestCase):
                 params = dict(zip(param_names, param_values))
                 trial = get_trial()
                 trial._generator_run = GeneratorRun(
+                    # pyre-fixme[6]: For 2nd argument expected `Dict[str,
+                    #  Union[None, bool, float, int, str]]` but got `Dict[str,
+                    #  Union[float, int, str]]`.
                     arms=[Arm(name="0_0", parameters=params)]
                 )
                 df = metric.fetch_trial_data(trial).unwrap().df

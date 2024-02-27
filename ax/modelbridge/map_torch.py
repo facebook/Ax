@@ -325,6 +325,10 @@ class MapTorchModelBridge(TorchModelBridge):
                         map_key_range = map_key_ranges[o][p]
                         if map_key_range is not None:
                             range_min, range_max = map_key_range
+                            # pyre-fixme[58]: `<` is not supported for operand types
+                            #  `Union[None, bool, float, int, str]` and `Any`.
+                            # pyre-fixme[58]: `>` is not supported for operand types
+                            #  `Union[None, bool, float, int, str]` and `Any`.
                             if map_key_value < range_min or map_key_value > range_max:
                                 p_idx = metric_names.index(o)
                                 metric_names.pop(p_idx)
