@@ -119,6 +119,7 @@ class SchedulerCompletedRecord:
                 model_bridge=model_bridge,
                 experiment=scheduler.experiment,
                 generalization=False,
+                untransform=False,
             )
             model_fit_quality = _model_fit_metric(model_fit_dict)
             # similar for uncertainty quantification, but distance from 1 matters
@@ -130,6 +131,7 @@ class SchedulerCompletedRecord:
                 model_bridge=model_bridge,
                 experiment=scheduler.experiment,
                 generalization=True,
+                untransform=False,
             )
             model_fit_generalization = _model_fit_metric(model_gen_dict)
             gen_std = list(model_gen_dict["std_of_the_standardized_error"].values())

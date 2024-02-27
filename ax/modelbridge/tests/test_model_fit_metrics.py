@@ -62,7 +62,9 @@ class TestModelBridgeFitMetrics(TestCase):
 
         # testing compute_model_fit_metrics_from_modelbridge with default metrics
         fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge, experiment=self.branin_experiment
+            model_bridge=model_bridge,
+            experiment=self.branin_experiment,
+            untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)

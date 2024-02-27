@@ -1852,7 +1852,9 @@ class AxSchedulerTestCase(TestCase):
 
         # testing compatibility with compute_model_fit_metrics_from_modelbridge
         fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge, experiment=scheduler.experiment
+            model_bridge=model_bridge,
+            experiment=scheduler.experiment,
+            untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
@@ -1873,6 +1875,7 @@ class AxSchedulerTestCase(TestCase):
             model_bridge=model_bridge,
             experiment=scheduler.experiment,
             fit_metrics_dict={},
+            untransform=False,
         )
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)

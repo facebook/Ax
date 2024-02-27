@@ -6,6 +6,7 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from copy import deepcopy
 from enum import Enum
 from functools import partial
 
@@ -17,7 +18,7 @@ import numpy as np
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, observations_from_data
 from ax.core.optimization_config import OptimizationConfig
-from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.base import ModelBridge, unwrap_observation_data
 from ax.utils.common.logger import get_logger
 
 from ax.utils.stats.model_fit_stats import (
@@ -71,6 +72,7 @@ def cross_validate(
     folds: int = -1,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     test_selector: Optional[Callable] = None,
+    untransform: bool = True,
 ) -> List[CVResult]:
     """Cross validation for model predictions.
 
@@ -93,7 +95,18 @@ def cross_validate(
         folds: Number of folds. Use -1 for leave-one-out, otherwise will be
             k-fold.
         test_selector: Function for selecting observations for the test set.
-
+        untransform: Whether to untransform the model predictions before
+            cross validating.
+            Models are trained on transformed data, and candidate generation
+            is performed in the transformed space. Computing the model
+            quality metric based on the cross-validation results in the
+            untransformed space may not be representative of the model that
+            is actually used for candidate generation in case of non-invertible
+            transforms, e.g., Winsorize or LogY.
+            While the model in the transformed space may not be representative
+            of the original data in regions where outliers have been removed,
+            we have found it to better reflect the how good the model used
+            for candidate generation actually is.
     Returns:
         A CVResult for each observation in the training data.
     """
@@ -140,10 +153,30 @@ def cross_validate(
                 cv_test_data.append(obs)
         if len(cv_test_points) == 0:
             continue
+
         # Make the prediction
-        cv_test_predictions = model.cross_validate(
-            cv_training_data=cv_training_data, cv_test_points=cv_test_points
-        )
+        if untransform:
+            cv_test_predictions = model.cross_validate(
+                cv_training_data=cv_training_data, cv_test_points=cv_test_points
+            )
+        else:
+            # Get test predictions in transformed space
+            (
+                cv_training_data,
+                cv_test_points,
+                search_space,
+            ) = model._transform_inputs_for_cv(
+                cv_training_data=cv_training_data, cv_test_points=cv_test_points
+            )
+            cv_test_predictions = model._cross_validate(
+                search_space=search_space,
+                cv_training_data=cv_training_data,
+                cv_test_points=cv_test_points,
+            )
+            # Get test observations in transformed space
+            cv_test_data = deepcopy(cv_test_data)
+            for t in model.transforms.values():
+                cv_test_data = t.transform_observations(cv_test_data)
         # Form CVResult objects
         for i, obs in enumerate(cv_test_data):
             result.append(CVResult(observed=obs, predicted=cv_test_predictions[i]))
@@ -452,6 +485,7 @@ def compute_model_fit_metrics_from_modelbridge(
     experiment: Experiment,
     fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
     generalization: bool = False,
+    untransform: bool = False,
 ) -> Dict[str, Dict[str, float]]:
     """Computes the model fit metrics given a ModelBridge and an Experiment.
 
@@ -464,7 +498,10 @@ def compute_model_fit_metrics_from_modelbridge(
         generalization: Boolean indicating whether to compute the generalization
             metrics on cross-validation data or on the training data. The latter
             helps diagnose problems with model training, rather than generalization.
-
+        untransform: Boolean indicating whether to untransform model predictions
+            before calcualting the model fit metrics. False by default as models
+            are trained in transformed space and model fit should be
+            evaluated in transformed space.
     Returns:
         A nested dictionary mapping from the *model fit* metric names and the
         *experimental metric* names to the values of the model fit metrics.
@@ -479,7 +516,9 @@ def compute_model_fit_metrics_from_modelbridge(
         ```
     """
     y_obs, y_pred, se_pred = (
-        _predict_on_cross_validation_data(model_bridge=model_bridge)
+        _predict_on_cross_validation_data(
+            model_bridge=model_bridge, untransform=untransform
+        )
         if generalization
         else _predict_on_training_data(model_bridge=model_bridge, experiment=experiment)
     )
@@ -505,7 +544,7 @@ def _predict_on_training_data(
 ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
     """Makes predictions on the training data of a given experiment using a ModelBridge
     and returning the observed values, and the corresponding predictive means and
-    predictive standard deviations of the model.
+    predictive standard deviations of the model, in transformed space.
 
     NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
 
@@ -522,12 +561,20 @@ def _predict_on_training_data(
         experiment=experiment, data=data
     )  # List[Observation]
     observation_features = [obs.features for obs in observations]
-    mean_predicted, cov_predicted = model_bridge.predict(
-        observation_features=observation_features
-    )  # Dict[str, List[float]]
+
+    # Transform observation features
+    observation_features = deepcopy(observation_features)
+    for t in model_bridge.transforms.values():
+        observation_features = t.transform_observation_features(observation_features)
+
+    # Make predictions in transformed space
+    observation_data_pred = model_bridge._predict(observation_features)
+
+    mean_predicted, cov_predicted = unwrap_observation_data(observation_data_pred)
     mean_observed = [
         obs.data.means_dict for obs in observations
     ]  # List[Dict[str, float]]
+
     metric_names = list(data.metric_names)
     mean_observed = _list_of_dicts_to_dict_of_lists(
         list_of_dicts=mean_observed, keys=metric_names
@@ -541,15 +588,19 @@ def _predict_on_training_data(
 
 def _predict_on_cross_validation_data(
     model_bridge: ModelBridge,
+    untransform: bool = False,
 ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
     """Makes leave-one-out cross-validation predictions on the training data of the
     ModelBridge and returns the observed values, and the corresponding predictive means
-    and predictive standard deviations of the model as numpy arrays.
+    and predictive standard deviations of the model as numpy arrays,
+    in transformed space.
 
     NOTE: This is a helper function for `compute_model_fit_metrics_from_modelbridge`.
 
     Args:
         model_bridge: A ModelBridge object with which to make predictions.
+        untransform: Boolean indicating whether to untransform model predictions
+            before cross validating. False by default.
 
     Returns:
         A tuple containing three dictionaries, each mapping metric_name to:
@@ -561,7 +612,7 @@ def _predict_on_cross_validation_data(
     # cross-validation performance on these is likely more correlated with the
     # performance of the model on an upcoming trial due to the sequential nature
     # of the data generated by BO.
-    cv = cross_validate(model=model_bridge)
+    cv = cross_validate(model=model_bridge, untransform=untransform)
 
     metric_names = cv[0].observed.data.metric_names
     mean_observed = {k: [] for k in metric_names}

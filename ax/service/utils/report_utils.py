@@ -1472,6 +1472,7 @@ def warn_if_unpredictable_metrics(
         model_bridge=model_bridge,
         experiment=experiment,
         generalization=True,  # use generalization metrics for user warning
+        untransform=False,
     )
     fit_quality_dict = model_fit_dict[model_fit_metric_name]
 
