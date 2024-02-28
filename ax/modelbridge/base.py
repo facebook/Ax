@@ -429,12 +429,13 @@ class ModelBridge(ABC):
 
             if len(sq_obs) == 0:
                 logger.warning(f"Status quo {status_quo_name} not present in data")
-            elif len(sq_obs) > 1:
-                logger.warning(
-                    f"Status quo {status_quo_name} found in data with multiple "
-                    "features. Use status_quo_features to specify which to use."
-                )
             else:
+                if len(sq_obs) > 1:
+                    logger.warning(
+                        f"Status quo {status_quo_name} found in data with multiple "
+                        "features. Use status_quo_features to specify which to use."
+                        " Defaulting to the first observation."
+                    )
                 self._status_quo = sq_obs[0]
 
         elif status_quo_features is not None:

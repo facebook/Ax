@@ -338,29 +338,11 @@ def _observations_from_dataframe(
 
 
 def get_feature_cols(data: Data) -> List[str]:
-    feature_cols = OBS_COLS.intersection(data.df.columns)
-
-    for column in TIME_COLS:
-        if column in feature_cols and len(data.df[column].unique()) > 1:
-            warnings.warn(
-                f"`{column} is not consistent and being discarded from observation data"
-            )
-            feature_cols.discard(column)
-
-    return list(feature_cols)
+    return list(OBS_COLS.intersection(data.df.columns))
 
 
 def get_feature_cols_from_map_data(map_data: MapData) -> List[str]:
-    feature_cols = (OBS_COLS.intersection(map_data.df.columns)).union(map_data.map_keys)
-
-    for column in TIME_COLS:
-        if column in feature_cols and len(map_data.df[column].unique()) > 1:
-            warnings.warn(
-                f"`{column} is not consistent and being discarded from observation data"
-            )
-            feature_cols.discard(column)
-
-    return list(feature_cols)
+    return list(OBS_COLS.intersection(map_data.df.columns).union(map_data.map_keys))
 
 
 def observations_from_data(
