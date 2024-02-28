@@ -555,7 +555,6 @@ class BoTorchModel(TorchModel, Base):
         try:
             self.fit(
                 datasets=datasets,
-                metric_names=metric_names,
                 search_space_digest=search_space_digest,
                 state_dicts=state_dicts,
                 refit=self.refit_on_cv,
